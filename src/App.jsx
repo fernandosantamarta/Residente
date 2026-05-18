@@ -9,6 +9,7 @@ import Rules from './pages/Rules'
 import Documents from './pages/Documents'
 import Contact from './pages/Contact'
 import Community from './pages/Community'
+import Login from './pages/Login'
 
 export const AuthContext = createContext(null)
 export const useAuth = () => useContext(AuthContext)
@@ -89,11 +90,14 @@ export default function App() {
     </div>
   )
 
+  const requireAuth = hasSupabase && !session
+
   return (
     <AuthContext.Provider value={{ session, profile, setProfile }}>
       <BrowserRouter>
         <Routes>
-          <Route element={<Layout />}>
+          <Route path="/login" element={!session ? <Login /> : <Navigate to="/" replace />} />
+          <Route element={requireAuth ? <Navigate to="/login" replace /> : <Layout />}>
             <Route path="/"            element={<Home />} />
             <Route path="/pay"         element={<Pay />} />
             <Route path="/board"       element={<Board />} />
