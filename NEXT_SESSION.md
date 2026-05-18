@@ -45,11 +45,32 @@ Things to think through:
 
 Scope: ~1/2 to 1 day of build. Two pieces: admin upload page + bulk-invite backend.
 
+## Admin section (`/admin`) — board-only management UI
+
+Gate: only `role IN ('board_member', 'admin')` can access. Regular residents redirect to `/`.
+
+Pages in v1 priority order:
+
+1. **Residents** — list, add single, **bulk CSV upload → magic-link blast** (this is where the onboarding flow lives), edit unit/role, deactivate
+2. **Community Settings** — name, address, unit count, fiscal year start
+3. **Board** — promote/demote residents to `board_member`
+4. **Budget Setup** — categories + monthly amounts + percentages (feeds Home page rings)
+5. **Vendors** — vendor list, contracts, payment schedule (feeds right-rail board feed)
+6. **Announcements** — write + send (email + in-app)
+7. **Activity log** — audit trail of admin actions
+
+Implementation pattern: mirror Genie's `AdminLayout` + nested routes under `/admin`, but keep it lean. Genie has 19 admin pages — way too many. Residente starts with just 1-3 (Residents, Community Settings, Board) and grows from real need.
+
+Build order: bulk-invite (page 1) is the most valuable single feature — it unlocks real HOA adoption. Do that first, then community settings, then budget, then everything else.
+
+Scope: ~2-3 days for v1 (pages 1-3).
+
 ## Punch list — pick up here
 
 In rough priority order:
 
-0. **Bulk-invite flow** (above) — needed before any real HOA can use this
+0. **Admin section v1** — `/admin` with Residents + Community Settings + Board (above) — gates first real HOA adoption
+0a. **Bulk-invite flow** (under Admin → Residents) — depends on admin section existing
 1. **Port `community.html` → `/community` page** (~30 min)
    - Source: `~/.gstack/projects/Fernando/designs/residente-desktop-20260424/community.html` (1113 lines, editorial magazine layout)
    - Reuses Layout's left rail + topbar — just need the center content
