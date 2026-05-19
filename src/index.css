@@ -30,6 +30,12 @@ body {
   background: var(--bg);
 }
 
+/* Login page is the only pre-auth surface — let it shrink to the device viewport.
+   Cockpit pages keep body's 1440px min so the 3-col grid never collapses. */
+body:has(.login-screen) {
+  min-width: 0;
+}
+
 #root { min-height: 100vh; }
 
 a { color: inherit; text-decoration: none; }
