@@ -356,17 +356,85 @@ button { font-family: inherit; }
 .unit-tag { font-size: 15px; font-weight: 600; letter-spacing: -0.2px; }
 
 /* ============ STUB PAGE ============ */
+/* Editorial coming-soon screen — a kicker, gradient Fraunces headline,
+   italic-serif dek, and a "coming next" bullet list. Used on the 5 routes
+   that aren't built out yet (Pay, Board, Rules, Documents, Contact). */
 .stub {
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  min-height: calc(100vh - 120px); padding: 48px; text-align: center;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  min-height: calc(100vh - 160px);
+  padding: 48px 24px;
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto;
+}
+.stub-kicker {
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 11px; font-weight: 600;
+  color: var(--pink);
+  margin-bottom: 18px;
 }
 .stub h1 {
-  font-size: 48px; font-weight: 600; letter-spacing: -1.2px;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 56px; font-weight: 700;
+  font-style: italic;
+  letter-spacing: -1.5px; line-height: 1.05;
   background: var(--grad);
-  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
-  margin-bottom: 12px;
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+  margin-bottom: 18px;
 }
-.stub p { font-size: 14px; color: var(--text-dim); max-width: 380px; line-height: 1.6; }
+.stub p {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 17px; font-weight: 400;
+  font-style: italic;
+  color: rgba(255,255,255,0.7);
+  max-width: 480px; line-height: 1.5;
+  margin-bottom: 36px;
+}
+.stub-coming {
+  margin-top: 8px;
+  padding-top: 28px;
+  border-top: 1px solid var(--border);
+  width: 100%; max-width: 420px;
+}
+.stub-coming-label {
+  font-size: 10px;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.stub-coming-list {
+  list-style: none;
+  display: flex; flex-direction: column;
+  gap: 12px;
+  text-align: left;
+}
+.stub-coming-list li {
+  font-size: 13px;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+  padding-left: 18px;
+  position: relative;
+  line-height: 1.5;
+}
+.stub-coming-list li::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 9px;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--grad);
+}
+
+@media (max-width: 767px) {
+  .stub { padding: 32px 18px; }
+  .stub h1 { font-size: 38px; letter-spacing: -1px; }
+  .stub p { font-size: 15px; }
+}
 
 /* ============ AUTH/ERROR SCREENS ============ */
 .boot-screen {
