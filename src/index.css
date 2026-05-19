@@ -25,7 +25,6 @@ html, body {
 }
 
 body {
-  min-width: 1440px;
   min-height: 100vh;
   background: var(--bg);
 }
@@ -46,8 +45,7 @@ button { font-family: inherit; }
   display: grid;
   grid-template-columns: 240px 1fr 340px;
   min-height: 100vh;
-  width: 1440px;
-  margin: 0 auto;
+  width: 100%;
 }
 
 /* ============ LEFT RAIL ============ */
@@ -136,6 +134,26 @@ button { font-family: inherit; }
 
 .rail-footer { margin-top: auto; padding-top: 24px; border-top: 1px solid var(--border); }
 .user-block { display: flex; align-items: center; gap: 12px; padding: 10px 6px; }
+
+.logout-btn {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 8px;
+  padding: 10px 12px;
+  width: 100%;
+  background: none; border: none;
+  color: var(--text-faint);
+  font-size: 12px; font-family: inherit;
+  letter-spacing: 0.3px;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: color 0.15s ease, background 0.15s ease;
+  text-align: left;
+}
+.logout-btn:hover {
+  color: var(--pink);
+  background: rgba(255, 59, 95, 0.06);
+}
+.logout-btn svg { width: 14px; height: 14px; flex-shrink: 0; }
 .user-avatar {
   width: 36px; height: 36px; border-radius: 50%;
   background: var(--grad);
@@ -479,4 +497,164 @@ button { font-family: inherit; }
   text-align: center;
   font-size: 12px;
   color: var(--text-faint);
+}
+
+/* ============ MOBILE & TABLET ============ */
+/* Variant-B aesthetic, web-mobile patterns. Phones: single column, hamburger
+   nav, centered hero, 2-col category grid, board feed stacked below.
+   Tablets: keep 2-col with collapsed left nav, right rail folds under center. */
+
+/* Hamburger — visible only on mobile/tablet, hidden on cockpit-wide */
+.hamburger {
+  display: none;
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  cursor: pointer;
+  flex-direction: column;
+  align-items: center; justify-content: center;
+  gap: 4px;
+  padding: 0;
+  margin-right: 12px;
+}
+.hamburger span {
+  display: block;
+  width: 16px; height: 1.5px;
+  background: var(--text-dim);
+  border-radius: 2px;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+.hamburger.open span:nth-child(1) { transform: translateY(5.5px) rotate(45deg); }
+.hamburger.open span:nth-child(2) { opacity: 0; }
+.hamburger.open span:nth-child(3) { transform: translateY(-5.5px) rotate(-45deg); }
+
+.nav-backdrop {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 98;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.nav-backdrop.open { display: block; opacity: 1; }
+
+@media (max-width: 1199px) {
+  body { min-width: 0; overflow-x: hidden; }
+
+  /* Override Layout.jsx's inline gridTemplateColumns (240px 1fr) for non-Home pages */
+  .cockpit {
+    grid-template-columns: 1fr !important;
+    width: 100% !important;
+  }
+
+  /* Left rail becomes a slide-in drawer triggered by the hamburger */
+  .rail-left {
+    position: fixed;
+    top: 0; left: 0;
+    width: 260px;
+    height: 100vh;
+    z-index: 99;
+    transform: translateX(-100%);
+    transition: transform 0.25s ease;
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.4);
+  }
+  .rail-left.open { transform: translateX(0); }
+
+  .hamburger { display: flex; }
+
+  .center { padding: 20px 18px 40px; }
+  .topbar { margin-bottom: 24px; }
+  .topbar .time-chip { display: none; }
+  .kicker { font-size: 10px; letter-spacing: 1.4px; }
+}
+
+@media (max-width: 767px) {
+  /* Hero — gradient headline scaled to phone-friendly size */
+  .hero-head { margin-bottom: 28px; }
+  .headline { font-size: 36px; letter-spacing: -0.8px; margin: 6px 0; }
+  .sub { font-size: 12px; }
+  .sub .bullet { margin: 0 6px; }
+
+  /* Hero row — stack rings + money vertically, both centered */
+  .hero-row {
+    grid-template-columns: 1fr;
+    gap: 24px;
+    margin-bottom: 36px;
+    justify-items: center;
+  }
+  .rings-wrap { width: 240px; height: 240px; }
+  .rings-wrap svg { width: 240px !important; height: 240px !important; }
+  .ring-center-label .pct { font-size: 28px; letter-spacing: -0.6px; }
+  .ring-center-label .lbl { font-size: 9px; margin-top: 6px; }
+
+  .money { align-items: center; text-align: center; gap: 10px; }
+  .money .label { font-size: 10px; letter-spacing: 1.5px; }
+  .money .amount { font-size: 48px; letter-spacing: -1.5px; }
+  .money .of { font-size: 13px; }
+  .pace-chip { font-size: 11px; padding: 6px 12px; }
+
+  /* "Expected pace / Actual pace / Delta" row — keep horizontal but tighter */
+  .money > div:last-child {
+    gap: 16px !important;
+    margin-top: 12px !important;
+    padding-top: 14px !important;
+    justify-content: center;
+  }
+
+  /* Burn chart — scaled down, header stacks */
+  .burn { padding: 16px 14px 14px; margin-bottom: 24px; }
+  .burn-header { flex-direction: column; gap: 6px; margin-bottom: 14px; }
+  .burn-legend { font-size: 10px; gap: 12px; }
+  .burn-chart { height: 140px; }
+  .burn-bars { gap: 6px; padding-bottom: 22px; }
+  .bar-label { font-size: 9px; bottom: -16px; }
+  .burn-grid .line span { font-size: 8px; left: -20px; }
+
+  /* Category cards — 2x2 grid on phones */
+  .cat-row { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .cat-card { padding: 14px 14px 12px; gap: 10px; }
+  .cat-amount { font-size: 22px; letter-spacing: -0.5px; }
+  .cat-mini-ring { width: 36px; height: 36px; }
+  .cat-label { font-size: 10px; letter-spacing: 1px; }
+  .cat-pct { font-size: 11px; }
+
+  /* Right rail — fold under center content (no longer a sidebar at mobile).
+     Variant-B keeps board feed visible in the phone view, so we stack it here
+     instead of hiding it. Strip the sidebar chrome (border-left, bg-elev) so
+     it reads as part of the page flow. */
+  .rail-right {
+    background: transparent;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    padding: 24px 0 0;
+    margin-top: 16px;
+  }
+  .feed-title { font-size: 11px; letter-spacing: 1.4px; }
+  .feed-text { font-size: 12px; }
+  .feed-meta { font-size: 10px; }
+
+  .household { padding: 14px; gap: 10px; }
+}
+
+/* Tablet — collapse right rail under content, keep nav drawer pattern */
+@media (min-width: 768px) and (max-width: 1199px) {
+  .hero-head { margin-bottom: 36px; }
+  .headline { font-size: 44px; letter-spacing: -1px; }
+  .hero-row {
+    grid-template-columns: 320px 1fr;
+    gap: 32px;
+    margin-bottom: 48px;
+  }
+  .rings-wrap { width: 320px; height: 320px; }
+  .rings-wrap svg { width: 320px !important; height: 320px !important; }
+  .ring-center-label .pct { font-size: 32px; }
+  .money .amount { font-size: 56px; letter-spacing: -2px; }
+  .cat-row { grid-template-columns: repeat(2, 1fr); }
+  .rail-right {
+    background: transparent;
+    border-left: none;
+    border-top: 1px solid var(--border);
+    padding: 28px 0 0;
+    margin-top: 24px;
+  }
 }

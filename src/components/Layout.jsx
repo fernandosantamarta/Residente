@@ -1,4 +1,6 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { useState, useEffect } from 'react'
+import { signOut } from '../lib/supabase'
 
 const NAV = [
   { to: '/',          label: 'Home',      icon: <><path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/></> },
@@ -20,10 +22,15 @@ const fmtTime = () => {
 export default function Layout() {
   const location = useLocation()
   const showRightRail = location.pathname === '/'
+  const [navOpen, setNavOpen] = useState(false)
+
+  // Close the mobile nav drawer whenever the route changes — otherwise the
+  // overlay would stay open after the user taps a nav link.
+  useEffect(() => { setNavOpen(false) }, [location.pathname])
 
   return (
     <div className="cockpit" style={!showRightRail ? { gridTemplateColumns: '240px 1fr' } : undefined}>
-      <aside className="rail-left">
+      <aside className={`rail-left${navOpen ? ' open' : ''}`}>
         <div className="brand">
           <div className="brand-dot"></div>
           <div className="brand-word">Residente</div>
@@ -54,12 +61,38 @@ export default function Layout() {
               <span className="val">Unit 412</span>
             </div>
           </div>
+          <button
+            className="logout-btn"
+            onClick={() => signOut()}
+            aria-label="Sign out"
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            <span>Sign out</span>
+          </button>
         </div>
       </aside>
+
+      <div
+        className={`nav-backdrop${navOpen ? ' open' : ''}`}
+        onClick={() => setNavOpen(false)}
+        aria-hidden="true"
+      />
 
       <main className="center">
         <div className="topbar">
           <div className="kicker">
+            <button
+              className={`hamburger${navOpen ? ' open' : ''}`}
+              onClick={() => setNavOpen(v => !v)}
+              aria-label={navOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={navOpen}
+            >
+              <span /><span /><span />
+            </button>
             <span className="brand-dot"></span>
             <span>Residente · Q2 2026</span>
           </div>

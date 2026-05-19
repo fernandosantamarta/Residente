@@ -1,6 +1,34 @@
 # Next session — Residente
 
-Last touched: 2026-05-18
+Last touched: 2026-05-18 (late night)
+
+## Shipped 2026-05-18 evening
+
+- **iPhone login blank** — root cause was `body { min-width: 1440px }` (cockpit grid requirement) being inherited by the login page, pushing the centered card ~525px off-screen on mobile. Fix shipped as commit `86bd55c`: `body:has(.login-screen) { min-width: 0 }`. Verified live on iPhone-emulated viewport. Login now renders correctly on phone. See `~/.claude/.../memory/residente-body-minwidth-gotcha.md` for the pattern — any future pre-auth page (signup, password reset, invite claim) must extend the `:has()` selector or this regresses.
+
+## NEW TOP ITEM: Make the cockpit dashboard mobile-responsive
+
+User asked 2026-05-18 late night. Different judgment from the ChemiLab pushback against full responsive — HOA cockpits are *consult* surfaces (balance, dues, announcements, board feed), not *decide* surfaces, so mobile genuinely fits the use case.
+
+**Scope estimate: 1-2 sessions for the Home page well, plus follow-up per route.**
+
+**Conflicts with locked design** (`approved.json` line "1440px fixed-width 3-col cockpit"). User overriding the design contract is their call, but worth noting we're deviating.
+
+**Approach:**
+1. Pick a breakpoint (suggest `<768px` = mobile, `768px–1199px` = tablet, `≥1200px` = cockpit). Tablet might need its own treatment or just inherit mobile rules.
+2. At mobile breakpoint, override `body { min-width: 1440px }` → drop the floor (similar to the login fix, but for the whole authed shell, not via `:has()` — probably a media query).
+3. Convert `.cockpit` from `grid-template-columns: 240px 1fr 340px` to single-column at mobile. Center column content stays; left nav becomes hamburger/bottom-tabs; right rail moves to bottom (only on `/` where it renders).
+4. Verify every Home component reflows: rings (currently in a row, might need to wrap), money shot card, burn chart (chart libraries usually responsive but verify), category cards (already card-based, should single-column easily), board feed, household block.
+5. Test on iPhone-emulated viewport (390x844) and tablet (768x1024) after each step.
+
+**Files likely to touch:**
+- `src/index.css` — body min-width, .cockpit grid, all `.cockpit-*` rules
+- `src/components/Layout.jsx` — nav rendering at mobile breakpoint
+- `src/pages/Home.jsx` — verify component composition reflows (most fixes will be CSS only)
+
+**Phase 2 (separate session):** apply same patterns to the other 6 routes (Pay, Board, Rules, Documents, Contact, Community).
+
+
 
 ## Live state
 
