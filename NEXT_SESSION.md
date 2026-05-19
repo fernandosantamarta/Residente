@@ -1,32 +1,37 @@
 # Next session — Residente
 
-Last touched: 2026-05-18 (late night)
+Last touched: 2026-05-19 (afternoon)
+
+## Shipped 2026-05-19 (today)
+
+- **Mobile responsive cockpit** (commit `c6c0c30`) — Home reflows for phone (<768px) and tablet (768-1199px) viewports. Variant-B aesthetic: gradient hero, centered rings + money shot, 2-col category grid on phone, board feed stacked below content. Hamburger drawer with backdrop overlay; auto-closes on route change. Desktop ≥1200px keeps original variant-A cockpit.
+- **Desktop full-width** (same commit) — removed `body { min-width: 1440px }` and changed `.cockpit { width: 1440px }` → `width: 100%`. Cockpit now stretches with the viewport. Conflicts with `approved.json` "1440px fixed-width" rule — Fernando explicitly overrode the design contract.
+- **Logout button** (same commit) — in the rail footer below the user-block. Calls `signOut()`; App.jsx's onAuthStateChange listener handles redirect to `/login`. Also surfaces inside the mobile nav drawer.
+- **Community page port** (commit `6e92107`) — editorial magazine layout for `/community`. Feature well (Fraunces 112px gradient headline + rings + money shot), 4-col category grid with mini-rings, 2-col article grid (feature article spans both), masthead footer. All styles namespaced under `.community-page` and `comm-*` class prefix. Mobile responsive.
+- **Editorial stub screens** (commit `3537ffc`) — Pay/Board/Rules/Documents/Contact upgraded from bare gradient h1 to a styled editorial layout (pink kicker → Fraunces italic gradient headline → italic-serif dek → "Coming next" bullet list). Each page has unique copy that sets expectations.
+- **Real user identity in rail footer** (this session) — Layout reads Supabase profile via useAuth(), shows real initials from `full_name` and `Unit {unit_number}`. Falls back to placeholders during profile load.
 
 ## Shipped 2026-05-18 evening
 
 - **iPhone login blank** — root cause was `body { min-width: 1440px }` (cockpit grid requirement) being inherited by the login page, pushing the centered card ~525px off-screen on mobile. Fix shipped as commit `86bd55c`: `body:has(.login-screen) { min-width: 0 }`. Verified live on iPhone-emulated viewport. Login now renders correctly on phone. See `~/.claude/.../memory/residente-body-minwidth-gotcha.md` for the pattern — any future pre-auth page (signup, password reset, invite claim) must extend the `:has()` selector or this regresses.
 
-## NEW TOP ITEM: Make the cockpit dashboard mobile-responsive
+## NEW TOP ITEM: Wire Home placeholder data to Supabase
 
-User asked 2026-05-18 late night. Different judgment from the ChemiLab pushback against full responsive — HOA cockpits are *consult* surfaces (balance, dues, announcements, board feed), not *decide* surfaces, so mobile genuinely fits the use case.
+The cockpit Home page renders pixel-faithful Sunset Lakes data — but every number is hardcoded. With auth + profile already wired (the rail footer now reads from `profile.full_name` and `profile.unit_number`), the natural next step is to back the dashboard with real DB queries.
 
-**Scope estimate: 1-2 sessions for the Home page well, plus follow-up per route.**
+**Scope estimate: 1-2 sessions.**
 
-**Conflicts with locked design** (`approved.json` line "1440px fixed-width 3-col cockpit"). User overriding the design contract is their call, but worth noting we're deviating.
+**What needs a Supabase table:**
+- Budget categories (Landscape / Security / Amenities / Reserves) with `percentage`, `amount`, `warn` flag
+- Burn chart 12-month data (cumulative spend per month, current month flag)
+- Board feed (vendor, amount, status, date) — already shown in right rail + Community page
+- Household block (unit, current balance, next assessment date + amount)
 
 **Approach:**
-1. Pick a breakpoint (suggest `<768px` = mobile, `768px–1199px` = tablet, `≥1200px` = cockpit). Tablet might need its own treatment or just inherit mobile rules.
-2. At mobile breakpoint, override `body { min-width: 1440px }` → drop the floor (similar to the login fix, but for the whole authed shell, not via `:has()` — probably a media query).
-3. Convert `.cockpit` from `grid-template-columns: 240px 1fr 340px` to single-column at mobile. Center column content stays; left nav becomes hamburger/bottom-tabs; right rail moves to bottom (only on `/` where it renders).
-4. Verify every Home component reflows: rings (currently in a row, might need to wrap), money shot card, burn chart (chart libraries usually responsive but verify), category cards (already card-based, should single-column easily), board feed, household block.
-5. Test on iPhone-emulated viewport (390x844) and tablet (768x1024) after each step.
-
-**Files likely to touch:**
-- `src/index.css` — body min-width, .cockpit grid, all `.cockpit-*` rules
-- `src/components/Layout.jsx` — nav rendering at mobile breakpoint
-- `src/pages/Home.jsx` — verify component composition reflows (most fixes will be CSS only)
-
-**Phase 2 (separate session):** apply same patterns to the other 6 routes (Pay, Board, Rules, Documents, Contact, Community).
+1. Schema design — `budget_categories`, `monthly_spend`, `board_decisions`, `assessments` tables, all keyed by `community_id`
+2. RLS: members of a community read all rows where `community_id = my profile's community_id`; only board members write
+3. Loader hook (`useCommunityData()`) fans out queries, returns `{ categories, monthlySpend, feed, household }`
+4. Home + Community pages consume the hook; if loading, show a skeleton variant of the existing components
 
 
 

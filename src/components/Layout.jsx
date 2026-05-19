@@ -1,6 +1,17 @@
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { signOut } from '../lib/supabase'
+import { useAuth } from '../App'
+
+// Take "Fernando Santamaria" → "FS"; safe on null/undefined/single-name.
+const initialsFrom = (name) => {
+  if (!name) return '—'
+  const parts = String(name).trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return '—'
+  const first = parts[0][0] || ''
+  const last = parts.length > 1 ? parts[parts.length - 1][0] : ''
+  return (first + last).toUpperCase().slice(0, 2) || '—'
+}
 
 const NAV = [
   { to: '/',          label: 'Home',      icon: <><path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/></> },
@@ -23,10 +34,20 @@ export default function Layout() {
   const location = useLocation()
   const showRightRail = location.pathname === '/'
   const [navOpen, setNavOpen] = useState(false)
+  const auth = useAuth() || {}
+  const profile = auth.profile
 
   // Close the mobile nav drawer whenever the route changes — otherwise the
   // overlay would stay open after the user taps a nav link.
   useEffect(() => { setNavOpen(false) }, [location.pathname])
+
+  // Real user identity from Supabase profile (loaded by App.jsx on auth).
+  // Falls back to placeholders while the profile request is in flight so
+  // the rail doesn't render blank on first paint.
+  const userInitials = initialsFrom(profile?.full_name) || 'FM'
+  const userUnit = profile?.unit_number
+    ? `Unit ${profile.unit_number}`
+    : 'Unit —'
 
   return (
     <div className="cockpit" style={!showRightRail ? { gridTemplateColumns: '240px 1fr' } : undefined}>
@@ -55,10 +76,10 @@ export default function Layout() {
 
         <div className="rail-footer">
           <div className="user-block">
-            <div className="user-avatar">FM</div>
+            <div className="user-avatar">{userInitials}</div>
             <div className="user-meta">
               <span className="label">Signed in as</span>
-              <span className="val">Unit 412</span>
+              <span className="val">{userUnit}</span>
             </div>
           </div>
           <button
