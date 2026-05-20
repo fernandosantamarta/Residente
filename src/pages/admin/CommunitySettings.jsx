@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '../../App'
 import { supabase, hasSupabase } from '../../lib/supabase'
 
@@ -10,6 +10,23 @@ const withTimeout = (p, ms = 10000) =>
   ])
 
 const numOrNull = (v) => (v === '' || v == null ? null : Number(v))
+
+// Minimal CSV parse for the budget-categories import. Columns: name, budget,
+// spent — with or without a header row (header auto-detected if col 2 isn't a number).
+function parseCsv(text) {
+  const lines = String(text).split(/\r?\n/).map(l => l.trim()).filter(Boolean)
+  if (!lines.length) return []
+  const cells = (line) => line.split(',').map(c => c.trim())
+  const first = cells(lines[0])
+  const start = (first.length >= 2 && isNaN(Number(first[1]))) ? 1 : 0
+  const out = []
+  for (let i = start; i < lines.length; i++) {
+    const c = cells(lines[i])
+    if (!c[0]) continue
+    out.push({ name: c[0], budget: c[1] || '', spent: c[2] || '' })
+  }
+  return out
+}
 
 const FIELDS = [
   { key: 'name',          label: 'Community name', type: 'text',   placeholder: 'Sunset Lakes' },
@@ -146,6 +163,21 @@ function BudgetCategories({ communityId }) {
   const addRow = () => setRows(rs => [...rs, { name: '', budget: '', spent: '' }])
   const removeRow = (i) => setRows(rs => rs.filter((_, idx) => idx !== i))
 
+  const fileRef = useRef(null)
+  const onImport = (e) => {
+    const file = e.target.files && e.target.files[0]
+    e.target.value = '' // let the same file be re-imported
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const parsed = parseCsv(reader.result)
+      if (parsed.length) { setRows(parsed); setStatus('ready'); setError('') }
+      else { setError('No category rows found in that file'); setStatus('error') }
+    }
+    reader.onerror = () => { setError('Could not read that file'); setStatus('error') }
+    reader.readAsText(file)
+  }
+
   const save = async () => {
     setStatus('saving'); setError('')
     try {
@@ -210,6 +242,13 @@ function BudgetCategories({ communityId }) {
           ))}
           <div className="bc-actions">
             <button type="button" className="admin-btn-ghost" onClick={addRow}>+ Add category</button>
+            <button type="button" className="admin-btn-ghost"
+              title="CSV columns: name, budget, spent"
+              onClick={() => fileRef.current && fileRef.current.click()}>
+              Import CSV
+            </button>
+            <input ref={fileRef} type="file" accept=".csv,text/csv"
+              onChange={onImport} style={{ display: 'none' }} />
             <button type="button" className="admin-btn" onClick={save}
               disabled={status === 'saving' || status === 'saved'}>
               {status === 'saving' ? 'Saving…' : status === 'saved' ? '✓ Saved' : 'Save categories'}
