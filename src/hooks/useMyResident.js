@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../App'
 import { supabase, hasSupabase } from '../lib/supabase'
+import { residentBalance, duesStatus } from '../lib/dues'
 
 const withTimeout = (p, ms = 10000) =>
   Promise.race([
@@ -8,31 +9,51 @@ const withTimeout = (p, ms = 10000) =>
     new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms)),
   ])
 
-// Finds the roster row for the signed-in user (matched by email) so Home can
-// show what they personally owe. resident is null when there's no match.
+const EMPTY = { resident: null, balance: null, status: 'paid', payments: [], loading: false }
+
+// Finds the roster row for the signed-in user (matched by email) and computes
+// what they currently owe — opening balance + accrued dues − payments.
+// resident is null when there's no roster match.
 export function useMyResident() {
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const email = profile?.email
-  const [state, setState] = useState({ resident: null, loading: true })
+  const [state, setState] = useState({ ...EMPTY, loading: true })
 
   useEffect(() => {
     let cancelled = false
     async function load() {
       if (!hasSupabase || !communityId || !email) {
-        if (!cancelled) setState({ resident: null, loading: false })
+        if (!cancelled) setState(EMPTY)
         return
       }
       try {
-        const { data, error } = await withTimeout(
+        const resR = await withTimeout(
           supabase.from('residents').select('*')
             .eq('community_id', communityId).ilike('email', email).limit(1)
         )
+        if (resR.error) throw resR.error
+        const resident = (resR.data && resR.data[0]) || null
+        if (!resident) {
+          if (!cancelled) setState(EMPTY)
+          return
+        }
+        const [comR, payR] = await Promise.all([
+          withTimeout(supabase.from('communities').select('monthly_dues')
+            .eq('id', communityId).single()),
+          withTimeout(supabase.from('payments').select('*')
+            .eq('resident_id', resident.id).order('paid_on', { ascending: false })),
+        ])
         if (cancelled) return
-        if (error) throw error
-        setState({ resident: (data && data[0]) || null, loading: false })
+        const monthlyDues = Number(comR.data?.monthly_dues) || 0
+        const payments = payR.data || []
+        const balance = residentBalance(resident, monthlyDues, payments)
+        setState({
+          resident, balance, status: duesStatus(balance, monthlyDues),
+          payments, loading: false,
+        })
       } catch (err) {
-        if (!cancelled) setState({ resident: null, loading: false })
+        if (!cancelled) setState(EMPTY)
       }
     }
     load()

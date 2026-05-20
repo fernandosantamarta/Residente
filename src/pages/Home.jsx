@@ -31,7 +31,7 @@ const fmtAxis = (n) => (num(n) < 500 ? '$0' : '$' + Math.round(num(n) / 1000) + 
 export default function Home() {
   const { community, categories } = useCommunityData()
   const { profile } = useAuth() || {}
-  const { resident } = useMyResident()
+  const { balance: myBalance, status: myDues } = useMyResident()
 
   // Real community when one is linked; otherwise the demo so Home never blanks.
   const c = community || DEMO
@@ -54,8 +54,6 @@ export default function Home() {
   const overPace = spentPct > yearPct
   const monthIdx = now.getMonth()
   const unit = profile?.unit_number ? String(profile.unit_number) : '—'
-  const myBalance = resident ? num(resident.balance) : null
-  const myDues = resident?.dues_status || 'paid'
 
   return (
     <>

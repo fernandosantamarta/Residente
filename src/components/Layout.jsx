@@ -4,6 +4,7 @@ import { signOut, hasSupabase } from '../lib/supabase'
 import { useAuth } from '../App'
 import { useBoardDecisions } from '../hooks/useBoardDecisions'
 import { useMyResident } from '../hooks/useMyResident'
+import { DUES_LABEL } from '../lib/dues'
 
 // Take "Fernando Santamaria" → "FS"; safe on null/undefined/single-name.
 const initialsFrom = (name) => {
@@ -159,7 +160,6 @@ const STATUS_META = {
   paid:       { cls: 'paid',       label: 'Paid ✓' },
   discussion: { cls: 'discussion', label: 'Discussion' },
 }
-const DUES_LABEL = { paid: 'Paid', due: 'Due', late: 'Late' }
 const vendorInitials = (s) => {
   if (!s) return '··'
   const p = String(s).trim().split(/\s+/).filter(Boolean)
@@ -182,10 +182,8 @@ function RightRail() {
   const auth = useAuth() || {}
   const profile = auth.profile
   const { decisions, loading } = useBoardDecisions(5)
-  const { resident } = useMyResident()
+  const { resident, balance, status: dues } = useMyResident()
   const unitLabel = resident?.address || (profile?.unit_number ? `Unit ${profile.unit_number}` : '—')
-  const balance = resident ? Number(resident.balance) || 0 : null
-  const dues = resident?.dues_status || 'paid'
 
   return (
     <aside className="rail-right">
