@@ -9,7 +9,7 @@ const withTimeout = (p, ms = 10000) =>
     new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms)),
   ])
 
-const EMPTY = { resident: null, balance: null, status: 'paid', payments: [], loading: false }
+const EMPTY = { resident: null, balance: null, status: 'paid', payments: [], monthlyDues: 0, loading: false }
 
 // Finds the roster row for the signed-in user (matched by email) and computes
 // what they currently owe — opening balance + accrued dues − payments.
@@ -50,7 +50,7 @@ export function useMyResident() {
         const balance = residentBalance(resident, monthlyDues, payments)
         setState({
           resident, balance, status: duesStatus(balance, monthlyDues),
-          payments, loading: false,
+          payments, monthlyDues, loading: false,
         })
       } catch (err) {
         if (!cancelled) setState(EMPTY)
