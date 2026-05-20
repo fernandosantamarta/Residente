@@ -196,6 +196,13 @@
 .bm-row-main { flex: 1; min-width: 0; }
 .bm-row-name { font-size: 14px; font-weight: 500; color: var(--text); }
 .bm-row-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+.bm-pos {
+  height: 32px; padding: 0 8px; border-radius: 7px;
+  font-family: inherit; font-size: 12px; font-weight: 600;
+  color: var(--text); background: var(--bg-elev);
+  border: 1px solid var(--border); cursor: pointer; outline: none;
+}
+.bm-pos:focus { border-color: var(--pink); }
 
 /* Two-column form layout (Residents add form) */
 .admin-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }

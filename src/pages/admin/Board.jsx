@@ -23,6 +23,10 @@ const fmtDate = (d) => {
 }
 const subline = (r) => [r.subdivision, r.address].filter(Boolean).join(' · ')
 
+// Standard HOA board positions, in seniority order.
+const POSITIONS = ['President', 'Vice President', 'Secretary', 'Treasurer', 'Member at Large']
+const posRank = (p) => { const i = POSITIONS.indexOf(p); return i === -1 ? 99 : i }
+
 const EMPTY = { title: '', vendor: '', amount: '', status: 'approved', decided_on: '' }
 
 // Board page — board members (drawn from the resident roster) + the decisions
@@ -59,8 +63,10 @@ export default function Board() {
   useEffect(() => { load() }, [load])
 
   const boardMembers = useMemo(
-    () => residents.filter(r => r.is_board)
-      .sort((a, b) => String(a.full_name || '').localeCompare(String(b.full_name || ''))),
+    () => residents.filter(r => r.is_board).sort((a, b) => {
+      const p = posRank(a.board_position) - posRank(b.board_position)
+      return p !== 0 ? p : String(a.full_name || '').localeCompare(String(b.full_name || ''))
+    }),
     [residents]
   )
   // Typeahead — narrows the roster to non-board residents matching the query.
@@ -84,6 +90,20 @@ export default function Board() {
     } catch (err) {
       setResidents(prev) // roll back
       setError(err?.message || 'Could not update board membership')
+    }
+  }
+
+  const setPosition = async (id, board_position) => {
+    const prev = residents
+    setResidents(rs => rs.map(r => (r.id === id ? { ...r, board_position } : r)))
+    try {
+      const { error } = await withTimeout(
+        supabase.from('residents').update({ board_position }).eq('id', id)
+      )
+      if (error) throw error
+    } catch (err) {
+      setResidents(prev) // roll back
+      setError(err?.message || 'Could not update the position')
     }
   }
 
@@ -189,6 +209,11 @@ export default function Board() {
                       <div className="bm-row-name">{m.full_name}</div>
                       <div className="bm-row-sub">{subline(m) || '—'}</div>
                     </div>
+                    <select className="bm-pos" value={m.board_position || ''}
+                      onChange={e => setPosition(m.id, e.target.value || null)}>
+                      <option value="">No position</option>
+                      {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                    </select>
                     <button type="button" className="bc-del" onClick={() => setBoard(m.id, false)}
                       aria-label="Remove from board">&times;</button>
                   </div>
