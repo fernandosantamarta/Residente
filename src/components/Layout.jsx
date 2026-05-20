@@ -2,6 +2,7 @@ import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { signOut, hasSupabase } from '../lib/supabase'
 import { useAuth } from '../App'
+import { useBoardDecisions } from '../hooks/useBoardDecisions'
 
 // Take "Fernando Santamaria" → "FS"; safe on null/undefined/single-name.
 const initialsFrom = (name) => {
@@ -150,7 +151,37 @@ export default function Layout() {
   )
 }
 
+// Maps a board_decisions.status to the cockpit feed pill class + label.
+const STATUS_META = {
+  approved:   { cls: 'yes',        label: 'Approved' },
+  pending:    { cls: 'pending',    label: 'Pending' },
+  paid:       { cls: 'paid',       label: 'Paid ✓' },
+  discussion: { cls: 'discussion', label: 'Discussion' },
+}
+const vendorInitials = (s) => {
+  if (!s) return '··'
+  const p = String(s).trim().split(/\s+/).filter(Boolean)
+  return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase() || '··'
+}
+const relTime = (dateStr) => {
+  if (!dateStr) return ''
+  const days = Math.round((Date.now() - new Date(dateStr + 'T00:00:00').getTime()) / 86400000)
+  if (days <= 0) return 'Today'
+  if (days === 1) return 'Yesterday'
+  if (days < 7) return `${days} days ago`
+  const weeks = Math.round(days / 7)
+  if (weeks < 5) return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`
+  const months = Math.max(1, Math.round(days / 30))
+  return months === 1 ? '1 month ago' : `${months} months ago`
+}
+const fmtAmt = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
+
 function RightRail() {
+  const auth = useAuth() || {}
+  const profile = auth.profile
+  const { decisions, loading } = useBoardDecisions(5)
+  const unit = profile?.unit_number ? String(profile.unit_number) : '—'
+
   return (
     <aside className="rail-right">
       <div className="feed-head">
@@ -159,18 +190,36 @@ function RightRail() {
       </div>
 
       <div className="feed">
-        <FeedRow avatar="OR" text={<>Approved landscaping · <span className="vendor">Oak Ridge Nursery</span> · <span className="amt">$5,200</span></>} meta={<>2 days ago <span className="dot">·</span> <span className="status yes">3/3 yes</span></>} />
-        <FeedRow avatar="MA" v="v2" text={<>New pool vendor proposal · <span className="vendor">Miramar Aquatics</span> · <span className="amt">$8,900/yr</span></>} meta={<>3 days ago <span className="dot">·</span> <span className="status pending">Pending 1/3</span></>} />
-        <FeedRow avatar="SG" v="v3" text={<>Gate repair invoice · <span className="vendor">SecureGate Co</span> · <span className="amt">$1,840</span></>} meta={<>5 days ago <span className="dot">·</span> <span className="status paid">Paid ✓</span></>} />
-        <FeedRow avatar="BD" v="v4" text={<>Amenity reserve warning · <span className="vendor">Board motion</span></>} meta={<>1 week ago <span className="dot">·</span> <span className="status discussion">Discussion</span></>} />
-        <FeedRow avatar="FL" v="v5" text={<>Holiday lighting contract · <span className="vendor">FestivaLux</span> · <span className="amt">$2,400</span></>} meta={<>2 weeks ago <span className="dot">·</span> <span className="status pending">2/3 yes, pending</span></>} />
+        {/* decisions is null when there's no community / load failed → demo feed */}
+        {decisions === null && !loading && <DemoFeed />}
+        {decisions !== null && decisions.length === 0 && (
+          <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '6px 0' }}>
+            No board activity logged yet.
+          </div>
+        )}
+        {decisions !== null && decisions.map((d, i) => {
+          const meta = STATUS_META[d.status] || STATUS_META.discussion
+          return (
+            <FeedRow
+              key={d.id}
+              avatar={vendorInitials(d.vendor || d.title)}
+              v={i > 0 ? `v${i + 1}` : undefined}
+              text={<>
+                {d.title}
+                {d.vendor && <> · <span className="vendor">{d.vendor}</span></>}
+                {d.amount != null && <> · <span className="amt">{fmtAmt(d.amount)}</span></>}
+              </>}
+              meta={<>{relTime(d.decided_on)} <span className="dot">·</span> <span className={`status ${meta.cls}`}>{meta.label}</span></>}
+            />
+          )
+        })}
       </div>
 
       <div className="household">
         <div className="household-title">Your household</div>
         <div className="household-row">
           <span className="h-label">Unit</span>
-          <span className="unit-tag">412</span>
+          <span className="unit-tag">{unit}</span>
         </div>
         <div className="household-divider"></div>
         <div className="household-row">
@@ -183,6 +232,20 @@ function RightRail() {
         </div>
       </div>
     </aside>
+  )
+}
+
+// Sample feed shown before any community is set up — keeps the rail from
+// looking broken on a fresh account.
+function DemoFeed() {
+  return (
+    <>
+      <FeedRow avatar="OR" text={<>Approved landscaping · <span className="vendor">Oak Ridge Nursery</span> · <span className="amt">$5,200</span></>} meta={<>2 days ago <span className="dot">·</span> <span className="status yes">3/3 yes</span></>} />
+      <FeedRow avatar="MA" v="v2" text={<>New pool vendor proposal · <span className="vendor">Miramar Aquatics</span> · <span className="amt">$8,900/yr</span></>} meta={<>3 days ago <span className="dot">·</span> <span className="status pending">Pending 1/3</span></>} />
+      <FeedRow avatar="SG" v="v3" text={<>Gate repair invoice · <span className="vendor">SecureGate Co</span> · <span className="amt">$1,840</span></>} meta={<>5 days ago <span className="dot">·</span> <span className="status paid">Paid ✓</span></>} />
+      <FeedRow avatar="BD" v="v4" text={<>Amenity reserve warning · <span className="vendor">Board motion</span></>} meta={<>1 week ago <span className="dot">·</span> <span className="status discussion">Discussion</span></>} />
+      <FeedRow avatar="FL" v="v5" text={<>Holiday lighting contract · <span className="vendor">FestivaLux</span> · <span className="amt">$2,400</span></>} meta={<>2 weeks ago <span className="dot">·</span> <span className="status pending">2/3 yes, pending</span></>} />
+    </>
   )
 }
 

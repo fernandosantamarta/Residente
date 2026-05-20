@@ -144,3 +144,26 @@
 .admin-input[type=number]::-webkit-outer-spin-button,
 .admin-input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .admin-input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
+/* Board decisions (Board page) */
+.bd-form-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+.bd-list { max-width: 620px; }
+.bd-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 13px 16px; margin-bottom: 8px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+}
+.bd-main { flex: 1; min-width: 0; }
+.bd-title { font-size: 14px; font-weight: 500; color: var(--text); }
+.bd-meta { font-size: 12px; color: var(--text-dim); margin-top: 3px; display: flex; gap: 6px; }
+.bd-dot { color: var(--text-faint); }
+.bd-amount { font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.bd-status {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+  padding: 4px 9px; border-radius: 999px; white-space: nowrap;
+  border: 1px solid currentColor;
+}
+.bd-approved   { color: #34D399; }
+.bd-pending    { color: #FBBF24; }
+.bd-paid       { color: #38BDF8; }
+.bd-discussion { color: var(--text-dim); }
