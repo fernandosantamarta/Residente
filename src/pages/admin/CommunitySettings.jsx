@@ -9,6 +9,8 @@ const withTimeout = (p, ms = 10000) =>
     new Promise((_, reject) => setTimeout(() => reject(new Error("Can't reach the server")), ms)),
   ])
 
+const numOrNull = (v) => (v === '' || v == null ? null : Number(v))
+
 const FIELDS = [
   { key: 'name',          label: 'Community name', type: 'text',   placeholder: 'Sunset Lakes' },
   { key: 'location',      label: 'Location',       type: 'text',   placeholder: 'Miramar, FL' },
@@ -16,8 +18,6 @@ const FIELDS = [
   { key: 'fiscal_year',   label: 'Fiscal year',    type: 'number', placeholder: '2026' },
   { key: 'annual_budget', label: 'Annual budget',  type: 'number', placeholder: '62000', prefix: '$' },
 ]
-
-const numOrNull = (v) => (v === '' || v == null ? null : Number(v))
 
 export default function CommunitySettings() {
   const { profile } = useAuth() || {}
@@ -34,14 +34,11 @@ export default function CommunitySettings() {
         supabase.from('communities').select('*').eq('id', communityId).single()
       )
       if (error) throw error
-      setForm(data)
-      setStatus('ready')
+      setForm(data); setStatus('ready')
     } catch (err) {
-      setError(err?.message || 'Could not load the community')
-      setStatus('error')
+      setError(err?.message || 'Could not load the community'); setStatus('error')
     }
   }, [communityId])
-
   useEffect(() => { load() }, [load])
 
   const setField = (key, val) => setForm(f => ({ ...f, [key]: val }))
@@ -61,11 +58,9 @@ export default function CommunitySettings() {
         supabase.from('communities').update(patch).eq('id', communityId)
       )
       if (error) throw error
-      setStatus('saved')
-      setTimeout(() => setStatus('ready'), 1600)
+      setStatus('saved'); setTimeout(() => setStatus('ready'), 1600)
     } catch (err) {
-      setError(err?.message || 'Save failed')
-      setStatus('error')
+      setError(err?.message || 'Save failed'); setStatus('error')
     }
   }
 
@@ -74,15 +69,14 @@ export default function CommunitySettings() {
       <div className="admin-kicker">Community</div>
       <h1 className="admin-h1">Community settings</h1>
       <p className="admin-dek">
-        The community profile behind the app — the annual budget here feeds the Home dashboard.
+        The community profile and budget behind the app — these numbers drive the Home dashboard.
       </p>
 
       {status === 'loading' && <div className="admin-note">Loading…</div>}
 
       {status === 'none' && (
         <div className="admin-note admin-note-warn">
-          No community is linked to your account yet. Run the one-time setup SQL,
-          then reload this page.
+          No community is linked to your account yet. Run the one-time setup SQL, then reload.
         </div>
       )}
 
@@ -94,33 +88,134 @@ export default function CommunitySettings() {
       )}
 
       {form && (
-        <form className="admin-form" onSubmit={save}>
-          {FIELDS.map(f => (
-            <label key={f.key} className="admin-field">
-              <span className="admin-field-label">{f.label}</span>
-              <div className="admin-input-wrap">
-                {f.prefix && <span className="admin-input-prefix">{f.prefix}</span>}
-                <input
-                  type={f.type}
-                  className="admin-input"
-                  value={form[f.key] ?? ''}
-                  placeholder={f.placeholder}
-                  onChange={e => setField(f.key, e.target.value)}
-                />
-              </div>
-            </label>
-          ))}
-          <div className="admin-form-actions">
-            <button
-              type="submit"
-              className="admin-btn"
-              disabled={status === 'saving' || status === 'saved'}
-            >
-              {status === 'saving' ? 'Saving…' : status === 'saved' ? '✓ Saved' : 'Save changes'}
-            </button>
-            {status === 'error' && <span className="admin-err-inline">{error}</span>}
+        <>
+          <form className="admin-form" onSubmit={save}>
+            {FIELDS.map(f => (
+              <label key={f.key} className="admin-field">
+                <span className="admin-field-label">{f.label}</span>
+                <div className="admin-input-wrap">
+                  {f.prefix && <span className="admin-input-prefix">{f.prefix}</span>}
+                  <input
+                    type={f.type} className="admin-input"
+                    value={form[f.key] ?? ''} placeholder={f.placeholder}
+                    onChange={e => setField(f.key, e.target.value)}
+                  />
+                </div>
+              </label>
+            ))}
+            <div className="admin-form-actions">
+              <button type="submit" className="admin-btn"
+                disabled={status === 'saving' || status === 'saved'}>
+                {status === 'saving' ? 'Saving…' : status === 'saved' ? '✓ Saved' : 'Save changes'}
+              </button>
+              {status === 'error' && <span className="admin-err-inline">{error}</span>}
+            </div>
+          </form>
+
+          <BudgetCategories communityId={communityId} />
+        </>
+      )}
+    </div>
+  )
+}
+
+// Budget categories editor — clean-replace save (delete all + insert current).
+function BudgetCategories({ communityId }) {
+  const [rows, setRows] = useState([])
+  const [status, setStatus] = useState('loading') // loading | ready | error | saving | saved
+  const [error, setError] = useState('')
+
+  const load = useCallback(async () => {
+    setStatus('loading'); setError('')
+    try {
+      const { data, error } = await withTimeout(
+        supabase.from('budget_categories').select('*')
+          .eq('community_id', communityId).order('sort_order')
+      )
+      if (error) throw error
+      setRows((data || []).map(r => ({ ...r })))
+      setStatus('ready')
+    } catch (err) {
+      setError(err?.message || 'Could not load categories'); setStatus('error')
+    }
+  }, [communityId])
+  useEffect(() => { load() }, [load])
+
+  const setCell = (i, key, val) =>
+    setRows(rs => rs.map((r, idx) => (idx === i ? { ...r, [key]: val } : r)))
+  const addRow = () => setRows(rs => [...rs, { name: '', budget: '', spent: '' }])
+  const removeRow = (i) => setRows(rs => rs.filter((_, idx) => idx !== i))
+
+  const save = async () => {
+    setStatus('saving'); setError('')
+    try {
+      const del = await withTimeout(
+        supabase.from('budget_categories').delete().eq('community_id', communityId)
+      )
+      if (del.error) throw del.error
+      const toInsert = rows
+        .filter(r => (r.name || '').trim())
+        .map((r, idx) => ({
+          community_id: communityId,
+          name: r.name.trim(),
+          budget: numOrNull(r.budget) || 0,
+          spent: numOrNull(r.spent) || 0,
+          sort_order: idx + 1,
+        }))
+      if (toInsert.length) {
+        const ins = await withTimeout(supabase.from('budget_categories').insert(toInsert))
+        if (ins.error) throw ins.error
+      }
+      setStatus('saved'); setTimeout(() => setStatus('ready'), 1500)
+    } catch (err) {
+      setError(err?.message || 'Save failed'); setStatus('error')
+    }
+  }
+
+  return (
+    <div className="bc">
+      <div className="bc-head">
+        <h2 className="bc-title">Budget categories</h2>
+        <span className="bc-sub">Allocation and spend per category — feeds the Home cards &amp; rings.</span>
+      </div>
+
+      {status === 'loading' && <div className="admin-note">Loading categories…</div>}
+
+      {status === 'error' && (
+        <div className="admin-note admin-note-err">
+          {error}
+          <button type="button" className="admin-btn-ghost" onClick={load}>Retry</button>
+        </div>
+      )}
+
+      {status !== 'loading' && status !== 'error' && (
+        <>
+          <div className="bc-row bc-row-head">
+            <span>Category</span><span>Budget&nbsp;$</span><span>Spent&nbsp;$</span><span />
           </div>
-        </form>
+          {rows.length === 0 && (
+            <div className="bc-empty">No categories yet — add your first one below.</div>
+          )}
+          {rows.map((r, i) => (
+            <div className="bc-row" key={r.id || `new-${i}`}>
+              <input className="admin-input" placeholder="Landscape"
+                value={r.name ?? ''} onChange={e => setCell(i, 'name', e.target.value)} />
+              <input className="admin-input" type="number" placeholder="0"
+                value={r.budget ?? ''} onChange={e => setCell(i, 'budget', e.target.value)} />
+              <input className="admin-input" type="number" placeholder="0"
+                value={r.spent ?? ''} onChange={e => setCell(i, 'spent', e.target.value)} />
+              <button type="button" className="bc-del" onClick={() => removeRow(i)}
+                aria-label="Remove category">&times;</button>
+            </div>
+          ))}
+          <div className="bc-actions">
+            <button type="button" className="admin-btn-ghost" onClick={addRow}>+ Add category</button>
+            <button type="button" className="admin-btn" onClick={save}
+              disabled={status === 'saving' || status === 'saved'}>
+              {status === 'saving' ? 'Saving…' : status === 'saved' ? '✓ Saved' : 'Save categories'}
+            </button>
+          </div>
+        </>
       )}
     </div>
   )
