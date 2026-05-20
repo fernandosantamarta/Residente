@@ -168,6 +168,35 @@
 .bd-paid       { color: #38BDF8; }
 .bd-discussion { color: var(--text-dim); }
 
+/* Board members + typeahead (Board page) */
+.bm-section { max-width: 620px; }
+.bm-search { position: relative; max-width: 360px; margin-bottom: 16px; }
+.bm-dropdown {
+  position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 20;
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 10px;
+  overflow: hidden; box-shadow: 0 12px 30px rgba(0,0,0,0.45);
+}
+.bm-option {
+  display: flex; flex-direction: column; gap: 2px; width: 100%;
+  padding: 10px 14px; text-align: left; cursor: pointer;
+  background: transparent; border: none; border-bottom: 1px solid var(--border);
+  font-family: inherit;
+}
+.bm-option:last-child { border-bottom: none; }
+.bm-option:hover { background: var(--bg-card); }
+.bm-option-name { font-size: 14px; font-weight: 500; color: var(--text); }
+.bm-option-sub { font-size: 12px; color: var(--text-dim); }
+.bm-empty { padding: 12px 14px; font-size: 13px; color: var(--text-dim); }
+.bm-list { display: flex; flex-direction: column; gap: 8px; }
+.bm-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 16px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+}
+.bm-row-main { flex: 1; min-width: 0; }
+.bm-row-name { font-size: 14px; font-weight: 500; color: var(--text); }
+.bm-row-sub { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
 /* Two-column form layout (Residents add form) */
 .admin-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '../../App'
 import { supabase, hasSupabase } from '../../lib/supabase'
 
@@ -21,35 +21,71 @@ const fmtDate = (d) => {
   return new Date(d + 'T00:00:00').toLocaleDateString('en-US',
     { month: 'short', day: 'numeric', year: 'numeric' })
 }
+const subline = (r) => [r.subdivision, r.address].filter(Boolean).join(' · ')
 
 const EMPTY = { title: '', vendor: '', amount: '', status: 'approved', decided_on: '' }
 
-// Board page — log vendor approvals, payments and motions. Each row surfaces
-// on every resident's Home under "This Week on the Board".
+// Board page — board members (drawn from the resident roster) + the decisions
+// feed that surfaces on every resident's Home.
 export default function Board() {
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
-  const [rows, setRows] = useState([])
+  const [rows, setRows] = useState([])          // board_decisions
+  const [residents, setResidents] = useState([]) // roster (for the member picker)
   const [status, setStatus] = useState('loading') // loading | ready | none | error
   const [error, setError] = useState('')
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
+  const [memberQuery, setMemberQuery] = useState('')
 
   const load = useCallback(async () => {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const { data, error } = await withTimeout(
-        supabase.from('board_decisions').select('*')
-          .eq('community_id', communityId).order('decided_on', { ascending: false })
-      )
-      if (error) throw error
-      setRows(data || []); setStatus('ready')
+      const [decR, resR] = await Promise.all([
+        withTimeout(supabase.from('board_decisions').select('*')
+          .eq('community_id', communityId).order('decided_on', { ascending: false })),
+        withTimeout(supabase.from('residents').select('*').eq('community_id', communityId)),
+      ])
+      if (decR.error) throw decR.error
+      if (resR.error) throw resR.error
+      setRows(decR.data || [])
+      setResidents(resR.data || [])
+      setStatus('ready')
     } catch (err) {
-      setError(err?.message || 'Could not load decisions'); setStatus('error')
+      setError(err?.message || 'Could not load the board'); setStatus('error')
     }
   }, [communityId])
   useEffect(() => { load() }, [load])
+
+  const boardMembers = useMemo(
+    () => residents.filter(r => r.is_board)
+      .sort((a, b) => String(a.full_name || '').localeCompare(String(b.full_name || ''))),
+    [residents]
+  )
+  // Typeahead — narrows the roster to non-board residents matching the query.
+  const matches = useMemo(() => {
+    const q = memberQuery.trim().toLowerCase()
+    if (!q) return []
+    return residents
+      .filter(r => !r.is_board && String(r.full_name || '').toLowerCase().includes(q))
+      .slice(0, 6)
+  }, [residents, memberQuery])
+
+  const setBoard = async (id, value) => {
+    const prev = residents
+    setResidents(rs => rs.map(r => (r.id === id ? { ...r, is_board: value } : r)))
+    setMemberQuery('')
+    try {
+      const { error } = await withTimeout(
+        supabase.from('residents').update({ is_board: value }).eq('id', id)
+      )
+      if (error) throw error
+    } catch (err) {
+      setResidents(prev) // roll back
+      setError(err?.message || 'Could not update board membership')
+    }
+  }
 
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
@@ -98,8 +134,8 @@ export default function Board() {
       <div className="admin-kicker">Board</div>
       <h1 className="admin-h1">Board &amp; decisions</h1>
       <p className="admin-dek">
-        Vendor approvals, payments and motions. Every decision here shows on
-        each resident's Home under &ldquo;This Week on the Board.&rdquo;
+        Who sits on the board, and the decisions they make — every decision
+        shows on each resident's Home under &ldquo;This Week on the Board.&rdquo;
       </p>
 
       {status === 'none' && (
@@ -117,6 +153,55 @@ export default function Board() {
 
       {(status === 'ready' || status === 'loading') && (
         <>
+          <div className="bm-section">
+            <div className="bc-head" style={{ marginBottom: 14 }}>
+              <h2 className="bc-title">Board members</h2>
+              <span className="bc-sub">Add anyone from your resident roster — start typing their name.</span>
+            </div>
+
+            <div className="bm-search">
+              <input className="admin-input" placeholder="Type a resident's name…"
+                value={memberQuery} onChange={e => setMemberQuery(e.target.value)} />
+              {memberQuery.trim() && (
+                <div className="bm-dropdown">
+                  {matches.length === 0 ? (
+                    <div className="bm-empty">
+                      No roster match — add them on the Residents page first.
+                    </div>
+                  ) : matches.map(m => (
+                    <button type="button" key={m.id} className="bm-option"
+                      onClick={() => setBoard(m.id, true)}>
+                      <span className="bm-option-name">{m.full_name}</span>
+                      {subline(m) && <span className="bm-option-sub">{subline(m)}</span>}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {boardMembers.length === 0 ? (
+              <div className="bc-empty">No board members yet — search above to add one.</div>
+            ) : (
+              <div className="bm-list">
+                {boardMembers.map(m => (
+                  <div className="bm-row" key={m.id}>
+                    <div className="bm-row-main">
+                      <div className="bm-row-name">{m.full_name}</div>
+                      <div className="bm-row-sub">{subline(m) || '—'}</div>
+                    </div>
+                    <button type="button" className="bc-del" onClick={() => setBoard(m.id, false)}
+                      aria-label="Remove from board">&times;</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="bc-head" style={{ marginTop: 44, marginBottom: 14 }}>
+            <h2 className="bc-title">Log a decision</h2>
+            <span className="bc-sub">Approvals, payments and motions.</span>
+          </div>
+
           <form className="admin-form" onSubmit={add}>
             <label className="admin-field">
               <span className="admin-field-label">What was decided</span>
