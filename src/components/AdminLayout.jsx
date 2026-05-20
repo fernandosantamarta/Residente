@@ -3,8 +3,8 @@ import { NavLink, Outlet, Link } from 'react-router-dom'
 // Board-only admin section. Gated in App.jsx — only role board_member/admin
 // (or local dev without Supabase) reaches here. Lean by design: 3 pages in v1.
 const ADMIN_NAV = [
-  { to: '/admin/residents', label: 'Residents' },
   { to: '/admin/community', label: 'Community' },
+  { to: '/admin/residents', label: 'Residents' },
   { to: '/admin/board',     label: 'Board' },
 ]
 

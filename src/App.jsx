@@ -109,7 +109,7 @@ export default function App() {
             path="/admin"
             element={requireAuth ? <Navigate to="/login" replace /> : isBoard ? <AdminLayout /> : <Navigate to="/" replace />}
           >
-            <Route index element={<Navigate to="/admin/residents" replace />} />
+            <Route index element={<Navigate to="/admin/community" replace />} />
             <Route path="residents" element={<AdminResidents />} />
             <Route path="community" element={<AdminCommunity />} />
             <Route path="board" element={<AdminBoard />} />
