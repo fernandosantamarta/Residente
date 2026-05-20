@@ -1083,3 +1083,57 @@ button { font-family: inherit; }
     margin-top: 24px;
   }
 }
+
+/* "Your money" panel — personal dues lens (Home) */
+.you-panel {
+  margin-top: 24px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px;
+  padding: 24px 26px;
+}
+.you-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
+.you-title { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
+.you-sub { font-size: 13px; color: var(--text-dim); margin-top: 3px; }
+.you-stats {
+  display: flex; gap: 48px;
+  padding-bottom: 20px; margin-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+.you-stat-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--text-faint); margin-bottom: 7px;
+}
+.you-stat-val { font-size: 26px; font-weight: 600; letter-spacing: -0.6px; }
+.you-stat-val.grad {
+  background: var(--grad);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.you-stat-unit { font-size: 13px; font-weight: 500; color: var(--text-faint); -webkit-text-fill-color: var(--text-faint); }
+.you-rows-label {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--text-faint); margin-bottom: 14px;
+}
+.you-row {
+  display: grid; grid-template-columns: 116px 142px 1fr 46px;
+  gap: 14px; align-items: center; margin-bottom: 11px;
+}
+.you-row-label { font-size: 13px; color: var(--text); }
+.you-row-amt { font-size: 12px; color: var(--text-dim); }
+.you-bar-track { height: 8px; border-radius: 4px; background: rgba(255,255,255,0.06); overflow: hidden; }
+.you-bar-fill { height: 100%; border-radius: 4px; background: var(--grad); transition: width 0.3s ease; }
+.you-bar-fill.warn { background: var(--grad-warn); }
+.you-row-pct { font-size: 13px; font-weight: 600; text-align: right; }
+.you-row-pct.warn { color: var(--pink); }
+.you-hint { font-size: 14px; color: var(--text-dim); line-height: 1.6; }
+.you-hint strong { color: var(--text); }
+
+@media (max-width: 720px) {
+  .you-panel { padding: 18px 16px; }
+  .you-stats { gap: 24px; }
+  .you-stat-val { font-size: 21px; }
+  .you-row { grid-template-columns: 1fr auto; row-gap: 5px; }
+  .you-row-label { grid-column: 1; grid-row: 1; }
+  .you-row-pct  { grid-column: 2; grid-row: 1; }
+  .you-row-amt  { grid-column: 1; grid-row: 2; }
+  .you-bar-track { grid-column: 1 / -1; grid-row: 3; }
+}

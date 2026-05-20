@@ -34,6 +34,7 @@ const FIELDS = [
   { key: 'unit_count',    label: 'Homes / units',  type: 'number', placeholder: '166' },
   { key: 'fiscal_year',   label: 'Fiscal year',    type: 'number', placeholder: '2026' },
   { key: 'annual_budget', label: 'Annual budget',  type: 'number', placeholder: '62000', prefix: '$' },
+  { key: 'monthly_dues',  label: 'Dues per unit / month', type: 'number', placeholder: '38', prefix: '$' },
 ]
 
 export default function CommunitySettings() {
@@ -70,6 +71,7 @@ export default function CommunitySettings() {
         unit_count: numOrNull(form.unit_count),
         fiscal_year: numOrNull(form.fiscal_year),
         annual_budget: numOrNull(form.annual_budget),
+        monthly_dues: numOrNull(form.monthly_dues),
       }
       const { error } = await withTimeout(
         supabase.from('communities').update(patch).eq('id', communityId)

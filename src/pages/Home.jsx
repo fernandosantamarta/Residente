@@ -1,8 +1,9 @@
 import { useCommunityData } from '../hooks/useCommunityData'
+import { useAuth } from '../App'
 
 // Demo fallback — shown only when the user has no community linked yet (or
 // local dev without Supabase), so the dashboard never renders blank.
-const DEMO = { name: 'Sunset Lakes', location: 'Miramar, FL', unit_count: 166, annual_budget: 62000 }
+const DEMO = { name: 'Sunset Lakes', location: 'Miramar, FL', unit_count: 166, annual_budget: 62000, monthly_dues: 38 }
 const DEMO_CATS = [
   { id: 'd1', name: 'Landscape', budget: 16800, spent: 12800 },
   { id: 'd2', name: 'Security',  budget: 13500, spent: 8400 },
@@ -28,6 +29,7 @@ const fmtAxis = (n) => (num(n) < 500 ? '$0' : '$' + Math.round(num(n) / 1000) + 
 
 export default function Home() {
   const { community, categories } = useCommunityData()
+  const { profile } = useAuth() || {}
 
   // Real community when one is linked; otherwise the demo so Home never blanks.
   const c = community || DEMO
@@ -49,6 +51,7 @@ export default function Home() {
   const deltaPp = actualPctNum - expectedPctNum
   const overPace = spentPct > yearPct
   const monthIdx = now.getMonth()
+  const unit = profile?.unit_number ? String(profile.unit_number) : '—'
 
   return (
     <>
@@ -132,6 +135,8 @@ export default function Home() {
         </div>
       </div>
 
+      <YourMoney community={c} categories={cats} unit={unit} />
+
       <div className="burn">
         <div className="burn-header">
           <div>
@@ -185,6 +190,76 @@ export default function Home() {
         )}
       </div>
     </>
+  )
+}
+
+// Personal lens — turns the community budget into "your share" via dues per
+// unit. Assumes equal dues; tiered dues would need per-resident data later.
+function YourMoney({ community, categories, unit }) {
+  const monthlyDues = num(community.monthly_dues)
+  const unitCount = num(community.unit_count)
+  const canCompute = monthlyDues > 0 && unitCount > 0
+
+  return (
+    <div className="you-panel">
+      <div className="you-head">
+        <div>
+          <div className="you-title">Your money</div>
+          <div className="you-sub">Your dues, and exactly where they go</div>
+        </div>
+        {canCompute && (
+          <div className="you-sub">
+            {unit !== '—' && <>Unit {unit} · </>}{fmtMoney(monthlyDues)}/mo
+          </div>
+        )}
+      </div>
+
+      {!canCompute ? (
+        <div className="you-hint">
+          Add <strong>homes / units</strong> and <strong>dues per unit</strong> on
+          the Admin → Community page to see your share of the budget.
+        </div>
+      ) : (
+        <>
+          <div className="you-stats">
+            <div className="you-stat">
+              <div className="you-stat-label">You contribute</div>
+              <div className="you-stat-val">
+                {fmtMoney(monthlyDues * 12)}<span className="you-stat-unit"> /yr</span>
+              </div>
+            </div>
+            <div className="you-stat">
+              <div className="you-stat-label">Community collects</div>
+              <div className="you-stat-val grad">
+                {fmtMoney(monthlyDues * 12 * unitCount)}<span className="you-stat-unit"> /yr</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="you-rows-label">Where your share goes</div>
+          {categories.length === 0 ? (
+            <div className="you-hint">No budget categories yet — add them in Admin → Community.</div>
+          ) : (
+            categories.map(cat => {
+              const cb = num(cat.budget), cs = num(cat.spent)
+              const pct = cb > 0 ? Math.round((cs / cb) * 100) : 0
+              const warn = pct >= WARN_AT * 100
+              return (
+                <div className="you-row" key={cat.id || cat.name}>
+                  <span className="you-row-label">{cat.name}</span>
+                  <span className="you-row-amt">{fmtMoney(cs / unitCount)} of {fmtMoney(cb / unitCount)}</span>
+                  <div className="you-bar-track">
+                    <div className={`you-bar-fill${warn ? ' warn' : ''}`}
+                      style={{ width: `${Math.min(100, pct)}%` }} />
+                  </div>
+                  <span className={`you-row-pct${warn ? ' warn' : ''}`}>{pct}%</span>
+                </div>
+              )
+            })
+          )}
+        </>
+      )}
+    </div>
   )
 }
 
