@@ -1,10 +1,63 @@
+import { useCommunityData } from '../hooks/useCommunityData'
+
+// Demo fallback — shown only when the user has no community linked yet (or
+// local dev without Supabase), so the dashboard never renders blank.
+const DEMO = { name: 'Sunset Lakes', location: 'Miramar, FL', unit_count: 166, annual_budget: 62000 }
+const DEMO_CATS = [
+  { id: 'd1', name: 'Landscape', budget: 16800, spent: 12800 },
+  { id: 'd2', name: 'Security',  budget: 13500, spent: 8400 },
+  { id: 'd3', name: 'Amenities', budget: 15900, spent: 14500 },
+  { id: 'd4', name: 'Reserves',  budget: 10000, spent: 1500 },
+]
+
+const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+// Concentric ring radii + their circumferences (2·π·r) for the budget dial.
+const RINGS = [
+  { r: 88, c: 552.92 },
+  { r: 72, c: 452.39 },
+  { r: 56, c: 351.86 },
+  { r: 40, c: 251.33 },
+]
+const WARN_AT = 0.85 // a category spent ≥ 85% of its budget shows the warn gradient
+
+const clamp01 = (n) => Math.max(0, Math.min(1, n))
+const num = (v) => Number(v) || 0
+const fmtMoney = (n) => '$' + Math.round(num(n)).toLocaleString('en-US')
+const fmtK = (n) => (num(n) >= 1000 ? '$' + (num(n) / 1000).toFixed(1) + 'k' : '$' + Math.round(num(n)))
+const fmtAxis = (n) => (num(n) < 500 ? '$0' : '$' + Math.round(num(n) / 1000) + 'k')
+
 export default function Home() {
+  const { community, categories } = useCommunityData()
+
+  // Real community when one is linked; otherwise the demo so Home never blanks.
+  const c = community || DEMO
+  const cats = community ? categories : DEMO_CATS
+
+  // --- derived numbers — everything here is computed, never stored ---
+  const now = new Date()
+  const yStart = new Date(now.getFullYear(), 0, 1)
+  const yEnd = new Date(now.getFullYear() + 1, 0, 1)
+  const yearPct = clamp01((now - yStart) / (yEnd - yStart))
+
+  const totalSpent = cats.reduce((s, x) => s + num(x.spent), 0)
+  const catBudgetSum = cats.reduce((s, x) => s + num(x.budget), 0)
+  const annualBudget = num(c.annual_budget) || catBudgetSum
+  const spentPct = annualBudget > 0 ? totalSpent / annualBudget : 0
+
+  const expectedPctNum = Math.round(yearPct * 100)
+  const actualPctNum = Math.round(spentPct * 100)
+  const deltaPp = actualPctNum - expectedPctNum
+  const overPace = spentPct > yearPct
+  const monthIdx = now.getMonth()
+
   return (
     <>
       <div className="hero-head">
-        <h1 className="headline">Sunset Lakes</h1>
+        <h1 className="headline">{c.name || 'My Community'}</h1>
         <div className="sub">
-          166 homes<span className="bullet">·</span>Miramar, FL<span className="bullet">·</span>47% through the year
+          {num(c.unit_count)} homes<span className="bullet">·</span>
+          {c.location || '—'}<span className="bullet">·</span>
+          {expectedPctNum}% through the year
         </div>
       </div>
 
@@ -23,42 +76,57 @@ export default function Home() {
               </linearGradient>
             </defs>
             <g transform="rotate(-90 100 100)">
-              <circle cx="100" cy="100" r="88" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="11"/>
-              <circle cx="100" cy="100" r="88" fill="none" stroke="url(#gradMain)" strokeWidth="11" strokeLinecap="round" strokeDasharray="553" strokeDashoffset="132.7"/>
-              <circle cx="100" cy="100" r="72" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="11"/>
-              <circle cx="100" cy="100" r="72" fill="none" stroke="url(#gradMain)" strokeWidth="11" strokeLinecap="round" strokeDasharray="452.4" strokeDashoffset="108.6"/>
-              <circle cx="100" cy="100" r="56" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="11"/>
-              <circle cx="100" cy="100" r="56" fill="none" stroke="url(#gradWarn)" strokeWidth="11" strokeLinecap="round" strokeDasharray="351.86" strokeDashoffset="31.67"/>
-              <circle cx="100" cy="100" r="40" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="11"/>
-              <circle cx="100" cy="100" r="40" fill="none" stroke="url(#gradMain)" strokeWidth="11" strokeLinecap="round" strokeDasharray="251.33" strokeDashoffset="213.63"/>
+              {RINGS.map((ring, i) => {
+                const cat = cats[i]
+                const p = cat ? clamp01(num(cat.budget) > 0 ? num(cat.spent) / num(cat.budget) : 0) : 0
+                const gradId = p >= WARN_AT ? 'gradWarn' : 'gradMain'
+                return (
+                  <g key={ring.r}>
+                    <circle cx="100" cy="100" r={ring.r} fill="none"
+                      stroke="rgba(255,255,255,0.05)" strokeWidth="11"/>
+                    {cat && (
+                      <circle cx="100" cy="100" r={ring.r} fill="none"
+                        stroke={`url(#${gradId})`} strokeWidth="11" strokeLinecap="round"
+                        strokeDasharray={ring.c} strokeDashoffset={ring.c * (1 - p)}/>
+                    )}
+                  </g>
+                )
+              })}
             </g>
           </svg>
           <div className="ring-center-label">
-            <div className="pct">76%</div>
+            <div className="pct">{actualPctNum}%</div>
             <div className="lbl">Annual Budget</div>
           </div>
         </div>
 
         <div className="money">
           <div className="label">Spent this year</div>
-          <div className="amount">$47,200</div>
-          <div className="of">of $62,000<span style={{ color: 'var(--text-faint)' }}>  ·  </span>76% spent this year</div>
+          <div className="amount">{fmtMoney(totalSpent)}</div>
+          <div className="of">
+            of {fmtMoney(annualBudget)}
+            <span style={{ color: 'var(--text-faint)' }}>  ·  </span>
+            {actualPctNum}% spent this year
+          </div>
           <div className="pace-chip">
-            <span className="warn-ic">!</span>
-            <span>Over pace</span>
+            {overPace
+              ? <><span className="warn-ic">!</span><span>Over pace</span></>
+              : <span>On pace</span>}
           </div>
           <div style={{ display: 'flex', gap: 28, marginTop: 16, paddingTop: 20, borderTop: '1px solid var(--border)' }}>
             <div>
               <div className="label" style={{ marginBottom: 6 }}>Expected pace</div>
-              <div style={{ fontSize: 20, fontWeight: 500, letterSpacing: '-0.4px', color: 'var(--text-dim)' }}>47%</div>
+              <div style={{ fontSize: 20, fontWeight: 500, letterSpacing: '-0.4px', color: 'var(--text-dim)' }}>{expectedPctNum}%</div>
             </div>
             <div>
               <div className="label" style={{ marginBottom: 6 }}>Actual pace</div>
-              <div style={{ fontSize: 20, fontWeight: 500, letterSpacing: '-0.4px', background: 'var(--grad)', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>76%</div>
+              <div style={{ fontSize: 20, fontWeight: 500, letterSpacing: '-0.4px', background: 'var(--grad)', WebkitBackgroundClip: 'text', backgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>{actualPctNum}%</div>
             </div>
             <div>
               <div className="label" style={{ marginBottom: 6 }}>Delta</div>
-              <div style={{ fontSize: 20, fontWeight: 500, letterSpacing: '-0.4px', color: 'var(--pink)' }}>+29pp</div>
+              <div style={{ fontSize: 20, fontWeight: 500, letterSpacing: '-0.4px', color: deltaPp > 0 ? 'var(--pink)' : 'var(--text-dim)' }}>
+                {deltaPp >= 0 ? '+' : ''}{deltaPp}pp
+              </div>
             </div>
           </div>
         </div>
@@ -68,7 +136,9 @@ export default function Home() {
         <div className="burn-header">
           <div>
             <div className="section-title">Year-to-date Burn</div>
-            <div className="section-sub" style={{ marginTop: 4 }}>Cumulative spend vs. expected pace · Fiscal 2026</div>
+            <div className="section-sub" style={{ marginTop: 4 }}>
+              Cumulative spend vs. expected pace · Fiscal {c.fiscal_year || now.getFullYear()}
+            </div>
           </div>
           <div className="burn-legend">
             <span><span className="sw-grad"></span> Cumulative spend</span>
@@ -78,37 +148,41 @@ export default function Home() {
 
         <div className="burn-chart">
           <div className="burn-grid">
-            <div className="line"><span>$62k</span></div>
-            <div className="line"><span>$47k</span></div>
-            <div className="line"><span>$31k</span></div>
-            <div className="line"><span>$15k</span></div>
+            <div className="line"><span>{fmtAxis(annualBudget)}</span></div>
+            <div className="line"><span>{fmtAxis(annualBudget * 0.75)}</span></div>
+            <div className="line"><span>{fmtAxis(annualBudget * 0.5)}</span></div>
+            <div className="line"><span>{fmtAxis(annualBudget * 0.25)}</span></div>
             <div className="line"><span>$0</span></div>
           </div>
 
           <div className="burn-bars">
-            <BarCol month="Jan" cls="filled" h={17} />
-            <BarCol month="Feb" cls="filled" h={36} />
-            <BarCol month="Mar" cls="filled" h={56} />
-            <BarCol month="Apr" cls="overshoot" h={76} thisMonth />
-            {['May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map(m => (
-              <BarCol key={m} month={m} cls="empty" h={4} />
-            ))}
+            {MONTHS.map((m, i) => {
+              const isCurrent = i === monthIdx
+              const h = isCurrent ? Math.max(4, Math.min(100, spentPct * 100)) : 4
+              const cls = isCurrent ? (overPace ? 'overshoot' : 'filled') : 'empty'
+              return <BarCol key={m} month={m} cls={cls} h={h} thisMonth={isCurrent} />
+            })}
           </div>
 
           <div className="pace-line">
             <svg viewBox="0 0 1200 120" preserveAspectRatio="none">
               <line x1="0" y1="120" x2="1200" y2="0" stroke="rgba(255,255,255,0.35)" strokeWidth="1.5" strokeDasharray="6 5"/>
-              <circle cx="400" cy="80" r="3" fill="#FFFFFF" opacity="0.5"/>
+              <circle cx={((monthIdx + 0.5) / 12) * 1200} cy={120 - yearPct * 120} r="3" fill="#FFFFFF" opacity="0.5"/>
             </svg>
           </div>
         </div>
       </div>
 
       <div className="cat-row">
-        <CatCard label="Landscape" amount="$12.8k" pct={76} of="$16,800" />
-        <CatCard label="Security"  amount="$8.4k"  pct={62} of="$13,500" />
-        <CatCard label="Amenities" amount="$14.5k" pct={91} of="$15,900" warn />
-        <CatCard label="Reserves"  amount="$1.5k"  pct={15} of="$10,000" />
+        {cats.length === 0 ? (
+          <div style={{ gridColumn: '1 / -1', width: '100%', padding: '20px 4px', color: 'var(--text-dim)', fontSize: 14 }}>
+            No budget categories yet — add them in Admin → Community.
+          </div>
+        ) : (
+          cats.map(cat => (
+            <CatCard key={cat.id || cat.name} label={cat.name} spent={num(cat.spent)} budget={num(cat.budget)} />
+          ))
+        )}
       </div>
     </>
   )
@@ -123,8 +197,10 @@ function BarCol({ month, cls, h, thisMonth }) {
   )
 }
 
-function CatCard({ label, amount, pct, of, warn }) {
-  const dashOffset = 125.66 - (125.66 * pct / 100)
+function CatCard({ label, spent, budget }) {
+  const pct = budget > 0 ? Math.round((spent / budget) * 100) : 0
+  const warn = pct >= WARN_AT * 100
+  const dashOffset = 125.66 - (125.66 * Math.min(pct, 100) / 100)
   const gradId = warn ? 'gradWarn' : 'gradMain'
   return (
     <div className={`cat-card${warn ? ' warn' : ''}`}>
@@ -137,8 +213,8 @@ function CatCard({ label, amount, pct, of, warn }) {
           </g>
         </svg>
       </div>
-      <div className="cat-amount">{amount}</div>
-      <div className="cat-pct"><span className="pct-pill">{pct}%</span> of {of}</div>
+      <div className="cat-amount">{fmtK(spent)}</div>
+      <div className="cat-pct"><span className="pct-pill">{pct}%</span> of {fmtMoney(budget)}</div>
     </div>
   )
 }
