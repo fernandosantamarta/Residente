@@ -1,6 +1,6 @@
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation, Link } from 'react-router-dom'
 import { useState, useEffect } from 'react'
-import { signOut } from '../lib/supabase'
+import { signOut, hasSupabase } from '../lib/supabase'
 import { useAuth } from '../App'
 
 // Take "Fernando Santamaria" → "FS"; safe on null/undefined/single-name.
@@ -36,6 +36,8 @@ export default function Layout() {
   const [navOpen, setNavOpen] = useState(false)
   const auth = useAuth() || {}
   const profile = auth.profile
+  // Board members (and local dev without Supabase) get the Admin link.
+  const showAdmin = !hasSupabase || ['board_member', 'admin'].includes(profile?.role)
 
   // Close the mobile nav drawer whenever the route changes — otherwise the
   // overlay would stay open after the user taps a nav link.
@@ -75,6 +77,14 @@ export default function Layout() {
         </nav>
 
         <div className="rail-footer">
+          {showAdmin && (
+            <Link to="/admin" className="rail-admin-link">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 2 4 6v6c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6z"/>
+              </svg>
+              <span>Admin</span>
+            </Link>
+          )}
           <div className="user-block">
             <div className="user-avatar">{userInitials}</div>
             <div className="user-meta">

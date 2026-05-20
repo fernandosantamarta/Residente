@@ -10,6 +10,11 @@ import Documents from './pages/Documents'
 import Contact from './pages/Contact'
 import Community from './pages/Community'
 import Login from './pages/Login'
+import AdminLayout from './components/AdminLayout'
+import AdminResidents from './pages/admin/Residents'
+import AdminCommunity from './pages/admin/CommunitySettings'
+import AdminBoard from './pages/admin/Board'
+import './admin.css'
 
 export const AuthContext = createContext(null)
 export const useAuth = () => useContext(AuthContext)
@@ -91,12 +96,24 @@ export default function App() {
   )
 
   const requireAuth = hasSupabase && !session
+  // Admin is board-only. Local dev without Supabase is allowed through, so the
+  // section stays reachable un-gated locally — mirrors the app's env-guarded behavior.
+  const isBoard = !hasSupabase || ['board_member', 'admin'].includes(profile?.role)
 
   return (
     <AuthContext.Provider value={{ session, profile, setProfile }}>
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={!session ? <Login /> : <Navigate to="/" replace />} />
+          <Route
+            path="/admin"
+            element={requireAuth ? <Navigate to="/login" replace /> : isBoard ? <AdminLayout /> : <Navigate to="/" replace />}
+          >
+            <Route index element={<Navigate to="/admin/residents" replace />} />
+            <Route path="residents" element={<AdminResidents />} />
+            <Route path="community" element={<AdminCommunity />} />
+            <Route path="board" element={<AdminBoard />} />
+          </Route>
           <Route element={requireAuth ? <Navigate to="/login" replace /> : <Layout />}>
             <Route path="/"            element={<Home />} />
             <Route path="/pay"         element={<Pay />} />
