@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { signOut, hasSupabase } from '../lib/supabase'
 import { useAuth } from '../App'
 import { useBoardDecisions } from '../hooks/useBoardDecisions'
+import { useMyResident } from '../hooks/useMyResident'
 
 // Take "Fernando Santamaria" → "FS"; safe on null/undefined/single-name.
 const initialsFrom = (name) => {
@@ -158,6 +159,7 @@ const STATUS_META = {
   paid:       { cls: 'paid',       label: 'Paid ✓' },
   discussion: { cls: 'discussion', label: 'Discussion' },
 }
+const DUES_LABEL = { paid: 'Paid', due: 'Due', late: 'Late' }
 const vendorInitials = (s) => {
   if (!s) return '··'
   const p = String(s).trim().split(/\s+/).filter(Boolean)
@@ -180,7 +182,10 @@ function RightRail() {
   const auth = useAuth() || {}
   const profile = auth.profile
   const { decisions, loading } = useBoardDecisions(5)
-  const unit = profile?.unit_number ? String(profile.unit_number) : '—'
+  const { resident } = useMyResident()
+  const unitLabel = resident?.address || (profile?.unit_number ? `Unit ${profile.unit_number}` : '—')
+  const balance = resident ? Number(resident.balance) || 0 : null
+  const dues = resident?.dues_status || 'paid'
 
   return (
     <aside className="rail-right">
@@ -219,16 +224,20 @@ function RightRail() {
         <div className="household-title">Your household</div>
         <div className="household-row">
           <span className="h-label">Unit</span>
-          <span className="unit-tag">{unit}</span>
+          <span className="h-val">{unitLabel}</span>
         </div>
         <div className="household-divider"></div>
         <div className="household-row">
-          <span className="h-label">Current balance</span>
-          <span className="h-val ok">$0 · Paid</span>
+          <span className="h-label">What you owe</span>
+          <span className={`h-val ${balance ? 'due' : 'ok'}`}>
+            {balance === null ? '—' : fmtAmt(balance)}
+          </span>
         </div>
         <div className="household-row">
-          <span className="h-label">Next assessment</span>
-          <span className="h-val due">Jul 1 · $412</span>
+          <span className="h-label">Dues status</span>
+          <span className={`h-val ${dues === 'paid' ? 'ok' : 'due'}`}>
+            {resident ? DUES_LABEL[dues] : '—'}
+          </span>
         </div>
       </div>
     </aside>

@@ -1,4 +1,5 @@
 import { useCommunityData } from '../hooks/useCommunityData'
+import { useMyResident } from '../hooks/useMyResident'
 import { useAuth } from '../App'
 
 // Demo fallback — shown only when the user has no community linked yet (or
@@ -30,6 +31,7 @@ const fmtAxis = (n) => (num(n) < 500 ? '$0' : '$' + Math.round(num(n) / 1000) + 
 export default function Home() {
   const { community, categories } = useCommunityData()
   const { profile } = useAuth() || {}
+  const { resident } = useMyResident()
 
   // Real community when one is linked; otherwise the demo so Home never blanks.
   const c = community || DEMO
@@ -52,6 +54,8 @@ export default function Home() {
   const overPace = spentPct > yearPct
   const monthIdx = now.getMonth()
   const unit = profile?.unit_number ? String(profile.unit_number) : '—'
+  const myBalance = resident ? num(resident.balance) : null
+  const myDues = resident?.dues_status || 'paid'
 
   return (
     <>
@@ -135,7 +139,8 @@ export default function Home() {
         </div>
       </div>
 
-      <YourMoney community={c} categories={cats} unit={unit} />
+      <YourMoney community={c} categories={cats} unit={unit}
+        balance={myBalance} duesStatus={myDues} />
 
       <div className="burn">
         <div className="burn-header">
@@ -195,7 +200,7 @@ export default function Home() {
 
 // Personal lens — turns the community budget into "your share" via dues per
 // unit. Assumes equal dues; tiered dues would need per-resident data later.
-function YourMoney({ community, categories, unit }) {
+function YourMoney({ community, categories, unit, balance, duesStatus }) {
   const monthlyDues = num(community.monthly_dues)
   const unitCount = num(community.unit_count)
   const canCompute = monthlyDues > 0 && unitCount > 0
@@ -213,6 +218,20 @@ function YourMoney({ community, categories, unit }) {
           </div>
         )}
       </div>
+
+      {balance != null && (balance > 0 ? (
+        <div className="you-owe warn">
+          <span className="you-owe-label">You currently owe</span>
+          <span className="you-owe-amt">{fmtMoney(balance)}</span>
+          <span className="you-owe-tag">{duesStatus === 'late' ? 'Late' : 'Due'}</span>
+        </div>
+      ) : (
+        <div className="you-owe ok">
+          <span className="you-owe-label">Dues</span>
+          <span className="you-owe-amt">Paid up</span>
+          <span className="you-owe-check">✓</span>
+        </div>
+      ))}
 
       {!canCompute ? (
         <div className="you-hint">

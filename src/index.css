@@ -1127,6 +1127,23 @@ button { font-family: inherit; }
 .you-hint { font-size: 14px; color: var(--text-dim); line-height: 1.6; }
 .you-hint strong { color: var(--text); }
 
+.you-owe {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 16px; border-radius: 12px; margin-bottom: 18px;
+}
+.you-owe.warn { background: rgba(255,59,95,0.10); border: 1px solid rgba(255,59,95,0.34); }
+.you-owe.ok   { background: rgba(52,211,153,0.08); border: 1px solid rgba(52,211,153,0.26); }
+.you-owe-label { font-size: 13px; color: var(--text-dim); }
+.you-owe-amt { font-size: 20px; font-weight: 700; letter-spacing: -0.4px; }
+.you-owe.warn .you-owe-amt { color: var(--pink); }
+.you-owe.ok .you-owe-amt { color: #34D399; font-size: 16px; }
+.you-owe-tag {
+  margin-left: auto; font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px; padding: 4px 9px; border-radius: 999px;
+  color: var(--pink); border: 1px solid currentColor;
+}
+.you-owe-check { margin-left: auto; color: #34D399; font-size: 16px; }
+
 @media (max-width: 720px) {
   .you-panel { padding: 18px 16px; }
   .you-stats { gap: 24px; }
