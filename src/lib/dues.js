@@ -14,10 +14,16 @@ export function monthsSince(dateInput, now = new Date()) {
   return Math.max(0, (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth()))
 }
 
+// Months of dues a resident owes. The current month always counts — a
+// household owes dues for the month it was added, then one more each month.
+export function monthsOwed(resident, now = new Date()) {
+  return monthsSince(resident?.created_at, now) + 1
+}
+
 // What a resident currently owes: opening balance + accrued dues − payments.
 export function residentBalance(resident, monthlyDues, payments = []) {
   const opening = Number(resident?.opening_balance) || 0
-  const accrued = monthsSince(resident?.created_at) * (Number(monthlyDues) || 0)
+  const accrued = monthsOwed(resident) * (Number(monthlyDues) || 0)
   const paid = (payments || []).reduce((s, p) => s + (Number(p?.amount) || 0), 0)
   return Math.round((opening + accrued - paid) * 100) / 100
 }

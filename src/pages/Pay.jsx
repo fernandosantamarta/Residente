@@ -1,5 +1,5 @@
 import { useMyResident } from '../hooks/useMyResident'
-import { monthsSince, fmtMoney, DUES_LABEL } from '../lib/dues'
+import { monthsOwed, fmtMoney, DUES_LABEL } from '../lib/dues'
 
 const fmtDate = (d) => (d
   ? new Date(d + 'T00:00:00').toLocaleDateString('en-US',
@@ -34,7 +34,7 @@ export default function Pay() {
     )
   }
 
-  const monthsAccrued = monthsSince(resident.created_at)
+  const monthsAccrued = monthsOwed(resident)
   const opening = Number(resident.opening_balance) || 0
   const accrued = monthsAccrued * monthlyDues
   const paid = (payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0)
