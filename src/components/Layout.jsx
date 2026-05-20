@@ -1,4 +1,4 @@
-import { NavLink, Outlet, useLocation, Link } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 import { signOut, hasSupabase } from '../lib/supabase'
 import { useAuth } from '../App'
@@ -74,17 +74,20 @@ export default function Layout() {
               {item.pulse && <span className="pulse-dot"></span>}
             </NavLink>
           ))}
-        </nav>
-
-        <div className="rail-footer">
           {showAdmin && (
-            <Link to="/admin" className="rail-admin-link">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <NavLink
+              to="/admin"
+              className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
+            >
+              <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M12 2 4 6v6c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6z"/>
               </svg>
               <span>Admin</span>
-            </Link>
+            </NavLink>
           )}
+        </nav>
+
+        <div className="rail-footer">
           <div className="user-block">
             <div className="user-avatar">{userInitials}</div>
             <div className="user-meta">
