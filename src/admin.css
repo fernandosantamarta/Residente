@@ -167,3 +167,18 @@
 .bd-pending    { color: #FBBF24; }
 .bd-paid       { color: #38BDF8; }
 .bd-discussion { color: var(--text-dim); }
+
+/* Residents roster (Residents page) */
+.res-unit {
+  display: inline-block; margin-right: 9px;
+  font-size: 11px; font-weight: 700; color: var(--text-dim);
+  background: var(--bg-elev); border: 1px solid var(--border);
+  border-radius: 5px; padding: 2px 7px;
+}
+.res-import-bar {
+  margin-top: 20px; padding: 14px 18px;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+  background: var(--bg-card); border: 1px solid var(--pink); border-radius: 10px;
+  font-size: 14px; color: var(--text-dim);
+}
+.res-import-bar strong { color: var(--text); }
