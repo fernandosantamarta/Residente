@@ -1,18 +1,13 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useAuth } from '../../App'
 import { supabase, hasSupabase } from '../../lib/supabase'
+import { residentBalance, duesStatus, DUES_LABEL, fmtMoney } from '../../lib/dues'
 
 const withTimeout = (p, ms = 10000) =>
   Promise.race([
     p,
     new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms)),
   ])
-
-const DUES = [
-  { value: 'paid', label: 'Paid' },
-  { value: 'due',  label: 'Due' },
-  { value: 'late', label: 'Late' },
-]
 
 // CSV parse for the roster import. Columns: name, subdivision, address, email, phone.
 // A header row is auto-detected and skipped.
@@ -46,13 +41,15 @@ const sortRows = (rs) => [...rs].sort((a, b) => {
 
 const EMPTY = { full_name: '', subdivision: '', address: '', email: '', phone: '' }
 
-// Residents page — the community roster, grouped by subdivision, with each
-// household's dues status + balance editable inline.
+// Residents page — the community roster, grouped by subdivision. Each
+// household's balance accrues monthly_dues automatically; the board sets the
+// one-time opening balance and the Paid/Due/Late status is derived from it.
 export default function Residents() {
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const [rows, setRows] = useState([])
-  const [communityName, setCommunityName] = useState('')
+  const [payments, setPayments] = useState([])
+  const [community, setCommunity] = useState(null)
   const [status, setStatus] = useState('loading') // loading | ready | none | error
   const [error, setError] = useState('')
   const [form, setForm] = useState(EMPTY)
@@ -65,13 +62,17 @@ export default function Residents() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const [resR, comR] = await Promise.all([
+      const [resR, comR, payR] = await Promise.all([
         withTimeout(supabase.from('residents').select('*').eq('community_id', communityId)),
-        withTimeout(supabase.from('communities').select('name').eq('id', communityId).single()),
+        withTimeout(supabase.from('communities').select('name, monthly_dues')
+          .eq('id', communityId).single()),
+        withTimeout(supabase.from('payments').select('*').eq('community_id', communityId)),
       ])
       if (resR.error) throw resR.error
+      if (payR.error) throw payR.error
       setRows(sortRows(resR.data || []))
-      setCommunityName(comR.data?.name || '')
+      setCommunity(comR.data || null)
+      setPayments(payR.data || [])
       setStatus('ready')
     } catch (err) {
       setError(err?.message || 'Could not load residents'); setStatus('error')
@@ -79,7 +80,19 @@ export default function Residents() {
   }, [communityId])
   useEffect(() => { load() }, [load])
 
-  // Residents grouped by subdivision, subdivisions sorted alphabetically.
+  const monthlyDues = Number(community?.monthly_dues) || 0
+  const communityName = community?.name || ''
+
+  // Payments grouped by resident so each row computes its own balance.
+  const paymentsByResident = useMemo(() => {
+    const m = new Map()
+    for (const p of payments) {
+      if (!m.has(p.resident_id)) m.set(p.resident_id, [])
+      m.get(p.resident_id).push(p)
+    }
+    return m
+  }, [payments])
+
   const groups = useMemo(() => {
     const m = new Map()
     for (const r of rows) {
@@ -132,7 +145,7 @@ export default function Residents() {
   const editLocal = (id, key, val) =>
     setRows(rs => rs.map(r => (r.id === id ? { ...r, [key]: val } : r)))
 
-  // Commit one or more fields to the DB (dues status change, balance on blur).
+  // Commit the opening balance to the DB (on blur).
   const commit = async (id, patch) => {
     try {
       const { error } = await withTimeout(
@@ -187,8 +200,11 @@ export default function Residents() {
       <h1 className="admin-h1">{communityName || 'Resident roster'}</h1>
       <p className="admin-dek">
         {status === 'ready'
-          ? `${rows.length} household${rows.length === 1 ? '' : 's'} across ${groups.length} subdivision${groups.length === 1 ? '' : 's'} — add one below or import a CSV.`
-          : 'Your community roster — grouped by subdivision, with dues status per household.'}
+          ? `${rows.length} household${rows.length === 1 ? '' : 's'} across ${groups.length} subdivision${groups.length === 1 ? '' : 's'}. `
+          : 'Your community roster — grouped by subdivision. '}
+        {monthlyDues > 0
+          ? `Dues are ${fmtMoney(monthlyDues)}/mo per home and accrue automatically — set each household's opening balance below.`
+          : 'Set monthly dues on the Community page to start dues tracking.'}
       </p>
 
       {status === 'none' && (
@@ -278,7 +294,8 @@ export default function Residents() {
                   {sub}<span className="res-group-n">{list.length}</span>
                 </div>
                 {list.map(r => (
-                  <ResidentRow key={r.id} r={r}
+                  <ResidentRow key={r.id} r={r} monthlyDues={monthlyDues}
+                    payments={paymentsByResident.get(r.id) || []}
                     onLocal={editLocal} onCommit={commit} onRemove={remove} />
                 ))}
               </div>
@@ -290,8 +307,9 @@ export default function Residents() {
   )
 }
 
-function ResidentRow({ r, onLocal, onCommit, onRemove }) {
-  const dues = r.dues_status || 'paid'
+function ResidentRow({ r, monthlyDues, payments, onLocal, onCommit, onRemove }) {
+  const balance = residentBalance(r, monthlyDues, payments)
+  const st = duesStatus(balance, monthlyDues)
   const contact = [r.address, r.email, r.phone].filter(Boolean).join('  ·  ')
   return (
     <div className="res-row">
@@ -299,19 +317,20 @@ function ResidentRow({ r, onLocal, onCommit, onRemove }) {
         <div className="res-name">{r.full_name}</div>
         <div className="res-contact">{contact || 'No contact info'}</div>
       </div>
-      <div className="res-dues">
-        <select className={`res-status res-${dues}`} value={dues}
-          onChange={e => onCommit(r.id, { dues_status: e.target.value })}>
-          {DUES.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-        </select>
-        <div className="res-bal">
+      <div className={`res-owes res-${st}`}>
+        <span className="res-owes-amt">{fmtMoney(balance)}</span>
+        <span className="res-owes-tag">{DUES_LABEL[st]}</span>
+      </div>
+      <label className="res-open" title="Opening balance — what this household owed when added">
+        <span className="res-open-lbl">Opening</span>
+        <span className="res-open-field">
           <span className="res-bal-pre">$</span>
           <input className="res-bal-input" type="number" placeholder="0"
-            value={r.balance ?? ''}
-            onChange={e => onLocal(r.id, 'balance', e.target.value)}
-            onBlur={e => onCommit(r.id, { balance: Number(e.target.value) || 0 })} />
-        </div>
-      </div>
+            value={r.opening_balance ?? ''}
+            onChange={e => onLocal(r.id, 'opening_balance', e.target.value)}
+            onBlur={e => onCommit(r.id, { opening_balance: Number(e.target.value) || 0 })} />
+        </span>
+      </label>
       <button type="button" className="bc-del" onClick={() => onRemove(r.id)}
         aria-label="Remove resident">&times;</button>
     </div>

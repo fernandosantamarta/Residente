@@ -239,16 +239,15 @@
   font-size: 12px; color: var(--text-dim); margin-top: 3px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.res-dues { display: flex; align-items: center; gap: 8px; }
-.res-status {
-  height: 30px; padding: 0 8px; border-radius: 7px;
-  font-family: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
-  background: var(--bg-elev); border: 1px solid currentColor; outline: none;
-}
-.res-status.res-paid { color: #34D399; }
-.res-status.res-due  { color: #FBBF24; }
-.res-status.res-late { color: #FF3B5F; }
-.res-bal { display: flex; align-items: center; }
+.res-owes { text-align: right; min-width: 76px; line-height: 1.25; }
+.res-owes-amt { display: block; font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
+.res-owes-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; opacity: 0.85; }
+.res-owes.res-paid { color: #34D399; }
+.res-owes.res-due  { color: #FBBF24; }
+.res-owes.res-late { color: #FF3B5F; }
+.res-open { display: flex; flex-direction: column; gap: 3px; }
+.res-open-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-faint); }
+.res-open-field { display: flex; align-items: center; }
 .res-bal-pre {
   height: 30px; display: flex; align-items: center; padding: 0 5px 0 9px;
   background: var(--bg-elev); border: 1px solid var(--border); border-right: none;
