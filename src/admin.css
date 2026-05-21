@@ -78,8 +78,8 @@
   background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
   font-size: 14px; color: var(--text-dim); line-height: 1.55;
 }
-.admin-note-warn { border-left: 3px solid var(--pink); }
-.admin-note-err  { border-left: 3px solid var(--pink); color: var(--text); }
+.admin-note-warn { border-left: 3px solid var(--grad-warn); }
+.admin-note-err  { border-left: 3px solid #F47174; color: var(--text); }
 
 .admin-form { margin-top: 28px; max-width: 480px; display: flex; flex-direction: column; gap: 18px; }
 .admin-field { display: flex; flex-direction: column; gap: 7px; }
@@ -111,10 +111,10 @@
 .admin-btn:disabled { opacity: 0.6; cursor: default; }
 .admin-btn-ghost {
   margin-left: 12px; padding: 6px 14px;
-  background: transparent; border: 1px solid rgba(255,255,255,0.18);
+  background: transparent; border: 1px solid var(--border-hover);
   border-radius: 6px; color: var(--text); font-family: inherit; font-size: 13px; cursor: pointer;
 }
-.admin-err-inline { font-size: 13px; color: var(--pink); }
+.admin-err-inline { font-size: 13px; color: #F47174; }
 
 /* Budget categories editor (Community page) */
 .bc { margin-top: 44px; max-width: 560px; }
@@ -244,7 +244,7 @@
 .res-owes-tag { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; opacity: 0.85; }
 .res-owes.res-paid { color: #34D399; }
 .res-owes.res-due  { color: #FBBF24; }
-.res-owes.res-late { color: #FF3B5F; }
+.res-owes.res-late { color: #F47174; }
 .res-open { display: flex; flex-direction: column; gap: 3px; }
 .res-open-lbl { font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-faint); }
 .res-open-field { display: flex; align-items: center; }

@@ -91,13 +91,16 @@ export default function Layout() {
         </nav>
 
         <div className="rail-footer">
-          <div className="user-block">
+          <NavLink to="/settings" className="user-block">
             <div className="user-avatar">{userInitials}</div>
             <div className="user-meta">
               <span className="label">Signed in as</span>
               <span className="val">{userUnit}</span>
             </div>
-          </div>
+            <svg className="user-block-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </NavLink>
           <button
             className="logout-btn"
             onClick={() => signOut()}

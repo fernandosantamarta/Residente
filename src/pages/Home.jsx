@@ -71,13 +71,13 @@ export default function Home() {
           <svg width="420" height="420" viewBox="0 0 200 200">
             <defs>
               <linearGradient id="gradMain" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#FF3B5F"/>
-                <stop offset="50%" stopColor="#B83377"/>
-                <stop offset="100%" stopColor="#4F2B8C"/>
+                <stop offset="0%" className="gm1"/>
+                <stop offset="50%" className="gm2"/>
+                <stop offset="100%" className="gm3"/>
               </linearGradient>
               <linearGradient id="gradWarn" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="#FF3B5F"/>
-                <stop offset="100%" stopColor="#FF8BA8"/>
+                <stop offset="0%" className="gw1"/>
+                <stop offset="100%" className="gw2"/>
               </linearGradient>
             </defs>
             <g transform="rotate(-90 100 100)">

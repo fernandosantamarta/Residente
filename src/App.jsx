@@ -9,6 +9,7 @@ import Rules from './pages/Rules'
 import Documents from './pages/Documents'
 import Contact from './pages/Contact'
 import Community from './pages/Community'
+import Settings from './pages/Settings'
 import Login from './pages/Login'
 import AdminLayout from './components/AdminLayout'
 import AdminResidents from './pages/admin/Residents'
@@ -122,6 +123,7 @@ export default function App() {
             <Route path="/documents"   element={<Documents />} />
             <Route path="/contact"     element={<Contact />} />
             <Route path="/community"   element={<Community />} />
+            <Route path="/settings"    element={<Settings />} />
             <Route path="*"            element={<Navigate to="/" />} />
           </Route>
         </Routes>

@@ -93,13 +93,13 @@ export default function Community() {
       <svg width="0" height="0" style={{ position: 'absolute' }}>
         <defs>
           <linearGradient id="commRingGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#FF3B5F" />
-            <stop offset="50%" stopColor="#B83377" />
-            <stop offset="100%" stopColor="#4F2B8C" />
+            <stop offset="0%" className="gm1" />
+            <stop offset="50%" className="gm2" />
+            <stop offset="100%" className="gm3" />
           </linearGradient>
           <linearGradient id="commRingWarn" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#FF3B5F" />
-            <stop offset="100%" stopColor="#FF8BA8" />
+            <stop offset="0%" className="gw1" />
+            <stop offset="100%" className="gw2" />
           </linearGradient>
         </defs>
       </svg>
