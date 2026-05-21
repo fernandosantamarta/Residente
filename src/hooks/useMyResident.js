@@ -9,7 +9,7 @@ const withTimeout = (p, ms = 10000) =>
     new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms)),
   ])
 
-const EMPTY = { resident: null, balance: null, status: 'paid', payments: [], monthlyDues: 0, loading: false }
+const EMPTY = { resident: null, balance: null, status: 'paid', payments: [], monthlyDues: 0, interestRate: 0, loading: false }
 
 // Finds the roster row for the signed-in user (matched by email) and computes
 // what they currently owe — opening balance + accrued dues − payments.
@@ -39,18 +39,19 @@ export function useMyResident() {
           return
         }
         const [comR, payR] = await Promise.all([
-          withTimeout(supabase.from('communities').select('monthly_dues')
+          withTimeout(supabase.from('communities').select('*')
             .eq('id', communityId).single()),
           withTimeout(supabase.from('payments').select('*')
             .eq('resident_id', resident.id).order('paid_on', { ascending: false })),
         ])
         if (cancelled) return
         const monthlyDues = Number(comR.data?.monthly_dues) || 0
+        const interestRate = Number(comR.data?.late_interest_rate) || 0
         const payments = payR.data || []
-        const balance = residentBalance(resident, monthlyDues, payments)
+        const balance = residentBalance(resident, monthlyDues, payments, interestRate)
         setState({
           resident, balance, status: duesStatus(balance, monthlyDues),
-          payments, monthlyDues, loading: false,
+          payments, monthlyDues, interestRate, loading: false,
         })
       } catch (err) {
         if (!cancelled) setState(EMPTY)

@@ -64,7 +64,7 @@ export default function Residents() {
     try {
       const [resR, comR, payR] = await Promise.all([
         withTimeout(supabase.from('residents').select('*').eq('community_id', communityId)),
-        withTimeout(supabase.from('communities').select('name, monthly_dues')
+        withTimeout(supabase.from('communities').select('*')
           .eq('id', communityId).single()),
         withTimeout(supabase.from('payments').select('*').eq('community_id', communityId)),
       ])
@@ -81,6 +81,7 @@ export default function Residents() {
   useEffect(() => { load() }, [load])
 
   const monthlyDues = Number(community?.monthly_dues) || 0
+  const interestRate = Number(community?.late_interest_rate) || 0
   const communityName = community?.name || ''
 
   // Payments grouped by resident so each row computes its own balance.
@@ -294,7 +295,7 @@ export default function Residents() {
                   {sub}<span className="res-group-n">{list.length}</span>
                 </div>
                 {list.map(r => (
-                  <ResidentRow key={r.id} r={r} monthlyDues={monthlyDues}
+                  <ResidentRow key={r.id} r={r} monthlyDues={monthlyDues} interestRate={interestRate}
                     payments={paymentsByResident.get(r.id) || []}
                     onLocal={editLocal} onCommit={commit} onRemove={remove} />
                 ))}
@@ -307,8 +308,8 @@ export default function Residents() {
   )
 }
 
-function ResidentRow({ r, monthlyDues, payments, onLocal, onCommit, onRemove }) {
-  const balance = residentBalance(r, monthlyDues, payments)
+function ResidentRow({ r, monthlyDues, interestRate, payments, onLocal, onCommit, onRemove }) {
+  const balance = residentBalance(r, monthlyDues, payments, interestRate)
   const st = duesStatus(balance, monthlyDues)
   const contact = [r.address, r.email, r.phone].filter(Boolean).join('  ·  ')
   return (

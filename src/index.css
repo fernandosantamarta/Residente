@@ -1528,3 +1528,57 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
   font-size: 13px; color: var(--text-dim); margin-top: 6px; line-height: 1.55;
   max-width: 420px; margin-left: auto; margin-right: auto;
 }
+
+/* ============ PAY — alert, calendar, richer history ============ */
+.pay-section-title { display: flex; justify-content: space-between; align-items: baseline; }
+.pay-section-meta {
+  font-size: 11px; font-weight: 500; letter-spacing: 0; text-transform: none;
+  color: var(--text-dim);
+}
+
+/* Late-payment alert */
+.pay-alert {
+  display: flex; gap: 13px; align-items: flex-start;
+  padding: 14px 16px; margin-bottom: 22px; border-radius: 12px;
+  background: rgba(244,113,116,0.09); border: 1px solid rgba(244,113,116,0.4);
+}
+.pay-alert-icon {
+  width: 22px; height: 22px; border-radius: 50%; flex-shrink: 0; margin-top: 1px;
+  background: #F47174; color: #fff; font-weight: 800; font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+}
+.pay-alert-title { font-size: 14px; font-weight: 600; color: #F47174; }
+.pay-alert-sub { font-size: 13px; color: var(--text-dim); line-height: 1.5; margin-top: 3px; }
+
+/* Payment calendar */
+.pay-cal { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.pay-cal-cell {
+  width: 62px; height: 56px; border-radius: 10px; position: relative;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border: 1px solid var(--border); background: var(--bg-card);
+}
+.pay-cal-cell .pc-mon { font-size: 13px; font-weight: 600; }
+.pay-cal-cell .pc-yr { font-size: 10px; color: var(--text-faint); margin-top: 1px; }
+.pay-cal-cell.pc-paid { background: var(--accent-soft); border-color: var(--pink); }
+.pay-cal-cell.pc-paid .pc-mon { color: var(--pink); }
+.pay-cal-cell.pc-paid::after {
+  content: "✓"; position: absolute; top: 4px; right: 6px;
+  font-size: 9px; font-weight: 800; color: var(--pink);
+}
+.pay-cal-cell.pc-due { border-color: #FBBF24; }
+.pay-cal-cell.pc-due .pc-mon { color: #FBBF24; }
+.pay-cal-cell.pc-overdue { background: rgba(244,113,116,0.08); border-color: rgba(244,113,116,0.5); }
+.pay-cal-cell.pc-overdue .pc-mon { color: #F47174; }
+.pay-cal-legend {
+  display: flex; gap: 16px; font-size: 11px; color: var(--text-dim); margin-bottom: 30px;
+}
+.pay-cal-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.pc-key { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.pc-key.pc-paid { background: var(--pink); }
+.pc-key.pc-due { background: #FBBF24; }
+.pc-key.pc-overdue { background: #F47174; }
+
+/* Richer history rows */
+.pay-hist-row { align-items: center; }
+.pay-hist-left { display: flex; flex-direction: column; gap: 2px; }
+.pay-hist-method { font-size: 11px; color: var(--text-faint); }

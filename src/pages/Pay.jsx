@@ -1,17 +1,20 @@
 import { useState } from 'react'
 import { useMyResident } from '../hooks/useMyResident'
 import { supabase, stripeEnabled } from '../lib/supabase'
-import { monthsOwed, fmtMoney, DUES_LABEL } from '../lib/dues'
+import {
+  monthsOwed, monthsLate, lateInterest, paymentCalendar, fmtMoney, DUES_LABEL,
+} from '../lib/dues'
 
 const fmtDate = (d) => (d
   ? new Date(d + 'T00:00:00').toLocaleDateString('en-US',
       { month: 'short', day: 'numeric', year: 'numeric' })
   : '')
 
-// Pay page — the resident's own dues balance, how it's built, and history.
-// Card payments plug in here once Stripe is connected.
+// Pay page — the resident's dues balance, a month-by-month calendar, a
+// late-payment alert with accruing interest, the balance breakdown, and
+// payment history. Card payments plug in once Stripe is connected.
 export default function Pay() {
-  const { resident, balance, status, payments, monthlyDues, loading } = useMyResident()
+  const { resident, balance, status, payments, monthlyDues, interestRate, loading } = useMyResident()
   const [checkout, setCheckout] = useState({ loading: false, error: null })
   // Stripe sends the resident back to /pay?paid=1 after a successful payment.
   const justPaid = new URLSearchParams(window.location.search).get('paid') === '1'
@@ -59,6 +62,9 @@ export default function Pay() {
   const opening = Number(resident.opening_balance) || 0
   const accrued = monthsAccrued * monthlyDues
   const paid = (payments || []).reduce((s, p) => s + (Number(p.amount) || 0), 0)
+  const interest = lateInterest(resident, monthlyDues, payments, interestRate)
+  const late = monthsLate(resident, monthlyDues, payments)
+  const calendar = paymentCalendar(resident, monthlyDues, payments)
 
   return (
     <div className="pay-wrap">
@@ -69,6 +75,24 @@ export default function Pay() {
         <div className="pay-paid-banner">
           Payment received — thank you. Your balance updates within a moment;
           reload if it hasn't caught up yet.
+        </div>
+      )}
+
+      {status === 'late' && (
+        <div className="pay-alert">
+          <div className="pay-alert-icon">!</div>
+          <div className="pay-alert-body">
+            <div className="pay-alert-title">
+              {late > 0
+                ? `You're ${late} ${late === 1 ? 'month' : 'months'} behind on dues`
+                : 'Your account is past due'}
+            </div>
+            <div className="pay-alert-sub">
+              {interest > 0
+                ? `${fmtMoney(interest)} in late interest has accrued${interestRate > 0 ? ` at ${interestRate}% per month` : ''}. Bring your balance current to stop it growing.`
+                : 'Please bring your balance current to avoid late interest.'}
+            </div>
+          </div>
         </div>
       )}
 
@@ -101,6 +125,21 @@ export default function Pay() {
         )}
       </div>
 
+      <div className="pay-section-title">Months</div>
+      <div className="pay-cal">
+        {calendar.map(c => (
+          <div className={`pay-cal-cell pc-${c.state}`} key={c.key}>
+            <span className="pc-mon">{c.label}</span>
+            <span className="pc-yr">'{String(c.year).slice(2)}</span>
+          </div>
+        ))}
+      </div>
+      <div className="pay-cal-legend">
+        <span><i className="pc-key pc-paid" />Paid</span>
+        <span><i className="pc-key pc-due" />This month</span>
+        {late > 0 && <span><i className="pc-key pc-overdue" />Overdue</span>}
+      </div>
+
       <div className="pay-section-title">How this balance is built</div>
       <div className="pay-ledger">
         <div className="pay-line">
@@ -110,6 +149,12 @@ export default function Pay() {
           <span>Dues accrued · {monthsAccrued} {monthsAccrued === 1 ? 'month' : 'months'} × {fmtMoney(monthlyDues)}</span>
           <span>{fmtMoney(accrued)}</span>
         </div>
+        {interest > 0 && (
+          <div className="pay-line">
+            <span>Late interest{interestRate > 0 ? ` · ${interestRate}%/mo` : ''}</span>
+            <span>{fmtMoney(interest)}</span>
+          </div>
+        )}
         <div className="pay-line">
           <span>Payments received</span><span>−{fmtMoney(paid)}</span>
         </div>
@@ -118,14 +163,26 @@ export default function Pay() {
         </div>
       </div>
 
-      <div className="pay-section-title">Payment history</div>
+      <div className="pay-section-title">
+        Payment history
+        {payments.length > 0 && (
+          <span className="pay-section-meta">
+            {payments.length} {payments.length === 1 ? 'payment' : 'payments'} · {fmtMoney(paid)} total
+          </span>
+        )}
+      </div>
       {payments.length === 0 ? (
         <div className="pay-note">No payments recorded yet.</div>
       ) : (
         <div className="pay-history">
           {payments.map(p => (
             <div className="pay-hist-row" key={p.id}>
-              <span className="pay-hist-date">{fmtDate(p.paid_on)}</span>
+              <div className="pay-hist-left">
+                <span className="pay-hist-date">{fmtDate(p.paid_on)}</span>
+                <span className="pay-hist-method">
+                  {p.stripe_session_id ? 'Card payment' : 'Recorded by the board'}
+                </span>
+              </div>
               <span className="pay-hist-amt">{fmtMoney(p.amount)}</span>
             </div>
           ))}
