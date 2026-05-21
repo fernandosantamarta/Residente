@@ -1227,7 +1227,6 @@ button { font-family: inherit; }
 }
 
 /* Pay / Dues page */
-.pay-wrap { max-width: 560px; }
 .pay-kicker {
   font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
   background: var(--grad); -webkit-background-clip: text; background-clip: text;
@@ -1345,7 +1344,6 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 .user-block-chevron { width: 15px; height: 15px; color: var(--text-faint); margin-left: auto; flex-shrink: 0; }
 
 /* Settings page */
-.settings-wrap { max-width: 720px; }
 .settings-kicker {
   font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
   color: var(--pink); margin-bottom: 8px;
@@ -1400,7 +1398,6 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 }
 
 /* ============ BOARD PAGE ============ */
-.board-wrap { max-width: 720px; }
 .board-kicker {
   font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
   color: var(--pink); margin-bottom: 8px;
@@ -1452,7 +1449,6 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 }
 
 /* ============ RULES PAGE ============ */
-.rules-wrap { max-width: 720px; }
 .rules-kicker {
   font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
   color: var(--pink); margin-bottom: 8px;
@@ -1488,7 +1484,6 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 }
 
 /* ============ DOCUMENTS PAGE ============ */
-.docs-wrap { max-width: 720px; }
 .docs-kicker {
   font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
   color: var(--pink); margin-bottom: 8px;
