@@ -263,3 +263,20 @@
 .res-bal-input[type=number]::-webkit-outer-spin-button,
 .res-bal-input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .res-bal-input[type=number] { -moz-appearance: textfield; appearance: textfield; }
+
+/* Multi-line input — Rules detail */
+.admin-textarea {
+  height: auto; min-height: 78px; padding: 10px 12px;
+  line-height: 1.5; resize: vertical;
+}
+/* File input — Documents upload */
+.admin-file {
+  font-family: inherit; font-size: 13px; color: var(--text-dim); padding: 9px 0;
+}
+.admin-file::file-selector-button {
+  font-family: inherit; font-size: 13px; font-weight: 600;
+  margin-right: 12px; padding: 8px 14px; border-radius: 7px;
+  background: var(--bg-elev); color: var(--text);
+  border: 1px solid var(--border); cursor: pointer;
+}
+.admin-file::file-selector-button:hover { border-color: var(--pink); }

@@ -6,6 +6,8 @@ const ADMIN_NAV = [
   { to: '/admin/community', label: 'Community' },
   { to: '/admin/residents', label: 'Residents' },
   { to: '/admin/board',     label: 'Board' },
+  { to: '/admin/rules',     label: 'Rules' },
+  { to: '/admin/documents', label: 'Documents' },
 ]
 
 export default function AdminLayout() {

@@ -77,6 +77,7 @@ export default function Pay() {
           <span className={`pay-status pay-${status}`}>{DUES_LABEL[status]}</span>
           <span className="pay-as-of">{resident.address || resident.full_name}</span>
         </div>
+        <div className="pay-balance-label">Current balance</div>
         <div className="pay-balance">{fmtMoney(balance)}</div>
         <div className="pay-balance-sub">
           {balance <= 0

@@ -15,6 +15,8 @@ import AdminLayout from './components/AdminLayout'
 import AdminResidents from './pages/admin/Residents'
 import AdminCommunity from './pages/admin/CommunitySettings'
 import AdminBoard from './pages/admin/Board'
+import AdminRules from './pages/admin/Rules'
+import AdminDocuments from './pages/admin/Documents'
 import './admin.css'
 
 export const AuthContext = createContext(null)
@@ -114,6 +116,8 @@ export default function App() {
             <Route path="residents" element={<AdminResidents />} />
             <Route path="community" element={<AdminCommunity />} />
             <Route path="board" element={<AdminBoard />} />
+            <Route path="rules" element={<AdminRules />} />
+            <Route path="documents" element={<AdminDocuments />} />
           </Route>
           <Route element={requireAuth ? <Navigate to="/login" replace /> : <Layout />}>
             <Route path="/"            element={<Home />} />
