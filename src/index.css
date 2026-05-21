@@ -385,6 +385,7 @@ button { font-family: inherit; }
 .rail-right {
   background: var(--bg-elev); border-left: 1px solid var(--border);
   padding: 32px 24px 24px; display: flex; flex-direction: column; gap: 24px;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
 }
 .feed-head { display: flex; justify-content: space-between; align-items: center; }
 .feed-title { font-size: 12px; font-weight: 600; letter-spacing: 1.6px; text-transform: uppercase; color: var(--text-dim); }
@@ -766,6 +767,7 @@ button { font-family: inherit; }
     border-top: 1px solid var(--border);
     padding: 24px 0 0;
     margin-top: 16px;
+    position: static; height: auto;
   }
   .feed-title { font-size: 11px; letter-spacing: 1.4px; }
   .feed-text { font-size: 12px; }
@@ -1151,6 +1153,7 @@ button { font-family: inherit; }
     border-top: 1px solid var(--border);
     padding: 28px 0 0;
     margin-top: 24px;
+    position: static; height: auto;
   }
 }
 
