@@ -45,19 +45,28 @@ Gotcha (learned twice): every new SQL-editor table needs an explicit
 
 ## TOP ITEM TOMORROW — Stripe card payments
 
-The dues ledger foundation is done. The only thing left for real card payments
-is **Fernando's Stripe account** (he was going to create it — homework).
+The dues ledger foundation is done. The Stripe code is **scaffolded** (see
+below); the only thing blocking go-live is **Fernando's Stripe account**
+(homework — create it, get the keys).
 
-Build, once he sends the publishable key (`pk_...`):
-1. Supabase edge function `create-checkout` — takes resident + amount, creates a
-   Stripe Checkout session, returns the URL. Stripe **secret key** lives as a
-   Supabase function secret, never in the frontend.
-2. Supabase edge function `stripe-webhook` — on `checkout.session.completed`,
-   insert a row into `payments` (this is what makes status update automatically).
-3. Wire the Pay page button (currently staged disabled) → calls `create-checkout`
-   → redirects to Stripe's hosted checkout → back to the app.
-4. Fernando runs: `supabase functions deploy`, `supabase secrets set
-   STRIPE_SECRET_KEY=...`, and registers the webhook URL in the Stripe dashboard.
+Scaffolded 2026-05-21 — code is written, not yet deployed:
+1. ✅ `supabase/functions/create-checkout/` — authenticated; creates a Stripe
+   Checkout session, returns the hosted-checkout URL. Secret key server-only.
+2. ✅ `supabase/functions/stripe-webhook/` — verifies the Stripe signature, on
+   `checkout.session.completed` inserts a row into `payments`. Idempotent on
+   `stripe_session_id`.
+3. ✅ Pay button wired → `supabase.functions.invoke('create-checkout')` →
+   redirects to Stripe. Gated behind `REACT_APP_STRIPE_ENABLED` — stays
+   disabled (current behavior) until that flag is `true`.
+
+Remaining — all on Fernando, follow **`supabase/README.md`** step by step:
+- Create the Stripe account; `supabase link`.
+- Run the `payments_stripe_session_id_key` unique index SQL.
+- `supabase secrets set STRIPE_SECRET_KEY / APP_URL / STRIPE_WEBHOOK_SECRET`.
+- `supabase functions deploy create-checkout` and
+  `supabase functions deploy stripe-webhook --no-verify-jwt`.
+- Register the webhook endpoint in the Stripe dashboard.
+- Set `REACT_APP_STRIPE_ENABLED=true` in Vercel and redeploy.
 
 ## Shipped 2026-05-20 (today)
 

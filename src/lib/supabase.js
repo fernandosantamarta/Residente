@@ -5,6 +5,10 @@ const SUPABASE_ANON_KEY = process.env.REACT_APP_SUPABASE_ANON_KEY
 
 export const hasSupabase = !!(SUPABASE_URL && SUPABASE_ANON_KEY)
 
+// Card payments stay dark until the board deploys the Stripe edge functions
+// and flips this on. See supabase/README.md.
+export const stripeEnabled = process.env.REACT_APP_STRIPE_ENABLED === 'true'
+
 export const supabase = hasSupabase
   ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   : null
