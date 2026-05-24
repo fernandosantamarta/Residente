@@ -720,11 +720,14 @@ export function InteriorSvg() {
           <ellipse cx="1100" cy="1138" rx="17" ry="5" fill="#3A2415" />
           {/* highlight on the coffee surface so it reads as liquid */}
           <ellipse cx="1095" cy="1136.5" rx="6" ry="1.4" fill="#6B4A2C" opacity="0.7" />
-          {/* animated steam — three wisps rising at staggered phases so
-              it reads as continuous smoke, not three pulses */}
-          <path className="ln-smoke-rise"   d="M1090 1122 Q1093 1110 1090 1098" fill="none" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
-          <path className="ln-smoke-rise-a" d="M1100 1122 Q1103 1110 1100 1098" fill="none" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
-          <path className="ln-smoke-rise-b" d="M1110 1122 Q1107 1110 1110 1098" fill="none" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
+          {/* animated steam — four wavy wisps rising and fading at
+              staggered phases. Thicker stroke + longer curves + higher
+              peak opacity than v1 so the steam actually reads from
+              across the room. */}
+          <path className="ln-smoke-rise"   d="M1088 1124 Q1082 1108 1092 1092 Q1100 1078 1088 1062" fill="none" stroke={INK} strokeWidth="2.8" strokeLinecap="round" />
+          <path className="ln-smoke-rise-a" d="M1100 1124 Q1108 1108 1098 1092 Q1090 1078 1102 1062" fill="none" stroke={INK} strokeWidth="2.8" strokeLinecap="round" />
+          <path className="ln-smoke-rise-b" d="M1112 1124 Q1106 1108 1116 1092 Q1108 1078 1116 1062" fill="none" stroke={INK} strokeWidth="2.8" strokeLinecap="round" />
+          <path className="ln-smoke-rise-c" d="M1095 1124 Q1100 1110 1095 1096 Q1090 1082 1098 1068" fill="none" stroke={INK} strokeWidth="2.4" strokeLinecap="round" />
         </g>
 
         {/* second parent, leaning toward the tablet — orange jumper,

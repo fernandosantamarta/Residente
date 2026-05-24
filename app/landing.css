@@ -355,12 +355,14 @@ body:has(.landing-screen) { min-width: 0; }
    them mid-cycle. */
 @keyframes ln-smoke-rise {
   0%   { transform: translateY(0);     opacity: 0; }
-  20%  { opacity: 0.55; }
-  100% { transform: translateY(-28px); opacity: 0; }
+  15%  { opacity: 0.78; }
+  60%  { opacity: 0.55; }
+  100% { transform: translateY(-52px); opacity: 0; }
 }
-.ln-smoke-rise   { animation: ln-smoke-rise 2.6s ease-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
-.ln-smoke-rise-a { animation: ln-smoke-rise 2.6s ease-out -0.85s infinite; transform-box: fill-box; transform-origin: 50% 100%; }
-.ln-smoke-rise-b { animation: ln-smoke-rise 2.6s ease-out -1.70s infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+.ln-smoke-rise   { animation: ln-smoke-rise 2.8s ease-out infinite;        transform-box: fill-box; transform-origin: 50% 100%; }
+.ln-smoke-rise-a { animation: ln-smoke-rise 2.8s ease-out -0.70s infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+.ln-smoke-rise-b { animation: ln-smoke-rise 2.8s ease-out -1.40s infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+.ln-smoke-rise-c { animation: ln-smoke-rise 2.8s ease-out -2.10s infinite; transform-box: fill-box; transform-origin: 50% 100%; }
 
 /* Interior characters — adults breathe slowly (subtle up/down) at
    offset phases so the couch scene reads as two people watching
@@ -398,7 +400,7 @@ body:has(.landing-screen) { min-width: 0; }
   .ln-walk, .ln-walk-a, .ln-walk-b, .ln-walk-c,
   .ln-dog-bounce, .ln-wheel-spin, .ln-flag-wave, .ln-sun-spin,
   .ln-interior-breathe, .ln-interior-breathe-a, .ln-interior-bounce,
-  .ln-plane-fly, .ln-smoke-rise, .ln-smoke-rise-a, .ln-smoke-rise-b {
+  .ln-plane-fly, .ln-smoke-rise, .ln-smoke-rise-a, .ln-smoke-rise-b, .ln-smoke-rise-c {
     animation: none;
   }
 }
