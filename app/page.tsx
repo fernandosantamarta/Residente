@@ -357,7 +357,12 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
         </linearGradient>
         <SketchFilter id="cm-sketch" />
       </defs>
-      <g filter="url(#cm-sketch)">
+      {/* Filter removed from the animating hero — feTurbulence +
+          feDisplacementMap on a viewBox that changes every scroll
+          tick crushes perf on Safari/Mac. The ink strokes + ambient
+          window/tree animations carry enough hand-drawn character on
+          their own. */}
+      <g>
 
       {/* Sky + ground */}
       <rect width="2400" height={DY + 50} fill="url(#cm-sky)" />
@@ -560,7 +565,7 @@ function InteriorSvg() {
         <SketchFilter id="int-sketch" />
       </defs>
 
-      <g filter="url(#int-sketch)">
+      <g>
         {/* back wall */}
         <rect width="2400" height="1050" fill="url(#int-wall)" />
         {/* floor */}
