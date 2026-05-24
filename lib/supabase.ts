@@ -1,14 +1,22 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
-// Next.js exposes browser-readable env vars under the NEXT_PUBLIC_ prefix.
-// We also fall back to the old CRA REACT_APP_ prefix during the migration
-// so a stale .env.local keeps working until the user updates it.
+// Next.js inlines NEXT_PUBLIC_* env vars at BUILD time. If Vercel didn't
+// have them set when the production build ran, the inlined value is
+// `undefined` and every Supabase call fails with "fetch: Invalid value".
+// The anon key is meant to ship in the browser bundle (that's literally
+// its purpose), so a hardcoded fallback to the known-good public values
+// is a safe last-resort if env-var inlining didn't happen.
+const FALLBACK_URL = 'https://nozzfcxijdnllkiydhfi.supabase.co'
+const FALLBACK_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5venpmY3hpamRubGxraXlkaGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMzc1MTIsImV4cCI6MjA5NDcxMzUxMn0.Tv9E5bEGKuBFLdPUyF2AauW964jcb6ybESn81-ddO6Y'
+
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  process.env.REACT_APP_SUPABASE_URL
+  process.env.REACT_APP_SUPABASE_URL ||
+  FALLBACK_URL
 const SUPABASE_ANON_KEY =
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.REACT_APP_SUPABASE_ANON_KEY
+  process.env.REACT_APP_SUPABASE_ANON_KEY ||
+  FALLBACK_ANON_KEY
 
 export const hasSupabase: boolean = !!(SUPABASE_URL && SUPABASE_ANON_KEY)
 
