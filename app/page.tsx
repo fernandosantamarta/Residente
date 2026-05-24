@@ -944,10 +944,10 @@ function Cards() {
 function StatStrip() {
   return (
     <section className="ln-stats" data-anim>
-      <Stat n="100%" l="Of activity visible to residents" />
-      <Stat n="30 sec" l="To pay your dues" />
-      <Stat n="20 min" l="To set up a community" />
       <Stat n="0" l="Spreadsheets you'll keep" />
+      <Stat n="20 min" l="To set up a community" />
+      <Stat n="30 sec" l="To pay your dues" />
+      <Stat n="100%" l="Of activity visible to residents" />
     </section>
   )
 }
