@@ -12,7 +12,16 @@
 //          for auth.admin.generateLink).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
-import { corsHeaders } from '../_shared/cors.ts'
+
+// Inlined from ../_shared/cors.ts so the function deploys cleanly from
+// the Supabase dashboard editor (which doesn't follow relative imports
+// to sibling function folders the way the CLI does).
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers':
+    'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
 
 const RESEND_API_KEY     = Deno.env.get('RESEND_API_KEY') ?? ''
 const APP_URL            = Deno.env.get('APP_URL') ?? 'https://residente.io'
