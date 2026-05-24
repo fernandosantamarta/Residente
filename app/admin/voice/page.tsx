@@ -7,7 +7,8 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import {
   MEETING_TYPES, VOTE_TYPES, DOC_TYPES,
   noticeWarning, MEETING_STATUS_LABELS, VOTE_STATUS_LABELS,
-  NOTICE_KIND_LABELS, defaultNoticeCopy,
+  NOTICE_KIND_LABELS, defaultNoticeCopy, DEFAULT_CHANNELS,
+  type NoticeChannel,
 } from '@/lib/voice'
 import { useVoiceMeetings, useVoiceMeeting } from '@/hooks/useVoiceMeetings'
 import { useCommunityNotices } from '@/hooks/useNotices'
@@ -284,7 +285,7 @@ function MeetingDetail({ meetingId, onBack }) {
               community_id: meeting.community_id,
               meeting_id:   meeting.id,
               kind:         'meeting_published',
-              channels:     ['in_app'],
+              channels:     DEFAULT_CHANNELS,
               subject:      copy.subject,
               body:         copy.body,
             })
@@ -380,14 +381,23 @@ function MeetingDetail({ meetingId, onBack }) {
 function NotifyPanel({ meeting }) {
   const [subject, setSubject] = useState('')
   const [body, setBody]       = useState('')
+  const [channels, setChannels] = useState<NoticeChannel[]>(DEFAULT_CHANNELS)
   const [sending, setSending] = useState(false)
   const [err, setErr]         = useState(null)
   const { notices, loading, reload } = useCommunityNotices({ meetingId: meeting.id })
+
+  const toggleChannel = (c: NoticeChannel) => {
+    setChannels(prev => prev.includes(c) ? prev.filter(x => x !== c) : [...prev, c])
+  }
 
   const send = async (e) => {
     e.preventDefault()
     if (!subject.trim() && !body.trim()) {
       setErr('Add a subject or body before sending.')
+      return
+    }
+    if (channels.length === 0) {
+      setErr('Pick at least one channel.')
       return
     }
     setSending(true)
@@ -398,7 +408,7 @@ function NotifyPanel({ meeting }) {
           community_id: meeting.community_id,
           meeting_id:   meeting.id,
           kind:         'custom_broadcast',
-          channels:     ['in_app'],
+          channels,
           subject:      subject.trim(),
           body:         body.trim(),
         })
@@ -408,7 +418,10 @@ function NotifyPanel({ meeting }) {
         community_id: meeting.community_id,
         event_type:   'notice.sent',
         target_type:  'notice',
-        metadata:     { kind: 'custom_broadcast', meeting_id: meeting.id, subject: subject.trim() },
+        metadata:     {
+          kind: 'custom_broadcast', meeting_id: meeting.id,
+          subject: subject.trim(), channels,
+        },
       })
       setSubject('')
       setBody('')
@@ -445,7 +458,24 @@ function NotifyPanel({ meeting }) {
         </div>
         <div className="voice-form-row">
           <label>Channels</label>
-          <div className="voice-channels-readonly">In-app only (email coming soon)</div>
+          <div className="voice-channels">
+            <label className="voice-channel-opt">
+              <input
+                type="checkbox"
+                checked={channels.includes('in_app')}
+                onChange={() => toggleChannel('in_app')}
+              />
+              <span>In-app</span>
+            </label>
+            <label className="voice-channel-opt">
+              <input
+                type="checkbox"
+                checked={channels.includes('email')}
+                onChange={() => toggleChannel('email')}
+              />
+              <span>Email</span>
+            </label>
+          </div>
         </div>
         {err && <div className="admin-err">{err}</div>}
         <div className="voice-form-actions">
@@ -782,7 +812,7 @@ function DocsPanel({ meeting, reload }) {
               community_id: meeting.community_id,
               meeting_id:   meeting.id,
               kind,
-              channels:     ['in_app'],
+              channels:     DEFAULT_CHANNELS,
               subject:      copy.subject,
               body:         copy.body,
             })

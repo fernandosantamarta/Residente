@@ -895,3 +895,92 @@ create trigger ev_ballot_consent_guard_trg
   before insert on public.ev_ballots
   for each row execute function public.ev_ballot_consent_guard();
 
+-- ---------- Phase 4 / Commit 4: Email notice delivery ----------
+-- Extend ev_notice_fanout() to materialise email-channel recipients in
+-- addition to the existing in_app rows. The notice-email-fanout edge
+-- function (DB webhook on ev_notices INSERT) then picks them up,
+-- batches sends to Resend, and writes email_status back.
+
+create or replace function public.ev_notice_fanout()
+returns trigger language plpgsql security definer as $$
+declare in_app_inserted int := 0;
+        email_inserted  int := 0;
+begin
+  if 'in_app' = any (new.channels) then
+    insert into public.ev_notice_recipients
+      (notice_id, community_id, profile_id, channel)
+    select new.id, new.community_id, p.id, 'in_app'
+      from public.profiles p
+     where p.community_id = new.community_id
+    on conflict (notice_id, profile_id, channel) do nothing;
+    get diagnostics in_app_inserted = row_count;
+  end if;
+
+  if 'email' = any (new.channels) then
+    insert into public.ev_notice_recipients
+      (notice_id, community_id, profile_id, channel, email_status)
+    select new.id, new.community_id, p.id, 'email', 'queued'
+      from public.profiles p
+     where p.community_id = new.community_id
+       and p.email is not null
+    on conflict (notice_id, profile_id, channel) do nothing;
+    get diagnostics email_inserted = row_count;
+  end if;
+
+  -- recipient_count tracks the broader audience (max of channels, since
+  -- it represents "how many distinct people will see this notice").
+  update public.ev_notices
+     set recipient_count = greatest(in_app_inserted, email_inserted)
+   where id = new.id;
+  return new;
+end $$;
+
+-- Update the two auto-notice triggers so vote-opened / vote-results
+-- also fan out by email, not just in-app.
+create or replace function public.ev_vote_opened_notice()
+returns trigger language plpgsql as $$
+begin
+  if old.status is distinct from new.status and new.status = 'open' then
+    if not exists (
+      select 1 from public.ev_notices
+       where vote_id = new.id and kind = 'vote_opened'
+    ) then
+      insert into public.ev_notices
+        (community_id, meeting_id, vote_id, kind, channels,
+         subject, body, sent_by)
+      values
+        (new.community_id, new.meeting_id, new.id, 'vote_opened',
+         array['in_app','email'],
+         'Vote now open: ' || new.title,
+         'A vote is now open for your community. Tap to cast your ballot.',
+         auth.uid());
+    end if;
+  end if;
+  return new;
+end $$;
+
+create or replace function public.ev_vote_results_notice()
+returns trigger language plpgsql as $$
+begin
+  if old.status is distinct from new.status and new.status = 'published' then
+    if not exists (
+      select 1 from public.ev_notices
+       where vote_id = new.id and kind = 'vote_results'
+    ) then
+      insert into public.ev_notices
+        (community_id, meeting_id, vote_id, kind, channels,
+         subject, body, sent_by)
+      values
+        (new.community_id, new.meeting_id, new.id, 'vote_results',
+         array['in_app','email'],
+         'Results: ' || new.title,
+         'Final result: ' || coalesce(upper(new.result), 'no quorum') ||
+           '. Yes ' || new.yes_count ||
+           ' · No ' || new.no_count ||
+           ' · Abstain ' || new.abstain_count || '.',
+         auth.uid());
+    end if;
+  end if;
+  return new;
+end $$;
+

@@ -74,6 +74,31 @@ the very bottom (safe to re-run — everything uses `IF NOT EXISTS`):
   error path), and the SQL block at the bottom of
   `supabase/easy-voice.sql`.
 
+- **Commit 4 — Email notice delivery via Resend**
+  Notices sent from the admin Notify panel now fan out by email in
+  addition to in-app. New edge function `notice-email-fanout` (DB
+  webhook on `ev_notices` INSERT) reads queued `ev_notice_recipients`
+  for the new notice, batches sends through Resend `/emails/batch`
+  (up to 100/req), flips each row's `email_status` to `sent` or
+  `bounced`, and merges per-profile statuses into
+  `ev_notices.delivery_report` jsonb.
+
+  SQL: `ev_notice_fanout()` now also materialises email-channel
+  recipient rows (for every profile in the community with a non-null
+  email). The auto-notice triggers (`vote_opened`, `vote_results`)
+  default to both channels.
+
+  Admin Notify panel: replaced the "in-app only (email coming soon)"
+  readout with two real checkboxes — In-app and Email — defaulting to
+  both. The two other in-page notices (meeting_published auto-send +
+  agenda/minutes upload auto-send) now use `DEFAULT_CHANNELS` from
+  `lib/voice.ts` so they pick up the email channel automatically too.
+
+  **Deploy (one-time):** see [§ Easy Voice notice email fan-out](supabase/README.md#easy-voice-notice-email-fan-out).
+  Needs `supabase functions deploy notice-email-fanout --no-verify-jwt`,
+  a new `NOTICE_WEBHOOK_SECRET` secret, and a DB webhook wired in the
+  Supabase dashboard.
+
 ## ⚠️ FIRST THING — confirm both SQL blocks ran
 
 Two unmerged migrations now live in `supabase/` as `.sql` files. Both must

@@ -98,6 +98,10 @@ export type NoticeKind =
 
 export type NoticeChannel = 'in_app' | 'email' | 'sms'
 
+// Default channels when an admin sends a new notice. SMS is not wired in
+// Phase 4 — it ships in Milestone 2 once Twilio is provisioned.
+export const DEFAULT_CHANNELS: NoticeChannel[] = ['in_app', 'email']
+
 export const NOTICE_KIND_LABELS: Record<NoticeKind, string> = {
   meeting_published: 'Meeting published',
   meeting_reminder:  'Meeting reminder',

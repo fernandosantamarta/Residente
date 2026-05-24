@@ -1,6 +1,6 @@
 # Supabase edge functions
 
-This folder ships three edge function setups:
+This folder ships four edge function setups:
 
 1. **Stripe card payments** — `create-checkout` + `stripe-webhook`. Powers
    the Pay button. (Sections below.)
@@ -8,9 +8,13 @@ This folder ships three edge function setups:
    someone joins the landing page waitlist. (See [§ Waitlist](#waitlist-email-notifications).)
 3. **Easy Voice owner invites** — `voice-invite-owner`. Sends an authenticated
    board user's "join Easy Voice" invitation to an owner by email.
-   (See [§ Easy Voice](#easy-voice-owner-invites) at the bottom.)
+   (See [§ Easy Voice owner invites](#easy-voice-owner-invites).)
+4. **Easy Voice notice email fan-out** — `notice-email-fanout`. DB-webhook
+   triggered; emails every queued email-channel recipient of a new notice
+   via Resend. (See [§ Easy Voice email fan-out](#easy-voice-notice-email-fan-out)
+   at the bottom.)
 
-The three setups are independent — you can ship any subset without the others.
+The four setups are independent — you can ship any subset without the others.
 
 ---
 
@@ -261,3 +265,95 @@ supabase functions logs voice-invite-owner
   button on already-invited rows for that case.
 - Service-role calls in this function bypass RLS — every code path therefore
   re-checks `community_id` against the caller's profile before writing.
+
+---
+
+# Easy Voice notice email fan-out
+
+`notice-email-fanout` is the email side of Easy Voice notifications. The
+in-app side ships through the `ev_notice_fanout` DB trigger (Phase 2);
+this function handles the email channel.
+
+## How it works
+
+1. Admin sends a notice from `/admin/voice` → row inserted into
+   `ev_notices` with `channels` including `'email'`.
+2. `ev_notice_fanout` DB trigger materialises one `ev_notice_recipients`
+   row per owner who has both a profile and an email, with
+   `email_status = 'queued'`.
+3. Supabase DB webhook on `ev_notices` INSERT calls this function.
+4. The function fetches all `queued` rows for the notice, batches them
+   through Resend's `/emails/batch` (up to 100 per call), and flips
+   each row's `email_status` to `'sent'` or `'bounced'`.
+5. Per-profile statuses are merged into `ev_notices.delivery_report`
+   (jsonb) so the board can audit who got what.
+
+## Prerequisites
+
+- `RESEND_API_KEY` secret already set (from the Waitlist section).
+- Supabase CLI linked.
+- The Phase 4 SQL block at the bottom of `supabase/easy-voice.sql` has
+  been run (extends `ev_notice_fanout()` to emit email-channel rows).
+
+## 1. Set the function secrets
+
+```bash
+supabase secrets set NOTICE_WEBHOOK_SECRET=$(openssl rand -hex 32)
+# APP_URL and NOTIFY_FROM_VOICE are already set from the invite function.
+```
+
+Save the `NOTICE_WEBHOOK_SECRET` value — step 3 needs it.
+
+## 2. Deploy the function
+
+```bash
+supabase functions deploy notice-email-fanout --no-verify-jwt
+```
+
+`--no-verify-jwt` is required — DB webhooks don't carry a Supabase token.
+The function instead checks the `NOTICE_WEBHOOK_SECRET` header.
+
+## 3. Wire the database webhook
+
+Supabase dashboard → **Database** → **Webhooks** → **Create a new hook**:
+
+- **Name:** `ev-notices-email-fanout`
+- **Table:** `public.ev_notices`
+- **Events:** `INSERT`
+- **Type:** `Supabase Edge Function`
+- **Edge Function:** `notice-email-fanout`
+- **HTTP Headers:** add one row
+  - Key: `X-Webhook-Secret`
+  - Value: *(the `NOTICE_WEBHOOK_SECRET` value from step 1)*
+
+## Test it
+
+1. Sign in as a board member.
+2. `/admin/voice` → pick a meeting → **Notify** tab.
+3. Compose a test notice with **both In-app and Email** checked.
+4. Within seconds your inbox should have a "Notice" email matching the
+   subject + body, with a "View in Residente" button linking to the
+   meeting.
+5. SQL spot-check:
+   - `select email_status, count(*) from ev_notice_recipients where notice_id = '<id>' group by 1;` → all `sent`.
+   - `select delivery_report from ev_notices where id = '<id>';` → jsonb
+     map of profile → `'sent'`.
+
+Tail logs while testing:
+
+```bash
+supabase functions logs notice-email-fanout
+```
+
+## Notes
+
+- The auto-notice triggers `ev_vote_opened_notice` and
+  `ev_vote_results_notice` now default to both channels (`['in_app',
+  'email']`) so the email loop fires for every vote-opened and
+  vote-results notice too.
+- Resend's free tier allows 100 emails/day. A 500-unit pilot can blow
+  through that with a single meeting-notice broadcast — upgrade to a
+  paid Resend plan before pilot launch.
+- Bounces are surfaced as `email_status = 'bounced'`; the function does
+  not retry. A future job could re-queue bounced rows for a different
+  channel (SMS, once Twilio is wired).

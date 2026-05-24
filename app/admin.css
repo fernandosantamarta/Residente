@@ -478,6 +478,14 @@
   font-size: 13px; color: var(--text-dim);
   padding: 8px 0;
 }
+.voice-channels {
+  display: flex; gap: 16px; padding: 8px 0;
+}
+.voice-channel-opt {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--text); cursor: pointer;
+}
+.voice-channel-opt input { cursor: pointer; }
 .voice-notice-row {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
   padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border);
