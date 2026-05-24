@@ -19,6 +19,7 @@ const initialsFrom = (name) => {
 const NAV = [
   { to: '/app',           label: 'Home',      icon: <><path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/></> },
   { to: '/app/pay',       label: 'Pay',       icon: <><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/></> },
+  { to: '/app/voice',     label: 'Voice',     icon: <><path d="M12 2a8 8 0 0 1 8 8c0 5-8 13-8 13S4 15 4 10a8 8 0 0 1 8-8z"/><circle cx="12" cy="10" r="2.5"/></> },
   { to: '/app/board',     label: 'Board',     icon: <><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/><path d="M15 19c0-2 2-3.5 4-3.5s3 1.2 3 3"/></>, pulse: true },
   { to: '/app/rules',     label: 'Rules',     icon: <><path d="M4 4h12l4 4v12H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></> },
   { to: '/app/documents', label: 'Documents', icon: <><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/></> },

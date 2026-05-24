@@ -1,0 +1,132 @@
+/* ============ EASY VOICE — Resident App ============ */
+
+.voice-wrap {
+  max-width: 720px;
+  padding: 32px 0 80px;
+}
+
+.voice-page-head { margin-bottom: 32px; }
+.voice-page-title { font-size: 28px; font-weight: 600; letter-spacing: -0.5px; margin-bottom: 6px; }
+.voice-page-sub   { font-size: 14px; color: var(--text-dim); line-height: 1.5; }
+
+.voice-placeholder { font-size: 14px; color: var(--text-dim); padding: 24px 0; }
+.voice-err         { font-size: 13px; color: #F47174; padding: 10px 0; }
+
+.voice-section      { margin-bottom: 36px; }
+.voice-section-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+  color: var(--text-faint); margin-bottom: 12px;
+}
+
+/* Resident meeting list row */
+.voice-res-row {
+  width: 100%; display: flex; align-items: center; gap: 16px;
+  padding: 18px 20px; margin-bottom: 8px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 12px; cursor: pointer; text-align: left;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.voice-res-row:hover  { border-color: var(--border-hover); background: var(--bg-elev); }
+.voice-res-row.past   { opacity: 0.65; }
+
+.voice-res-date {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  min-width: 44px; padding: 6px 0;
+}
+.voice-res-month {
+  font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  background: var(--grad); -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.voice-res-day { font-size: 24px; font-weight: 700; letter-spacing: -1px; line-height: 1.1; }
+
+.voice-res-body  { flex: 1; }
+.voice-res-type  { font-size: 10px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase; color: var(--text-faint); margin-bottom: 3px; }
+.voice-res-title { font-size: 16px; font-weight: 600; letter-spacing: -0.2px; margin-bottom: 4px; }
+.voice-res-meta  { font-size: 12px; color: var(--text-dim); }
+
+.voice-res-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.voice-res-chevron { width: 18px; height: 18px; color: var(--text-faint); }
+
+.voice-badge-vote {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.5px;
+  padding: 4px 10px; border-radius: 20px;
+  background: var(--grad); color: #fff;
+}
+
+/* Meeting detail — resident */
+.voice-back-btn {
+  background: none; border: none; color: var(--text-dim); font-family: inherit;
+  font-size: 13px; cursor: pointer; padding: 0; margin-bottom: 20px;
+  transition: color 0.15s ease;
+}
+.voice-back-btn:hover { color: var(--text); }
+
+.voice-detail-header { margin-bottom: 28px; }
+
+.voice-virtual-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 18px; margin-top: 14px;
+  background: var(--grad); color: #fff;
+  border-radius: 8px; font-size: 14px; font-weight: 600;
+  transition: opacity 0.15s ease;
+}
+.voice-virtual-btn:hover { opacity: 0.9; }
+.voice-virtual-btn svg { width: 16px; height: 16px; }
+
+/* Vote cards — resident */
+.voice-vote-card {
+  padding: 20px; margin-bottom: 12px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 12px;
+}
+.voice-vote-card.open { border-color: #6B4DA0; }
+
+.voice-vote-card-head  { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 10px; }
+.voice-vote-card-title { font-size: 17px; font-weight: 600; letter-spacing: -0.3px; }
+.voice-vote-card-meta  { font-size: 12px; color: var(--text-dim); margin-top: 3px; }
+.voice-vote-card-desc  { font-size: 14px; color: var(--text-dim); line-height: 1.55; margin-bottom: 14px; }
+
+.voice-ballot-btns { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0 4px; }
+.voice-ballot-btn {
+  padding: 11px 22px; border: 2px solid transparent; border-radius: 8px;
+  font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+  transition: all 0.15s ease;
+}
+.voice-ballot-yes   { background: #2A3A2A; border-color: #7BC97B; color: #7BC97B; }
+.voice-ballot-yes:hover:not(:disabled) { background: #7BC97B22; }
+.voice-ballot-no    { background: #3A2A2A; border-color: #F47174; color: #F47174; }
+.voice-ballot-no:hover:not(:disabled)  { background: #F4717422; }
+.voice-ballot-abstain { background: var(--bg-elev); border-color: var(--border-hover); color: var(--text-dim); }
+.voice-ballot-abstain:hover:not(:disabled) { border-color: var(--text-dim); }
+.voice-ballot-btn:disabled { opacity: 0.6; cursor: default; }
+
+.voice-my-vote { font-size: 13px; color: var(--text-dim); margin: 12px 0 8px; }
+.voice-my-vote strong { color: var(--text); }
+
+.voice-results { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+.voice-tally-bar-row { display: flex; align-items: center; gap: 10px; }
+.voice-tally-bar-label { font-size: 13px; font-weight: 600; width: 52px; }
+.voice-tally-bar-track { flex: 1; height: 8px; background: var(--bg-elev); border-radius: 4px; overflow: hidden; }
+.voice-tally-bar-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; }
+.voice-tally-bar-yes  { background: #7BC97B; }
+.voice-tally-bar-no   { background: #F47174; }
+.voice-tally-bar-abs  { background: var(--border-hover); }
+.voice-tally-bar-ct   { font-size: 12px; color: var(--text-dim); width: 80px; text-align: right; }
+
+.voice-secret-pending { font-size: 13px; color: var(--text-dim); padding: 8px 0; }
+
+/* Document rows — resident */
+.voice-doc-res-row {
+  width: 100%; display: flex; align-items: center; gap: 14px;
+  padding: 14px 18px; margin-bottom: 8px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 10px; cursor: pointer; text-align: left;
+  transition: border-color 0.15s ease;
+}
+.voice-doc-res-row:hover:not(:disabled) { border-color: var(--border-hover); }
+.voice-doc-res-row > svg { width: 22px; height: 22px; flex-shrink: 0; color: var(--text-faint); }
+.voice-doc-res-body  { flex: 1; }
+.voice-doc-res-title { font-size: 14px; font-weight: 600; margin-bottom: 3px; }
+.voice-doc-res-type  { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.8px; }
+.voice-doc-res-arrow { width: 16px; height: 16px; color: var(--text-faint); flex-shrink: 0; }

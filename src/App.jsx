@@ -19,9 +19,12 @@ import AdminCommunity from './pages/admin/CommunitySettings'
 import AdminBoard from './pages/admin/Board'
 import AdminRules from './pages/admin/Rules'
 import AdminDocuments from './pages/admin/Documents'
+import AdminMeetings from './pages/admin/Meetings'
+import VoiceMeetingList from './pages/voice/MeetingList'
 import './admin.css'
 import './landing.css'
 import './easy-voice.css'
+import './voice-app.css'
 
 export const AuthContext = createContext(null)
 export const useAuth = () => useContext(AuthContext)
@@ -124,10 +127,12 @@ export default function App() {
             <Route path="board" element={<AdminBoard />} />
             <Route path="rules" element={<AdminRules />} />
             <Route path="documents" element={<AdminDocuments />} />
+            <Route path="meetings"  element={<AdminMeetings />} />
           </Route>
           <Route path="/app" element={requireAuth ? <Navigate to="/login" replace /> : <Layout />}>
             <Route index            element={<Home />} />
             <Route path="pay"       element={<Pay />} />
+            <Route path="voice"     element={<VoiceMeetingList />} />
             <Route path="board"     element={<Board />} />
             <Route path="rules"     element={<Rules />} />
             <Route path="documents" element={<Documents />} />

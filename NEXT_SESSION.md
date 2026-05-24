@@ -1,6 +1,29 @@
 # Next session — Residente
 
-Last touched: 2026-05-20 (heavy session — admin section + dues ledger built)
+Last touched: 2026-05-24 (Easy Voice core features scaffolded — branch: andres/easy-voice)
+
+## ⚠️ FIRST — run the Easy Voice SQL
+Before testing Easy Voice, run `supabase/easy-voice.sql` in the Supabase SQL editor.
+Creates: `ev_meetings`, `ev_meeting_docs`, `ev_votes`, `ev_ballots` + storage bucket `ev-documents`.
+
+## Easy Voice — what was built this session
+- `src/lib/voice.js` — meeting types, vote types, FL notice-period constants, `noticeWarning()` helper
+- `src/hooks/useVoiceMeetings.js` — data hooks for meetings list and single meeting
+- `src/pages/admin/Meetings.jsx` — admin meeting management (create, status lifecycle, votes, docs)
+- `src/pages/voice/MeetingList.jsx` — resident meetings list (upcoming + past)
+- `src/pages/voice/MeetingDetail.jsx` — resident meeting detail: live voting + doc downloads
+- Routes: `/admin/meetings` and `/app/voice` (Voice tab in resident nav)
+
+### Next up for Easy Voice
+1. Notice sending via email (Resend) when meeting moves to `notice_sent`
+2. Real-time participation count during open votes (Supabase Realtime)
+3. Written ballot mode (async window, auto-seal at `closes_at`)
+4. Attendance / quorum tracking (admin check-in screen)
+5. Board elections full flow (nominations → ballot → tiebreaker)
+
+---
+
+Last touched (prior session): 2026-05-20 (heavy session — admin section + dues ledger built)
 
 ## ⚠️ FIRST THING TOMORROW — confirm the SQL ran
 
