@@ -1,13 +1,16 @@
 # Supabase edge functions
 
-This folder ships two edge function setups:
+This folder ships three edge function setups:
 
 1. **Stripe card payments** — `create-checkout` + `stripe-webhook`. Powers
    the Pay button. (Sections below.)
 2. **Waitlist email notification** — `waitlist-notify`. Emails you whenever
-   someone joins the landing page waitlist. (See [§ Waitlist](#waitlist-email-notifications) at the bottom.)
+   someone joins the landing page waitlist. (See [§ Waitlist](#waitlist-email-notifications).)
+3. **Easy Voice owner invites** — `voice-invite-owner`. Sends an authenticated
+   board user's "join Easy Voice" invitation to an owner by email.
+   (See [§ Easy Voice](#easy-voice-owner-invites) at the bottom.)
 
-The two setups are independent — you can ship either one without the other.
+The three setups are independent — you can ship any subset without the others.
 
 ---
 
@@ -193,3 +196,68 @@ supabase functions logs waitlist-notify
 - The webhook payload also goes to the function `old_record` field for
   UPDATEs and DELETEs; this function only listens for INSERT (per the
   webhook config) so that path never fires.
+
+---
+
+# Easy Voice owner invites
+
+`voice-invite-owner` is the bridge between the **Voice → Roster** admin page
+and an owner's inbox. The browser calls it (authenticated) with a
+`resident_id`; the function generates a Supabase auth invite/magic link and
+emails it via Resend with a branded body. Idempotent — re-inviting an
+existing owner falls through to a magic link, never duplicates the account.
+
+## Prerequisites
+
+- Resend account + `RESEND_API_KEY` already set (from the Waitlist section).
+- Supabase CLI linked.
+- A community in Supabase + at least one row in `residents` with an `email`
+  (use `/admin/voice/roster` to import).
+
+## 1. Set the function secrets
+
+```bash
+supabase secrets set APP_URL=https://residente.io   # already set for Stripe
+# Optional — default is "Residente <onboarding@resend.dev>", which works
+# without DNS. Once notices@residente.io is verified in Resend, set this:
+supabase secrets set NOTIFY_FROM_VOICE="Residente <notices@residente.io>"
+```
+
+`SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are
+injected automatically. The service-role key is needed because
+`auth.admin.generateLink` is privileged.
+
+## 2. Deploy the function
+
+```bash
+supabase functions deploy voice-invite-owner
+```
+
+Note: **no** `--no-verify-jwt` — the function is called by the browser with
+a real session and verifies the caller is a `board_member` or `admin`
+for the owner's community.
+
+## Test it
+
+1. Sign in as a board member.
+2. `/admin/voice/roster` → Import a CSV with one row (your own email).
+3. Click **Invite** on that row.
+4. Within seconds you should receive a "You're invited to … on Residente"
+   email from `NOTIFY_FROM_VOICE`. The link redirects to `/onboard`.
+5. The row's status flips to **Invited**, and `residents.invited_at` is set.
+
+Tail logs while testing:
+
+```bash
+supabase functions logs voice-invite-owner
+```
+
+## Notes
+
+- The default Resend sender (`onboarding@resend.dev`) lands in inboxes
+  fine for early invites; the deliverability story improves once your own
+  domain is verified.
+- Magic links expire after 24 hours. The Roster page exposes a **Re-invite**
+  button on already-invited rows for that case.
+- Service-role calls in this function bypass RLS — every code path therefore
+  re-checks `community_id` against the caller's profile before writing.

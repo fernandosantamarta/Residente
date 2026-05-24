@@ -238,7 +238,12 @@ export default function VoiceRosterPage() {
         />
       )}
 
-      <OwnerList owners={owners} status={status} />
+      <OwnerList
+        owners={owners}
+        status={status}
+        communityId={communityId}
+        onChange={load}
+      />
     </div>
   )
 }
@@ -319,7 +324,74 @@ function RosterPreview({
   )
 }
 
-function OwnerList({ owners, status }: { owners: OwnerListRow[]; status: string }) {
+function OwnerList({
+  owners, status, communityId, onChange,
+}: {
+  owners: OwnerListRow[]
+  status: string
+  communityId: string | null
+  onChange: () => void
+}) {
+  const [busyId, setBusyId] = useState<string | null>(null)
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [feedback, setFeedback] = useState<string>('')
+  const [feedbackErr, setFeedbackErr] = useState<string>('')
+
+  const invite = useCallback(async (id: string) => {
+    if (!hasSupabase || !communityId) return
+    setBusyId(id); setFeedback(''); setFeedbackErr('')
+    try {
+      const { data, error } = await supabase!.functions.invoke('voice-invite-owner', {
+        body: { resident_id: id },
+      })
+      if (error) throw error
+      if (data && (data as any).ok === false) throw new Error((data as any).error || 'Invite failed')
+      await logAudit({
+        community_id: communityId,
+        event_type:   'invite.sent',
+        target_type:  'resident',
+        target_id:    id,
+        metadata:     { email_sent: !!(data as any)?.email_sent },
+      })
+      setFeedback('Invitation sent.')
+      onChange()
+    } catch (err: any) {
+      setFeedbackErr(err?.message || 'Could not send invitation')
+    } finally {
+      setBusyId(null)
+    }
+  }, [communityId, onChange])
+
+  const inviteUninvited = useCallback(async () => {
+    if (!hasSupabase || !communityId) return
+    const targets = owners.filter(o => o.email && !o.invited_at)
+    if (!targets.length) return
+    setBulkBusy(true); setFeedback(''); setFeedbackErr('')
+    let sent = 0, failed = 0
+    for (const o of targets) {
+      try {
+        const { data, error } = await supabase!.functions.invoke('voice-invite-owner', {
+          body: { resident_id: o.id },
+        })
+        if (error) throw error
+        if (data && (data as any).ok === false) throw new Error((data as any).error || 'Invite failed')
+        await logAudit({
+          community_id: communityId,
+          event_type:   'invite.sent',
+          target_type:  'resident',
+          target_id:    o.id,
+          metadata:     { email_sent: !!(data as any)?.email_sent, bulk: true },
+        })
+        sent++
+      } catch (err) {
+        failed++
+      }
+    }
+    setBulkBusy(false)
+    setFeedback(`Bulk invite: ${sent} sent${failed ? `, ${failed} failed` : ''}.`)
+    onChange()
+  }, [communityId, owners, onChange])
+
   if (status === 'loading') return <div className="admin-placeholder">Loading owners…</div>
   if (status !== 'ready') return null
 
@@ -331,11 +403,32 @@ function OwnerList({ owners, status }: { owners: OwnerListRow[]; status: string 
     )
   }
 
+  const uninvitedCount = owners.filter(o => o.email && !o.invited_at).length
+
   return (
     <div className="voice-roster-list" style={{ marginTop: 24 }}>
-      <div className="voice-roster-list-head">
-        {owners.length} owner{owners.length === 1 ? '' : 's'} in roster
+      <div className="voice-roster-list-head" style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+      }}>
+        <span>{owners.length} owner{owners.length === 1 ? '' : 's'} in roster</span>
+        {uninvitedCount > 0 && (
+          <button
+            className="admin-btn-sm"
+            disabled={bulkBusy}
+            onClick={inviteUninvited}
+          >
+            {bulkBusy
+              ? 'Sending…'
+              : `Send ${uninvitedCount} invitation${uninvitedCount === 1 ? '' : 's'}`}
+          </button>
+        )}
       </div>
+      {feedback && (
+        <div className="admin-note" style={{ marginBottom: 10, borderLeft: '3px solid #6ee7a7' }}>
+          {feedback}
+        </div>
+      )}
+      {feedbackErr && <div className="admin-err">{feedbackErr}</div>}
       <div className="voice-roster-table-wrap">
         <table className="voice-roster-table">
           <thead>
@@ -345,6 +438,7 @@ function OwnerList({ owners, status }: { owners: OwnerListRow[]; status: string 
               <th>Email</th>
               <th>Phone</th>
               <th>Invite state</th>
+              <th></th>
             </tr>
           </thead>
           <tbody>
@@ -355,6 +449,21 @@ function OwnerList({ owners, status }: { owners: OwnerListRow[]; status: string 
                 <td>{o.email || <span style={{ color: 'var(--text-dim)' }}>—</span>}</td>
                 <td>{o.phone || <span style={{ color: 'var(--text-dim)' }}>—</span>}</td>
                 <td>{inviteStateLabel(o)}</td>
+                <td>
+                  {o.email && (
+                    <button
+                      className="admin-btn-sm"
+                      disabled={busyId === o.id || bulkBusy}
+                      onClick={() => invite(o.id)}
+                    >
+                      {busyId === o.id
+                        ? '…'
+                        : o.activated_at ? 'Resend magic link'
+                        : o.invited_at   ? 'Re-invite'
+                        : 'Invite'}
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>

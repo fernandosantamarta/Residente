@@ -30,6 +30,22 @@ the very bottom (safe to re-run — everything uses `IF NOT EXISTS`):
   CSS additions in `app/admin.css`, new audit event types in
   `lib/audit.ts`. Build green; route appears in build output.
 
+- **Commit 2 — Owner invitation flow + magic-link emails**
+  New edge function `supabase/functions/voice-invite-owner` — board user
+  in `/admin/voice/roster` clicks **Invite** (per row) or **Send N
+  invitations** (bulk). The function verifies caller's board role
+  against the resident's community, generates a Supabase auth invite
+  (falls back to magic link if the auth user already exists), sends
+  a branded "You're invited to … on Residente" email via Resend
+  (default sender `onboarding@resend.dev` until `notices@residente.io`
+  is DNS-verified), and writes back `residents.invited_at` +
+  `residents.profile_id`. Resend logs success. Logs `invite.sent`
+  audit event. Re-invite button on already-invited rows handles the
+  24-hour magic-link expiry.
+  **Deploy (one-time):** see [§ Easy Voice owner invites](supabase/README.md#easy-voice-owner-invites)
+  in the supabase README. Needs `supabase functions deploy
+  voice-invite-owner` and optionally setting `NOTIFY_FROM_VOICE`.
+
 ## ⚠️ FIRST THING — confirm both SQL blocks ran
 
 Two unmerged migrations now live in `supabase/` as `.sql` files. Both must
