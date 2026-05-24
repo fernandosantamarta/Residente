@@ -104,6 +104,94 @@ export function useMyNotices() {
   return { notices, loading, error, reload: load, markRead }
 }
 
+// Full-page inbox at /app/notifications. Paginated via .range(); supports
+// kind filter and "mark all read" in a single update. Independent of
+// useMyNotices (the bell dropdown) so the two can coexist with different
+// page sizes / filters without fighting over the same state.
+export function useMyNoticesPaged({ kind, pageSize = 50 }: { kind?: string; pageSize?: number } = {}) {
+  const { profile } = useAuth() || {}
+  const [notices, setNotices]   = useState([])
+  const [loading, setLoading]   = useState(true)
+  const [loadingMore, setMore]  = useState(false)
+  const [error, setError]       = useState(null)
+  const [hasMore, setHasMore]   = useState(false)
+
+  const fetchPage = useCallback(async (from: number) => {
+    let q = supabase
+      .from('ev_notice_recipients')
+      .select('id, read_at, delivered_at, notice:ev_notices!inner(id, kind, subject, body, meeting_id, vote_id, sent_at)')
+      .eq('profile_id', profile.id)
+      .order('delivered_at', { ascending: false })
+      .range(from, from + pageSize - 1)
+    if (kind) q = q.eq('notice.kind', kind)
+    const { data, error } = await withTimeout(q)
+    if (error) throw error
+    return data ?? []
+  }, [profile?.id, kind, pageSize])
+
+  const load = useCallback(async () => {
+    if (!hasSupabase || !profile?.id) { setLoading(false); return }
+    setLoading(true)
+    setError(null)
+    try {
+      const page = await fetchPage(0)
+      setNotices(page)
+      setHasMore(page.length === pageSize)
+    } catch (err) {
+      setError(err?.message ?? 'Failed to load notifications.')
+    } finally {
+      setLoading(false)
+    }
+  }, [profile?.id, fetchPage, pageSize])
+
+  useEffect(() => { load() }, [load])
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return
+    setMore(true)
+    try {
+      const page = await fetchPage(notices.length)
+      setNotices(prev => [...prev, ...page])
+      setHasMore(page.length === pageSize)
+    } catch (err) {
+      setError(err?.message ?? 'Failed to load more.')
+    } finally {
+      setMore(false)
+    }
+  }, [loadingMore, hasMore, notices.length, fetchPage, pageSize])
+
+  const markRead = useCallback(async (recipientId) => {
+    if (!hasSupabase) return
+    setNotices(rs => rs.map(r => r.id === recipientId ? { ...r, read_at: new Date().toISOString() } : r))
+    try {
+      await withTimeout(
+        supabase
+          .from('ev_notice_recipients')
+          .update({ read_at: new Date().toISOString() })
+          .eq('id', recipientId)
+      )
+    } catch { /* realtime/poll will reconcile */ }
+  }, [])
+
+  // Single-query bulk update; RLS "owner marks own recipient read" covers it.
+  const markAllRead = useCallback(async () => {
+    if (!hasSupabase || !profile?.id) return
+    const now = new Date().toISOString()
+    setNotices(rs => rs.map(r => r.read_at ? r : { ...r, read_at: now }))
+    try {
+      await withTimeout(
+        supabase
+          .from('ev_notice_recipients')
+          .update({ read_at: now })
+          .eq('profile_id', profile.id)
+          .is('read_at', null)
+      )
+    } catch { /* keep — local optimistic update reconciles via realtime */ }
+  }, [profile?.id])
+
+  return { notices, loading, loadingMore, hasMore, error, reload: load, loadMore, markRead, markAllRead }
+}
+
 // Board-side history list. Filter by meeting for the per-meeting tab.
 export function useCommunityNotices(opts: { meetingId?: string } = {}) {
   const { profile } = useAuth() || {}

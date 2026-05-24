@@ -400,6 +400,13 @@ function NotificationBell() {
               </button>
             )
           })}
+          <Link
+            href="/app/notifications"
+            className="bell-panel-footer"
+            onClick={() => setOpen(false)}
+          >
+            See all notifications →
+          </Link>
         </div>
       )}
     </div>

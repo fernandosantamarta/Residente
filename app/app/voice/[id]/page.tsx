@@ -6,6 +6,7 @@ import { useVoiceMeeting } from '@/hooks/useVoiceMeetings'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { MEETING_TYPES, DOC_TYPES, VOTE_TYPES } from '@/lib/voice'
+import { logAudit } from '@/lib/audit'
 
 const withTimeout = (p, ms = 10000) =>
   Promise.race([
@@ -98,13 +99,13 @@ function ResidentVoteCard({ vote: v, onVoted }) {
     setCasting(true)
     setCastErr(null)
     try {
-      const { error } = await withTimeout(
+      const { data: ballot, error } = await withTimeout(
         supabase.from('ev_ballots').insert({
           vote_id:     v.id,
           profile_id:  profile.id,
           unit_number: profile.unit_number,
           answer,
-        })
+        }).select('id').single()
       )
       if (error) {
         if (error.code === '23505') {
@@ -114,6 +115,13 @@ function ResidentVoteCard({ vote: v, onVoted }) {
         }
         return
       }
+      logAudit({
+        community_id: v.community_id,
+        event_type:   'ballot.cast',
+        target_type:  'ballot',
+        target_id:    ballot?.id ?? null,
+        metadata:     { vote_id: v.id, answer, ballot_type: v.ballot_type },
+      })
       setMyVote(answer)
       onVoted()
     } catch (e) {
