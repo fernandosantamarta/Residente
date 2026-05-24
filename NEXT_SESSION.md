@@ -1,7 +1,34 @@
 # Next session — Residente
 
-Last touched: 2026-05-23 (landing page + waitlist shipped on top of the
-2026-05-20 admin/dues session; routes moved cockpit to `/app`).
+Last touched: 2026-05-24 (Easy Voice Phase 4 in flight on
+`andres/easy-voice-nextjs` — pilot launch readiness).
+
+## ⚠️ FIRST THING (Phase 4) — re-run `supabase/easy-voice.sql`
+
+Phase 4 appends new blocks to the bottom of `supabase/easy-voice.sql`.
+Open the file in Supabase SQL editor and run the **PHASE 4** sections at
+the very bottom (safe to re-run — everything uses `IF NOT EXISTS`):
+
+- **Commit 1 (Owner roster CSV import)** — adds
+  `residents.first_name`, `residents.last_name`, and a unique partial
+  index on `(community_id, lower(email))`. Without it, the new
+  `/admin/voice/roster` page will save data but won't enforce dedupe.
+
+## Phase 4 — what's shipped so far on `andres/easy-voice-nextjs`
+
+- **Commit 1 — Owner roster CSV import (admin)**
+  New page `/admin/voice/roster` with a sub-nav between Meetings and
+  Roster. Drop a CSV (header: `unit_number, first_name, last_name,
+  email, phone`) → live preview table flagging per-row errors (bad
+  email, missing fields, duplicates, unit/email already in roster) →
+  one-click import upserts `ev_units` then `residents` (idempotent;
+  existing owners matched by email are updated, not duplicated).
+  `residents.full_name` is kept in sync (`first || ' ' || last`) so
+  the dues dashboard and right-rail remain unaffected. Logs
+  `roster.imported` audit event with counts.
+  Files: `lib/voiceRoster.ts`, `app/admin/voice/roster/page.tsx`,
+  CSS additions in `app/admin.css`, new audit event types in
+  `lib/audit.ts`. Build green; route appears in build output.
 
 ## ⚠️ FIRST THING — confirm both SQL blocks ran
 

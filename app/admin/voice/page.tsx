@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import {
@@ -49,7 +50,9 @@ export default function Meetings() {
 
   return (
     <div className="admin-section">
-      <div className="admin-section-head">
+      <VoiceTabs active="meetings" />
+
+      <div className="admin-section-head" style={{ marginTop: 18 }}>
         <div>
           <div className="admin-section-title">Easy Voice — Meetings</div>
           <div className="admin-section-sub">Create meetings, manage documents, and run votes.</div>
@@ -874,6 +877,23 @@ function DocRow({ doc: d, communityId, onDeleted }) {
       <button className="voice-doc-del" onClick={del} disabled={deleting} aria-label="Delete document">
         {deleting ? '…' : '×'}
       </button>
+    </div>
+  )
+}
+
+// Sub-nav for /admin/voice and /admin/voice/roster. Kept inline so each
+// page renders independently without an extra layout shell.
+function VoiceTabs({ active }: { active: 'meetings' | 'roster' }) {
+  return (
+    <div className="voice-tabs">
+      <Link href="/admin/voice"
+            className={`voice-tab${active === 'meetings' ? ' active' : ''}`}>
+        Meetings
+      </Link>
+      <Link href="/admin/voice/roster"
+            className={`voice-tab${active === 'roster' ? ' active' : ''}`}>
+        Roster
+      </Link>
     </div>
   )
 }

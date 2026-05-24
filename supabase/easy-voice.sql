@@ -840,3 +840,21 @@ begin
     alter publication supabase_realtime add table public.ev_notice_recipients;
   end if;
 end $$;
+
+-- ============================================================
+-- Phase 4 — Pilot launch readiness
+-- ============================================================
+
+-- ---------- Phase 4 / Commit 1: Owner roster import ----------
+-- The Voice roster needs first/last separately (the dues system stores
+-- only full_name). Keep both populated: full_name = first || ' ' || last
+-- is written from the import UI, so existing dues/right-rail keeps working.
+alter table public.residents
+  add column if not exists first_name text,
+  add column if not exists last_name  text;
+
+-- Guard against importing the same email twice into one community.
+create unique index if not exists residents_community_email_idx
+  on public.residents (community_id, lower(email))
+  where email is not null;
+
