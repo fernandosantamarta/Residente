@@ -745,8 +745,10 @@ create trigger ev_notice_fanout_trg
 
 -- ---------- READ-COUNT TRIGGER ----------
 -- Keep ev_notices.in_app_read_count in sync as recipients mark read.
+-- security definer: ev_notices grants are select+insert only, so an
+-- update from the residents' role would be rejected. Run as table owner.
 create or replace function public.ev_notice_read_count()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql security definer as $$
 begin
   if new.read_at is not null and old.read_at is null and new.channel = 'in_app' then
     update public.ev_notices
