@@ -220,7 +220,10 @@ body:has(.landing-screen) { min-width: 0; }
   display: flex;
   align-items: flex-end;
   justify-content: flex-start;
-  padding: clamp(28px, 5vw, 72px);
+  /* Extra bottom padding lifts the hero copy (and the CTAs at the
+     bottom of it) up from the very edge so the "Get early access"
+     button is comfortably above the fold without scrolling. */
+  padding: clamp(28px, 5vw, 72px) clamp(28px, 5vw, 72px) clamp(120px, 16vh, 180px);
   background:
     radial-gradient(80% 70% at 18% 80%,
       rgba(31,34,51,0.78) 0%,

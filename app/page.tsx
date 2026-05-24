@@ -782,8 +782,40 @@ export function InteriorSvg() {
           <text x="1620" y="1174" fontFamily="Inter, system-ui" fontSize="10" fontWeight="700" fill="#F4EFE8" textAnchor="middle">YOU&apos;RE ALL CLEAR ✓</text>
         </g>
 
-        {/* small dog napping by the couch */}
-        <Dog x={1260} y={1240} scale={2.2} />
+        {/* family dog napping by the couch — bigger so it actually
+            reads as a pet, not a smudge */}
+        <Dog x={1170} y={1248} scale={3.0} />
+
+        {/* grandparent on the right end of the couch — silver hair,
+            little round glasses, teal cardigan. Same gentle breathe
+            as the other adults. */}
+        <g className="ln-interior-breathe">
+          {/* torso */}
+          <path d="M1900 985 Q1900 905 1955 895 Q2010 905 2010 985 L1995 1090 L1915 1090 Z" fill="#3D7B7E" {...inkStroke} />
+          {/* head */}
+          <circle cx="1955" cy="852" r="40" fill="#F4D6B8" {...inkStroke} />
+          {/* silver hair */}
+          <path d="M1915 852 Q1915 810 1955 802 Q1995 810 1995 852 Q1995 832 1975 832 Q1955 824 1940 832 Q1915 838 1915 852" fill="#C8C0BC" {...inkStroke} />
+          {/* arm resting on the couch arm */}
+          <path d="M2008 980 Q2030 1000 2040 1042" fill="none" {...inkStroke} />
+          {/* little round reading glasses */}
+          <circle cx="1942" cy="850" r="7" fill="none" stroke={INK} strokeWidth="1.5" />
+          <circle cx="1968" cy="850" r="7" fill="none" stroke={INK} strokeWidth="1.5" />
+          <line x1="1949" y1="850" x2="1961" y2="850" stroke={INK} strokeWidth="1.5" />
+        </g>
+
+        {/* younger sibling sitting cross-legged on the floor next to
+            the bouncing kid — light-blue overalls, dark hair */}
+        <g className="ln-interior-breathe-a">
+          {/* body (seated) */}
+          <ellipse cx="800" cy="1232" rx="34" ry="22" fill="#9FB7C2" {...inkStroke} />
+          {/* head */}
+          <circle cx="800" cy="1175" r="24" fill="#F4D6B8" {...inkStroke} />
+          {/* hair */}
+          <path d="M776 1175 Q776 1153 800 1148 Q826 1153 824 1175 Q824 1163 812 1163 Q800 1158 788 1163 Q776 1167 776 1175" fill="#3A2A1A" {...inkStroke} />
+          {/* small arm pointing toward the older kid */}
+          <path d="M770 1218 Q748 1208 742 1188" fill="none" {...inkStroke} />
+        </g>
 
         {/* picture frames on the back wall */}
         <g>
@@ -966,7 +998,7 @@ function VsEverything() {
     <section className="ln-vs" data-anim>
       <div className="ln-vs-inner">
         <div className="ln-eyebrow">Why Residente</div>
-        <h2 className="ln-vs-title">Residente vs. everything else.</h2>
+        <h2 className="ln-vs-title">Residente vs everything else.</h2>
 
         <div className="ln-vs-grid">
           <div className="ln-vs-old">
