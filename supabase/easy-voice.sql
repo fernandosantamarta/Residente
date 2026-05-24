@@ -1,0 +1,601 @@
+-- ============================================================
+-- Easy Voice — Meetings, Documents, Votes, Ballots
+-- Run once in the Supabase SQL editor.
+-- Safe to re-run: all statements use IF NOT EXISTS / DO NOTHING.
+-- ============================================================
+
+-- ---------- MEETINGS ----------
+create table if not exists public.ev_meetings (
+  id                   uuid primary key default gen_random_uuid(),
+  community_id         uuid not null references public.communities(id) on delete cascade,
+  type                 text not null check (type in ('board','annual','special','committee')),
+  title                text not null,
+  scheduled_at         timestamptz not null,
+  location             text,
+  virtual_link         text,
+  status               text not null default 'draft'
+                         check (status in ('draft','notice_sent','in_progress','completed')),
+  quorum_required_pct  numeric,
+  quorum_confirmed     boolean not null default false,
+  quorum_confirmed_by  uuid references auth.users(id),
+  quorum_confirmed_at  timestamptz,
+  minutes_status       text not null default 'pending'
+                         check (minutes_status in ('pending','draft','published','approved')),
+  created_by           uuid references auth.users(id),
+  created_at           timestamptz not null default now()
+);
+alter table public.ev_meetings enable row level security;
+grant select, insert, update, delete on public.ev_meetings to authenticated;
+
+create policy "members read meetings"
+  on public.ev_meetings for select to authenticated
+  using (community_id = (select community_id from public.profiles where id = auth.uid()));
+
+create policy "board writes meetings"
+  on public.ev_meetings for all to authenticated
+  using (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  )
+  with check (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  );
+
+-- ---------- MEETING DOCUMENTS ----------
+create table if not exists public.ev_meeting_docs (
+  id           uuid primary key default gen_random_uuid(),
+  meeting_id   uuid not null references public.ev_meetings(id) on delete cascade,
+  community_id uuid not null references public.communities(id) on delete cascade,
+  type         text not null default 'supporting'
+                 check (type in ('agenda','minutes','supporting','notice_record')),
+  title        text not null,
+  storage_path text not null,
+  file_size    bigint,
+  status       text not null default 'published'
+                 check (status in ('draft','published','approved')),
+  uploaded_by  uuid references auth.users(id),
+  uploaded_at  timestamptz not null default now()
+);
+alter table public.ev_meeting_docs enable row level security;
+grant select, insert, update, delete on public.ev_meeting_docs to authenticated;
+
+create policy "members read meeting docs"
+  on public.ev_meeting_docs for select to authenticated
+  using (community_id = (select community_id from public.profiles where id = auth.uid()));
+
+create policy "board writes meeting docs"
+  on public.ev_meeting_docs for all to authenticated
+  using (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  )
+  with check (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  );
+
+-- ---------- VOTES ----------
+create table if not exists public.ev_votes (
+  id           uuid primary key default gen_random_uuid(),
+  meeting_id   uuid references public.ev_meetings(id) on delete cascade,
+  community_id uuid not null references public.communities(id) on delete cascade,
+  title        text not null,
+  description  text,
+  type         text not null default 'resolution'
+                 check (type in ('resolution','election','budget_ratification',
+                                 'bylaw_amendment','special_assessment','other')),
+  ballot_type  text not null default 'open'
+                 check (ballot_type in ('open','secret')),
+  mode         text not null default 'in_meeting'
+                 check (mode in ('in_meeting','written_ballot')),
+  status       text not null default 'draft'
+                 check (status in ('draft','open','closed','tallied','published')),
+  opens_at     timestamptz,
+  closes_at    timestamptz,
+  result       text check (result in ('pass','fail') or result is null),
+  yes_count    int not null default 0,
+  no_count     int not null default 0,
+  abstain_count int not null default 0,
+  created_by   uuid references auth.users(id),
+  created_at   timestamptz not null default now()
+);
+alter table public.ev_votes enable row level security;
+grant select, insert, update, delete on public.ev_votes to authenticated;
+
+create policy "members read votes"
+  on public.ev_votes for select to authenticated
+  using (community_id = (select community_id from public.profiles where id = auth.uid()));
+
+create policy "board writes votes"
+  on public.ev_votes for all to authenticated
+  using (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  )
+  with check (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  );
+
+-- Hard block: elections must always use secret ballot.
+-- This constraint enforces it at the database layer.
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'election_must_be_secret') then
+    alter table public.ev_votes
+      add constraint election_must_be_secret
+      check (type != 'election' or ballot_type = 'secret');
+  end if;
+end $$;
+
+-- ---------- BALLOTS ----------
+-- One ballot per profile per vote. open ballot answers stored plaintext;
+-- secret ballot answer stored as null until tallied (future: encrypted).
+create table if not exists public.ev_ballots (
+  id          uuid primary key default gen_random_uuid(),
+  vote_id     uuid not null references public.ev_votes(id) on delete cascade,
+  profile_id  uuid not null references auth.users(id),
+  unit_number text not null,
+  answer      text check (answer in ('yes','no','abstain') or answer is null),
+  cast_at     timestamptz not null default now(),
+  unique (vote_id, unit_number)
+);
+alter table public.ev_ballots enable row level security;
+grant select, insert on public.ev_ballots to authenticated;
+
+-- Members can read their own ballot only (not others' for secret votes)
+create policy "members read own ballot"
+  on public.ev_ballots for select to authenticated
+  using (profile_id = auth.uid());
+
+-- Board can read all ballots in their community (for open votes / tallying)
+create policy "board reads community ballots"
+  on public.ev_ballots for select to authenticated
+  using (
+    vote_id in (
+      select id from public.ev_votes
+      where community_id = (select community_id from public.profiles where id = auth.uid())
+    )
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  );
+
+-- Members can cast their own ballot when the vote is open
+create policy "members cast ballot"
+  on public.ev_ballots for insert to authenticated
+  with check (
+    profile_id = auth.uid()
+    and unit_number = (select unit_number from public.profiles where id = auth.uid())
+    and vote_id in (
+      select id from public.ev_votes
+      where community_id = (select community_id from public.profiles where id = auth.uid())
+        and status = 'open'
+    )
+  );
+
+-- ---------- MEETING DOCS STORAGE BUCKET ----------
+insert into storage.buckets (id, name, public)
+values ('ev-documents', 'ev-documents', false)
+on conflict (id) do nothing;
+
+create policy "members read ev docs"
+  on storage.objects for select to authenticated
+  using (
+    bucket_id = 'ev-documents'
+    and (storage.foldername(name))[1]
+        = (select community_id from public.profiles where id = auth.uid())::text
+  );
+
+create policy "board uploads ev docs"
+  on storage.objects for insert to authenticated
+  with check (
+    bucket_id = 'ev-documents'
+    and (storage.foldername(name))[1]
+        = (select community_id from public.profiles where id = auth.uid())::text
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  );
+
+create policy "board deletes ev docs"
+  on storage.objects for delete to authenticated
+  using (
+    bucket_id = 'ev-documents'
+    and (storage.foldername(name))[1]
+        = (select community_id from public.profiles where id = auth.uid())::text
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  );
+
+-- ============================================================
+-- Easy Voice — Phase 2 schema additions
+-- Units, owner roster extensions, consent, proxies, notices,
+-- attendance, candidates, ballot encryption, audit log, indexes.
+-- Safe to re-run.
+-- ============================================================
+
+-- ---------- ASSOCIATION CONFIG (extend communities) ----------
+alter table public.communities
+  add column if not exists association_type text
+    check (association_type in ('condo','hoa')),
+  add column if not exists state text default 'FL',
+  add column if not exists county text,
+  add column if not exists electronic_voting_resolution_adopted boolean not null default false,
+  add column if not exists electronic_voting_adopted_at timestamptz,
+  add column if not exists quorum_board_pct numeric default 30,
+  add column if not exists quorum_member_pct numeric default 30,
+  add column if not exists subscription_status text not null default 'trial'
+    check (subscription_status in ('trial','active','past_due','cancelled'));
+
+-- ---------- UNITS ----------
+create table if not exists public.ev_units (
+  id            uuid primary key default gen_random_uuid(),
+  community_id  uuid not null references public.communities(id) on delete cascade,
+  unit_number   text not null,
+  building      text,
+  created_at    timestamptz not null default now(),
+  unique (community_id, unit_number)
+);
+alter table public.ev_units enable row level security;
+grant select, insert, update, delete on public.ev_units to authenticated;
+
+drop policy if exists "members read units" on public.ev_units;
+create policy "members read units"
+  on public.ev_units for select to authenticated
+  using (community_id = (select community_id from public.profiles where id = auth.uid()));
+
+drop policy if exists "board writes units" on public.ev_units;
+create policy "board writes units"
+  on public.ev_units for all to authenticated
+  using (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  )
+  with check (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  );
+
+-- ---------- OWNER ROSTER (extend residents) ----------
+-- Owners are tracked in `residents` (no auth account required). When an owner
+-- accepts their invitation, profile_id is populated to link the auth account.
+alter table public.residents
+  add column if not exists unit_id uuid references public.ev_units(id) on delete set null,
+  add column if not exists profile_id uuid references public.profiles(id) on delete set null,
+  add column if not exists voting_eligible boolean not null default true,
+  add column if not exists invited_at timestamptz,
+  add column if not exists activated_at timestamptz,
+  add column if not exists deactivated_at timestamptz;
+
+create index if not exists residents_profile_idx on public.residents (profile_id);
+create index if not exists residents_unit_idx    on public.residents (unit_id);
+
+-- ---------- ELECTRONIC VOTING CONSENT (immutable) ----------
+-- One row per (owner, association). Insert-only: never updated or deleted.
+create table if not exists public.ev_consents (
+  id            uuid primary key default gen_random_uuid(),
+  community_id  uuid not null references public.communities(id) on delete cascade,
+  profile_id    uuid not null references public.profiles(id) on delete cascade,
+  resident_id   uuid references public.residents(id) on delete set null,
+  consented_at  timestamptz not null default now(),
+  ip_address    inet,
+  user_agent    text,
+  unique (community_id, profile_id)
+);
+alter table public.ev_consents enable row level security;
+-- intentionally no update/delete grants — consent records are immutable
+grant select, insert on public.ev_consents to authenticated;
+
+drop policy if exists "owner reads own consent" on public.ev_consents;
+create policy "owner reads own consent"
+  on public.ev_consents for select to authenticated
+  using (profile_id = auth.uid());
+
+drop policy if exists "board reads community consents" on public.ev_consents;
+create policy "board reads community consents"
+  on public.ev_consents for select to authenticated
+  using (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  );
+
+drop policy if exists "owner records own consent" on public.ev_consents;
+create policy "owner records own consent"
+  on public.ev_consents for insert to authenticated
+  with check (
+    profile_id = auth.uid()
+    and community_id = (select community_id from public.profiles where id = auth.uid())
+  );
+
+-- ---------- PROXIES ----------
+create table if not exists public.ev_proxies (
+  id                  uuid primary key default gen_random_uuid(),
+  community_id        uuid not null references public.communities(id) on delete cascade,
+  meeting_id          uuid not null references public.ev_meetings(id) on delete cascade,
+  grantor_profile_id  uuid not null references public.profiles(id) on delete cascade,
+  unit_id             uuid references public.ev_units(id) on delete set null,
+  unit_number         text not null,
+  holder_name         text not null,
+  holder_email        text,
+  holder_profile_id   uuid references public.profiles(id) on delete set null,
+  type                text not null check (type in ('limited','general')),
+  specific_vote_ids   uuid[] default '{}',                -- limited proxies only
+  instructions        jsonb default '{}'::jsonb,          -- {vote_id: 'yes'|'no'|'abstain'|'holder_discretion'}
+  status              text not null default 'submitted'
+                        check (status in ('submitted','verified','used','revoked')),
+  submitted_at        timestamptz not null default now(),
+  verified_at         timestamptz,
+  used_at             timestamptz,
+  revoked_at          timestamptz,
+  unique (meeting_id, unit_number)                        -- one proxy per unit per meeting
+);
+alter table public.ev_proxies enable row level security;
+grant select, insert, update on public.ev_proxies to authenticated;
+
+drop policy if exists "grantor reads own proxy" on public.ev_proxies;
+create policy "grantor reads own proxy"
+  on public.ev_proxies for select to authenticated
+  using (grantor_profile_id = auth.uid() or holder_profile_id = auth.uid());
+
+drop policy if exists "board reads community proxies" on public.ev_proxies;
+create policy "board reads community proxies"
+  on public.ev_proxies for select to authenticated
+  using (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  );
+
+drop policy if exists "grantor submits own proxy" on public.ev_proxies;
+create policy "grantor submits own proxy"
+  on public.ev_proxies for insert to authenticated
+  with check (
+    grantor_profile_id = auth.uid()
+    and community_id = (select community_id from public.profiles where id = auth.uid())
+  );
+
+drop policy if exists "grantor revokes own proxy" on public.ev_proxies;
+create policy "grantor revokes own proxy"
+  on public.ev_proxies for update to authenticated
+  using (grantor_profile_id = auth.uid())
+  with check (grantor_profile_id = auth.uid());
+
+drop policy if exists "board updates proxy status" on public.ev_proxies;
+create policy "board updates proxy status"
+  on public.ev_proxies for update to authenticated
+  using (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  )
+  with check (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  );
+
+-- Hard block: a general proxy cannot apply to a meeting that contains
+-- an election vote. Enforced via trigger because we cross-reference
+-- ev_votes by meeting_id at write time.
+create or replace function public.ev_proxy_election_guard()
+returns trigger language plpgsql as $$
+declare has_election boolean;
+begin
+  if new.type = 'general' then
+    select exists (
+      select 1 from public.ev_votes
+      where meeting_id = new.meeting_id and type = 'election'
+    ) into has_election;
+    if has_election then
+      raise exception 'A general proxy cannot apply to a meeting that contains an election vote (FL 718.112(2)(d)(3) / 720.306(8)(b)). Submit a limited proxy that names the election candidate instead.';
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists ev_proxy_election_guard on public.ev_proxies;
+create trigger ev_proxy_election_guard
+  before insert or update on public.ev_proxies
+  for each row execute function public.ev_proxy_election_guard();
+
+-- ---------- NOTICES ----------
+create table if not exists public.ev_notices (
+  id              uuid primary key default gen_random_uuid(),
+  community_id    uuid not null references public.communities(id) on delete cascade,
+  meeting_id      uuid references public.ev_meetings(id) on delete cascade,
+  vote_id         uuid references public.ev_votes(id) on delete cascade,
+  kind            text not null
+                    check (kind in ('meeting_published','meeting_reminder','document_uploaded',
+                                    'vote_opened','vote_reminder','vote_results','minutes_published',
+                                    'proxy_submitted','custom_broadcast')),
+  channels        text[] not null default array['email','in_app'],
+  subject         text,
+  body            text,
+  sent_by         uuid references auth.users(id),
+  sent_at         timestamptz not null default now(),
+  delivery_report jsonb default '{}'::jsonb     -- {profile_id: 'delivered'|'bounced'|...}
+);
+alter table public.ev_notices enable row level security;
+grant select, insert on public.ev_notices to authenticated;
+
+drop policy if exists "board reads notices" on public.ev_notices;
+create policy "board reads notices"
+  on public.ev_notices for select to authenticated
+  using (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  );
+
+drop policy if exists "board writes notices" on public.ev_notices;
+create policy "board writes notices"
+  on public.ev_notices for insert to authenticated
+  with check (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  );
+
+-- ---------- ATTENDANCE ----------
+create table if not exists public.ev_attendance (
+  id            uuid primary key default gen_random_uuid(),
+  community_id  uuid not null references public.communities(id) on delete cascade,
+  meeting_id    uuid not null references public.ev_meetings(id) on delete cascade,
+  unit_id       uuid references public.ev_units(id) on delete set null,
+  unit_number   text not null,
+  profile_id    uuid references public.profiles(id) on delete set null,
+  proxy_id      uuid references public.ev_proxies(id) on delete set null,
+  method        text not null check (method in ('admin_marked','qr_self_checkin','virtual','proxy')),
+  checked_in_at timestamptz not null default now(),
+  checked_in_by uuid references auth.users(id),
+  unique (meeting_id, unit_number)
+);
+alter table public.ev_attendance enable row level security;
+grant select, insert, update, delete on public.ev_attendance to authenticated;
+
+drop policy if exists "members read attendance" on public.ev_attendance;
+create policy "members read attendance"
+  on public.ev_attendance for select to authenticated
+  using (community_id = (select community_id from public.profiles where id = auth.uid()));
+
+drop policy if exists "board writes attendance" on public.ev_attendance;
+create policy "board writes attendance"
+  on public.ev_attendance for all to authenticated
+  using (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  )
+  with check (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  );
+
+drop policy if exists "members self check-in" on public.ev_attendance;
+create policy "members self check-in"
+  on public.ev_attendance for insert to authenticated
+  with check (
+    profile_id = auth.uid()
+    and community_id = (select community_id from public.profiles where id = auth.uid())
+    and unit_number = (select unit_number from public.profiles where id = auth.uid())
+    and method = 'qr_self_checkin'
+  );
+
+-- ---------- CANDIDATES (board elections) ----------
+create table if not exists public.ev_candidates (
+  id            uuid primary key default gen_random_uuid(),
+  community_id  uuid not null references public.communities(id) on delete cascade,
+  vote_id       uuid not null references public.ev_votes(id) on delete cascade,
+  profile_id    uuid references public.profiles(id) on delete set null,
+  full_name     text not null,
+  bio           text,
+  photo_path    text,
+  submitted_by  uuid references auth.users(id),
+  submitted_at  timestamptz not null default now(),
+  withdrawn     boolean not null default false,
+  vote_count    int not null default 0,
+  elected       boolean not null default false
+);
+alter table public.ev_candidates enable row level security;
+grant select, insert, update, delete on public.ev_candidates to authenticated;
+
+drop policy if exists "members read candidates" on public.ev_candidates;
+create policy "members read candidates"
+  on public.ev_candidates for select to authenticated
+  using (community_id = (select community_id from public.profiles where id = auth.uid()));
+
+drop policy if exists "owners submit own candidacy" on public.ev_candidates;
+create policy "owners submit own candidacy"
+  on public.ev_candidates for insert to authenticated
+  with check (
+    profile_id = auth.uid()
+    and community_id = (select community_id from public.profiles where id = auth.uid())
+  );
+
+drop policy if exists "board writes candidates" on public.ev_candidates;
+create policy "board writes candidates"
+  on public.ev_candidates for all to authenticated
+  using (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  )
+  with check (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  );
+
+-- ---------- BALLOT EXTENSIONS ----------
+-- Add unit/proxy linkage, election selections, and secret-ballot encryption.
+alter table public.ev_ballots
+  add column if not exists unit_id          uuid references public.ev_units(id) on delete set null,
+  add column if not exists proxy_id         uuid references public.ev_proxies(id) on delete set null,
+  add column if not exists candidate_ids    uuid[],
+  add column if not exists encrypted_answer bytea,
+  add column if not exists encryption_key_id text;
+
+-- Proxy holders (when the holder is themselves an account-holding owner)
+-- can cast ballots tied to their proxy. Non-account holders must go through
+-- a server-side function with the service role.
+drop policy if exists "proxy holders cast proxied ballots" on public.ev_ballots;
+create policy "proxy holders cast proxied ballots"
+  on public.ev_ballots for insert to authenticated
+  with check (
+    proxy_id is not null
+    and exists (
+      select 1 from public.ev_proxies p
+      where p.id = proxy_id
+        and p.holder_profile_id = auth.uid()
+        and p.status in ('submitted','verified')
+    )
+    and vote_id in (
+      select id from public.ev_votes where status = 'open'
+    )
+  );
+
+-- ---------- AUDIT LOG (append-only) ----------
+create table if not exists public.ev_audit_log (
+  id            uuid primary key default gen_random_uuid(),
+  community_id  uuid not null references public.communities(id) on delete cascade,
+  event_type    text not null,
+  actor_id      uuid references auth.users(id),
+  target_type   text,            -- 'meeting' | 'vote' | 'ballot' | 'proxy' | 'document' | ...
+  target_id     uuid,
+  metadata      jsonb default '{}'::jsonb,
+  created_at    timestamptz not null default now()
+);
+alter table public.ev_audit_log enable row level security;
+-- Append-only: select + insert only. Never grant update or delete, even to board.
+grant select, insert on public.ev_audit_log to authenticated;
+
+drop policy if exists "board reads audit log" on public.ev_audit_log;
+create policy "board reads audit log"
+  on public.ev_audit_log for select to authenticated
+  using (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  );
+
+drop policy if exists "any member writes audit" on public.ev_audit_log;
+create policy "any member writes audit"
+  on public.ev_audit_log for insert to authenticated
+  with check (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+  );
+
+-- ---------- INDEXES ----------
+create index if not exists ev_meetings_community_scheduled_idx
+  on public.ev_meetings (community_id, scheduled_at desc);
+create index if not exists ev_meeting_docs_meeting_idx
+  on public.ev_meeting_docs (meeting_id);
+create index if not exists ev_votes_meeting_idx
+  on public.ev_votes (meeting_id);
+create index if not exists ev_votes_community_status_idx
+  on public.ev_votes (community_id, status);
+create index if not exists ev_ballots_vote_idx
+  on public.ev_ballots (vote_id);
+create index if not exists ev_proxies_meeting_idx
+  on public.ev_proxies (meeting_id);
+create index if not exists ev_proxies_grantor_idx
+  on public.ev_proxies (grantor_profile_id);
+create index if not exists ev_notices_meeting_idx
+  on public.ev_notices (meeting_id);
+create index if not exists ev_notices_community_sent_idx
+  on public.ev_notices (community_id, sent_at desc);
+create index if not exists ev_attendance_meeting_idx
+  on public.ev_attendance (meeting_id);
+create index if not exists ev_candidates_vote_idx
+  on public.ev_candidates (vote_id);
+create index if not exists ev_units_community_idx
+  on public.ev_units (community_id);
+create index if not exists ev_audit_community_time_idx
+  on public.ev_audit_log (community_id, created_at desc);
