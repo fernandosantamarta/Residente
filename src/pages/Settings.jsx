@@ -4,6 +4,7 @@ import { THEMES, getTheme, setTheme } from '../lib/theme'
 
 // A small preview swatch per theme: the card surface + the accent chip.
 const SWATCH = {
+  'sketch':      { bg: '#FFFFFF', accent: '#C76F45', desc: 'Hand-drawn warmth, matches the landing' },
   'linear-dark': { bg: '#17171B', accent: '#7C6CDB', desc: 'Refined charcoal and violet' },
   'original':    { bg: '#16162A', accent: '#FF3B5F', desc: 'The original neon look' },
   'mercury':     { bg: '#FFFFFF', accent: '#1F5C3D', desc: 'Light fintech, forest green' },
@@ -33,7 +34,7 @@ export default function Settings() {
         </div>
         <div className="theme-grid">
           {THEMES.map(t => {
-            const sw = SWATCH[t.id]
+            const sw = SWATCH[t.id] || { bg: '#FFFFFF', accent: '#999', desc: '' }
             const on = theme === t.id
             return (
               <button
