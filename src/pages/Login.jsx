@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { signIn, hasSupabase } from '../lib/supabase'
 
 export default function Login() {
@@ -35,10 +35,10 @@ export default function Login() {
     <div className="login-screen">
       <div className="login-glow" />
       <div className="login-card">
-        <div className="login-brand">
+        <Link to="/" className="login-brand" aria-label="Back to Residente home">
           <div className="brand-dot" style={{ width: 16, height: 16 }} />
           <div className="login-brand-word">Residente</div>
-        </div>
+        </Link>
 
         <h1 className="login-title">Welcome back</h1>
         <p className="login-sub">Sign in to your community cockpit.</p>
@@ -78,6 +78,7 @@ export default function Login() {
         <div className="login-foot">
           Account managed by your HOA board.
         </div>
+        <Link to="/" className="login-back">&larr; Back to home</Link>
       </div>
     </div>
   )

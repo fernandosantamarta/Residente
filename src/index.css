@@ -687,6 +687,17 @@ button { font-family: inherit; }
   font-size: 12px;
   color: var(--text-faint);
 }
+.login-back {
+  display: block;
+  margin-top: 12px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-dim);
+  text-decoration: none;
+  transition: color 160ms ease;
+}
+.login-back:hover { color: var(--pink); }
 
 /* ============ MOBILE & TABLET ============ */
 /* Variant-B aesthetic, web-mobile patterns. Phones: single column, hamburger
