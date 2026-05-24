@@ -478,7 +478,7 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
 
       {/* address plaque */}
       <rect x={DX - 28} y={DY - 195} width="56" height="22" rx="3" fill="#1F2233" />
-      <text x={DX} y={DY - 178} textAnchor="middle" fontFamily="Inter, system-ui" fontSize="16" fontWeight="700" fill={WALL_LITE}>12</text>
+      <text x={DX} y={DY - 178} textAnchor="middle" fontFamily="Inter, system-ui" fontSize="16" fontWeight="700" fill={WALL_LITE}>11</text>
 
       {/* porch lights */}
       <rect x={DX - 60} y={DY - 110} width="6" height="22" fill="#1F2233" />
