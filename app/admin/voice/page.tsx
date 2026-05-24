@@ -6,8 +6,10 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import {
   MEETING_TYPES, VOTE_TYPES, DOC_TYPES,
   noticeWarning, MEETING_STATUS_LABELS, VOTE_STATUS_LABELS,
+  NOTICE_KIND_LABELS, defaultNoticeCopy,
 } from '@/lib/voice'
 import { useVoiceMeetings, useVoiceMeeting } from '@/hooks/useVoiceMeetings'
+import { useCommunityNotices } from '@/hooks/useNotices'
 
 const withTimeout = (p, ms = 10000) =>
   Promise.race([
@@ -263,6 +265,21 @@ function MeetingDetail({ meetingId, onBack }) {
         supabase.from('ev_meetings').update({ status: next }).eq('id', meetingId)
       )
       if (error) throw error
+      if (next === 'notice_sent') {
+        const copy = defaultNoticeCopy('meeting_published', { meetingTitle: meeting.title })
+        try {
+          await withTimeout(
+            supabase.from('ev_notices').insert({
+              community_id: meeting.community_id,
+              meeting_id:   meeting.id,
+              kind:         'meeting_published',
+              channels:     ['in_app'],
+              subject:      copy.subject,
+              body:         copy.body,
+            })
+          )
+        } catch { /* status change succeeded; notice is best-effort */ }
+      }
       reload()
     } catch (e) {
       setAdvErr(e?.message ?? 'Failed to update status.')
@@ -329,15 +346,112 @@ function MeetingDetail({ meetingId, onBack }) {
       </div>
 
       <div className="voice-tabs">
-        {['votes', 'docs', 'settings'].map(t => (
+        {['votes', 'docs', 'notify', 'settings'].map(t => (
           <button key={t} className={`voice-tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>
-            {t === 'votes' ? 'Votes' : t === 'docs' ? 'Documents' : 'Settings'}
+            {t === 'votes' ? 'Votes' : t === 'docs' ? 'Documents' : t === 'notify' ? 'Notify residents' : 'Settings'}
           </button>
         ))}
       </div>
 
-      {tab === 'votes' && <VotesPanel meeting={meeting} reload={reload} />}
-      {tab === 'docs'  && <DocsPanel  meeting={meeting} reload={reload} />}
+      {tab === 'votes'  && <VotesPanel  meeting={meeting} reload={reload} />}
+      {tab === 'docs'   && <DocsPanel   meeting={meeting} reload={reload} />}
+      {tab === 'notify' && <NotifyPanel meeting={meeting} />}
+    </div>
+  )
+}
+
+function NotifyPanel({ meeting }) {
+  const [subject, setSubject] = useState('')
+  const [body, setBody]       = useState('')
+  const [sending, setSending] = useState(false)
+  const [err, setErr]         = useState(null)
+  const { notices, loading, reload } = useCommunityNotices({ meetingId: meeting.id })
+
+  const send = async (e) => {
+    e.preventDefault()
+    if (!subject.trim() && !body.trim()) {
+      setErr('Add a subject or body before sending.')
+      return
+    }
+    setSending(true)
+    setErr(null)
+    try {
+      const { error } = await withTimeout(
+        supabase.from('ev_notices').insert({
+          community_id: meeting.community_id,
+          meeting_id:   meeting.id,
+          kind:         'custom_broadcast',
+          channels:     ['in_app'],
+          subject:      subject.trim(),
+          body:         body.trim(),
+        })
+      )
+      if (error) throw error
+      setSubject('')
+      setBody('')
+      reload()
+    } catch (e) {
+      setErr(e?.message ?? 'Failed to send notice.')
+    } finally {
+      setSending(false)
+    }
+  }
+
+  return (
+    <div className="voice-panel">
+      <div className="voice-panel-head"><span>Send a notice to all residents</span></div>
+
+      <form className="voice-form" onSubmit={send}>
+        <div className="voice-form-row">
+          <label>Subject</label>
+          <input
+            type="text"
+            value={subject}
+            onChange={e => setSubject(e.target.value)}
+            placeholder="e.g. Reminder: meeting starts in 1 hour"
+          />
+        </div>
+        <div className="voice-form-row">
+          <label>Body</label>
+          <textarea
+            value={body}
+            onChange={e => setBody(e.target.value)}
+            rows={3}
+            placeholder="What do residents need to know?"
+          />
+        </div>
+        <div className="voice-form-row">
+          <label>Channels</label>
+          <div className="voice-channels-readonly">In-app only (email coming soon)</div>
+        </div>
+        {err && <div className="admin-err">{err}</div>}
+        <div className="voice-form-actions">
+          <button type="submit" className="admin-btn" disabled={sending}>
+            {sending ? 'Sending…' : 'Send notice'}
+          </button>
+        </div>
+      </form>
+
+      <div className="voice-panel-head" style={{ marginTop: 24 }}><span>Notice history</span></div>
+      {loading && <div className="admin-placeholder">Loading…</div>}
+      {!loading && notices.length === 0 && (
+        <div className="admin-placeholder">No notices sent for this meeting yet.</div>
+      )}
+      {!loading && notices.map((n: any) => (
+        <div key={n.id} className="voice-notice-row">
+          <div className="voice-notice-left">
+            <div className="voice-notice-kind">{NOTICE_KIND_LABELS[n.kind] ?? n.kind}</div>
+            <div className="voice-notice-subject">{n.subject || '(no subject)'}</div>
+            {n.body && <div className="voice-notice-body">{n.body}</div>}
+          </div>
+          <div className="voice-notice-right">
+            <div className="voice-notice-meta">{fmtDt(n.sent_at)}</div>
+            <div className="voice-notice-stats">
+              Sent to {n.recipient_count ?? 0} · {n.in_app_read_count ?? 0} read
+            </div>
+          </div>
+        </div>
+      ))}
     </div>
   )
 }
@@ -597,6 +711,27 @@ function DocsPanel({ meeting, reload }) {
         })
       )
       if (dbErr) throw dbErr
+      // Silent for draft meetings (board still composing) and for
+      // supporting/notice_record docs (admin can broadcast manually).
+      if (
+        (docType === 'agenda' || docType === 'minutes') &&
+        (meeting.status === 'notice_sent' || meeting.status === 'in_progress')
+      ) {
+        const kind = docType === 'minutes' ? 'minutes_published' : 'document_uploaded'
+        const copy = defaultNoticeCopy(kind, { meetingTitle: meeting.title, docTitle: docTitle.trim() })
+        try {
+          await withTimeout(
+            supabase.from('ev_notices').insert({
+              community_id: meeting.community_id,
+              meeting_id:   meeting.id,
+              kind,
+              channels:     ['in_app'],
+              subject:      copy.subject,
+              body:         copy.body,
+            })
+          )
+        } catch { /* upload succeeded; notice is best-effort */ }
+      }
       setDocTitle('')
       reload()
     } catch (e) {

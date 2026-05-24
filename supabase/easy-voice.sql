@@ -27,10 +27,12 @@ create table if not exists public.ev_meetings (
 alter table public.ev_meetings enable row level security;
 grant select, insert, update, delete on public.ev_meetings to authenticated;
 
+drop policy if exists "members read meetings" on public.ev_meetings;
 create policy "members read meetings"
   on public.ev_meetings for select to authenticated
   using (community_id = (select community_id from public.profiles where id = auth.uid()));
 
+drop policy if exists "board writes meetings" on public.ev_meetings;
 create policy "board writes meetings"
   on public.ev_meetings for all to authenticated
   using (
@@ -60,10 +62,12 @@ create table if not exists public.ev_meeting_docs (
 alter table public.ev_meeting_docs enable row level security;
 grant select, insert, update, delete on public.ev_meeting_docs to authenticated;
 
+drop policy if exists "members read meeting docs" on public.ev_meeting_docs;
 create policy "members read meeting docs"
   on public.ev_meeting_docs for select to authenticated
   using (community_id = (select community_id from public.profiles where id = auth.uid()));
 
+drop policy if exists "board writes meeting docs" on public.ev_meeting_docs;
 create policy "board writes meeting docs"
   on public.ev_meeting_docs for all to authenticated
   using (
@@ -103,10 +107,12 @@ create table if not exists public.ev_votes (
 alter table public.ev_votes enable row level security;
 grant select, insert, update, delete on public.ev_votes to authenticated;
 
+drop policy if exists "members read votes" on public.ev_votes;
 create policy "members read votes"
   on public.ev_votes for select to authenticated
   using (community_id = (select community_id from public.profiles where id = auth.uid()));
 
+drop policy if exists "board writes votes" on public.ev_votes;
 create policy "board writes votes"
   on public.ev_votes for all to authenticated
   using (
@@ -144,11 +150,13 @@ alter table public.ev_ballots enable row level security;
 grant select, insert on public.ev_ballots to authenticated;
 
 -- Members can read their own ballot only (not others' for secret votes)
+drop policy if exists "members read own ballot" on public.ev_ballots;
 create policy "members read own ballot"
   on public.ev_ballots for select to authenticated
   using (profile_id = auth.uid());
 
 -- Board can read all ballots in their community (for open votes / tallying)
+drop policy if exists "board reads community ballots" on public.ev_ballots;
 create policy "board reads community ballots"
   on public.ev_ballots for select to authenticated
   using (
@@ -160,6 +168,7 @@ create policy "board reads community ballots"
   );
 
 -- Members can cast their own ballot when the vote is open
+drop policy if exists "members cast ballot" on public.ev_ballots;
 create policy "members cast ballot"
   on public.ev_ballots for insert to authenticated
   with check (
@@ -177,6 +186,7 @@ insert into storage.buckets (id, name, public)
 values ('ev-documents', 'ev-documents', false)
 on conflict (id) do nothing;
 
+drop policy if exists "members read ev docs" on storage.objects;
 create policy "members read ev docs"
   on storage.objects for select to authenticated
   using (
@@ -185,6 +195,7 @@ create policy "members read ev docs"
         = (select community_id from public.profiles where id = auth.uid())::text
   );
 
+drop policy if exists "board uploads ev docs" on storage.objects;
 create policy "board uploads ev docs"
   on storage.objects for insert to authenticated
   with check (
@@ -194,6 +205,7 @@ create policy "board uploads ev docs"
     and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
   );
 
+drop policy if exists "board deletes ev docs" on storage.objects;
 create policy "board deletes ev docs"
   on storage.objects for delete to authenticated
   using (
@@ -572,6 +584,45 @@ create policy "any member writes audit"
     community_id = (select community_id from public.profiles where id = auth.uid())
   );
 
+-- ---------- BALLOT TALLY TRIGGER ----------
+-- Keeps ev_votes.{yes,no,abstain}_count in sync as ballots are inserted.
+-- ev_ballots is insert-only at the grant level, so we only need AFTER INSERT.
+-- When secret-ballot encryption lands, this trigger will need to move to
+-- the decryption/tally step (answer will be null at insert time).
+create or replace function public.ev_ballot_tally()
+returns trigger language plpgsql as $$
+begin
+  if new.answer = 'yes' then
+    update public.ev_votes set yes_count = yes_count + 1 where id = new.vote_id;
+  elsif new.answer = 'no' then
+    update public.ev_votes set no_count = no_count + 1 where id = new.vote_id;
+  elsif new.answer = 'abstain' then
+    update public.ev_votes set abstain_count = abstain_count + 1 where id = new.vote_id;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists ev_ballot_tally_trg on public.ev_ballots;
+create trigger ev_ballot_tally_trg
+  after insert on public.ev_ballots
+  for each row execute function public.ev_ballot_tally();
+
+-- One-time backfill: recompute counts from existing ballots. Idempotent —
+-- safe to re-run alongside the trigger (it sets counts to the true total).
+update public.ev_votes v set
+  yes_count     = coalesce(c.yes, 0),
+  no_count      = coalesce(c.no,  0),
+  abstain_count = coalesce(c.abs, 0)
+from (
+  select vote_id,
+    count(*) filter (where answer = 'yes')     as yes,
+    count(*) filter (where answer = 'no')      as no,
+    count(*) filter (where answer = 'abstain') as abs
+  from public.ev_ballots
+  group by vote_id
+) c
+where c.vote_id = v.id;
+
 -- ---------- INDEXES ----------
 create index if not exists ev_meetings_community_scheduled_idx
   on public.ev_meetings (community_id, scheduled_at desc);
@@ -599,3 +650,193 @@ create index if not exists ev_units_community_idx
   on public.ev_units (community_id);
 create index if not exists ev_audit_community_time_idx
   on public.ev_audit_log (community_id, created_at desc);
+
+-- ============================================================
+-- Easy Voice — Phase 2: In-app notifications
+-- Per-recipient mailbox rows + auto-notice triggers for the
+-- audit-grade events (vote_opened, vote_results). Other notices
+-- are composed from the admin UI. Safe to re-run.
+-- ============================================================
+
+-- ---------- EXTEND ev_notices ----------
+alter table public.ev_notices
+  add column if not exists status            text not null default 'sent'
+    check (status in ('draft','sent','failed')),
+  add column if not exists recipient_count   int  not null default 0,
+  add column if not exists in_app_read_count int  not null default 0;
+
+-- ---------- NOTICE RECIPIENTS (per-resident mailbox row) ----------
+-- One row per (notice, profile, channel). Read state lives here so
+-- residents can mark-as-read without touching the broadcast row.
+create table if not exists public.ev_notice_recipients (
+  id            uuid primary key default gen_random_uuid(),
+  notice_id     uuid not null references public.ev_notices(id) on delete cascade,
+  community_id  uuid not null references public.communities(id) on delete cascade,
+  profile_id    uuid not null references public.profiles(id)    on delete cascade,
+  channel       text not null default 'in_app'
+                  check (channel in ('in_app','email','sms')),
+  delivered_at  timestamptz not null default now(),
+  read_at       timestamptz,
+  email_status  text check (email_status in ('queued','sent','delivered','bounced','complained')),
+  unique (notice_id, profile_id, channel)
+);
+alter table public.ev_notice_recipients enable row level security;
+-- no delete grant: mark-as-read only
+grant select, insert, update on public.ev_notice_recipients to authenticated;
+
+create index if not exists ev_notice_recipients_profile_unread_idx
+  on public.ev_notice_recipients (profile_id) where read_at is null;
+create index if not exists ev_notice_recipients_notice_idx
+  on public.ev_notice_recipients (notice_id);
+
+drop policy if exists "owner reads own notice recipients" on public.ev_notice_recipients;
+create policy "owner reads own notice recipients"
+  on public.ev_notice_recipients for select to authenticated
+  using (profile_id = auth.uid());
+
+drop policy if exists "board reads community notice recipients" on public.ev_notice_recipients;
+create policy "board reads community notice recipients"
+  on public.ev_notice_recipients for select to authenticated
+  using (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  );
+
+drop policy if exists "board fans out recipients" on public.ev_notice_recipients;
+create policy "board fans out recipients"
+  on public.ev_notice_recipients for insert to authenticated
+  with check (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  );
+
+drop policy if exists "owner marks own recipient read" on public.ev_notice_recipients;
+create policy "owner marks own recipient read"
+  on public.ev_notice_recipients for update to authenticated
+  using (profile_id = auth.uid())
+  with check (profile_id = auth.uid());
+
+-- ---------- FAN-OUT TRIGGER ----------
+-- After a notice insert, materialise one ev_notice_recipients row
+-- per profile in the community for each in_app channel. security
+-- definer so the board admin's session can write rows for users
+-- other than themselves regardless of profiles RLS.
+create or replace function public.ev_notice_fanout()
+returns trigger language plpgsql security definer as $$
+declare inserted int;
+begin
+  if 'in_app' = any (new.channels) then
+    insert into public.ev_notice_recipients
+      (notice_id, community_id, profile_id, channel)
+    select new.id, new.community_id, p.id, 'in_app'
+      from public.profiles p
+     where p.community_id = new.community_id
+    on conflict (notice_id, profile_id, channel) do nothing;
+    get diagnostics inserted = row_count;
+    update public.ev_notices set recipient_count = inserted where id = new.id;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists ev_notice_fanout_trg on public.ev_notices;
+create trigger ev_notice_fanout_trg
+  after insert on public.ev_notices
+  for each row execute function public.ev_notice_fanout();
+
+-- ---------- READ-COUNT TRIGGER ----------
+-- Keep ev_notices.in_app_read_count in sync as recipients mark read.
+-- security definer: ev_notices grants are select+insert only, so an
+-- update from the residents' role would be rejected. Run as table owner.
+create or replace function public.ev_notice_read_count()
+returns trigger language plpgsql security definer as $$
+begin
+  if new.read_at is not null and old.read_at is null and new.channel = 'in_app' then
+    update public.ev_notices
+       set in_app_read_count = in_app_read_count + 1
+     where id = new.notice_id;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists ev_notice_read_count_trg on public.ev_notice_recipients;
+create trigger ev_notice_read_count_trg
+  after update on public.ev_notice_recipients
+  for each row execute function public.ev_notice_read_count();
+
+-- ---------- AUTO-NOTICE: vote opened ----------
+-- Fires when a vote transitions status → 'open'. Idempotent: skips
+-- if a vote_opened notice for this vote already exists.
+create or replace function public.ev_vote_opened_notice()
+returns trigger language plpgsql as $$
+begin
+  if old.status is distinct from new.status and new.status = 'open' then
+    if not exists (
+      select 1 from public.ev_notices
+       where vote_id = new.id and kind = 'vote_opened'
+    ) then
+      insert into public.ev_notices
+        (community_id, meeting_id, vote_id, kind, channels,
+         subject, body, sent_by)
+      values
+        (new.community_id, new.meeting_id, new.id, 'vote_opened',
+         array['in_app'],
+         'Vote now open: ' || new.title,
+         'A vote is now open for your community. Tap to cast your ballot.',
+         auth.uid());
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists ev_vote_opened_notice_trg on public.ev_votes;
+create trigger ev_vote_opened_notice_trg
+  after update on public.ev_votes
+  for each row execute function public.ev_vote_opened_notice();
+
+-- ---------- AUTO-NOTICE: vote results published ----------
+-- Fires when a vote transitions status → 'published'. Body
+-- interpolates the final tally and pass/fail result.
+create or replace function public.ev_vote_results_notice()
+returns trigger language plpgsql as $$
+begin
+  if old.status is distinct from new.status and new.status = 'published' then
+    if not exists (
+      select 1 from public.ev_notices
+       where vote_id = new.id and kind = 'vote_results'
+    ) then
+      insert into public.ev_notices
+        (community_id, meeting_id, vote_id, kind, channels,
+         subject, body, sent_by)
+      values
+        (new.community_id, new.meeting_id, new.id, 'vote_results',
+         array['in_app'],
+         'Results: ' || new.title,
+         'Final result: ' || coalesce(upper(new.result), 'no quorum') ||
+           '. Yes ' || new.yes_count ||
+           ' · No ' || new.no_count ||
+           ' · Abstain ' || new.abstain_count || '.',
+         auth.uid());
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists ev_vote_results_notice_trg on public.ev_votes;
+create trigger ev_vote_results_notice_trg
+  after update on public.ev_votes
+  for each row execute function public.ev_vote_results_notice();
+
+-- ---------- REALTIME PUBLICATION ----------
+-- Bell badge subscribes to ev_notice_recipients via Supabase realtime;
+-- the table must be in the supabase_realtime publication.
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+     where pubname = 'supabase_realtime'
+       and schemaname = 'public'
+       and tablename = 'ev_notice_recipients'
+  ) then
+    alter publication supabase_realtime add table public.ev_notice_recipients;
+  end if;
+end $$;
