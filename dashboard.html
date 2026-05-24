@@ -1,0 +1,1519 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Residente — Financials</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://js.stripe.com/v3/"></script>
+  <script>(function(){var t=localStorage.getItem('theme')||'dark';document.documentElement.setAttribute('data-theme',t);})();</script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --black:        #111111;
+      --white:        #ffffff;
+      --bg:           #111110;
+      --card:         #1c1a18;
+      --text:         #e8e4df;
+      --muted:        #9c9790;
+      --border:       #2e2b27;
+
+      --brown:        #6b4c3b;
+      --brown-dark:   #3d2b1f;
+      --brown-pale:   #2a1e15;
+      --brown-mid:    #9c7060;
+
+      --green:        #1a3d2b;
+      --green-mid:    #245c3f;
+      --green-pale:   #132819;
+      --green-light:  #3d8a5e;
+
+      --nardo:        #9b9ea0;
+      --nardo-dark:   #6b6e70;
+      --nardo-pale:   #252527;
+
+      --amber:        #92651a;
+      --amber-pale:   #271f0c;
+      --red:          #991b1b;
+      --red-pale:     #291212;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .main {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 24px 80px;
+    }
+
+    /* ── TOP ROW (card + quick pay) ── */
+    .top-row {
+      display: grid;
+      grid-template-columns: 1fr 280px;
+      gap: 16px;
+      margin-bottom: 16px;
+      align-items: stretch;
+    }
+
+    /* ── QUICK PAY PANEL ── */
+    .quickpay-panel {
+      background: var(--card);
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+    .qp-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--muted);
+      margin-bottom: 10px;
+    }
+    .qp-amount {
+      font-size: 44px;
+      font-weight: 800;
+      color: var(--text);
+      line-height: 1;
+      margin-bottom: 5px;
+    }
+    .qp-due {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 18px;
+    }
+    .qp-progress-wrap { width: 100%; margin-bottom: 20px; }
+    .qp-progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: var(--muted);
+      font-weight: 600;
+      margin-bottom: 5px;
+    }
+    .qp-track { height: 4px; background: var(--nardo-pale); border-radius: 99px; overflow: hidden; }
+    .qp-fill  { height: 100%; background: var(--green); border-radius: 99px; width: 50%; }
+    .qp-btn {
+      width: 100%;
+      justify-content: center;
+      padding: 13px 0;
+      font-size: 14px;
+      border-radius: 10px;
+      margin-bottom: 14px;
+    }
+    .qp-autopay {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .qp-ap-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green-light); }
+
+    /* ── STATEMENT BTN ON DARK CARD ── */
+    .ac-top-right { display: flex; align-items: center; gap: 8px; }
+    .ac-dl-btn {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 8px;
+      padding: 5px 11px;
+      font-size: 11px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.4);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .ac-dl-btn:hover { background: rgba(255,255,255,0.13); color: rgba(255,255,255,0.85); }
+
+    /* ── CARD SHINE SWEEP ── */
+    .ac-shine {
+      position: absolute;
+      top: 0; left: -120%;
+      width: 55%;
+      height: 100%;
+      background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,0.05) 50%, transparent 70%);
+      transition: left 0.75s ease;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .account-card:hover .ac-shine { left: 160%; }
+
+    /* ── CARD HOVER LIFT ── */
+    .card { transition: transform 0.22s ease, box-shadow 0.22s ease, border-color 0.15s; }
+    .card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0,0,0,0.4); }
+
+    /* ── STAT CARD STAGGERED ENTRANCE ── */
+    .stat-card { opacity: 0; transform: translateY(14px); }
+    .account-details.open .stat-card {
+      animation: fadeSlideIn 0.4s ease both;
+    }
+    .account-details.open .stat-card:nth-child(1) { animation-delay: 0.06s; }
+    .account-details.open .stat-card:nth-child(2) { animation-delay: 0.12s; }
+    .account-details.open .stat-card:nth-child(3) { animation-delay: 0.18s; }
+    .account-details.open .stat-card:nth-child(4) { animation-delay: 0.24s; }
+
+    @keyframes fadeSlideIn {
+      from { opacity: 0; transform: translateY(14px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ── BUTTON RIPPLE ── */
+    .btn { position: relative; overflow: hidden; }
+    @keyframes ripple-expand {
+      to { width: 320px; height: 320px; margin-left: -160px; margin-top: -160px; opacity: 0; }
+    }
+    @keyframes shakeX {
+      0%,100% { transform: translateX(0); }
+      20%,60%  { transform: translateX(-6px); }
+      40%,80%  { transform: translateX(6px); }
+    }
+
+    /* ── ACCOUNT CARD ── */
+    .account-card {
+      background: linear-gradient(135deg, #111111 0%, #2a1a0f 65%, #111e17 100%);
+      border-radius: 20px;
+      padding: 28px 30px 0;
+      position: relative;
+      overflow: hidden;
+      cursor: pointer;
+      user-select: none;
+      transition: box-shadow 0.2s;
+    }
+    .account-card:hover { box-shadow: 0 8px 36px rgba(0,0,0,0.3); }
+    .account-card::before {
+      content: '';
+      position: absolute;
+      top: -70px; right: -50px;
+      width: 220px; height: 220px;
+      border-radius: 50%;
+      background: rgba(26,61,43,0.18);
+      pointer-events: none;
+    }
+    .account-card::after {
+      content: '';
+      position: absolute;
+      bottom: -50px; left: 25%;
+      width: 300px; height: 140px;
+      border-radius: 50%;
+      background: rgba(61,43,31,0.12);
+      pointer-events: none;
+    }
+
+    .ac-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 22px;
+      position: relative;
+      z-index: 1;
+    }
+    .ac-hoa {
+      font-size: 11px;
+      font-weight: 700;
+      color: rgba(255,255,255,0.4);
+      text-transform: uppercase;
+      letter-spacing: 1.8px;
+    }
+    .ac-standing {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      background: rgba(26,61,43,0.5);
+      border: 1px solid rgba(61,138,94,0.35);
+      border-radius: 20px;
+      padding: 4px 11px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #6fcf97;
+    }
+    .ac-dot { width: 5px; height: 5px; border-radius: 50%; background: #6fcf97; }
+
+    .ac-chip {
+      width: 38px; height: 29px;
+      background: linear-gradient(135deg, #c9aa6e 0%, #a07840 50%, #c9aa6e 100%);
+      border-radius: 5px;
+      margin-bottom: 22px;
+      position: relative;
+      z-index: 1;
+      overflow: hidden;
+    }
+    .ac-chip::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        0deg,
+        transparent,
+        transparent 8px,
+        rgba(0,0,0,0.08) 8px,
+        rgba(0,0,0,0.08) 9px
+      );
+    }
+
+    .ac-bottom {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      margin-bottom: 22px;
+      position: relative;
+      z-index: 1;
+    }
+    .ac-name {
+      font-size: 17px;
+      font-weight: 700;
+      color: #ffffff;
+      letter-spacing: 0.2px;
+      margin-bottom: 3px;
+    }
+    .ac-unit { font-size: 12px; color: rgba(255,255,255,0.4); }
+    .ac-payment-info { text-align: right; }
+    .ac-paid-amt {
+      font-size: 22px;
+      font-weight: 800;
+      color: #ffffff;
+      line-height: 1;
+      margin-bottom: 3px;
+    }
+    .ac-paid-label {
+      font-size: 10px;
+      color: rgba(255,255,255,0.35);
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+    }
+    .ac-due-line {
+      font-size: 11px;
+      color: rgba(255,255,255,0.5);
+      margin-top: 7px;
+    }
+
+    .ac-expand-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      width: 100%;
+      padding: 13px 0;
+      background: none;
+      border: none;
+      border-top: 1px solid rgba(255,255,255,0.07);
+      font-size: 12px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.38);
+      cursor: pointer;
+      position: relative;
+      z-index: 1;
+      transition: color 0.15s;
+    }
+    .ac-expand-btn:hover { color: rgba(255,255,255,0.7); }
+    .ac-expand-btn .chevron-icon { transition: transform 0.25s; }
+    .ac-expand-btn.expanded .chevron-icon { transform: rotate(180deg); }
+
+    /* ── ACCOUNT DETAILS (collapsible) ── */
+    .account-details {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.35s ease, margin-bottom 0.35s ease;
+      margin-bottom: 0;
+    }
+    .account-details.open {
+      max-height: 700px;
+      margin-bottom: 20px;
+    }
+    .account-details-inner { padding-top: 4px; }
+
+    /* ── STAT CARDS ── */
+    .stat-grid {
+      display: grid;
+      grid-template-columns: repeat(3,1fr);
+      gap: 14px;
+      margin-bottom: 16px;
+    }
+    .stat-card {
+      background: var(--card);
+      border-radius: 14px;
+      padding: 20px 18px;
+      border: 1px solid var(--border);
+    }
+    .stat-label {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+    .stat-val { font-size: 26px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+    .stat-sub { font-size: 12px; color: var(--muted); }
+    .stat-accent {
+      display: inline-block;
+      font-size: 11px;
+      font-weight: 700;
+      margin-top: 9px;
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+    .accent-green  { background: var(--green-pale);  color: var(--green-light); }
+    .accent-amber  { background: var(--amber-pale);  color: #c4893a; }
+    .accent-nardo  { background: var(--nardo-pale);  color: var(--nardo); }
+    .accent-brown  { background: var(--brown-pale);  color: var(--brown-mid); }
+
+    /* ── GOAL BANNER ── */
+    .goal-banner {
+      background: linear-gradient(135deg, #0d1f16 0%, #1a3d2b 100%);
+      border-radius: 14px;
+      padding: 22px 28px;
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      flex-wrap: wrap;
+    }
+    .goal-text h3 { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 3px; }
+    .goal-text p  { font-size: 12px; color: rgba(255,255,255,0.45); max-width: 210px; line-height: 1.5; }
+    .goal-bar-wrap { flex: 1; min-width: 160px; }
+    .goal-bar-top  { display: flex; justify-content: space-between; font-size: 12px; color: rgba(255,255,255,0.6); font-weight: 600; margin-bottom: 7px; }
+    .goal-track { height: 8px; background: rgba(255,255,255,0.1); border-radius: 99px; }
+    .goal-fill  { height: 100%; border-radius: 99px; background: #3d8a5e; width: 61.8%; }
+    .goal-foot  { font-size: 11px; color: rgba(255,255,255,0.3); margin-top: 6px; }
+    .goal-stats { display: flex; gap: 28px; flex-shrink: 0; }
+    .gs-val { font-size: 20px; font-weight: 800; color: #fff; }
+    .gs-lbl { font-size: 11px; color: rgba(255,255,255,0.38); margin-top: 2px; }
+
+    /* ── ACTION ROW ── */
+    .action-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 22px;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    .action-row-left { font-size: 12px; color: var(--muted); }
+    .action-row-right { display: flex; gap: 8px; }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 9px 16px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+    }
+    .btn-primary { background: #e8e3dd; color: #1a1714; }
+    .btn-primary:hover { background: #d5d0ca; }
+    .btn-ghost { background: var(--card); color: var(--text); border: 1.5px solid var(--border); }
+    .btn-ghost:hover { border-color: var(--text); }
+
+    /* ── SECTION HEADER ── */
+    .section-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 14px; }
+    .section-title { font-size: 15px; font-weight: 700; }
+    .section-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .card-link { font-size: 12px; color: var(--green-light); font-weight: 600; background: none; border: none; cursor: pointer; margin-top: 2px; }
+
+    /* ── CONTENT CARDS ── */
+    .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; margin-bottom: 22px; }
+    .card {
+      background: var(--card);
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      padding: 22px;
+    }
+    .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; }
+    .card-title { font-size: 14px; font-weight: 700; }
+
+    /* ── DONUT ── */
+    .donut-wrap { display: flex; gap: 22px; align-items: center; }
+    .donut-canvas { width: 148px !important; height: 148px !important; flex-shrink: 0; }
+    .legend { display: flex; flex-direction: column; gap: 9px; flex: 1; }
+    .legend-row { display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+    .ldot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .lname { flex: 1; }
+    .lpct { font-weight: 700; font-size: 12px; }
+
+    /* ── YoY ── */
+    .yoy-list { display: flex; flex-direction: column; gap: 13px; }
+    .yoy-row { display: flex; align-items: center; gap: 10px; }
+    .yoy-label { font-size: 12px; color: var(--muted); width: 110px; flex-shrink: 0; }
+    .yoy-bars { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .yoy-bar-wrap { display: flex; align-items: center; gap: 6px; }
+    .yoy-yr { font-size: 10px; font-weight: 700; color: var(--muted); width: 28px; flex-shrink: 0; }
+    .yoy-track { flex: 1; height: 6px; background: var(--nardo-pale); border-radius: 99px; overflow: hidden; }
+    .yoy-fill { height: 100%; border-radius: 99px; }
+    .yoy-val { font-size: 10px; font-weight: 700; width: 28px; text-align: right; flex-shrink: 0; }
+    .yoy-change { font-size: 11px; font-weight: 700; width: 40px; text-align: right; flex-shrink: 0; }
+    .change-up   { color: var(--red); }
+    .change-down { color: var(--green-light); }
+    .change-flat { color: var(--muted); }
+
+    /* ── PROJECTS ── */
+    .projects-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 14px; margin-bottom: 22px; }
+    .project-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 18px;
+      cursor: pointer;
+      transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .project-card:hover { border-color: var(--nardo); box-shadow: 0 2px 12px rgba(0,0,0,0.07); }
+    .project-card.open { border-color: var(--green-light); }
+    .proj-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    .proj-name { font-size: 14px; font-weight: 700; }
+    .proj-status { font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 20px; flex-shrink: 0; }
+    .ps-active   { background: var(--green-pale); color: var(--green-light); }
+    .ps-planning { background: var(--amber-pale); color: #c4893a; }
+    .ps-bidding  { background: var(--nardo-pale); color: var(--nardo); }
+    .proj-progress { margin-bottom: 8px; }
+    .prog-track { height: 6px; background: var(--nardo-pale); border-radius: 99px; overflow: hidden; }
+    .prog-fill  { height: 100%; border-radius: 99px; }
+    .proj-meta  { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-top: 5px; }
+    .proj-hint  { font-size: 11px; color: var(--green-light); font-weight: 600; margin-top: 10px; display: flex; align-items: center; gap: 4px; }
+    .proj-detail { display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+    .project-card.open .proj-detail { display: block; }
+    .detail-row { display: flex; justify-content: space-between; font-size: 12.5px; padding: 7px 0; border-bottom: 1px solid var(--bg); }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { color: var(--muted); }
+    .detail-val { font-weight: 600; text-align: right; }
+    .winning-tag { display: inline-block; background: var(--green-pale); color: var(--green-light); font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 20px; margin-left: 5px; }
+    .losing-tag  { display: inline-block; background: var(--nardo-pale); color: var(--nardo); font-size: 10px; font-weight: 600; padding: 1px 6px; border-radius: 20px; margin-left: 5px; }
+    .chevron { transition: transform 0.2s; display: inline-block; }
+    .project-card.open .chevron { transform: rotate(180deg); }
+
+    /* ── PAYMENT HISTORY ── */
+    .pay-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .pay-table th { text-align: left; padding: 0 10px 10px; font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); }
+    .pay-table td { padding: 13px 10px; border-bottom: 1px solid var(--bg); vertical-align: middle; }
+    .pay-table tbody tr:last-child td { border-bottom: none; }
+    .pay-table tbody tr:hover { background: #242220; }
+    .pill { display: inline-block; padding: 3px 9px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+    .pill-paid { background: var(--green-pale);  color: var(--green-light); }
+    .pill-late { background: var(--red-pale);    color: #e05555; }
+    .dispute-btn { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); font-weight: 600; background: none; border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px; cursor: pointer; transition: all 0.15s; }
+    .dispute-btn:hover { color: var(--red); border-color: var(--red); }
+    .show-more-wrap { text-align: center; padding-top: 14px; }
+    .show-more-btn { background: none; border: 1.5px solid var(--border); border-radius: 8px; padding: 8px 20px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; transition: all 0.15s; }
+    .show-more-btn:hover { border-color: var(--text); color: var(--text); }
+    .hidden-row { display: none; }
+
+    /* ── UPCOMING ── */
+    .upcoming-list { display: flex; flex-direction: column; gap: 9px; }
+    .upcoming-item { display: flex; align-items: center; justify-content: space-between; padding: 11px 13px; background: var(--bg); border-radius: 10px; border: 1px solid var(--border); }
+    .upcoming-left { display: flex; align-items: center; gap: 11px; }
+    .cal { width: 38px; text-align: center; background: var(--black); border-radius: 8px; padding: 3px 0; flex-shrink: 0; }
+    .cal-mo  { font-size: 9px; font-weight: 700; color: rgba(255,255,255,0.45); text-transform: uppercase; }
+    .cal-day { font-size: 16px; font-weight: 800; color: #fff; line-height: 1.1; }
+    .up-title { font-size: 13px; font-weight: 600; }
+    .up-sub   { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .up-amt   { font-size: 15px; font-weight: 800; color: var(--text); }
+
+    /* ── MODAL ── */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 999; align-items: center; justify-content: center; padding: 20px; }
+    .modal-overlay.open { display: flex; }
+    .modal { background: var(--card); border-radius: 16px; padding: 26px; width: 100%; max-width: 420px; box-shadow: 0 20px 60px rgba(0,0,0,0.2); }
+    .modal-title { font-size: 16px; font-weight: 700; margin-bottom: 4px; }
+    .modal-sub   { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+    .modal-row   { margin-bottom: 13px; }
+    .modal-row label { display: block; font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px; }
+    .modal-row select, .modal-row textarea { width: 100%; padding: 10px 12px; border: 1.5px solid var(--border); border-radius: 8px; font-size: 14px; font-family: inherit; outline: none; resize: none; background: var(--card); color: var(--text); }
+    .modal-row select:focus, .modal-row textarea:focus { border-color: var(--text); }
+    .modal-actions { display: flex; gap: 10px; justify-content: flex-end; margin-top: 18px; }
+
+    /* ── CARD SELECT MODAL ── */
+    .cs-header { margin-bottom: 20px; }
+    .cs-title  { font-size: 17px; font-weight: 800; color: var(--text); margin-bottom: 3px; }
+    .cs-sub    { font-size: 13px; color: var(--muted); }
+
+    .saved-cards { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+    .saved-card {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      border: 1.5px solid var(--border);
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      background: var(--card);
+    }
+    .saved-card:hover { border-color: var(--nardo); }
+    .saved-card.selected { border-color: var(--muted); background: #252320; }
+    .saved-card.selected .sc-check { opacity: 1; }
+
+    .sc-thumbnail {
+      width: 46px; height: 30px;
+      border-radius: 6px;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #fff;
+    }
+    .sc-visa   { background: linear-gradient(135deg, #1a3563, #263f80); }
+    .sc-mc     { background: linear-gradient(135deg, #2b2b2b, #444); }
+    .sc-amex   { background: linear-gradient(135deg, #007ac2, #009fdf); }
+
+    .sc-info { flex: 1; }
+    .sc-brand-last { font-size: 13px; font-weight: 700; color: var(--text); }
+    .sc-expiry { font-size: 11px; color: var(--muted); margin-top: 1px; }
+    .sc-default { font-size: 10px; font-weight: 700; color: var(--green-light); background: var(--green-pale); padding: 1px 7px; border-radius: 20px; margin-left: 6px; vertical-align: middle; }
+    .sc-check {
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      background: var(--black);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      opacity: 0;
+      transition: opacity 0.15s;
+    }
+
+    .add-card-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 13px 16px;
+      border-radius: 12px;
+      border: 1.5px dashed var(--border);
+      background: none;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+      margin-bottom: 20px;
+    }
+    .add-card-btn:hover { border-color: var(--text); color: var(--text); }
+    .add-card-icon {
+      width: 28px; height: 28px;
+      border-radius: 50%;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .new-card-form {
+      display: none;
+      margin-bottom: 20px;
+      padding: 16px;
+      background: var(--bg);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+    }
+    .new-card-form.open { display: block; }
+    .ncf-row { display: flex; gap: 10px; }
+    .ncf-field { flex: 1; }
+    .ncf-label { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); margin-bottom: 5px; display: block; }
+    .ncf-input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      background: var(--card);
+      color: var(--text);
+      transition: border-color 0.15s;
+    }
+    .ncf-input:focus { border-color: var(--text); }
+    .ncf-input::placeholder { color: var(--nardo); }
+    .ncf-save-btn {
+      width: 100%;
+      margin-top: 12px;
+      padding: 11px;
+      background: #e8e3dd;
+      color: #1a1714;
+      font-size: 13px;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .ncf-save-btn:hover { background: #d5d0ca; }
+
+    .cs-pay-btn {
+      width: 100%;
+      padding: 15px;
+      background: #e8e3dd;
+      color: #1a1714;
+      font-size: 15px;
+      font-weight: 700;
+      border: none;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.15s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .cs-pay-btn:hover { background: #d5d0ca; }
+    .cs-pay-btn:active { transform: scale(0.98); }
+
+    /* ── STRIPE ELEMENT ── */
+    .stripe-wrap {
+      padding: 13px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      background: var(--card);
+      margin-bottom: 8px;
+      transition: border-color 0.15s;
+    }
+    .stripe-wrap.focused { border-color: var(--muted); }
+    .stripe-errors {
+      font-size: 13px;
+      color: #e05555;
+      min-height: 18px;
+      margin-bottom: 14px;
+    }
+    [data-theme="light"] .stripe-errors { color: #dc2626; }
+
+    /* ── LIGHT THEME ── */
+    [data-theme="light"] {
+      --bg:         #f5f3f0;
+      --card:       #ffffff;
+      --text:       #111111;
+      --muted:      #7a7068;
+      --border:     #e4ddd7;
+      --brown-pale: #f2ebe5;
+      --green-pale: #d4e8da;
+      --nardo-pale: #eaebec;
+      --amber-pale: #fef0d2;
+      --red-pale:   #fde8e8;
+    }
+    [data-theme="light"] .btn-primary { background: #111111; color: #ffffff; }
+    [data-theme="light"] .btn-primary:hover { background: #333333; }
+    [data-theme="light"] .cs-pay-btn { background: #111111; color: #ffffff; }
+    [data-theme="light"] .cs-pay-btn:hover { background: #333333; }
+    [data-theme="light"] .ncf-save-btn { background: #111111; color: #ffffff; }
+    [data-theme="light"] .ncf-save-btn:hover { background: #333333; }
+    [data-theme="light"] .quickpay-panel { background: #ffffff; }
+    [data-theme="light"] .saved-card { background: #ffffff; }
+    [data-theme="light"] .saved-card.selected { border-color: #111111; background: #fafafa; }
+    [data-theme="light"] .ncf-input { background: #ffffff; color: #111111; }
+    [data-theme="light"] .ncf-input:focus { border-color: #111111; }
+    [data-theme="light"] .modal-row select,
+    [data-theme="light"] .modal-row textarea { background: #ffffff; color: #111111; }
+    [data-theme="light"] .modal-row select:focus,
+    [data-theme="light"] .modal-row textarea:focus { border-color: #111111; }
+    [data-theme="light"] .pay-table tbody tr:hover { background: #faf9f7; }
+    [data-theme="light"] .btn-ghost:hover { border-color: #111111; }
+    [data-theme="light"] .show-more-btn:hover { border-color: #111111; color: #111111; }
+    [data-theme="light"] .add-card-btn:hover { border-color: #111111; color: #111111; }
+    [data-theme="light"] .accent-green { color: #245c3f; }
+    [data-theme="light"] .accent-amber { color: #92651a; }
+    [data-theme="light"] .accent-nardo { color: #6b6e70; }
+    [data-theme="light"] .accent-brown { color: #6b4c3b; }
+    [data-theme="light"] .ps-active   { color: #245c3f; }
+    [data-theme="light"] .ps-planning { color: #92651a; }
+    [data-theme="light"] .ps-bidding  { color: #6b6e70; }
+    [data-theme="light"] .pill-paid   { color: #245c3f; }
+    [data-theme="light"] .pill-late   { color: #991b1b; }
+    [data-theme="light"] .winning-tag { color: #245c3f; }
+    [data-theme="light"] .losing-tag  { color: #6b6e70; }
+    [data-theme="light"] .project-card.open { border-color: #1a3d2b; }
+    [data-theme="light"] .card:hover { box-shadow: 0 6px 24px rgba(0,0,0,0.08); }
+
+    /* ── THEME TOGGLE ── */
+    .theme-toggle {
+      position: fixed;
+      top: 20px;
+      right: 24px;
+      z-index: 200;
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: color 0.15s, border-color 0.15s, background 0.15s;
+    }
+    .theme-toggle:hover { color: var(--text); border-color: var(--muted); }
+    .theme-icon-sun  { display: none; }
+    .theme-icon-moon { display: block; }
+    [data-theme="light"] .theme-icon-sun  { display: block; }
+    [data-theme="light"] .theme-icon-moon { display: none; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 768px) {
+      .main { padding: 16px 14px 48px; }
+      .top-row { grid-template-columns: 1fr; }
+      .stat-grid { grid-template-columns: 1fr 1fr; }
+      .stat-val { font-size: 22px; }
+      .row-2 { grid-template-columns: 1fr; }
+      .projects-grid { grid-template-columns: 1fr; }
+      .goal-banner { flex-direction: column; gap: 14px; }
+      .upcoming-list { grid-template-columns: 1fr !important; }
+      .pay-table thead { display: none; }
+      .pay-table, .pay-table tbody, .pay-table tr, .pay-table td { display: block; width: 100%; }
+      .pay-table tr { background: var(--card); border-radius: 10px; margin-bottom: 10px; padding: 12px 14px; border: 1px solid var(--border); }
+      .pay-table td { padding: 4px 0; border: none; display: flex; justify-content: space-between; align-items: center; }
+      .pay-table td[data-label]::before { content: attr(data-label); font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; }
+      .account-details.open { max-height: 1100px; }
+    }
+  </style>
+</head>
+<body>
+
+<button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+  <svg class="theme-icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+  <svg class="theme-icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+</button>
+
+<main class="main">
+
+  <!-- TOP ROW -->
+  <div class="top-row">
+
+  <!-- ACCOUNT CARD -->
+  <div class="account-card" onclick="toggleAccountDetails()">
+    <div class="ac-shine"></div>
+    <div class="ac-top">
+      <div class="ac-hoa">Oak Valley HOA</div>
+      <div class="ac-top-right">
+        <button class="ac-dl-btn" onclick="event.stopPropagation(); downloadStatement()">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Statement
+        </button>
+        <div class="ac-standing"><div class="ac-dot"></div>Good Standing</div>
+      </div>
+    </div>
+    <div class="ac-chip"></div>
+    <div class="ac-bottom">
+      <div>
+        <div class="ac-name">Jane Reyes</div>
+        <div class="ac-unit">Unit 4B</div>
+      </div>
+      <div class="ac-payment-info">
+        <div class="ac-paid-amt">$1,500</div>
+        <div class="ac-paid-label">Paid this year</div>
+        <div class="ac-due-line">Next due: Jun 1 · $250</div>
+      </div>
+    </div>
+    <button class="ac-expand-btn" id="expandBtn" onclick="event.stopPropagation(); toggleAccountDetails()">
+      View financial details
+      <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+  </div>
+
+  <!-- QUICK PAY PANEL -->
+  <div class="quickpay-panel">
+    <div class="qp-label">Next Payment</div>
+    <div class="qp-amount">$250</div>
+    <div class="qp-due">Due June 1, 2026</div>
+    <div class="qp-progress-wrap">
+      <div class="qp-progress-label"><span>6 of 12 paid</span><span>2026</span></div>
+      <div class="qp-track"><div class="qp-fill"></div></div>
+    </div>
+    <button class="btn btn-primary qp-btn" onclick="openCardSelect()">Pay Now</button>
+    <div class="qp-autopay"><div class="qp-ap-dot"></div>Auto-pay · Enabled</div>
+  </div>
+
+  </div><!-- end top-row -->
+
+  <!-- ACCOUNT DETAILS (collapsed by default) -->
+  <div class="account-details" id="accountDetails">
+    <div class="account-details-inner">
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Paid This Year</div>
+          <div class="stat-val">$1,500</div>
+          <div class="stat-sub">6 of 12 payments</div>
+          <span class="stat-accent accent-green">On track</span>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Annual Dues</div>
+          <div class="stat-val">$3,000</div>
+          <div class="stat-sub">$1,500 remaining</div>
+          <span class="stat-accent accent-nardo">$250 / month</span>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Community Collected</div>
+          <div class="stat-val">$148K</div>
+          <div class="stat-sub">of $300K annual budget</div>
+          <span class="stat-accent accent-brown">49% of goal</span>
+        </div>
+      </div>
+
+      <div class="goal-banner">
+        <div class="goal-text">
+          <h3>2026 Reserve Fund Goal</h3>
+          <p>Building reserves to cover major repairs — no surprise assessments.</p>
+        </div>
+        <div class="goal-bar-wrap">
+          <div class="goal-bar-top"><span>$74,200 raised</span><span>Goal: $120,000</span></div>
+          <div class="goal-track"><div class="goal-fill"></div></div>
+          <div class="goal-foot">61.8% funded · estimated 14 months to goal</div>
+        </div>
+        <div class="goal-stats">
+          <div><div class="gs-val">128</div><div class="gs-lbl">Units contributing</div></div>
+          <div><div class="gs-val">$578</div><div class="gs-lbl">Avg per unit / yr</div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FUND ALLOCATION + YoY (merged) -->
+  <div class="card" style="margin-bottom:22px;">
+    <div class="card-header">
+      <div>
+        <div class="card-title">Where Your Dues Go — 2026</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">vs. last year</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:16px;">
+        <div style="display:flex;gap:10px;font-size:11px;font-weight:600;color:var(--muted);">
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#e4ddd7;display:inline-block"></span>2025</span>
+          <span style="display:flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#1a3d2b;display:inline-block"></span>2026</span>
+        </div>
+        <button class="card-link">Full report →</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:0;align-items:flex-start;">
+      <div style="display:flex;align-items:center;gap:16px;flex-shrink:0;">
+        <canvas class="donut-canvas" id="donutChart"></canvas>
+      </div>
+      <div style="width:1px;background:var(--border);align-self:stretch;margin:0 28px;flex-shrink:0;"></div>
+      <div class="yoy-list" style="flex:1;">
+        <div class="yoy-row">
+          <div style="display:flex;align-items:center;gap:7px;width:120px;flex-shrink:0;"><div class="ldot" style="background:#1a3d2b"></div><span class="yoy-label" style="width:auto">Maintenance</span></div>
+          <div class="yoy-bars">
+            <div class="yoy-bar-wrap"><span class="yoy-yr">25</span><div class="yoy-track"><div class="yoy-fill" style="width:65%;background:#e4ddd7"></div></div><span class="yoy-val" style="color:var(--muted)">26%</span></div>
+            <div class="yoy-bar-wrap"><span class="yoy-yr" style="color:#1a3d2b">26</span><div class="yoy-track"><div class="yoy-fill" style="width:70%;background:#1a3d2b"></div></div><span class="yoy-val" style="color:#1a3d2b">28%</span></div>
+          </div>
+          <span class="yoy-change change-up">+2%</span>
+        </div>
+        <div class="yoy-row">
+          <div style="display:flex;align-items:center;gap:7px;width:120px;flex-shrink:0;"><div class="ldot" style="background:#3d8a5e"></div><span class="yoy-label" style="width:auto">Reserve Fund</span></div>
+          <div class="yoy-bars">
+            <div class="yoy-bar-wrap"><span class="yoy-yr">25</span><div class="yoy-track"><div class="yoy-fill" style="width:50%;background:#e4ddd7"></div></div><span class="yoy-val" style="color:var(--muted)">20%</span></div>
+            <div class="yoy-bar-wrap"><span class="yoy-yr" style="color:#3d8a5e">26</span><div class="yoy-track"><div class="yoy-fill" style="width:55%;background:#3d8a5e"></div></div><span class="yoy-val" style="color:#3d8a5e">22%</span></div>
+          </div>
+          <span class="yoy-change change-up">+2%</span>
+        </div>
+        <div class="yoy-row">
+          <div style="display:flex;align-items:center;gap:7px;width:120px;flex-shrink:0;"><div class="ldot" style="background:#9b9ea0"></div><span class="yoy-label" style="width:auto">Landscaping</span></div>
+          <div class="yoy-bars">
+            <div class="yoy-bar-wrap"><span class="yoy-yr">25</span><div class="yoy-track"><div class="yoy-fill" style="width:47.5%;background:#e4ddd7"></div></div><span class="yoy-val" style="color:var(--muted)">19%</span></div>
+            <div class="yoy-bar-wrap"><span class="yoy-yr" style="color:#9b9ea0">26</span><div class="yoy-track"><div class="yoy-fill" style="width:45%;background:#9b9ea0"></div></div><span class="yoy-val" style="color:#9b9ea0">18%</span></div>
+          </div>
+          <span class="yoy-change change-down">−1%</span>
+        </div>
+        <div class="yoy-row">
+          <div style="display:flex;align-items:center;gap:7px;width:120px;flex-shrink:0;"><div class="ldot" style="background:#6b4c3b"></div><span class="yoy-label" style="width:auto">Insurance</span></div>
+          <div class="yoy-bars">
+            <div class="yoy-bar-wrap"><span class="yoy-yr">25</span><div class="yoy-track"><div class="yoy-fill" style="width:35%;background:#e4ddd7"></div></div><span class="yoy-val" style="color:var(--muted)">14%</span></div>
+            <div class="yoy-bar-wrap"><span class="yoy-yr" style="color:#6b4c3b">26</span><div class="yoy-track"><div class="yoy-fill" style="width:37.5%;background:#6b4c3b"></div></div><span class="yoy-val" style="color:#6b4c3b">15%</span></div>
+          </div>
+          <span class="yoy-change change-up">+1%</span>
+        </div>
+        <div class="yoy-row">
+          <div style="display:flex;align-items:center;gap:7px;width:120px;flex-shrink:0;"><div class="ldot" style="background:#3d2b1f"></div><span class="yoy-label" style="width:auto">Utilities</span></div>
+          <div class="yoy-bars">
+            <div class="yoy-bar-wrap"><span class="yoy-yr">25</span><div class="yoy-track"><div class="yoy-fill" style="width:25%;background:#e4ddd7"></div></div><span class="yoy-val" style="color:var(--muted)">10%</span></div>
+            <div class="yoy-bar-wrap"><span class="yoy-yr" style="color:#3d2b1f">26</span><div class="yoy-track"><div class="yoy-fill" style="width:25%;background:#3d2b1f"></div></div><span class="yoy-val" style="color:#3d2b1f">10%</span></div>
+          </div>
+          <span class="yoy-change change-flat">—</span>
+        </div>
+        <div class="yoy-row">
+          <div style="display:flex;align-items:center;gap:7px;width:120px;flex-shrink:0;"><div class="ldot" style="background:#c4b8b0"></div><span class="yoy-label" style="width:auto">Admin</span></div>
+          <div class="yoy-bars">
+            <div class="yoy-bar-wrap"><span class="yoy-yr">25</span><div class="yoy-track"><div class="yoy-fill" style="width:22.5%;background:#e4ddd7"></div></div><span class="yoy-val" style="color:var(--muted)">9%</span></div>
+            <div class="yoy-bar-wrap"><span class="yoy-yr" style="color:#c4b8b0">26</span><div class="yoy-track"><div class="yoy-fill" style="width:17.5%;background:#c4b8b0"></div></div><span class="yoy-val" style="color:#c4b8b0">7%</span></div>
+          </div>
+          <span class="yoy-change change-down">−2%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROJECTS -->
+  <div class="section-header">
+    <div>
+      <div class="section-title">Community Projects</div>
+      <div class="section-sub">Tap any project to see vendor, bids, and funding details</div>
+    </div>
+    <button class="card-link">All projects →</button>
+  </div>
+  <div class="projects-grid">
+
+    <div class="project-card" onclick="toggleProject(this)">
+      <div class="proj-top">
+        <div class="proj-name">Pool Resurfacing</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="proj-status ps-active">Active</span>
+          <svg class="chevron" style="width:14px;height:14px;stroke:var(--muted);fill:none;stroke-width:2.5" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+      <div class="proj-progress"><div class="prog-track"><div class="prog-fill" style="width:78%;background:#1a3d2b"></div></div></div>
+      <div class="proj-meta"><span>$32,760 of $42,000 funded</span><span style="font-weight:700;color:#1a3d2b">78%</span></div>
+      <div class="proj-hint">
+        <svg style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Tap for vendor & bid details
+      </div>
+      <div class="proj-detail">
+        <div class="detail-row"><span class="detail-label">Est. completion</span><span class="detail-val">August 2026</span></div>
+        <div class="detail-row"><span class="detail-label">Awarded vendor</span><span class="detail-val">AquaPro LLC <span class="winning-tag">Lowest qualified bid</span></span></div>
+        <div class="detail-row"><span class="detail-label">Bids received</span><span class="detail-val">3 bids</span></div>
+        <div class="detail-row"><span class="detail-label">Other bids</span><span class="detail-val" style="text-align:right">ClearWater Co. $47,200 <span class="losing-tag">Not selected</span><br>BlueLine Inc. $51,000 <span class="losing-tag">Not selected</span></span></div>
+        <div class="detail-row"><span class="detail-label">Vendor license</span><span class="detail-val">FL-CON-2041887</span></div>
+        <div class="detail-row"><span class="detail-label">Insurance</span><span class="detail-val">Verified — $2M liability</span></div>
+        <div class="detail-row"><span class="detail-label">Board approval</span><span class="detail-val">March 12, 2026</span></div>
+      </div>
+    </div>
+
+    <div class="project-card" onclick="toggleProject(this)">
+      <div class="proj-top">
+        <div class="proj-name">Parking Lot Repaving</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="proj-status ps-active">Active</span>
+          <svg class="chevron" style="width:14px;height:14px;stroke:var(--muted);fill:none;stroke-width:2.5" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+      <div class="proj-progress"><div class="prog-track"><div class="prog-fill" style="width:45%;background:#9b9ea0"></div></div></div>
+      <div class="proj-meta"><span>$29,250 of $65,000 funded</span><span style="font-weight:700;color:#9b9ea0">45%</span></div>
+      <div class="proj-hint">
+        <svg style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Tap for vendor & bid details
+      </div>
+      <div class="proj-detail">
+        <div class="detail-row"><span class="detail-label">Est. completion</span><span class="detail-val">October 2026</span></div>
+        <div class="detail-row"><span class="detail-label">Awarded vendor</span><span class="detail-val">Metro Paving Co. <span class="winning-tag">Best value</span></span></div>
+        <div class="detail-row"><span class="detail-label">Bids received</span><span class="detail-val">4 bids (1 disqualified)</span></div>
+        <div class="detail-row"><span class="detail-label">Other bids</span><span class="detail-val" style="text-align:right">SunState Paving $68,500 <span class="losing-tag">Not selected</span><br>RoadMark LLC $72,000 <span class="losing-tag">Not selected</span><br>QuickAsphalt $61,000 <span class="losing-tag">Disqualified*</span></span></div>
+        <div class="detail-row"><span class="detail-label">*Disqualified</span><span class="detail-val">Unlicensed subcontractors</span></div>
+        <div class="detail-row"><span class="detail-label">Vendor license</span><span class="detail-val">FL-CON-1093345</span></div>
+        <div class="detail-row"><span class="detail-label">Insurance</span><span class="detail-val">Verified — $5M liability</span></div>
+        <div class="detail-row"><span class="detail-label">Board approval</span><span class="detail-val">April 8, 2026</span></div>
+      </div>
+    </div>
+
+    <div class="project-card" onclick="toggleProject(this)">
+      <div class="proj-top">
+        <div class="proj-name">Entrance Gate Upgrade</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="proj-status ps-planning">Planning</span>
+          <svg class="chevron" style="width:14px;height:14px;stroke:var(--muted);fill:none;stroke-width:2.5" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+      <div class="proj-progress"><div class="prog-track"><div class="prog-fill" style="width:22%;background:#92651a"></div></div></div>
+      <div class="proj-meta"><span>$4,070 of $18,500 funded</span><span style="font-weight:700;color:#92651a">22%</span></div>
+      <div class="proj-hint">
+        <svg style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Tap for vendor & bid details
+      </div>
+      <div class="proj-detail">
+        <div class="detail-row"><span class="detail-label">Est. completion</span><span class="detail-val">Q1 2027</span></div>
+        <div class="detail-row"><span class="detail-label">Awarded vendor</span><span class="detail-val">SecureGate Systems <span class="winning-tag">Selected</span></span></div>
+        <div class="detail-row"><span class="detail-label">Bids received</span><span class="detail-val">2 bids</span></div>
+        <div class="detail-row"><span class="detail-label">Other bids</span><span class="detail-val">GatePro Inc. $22,000 <span class="losing-tag">Not selected</span></span></div>
+        <div class="detail-row"><span class="detail-label">Vendor license</span><span class="detail-val">FL-SEC-0088213</span></div>
+        <div class="detail-row"><span class="detail-label">Insurance</span><span class="detail-val">Verified — $1M liability</span></div>
+        <div class="detail-row"><span class="detail-label">Board approval</span><span class="detail-val">May 1, 2026</span></div>
+      </div>
+    </div>
+
+    <div class="project-card" onclick="toggleProject(this)">
+      <div class="proj-top">
+        <div class="proj-name">Clubhouse Renovation</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span class="proj-status ps-bidding">Bidding Open</span>
+          <svg class="chevron" style="width:14px;height:14px;stroke:var(--muted);fill:none;stroke-width:2.5" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        </div>
+      </div>
+      <div class="proj-progress"><div class="prog-track"><div class="prog-fill" style="width:8%;background:#6b6e70"></div></div></div>
+      <div class="proj-meta"><span>$7,600 of $95,000 funded</span><span style="font-weight:700;color:#6b6e70">8%</span></div>
+      <div class="proj-hint">
+        <svg style="width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Tap to see bidding status
+      </div>
+      <div class="proj-detail">
+        <div class="detail-row"><span class="detail-label">Est. completion</span><span class="detail-val">Q2 2027 (pending approval)</span></div>
+        <div class="detail-row"><span class="detail-label">Vendor</span><span class="detail-val">Not yet awarded</span></div>
+        <div class="detail-row"><span class="detail-label">Bid deadline</span><span class="detail-val">July 15, 2026</span></div>
+        <div class="detail-row"><span class="detail-label">Bids so far</span><span class="detail-val">2 received, reviewing</span></div>
+        <div class="detail-row"><span class="detail-label">Board vote</span><span class="detail-val">August 2026 meeting</span></div>
+        <div class="detail-row"><span class="detail-label">Note</span><span class="detail-val">Project not approved until fully funded</span></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PAYMENTS (history + upcoming merged) -->
+  <div class="card" style="margin-bottom:22px;">
+    <div class="card-header">
+      <div class="card-title">Payments</div>
+      <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px" onclick="downloadStatement()">Export CSV</button>
+    </div>
+
+    <!-- Upcoming -->
+    <div style="margin-bottom:20px;">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);margin-bottom:10px;">Upcoming</div>
+      <div class="upcoming-list" style="display:grid;grid-template-columns:repeat(2,1fr);gap:9px;">
+        <div class="upcoming-item">
+          <div class="upcoming-left"><div class="cal"><div class="cal-mo">Jun</div><div class="cal-day">1</div></div><div><div class="up-title">Monthly HOA Dues</div><div class="up-sub">Auto-pay on</div></div></div>
+          <div class="up-amt">$250</div>
+        </div>
+        <div class="upcoming-item">
+          <div class="upcoming-left"><div class="cal"><div class="cal-mo">Jul</div><div class="cal-day">1</div></div><div><div class="up-title">Monthly HOA Dues</div><div class="up-sub">Auto-pay on</div></div></div>
+          <div class="up-amt">$250</div>
+        </div>
+        <div class="upcoming-item">
+          <div class="upcoming-left"><div class="cal"><div class="cal-mo">Aug</div><div class="cal-day">1</div></div><div><div class="up-title">Monthly HOA Dues</div><div class="up-sub">Auto-pay on</div></div></div>
+          <div class="up-amt">$250</div>
+        </div>
+        <div class="upcoming-item" style="border-color:#e8d9ba;background:#fdf8ee">
+          <div class="upcoming-left"><div class="cal" style="background:#92651a"><div class="cal-mo">Sep</div><div class="cal-day">15</div></div><div><div class="up-title">Insurance Review</div><div class="up-sub">Rate may adjust</div></div></div>
+          <div class="up-amt" style="color:#92651a">TBD</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="border-top:1px solid var(--border);margin-bottom:16px;"></div>
+
+    <!-- History -->
+    <div>
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.6px;color:var(--muted);margin-bottom:10px;">History</div>
+      <table class="pay-table">
+        <thead>
+          <tr><th>Date</th><th>Description</th><th>Amount</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody>
+          <tr><td data-label="Date">May 1, 2026</td><td data-label="Description">Monthly Dues</td><td data-label="Amount"><strong>$250.00</strong></td><td data-label="Status"><span class="pill pill-paid">Paid</span></td><td><button class="dispute-btn" onclick="openDispute('May 1, 2026','$250.00')">Flag</button></td></tr>
+          <tr><td data-label="Date">Apr 1, 2026</td><td data-label="Description">Monthly Dues</td><td data-label="Amount"><strong>$250.00</strong></td><td data-label="Status"><span class="pill pill-paid">Paid</span></td><td><button class="dispute-btn" onclick="openDispute('Apr 1, 2026','$250.00')">Flag</button></td></tr>
+          <tr><td data-label="Date">Mar 1, 2026</td><td data-label="Description">Monthly Dues</td><td data-label="Amount"><strong>$250.00</strong></td><td data-label="Status"><span class="pill pill-paid">Paid</span></td><td><button class="dispute-btn" onclick="openDispute('Mar 1, 2026','$250.00')">Flag</button></td></tr>
+          <tr class="hidden-row"><td data-label="Date">Feb 1, 2026</td><td data-label="Description">Monthly Dues</td><td data-label="Amount"><strong>$250.00</strong></td><td data-label="Status"><span class="pill pill-paid">Paid</span></td><td><button class="dispute-btn" onclick="openDispute('Feb 1, 2026','$250.00')">Flag</button></td></tr>
+          <tr class="hidden-row"><td data-label="Date">Jan 1, 2026</td><td data-label="Description">Monthly Dues</td><td data-label="Amount"><strong>$250.00</strong></td><td data-label="Status"><span class="pill pill-paid">Paid</span></td><td><button class="dispute-btn" onclick="openDispute('Jan 1, 2026','$250.00')">Flag</button></td></tr>
+          <tr class="hidden-row"><td data-label="Date">Dec 1, 2025</td><td data-label="Description">Monthly Dues</td><td data-label="Amount"><strong>$250.00</strong></td><td data-label="Status"><span class="pill pill-paid">Paid</span></td><td><button class="dispute-btn" onclick="openDispute('Dec 1, 2025','$250.00')">Flag</button></td></tr>
+          <tr class="hidden-row"><td data-label="Date">Nov 1, 2025</td><td data-label="Description">Special Assessment</td><td data-label="Amount"><strong>$180.00</strong></td><td data-label="Status"><span class="pill pill-paid">Paid</span></td><td><button class="dispute-btn" onclick="openDispute('Nov 1, 2025','$180.00')">Flag</button></td></tr>
+          <tr class="hidden-row"><td data-label="Date">Nov 1, 2025</td><td data-label="Description">Monthly Dues</td><td data-label="Amount"><strong>$250.00</strong></td><td data-label="Status"><span class="pill pill-late">Late — paid Nov 9</span></td><td><button class="dispute-btn" onclick="openDispute('Nov 1, 2025 (late)','$250.00')">Flag</button></td></tr>
+        </tbody>
+      </table>
+      <div class="show-more-wrap">
+        <button class="show-more-btn" id="showMoreBtn" onclick="toggleHistory()">Show older payments</button>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<!-- PAYMENT MODAL -->
+<div class="modal-overlay" id="cardSelectModal">
+  <div class="modal" style="max-width:440px">
+    <div class="cs-header">
+      <div class="cs-title">Pay Dues</div>
+      <div class="cs-sub" id="payModalSub">June payment · $250.00</div>
+    </div>
+
+    <div class="stripe-wrap" id="stripeWrap">
+      <div id="stripeCardEl"></div>
+    </div>
+    <div class="stripe-errors" id="stripeErrors" role="alert"></div>
+
+    <button class="cs-pay-btn" id="csPayBtn" onclick="confirmPayment()">
+      Pay $250.00
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+    </button>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:12px;">
+      <button style="background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;" onclick="closeCardSelect()">Cancel</button>
+      <div style="display:flex;align-items:center;gap:5px;font-size:11px;color:var(--muted);">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Secured by Stripe
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DISPUTE MODAL -->
+<div class="modal-overlay" id="disputeModal">
+  <div class="modal">
+    <div class="modal-title">Flag a Payment</div>
+    <div class="modal-sub" id="disputeInfo"></div>
+    <div class="modal-row">
+      <label>Reason</label>
+      <select>
+        <option value="">Select a reason…</option>
+        <option>Amount looks incorrect</option>
+        <option>I don't recognize this charge</option>
+        <option>I already paid this separately</option>
+        <option>Possible duplicate charge</option>
+        <option>Other</option>
+      </select>
+    </div>
+    <div class="modal-row">
+      <label>Details (optional)</label>
+      <textarea rows="3" placeholder="Describe the issue…"></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-ghost" onclick="closeDispute()">Cancel</button>
+      <button class="btn btn-primary" onclick="submitDispute()">Submit to Board</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ── THEME TOGGLE ── */
+  function toggleTheme() {
+    const next = document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('theme', next);
+  }
+
+  /* ── DONUT CHART ── */
+  new Chart(document.getElementById('donutChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Maintenance','Reserve Fund','Landscaping','Insurance','Utilities','Admin'],
+      datasets: [{
+        data: [28,22,18,15,10,7],
+        backgroundColor: ['#1a3d2b','#3d8a5e','#9b9ea0','#6b4c3b','#3d2b1f','#c4b8b0'],
+        borderWidth: 2, borderColor: '#fff', hoverOffset: 8
+      }]
+    },
+    options: {
+      cutout: '70%',
+      animation: { duration: 1000, easing: 'easeInOutQuart' },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => ` ${c.label}: ${c.parsed}% ($${(c.parsed * 30).toFixed(0)}/yr)` } }
+      }
+    }
+  });
+
+  /* ── PROGRESS BAR ANIMATIONS ── */
+  function animateBars(scope) {
+    const root = scope || document;
+    root.querySelectorAll('.prog-fill, .yoy-fill').forEach(bar => {
+      const target = bar.style.width;
+      if (!target) return;
+      bar.style.transition = 'none';
+      bar.style.width = '0';
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        bar.style.transition = 'width 1s cubic-bezier(0.4, 0, 0.2, 1)';
+        bar.style.width = target;
+      }));
+    });
+    // CSS-width bars
+    ['.goal-fill', '.qp-fill'].forEach(sel => {
+      const bar = root.querySelector(sel);
+      if (!bar) return;
+      const target = getComputedStyle(bar).width;
+      bar.style.transition = 'none';
+      bar.style.width = '0';
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        bar.style.transition = 'width 1.1s cubic-bezier(0.4, 0, 0.2, 1)';
+        bar.style.width = target;
+      }));
+    });
+  }
+
+  /* ── COUNT-UP ANIMATION ── */
+  function countUp(el, target, duration) {
+    const start = performance.now();
+    function step(now) {
+      const p = Math.min((now - start) / duration, 1);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = '$' + Math.round(target * eased);
+      if (p < 1) requestAnimationFrame(step);
+      else el.textContent = '$' + target;
+    }
+    requestAnimationFrame(step);
+  }
+
+  /* ── 3D TILT ON ACCOUNT CARD ── */
+  const acCard = document.querySelector('.account-card');
+  acCard.addEventListener('mousemove', e => {
+    const r = acCard.getBoundingClientRect();
+    const x = (e.clientX - r.left) / r.width  - 0.5;
+    const y = (e.clientY - r.top)  / r.height - 0.5;
+    acCard.style.transition = 'box-shadow 0.2s';
+    acCard.style.transform  = `perspective(1100px) rotateX(${y * -7}deg) rotateY(${x * 7}deg) scale(1.01)`;
+  });
+  acCard.addEventListener('mouseleave', () => {
+    acCard.style.transition = 'transform 0.55s ease, box-shadow 0.2s';
+    acCard.style.transform  = 'perspective(1100px) rotateX(0) rotateY(0) scale(1)';
+  });
+
+  /* ── BUTTON RIPPLE ── */
+  document.addEventListener('click', e => {
+    const btn = e.target.closest('.btn');
+    if (!btn) return;
+    const r = btn.getBoundingClientRect();
+    const span = document.createElement('span');
+    Object.assign(span.style, {
+      position: 'absolute',
+      width: '8px', height: '8px',
+      borderRadius: '50%',
+      background: 'rgba(255,255,255,0.35)',
+      left: (e.clientX - r.left - 4) + 'px',
+      top:  (e.clientY - r.top  - 4) + 'px',
+      pointerEvents: 'none',
+      animation: 'ripple-expand 0.55s ease-out forwards',
+    });
+    btn.appendChild(span);
+    setTimeout(() => span.remove(), 600);
+  });
+
+  /* ── ON LOAD ── */
+  window.addEventListener('DOMContentLoaded', () => {
+    animateBars();
+    const qpEl = document.querySelector('.qp-amount');
+    if (qpEl) countUp(qpEl, 250, 900);
+  });
+
+  /* ── TOGGLE ACCOUNT DETAILS ── */
+  function toggleAccountDetails() {
+    const details = document.getElementById('accountDetails');
+    const btn = document.getElementById('expandBtn');
+    const isOpen = details.classList.toggle('open');
+    btn.classList.toggle('expanded', isOpen);
+    btn.innerHTML = isOpen
+      ? 'Hide details <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>'
+      : 'View financial details <svg class="chevron-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>';
+    if (isOpen) setTimeout(() => animateBars(details), 60);
+  }
+
+  /* ── PROJECT EXPAND ── */
+  function toggleProject(card) { card.classList.toggle('open'); }
+
+  /* ── PAYMENT HISTORY ── */
+  let historyExpanded = false;
+  function toggleHistory() {
+    historyExpanded = !historyExpanded;
+    document.querySelectorAll('.hidden-row').forEach(r => r.style.display = historyExpanded ? '' : 'none');
+    document.getElementById('showMoreBtn').textContent = historyExpanded ? 'Show less' : 'Show older payments';
+  }
+
+  /* ── DISPUTE MODAL ── */
+  function openDispute(date, amt) {
+    document.getElementById('disputeInfo').textContent = `Payment · ${date} · ${amt}`;
+    document.getElementById('disputeModal').classList.add('open');
+  }
+  function closeDispute() { document.getElementById('disputeModal').classList.remove('open'); }
+  function submitDispute() {
+    closeDispute();
+    alert('Your flag has been sent to the board. Expect a response within 5 business days.');
+  }
+
+  /* ── STATEMENT DOWNLOAD ── */
+  function downloadStatement() {
+    const rows = [
+      ['Date','Description','Amount','Status'],
+      ['May 1 2026','Monthly Dues','$250.00','Paid'],
+      ['Apr 1 2026','Monthly Dues','$250.00','Paid'],
+      ['Mar 1 2026','Monthly Dues','$250.00','Paid'],
+      ['Feb 1 2026','Monthly Dues','$250.00','Paid'],
+      ['Jan 1 2026','Monthly Dues','$250.00','Paid'],
+      ['Dec 1 2025','Monthly Dues','$250.00','Paid'],
+      ['Nov 1 2025','Special Assessment','$180.00','Paid'],
+      ['Nov 1 2025','Monthly Dues','$250.00','Late - paid Nov 9'],
+    ];
+    const a = document.createElement('a');
+    a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(rows.map(r => r.join(',')).join('\n'));
+    a.download = 'residente-statement.csv';
+    a.click();
+  }
+
+  document.querySelectorAll('.modal-overlay').forEach(el => {
+    el.addEventListener('click', e => { if (e.target === el) el.classList.remove('open'); });
+  });
+
+  /* ── STRIPE PAYMENTS ── */
+  const STRIPE_PK = 'pk_test_51TKjIgQmvwofxleL3dohqXP8FMYsG6ic1RaOZHt8HJZz95osbMbgUdxJYBCwxao7YS9TzfZq3IbV79cEZHCb2yuQ00rNbunuiT';
+  const API_URL = 'http://localhost:3000';
+  const stripe = Stripe(STRIPE_PK);
+  let stripeCard = null;
+
+  function openCardSelect() {
+    document.getElementById('cardSelectModal').classList.add('open');
+    mountStripeCard();
+  }
+
+  function closeCardSelect() {
+    document.getElementById('cardSelectModal').classList.remove('open');
+    if (stripeCard) { stripeCard.destroy(); stripeCard = null; }
+    const btn = document.getElementById('csPayBtn');
+    btn.innerHTML = 'Pay $250.00 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+    btn.disabled = false;
+    btn.style.opacity = '';
+    document.getElementById('stripeErrors').textContent = '';
+  }
+
+  function mountStripeCard() {
+    if (stripeCard) return;
+    const isDark = document.documentElement.getAttribute('data-theme') !== 'light';
+    stripeCard = stripe.elements().create('card', {
+      style: {
+        base: {
+          fontSize: '15px',
+          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+          color: isDark ? '#e8e4df' : '#111111',
+          iconColor: isDark ? '#9c9790' : '#6b7280',
+          '::placeholder': { color: isDark ? '#9c9790' : '#9ca3af' },
+        },
+        invalid: { color: isDark ? '#e05555' : '#dc2626', iconColor: isDark ? '#e05555' : '#dc2626' },
+      },
+    });
+    stripeCard.mount('#stripeCardEl');
+    stripeCard.on('focus', () => document.getElementById('stripeWrap').classList.add('focused'));
+    stripeCard.on('blur',  () => document.getElementById('stripeWrap').classList.remove('focused'));
+    stripeCard.on('change', e => {
+      document.getElementById('stripeErrors').textContent = e.error ? e.error.message : '';
+    });
+  }
+
+  async function confirmPayment() {
+    const btn = document.getElementById('csPayBtn');
+    if (btn.disabled) return;
+    btn.disabled = true;
+    btn.textContent = 'Processing…';
+    btn.style.opacity = '0.7';
+
+    try {
+      const res = await fetch(`${API_URL}/create-payment-intent`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ amount: 250, resident_name: 'Jane Reyes', unit: 'Unit 4B', email: '' }),
+      });
+      if (!res.ok) throw new Error('Cannot reach server — run: node server.js');
+      const { clientSecret, error: serverError } = await res.json();
+      if (serverError) throw new Error(serverError);
+
+      const { paymentIntent, error } = await stripe.confirmCardPayment(clientSecret, {
+        payment_method: { card: stripeCard },
+      });
+      if (error) throw new Error(error.message);
+
+      if (paymentIntent.status === 'succeeded') {
+        closeCardSelect();
+        onPaymentSuccess(250);
+      }
+    } catch (err) {
+      document.getElementById('stripeErrors').textContent = err.message;
+      btn.disabled = false;
+      btn.innerHTML = 'Try Again <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+      btn.style.opacity = '';
+    }
+  }
+
+  function onPaymentSuccess(amount) {
+    const qpDue  = document.querySelector('.qp-due');
+    const qpAmt  = document.querySelector('.qp-amount');
+    const qpFill = document.querySelector('.qp-fill');
+    const qpLbl  = document.querySelector('.qp-progress-label span');
+    if (qpDue)  qpDue.textContent = 'Payment confirmed!';
+    if (qpAmt)  qpAmt.style.color = 'var(--green-light)';
+    if (qpFill) qpFill.style.width = '58.3%';
+    if (qpLbl)  qpLbl.textContent = '7 of 12 paid';
+
+    const tbody = document.querySelector('.pay-table tbody');
+    if (tbody) {
+      const d = new Date();
+      const dateStr = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+      const amtStr  = `$${amount.toFixed(2)}`;
+      const row = document.createElement('tr');
+      row.innerHTML = `<td data-label="Date">${dateStr}</td><td data-label="Description">Monthly Dues</td><td data-label="Amount"><strong>${amtStr}</strong></td><td data-label="Status"><span class="pill pill-paid">Paid</span></td><td><button class="dispute-btn" onclick="openDispute('${dateStr}','${amtStr}')">Flag</button></td>`;
+      tbody.insertBefore(row, tbody.firstChild);
+    }
+
+    setTimeout(() => {
+      if (qpDue) qpDue.textContent = 'Due July 1, 2026';
+      if (qpAmt) { qpAmt.style.color = ''; countUp(qpAmt, 250, 600); }
+    }, 3000);
+  }
+
+  function _unused_saveNewCard() {
+    const num  = document.getElementById('ncfNumber').value.trim();
+    const exp  = document.getElementById('ncfExpiry').value.trim();
+    const name = document.getElementById('ncfName').value.trim();
+    if (!num || num.replace(/\s/g,'').length < 16) return shake(document.getElementById('ncfNumber'));
+    if (!exp || exp.length < 7) return shake(document.getElementById('ncfExpiry'));
+
+    // Detect brand from first digit
+    const first = num[0];
+    const brand = first === '4' ? 'Visa' : first === '5' ? 'MC' : 'Card';
+    const last4 = num.replace(/\s/g,'').slice(-4);
+    const expShort = exp.replace(' ', '');
+
+    const list = document.getElementById('savedCardsList');
+    const card = document.createElement('div');
+    card.className = 'saved-card';
+    const idx = list.children.length;
+    card.onclick = () => selectCard(card, idx);
+    card.innerHTML = `
+      <div class="sc-thumbnail ${brand === 'Visa' ? 'sc-visa' : 'sc-mc'}">${brand === 'Visa' ? 'VISA' : 'MC'}</div>
+      <div class="sc-info">
+        <div class="sc-brand-last">${brand} •••• ${last4}</div>
+        <div class="sc-expiry">Expires ${expShort}</div>
+      </div>
+      <div class="sc-check">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>`;
+    list.appendChild(card);
+    selectCard(card, idx);
+
+    // Reset & close form
+    ['ncfNumber','ncfExpiry','ncfCvc','ncfName'].forEach(id => document.getElementById(id).value = '');
+    document.getElementById('newCardForm').classList.remove('open');
+    document.getElementById('addCardToggle').style.display = '';
+  }
+
+  function shake(el) {
+    el.style.animation = 'none';
+    el.offsetWidth;
+    el.style.animation = 'shakeX 0.4s ease';
+    el.style.borderColor = 'var(--red)';
+    setTimeout(() => { el.style.borderColor = ''; el.style.animation = ''; }, 500);
+  }
+
+  function confirmPayment() {
+    const btn = document.getElementById('csPayBtn');
+    btn.textContent = 'Processing…';
+    btn.style.background = '#555';
+    setTimeout(() => {
+      closeCardSelect();
+      btn.innerHTML = 'Pay $250.00 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>';
+      btn.style.background = '';
+      // Surface a success state on the quickpay panel
+      const qpDue = document.querySelector('.qp-due');
+      const qpAmt = document.querySelector('.qp-amount');
+      if (qpDue) qpDue.textContent = 'Payment confirmed!';
+      if (qpAmt) { qpAmt.style.color = 'var(--green-light)'; }
+      setTimeout(() => {
+        if (qpDue) qpDue.textContent = 'Due June 1, 2026';
+        if (qpAmt) { qpAmt.style.color = ''; countUp(qpAmt, 250, 600); }
+      }, 3000);
+    }, 1400);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Pay Dues — Residente</title>
+  <script src="https://js.stripe.com/v3/"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #f4f6f9;
+      color: #1a1a2e;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 16px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+      padding: 40px;
+      width: 100%;
+      max-width: 480px;
+    }
+
+    .logo {
+      font-size: 22px;
+      font-weight: 700;
+      color: #2d6a4f;
+      margin-bottom: 4px;
+    }
+
+    .subtitle {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 32px;
+    }
+
+    label {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+
+    input {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 8px;
+      font-size: 15px;
+      color: #111;
+      outline: none;
+      transition: border-color 0.2s;
+      margin-bottom: 18px;
+    }
+
+    input:focus { border-color: #2d6a4f; }
+
+    .row { display: flex; gap: 16px; }
+    .row .field { flex: 1; }
+
+    #amount-display {
+      font-size: 28px;
+      font-weight: 700;
+      color: #2d6a4f;
+      margin-bottom: 24px;
+    }
+
+    #card-element {
+      padding: 13px 14px;
+      border: 1.5px solid #e5e7eb;
+      border-radius: 8px;
+      background: #fff;
+      margin-bottom: 24px;
+      transition: border-color 0.2s;
+    }
+
+    #card-element.focused { border-color: #2d6a4f; }
+
+    #pay-btn {
+      width: 100%;
+      padding: 14px;
+      background: #2d6a4f;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    #pay-btn:hover:not(:disabled) { background: #1f4d39; }
+    #pay-btn:disabled { background: #9ca3af; cursor: not-allowed; }
+
+    #message {
+      margin-top: 16px;
+      font-size: 14px;
+      text-align: center;
+      min-height: 20px;
+    }
+
+    .error { color: #dc2626; }
+    .success { color: #16a34a; font-weight: 600; }
+
+    .divider {
+      border: none;
+      border-top: 1px solid #f3f4f6;
+      margin: 24px 0;
+    }
+
+    .secure-note {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      font-size: 12px;
+      color: #9ca3af;
+      margin-top: 16px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">Residente</div>
+    <div class="subtitle">Pay your HOA dues securely</div>
+
+    <div class="row">
+      <div class="field">
+        <label for="resident-name">Full Name</label>
+        <input id="resident-name" type="text" placeholder="Jane Smith" />
+      </div>
+      <div class="field">
+        <label for="unit">Unit / Address</label>
+        <input id="unit" type="text" placeholder="Unit 4B" />
+      </div>
+    </div>
+
+    <label for="email">Email (for receipt)</label>
+    <input id="email" type="email" placeholder="jane@email.com" />
+
+    <label for="amount">Amount ($)</label>
+    <input id="amount" type="number" min="1" step="0.01" placeholder="250.00" />
+    <div id="amount-display">$0.00</div>
+
+    <hr class="divider" />
+
+    <label>Card Details</label>
+    <div id="card-element"></div>
+
+    <button id="pay-btn" disabled>Pay Now</button>
+    <div id="message"></div>
+
+    <div class="secure-note">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      Payments secured by Stripe
+    </div>
+  </div>
+
+  <script>
+    // Replace with your Stripe publishable key
+    const STRIPE_PK = 'pk_test_51TKjIgQmvwofxleL3dohqXP8FMYsG6ic1RaOZHt8HJZz95osbMbgUdxJYBCwxao7YS9TzfZq3IbV79cEZHCb2yuQ00rNbunuiT';
+    const API_URL = 'http://localhost:3000';
+
+    const stripe = Stripe(STRIPE_PK);
+    const elements = stripe.elements();
+
+    const card = elements.create('card', {
+      style: {
+        base: { fontSize: '15px', color: '#111', '::placeholder': { color: '#9ca3af' } },
+        invalid: { color: '#dc2626' },
+      },
+    });
+    card.mount('#card-element');
+
+    card.on('focus', () => document.getElementById('card-element').classList.add('focused'));
+    card.on('blur', () => document.getElementById('card-element').classList.remove('focused'));
+
+    const amountInput = document.getElementById('amount');
+    const amountDisplay = document.getElementById('amount-display');
+    const payBtn = document.getElementById('pay-btn');
+
+    amountInput.addEventListener('input', () => {
+      const val = parseFloat(amountInput.value);
+      amountDisplay.textContent = isNaN(val) ? '$0.00' : `$${val.toFixed(2)}`;
+      payBtn.disabled = isNaN(val) || val < 1;
+    });
+
+    payBtn.addEventListener('click', async () => {
+      const name = document.getElementById('resident-name').value.trim();
+      const unit = document.getElementById('unit').value.trim();
+      const email = document.getElementById('email').value.trim();
+      const amount = parseFloat(amountInput.value);
+      const msg = document.getElementById('message');
+
+      msg.textContent = '';
+      msg.className = '';
+
+      if (!name || !unit) {
+        msg.textContent = 'Please enter your name and unit.';
+        msg.className = 'error';
+        return;
+      }
+
+      payBtn.disabled = true;
+      payBtn.textContent = 'Processing…';
+
+      try {
+        const res = await fetch(`${API_URL}/create-payment-intent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount, resident_name: name, unit, email }),
+        });
+
+        const { clientSecret, error: serverError } = await res.json();
+        if (serverError) throw new Error(serverError);
+
+        const { paymentIntent, error } = await stripe.confirmCardPayment(clientSecret, {
+          payment_method: { card, billing_details: { name, email: email || undefined } },
+        });
+
+        if (error) throw new Error(error.message);
+
+        if (paymentIntent.status === 'succeeded') {
+          msg.textContent = `Payment of $${amount.toFixed(2)} confirmed! Check your email for a receipt.`;
+          msg.className = 'success';
+          payBtn.textContent = 'Paid';
+          card.clear();
+          amountInput.value = '';
+          amountDisplay.textContent = '$0.00';
+        }
+      } catch (err) {
+        msg.textContent = err.message || 'Something went wrong. Please try again.';
+        msg.className = 'error';
+        payBtn.disabled = false;
+        payBtn.textContent = 'Pay Now';
+      }
+    });
+  </script>
+</body>
+</html>
