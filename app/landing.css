@@ -652,17 +652,24 @@ body:has(.landing-screen) { min-width: 0; }
   margin: clamp(96px, 14vh, 144px) auto 0;
   padding: 0 var(--ln-side);
   display: grid;
+  /* Left column holds the title + long description; right column stacks
+     the "For boards" and "For residents" cards. */
   grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto;
   gap: 22px;
   align-items: stretch;
 }
 .ln-uses-left {
+  grid-column: 1;
+  grid-row: 1 / span 2;
   padding: 12px 8px 8px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 16px;
   justify-content: flex-start;
 }
+.ln-use-card#boards    { grid-column: 2; grid-row: 1; }
+.ln-use-card#residents { grid-column: 2; grid-row: 2; }
 .ln-uses-title {
   font-size: clamp(44px, 5.6vw, 80px);
   line-height: 0.98;
@@ -883,6 +890,11 @@ body:has(.landing-screen) { min-width: 0; }
   .ln-cards .ln-card:first-child { grid-column: 1 / -1; }
   .ln-stats { grid-template-columns: repeat(2, 1fr); gap: 24px; }
   .ln-uses  { grid-template-columns: 1fr; gap: 18px; }
+  /* Drop the desktop row-span on tablet so all three items stack in
+     a single column instead of leaving an empty cell. */
+  .ln-uses-left,
+  .ln-use-card#boards,
+  .ln-use-card#residents { grid-column: 1; grid-row: auto; }
   .ln-trust { grid-template-columns: 1fr; gap: 22px; }
 }
 @media (max-width: 720px) {

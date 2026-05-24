@@ -827,9 +827,21 @@ function BuiltForBoth() {
         <div className="ln-eyebrow">Residente in action</div>
         <h2 className="ln-uses-title">Built for<br />both sides.</h2>
         <p className="ln-uses-body">
-          The board gets the back-office they actually wanted. Residents get
-          the transparency they'd been quietly hoping for. Same product, two
-          experiences.
+          The board gets the back-office they actually wanted — a household
+          roster, dues collection, a vote-by-vote decisions log, a budget
+          editor that doesn&apos;t require QuickBooks, and a document vault
+          that finally replaces the email thread.
+        </p>
+        <p className="ln-uses-body">
+          Residents get the transparency they&apos;d been quietly hoping
+          for — every dollar of dues accounted for, every board decision
+          visible the second it&apos;s made, and every receipt and PDF
+          waiting in the same place, no PDF chase required.
+        </p>
+        <p className="ln-uses-body">
+          Same product, two experiences. Setup takes about twenty minutes
+          per community. From then on, both sides spend less time chasing
+          each other and more time enjoying where they live.
         </p>
       </div>
 
