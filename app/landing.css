@@ -287,6 +287,48 @@ body:has(.landing-screen) { min-width: 0; }
 }
 .ln-door-anchor { animation: ln-door-anchor 5s ease-in-out infinite; }
 
+/* Walking bob — gentle up/down at a walking rhythm. Each variant has a
+   different negative delay so multiple people don't sync up. */
+@keyframes ln-walk-bob {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-2.5px); }
+}
+.ln-walk    { animation: ln-walk-bob 0.55s ease-in-out infinite; }
+.ln-walk-a  { animation: ln-walk-bob 0.55s ease-in-out -0.15s infinite; }
+.ln-walk-b  { animation: ln-walk-bob 0.55s ease-in-out -0.27s infinite; }
+.ln-walk-c  { animation: ln-walk-bob 0.6s  ease-in-out -0.40s infinite; }
+
+/* Dog bounce — a slightly more energetic vertical hop, slower cadence
+   than the people. Feels like an excited tail-wagging dog without
+   actually animating the tail (which would need DOM access into the
+   Dog component). */
+@keyframes ln-dog-bounce {
+  0%, 100% { transform: translateY(0); }
+  35%      { transform: translateY(-4px); }
+  60%      { transform: translateY(0); }
+}
+.ln-dog-bounce { animation: ln-dog-bounce 0.85s ease-in-out infinite; }
+
+/* Spinning wheels on the kid's bike + the stroller. transform-box on
+   fill-box makes the circle rotate around its own center instead of
+   the SVG origin. */
+@keyframes ln-wheel-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.ln-wheel-spin {
+  animation: ln-wheel-spin 1.4s linear infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ln-walk, .ln-walk-a, .ln-walk-b, .ln-walk-c,
+  .ln-dog-bounce, .ln-wheel-spin {
+    animation: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ln-win-glow, .ln-win-glow-a, .ln-win-glow-b, .ln-win-dim,
   .ln-porch-glow, .ln-porch-glow-a,

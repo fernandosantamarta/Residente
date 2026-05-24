@@ -514,29 +514,69 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
       <rect x={DX - 18} y={DY + 208} width="36" height="18" rx="2" fill="#1F2233" />
 
       {/* === CHARACTERS — give the neighbourhood life === */}
-      {/* family walking up the path toward the focal door */}
-      <Person x={DX - 30} y={DY + 130} scale={1.0} hairColor="#7C4D2A" />
-      <Person x={DX + 10} y={DY + 140} scale={1.0} hairColor="#D4A56A" />
-      <Person x={DX + 38} y={DY + 155} scale={0.6} hairColor="#E8C285" />
-      {/* dog wagging on the lawn */}
-      <Dog x={DX - 130} y={DY + 145} scale={1.4} />
+      {/* family walking up the path toward the focal door — bobbing at
+          slightly different phases so they don't look in lock-step */}
+      <g className="ln-walk">
+        <Person x={DX - 30} y={DY + 130} scale={1.0} hairColor="#7C4D2A" />
+      </g>
+      <g className="ln-walk-a">
+        <Person x={DX + 10} y={DY + 140} scale={1.0} hairColor="#D4A56A" />
+      </g>
+      <g className="ln-walk-b">
+        <Person x={DX + 38} y={DY + 155} scale={0.6} hairColor="#E8C285" />
+      </g>
+      {/* dog bouncing on the lawn */}
+      <g className="ln-dog-bounce">
+        <Dog x={DX - 130} y={DY + 145} scale={1.4} />
+      </g>
       {/* neighbour pushing a stroller along the cul-de-sac */}
-      <Person x={DX - 460} y={DY + 250} scale={1.1} hairColor="#3A2A1A" />
+      <g className="ln-walk-c">
+        <Person x={DX - 460} y={DY + 250} scale={1.1} hairColor="#3A2A1A" />
+      </g>
       <g transform={`translate(${DX - 440}, ${DY + 268})`}>
         <rect x="-12" y="-4" width="24" height="16" rx="3" fill="#C76F45" {...thinInk} />
-        <circle cx="-8" cy="14" r="3" fill={INK} />
-        <circle cx="8"  cy="14" r="3" fill={INK} />
+        {/* stroller wheels spin */}
+        <g transform="translate(-8, 14)">
+          <g className="ln-wheel-spin">
+            <circle r="3" fill={INK} />
+            <line x1="-3" y1="0" x2="3" y2="0" stroke={WALL_LITE} strokeWidth="0.8" />
+          </g>
+        </g>
+        <g transform="translate(8, 14)">
+          <g className="ln-wheel-spin">
+            <circle r="3" fill={INK} />
+            <line x1="-3" y1="0" x2="3" y2="0" stroke={WALL_LITE} strokeWidth="0.8" />
+          </g>
+        </g>
       </g>
       {/* kid on a bike further down the street */}
-      <Person x={DX + 380} y={DY + 240} scale={0.9} hairColor="#E8C285" />
+      <g className="ln-walk-a">
+        <Person x={DX + 380} y={DY + 240} scale={0.9} hairColor="#E8C285" />
+      </g>
       <g transform={`translate(${DX + 380}, ${DY + 268})`}>
-        <circle cx="-10" cy="12" r="7" fill="none" stroke={INK} strokeWidth="1.8" />
-        <circle cx="10"  cy="12" r="7" fill="none" stroke={INK} strokeWidth="1.8" />
+        {/* bike wheels with spokes so the spin reads as motion */}
+        <g transform="translate(-10, 12)">
+          <g className="ln-wheel-spin">
+            <circle r="7" fill="none" stroke={INK} strokeWidth="1.8" />
+            <line x1="-6" y1="0" x2="6" y2="0" stroke={INK} strokeWidth="1.2" />
+            <line x1="0" y1="-6" x2="0" y2="6" stroke={INK} strokeWidth="1.2" />
+          </g>
+        </g>
+        <g transform="translate(10, 12)">
+          <g className="ln-wheel-spin">
+            <circle r="7" fill="none" stroke={INK} strokeWidth="1.8" />
+            <line x1="-6" y1="0" x2="6" y2="0" stroke={INK} strokeWidth="1.2" />
+            <line x1="0" y1="-6" x2="0" y2="6" stroke={INK} strokeWidth="1.2" />
+          </g>
+        </g>
+        {/* frame: crossbar + seat post (don't spin) */}
         <line x1="-10" y1="12" x2="10" y2="12" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
         <line x1="0" y1="12" x2="0" y2="0" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
       </g>
       {/* one wide-shot neighbour out by their front door */}
-      <Person x={870 + 105} y={DY + 350} scale={0.9} hairColor="#7C4D2A" />
+      <g className="ln-walk-b">
+        <Person x={870 + 105} y={DY + 350} scale={0.9} hairColor="#7C4D2A" />
+      </g>
       </g>
     </svg>
   )
