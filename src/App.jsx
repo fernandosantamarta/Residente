@@ -11,6 +11,7 @@ import Contact from './pages/Contact'
 import Community from './pages/Community'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
+import Landing from './pages/Landing'
 import AdminLayout from './components/AdminLayout'
 import AdminResidents from './pages/admin/Residents'
 import AdminCommunity from './pages/admin/CommunitySettings'
@@ -18,6 +19,7 @@ import AdminBoard from './pages/admin/Board'
 import AdminRules from './pages/admin/Rules'
 import AdminDocuments from './pages/admin/Documents'
 import './admin.css'
+import './landing.css'
 
 export const AuthContext = createContext(null)
 export const useAuth = () => useContext(AuthContext)
@@ -107,10 +109,11 @@ export default function App() {
     <AuthContext.Provider value={{ session, profile, setProfile }}>
       <BrowserRouter>
         <Routes>
-          <Route path="/login" element={!session ? <Login /> : <Navigate to="/" replace />} />
+          <Route path="/" element={session ? <Navigate to="/app" replace /> : <Landing />} />
+          <Route path="/login" element={!session ? <Login /> : <Navigate to="/app" replace />} />
           <Route
             path="/admin"
-            element={requireAuth ? <Navigate to="/login" replace /> : isBoard ? <AdminLayout /> : <Navigate to="/" replace />}
+            element={requireAuth ? <Navigate to="/login" replace /> : isBoard ? <AdminLayout /> : <Navigate to="/app" replace />}
           >
             <Route index element={<Navigate to="/admin/community" replace />} />
             <Route path="residents" element={<AdminResidents />} />
@@ -119,17 +122,17 @@ export default function App() {
             <Route path="rules" element={<AdminRules />} />
             <Route path="documents" element={<AdminDocuments />} />
           </Route>
-          <Route element={requireAuth ? <Navigate to="/login" replace /> : <Layout />}>
-            <Route path="/"            element={<Home />} />
-            <Route path="/pay"         element={<Pay />} />
-            <Route path="/board"       element={<Board />} />
-            <Route path="/rules"       element={<Rules />} />
-            <Route path="/documents"   element={<Documents />} />
-            <Route path="/contact"     element={<Contact />} />
-            <Route path="/community"   element={<Community />} />
-            <Route path="/settings"    element={<Settings />} />
-            <Route path="*"            element={<Navigate to="/" />} />
+          <Route path="/app" element={requireAuth ? <Navigate to="/login" replace /> : <Layout />}>
+            <Route index            element={<Home />} />
+            <Route path="pay"       element={<Pay />} />
+            <Route path="board"     element={<Board />} />
+            <Route path="rules"     element={<Rules />} />
+            <Route path="documents" element={<Documents />} />
+            <Route path="contact"   element={<Contact />} />
+            <Route path="community" element={<Community />} />
+            <Route path="settings"  element={<Settings />} />
           </Route>
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthContext.Provider>

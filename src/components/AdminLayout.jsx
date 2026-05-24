@@ -19,7 +19,7 @@ export default function AdminLayout() {
           <span className="admin-brand-word">Residente</span>
           <span className="admin-tag">Admin</span>
         </div>
-        <Link to="/" className="admin-back">&larr; Back to app</Link>
+        <Link to="/app" className="admin-back">&larr; Back to app</Link>
       </header>
 
       <nav className="admin-nav">

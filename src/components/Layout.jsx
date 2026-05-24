@@ -17,13 +17,13 @@ const initialsFrom = (name) => {
 }
 
 const NAV = [
-  { to: '/',          label: 'Home',      icon: <><path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/></> },
-  { to: '/pay',       label: 'Pay',       icon: <><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/></> },
-  { to: '/board',     label: 'Board',     icon: <><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/><path d="M15 19c0-2 2-3.5 4-3.5s3 1.2 3 3"/></>, pulse: true },
-  { to: '/rules',     label: 'Rules',     icon: <><path d="M4 4h12l4 4v12H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></> },
-  { to: '/documents', label: 'Documents', icon: <><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/></> },
-  { to: '/contact',   label: 'Contact',   icon: <><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></> },
-  { to: '/community', label: 'Community', icon: <><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/></> },
+  { to: '/app',           label: 'Home',      icon: <><path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/></> },
+  { to: '/app/pay',       label: 'Pay',       icon: <><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/></> },
+  { to: '/app/board',     label: 'Board',     icon: <><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/><path d="M15 19c0-2 2-3.5 4-3.5s3 1.2 3 3"/></>, pulse: true },
+  { to: '/app/rules',     label: 'Rules',     icon: <><path d="M4 4h12l4 4v12H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></> },
+  { to: '/app/documents', label: 'Documents', icon: <><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/></> },
+  { to: '/app/contact',   label: 'Contact',   icon: <><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></> },
+  { to: '/app/community', label: 'Community', icon: <><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/></> },
 ]
 
 const fmtTime = () => {
@@ -35,7 +35,7 @@ const fmtTime = () => {
 
 export default function Layout() {
   const location = useLocation()
-  const showRightRail = location.pathname === '/'
+  const showRightRail = location.pathname === '/app'
   const [navOpen, setNavOpen] = useState(false)
   const auth = useAuth() || {}
   const profile = auth.profile
@@ -67,7 +67,7 @@ export default function Layout() {
             <NavLink
               key={item.to}
               to={item.to}
-              end={item.to === '/'}
+              end={item.to === '/app'}
               className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}
             >
               <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -91,7 +91,7 @@ export default function Layout() {
         </nav>
 
         <div className="rail-footer">
-          <NavLink to="/settings" className="user-block">
+          <NavLink to="/app/settings" className="user-block">
             <div className="user-avatar">{userInitials}</div>
             <div className="user-meta">
               <span className="label">Signed in as</span>

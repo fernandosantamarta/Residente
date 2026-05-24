@@ -22,7 +22,7 @@ export default function Login() {
       if (err) {
         setError(err.message || 'Sign in failed')
       } else {
-        navigate('/', { replace: true })
+        navigate('/app', { replace: true })
       }
     } catch (err) {
       setError(err?.message || 'Sign in failed')
