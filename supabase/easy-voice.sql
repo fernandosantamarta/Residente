@@ -27,10 +27,12 @@ create table if not exists public.ev_meetings (
 alter table public.ev_meetings enable row level security;
 grant select, insert, update, delete on public.ev_meetings to authenticated;
 
+drop policy if exists "members read meetings" on public.ev_meetings;
 create policy "members read meetings"
   on public.ev_meetings for select to authenticated
   using (community_id = (select community_id from public.profiles where id = auth.uid()));
 
+drop policy if exists "board writes meetings" on public.ev_meetings;
 create policy "board writes meetings"
   on public.ev_meetings for all to authenticated
   using (
@@ -60,10 +62,12 @@ create table if not exists public.ev_meeting_docs (
 alter table public.ev_meeting_docs enable row level security;
 grant select, insert, update, delete on public.ev_meeting_docs to authenticated;
 
+drop policy if exists "members read meeting docs" on public.ev_meeting_docs;
 create policy "members read meeting docs"
   on public.ev_meeting_docs for select to authenticated
   using (community_id = (select community_id from public.profiles where id = auth.uid()));
 
+drop policy if exists "board writes meeting docs" on public.ev_meeting_docs;
 create policy "board writes meeting docs"
   on public.ev_meeting_docs for all to authenticated
   using (
@@ -103,10 +107,12 @@ create table if not exists public.ev_votes (
 alter table public.ev_votes enable row level security;
 grant select, insert, update, delete on public.ev_votes to authenticated;
 
+drop policy if exists "members read votes" on public.ev_votes;
 create policy "members read votes"
   on public.ev_votes for select to authenticated
   using (community_id = (select community_id from public.profiles where id = auth.uid()));
 
+drop policy if exists "board writes votes" on public.ev_votes;
 create policy "board writes votes"
   on public.ev_votes for all to authenticated
   using (
@@ -144,11 +150,13 @@ alter table public.ev_ballots enable row level security;
 grant select, insert on public.ev_ballots to authenticated;
 
 -- Members can read their own ballot only (not others' for secret votes)
+drop policy if exists "members read own ballot" on public.ev_ballots;
 create policy "members read own ballot"
   on public.ev_ballots for select to authenticated
   using (profile_id = auth.uid());
 
 -- Board can read all ballots in their community (for open votes / tallying)
+drop policy if exists "board reads community ballots" on public.ev_ballots;
 create policy "board reads community ballots"
   on public.ev_ballots for select to authenticated
   using (
@@ -160,6 +168,7 @@ create policy "board reads community ballots"
   );
 
 -- Members can cast their own ballot when the vote is open
+drop policy if exists "members cast ballot" on public.ev_ballots;
 create policy "members cast ballot"
   on public.ev_ballots for insert to authenticated
   with check (
@@ -177,6 +186,7 @@ insert into storage.buckets (id, name, public)
 values ('ev-documents', 'ev-documents', false)
 on conflict (id) do nothing;
 
+drop policy if exists "members read ev docs" on storage.objects;
 create policy "members read ev docs"
   on storage.objects for select to authenticated
   using (
@@ -185,6 +195,7 @@ create policy "members read ev docs"
         = (select community_id from public.profiles where id = auth.uid())::text
   );
 
+drop policy if exists "board uploads ev docs" on storage.objects;
 create policy "board uploads ev docs"
   on storage.objects for insert to authenticated
   with check (
@@ -194,6 +205,7 @@ create policy "board uploads ev docs"
     and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
   );
 
+drop policy if exists "board deletes ev docs" on storage.objects;
 create policy "board deletes ev docs"
   on storage.objects for delete to authenticated
   using (
@@ -571,6 +583,45 @@ create policy "any member writes audit"
   with check (
     community_id = (select community_id from public.profiles where id = auth.uid())
   );
+
+-- ---------- BALLOT TALLY TRIGGER ----------
+-- Keeps ev_votes.{yes,no,abstain}_count in sync as ballots are inserted.
+-- ev_ballots is insert-only at the grant level, so we only need AFTER INSERT.
+-- When secret-ballot encryption lands, this trigger will need to move to
+-- the decryption/tally step (answer will be null at insert time).
+create or replace function public.ev_ballot_tally()
+returns trigger language plpgsql as $$
+begin
+  if new.answer = 'yes' then
+    update public.ev_votes set yes_count = yes_count + 1 where id = new.vote_id;
+  elsif new.answer = 'no' then
+    update public.ev_votes set no_count = no_count + 1 where id = new.vote_id;
+  elsif new.answer = 'abstain' then
+    update public.ev_votes set abstain_count = abstain_count + 1 where id = new.vote_id;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists ev_ballot_tally_trg on public.ev_ballots;
+create trigger ev_ballot_tally_trg
+  after insert on public.ev_ballots
+  for each row execute function public.ev_ballot_tally();
+
+-- One-time backfill: recompute counts from existing ballots. Idempotent —
+-- safe to re-run alongside the trigger (it sets counts to the true total).
+update public.ev_votes v set
+  yes_count     = coalesce(c.yes, 0),
+  no_count      = coalesce(c.no,  0),
+  abstain_count = coalesce(c.abs, 0)
+from (
+  select vote_id,
+    count(*) filter (where answer = 'yes')     as yes,
+    count(*) filter (where answer = 'no')      as no,
+    count(*) filter (where answer = 'abstain') as abs
+  from public.ev_ballots
+  group by vote_id
+) c
+where c.vote_id = v.id;
 
 -- ---------- INDEXES ----------
 create index if not exists ev_meetings_community_scheduled_idx
