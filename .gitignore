@@ -1,6 +1,7 @@
 node_modules/
 build/
 .next/
+tsconfig.tsbuildinfo
 .env
 .env.local
 .env.*.local
