@@ -436,11 +436,10 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
         ))}
       </g>
 
-      {/* Horizon trees — trunks extended down so they actually reach
-          the ground line of the back houses instead of floating */}
+      {/* Horizon trees */}
       {[40, 200, 370, 540, 710, 880, 1040, 1410, 1580, 1750, 1920, 2090, 2250, 2380].map((cx, i) => (
         <g key={`htree-${i}`}>
-          <rect x={cx - 3} y={DY + 35} width="6" height="85" fill={TRUNK} />
+          <rect x={cx - 3} y={DY + 35} width="6" height="32" fill={TRUNK} />
           <circle cx={cx} cy={DY + 30} r="22" fill={TREE} className={['ln-tree-sway', 'ln-tree-sway-a', 'ln-tree-sway-b'][i % 3]} />
         </g>
       ))}
@@ -471,11 +470,10 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
         ))}
       </g>
 
-      {/* Foreground trees for parallax + life — trunks extended down
-          so they reach the grass line just above the cul-de-sac road */}
+      {/* Foreground trees for parallax + life */}
       {[30, 290, 550, 810, 1070, 1370, 1620, 1880, 2150, 2370].map((cx, i) => (
         <g key={`ftree-${i}`}>
-          <rect x={cx - 4} y={DY + 270} width="8" height="110" fill={TRUNK} />
+          <rect x={cx - 4} y={DY + 270} width="8" height="42" fill={TRUNK} />
           <circle cx={cx} cy={DY + 265} r="32" fill={TREE} className={['ln-tree-sway', 'ln-tree-sway-a', 'ln-tree-sway-b'][i % 3]} />
         </g>
       ))}
@@ -531,13 +529,11 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
       {/* walkway down to the street */}
       <path d={`M${DX - 50} ${DY + 100} L${DX + 50} ${DY + 100} L${DX + 130} 1180 L${DX - 130} 1180 Z`} fill={WALL_WARM} opacity="0.75" />
 
-      {/* trees flanking the focal house — trunks extended down so the
-          trees reach the grass line instead of floating above the
-          foreground houses */}
-      <rect x={DX - 250} y={DY + 30} width="8" height="160" fill={TRUNK} />
+      {/* trees flanking the focal house */}
+      <rect x={DX - 250} y={DY + 30} width="8" height="70" fill={TRUNK} />
       <circle cx={DX - 246} cy={DY + 20}  r="44" fill={TREE} className="ln-tree-sway" />
       <circle cx={DX - 280} cy={DY + 10}  r="30" fill="#8FA070" opacity="0.85" className="ln-tree-sway-a" />
-      <rect x={DX + 242} y={DY + 30} width="8" height="160" fill={TRUNK} />
+      <rect x={DX + 242} y={DY + 30} width="8" height="70" fill={TRUNK} />
       <circle cx={DX + 246} cy={DY + 20}  r="40" fill={TREE} className="ln-tree-sway-b" />
 
       {/* mailbox — right of the front door, in the yard. Red flag on
@@ -546,17 +542,6 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
       <rect x={DX + 72} y={DY + 4}  width="36" height="20" rx="3" fill="#1F2233" />
       {/* tiny slot detail on the box */}
       <rect x={DX + 78} y={DY + 11} width="14" height="2" fill={WALL_LITE} opacity="0.6" />
-      {/* red signal flag, pivoting at its base on the right side of the
-          box. NOTE: the outer <g> handles positioning (SVG transform
-          attribute); the INNER <g> handles the wave (CSS transform).
-          They have to be separate elements — a CSS transform on the
-          same element would override the SVG translate attribute. */}
-      <g transform={`translate(${DX + 108}, ${DY + 12})`}>
-        <g className="ln-flag-wave">
-          <rect x="0" y="-14" width="3" height="14" fill="#1F2233" />
-          <path d="M3 -14 L14 -10 L3 -6 Z" fill="#D9362C" {...thinInk} />
-        </g>
-      </g>
 
       {/* === CHARACTERS — give the neighbourhood life === */}
       {/* family walking up the path toward the focal door — bobbing at
