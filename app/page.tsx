@@ -529,11 +529,12 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
       <g className="ln-dog-bounce">
         <Dog x={DX - 130} y={DY + 145} scale={1.4} />
       </g>
-      {/* neighbour pushing a stroller along the cul-de-sac */}
+      {/* neighbour pushing a stroller along the cul-de-sac road (y was
+          previously clipping into the foreground house at x=560) */}
       <g className="ln-walk-c">
-        <Person x={DX - 460} y={DY + 250} scale={1.1} hairColor="#3A2A1A" />
+        <Person x={DX - 500} y={DY + 500} scale={1.1} hairColor="#3A2A1A" />
       </g>
-      <g transform={`translate(${DX - 440}, ${DY + 268})`}>
+      <g transform={`translate(${DX - 480}, ${DY + 518})`}>
         <rect x="-12" y="-4" width="24" height="16" rx="3" fill="#C76F45" {...thinInk} />
         {/* stroller wheels spin */}
         <g transform="translate(-8, 14)">
@@ -549,11 +550,12 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
           </g>
         </g>
       </g>
-      {/* kid on a bike further down the street */}
+      {/* kid on a bike on the road (was previously sitting on top of the
+          foreground house at x=1400) */}
       <g className="ln-walk-a">
-        <Person x={DX + 380} y={DY + 240} scale={0.9} hairColor="#E8C285" />
+        <Person x={DX + 450} y={DY + 500} scale={0.9} hairColor="#E8C285" />
       </g>
-      <g transform={`translate(${DX + 380}, ${DY + 268})`}>
+      <g transform={`translate(${DX + 450}, ${DY + 528})`}>
         {/* bike wheels with spokes so the spin reads as motion */}
         <g transform="translate(-10, 12)">
           <g className="ln-wheel-spin">
@@ -573,9 +575,10 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
         <line x1="-10" y1="12" x2="10" y2="12" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
         <line x1="0" y1="12" x2="0" y2="0" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
       </g>
-      {/* one wide-shot neighbour out by their front door */}
+      {/* one wide-shot neighbour on the far side of the road (was
+          previously inside the foreground house at x=840) */}
       <g className="ln-walk-b">
-        <Person x={870 + 105} y={DY + 350} scale={0.9} hairColor="#7C4D2A" />
+        <Person x={DX - 750} y={DY + 570} scale={0.9} hairColor="#7C4D2A" />
       </g>
       </g>
     </svg>
@@ -689,8 +692,11 @@ function InteriorSvg() {
           <rect x="1665" y="1100" width="50" height="6" rx="2" fill={INK} opacity="0.4" />
           <rect x="1665" y="1115" width="68" height="6" rx="2" fill={INK} opacity="0.6" />
           <rect x="1665" y="1130" width="40" height="6" rx="2" fill={INK} opacity="0.4" />
-          <rect x="1505" y="1160" width="230" height="20" rx="4" fill="#C76F45" />
-          <text x="1620" y="1174" fontFamily="Inter, system-ui" fontSize="10" fontWeight="700" fill="#F4EFE8" textAnchor="middle">PAY DUES — $245</text>
+          {/* Optimistic state — everything's current, nothing to do.
+              Sage green keeps it in palette but reads as "calm, done"
+              instead of the terracotta call-to-action. */}
+          <rect x="1505" y="1160" width="230" height="20" rx="4" fill="#7D8C5C" />
+          <text x="1620" y="1174" fontFamily="Inter, system-ui" fontSize="10" fontWeight="700" fill="#F4EFE8" textAnchor="middle">YOU&apos;RE ALL CLEAR ✓</text>
         </g>
 
         {/* small dog napping by the couch */}
