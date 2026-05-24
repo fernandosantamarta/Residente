@@ -7,6 +7,8 @@ import { signOut, hasSupabase } from '@/lib/supabase'
 import { useAuth } from '../providers'
 import { useBoardDecisions } from '@/hooks/useBoardDecisions'
 import { useMyResident } from '@/hooks/useMyResident'
+import { useUnreadNoticeCount, useMyNotices } from '@/hooks/useNotices'
+import { NOTICE_KIND_LABELS, noticeHref, NoticeKind } from '@/lib/voice'
 import { DUES_LABEL } from '@/lib/dues'
 
 // "Fernando Santamaria" → "FS". Safe on null/single-name.
@@ -138,13 +140,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
           </div>
           <div className="topbar-right">
             <div className="time-chip">{fmtTime()}</div>
-            <div className="bell">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
-                <path d="M13.7 21a2 2 0 0 1-3.4 0"/>
-              </svg>
-              <span className="bell-badge">3</span>
-            </div>
+            <NotificationBell />
           </div>
         </div>
 
@@ -263,6 +259,66 @@ function FeedRow({ avatar, v, text, meta }: { avatar: string; v?: string; text: 
         <div className="feed-text">{text}</div>
         <div className="feed-meta">{meta}</div>
       </div>
+    </div>
+  )
+}
+
+function NotificationBell() {
+  const router = useRouter()
+  const { count } = useUnreadNoticeCount()
+  const [open, setOpen] = useState(false)
+  const { notices, loading, markRead } = useMyNotices()
+
+  useEffect(() => {
+    if (!open) return
+    const onDocClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      if (!target.closest('.bell-wrap')) setOpen(false)
+    }
+    document.addEventListener('click', onDocClick)
+    return () => document.removeEventListener('click', onDocClick)
+  }, [open])
+
+  const onPick = (recipientId: string, n: { meeting_id?: string | null; vote_id?: string | null }) => {
+    markRead(recipientId)
+    setOpen(false)
+    router.push(noticeHref(n))
+  }
+
+  return (
+    <div className="bell-wrap">
+      <button className="bell" onClick={() => setOpen(v => !v)} aria-label={`Notifications${count ? ` (${count} unread)` : ''}`}>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/>
+          <path d="M13.7 21a2 2 0 0 1-3.4 0"/>
+        </svg>
+        {count > 0 && <span className="bell-badge">{count > 99 ? '99+' : count}</span>}
+      </button>
+      {open && (
+        <div className="bell-panel" role="menu">
+          <div className="bell-panel-head">Notifications</div>
+          {loading && <div className="bell-panel-empty">Loading…</div>}
+          {!loading && notices.length === 0 && (
+            <div className="bell-panel-empty">You're all caught up.</div>
+          )}
+          {!loading && notices.map((r: any) => {
+            const n = r.notice
+            if (!n) return null
+            const unread = !r.read_at
+            return (
+              <button
+                key={r.id}
+                className={`bell-row${unread ? ' unread' : ''}`}
+                onClick={() => onPick(r.id, n)}
+              >
+                <div className="bell-row-kind">{NOTICE_KIND_LABELS[n.kind as NoticeKind] ?? n.kind}</div>
+                <div className="bell-row-subject">{n.subject || '(no subject)'}</div>
+                {n.body && <div className="bell-row-body">{n.body}</div>}
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }

@@ -82,3 +82,62 @@ export const VOTE_STATUS_LABELS: Record<VoteStatus, string> = {
   tallied:   'Tallied',
   published: 'Published',
 }
+
+// ---------- NOTICES ----------
+
+export type NoticeKind =
+  | 'meeting_published'
+  | 'meeting_reminder'
+  | 'document_uploaded'
+  | 'vote_opened'
+  | 'vote_reminder'
+  | 'vote_results'
+  | 'minutes_published'
+  | 'proxy_submitted'
+  | 'custom_broadcast'
+
+export type NoticeChannel = 'in_app' | 'email' | 'sms'
+
+export const NOTICE_KIND_LABELS: Record<NoticeKind, string> = {
+  meeting_published: 'Meeting published',
+  meeting_reminder:  'Meeting reminder',
+  document_uploaded: 'New document',
+  vote_opened:       'Vote opened',
+  vote_reminder:     'Vote reminder',
+  vote_results:      'Vote results',
+  minutes_published: 'Minutes published',
+  proxy_submitted:   'Proxy submitted',
+  custom_broadcast:  'Announcement',
+}
+
+export function noticeHref(n: { meeting_id?: string | null; vote_id?: string | null }): string {
+  if (n.meeting_id) return `/app/voice/${n.meeting_id}`
+  return '/app/voice'
+}
+
+export function defaultNoticeCopy(
+  kind: NoticeKind,
+  ctx: { meetingTitle?: string; docTitle?: string } = {}
+): { subject: string; body: string } {
+  switch (kind) {
+    case 'meeting_published':
+      return {
+        subject: `Meeting notice: ${ctx.meetingTitle ?? ''}`.trim(),
+        body: 'A new meeting has been posted. Tap to view details, agenda, and documents.',
+      }
+    case 'document_uploaded':
+      return {
+        subject: `New document: ${ctx.docTitle ?? ctx.meetingTitle ?? ''}`.trim(),
+        body: 'A new document has been posted for an upcoming meeting.',
+      }
+    case 'minutes_published':
+      return {
+        subject: `Minutes available: ${ctx.meetingTitle ?? ''}`.trim(),
+        body: 'Meeting minutes have been published.',
+      }
+    case 'custom_broadcast':
+      return { subject: '', body: '' }
+    default:
+      return { subject: '', body: '' }
+  }
+}

@@ -472,3 +472,24 @@
   transition: all 0.15s ease;
 }
 .voice-doc-del:hover { border-color: #F47174; color: #F47174; }
+
+/* Notify residents (admin) */
+.voice-channels-readonly {
+  font-size: 13px; color: var(--text-dim);
+  padding: 8px 0;
+}
+.voice-notice-row {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 8px; margin-bottom: 8px;
+}
+.voice-notice-left { flex: 1; min-width: 0; }
+.voice-notice-right { text-align: right; flex-shrink: 0; }
+.voice-notice-kind {
+  font-size: 10px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: var(--text-faint); margin-bottom: 4px;
+}
+.voice-notice-subject { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+.voice-notice-body { font-size: 12px; color: var(--text-dim); }
+.voice-notice-meta { font-size: 11px; color: var(--text-faint); }
+.voice-notice-stats { font-size: 12px; color: var(--text-dim); margin-top: 4px; font-variant-numeric: tabular-nums; }
