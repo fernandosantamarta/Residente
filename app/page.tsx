@@ -724,10 +724,10 @@ export function InteriorSvg() {
               staggered phases. Thicker stroke + longer curves + higher
               peak opacity than v1 so the steam actually reads from
               across the room. */}
-          <path className="ln-smoke-rise"   d="M1088 1124 Q1082 1108 1092 1092 Q1100 1078 1088 1062" fill="none" stroke={INK} strokeWidth="2.8" strokeLinecap="round" />
-          <path className="ln-smoke-rise-a" d="M1100 1124 Q1108 1108 1098 1092 Q1090 1078 1102 1062" fill="none" stroke={INK} strokeWidth="2.8" strokeLinecap="round" />
-          <path className="ln-smoke-rise-b" d="M1112 1124 Q1106 1108 1116 1092 Q1108 1078 1116 1062" fill="none" stroke={INK} strokeWidth="2.8" strokeLinecap="round" />
-          <path className="ln-smoke-rise-c" d="M1095 1124 Q1100 1110 1095 1096 Q1090 1082 1098 1068" fill="none" stroke={INK} strokeWidth="2.4" strokeLinecap="round" />
+          <path className="ln-smoke-rise"   d="M1088 1124 Q1082 1108 1092 1092 Q1100 1078 1088 1062" fill="none" stroke={INK} strokeWidth="5.5" strokeLinecap="round" />
+          <path className="ln-smoke-rise-a" d="M1100 1124 Q1108 1108 1098 1092 Q1090 1078 1102 1062" fill="none" stroke={INK} strokeWidth="5.5" strokeLinecap="round" />
+          <path className="ln-smoke-rise-b" d="M1112 1124 Q1106 1108 1116 1092 Q1108 1078 1116 1062" fill="none" stroke={INK} strokeWidth="5.5" strokeLinecap="round" />
+          <path className="ln-smoke-rise-c" d="M1095 1124 Q1100 1110 1095 1096 Q1090 1082 1098 1068" fill="none" stroke={INK} strokeWidth="4.5" strokeLinecap="round" />
         </g>
 
         {/* second parent, leaning toward the tablet — orange jumper,
