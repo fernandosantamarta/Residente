@@ -9,13 +9,21 @@ import { createClient, SupabaseClient } from '@supabase/supabase-js'
 const FALLBACK_URL = 'https://nozzfcxijdnllkiydhfi.supabase.co'
 const FALLBACK_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5venpmY3hpamRubGxraXlkaGZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzkxMzc1MTIsImV4cCI6MjA5NDcxMzUxMn0.Tv9E5bEGKuBFLdPUyF2AauW964jcb6ybESn81-ddO6Y'
 
+// Reject env-var values that contain whitespace — they're malformed
+// (the actual production-breaking case was a JWT with `\n  ` inside it
+// after someone pasted a wrapped string into Vercel). A bad value is
+// worse than no value, because the `||` chain treats it as truthy and
+// skips the fallback.
+const clean = (v: string | undefined): string | undefined =>
+  v && !/\s/.test(v) ? v : undefined
+
 const SUPABASE_URL =
-  process.env.NEXT_PUBLIC_SUPABASE_URL ||
-  process.env.REACT_APP_SUPABASE_URL ||
+  clean(process.env.NEXT_PUBLIC_SUPABASE_URL) ||
+  clean(process.env.REACT_APP_SUPABASE_URL) ||
   FALLBACK_URL
 const SUPABASE_ANON_KEY =
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
-  process.env.REACT_APP_SUPABASE_ANON_KEY ||
+  clean(process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) ||
+  clean(process.env.REACT_APP_SUPABASE_ANON_KEY) ||
   FALLBACK_ANON_KEY
 
 export const hasSupabase: boolean = !!(SUPABASE_URL && SUPABASE_ANON_KEY)
