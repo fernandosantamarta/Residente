@@ -931,6 +931,110 @@ body:has(.landing-screen) { min-width: 0; }
 .ln-foot-link { transition: color 160ms var(--ln-ease); }
 .ln-foot-link:hover { color: var(--ln-ink); }
 
+/* ============ VS EVERYTHING — positioning section ============ */
+.ln-vs {
+  max-width: var(--ln-content);
+  margin: clamp(96px, 14vh, 144px) auto 0;
+  padding: 0 var(--ln-side);
+}
+.ln-vs-inner {
+  background: var(--ln-card);
+  border: 1px solid var(--ln-border);
+  border-radius: var(--ln-radius-lg);
+  padding: clamp(40px, 5vw, 72px);
+}
+.ln-vs-title {
+  font-size: clamp(40px, 5.2vw, 72px);
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  font-weight: 500;
+  margin: 14px 0 36px;
+  font-family: 'Fraunces', Georgia, serif;
+}
+.ln-vs-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 32px;
+  align-items: stretch;
+}
+.ln-vs-col-label {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: var(--ln-ink-faint);
+  margin-bottom: 18px;
+}
+/* The "old way" — muted, struck through, low energy. Each line lists a
+   tool that residents-first management replaces, with a short jab at
+   why it fails the resident. */
+.ln-vs-old {
+  padding: 22px;
+  border-radius: var(--ln-radius-md);
+  background: rgba(31,34,51,0.03);
+  border: 1px dashed rgba(31,34,51,0.18);
+}
+.ln-vs-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.ln-vs-list li {
+  font-size: 14px;
+  color: var(--ln-ink-dim);
+  line-height: 1.5;
+  padding-left: 18px;
+  position: relative;
+}
+.ln-vs-list li::before {
+  content: '×';
+  position: absolute;
+  left: 0;
+  top: -1px;
+  color: var(--ln-ink-faint);
+  font-weight: 600;
+}
+.ln-vs-tool {
+  color: var(--ln-ink);
+  font-weight: 600;
+  text-decoration: line-through;
+  text-decoration-color: rgba(31,34,51,0.35);
+  text-decoration-thickness: 1.5px;
+}
+
+/* The Residente side — terracotta accent, big serif statement, no
+   bullets, no comparison. Reads like a manifesto pulled out of a list. */
+.ln-vs-new {
+  padding: 32px;
+  border-radius: var(--ln-radius-md);
+  background:
+    radial-gradient(120% 100% at 0% 0%,
+      rgba(199,111,69,0.10) 0%,
+      rgba(199,111,69,0.00) 60%),
+    #FFFFFF;
+  border: 1.5px solid var(--ln-accent);
+  display: flex;
+  flex-direction: column;
+}
+.ln-vs-statement {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: clamp(28px, 3.4vw, 44px);
+  line-height: 1.0;
+  letter-spacing: -0.025em;
+  font-weight: 500;
+  color: var(--ln-accent);
+  margin: 8px 0 18px;
+}
+.ln-vs-body {
+  font-size: clamp(15px, 1.2vw, 17px);
+  line-height: 1.55;
+  color: var(--ln-ink);
+  margin: 0;
+}
+
 /* ============ RESPONSIVE ============ */
 @media (max-width: 1100px) {
   .ln-what  { grid-template-columns: 1fr; gap: 28px; }
@@ -943,6 +1047,7 @@ body:has(.landing-screen) { min-width: 0; }
   .ln-uses-left,
   .ln-use-card#boards,
   .ln-use-card#residents { grid-column: 1; grid-row: auto; }
+  .ln-vs-grid { grid-template-columns: 1fr; gap: 18px; }
   .ln-trust { grid-template-columns: 1fr; gap: 22px; }
 }
 @media (max-width: 720px) {

@@ -70,6 +70,7 @@ export default function Landing() {
       <StatStrip />
       <TrustMarquee />
       <BuiltForBoth />
+      <VsEverything />
       <CtaBlock />
       <LandingFoot />
     </div>
@@ -920,6 +921,45 @@ function BuiltForBoth() {
           treasurer for a PDF.
         </p>
         <a href="#waitlist" className="ln-use-link">Get on the list <span aria-hidden="true">→</span></a>
+      </div>
+    </section>
+  )
+}
+
+// Positioning section. The visual structure of a comparison table —
+// "old way" on the left, "Residente" on the right — but the punchline
+// rejects the comparison: Residente is a new category, not a faster
+// spreadsheet. Sits between "Built for both sides" (how it works) and
+// the waitlist CTA (sign me up) so the reader closes on "this is why".
+function VsEverything() {
+  return (
+    <section className="ln-vs" data-anim>
+      <div className="ln-vs-inner">
+        <div className="ln-eyebrow">Why Residente</div>
+        <h2 className="ln-vs-title">Residente vs.<br />everything else.</h2>
+
+        <div className="ln-vs-grid">
+          <div className="ln-vs-old">
+            <div className="ln-vs-col-label">The way it&apos;s been done</div>
+            <ul className="ln-vs-list">
+              <li><span className="ln-vs-tool">Spreadsheets</span> — read-only, treasurer-controlled</li>
+              <li><span className="ln-vs-tool">QuickBooks</span> — opaque to the residents paying into it</li>
+              <li><span className="ln-vs-tool">WhatsApp threads</span> — buried, unsearchable, half the community missing</li>
+              <li><span className="ln-vs-tool">Manila folders</span> — locked in someone&apos;s garage</li>
+              <li><span className="ln-vs-tool">Email chains</span> — forwarded, lost, never quite the right people</li>
+            </ul>
+          </div>
+
+          <div className="ln-vs-new">
+            <div className="ln-vs-col-label">Residente</div>
+            <p className="ln-vs-statement">Can&apos;t be compared.</p>
+            <p className="ln-vs-body">
+              We&apos;re the first company to put the resident first — in
+              the inner loop of community management. Every household,
+              every decision, every dollar. Everyone is part of it.
+            </p>
+          </div>
+        </div>
       </div>
     </section>
   )
