@@ -19,13 +19,12 @@ export const viewport: Viewport = {
 // Pre-paint theme script — sets data-theme + html bg colour BEFORE React
 // hydrates so users with a saved theme don't see a flash of the wrong one.
 // Mirrors the inline script the CRA build had in public/index.html.
+// Sketch is the only theme now. Still ship the pre-paint script so the
+// cream background paints before React hydrates (no flash of white).
 const PREPAINT_THEME = `
 (function(){
-  var b={'sketch':'#F4EFE8','original':'#0A0A12','linear-dark':'#0E0E11','mercury':'#FAFAF8','concierge':'#F4F0E8'};
-  var t; try { t = localStorage.getItem('residente-theme'); } catch(e) {}
-  if(!b[t]) t='sketch';
-  document.documentElement.setAttribute('data-theme', t);
-  document.documentElement.style.backgroundColor = b[t];
+  document.documentElement.setAttribute('data-theme', 'sketch');
+  document.documentElement.style.backgroundColor = '#F4EFE8';
 })();
 `
 

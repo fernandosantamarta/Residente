@@ -342,7 +342,7 @@ function Dog({ x, y, scale = 1 }) {
 // at the dead center (1200, 750) — that's the zoom anchor. Drawn from
 // back-to-front so the foreground layers (focal house, foreground trees)
 // occlude the rest correctly.
-function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
+export function CommunitySvg({ viewBox = '0 0 2400 1500' }: { viewBox?: string }) {
   const DX = 1200  // door anchor X
   const DY = 750   // door anchor Y (also: ground level / horizon-ish)
   return (
@@ -646,7 +646,7 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
    screen). Same sketch filter as the exterior so the two scenes feel
    like the same artist drew them.
    ============================================================ */
-function InteriorSvg() {
+export function InteriorSvg() {
   return (
     <svg viewBox="0 0 2400 1500" preserveAspectRatio="xMidYMid slice" role="img" aria-label="A hand-drawn sketch of the home's interior, with a resident checking the Residente app">
       <defs>

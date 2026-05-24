@@ -659,6 +659,58 @@ button { font-family: inherit; }
   .stub p { font-size: 15px; }
 }
 
+/* ============ COCKPIT SIGN-IN INTRO ============
+   Full-viewport overlay that replays the landing's cinematic zoom
+   (community → focal house → door → interior) once per session, the
+   first time the cockpit mounts after sign-in. Fades out cleanly at
+   the end so the cockpit can take over. */
+.cockpit-intro {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  background: #F4EFE8;
+  transition: opacity 700ms ease-out;
+}
+.cockpit-intro-stage {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+.cockpit-intro-stage > svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.cockpit-intro-interior {
+  position: absolute;
+  inset: 0;
+  transition: opacity 80ms linear;
+}
+.cockpit-intro-interior > svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.cockpit-intro-caption {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(48px, 10vh, 96px);
+  transform: translateX(-50%);
+  display: grid;
+  text-align: center;
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 500;
+  font-size: clamp(28px, 4vw, 52px);
+  letter-spacing: -0.02em;
+  color: #FFFFFF;
+  text-shadow: 0 2px 24px rgba(31,34,51,0.5);
+  pointer-events: none;
+}
+.cockpit-intro-caption > span {
+  grid-area: 1 / 1;
+  transition: opacity 200ms linear;
+}
+
 /* ============ AUTH/ERROR SCREENS ============ */
 .boot-screen {
   display: flex; align-items: center; justify-content: center;

@@ -6,11 +6,7 @@ import { THEMES, getTheme, setTheme } from '@/lib/theme'
 
 // A small preview swatch per theme: the card surface + the accent chip.
 const SWATCH = {
-  'sketch':      { bg: '#FFFFFF', accent: '#C76F45', desc: 'Hand-drawn warmth, matches the landing' },
-  'linear-dark': { bg: '#17171B', accent: '#7C6CDB', desc: 'Refined charcoal and violet' },
-  'original':    { bg: '#16162A', accent: '#FF3B5F', desc: 'The original neon look' },
-  'mercury':     { bg: '#FFFFFF', accent: '#1F5C3D', desc: 'Light fintech, forest green' },
-  'concierge':   { bg: '#FFFFFF', accent: '#0F6E6A', desc: 'Warm cream, editorial serif' },
+  'sketch': { bg: '#FFFFFF', accent: '#C76F45', desc: 'Hand-drawn warmth, matches the landing' },
 }
 
 // Settings — reached by clicking your profile in the sidebar. Holds the

@@ -3,14 +3,10 @@
 // data-theme attribute on <html>. app/layout.tsx renders a pre-paint
 // inline script so there's no flash on load.
 
-export type ThemeId = 'sketch' | 'original' | 'linear-dark' | 'mercury' | 'concierge'
+export type ThemeId = 'sketch'
 
 export const THEMES: { id: ThemeId; label: string }[] = [
-  { id: 'sketch',      label: 'Sketch' },
-  { id: 'original',    label: 'Original' },
-  { id: 'linear-dark', label: 'Linear Dark' },
-  { id: 'mercury',     label: 'Mercury Light' },
-  { id: 'concierge',   label: 'Concierge' },
+  { id: 'sketch', label: 'Sketch' },
 ]
 
 const KEY = 'residente-theme'

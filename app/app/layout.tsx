@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, ReactNode } from 'react'
+import { useEffect, useRef, useState, ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { signOut, hasSupabase } from '@/lib/supabase'
@@ -8,6 +8,7 @@ import { useAuth } from '../providers'
 import { useBoardDecisions } from '@/hooks/useBoardDecisions'
 import { useMyResident } from '@/hooks/useMyResident'
 import { DUES_LABEL } from '@/lib/dues'
+import { CommunitySvg, InteriorSvg } from '../page'
 
 // "Fernando Santamaria" → "FS". Safe on null/single-name.
 const initialsFrom = (name?: string | null): string => {
@@ -63,6 +64,8 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
   const userUnit = profile?.unit_number ? `Unit ${profile.unit_number}` : 'Unit —'
 
   return (
+    <>
+      <CockpitIntro />
     <div className="cockpit" style={!showRightRail ? { gridTemplateColumns: '240px 1fr' } : undefined}>
       <aside className={`rail-left${navOpen ? ' open' : ''}`}>
         <div className="brand">
@@ -151,6 +154,85 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
       </main>
 
       {showRightRail && <RightRail />}
+    </div>
+    </>
+  )
+}
+
+// One-time sign-in zoom: replays the landing's cinematic dolly-in
+// (community → focal house → door → interior) as a welcome animation
+// the first time the cockpit mounts in a browser session. Uses
+// sessionStorage so internal cockpit navigation doesn't replay it.
+function CockpitIntro() {
+  const [phase, setPhase] = useState<'init' | 'playing' | 'done'>('init')
+  const [p, setP] = useState(0)              // 0..1 zoom progress
+  const startRef = useRef<number | null>(null)
+
+  // Decide whether to play. Skip if the user has seen the intro this
+  // session, or if reduced-motion is requested.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const seen = sessionStorage.getItem('cockpit-intro-seen') === '1'
+    if (reduced || seen) { setPhase('done'); return }
+    sessionStorage.setItem('cockpit-intro-seen', '1')
+    setPhase('playing')
+  }, [])
+
+  // Drive p from 0 → 1 over 2.6s, then linger briefly so the interior
+  // reveal is visible, then fade out. Total ~3.6s.
+  useEffect(() => {
+    if (phase !== 'playing') return
+    const DUR_ZOOM = 2600
+    const DUR_HOLD = 700
+    let raf = 0
+    const tick = (ts: number) => {
+      if (startRef.current == null) startRef.current = ts
+      const elapsed = ts - startRef.current
+      if (elapsed < DUR_ZOOM) {
+        setP(elapsed / DUR_ZOOM)
+        raf = requestAnimationFrame(tick)
+      } else {
+        setP(1)
+        setTimeout(() => setPhase('done'), DUR_HOLD)
+      }
+    }
+    raf = requestAnimationFrame(tick)
+    return () => { if (raf) cancelAnimationFrame(raf) }
+  }, [phase])
+
+  if (phase === 'done') return null
+
+  // Same zoom curve and crossfade timing as the landing hero.
+  const ZOOM_END = 0.78
+  const zp = Math.min(1, p / ZOOM_END)
+  const zoom = Math.pow(12, zp)
+  const vbW = 2400 / zoom
+  const vbH = 1500 / zoom
+  const vbX = 1200 - vbW / 2
+  const vbY = 750 - vbH / 2
+  const viewBox = `${vbX.toFixed(1)} ${vbY.toFixed(1)} ${vbW.toFixed(1)} ${vbH.toFixed(1)}`
+  const interiorOpacity = Math.max(0, Math.min(1, (p - ZOOM_END) / (1 - ZOOM_END)))
+  // Once p has hit 1 and we're in the hold phase, start fading out the
+  // whole overlay so the cockpit can show through.
+  const overlayOpacity = phase === 'playing' && p >= 1 ? 0 : 1
+
+  return (
+    <div
+      className="cockpit-intro"
+      style={{ opacity: overlayOpacity, pointerEvents: phase === 'playing' ? 'auto' : 'none' }}
+      aria-hidden="true"
+    >
+      <div className="cockpit-intro-stage">
+        <CommunitySvg viewBox={viewBox} />
+        <div className="cockpit-intro-interior" style={{ opacity: interiorOpacity }}>
+          <InteriorSvg />
+        </div>
+        <div className="cockpit-intro-caption">
+          <span style={{ opacity: Math.max(0, 1 - p / 0.4) }}>Welcome home.</span>
+          <span style={{ opacity: Math.max(0, (p - 0.55) / 0.25) }}>You&apos;re in the loop.</span>
+        </div>
+      </div>
     </div>
   )
 }
