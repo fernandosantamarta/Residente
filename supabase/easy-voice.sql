@@ -984,3 +984,89 @@ begin
   return new;
 end $$;
 
+-- ---------- Phase 4 / Commit 5: Ballot encryption ----------
+-- Secret ballots are encrypted client-side with a per-vote NaCl keypair
+-- whose secret key is password-wrapped by the admin and stored in the
+-- DB. The platform operator never holds the unwrapped key, which is the
+-- legal point of a secret ballot.
+--
+-- Storage:
+--   ev_votes.public_key          — base64-encoded 32-byte nacl box public key
+--   ev_votes.wrapped_secret_key  — base64-encoded password-wrapped secret key
+--   ev_votes.key_created_by      — auth.users(id) of the admin who set the password
+--   ev_ballots.encrypted_answer  — base64-encoded sealed ciphertext per ballot
+--   ev_ballots.encryption_key_id — denormalised vote_id for fast lookup
+--
+-- The existing bytea columns were never populated; we convert them to
+-- text so the JS client can write base64 strings directly without
+-- wrestling with PostgREST's bytea encoding rules.
+alter table public.ev_votes
+  add column if not exists public_key         text,
+  add column if not exists wrapped_secret_key text,
+  add column if not exists key_created_by     uuid references auth.users(id);
+
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'ev_ballots'
+      and column_name = 'encrypted_answer' and data_type = 'bytea'
+  ) then
+    alter table public.ev_ballots drop column encrypted_answer;
+  end if;
+end $$;
+alter table public.ev_ballots
+  add column if not exists encrypted_answer text;
+
+-- The tally trigger originally fired only on INSERT with a non-null
+-- answer. Secret ballots insert with answer=null + encrypted_answer set,
+-- then the admin's decrypt-and-write path runs UPDATEs that flip answer
+-- from null to plaintext. Extend the trigger to handle both cases.
+create or replace function public.ev_ballot_tally()
+returns trigger language plpgsql as $$
+declare bumped boolean := false;
+        v_answer text;
+begin
+  if (tg_op = 'INSERT' and new.answer is not null) then
+    v_answer := new.answer;
+    bumped := true;
+  elsif (tg_op = 'UPDATE' and old.answer is null and new.answer is not null) then
+    v_answer := new.answer;
+    bumped := true;
+  end if;
+
+  if bumped then
+    if v_answer = 'yes' then
+      update public.ev_votes set yes_count = yes_count + 1 where id = new.vote_id;
+    elsif v_answer = 'no' then
+      update public.ev_votes set no_count = no_count + 1 where id = new.vote_id;
+    elsif v_answer = 'abstain' then
+      update public.ev_votes set abstain_count = abstain_count + 1 where id = new.vote_id;
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists ev_ballot_tally_trg on public.ev_ballots;
+create trigger ev_ballot_tally_trg
+  after insert or update on public.ev_ballots
+  for each row execute function public.ev_ballot_tally();
+
+-- The board's tally path needs UPDATE permission on the answer column.
+-- Allowed only on votes in their own community whose status is closed
+-- or tallied (never open — would let admins front-run live results).
+grant update (answer) on public.ev_ballots to authenticated;
+
+drop policy if exists "board writes tally answer" on public.ev_ballots;
+create policy "board writes tally answer"
+  on public.ev_ballots for update to authenticated
+  using (
+    vote_id in (
+      select id from public.ev_votes
+      where community_id = (select community_id from public.profiles where id = auth.uid())
+        and status in ('closed','tallied')
+    )
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  )
+  with check (answer in ('yes','no','abstain'));
+

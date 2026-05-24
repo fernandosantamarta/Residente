@@ -13,6 +13,10 @@ import {
 import { useVoiceMeetings, useVoiceMeeting } from '@/hooks/useVoiceMeetings'
 import { useCommunityNotices } from '@/hooks/useNotices'
 import { logAudit } from '@/lib/audit'
+import {
+  generateVoteKeypair, wrapSecretKey, unwrapSecretKey,
+  decryptAnswer, exportKeyCard, bytesToBase64,
+} from '@/lib/ballotCrypto'
 
 const withTimeout = (p, ms = 10000) =>
   Promise.race([
@@ -598,9 +602,31 @@ function VoteRow({ vote: v, meetingStatus, onChanged }) {
     } catch { /* keep */ } finally { setActing(false) }
   }
 
+  const [closeErr, setCloseErr] = useState<string | null>(null)
+  const [closing, setClosing]   = useState(false)
+  const [pwdPrompt, setPwdPrompt] = useState(false)
+
+  // Open vote: flip status to 'closed' first (no more ballots accepted),
+  // then either tally (open ballot) or decrypt+tally (secret ballot).
   const closeVote = async () => {
-    setActing(true)
+    setActing(true); setCloseErr(null)
     try {
+      if (v.ballot_type === 'secret') {
+        // Need the admin's tally password before we can decrypt. Move
+        // the vote to 'closed' first so no more ballots can come in,
+        // then surface the password prompt UI.
+        const { error: closeStatusErr } = await withTimeout(
+          supabase.from('ev_votes').update({
+            status: 'closed',
+            closes_at: new Date().toISOString(),
+          }).eq('id', v.id)
+        )
+        if (closeStatusErr) throw closeStatusErr
+        setPwdPrompt(true)
+        onChanged()
+        return
+      }
+      // Open ballot — counts are already live in v.{yes,no,abstain}_count.
       const total = (v.yes_count ?? 0) + (v.no_count ?? 0)
       const result = total === 0 ? null : v.yes_count >= v.no_count ? 'pass' : 'fail'
       const { error } = await withTimeout(
@@ -619,7 +645,79 @@ function VoteRow({ vote: v, meetingStatus, onChanged }) {
         metadata:     { yes: v.yes_count ?? 0, no: v.no_count ?? 0, abstain: v.abstain_count ?? 0, result },
       })
       onChanged()
-    } catch { /* keep */ } finally { setActing(false) }
+    } catch (e: any) {
+      setCloseErr(e?.message ?? 'Could not close the vote.')
+    } finally {
+      setActing(false)
+    }
+  }
+
+  // Secret-vote tally: unwrap secret key with the admin's password,
+  // decrypt every ballot client-side, write back plaintext answers.
+  // The DB tally trigger picks up the UPDATE and updates the counts.
+  const decryptAndTally = async (password: string) => {
+    if (!v.wrapped_secret_key) {
+      setCloseErr('This vote is missing its wrapped secret key — cannot tally.')
+      return
+    }
+    setClosing(true); setCloseErr(null)
+    try {
+      const secretKey = await unwrapSecretKey(v.wrapped_secret_key, password)
+      const { data: ballots, error: bErr } = await withTimeout(
+        supabase.from('ev_ballots')
+          .select('id, encrypted_answer')
+          .eq('vote_id', v.id)
+          .is('answer', null)
+      )
+      if (bErr) throw bErr
+      let updated = 0, failed = 0
+      for (const b of (ballots || [])) {
+        if (!b.encrypted_answer) { failed++; continue }
+        try {
+          const ans = decryptAnswer(b.encrypted_answer, secretKey)
+          const { error: uErr } = await supabase.from('ev_ballots')
+            .update({ answer: ans }).eq('id', b.id)
+          if (uErr) { failed++; continue }
+          updated++
+        } catch { failed++ }
+      }
+
+      // Re-read counts (tally trigger fired during the loop) so we can
+      // record a definitive pass/fail without trusting stale local state.
+      const { data: tallied, error: tErr } = await supabase
+        .from('ev_votes')
+        .select('yes_count, no_count, abstain_count')
+        .eq('id', v.id)
+        .single()
+      if (tErr) throw tErr
+      const yes = tallied?.yes_count ?? 0
+      const no  = tallied?.no_count ?? 0
+      const total = yes + no
+      const result = total === 0 ? null : yes >= no ? 'pass' : 'fail'
+
+      const { error: rErr } = await supabase.from('ev_votes').update({
+        status: 'tallied',
+        result,
+      }).eq('id', v.id)
+      if (rErr) throw rErr
+
+      logAudit({
+        community_id: v.community_id,
+        event_type:   'vote.closed',
+        target_type:  'vote',
+        target_id:    v.id,
+        metadata: {
+          yes, no, abstain: tallied?.abstain_count ?? 0,
+          result, decrypted: updated, failed_decrypts: failed,
+        },
+      })
+      setPwdPrompt(false)
+      onChanged()
+    } catch (e: any) {
+      setCloseErr(e?.message ?? 'Could not tally the vote.')
+    } finally {
+      setClosing(false)
+    }
   }
 
   const publishResult = async () => {
@@ -641,49 +739,116 @@ function VoteRow({ vote: v, meetingStatus, onChanged }) {
   }
 
   return (
-    <div className="voice-vote-row">
-      <div className="voice-vote-left">
-        <div className="voice-vote-title">{v.title}</div>
-        <div className="voice-vote-meta">
-          {typeLabel}
-          {' · '}{v.ballot_type === 'secret' ? '🔒 Secret ballot' : 'Open ballot'}
-        </div>
-        {(v.status === 'tallied' || v.status === 'published') && (
-          <div className="voice-tally">
-            <span className="voice-tally-yes">✓ {v.yes_count ?? 0} yes</span>
-            <span className="voice-tally-no">✗ {v.no_count ?? 0} no</span>
-            <span className="voice-tally-abs">{v.abstain_count ?? 0} abstain</span>
-            {v.result && (
-              <span className={`voice-result voice-result-${v.result}`}>
-                {v.result === 'pass' ? 'PASSED' : 'FAILED'}
-              </span>
-            )}
+    <div className="voice-vote-row-wrap">
+      <div className="voice-vote-row">
+        <div className="voice-vote-left">
+          <div className="voice-vote-title">{v.title}</div>
+          <div className="voice-vote-meta">
+            {typeLabel}
+            {' · '}{v.ballot_type === 'secret' ? '🔒 Secret ballot' : 'Open ballot'}
           </div>
-        )}
+          {(v.status === 'tallied' || v.status === 'published') && (
+            <div className="voice-tally">
+              <span className="voice-tally-yes">✓ {v.yes_count ?? 0} yes</span>
+              <span className="voice-tally-no">✗ {v.no_count ?? 0} no</span>
+              <span className="voice-tally-abs">{v.abstain_count ?? 0} abstain</span>
+              {v.result && (
+                <span className={`voice-result voice-result-${v.result}`}>
+                  {v.result === 'pass' ? 'PASSED' : 'FAILED'}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+        <div className="voice-vote-right">
+          <span className={`voice-status voice-status-${v.status}`}>
+            {VOTE_STATUS_LABELS[v.status] ?? v.status}
+          </span>
+          {v.status === 'draft' && meetingStatus === 'in_progress' && (
+            <button className="admin-btn-sm" onClick={openVote} disabled={acting}>Open vote</button>
+          )}
+          {v.status === 'open' && (
+            <button className="admin-btn-sm admin-btn-warn" onClick={closeVote} disabled={acting}>
+              {v.ballot_type === 'secret' ? 'Close vote' : 'Close & tally'}
+            </button>
+          )}
+          {v.status === 'closed' && v.ballot_type === 'secret' && (
+            <button className="admin-btn-sm" onClick={() => setPwdPrompt(true)} disabled={acting}>
+              Decrypt &amp; tally
+            </button>
+          )}
+          {v.status === 'tallied' && (
+            <button className="admin-btn-sm" onClick={publishResult} disabled={acting}>Publish result</button>
+          )}
+        </div>
       </div>
-      <div className="voice-vote-right">
-        <span className={`voice-status voice-status-${v.status}`}>
-          {VOTE_STATUS_LABELS[v.status] ?? v.status}
-        </span>
-        {v.status === 'draft' && meetingStatus === 'in_progress' && (
-          <button className="admin-btn-sm" onClick={openVote} disabled={acting}>Open vote</button>
-        )}
-        {v.status === 'open' && (
-          <button className="admin-btn-sm admin-btn-warn" onClick={closeVote} disabled={acting}>Close &amp; tally</button>
-        )}
-        {v.status === 'tallied' && (
-          <button className="admin-btn-sm" onClick={publishResult} disabled={acting}>Publish result</button>
-        )}
-      </div>
+      {closeErr && <div className="admin-err" style={{ marginTop: 6 }}>{closeErr}</div>}
+      {pwdPrompt && (
+        <TallyPasswordPrompt
+          onCancel={() => { setPwdPrompt(false); setCloseErr(null) }}
+          onSubmit={decryptAndTally}
+          busy={closing}
+        />
+      )}
     </div>
+  )
+}
+
+function TallyPasswordPrompt({
+  onCancel, onSubmit, busy,
+}: {
+  onCancel: () => void
+  onSubmit: (password: string) => Promise<void> | void
+  busy: boolean
+}) {
+  const [pwd, setPwd] = useState('')
+  return (
+    <form
+      className="voice-tally-prompt"
+      onSubmit={(e) => { e.preventDefault(); onSubmit(pwd) }}
+    >
+      <div>
+        <strong>Tally this secret vote</strong>
+        <div style={{ fontSize: 13, color: 'var(--text-dim)', marginTop: 4 }}>
+          Enter the tally password you set when creating the vote. Decryption
+          runs in your browser — the platform operator never sees your key.
+        </div>
+      </div>
+      <input
+        type="password"
+        autoComplete="current-password"
+        placeholder="Tally password"
+        value={pwd}
+        onChange={e => setPwd(e.target.value)}
+        autoFocus
+        disabled={busy}
+      />
+      <div className="voice-form-actions">
+        <button type="submit" className="admin-btn" disabled={busy || !pwd}>
+          {busy ? 'Decrypting…' : 'Decrypt & tally'}
+        </button>
+        <button type="button" className="admin-btn-ghost" onClick={onCancel} disabled={busy}>
+          Cancel
+        </button>
+      </div>
+    </form>
   )
 }
 
 function VoteForm({ meetingId, communityId, onSaved, onCancel }) {
   const { profile } = useAuth() || {}
   const [form, setForm] = useState(EMPTY_VOTE)
+  // Secret-vote tally password — required for ballot_type='secret'. We
+  // generate the keypair at submit time and wrap the secret with this
+  // password before writing it to the DB.
+  const [tallyPwd, setTallyPwd]       = useState('')
+  const [tallyPwd2, setTallyPwd2]     = useState('')
+  const [savedCard, setSavedCard]     = useState(false)
+  const [keyCard, setKeyCard]         = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
+
+  const isSecret = form.ballot_type === 'secret'
 
   const set = (k, v) => setForm(f => {
     const next = { ...f, [k]: v }
@@ -694,28 +859,81 @@ function VoteForm({ meetingId, communityId, onSaved, onCancel }) {
   const save = async (e) => {
     e.preventDefault()
     if (!form.title.trim()) { setErr('Title is required.'); return }
-    setSaving(true)
-    setErr(null)
+
+    let public_key: string | null = null
+    let wrapped_secret_key: string | null = null
+    let cardText: string | null = null
+
+    if (isSecret) {
+      if (tallyPwd.length < 6) {
+        setErr('Tally password must be at least 6 characters.'); return
+      }
+      if (tallyPwd !== tallyPwd2) {
+        setErr('Tally passwords do not match.'); return
+      }
+      if (!savedCard) {
+        setErr('Confirm you have saved the tally password before continuing.'); return
+      }
+    }
+
+    setSaving(true); setErr(null)
     try {
+      if (isSecret) {
+        const kp = generateVoteKeypair()
+        public_key        = bytesToBase64(kp.publicKey)
+        wrapped_secret_key = await wrapSecretKey(kp.secretKey, tallyPwd)
+        cardText          = exportKeyCard(kp.secretKey)
+      }
+
       const { error } = await withTimeout(
         supabase.from('ev_votes').insert({
-          meeting_id:   meetingId,
-          community_id: communityId,
-          title:        form.title.trim(),
-          description:  form.description.trim() || null,
-          type:         form.type,
-          ballot_type:  form.ballot_type,
-          mode:         form.mode,
-          created_by:   profile?.id,
+          meeting_id:         meetingId,
+          community_id:       communityId,
+          title:              form.title.trim(),
+          description:        form.description.trim() || null,
+          type:               form.type,
+          ballot_type:        form.ballot_type,
+          mode:               form.mode,
+          created_by:         profile?.id,
+          public_key,
+          wrapped_secret_key,
+          key_created_by:     isSecret ? profile?.id : null,
         })
       )
       if (error) throw error
-      onSaved()
+      if (isSecret && cardText) {
+        // Offer the key card as a downloadable text file so the admin
+        // can keep a paper backup. Saving the card is the only recovery
+        // path if they forget the tally password.
+        downloadKeyCard(cardText, form.title.trim())
+        setKeyCard(cardText)
+      } else {
+        onSaved()
+      }
     } catch (e) {
       setErr(e?.message ?? 'Failed to save vote.')
     } finally {
       setSaving(false)
     }
+  }
+
+  if (keyCard) {
+    return (
+      <div className="voice-vote-form">
+        <div className="voice-keycard-banner">Secret vote created — save the tally key card</div>
+        <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 12 }}>
+          A text file with the tally key card was downloaded. Keep it offline
+          (printed, safe, or password manager). It's your only recovery path
+          if you forget the tally password — without either, ballots are
+          permanently unrecoverable, which is the legal point of a secret
+          ballot.
+        </p>
+        <pre className="voice-keycard-block">{keyCard}</pre>
+        <div className="voice-form-actions">
+          <button type="button" className="admin-btn" onClick={onSaved}>I've saved it — continue</button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -749,6 +967,35 @@ function VoteForm({ meetingId, communityId, onSaved, onCancel }) {
           )}
         </div>
       </div>
+      {isSecret && (
+        <div className="voice-secret-config">
+          <div className="voice-secret-config-title">Tally password (required for secret ballots)</div>
+          <p className="voice-secret-config-body">
+            Only you will be able to decrypt and tally these ballots. The
+            password is wrapped around the vote's secret key and stored in
+            the DB; the platform operator never sees the unwrapped key.
+            Forgetting both the password <em>and</em> the key card means
+            ballots are unrecoverable.
+          </p>
+          <div className="voice-form-inline">
+            <div className="voice-form-row">
+              <label>Tally password</label>
+              <input type="password" autoComplete="new-password" minLength={6}
+                value={tallyPwd} onChange={e => setTallyPwd(e.target.value)} />
+            </div>
+            <div className="voice-form-row">
+              <label>Confirm password</label>
+              <input type="password" autoComplete="new-password" minLength={6}
+                value={tallyPwd2} onChange={e => setTallyPwd2(e.target.value)} />
+            </div>
+          </div>
+          <label className="voice-secret-confirm">
+            <input type="checkbox" checked={savedCard}
+              onChange={e => setSavedCard(e.target.checked)} />
+            <span>I will save the tally password and downloaded key card in a safe place.</span>
+          </label>
+        </div>
+      )}
       {err && <div className="admin-err">{err}</div>}
       <div className="voice-form-actions">
         <button type="submit" className="admin-btn" disabled={saving}>{saving ? 'Adding…' : 'Add vote item'}</button>
@@ -756,6 +1003,28 @@ function VoteForm({ meetingId, communityId, onSaved, onCancel }) {
       </div>
     </form>
   )
+}
+
+function downloadKeyCard(card: string, title: string) {
+  const safe = title.replace(/[^a-z0-9-_]+/gi, '-').toLowerCase().slice(0, 40)
+  const body =
+    'Easy Voice — Tally key card\n' +
+    'Vote: ' + title + '\n' +
+    'Created: ' + new Date().toISOString() + '\n\n' +
+    'Keep this card offline. If you forget the tally password, this card\n' +
+    'is the only recovery path. Lose both and the ballots are permanently\n' +
+    'unrecoverable.\n\n' +
+    'Key (hex, dashes for readability):\n' +
+    card + '\n'
+  const blob = new Blob([body], { type: 'text/plain' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `easy-voice-tally-key-${safe || 'vote'}.txt`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
 function DocsPanel({ meeting, reload }) {

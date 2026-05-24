@@ -99,6 +99,43 @@ the very bottom (safe to re-run — everything uses `IF NOT EXISTS`):
   a new `NOTICE_WEBHOOK_SECRET` secret, and a DB webhook wired in the
   Supabase dashboard.
 
+- **Commit 5 — Ballot encryption for secret ballots (tweetnacl)**
+  Secret ballots are now end-to-end encrypted client-side. New
+  `lib/ballotCrypto.ts` wraps tweetnacl + tweetnacl-util (added as
+  prod deps). Per-vote nacl.box keypair; the secret key is wrapped to
+  the admin's tally password with PBKDF2-SHA256 (200k iters) +
+  nacl.secretbox and stored on `ev_votes.wrapped_secret_key`. The
+  platform operator never holds the unwrapped key.
+
+  Wire format documented in the header of `lib/ballotCrypto.ts`. All
+  bytes are base64-encoded text in the DB (Supabase bytea is awkward
+  through PostgREST); the existing unused `ev_ballots.encrypted_answer`
+  column is converted from bytea to text in the migration.
+
+  **Admin VoteForm**: secret votes now prompt for a tally password
+  (with a confirm-it-was-saved checkbox), generate the keypair, wrap
+  the secret key, and force download a key card text file as the
+  offline recovery path. Lose both the password AND the card → ballots
+  are unrecoverable, which is the legal point of a secret ballot.
+
+  **Admin VoteRow**: secret votes get a two-step close flow — first
+  click "Close vote" (flips status to `closed` so no new ballots
+  arrive), then "Decrypt & tally" prompts for the password,
+  unwraps the secret in-browser, decrypts every ballot's
+  `encrypted_answer`, and writes back plaintext `answer`. The tally
+  trigger picks up the UPDATE and updates `yes/no/abstain_count`.
+
+  **Resident `/app/voice/[id]`**: cast() detects `ballot_type=secret`,
+  encrypts the answer with the vote's public key, and inserts
+  `answer=null, encrypted_answer=<base64>`.
+
+  SQL: `ev_votes` gains `public_key`, `wrapped_secret_key`,
+  `key_created_by`. `ev_ballot_tally()` now handles the
+  null→answer UPDATE path so the tally trigger fires on decrypt.
+  `grant update (answer)` + board-only RLS policy for `ev_ballots`.
+
+  No edge function — all crypto is client-side, intentionally.
+
 ## ⚠️ FIRST THING — confirm both SQL blocks ran
 
 Two unmerged migrations now live in `supabase/` as `.sql` files. Both must

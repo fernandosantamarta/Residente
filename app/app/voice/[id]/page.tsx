@@ -7,6 +7,7 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { MEETING_TYPES, DOC_TYPES, VOTE_TYPES } from '@/lib/voice'
 import { logAudit } from '@/lib/audit'
+import { encryptAnswer } from '@/lib/ballotCrypto'
 
 const withTimeout = (p, ms = 10000) =>
   Promise.race([
@@ -99,13 +100,28 @@ function ResidentVoteCard({ vote: v, onVoted }) {
     setCasting(true)
     setCastErr(null)
     try {
+      let row: any = {
+        vote_id:     v.id,
+        profile_id:  profile.id,
+        unit_number: profile.unit_number,
+        answer,
+      }
+      if (isSecret) {
+        if (!v.public_key) {
+          setCastErr('This secret vote is missing its encryption key. Ask your board to recreate the vote.')
+          return
+        }
+        row = {
+          vote_id:           v.id,
+          profile_id:        profile.id,
+          unit_number:       profile.unit_number,
+          answer:            null,
+          encrypted_answer:  encryptAnswer(answer, v.public_key),
+          encryption_key_id: v.id,
+        }
+      }
       const { data: ballot, error } = await withTimeout(
-        supabase.from('ev_ballots').insert({
-          vote_id:     v.id,
-          profile_id:  profile.id,
-          unit_number: profile.unit_number,
-          answer,
-        }).select('id').single()
+        supabase.from('ev_ballots').insert(row).select('id').single()
       )
       if (error) {
         if (error.code === '23505') {
