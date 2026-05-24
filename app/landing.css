@@ -440,7 +440,11 @@ body:has(.landing-screen) { min-width: 0; }
   transform: translateY(-2px);
   box-shadow: 0 14px 30px -12px rgba(199,111,69,0.55);
 }
-.ln-hero-ghost {
+/* `.landing-screen a { color: inherit }` earlier in this file has
+   higher specificity than a single-class selector, so it was forcing
+   the ghost link to inherit the dark navy --ln-ink. Bumping these to
+   `.landing-screen .ln-hero-ghost` to win the cascade. */
+.landing-screen .ln-hero-ghost {
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -450,7 +454,7 @@ body:has(.landing-screen) { min-width: 0; }
   font-weight: 500;
   transition: color 200ms var(--ln-ease), gap 200ms var(--ln-ease);
 }
-.ln-hero-ghost:hover { color: #FFF; gap: 12px; }
+.landing-screen .ln-hero-ghost:hover { color: #FFF; gap: 12px; }
 
 /* Hero scroll-cue at the bottom-right corner */
 .ln-hero-scroll {
