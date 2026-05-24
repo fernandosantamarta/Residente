@@ -793,6 +793,22 @@ export function InteriorSvg() {
             reads as a pet, not a smudge */}
         <Dog x={1170} y={1248} scale={3.0} />
 
+        {/* grandfather next to grandma — burgundy sweater, gray
+            receding hair, white mustache, hand resting on grandma's
+            arm so they read as a couple */}
+        <g className="ln-interior-breathe">
+          {/* torso */}
+          <path d="M1770 985 Q1770 905 1825 895 Q1880 905 1880 985 L1865 1090 L1785 1090 Z" fill="#7C3A3A" {...inkStroke} />
+          {/* head */}
+          <circle cx="1825" cy="852" r="40" fill="#F4D6B8" {...inkStroke} />
+          {/* receding gray hair (smaller crown patch) */}
+          <path d="M1797 838 Q1800 815 1825 810 Q1850 815 1853 838 Q1853 822 1838 822 Q1825 817 1813 822 Q1797 826 1797 838" fill="#A8A29C" {...inkStroke} />
+          {/* white mustache */}
+          <path d="M1812 868 Q1825 874 1838 868" fill="none" stroke="#D6D2CC" strokeWidth="3" strokeLinecap="round" />
+          {/* arm reaching toward grandma's arm — affectionate */}
+          <path d="M1878 980 Q1898 985 1912 990" fill="none" {...inkStroke} />
+        </g>
+
         {/* grandparent on the right end of the couch — silver hair,
             little round glasses, teal cardigan. Same gentle breathe
             as the other adults. */}
