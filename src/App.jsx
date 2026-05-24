@@ -12,6 +12,7 @@ import Community from './pages/Community'
 import Settings from './pages/Settings'
 import Login from './pages/Login'
 import Landing from './pages/Landing'
+import EasyVoice from './pages/EasyVoice'
 import AdminLayout from './components/AdminLayout'
 import AdminResidents from './pages/admin/Residents'
 import AdminCommunity from './pages/admin/CommunitySettings'
@@ -20,6 +21,7 @@ import AdminRules from './pages/admin/Rules'
 import AdminDocuments from './pages/admin/Documents'
 import './admin.css'
 import './landing.css'
+import './easy-voice.css'
 
 export const AuthContext = createContext(null)
 export const useAuth = () => useContext(AuthContext)
@@ -110,6 +112,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={session ? <Navigate to="/app" replace /> : <Landing />} />
+          <Route path="/easy-voice" element={<EasyVoice />} />
           <Route path="/login" element={!session ? <Login /> : <Navigate to="/app" replace />} />
           <Route
             path="/admin"
