@@ -12,6 +12,7 @@ const ADMIN_NAV = [
   { href: '/admin/community', label: 'Community' },
   { href: '/admin/residents', label: 'Residents' },
   { href: '/admin/board',     label: 'Board' },
+  { href: '/admin/meetings',  label: 'Meetings' },
   { href: '/admin/rules',     label: 'Rules' },
   { href: '/admin/documents', label: 'Documents' },
 ]
