@@ -1,0 +1,12 @@
+project_id = "residente"
+
+# create-checkout is called by signed-in residents from the Pay page —
+# Supabase verifies their JWT before the function runs.
+[functions.create-checkout]
+verify_jwt = true
+
+# stripe-webhook is called by Stripe, which has no Supabase JWT. JWT
+# verification MUST stay off — authenticity is the Stripe signature check
+# inside the function. Equivalent deploy flag: --no-verify-jwt
+[functions.stripe-webhook]
+verify_jwt = false

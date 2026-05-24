@@ -1,22 +1,45 @@
 # Residente
 
-Residente is an HOA management platform that brings full financial transparency to homeowners associations — giving residents a clear, real-time view of exactly where their dues are going.
+HOA resident cockpit. React + Supabase + Vercel.
 
-## What It Does
+Design: locked in `~/.gstack/projects/Fernando/designs/residente-desktop-20260424/approved.json` (round 2, 2026-04-24).
 
-- **Dues Transparency** — Residents can see a breakdown of how their HOA dues are allocated (maintenance, reserves, insurance, landscaping, etc.)
-- **Payment Tracking** — View payment history and upcoming due dates
-- **Budget Visibility** — Access community budget reports and financial summaries
-- **Announcements** — Stay informed on HOA decisions and spending updates
+## Local dev
 
-## Why Residente
+```bash
+npm install
+npm start
+```
 
-Most homeowners pay HOA dues without ever knowing how the money is spent. Residente fixes that by giving residents a transparent, easy-to-understand dashboard — and giving HOA boards a simple way to communicate finances to their community.
+Runs at http://localhost:3000. App boots without Supabase (no auth gate) until you add env vars.
 
-## Getting Started
+## Connect Supabase
 
-Coming soon.
+1. Create a new Supabase project at https://app.supabase.com
+2. Copy `.env.example` to `.env.local`
+3. Paste your URL and anon key from Supabase dashboard → Settings → API
+4. Run the migrations (see `supabase/migrations/` once you add them)
+5. Restart `npm start`
 
-## Contact
+## Deploy to Vercel
 
-For questions or partnership inquiries, reach out at [carballodominic@gmail.com](mailto:carballodominic@gmail.com).
+1. `git init && git add -A && git commit -m "initial"`
+2. Create a new GitHub repo, push
+3. Import to Vercel: https://vercel.com/new
+4. Add env vars: `REACT_APP_SUPABASE_URL`, `REACT_APP_SUPABASE_ANON_KEY`
+5. Build settings:
+   - Build command: `CI=false node node_modules/react-scripts/bin/react-scripts.js build`
+   - Install command: `npm install --legacy-peer-deps`
+   - Output: `build`
+
+## Routes
+
+| Path | Page | Status |
+|---|---|---|
+| `/` | Home — cockpit dashboard | Designed (variant-A) |
+| `/pay` | Payments | Stub |
+| `/board` | Board activity | Stub |
+| `/rules` | Community rules | Stub |
+| `/documents` | Document library | Stub |
+| `/contact` | Contact board | Stub |
+| `/community` | Community editorial | Stub (port community.html next) |
