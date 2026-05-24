@@ -107,6 +107,22 @@ export default function App() {
 
   return (
     <AuthContext.Provider value={{ session, profile, setProfile }}>
+      {/* Global SVG defs — the Sketch theme references #sketch-wobble
+          via `filter: url(...)` to add a hand-drawn wobble to card
+          borders, icons, and decorative strokes. Lives at the root so
+          it's available on every page (Login, Landing, cockpit). */}
+      <svg width="0" height="0" style={{ position: 'absolute', pointerEvents: 'none' }} aria-hidden="true">
+        <defs>
+          <filter id="sketch-wobble" x="-5%" y="-5%" width="110%" height="110%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.025" numOctaves="2" seed="4" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="2.6" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+          <filter id="sketch-wobble-strong" x="-5%" y="-5%" width="110%" height="110%">
+            <feTurbulence type="fractalNoise" baseFrequency="0.04" numOctaves="2" seed="7" result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.5" xChannelSelector="R" yChannelSelector="G" />
+          </filter>
+        </defs>
+      </svg>
       <BrowserRouter>
         <Routes>
           <Route path="/" element={session ? <Navigate to="/app" replace /> : <Landing />} />
