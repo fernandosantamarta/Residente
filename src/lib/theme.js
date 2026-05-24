@@ -1,8 +1,10 @@
-// Theme switching — Original / Linear Dark / Mercury / Concierge.
-// The choice is stored in localStorage and applied as a data-theme attribute
-// on <html>. index.html sets it pre-paint so there's no flash on load.
+// Theme switching — Sketch (default) / Original / Linear Dark / Mercury /
+// Concierge. The choice is stored in localStorage and applied as a
+// data-theme attribute on <html>. index.html sets it pre-paint so there's
+// no flash on load.
 
 export const THEMES = [
+  { id: 'sketch',      label: 'Sketch' },
   { id: 'original',    label: 'Original' },
   { id: 'linear-dark', label: 'Linear Dark' },
   { id: 'mercury',     label: 'Mercury Light' },
@@ -10,7 +12,7 @@ export const THEMES = [
 ]
 
 const KEY = 'residente-theme'
-const DEFAULT = 'original'
+const DEFAULT = 'sketch'
 
 export function getTheme() {
   try {

@@ -98,6 +98,56 @@
   --glow: rgba(42,38,32,0);
 }
 
+/* ===== THEME: Sketch (matches the landing page) =====
+   Same warm cream + terracotta + dark navy palette used by the
+   hand-drawn hero. Headlines get a soft serif so the dashboard reads
+   "drawn", not "engineered". */
+[data-theme="sketch"] {
+  --bg: #F4EFE8;
+  --bg-elev: #FBF6EE;
+  --bg-card: #FFFFFF;
+  --text: #1F2233;
+  --text-dim: rgba(31,34,51,0.62);
+  --text-faint: rgba(31,34,51,0.42);
+  --border: rgba(31,34,51,0.14);
+  --border-hover: rgba(31,34,51,0.28);
+  --hover: rgba(31,34,51,0.04);
+  --track: rgba(31,34,51,0.08);
+  --pink: #C76F45;
+  --magenta: #A8552F;
+  --violet: #C76F45;
+  --pink-button: #C76F45;
+  --grad: #C76F45;
+  --grad-warn: #B5713A;
+  --accent-soft: rgba(199,111,69,0.14);
+  --ring-a: #D88660; --ring-b: #C76F45; --ring-c: #A8552F;
+  --ringw-a: #E6C079; --ringw-b: #B5713A;
+  --chart-line: rgba(31,34,51,0.30);
+  --glow: rgba(199,111,69,0.18);
+}
+/* Cards lean a little softer + warmer so they don't sit so flat on the
+   cream background. */
+[data-theme="sketch"] .card,
+[data-theme="sketch"] .panel,
+[data-theme="sketch"] .you-card,
+[data-theme="sketch"] .pay-card,
+[data-theme="sketch"] .admin-card {
+  border-color: rgba(31,34,51,0.10);
+  box-shadow: 0 8px 28px -22px rgba(31,34,51,0.30);
+  border-radius: 20px;
+}
+/* Headlines get the same soft serif used by Concierge — reads as
+   hand-set rather than dashboard-default. */
+[data-theme="sketch"] .headline,
+[data-theme="sketch"] .login-title,
+[data-theme="sketch"] .pay-h1,
+[data-theme="sketch"] .admin-h1,
+[data-theme="sketch"] .you-title { font-family: 'Fraunces', Georgia, serif; font-weight: 500; letter-spacing: -0.01em; }
+/* Pill buttons match the landing CTAs. */
+[data-theme="sketch"] button,
+[data-theme="sketch"] .btn,
+[data-theme="sketch"] .pay-btn { border-radius: 999px; }
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
 html, body {
