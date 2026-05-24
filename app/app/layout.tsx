@@ -10,6 +10,7 @@ import { useMyResident } from '@/hooks/useMyResident'
 import { useUnreadNoticeCount, useMyNotices } from '@/hooks/useNotices'
 import { NOTICE_KIND_LABELS, noticeHref, NoticeKind } from '@/lib/voice'
 import { DUES_LABEL } from '@/lib/dues'
+import { CommunitySwitcher } from '../CommunitySwitcher'
 
 // "Fernando Santamaria" → "FS". Safe on null/single-name.
 const initialsFrom = (name?: string | null): string => {
@@ -72,6 +73,8 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
           <div className="brand-dot"></div>
           <div className="brand-word">Residente</div>
         </div>
+
+        <CommunitySwitcher />
 
         <nav className="nav">
           {NAV.map(item => (

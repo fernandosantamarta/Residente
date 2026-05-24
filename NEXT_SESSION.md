@@ -136,6 +136,75 @@ the very bottom (safe to re-run — everything uses `IF NOT EXISTS`):
 
   No edge function — all crypto is client-side, intentionally.
 
+- **Commit 6 — Multi-association workspace switcher**
+  A profile that belongs to more than one community now gets a small
+  dropdown picker in the brand area of both the resident cockpit
+  (`/app/*`) and the admin chrome (`/admin/*`). For single-community
+  profiles (the common case for the first pilot) the component
+  renders nothing.
+
+  Architectural note: the active community still lives on
+  `profiles.community_id` — that's the single source of truth read by
+  every `ev_*` RLS policy. The switcher writes there on pick; React
+  context updates synchronously and `router.refresh()` re-fetches
+  server data. This avoids the silent-mis-scope risk of computing
+  scope dynamically per request from `residents` + email matches.
+
+  SQL: new `ev_membership(profile_id, community_id, role, last_active_at)`
+  join table with RLS (owner-reads-own, owner-updates-own-last-active).
+  One-time backfill from `residents → profiles` joined on
+  `lower(email)`. Upsert trigger on `residents` keeps the join in sync
+  whenever `profile_id` is set (during the /onboard flow or
+  voice-invite-owner).
+
+  New files: `hooks/useMyMemberships.ts`, `app/CommunitySwitcher.tsx`.
+  CSS in `globals.css` (default placement) with an
+  inline-positioning override in `admin.css`.
+
+## Phase 4 complete — pilot launch readiness checklist
+
+All thirteen Milestone 1 items are now shipped. Remaining manual
+steps before onboarding a real pilot HOA:
+
+1. Run the new SQL blocks at the bottom of `supabase/easy-voice.sql`
+   (Phase 4 / Commits 1, 3, 4, 5, 6) in the Supabase SQL editor.
+2. Deploy the two new edge functions:
+   - `supabase functions deploy voice-invite-owner`
+   - `supabase functions deploy notice-email-fanout --no-verify-jwt`
+3. Set the new secrets:
+   - `NOTIFY_FROM_VOICE` (optional, defaults to `onboarding@resend.dev`)
+   - `NOTICE_WEBHOOK_SECRET=$(openssl rand -hex 32)`
+4. Wire the DB webhook on `ev_notices` INSERT to
+   `notice-email-fanout` with header `X-Webhook-Secret: <secret>`
+   (see [supabase/README.md](supabase/README.md#easy-voice-notice-email-fan-out)).
+5. (Pilot blocker, lawyer review.) Replace the placeholder
+   `CONSENT_DISCLOSURES` strings in `lib/voice.ts` with the
+   FL-required disclosure language — these are shown verbatim on the
+   `/onboard` consent step.
+6. (Pilot blocker, deliverability.) Verify `notices@residente.io` in
+   Resend so notice emails ship from the Residente domain rather than
+   `onboarding@resend.dev`.
+
+Verification rehearsal end-to-end:
+
+- Import a 5-row roster → send all invitations → click an invite
+  email → onboard (set password → TOS → consent) → land in `/app`.
+- Board creates a meeting with one open-ballot and one secret-ballot
+  vote (sets tally password, downloads key card).
+- Publish & send notice with both channels checked → both in-app
+  notification *and* email arrive.
+- Cast ballots (open inserts plaintext; secret inserts ciphertext —
+  check `ev_ballots.encrypted_answer` is non-null and
+  `ev_votes.{yes,no,abstain}_count` are zero until tally).
+- Board closes the secret vote, prompts for tally password, decrypts
+  client-side, counts populate via trigger.
+- Switch communities (if a second one exists) and confirm the right-
+  rail / Voice list re-render for the new tenant.
+- SQL spot-check: `ev_consents` has one row per onboarded owner with
+  non-null `ip_address`; `ev_notice_recipients` shows both channels
+  populated; `ev_audit_log` shows `roster.imported`, `invite.sent`,
+  `consent.recorded`, `vote.opened`, `ballot.cast`.
+
 ## ⚠️ FIRST THING — confirm both SQL blocks ran
 
 Two unmerged migrations now live in `supabase/` as `.sql` files. Both must

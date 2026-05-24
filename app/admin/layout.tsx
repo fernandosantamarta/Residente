@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { hasSupabase } from '@/lib/supabase'
 import { useAuth } from '../providers'
+import { CommunitySwitcher } from '../CommunitySwitcher'
 
 // Board-only admin section. Gated by role check — only board_member/admin
 // (or local dev without Supabase) reach here. Lean by design: 5 pages.
@@ -38,6 +39,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <span className="brand-dot" />
           <span className="admin-brand-word">Residente</span>
           <span className="admin-tag">Admin</span>
+          <CommunitySwitcher />
         </div>
         <Link href="/app" className="admin-back">&larr; Back to app</Link>
       </header>

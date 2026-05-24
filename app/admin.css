@@ -13,6 +13,8 @@
 }
 .admin-brand { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
 .admin-brand-word { letter-spacing: -0.3px; }
+/* Inline switcher placement in the admin chrome (overrides the left-rail margins). */
+.admin-brand .comm-switcher { margin: 0 0 0 8px; min-width: 220px; }
 .admin-tag {
   font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
   padding: 3px 8px; border-radius: 5px; background: var(--grad); color: #fff;

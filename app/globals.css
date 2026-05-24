@@ -1913,6 +1913,52 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 }
 .voice-consent-cta-btn:hover { opacity: 0.92; }
 
+/* Community switcher — hidden when the profile only belongs to one community. */
+.comm-switcher {
+  position: relative;
+  margin: 8px 16px 16px;
+}
+.comm-switcher-btn {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; gap: 8px;
+  padding: 8px 12px;
+  background: var(--bg-elev); border: 1px solid var(--border);
+  border-radius: 8px; color: var(--text);
+  font-size: 13px; font-weight: 600; letter-spacing: -0.1px;
+  cursor: pointer; transition: border-color 0.15s, background 0.15s;
+}
+.comm-switcher-btn:hover { border-color: var(--border-hover); }
+.comm-switcher-btn:disabled { opacity: 0.6; cursor: default; }
+.comm-switcher-label {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  flex: 1; text-align: left;
+}
+.comm-switcher-chev {
+  width: 14px; height: 14px; color: var(--text-dim); flex-shrink: 0;
+}
+.comm-switcher-menu {
+  position: absolute; top: calc(100% + 4px); left: 0; right: 0;
+  background: var(--bg-card); border: 1px solid var(--border-hover);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  overflow: hidden; z-index: 20;
+}
+.comm-switcher-item {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; padding: 10px 14px;
+  background: transparent; border: 0;
+  font-size: 13px; color: var(--text); text-align: left;
+  cursor: pointer; transition: background 0.12s;
+}
+.comm-switcher-item:hover { background: var(--bg-elev); }
+.comm-switcher-item.active { color: var(--pink); }
+.comm-switcher-item:disabled { opacity: 0.6; cursor: default; }
+.comm-switcher-tick { color: var(--pink); font-weight: 700; }
+.comm-switcher-err {
+  margin-top: 6px;
+  font-size: 12px; color: #F47174;
+}
+
 /* Document rows — resident */
 .voice-doc-res-row {
   width: 100%; display: flex; align-items: center; gap: 14px;

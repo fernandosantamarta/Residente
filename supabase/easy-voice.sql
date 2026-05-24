@@ -1070,3 +1070,69 @@ create policy "board writes tally answer"
   )
   with check (answer in ('yes','no','abstain'));
 
+-- ---------- Phase 4 / Commit 6: Multi-association workspace switcher ----------
+-- A profile can belong to more than one community (an owner with units in
+-- two HOAs, a property-manager admin spread across associations). The
+-- *active* community lives on profiles.community_id — that's still the
+-- single source of truth for every ev_* RLS policy.
+--
+-- ev_membership is a thin join recording the *full* list of communities
+-- a profile is a member of. The switcher UI reads from here and, on
+-- pick, writes profiles.community_id so RLS picks up the change.
+create table if not exists public.ev_membership (
+  profile_id     uuid not null references public.profiles(id)    on delete cascade,
+  community_id   uuid not null references public.communities(id) on delete cascade,
+  role           text not null default 'resident',
+  last_active_at timestamptz not null default now(),
+  primary key (profile_id, community_id)
+);
+alter table public.ev_membership enable row level security;
+-- owners can SELECT their own memberships and UPDATE last_active_at;
+-- writes for new rows happen via the trigger below, not direct insert.
+grant select, update on public.ev_membership to authenticated;
+
+drop policy if exists "owner reads own memberships" on public.ev_membership;
+create policy "owner reads own memberships"
+  on public.ev_membership for select to authenticated
+  using (profile_id = auth.uid());
+
+drop policy if exists "owner updates own last_active" on public.ev_membership;
+create policy "owner updates own last_active"
+  on public.ev_membership for update to authenticated
+  using (profile_id = auth.uid())
+  with check (profile_id = auth.uid());
+
+-- One-time backfill from residents joined to profiles by lower(email).
+-- Safe to re-run; on conflict do nothing.
+insert into public.ev_membership (profile_id, community_id, role)
+select p.id, r.community_id, coalesce(p.role, 'resident')
+  from public.profiles p
+  join public.residents r on lower(r.email) = lower(p.email)
+on conflict (profile_id, community_id) do nothing;
+
+-- Keep ev_membership in sync as residents are activated: whenever
+-- residents.profile_id is set (during /onboard), upsert the join row.
+-- security definer because residents.profile_id can be written by the
+-- voice-invite-owner service role; the trigger then writes to a table
+-- that the calling auth.uid wouldn't have direct insert grant on.
+create or replace function public.ev_membership_upsert()
+returns trigger language plpgsql security definer as $$
+begin
+  if new.profile_id is not null
+     and (tg_op = 'INSERT' or old.profile_id is distinct from new.profile_id)
+  then
+    insert into public.ev_membership (profile_id, community_id, role)
+    values (
+      new.profile_id, new.community_id,
+      coalesce((select role from public.profiles where id = new.profile_id), 'resident')
+    )
+    on conflict (profile_id, community_id) do nothing;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists ev_membership_upsert_trg on public.residents;
+create trigger ev_membership_upsert_trg
+  after insert or update of profile_id on public.residents
+  for each row execute function public.ev_membership_upsert();
+
