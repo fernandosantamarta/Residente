@@ -1,12 +1,23 @@
 # Next session — Residente
 
-Last touched: 2026-05-20 (heavy session — admin section + dues ledger built)
+Last touched: 2026-05-23 (landing page + waitlist shipped on top of the
+2026-05-20 admin/dues session; routes moved cockpit to `/app`).
 
-## ⚠️ FIRST THING TOMORROW — confirm the SQL ran
+## ⚠️ FIRST THING — confirm both SQL blocks ran
 
-The schema lives only in Supabase (no migration files in the repo). Today's
-final SQL block must be run in the Supabase SQL editor or Board / Residents /
-Pay will error. Each line starts with `alter` / `create` / `grant`:
+Two unmerged migrations now live in `supabase/` as `.sql` files. Both must
+be run in the Supabase SQL editor — neither is committed to the DB yet.
+
+### 1. Waitlist table (new, for the landing page)
+
+`supabase/waitlist.sql` — creates `public.waitlist`, unique index on
+`lower(email)`, RLS, and an `insert` grant to `anon`. Without it the
+landing's email form fails on submit.
+
+### 2. Payments + residents schema (carried over from 2026-05-20)
+
+The block below must still be run if it wasn't last time. If Board / Residents
+/ Pay error, this is why. Each line starts with `alter` / `create` / `grant`:
 
 ```sql
 alter table public.residents add column if not exists board_position text;
@@ -43,7 +54,29 @@ create policy "board writes payments"
 Gotcha (learned twice): every new SQL-editor table needs an explicit
 `grant ... to authenticated` — RLS policies alone fail with "permission denied".
 
-## TOP ITEM TOMORROW — Stripe card payments
+## TOP ITEM — Landing page deploy (NEW, 2026-05-23)
+
+Landing page shipped at `/`. Cockpit moved to `/app/*`. Form writes to the
+new `public.waitlist` table. Optionally — email-on-signup via the
+`waitlist-notify` edge function.
+
+**To make signups work (required):**
+1. Run `supabase/waitlist.sql` in the Supabase SQL editor.
+2. Visit https://residente.io after the next Vercel deploy — drop your own
+   email in the form, then check Supabase → Table editor → `waitlist`.
+
+**To get an email on every signup (optional, follow `supabase/README.md`):**
+- Create a [Resend](https://resend.com) account, copy the API key.
+- `supabase functions deploy waitlist-notify --no-verify-jwt`
+- `supabase secrets set RESEND_API_KEY=... NOTIFY_EMAIL=cyberneticsintelligence@gmail.com WAITLIST_WEBHOOK_SECRET=$(openssl rand -hex 32)`
+- Dashboard → Database → Webhooks → create a webhook on `public.waitlist`
+  INSERT pointing at `waitlist-notify`, with header
+  `X-Webhook-Secret: <the value you set above>`.
+
+Until the Resend wiring is done, signups still land in the table — you just
+won't get a ping.
+
+## TOP ITEM — Stripe card payments
 
 The dues ledger foundation is done. The Stripe code is **scaffolded** (see
 below); the only thing blocking go-live is **Fernando's Stripe account**
@@ -68,7 +101,32 @@ Remaining — all on Fernando, follow **`supabase/README.md`** step by step:
 - Register the webhook endpoint in the Stripe dashboard.
 - Set `REACT_APP_STRIPE_ENABLED=true` in Vercel and redeploy.
 
-## Shipped 2026-05-20 (today)
+## Shipped 2026-05-23 (today)
+
+Public landing page at `/` (waitlist + brand), cockpit moved under `/app/*`.
+
+- **Landing page** `/` — `Landing.jsx` + `landing.css`. Hero with photo,
+  "What is Residente?" + 3 feature cards (1 cream + 2 dark navy), trust
+  strip, "Built for both sides" use-cases, waitlist CTA, footer. Mobile
+  responsive. Palette: terracotta + cream + dark navy (its own surface,
+  cockpit theme tokens don't bleed in).
+- **Hero image** `public/hero.jpg` — Hvar, Croatia at golden hour
+  (Cody Black via Unsplash). Easy to swap: drop a custom render at the
+  same path.
+- **Waitlist table** `supabase/waitlist.sql` — `public.waitlist` with
+  unique `lower(email)` index, RLS, insert grant to `anon`. **Not yet run
+  in Supabase** — see top of this file.
+- **Waitlist edge function** `supabase/functions/waitlist-notify/` —
+  scaffolded; called by a DB webhook on INSERT, emails Fernando via Resend.
+  **Not yet deployed** — full steps in `supabase/README.md`.
+- **Route refactor** — cockpit moved from `/*` to `/app/*` (Home is `/app`).
+  Login redirects to `/app`. AdminLayout "Back to app" → `/app`. Stripe
+  success/cancel URLs → `/app/pay?paid=1` / `/app/pay`. Logged-in `/`
+  redirects to `/app`.
+- **Body min-width** — landing escapes the cockpit's 1440px floor via
+  `body:has(.landing-screen) { min-width: 0 }` (same pattern as login).
+
+## Shipped 2026-05-20
 
 Full board-only admin section + the whole dues system. Commits `4aec28b`
 through `c2faad5` on `main`.
@@ -105,6 +163,7 @@ through `c2faad5` on `main`.
   subdivision, address, is_board, board_position, opening_balance, created_at
   (legacy unused cols: dues_status, balance)
 - `payments` — id, community_id, resident_id, amount, paid_on, stripe_session_id
+- `waitlist` — id, email (unique on lower()), community, source, created_at
 
 All non-profiles tables: RLS "members read their community" + "board writes",
 plus `grant ... to authenticated`.
@@ -151,13 +210,16 @@ plus `grant ... to authenticated`.
 - **grad** `linear-gradient(135deg,#FF3B5F,#B83377,#4F2B8C)`, **grad-warn** `#FF3B5F→#FF8BA8`
 - **font** Space Grotesk; Fraunces for editorial pages
 - demo: Sunset Lakes, 166 homes, Miramar FL
-- right rail renders only on `/` (Home)
-- CSS tokens in `src/index.css`; admin styles in `src/admin.css`
+- right rail renders only on `/app` (Home — moved from `/` on 2026-05-23)
+- CSS tokens in `src/index.css`; admin styles in `src/admin.css`;
+  landing styles in `src/landing.css` (its own tokens, no cockpit overlap)
 
 ## Key file map
 
 ```
-src/App.jsx                       — auth bootstrap, router, /admin gate
+src/App.jsx                       — auth bootstrap, router (/, /login, /admin, /app/*), /admin gate
+src/pages/Landing.jsx             — public marketing landing + waitlist form
+src/landing.css                   — landing palette + layout (terracotta/cream/navy)
 src/components/Layout.jsx         — cockpit chrome, nav, right rail (feed + household)
 src/components/AdminLayout.jsx    — admin chrome + nested nav
 src/lib/supabase.js               — env-guarded client, getProfile

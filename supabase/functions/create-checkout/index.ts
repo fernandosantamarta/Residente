@@ -69,8 +69,8 @@ Deno.serve(async (req) => {
           },
         },
       }],
-      success_url: `${APP_URL}/pay?paid=1`,
-      cancel_url: `${APP_URL}/pay`,
+      success_url: `${APP_URL}/app/pay?paid=1`,
+      cancel_url: `${APP_URL}/app/pay`,
       // stripe-webhook reads these back to record the payment against the
       // right household. The charged amount comes from Stripe itself.
       metadata: {

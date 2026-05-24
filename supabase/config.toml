@@ -10,3 +10,10 @@ verify_jwt = true
 # inside the function. Equivalent deploy flag: --no-verify-jwt
 [functions.stripe-webhook]
 verify_jwt = false
+
+# waitlist-notify is called by a Supabase Database Webhook on INSERT to
+# public.waitlist, which has no Supabase JWT. JWT verification MUST stay
+# off — authenticity is the WAITLIST_WEBHOOK_SECRET header check inside
+# the function. Equivalent deploy flag: --no-verify-jwt
+[functions.waitlist-notify]
+verify_jwt = false

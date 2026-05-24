@@ -1,4 +1,17 @@
-# Supabase edge functions — Stripe card payments
+# Supabase edge functions
+
+This folder ships two edge function setups:
+
+1. **Stripe card payments** — `create-checkout` + `stripe-webhook`. Powers
+   the Pay button. (Sections below.)
+2. **Waitlist email notification** — `waitlist-notify`. Emails you whenever
+   someone joins the landing page waitlist. (See [§ Waitlist](#waitlist-email-notifications) at the bottom.)
+
+The two setups are independent — you can ship either one without the other.
+
+---
+
+# Stripe card payments
 
 Two functions turn the Pay page's "Pay" button into real card payments:
 
@@ -101,3 +114,82 @@ Watch logs while testing: `supabase functions logs stripe-webhook`.
   resident from starting checkout for another community's household.
 - The webhook records `amount_total` straight from Stripe — the source of
   truth for what was actually charged.
+
+---
+
+# Waitlist email notifications
+
+The landing page (`/`) drops emails into `public.waitlist`. `waitlist-notify`
+emails you the moment that happens, via [Resend](https://resend.com). Without
+it, signups still get stored — you just have to remember to check the
+Supabase table editor.
+
+## Prerequisites
+
+- A Resend account → https://resend.com (free tier is plenty)
+- The `waitlist` table from `supabase/waitlist.sql` already created
+- Supabase CLI linked (see step 1 of the Stripe section above)
+
+## 1. Set the function secrets
+
+```bash
+supabase secrets set RESEND_API_KEY=re_xxx                  # Resend → API Keys
+supabase secrets set NOTIFY_EMAIL=cyberneticsintelligence@gmail.com
+supabase secrets set WAITLIST_WEBHOOK_SECRET=$(openssl rand -hex 32)
+# Optional: set a custom From address (defaults to onboarding@resend.dev,
+# which works without verifying a domain — fine for early signups).
+supabase secrets set NOTIFY_FROM="Residente <waitlist@residente.io>"
+```
+
+Save the value you generated for `WAITLIST_WEBHOOK_SECRET` — step 3 needs it.
+
+If you set `NOTIFY_FROM` to a `@residente.io` address, you must add Resend's
+DNS records (SPF, DKIM) in Namecheap. Until then, use the default
+`@resend.dev` from address.
+
+## 2. Deploy the function
+
+```bash
+supabase functions deploy waitlist-notify --no-verify-jwt
+```
+
+`--no-verify-jwt` is required — DB webhooks don't carry a Supabase token.
+The function instead checks the shared `WAITLIST_WEBHOOK_SECRET` header.
+
+## 3. Wire the database webhook
+
+Supabase dashboard → **Database** → **Webhooks** → **Create a new hook**:
+
+- **Name:** `waitlist-insert-notify`
+- **Table:** `public.waitlist`
+- **Events:** `INSERT`
+- **Type:** `Supabase Edge Function`
+- **Edge Function:** `waitlist-notify`
+- **HTTP Headers:** add one row
+  - Key: `X-Webhook-Secret`
+  - Value: *(the `WAITLIST_WEBHOOK_SECRET` value from step 1)*
+
+Save. Anonymous edge function call needs no Authorization header here —
+`config.toml` already turns off JWT verification for this function.
+
+## Test it
+
+1. Open https://residente.io, scroll to the waitlist card, submit your email.
+2. Within a few seconds you should get an email at `NOTIFY_EMAIL`.
+3. The row should also appear in Supabase → Table editor → `waitlist`.
+
+Tail logs while testing:
+
+```bash
+supabase functions logs waitlist-notify
+```
+
+## Notes
+
+- The unique index is on `lower(email)`, so case differences are dedup'd at
+  the DB level. The frontend shows a friendly "you're already on the list"
+  message when it hits `23505`.
+- Resend has a 100 emails/day free tier — generous for early access volume.
+- The webhook payload also goes to the function `old_record` field for
+  UPDATEs and DELETEs; this function only listens for INSERT (per the
+  webhook config) so that path never fires.
