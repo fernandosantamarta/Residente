@@ -46,6 +46,34 @@ the very bottom (safe to re-run — everything uses `IF NOT EXISTS`):
   in the supabase README. Needs `supabase functions deploy
   voice-invite-owner` and optionally setting `NOTIFY_FROM_VOICE`.
 
+- **Commit 3 — Onboarding + electronic voting consent**
+  New public route `/onboard` — the magic-link landing page for invited
+  owners. Multi-step flow: **password → terms → consent**. The consent
+  step is a visually-distinct red-tinted screen with four plain-English
+  disclosures (PLACEHOLDER COPY — Andres should review before pilot),
+  a single "I consent" button, and a foot-note explaining the immutable
+  log. Writes a row to `ev_consents` with server-derived IP (via new
+  `/api/ip` route) and `navigator.userAgent`. Sets
+  `residents.activated_at` once consent succeeds (idempotent — only if
+  null). Already-activated users with no consent row skip straight to
+  the consent step.
+
+  SQL appended: `ev_has_consented(profile, community)` stable helper +
+  `ev_ballot_consent_guard` trigger on `ev_ballots` BEFORE INSERT.
+  Result: even if a buggy client bypasses the UI, **the database refuses
+  to record a ballot from a profile without a consent row in that
+  community** (FL 718.128 / 720.317 hard block).
+
+  Resident voting UI catches the new error: when `cast()` fails with
+  "consent required", the vote card shows a friendly red banner with a
+  one-tap **Consent now →** link to `/onboard` instead of a raw error.
+
+  Files: `app/onboard/page.tsx`, `app/onboard/onboard.css`,
+  `app/api/ip/route.ts`, additions to `lib/voice.ts`
+  (`CONSENT_DISCLOSURES`), `app/app/voice/[id]/page.tsx` (friendlier
+  error path), and the SQL block at the bottom of
+  `supabase/easy-voice.sql`.
+
 ## ⚠️ FIRST THING — confirm both SQL blocks ran
 
 Two unmerged migrations now live in `supabase/` as `.sql` files. Both must

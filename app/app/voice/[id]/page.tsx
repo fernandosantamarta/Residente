@@ -110,6 +110,9 @@ function ResidentVoteCard({ vote: v, onVoted }) {
       if (error) {
         if (error.code === '23505') {
           setCastErr('Your unit has already cast a ballot for this vote.')
+        } else if (/consent required/i.test(error.message ?? '')) {
+          // ev_ballot_consent_guard fired — the user hasn't consented yet.
+          setCastErr('CONSENT_REQUIRED')
         } else {
           throw error
         }
@@ -188,7 +191,17 @@ function ResidentVoteCard({ vote: v, onVoted }) {
         </div>
       )}
 
-      {castErr && <div className="voice-err" style={{ marginTop: 8 }}>{castErr}</div>}
+      {castErr === 'CONSENT_REQUIRED' ? (
+        <div className="voice-consent-cta">
+          You haven&apos;t consented to electronic voting yet. Florida law requires
+          a one-time consent before any electronic ballot is valid.
+          <Link href="/onboard" className="voice-consent-cta-btn">
+            Consent now &rarr;
+          </Link>
+        </div>
+      ) : castErr ? (
+        <div className="voice-err" style={{ marginTop: 8 }}>{castErr}</div>
+      ) : null}
     </div>
   )
 }

@@ -858,3 +858,40 @@ create unique index if not exists residents_community_email_idx
   on public.residents (community_id, lower(email))
   where email is not null;
 
+-- ---------- Phase 4 / Commit 3: Electronic voting consent guard ----------
+-- FL 718.128 / 720.317 require explicit electronic voting consent per owner
+-- before any electronic ballot is valid. This is enforced in two places:
+--   1. The /onboard flow collects consent and writes ev_consents.
+--   2. This trigger hard-blocks any ev_ballots insert from a profile that
+--      has not consented in the ballot's community. Bypasses the app entirely.
+
+create or replace function public.ev_has_consented(p_profile uuid, p_community uuid)
+returns boolean language sql stable as $$
+  select exists (
+    select 1 from public.ev_consents
+    where profile_id = p_profile and community_id = p_community
+  );
+$$;
+grant execute on function public.ev_has_consented(uuid, uuid) to authenticated;
+
+create or replace function public.ev_ballot_consent_guard()
+returns trigger language plpgsql as $$
+declare v_community uuid;
+begin
+  select community_id into v_community
+    from public.ev_votes where id = new.vote_id;
+  if v_community is null then
+    raise exception 'Vote % not found', new.vote_id;
+  end if;
+  if not public.ev_has_consented(new.profile_id, v_community) then
+    raise exception 'Electronic voting consent required (FL 718.128 / 720.317)'
+      using errcode = 'P0001';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists ev_ballot_consent_guard_trg on public.ev_ballots;
+create trigger ev_ballot_consent_guard_trg
+  before insert on public.ev_ballots
+  for each row execute function public.ev_ballot_consent_guard();
+

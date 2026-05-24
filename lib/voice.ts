@@ -115,6 +115,18 @@ export function noticeHref(n: { meeting_id?: string | null; vote_id?: string | n
   return '/app/voice'
 }
 
+// ---------- ELECTRONIC VOTING CONSENT ----------
+// Plain-English disclosures shown on /onboard's consent step before the
+// owner clicks "I consent". The four-bullet structure satisfies the
+// "informed consent" requirement under FL 718.128 / 720.317.
+// PLACEHOLDER COPY — Andres should review/replace before pilot launch.
+export const CONSENT_DISCLOSURES: string[] = [
+  'You are agreeing to receive official association notices and to cast votes electronically through Residente.',
+  'Electronic ballots have the same legal effect as paper ballots. Once cast, a ballot cannot be changed.',
+  'For board elections, your individual ballot is encrypted and the association cannot see how you voted. Vote totals are public.',
+  'You can withdraw consent at any time by emailing your board — paper ballots will then be provided for future votes.',
+]
+
 export function defaultNoticeCopy(
   kind: NoticeKind,
   ctx: { meetingTitle?: string; docTitle?: string } = {}

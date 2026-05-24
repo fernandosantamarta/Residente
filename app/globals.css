@@ -1898,6 +1898,21 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 
 .voice-secret-pending { font-size: 13px; color: var(--text-dim); padding: 8px 0; }
 
+.voice-consent-cta {
+  margin-top: 12px; padding: 14px 16px;
+  background: rgba(255, 139, 168, 0.08);
+  border: 1px solid rgba(255, 139, 168, 0.35);
+  border-radius: 8px;
+  font-size: 13px; line-height: 1.55; color: var(--text);
+}
+.voice-consent-cta-btn {
+  display: inline-block; margin-top: 10px;
+  padding: 8px 14px; border-radius: 6px;
+  background: linear-gradient(135deg, #FF3B5F, #B83377);
+  color: #fff; font-weight: 600; text-decoration: none; font-size: 13px;
+}
+.voice-consent-cta-btn:hover { opacity: 0.92; }
+
 /* Document rows — resident */
 .voice-doc-res-row {
   width: 100%; display: flex; align-items: center; gap: 14px;
