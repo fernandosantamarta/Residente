@@ -168,14 +168,15 @@ function CockpitIntro() {
   const [p, setP] = useState(0)              // 0..1 zoom progress
   const startRef = useRef<number | null>(null)
 
-  // Decide whether to play. Skip if the user has seen the intro this
-  // session, or if reduced-motion is requested.
+  // Play every time the cockpit layout mounts (i.e. every sign-in and
+  // every page refresh on /app/*). Only skip if the user has
+  // reduced-motion set in their OS preferences. The sessionStorage
+  // "play once per session" gate was removed at the user's request —
+  // they want the welcome-home moment every time.
   useEffect(() => {
     if (typeof window === 'undefined') return
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    const seen = sessionStorage.getItem('cockpit-intro-seen') === '1'
-    if (reduced || seen) { setPhase('done'); return }
-    sessionStorage.setItem('cockpit-intro-seen', '1')
+    if (reduced) { setPhase('done'); return }
     setPhase('playing')
   }, [])
 

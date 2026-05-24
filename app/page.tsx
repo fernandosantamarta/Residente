@@ -716,8 +716,15 @@ export function InteriorSvg() {
           <ellipse cx="1100" cy="1142" rx="22" ry="8" fill="#F4EFE8" {...thinInk} />
           <rect x="1078" y="1130" width="44" height="20" fill="#F4EFE8" {...thinInk} />
           <path d="M1124 1132 Q1140 1138 1124 1148" fill="none" {...thinInk} />
-          {/* steam */}
-          <path d="M1095 1120 Q1098 1110 1095 1100 M1105 1115 Q1108 1105 1105 1095" fill="none" stroke={INK} strokeOpacity="0.4" strokeWidth="1.4" strokeLinecap="round" />
+          {/* coffee surface — darker ellipse inside the mug rim */}
+          <ellipse cx="1100" cy="1138" rx="17" ry="5" fill="#3A2415" />
+          {/* highlight on the coffee surface so it reads as liquid */}
+          <ellipse cx="1095" cy="1136.5" rx="6" ry="1.4" fill="#6B4A2C" opacity="0.7" />
+          {/* animated steam — three wisps rising at staggered phases so
+              it reads as continuous smoke, not three pulses */}
+          <path className="ln-smoke-rise"   d="M1090 1122 Q1093 1110 1090 1098" fill="none" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
+          <path className="ln-smoke-rise-a" d="M1100 1122 Q1103 1110 1100 1098" fill="none" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
+          <path className="ln-smoke-rise-b" d="M1110 1122 Q1107 1110 1110 1098" fill="none" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
         </g>
 
         {/* second parent, leaning toward the tablet — orange jumper,
@@ -802,6 +809,25 @@ export function InteriorSvg() {
           <circle cx="1942" cy="850" r="7" fill="none" stroke={INK} strokeWidth="1.5" />
           <circle cx="1968" cy="850" r="7" fill="none" stroke={INK} strokeWidth="1.5" />
           <line x1="1949" y1="850" x2="1961" y2="850" stroke={INK} strokeWidth="1.5" />
+        </g>
+
+        {/* teenager standing on the left, headphones on, watching the
+            chaos in the room. Rust-orange hoodie, dark hair. */}
+        <g className="ln-interior-breathe">
+          {/* torso */}
+          <path d="M520 1040 Q520 960 560 952 Q600 960 600 1040 L595 1180 L525 1180 Z" fill="#9B4A28" {...inkStroke} />
+          {/* head */}
+          <circle cx="560" cy="912" r="32" fill="#F4D6B8" {...inkStroke} />
+          {/* hair */}
+          <path d="M528 912 Q528 874 560 866 Q592 874 592 912 Q592 898 576 898 Q560 892 545 898 Q528 902 528 912" fill="#3A2A1A" {...inkStroke} />
+          {/* headphone band over the top of the head */}
+          <path d="M535 893 Q560 868 585 893" fill="none" stroke={INK} strokeWidth="2.5" strokeLinecap="round" fill-opacity="0" />
+          {/* ear cups */}
+          <ellipse cx="532" cy="902" rx="6" ry="9" fill={INK} />
+          <ellipse cx="588" cy="902" rx="6" ry="9" fill={INK} />
+          {/* arms hanging at sides */}
+          <path d="M525 1030 Q510 1075 510 1130" fill="none" {...inkStroke} />
+          <path d="M595 1030 Q610 1075 610 1130" fill="none" {...inkStroke} />
         </g>
 
         {/* younger sibling sitting cross-legged on the floor next to
