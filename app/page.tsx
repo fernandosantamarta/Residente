@@ -451,8 +451,6 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
 
       {/* === FOCAL HOUSE — drawn in extra detail because the zoom-in
           frame at scale ~10 sits right on top of it === */}
-      {/* yard around focal */}
-      <rect x={DX - 320} y={DY - 200} width="640" height="380" fill={GROUND_T} opacity="0.5" />
 
       {/* house body */}
       <rect x={DX - 200} y={DY - 200} width="400" height="280" fill={WALL_LITE} />
@@ -529,12 +527,13 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
       <g className="ln-dog-bounce">
         <Dog x={DX - 130} y={DY + 145} scale={1.4} />
       </g>
-      {/* neighbour pushing a stroller along the cul-de-sac road (y was
-          previously clipping into the foreground house at x=560) */}
+      {/* neighbour pushing a stroller on the grass in front of the
+          x=320 house (between foreground trees at x=290 and x=550 so
+          nothing overlaps) */}
       <g className="ln-walk-c">
-        <Person x={DX - 500} y={DY + 500} scale={1.1} hairColor="#3A2A1A" />
+        <Person x={DX - 900} y={DY + 390} scale={1.1} hairColor="#3A2A1A" />
       </g>
-      <g transform={`translate(${DX - 480}, ${DY + 518})`}>
+      <g transform={`translate(${DX - 880}, ${DY + 408})`}>
         <rect x="-12" y="-4" width="24" height="16" rx="3" fill="#C76F45" {...thinInk} />
         {/* stroller wheels spin */}
         <g transform="translate(-8, 14)">
@@ -550,12 +549,11 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
           </g>
         </g>
       </g>
-      {/* kid on a bike on the road (was previously sitting on top of the
-          foreground house at x=1400) */}
+      {/* kid on a bike on the grass in front of the x=1870 house */}
       <g className="ln-walk-a">
-        <Person x={DX + 450} y={DY + 500} scale={0.9} hairColor="#E8C285" />
+        <Person x={DX + 700} y={DY + 390} scale={0.9} hairColor="#E8C285" />
       </g>
-      <g transform={`translate(${DX + 450}, ${DY + 528})`}>
+      <g transform={`translate(${DX + 700}, ${DY + 418})`}>
         {/* bike wheels with spokes so the spin reads as motion */}
         <g transform="translate(-10, 12)">
           <g className="ln-wheel-spin">
@@ -575,10 +573,9 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
         <line x1="-10" y1="12" x2="10" y2="12" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
         <line x1="0" y1="12" x2="0" y2="0" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
       </g>
-      {/* one wide-shot neighbour on the far side of the road (was
-          previously inside the foreground house at x=840) */}
+      {/* one wide-shot neighbour on the grass at the far right */}
       <g className="ln-walk-b">
-        <Person x={DX - 750} y={DY + 570} scale={0.9} hairColor="#7C4D2A" />
+        <Person x={DX + 1000} y={DY + 400} scale={0.9} hairColor="#7C4D2A" />
       </g>
       </g>
     </svg>
