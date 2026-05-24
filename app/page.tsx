@@ -219,13 +219,16 @@ function Hero() {
                 The resident portal that shows where your dues go, what the
                 board is up to, and how to pay. All in one place.
               </p>
-              <div className="ln-hero-ctas">
-                <a href="#waitlist" className="ln-hero-btn">Get early access</a>
-                <a href="#what" className="ln-hero-ghost">
-                  See how it works
-                  <span aria-hidden="true">↓</span>
-                </a>
-              </div>
+            </div>
+            {/* CTAs pulled out of the inner-content block so they can be
+                centered horizontally in the hero section and sit a bit
+                lower than the rest of the copy. */}
+            <div className="ln-hero-ctas ln-hero-ctas-centered">
+              <a href="#waitlist" className="ln-hero-btn">Get early access</a>
+              <a href="#what" className="ln-hero-ghost">
+                See how it works
+                <span aria-hidden="true">↓</span>
+              </a>
             </div>
           </div>
 

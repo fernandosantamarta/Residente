@@ -409,6 +409,17 @@ body:has(.landing-screen) { min-width: 0; }
   gap: 14px;
   flex-wrap: wrap;
 }
+/* Variant: pull the CTAs to the bottom-centre of the hero section. The
+   hero overlay is position:absolute over the whole stage, so we use
+   absolute positioning here too. translateX(-50%) centres the group. */
+.ln-hero-ctas-centered {
+  position: absolute;
+  left: 50%;
+  bottom: 56px;
+  transform: translateX(-50%);
+  z-index: 2;
+  justify-content: center;
+}
 .ln-hero-btn {
   display: inline-flex;
   align-items: center;
@@ -931,6 +942,15 @@ body:has(.landing-screen) { min-width: 0; }
   .ln-hero-sub   { font-size: 15px; }
   .ln-hero-eyebrow { font-size: 11px; padding: 6px 12px; margin-bottom: 18px; }
   .ln-hero-ctas { flex-direction: column; align-items: flex-start; gap: 10px; }
+  /* On phones keep the centered CTAs absolute-positioned, just snug
+     closer to the bottom edge, and center-align the stacked items so
+     the button + ghost link sit on the centre axis. */
+  .ln-hero-ctas-centered {
+    bottom: 24px;
+    align-items: center;
+    width: max-content;
+  }
+  .ln-hero-ctas-centered .ln-hero-btn { width: auto; }
   .ln-hero-btn { width: 100%; justify-content: center; }
   .ln-hero-ghost { padding-left: 0; }
   .ln-hero-scroll { display: none; }
