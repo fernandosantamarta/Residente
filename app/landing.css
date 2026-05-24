@@ -346,6 +346,23 @@ body:has(.landing-screen) { min-width: 0; }
   transform-origin: 50% 50%;
 }
 
+/* Interior characters — adults breathe slowly (subtle up/down) at
+   offset phases so the couch scene reads as two people watching
+   together. The kid in the foreground bounces excitedly. */
+@keyframes ln-interior-breathe {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-2.5px); }
+}
+.ln-interior-breathe   { animation: ln-interior-breathe 5s ease-in-out infinite; }
+.ln-interior-breathe-a { animation: ln-interior-breathe 5s ease-in-out -2.5s infinite; }
+
+@keyframes ln-interior-bounce {
+  0%, 100% { transform: translateY(0); }
+  30%      { transform: translateY(-7px); }
+  60%      { transform: translateY(0); }
+}
+.ln-interior-bounce { animation: ln-interior-bounce 1.4s ease-in-out infinite; }
+
 /* Plane drifting across the left half of the sky. Enters offscreen
    left, glides to about middle of the SVG viewBox, then loops back
    off the left side after a brief rest. SVG viewBox is 2400 wide, so
@@ -363,7 +380,9 @@ body:has(.landing-screen) { min-width: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .ln-walk, .ln-walk-a, .ln-walk-b, .ln-walk-c,
-  .ln-dog-bounce, .ln-wheel-spin, .ln-flag-wave, .ln-sun-spin {
+  .ln-dog-bounce, .ln-wheel-spin, .ln-flag-wave, .ln-sun-spin,
+  .ln-interior-breathe, .ln-interior-breathe-a, .ln-interior-bounce,
+  .ln-plane-fly {
     animation: none;
   }
 }

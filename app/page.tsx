@@ -720,8 +720,38 @@ function InteriorSvg() {
           <path d="M1095 1120 Q1098 1110 1095 1100 M1105 1115 Q1108 1105 1105 1095" fill="none" stroke={INK} strokeOpacity="0.4" strokeWidth="1.4" strokeLinecap="round" />
         </g>
 
+        {/* second parent, leaning toward the tablet — orange jumper,
+            warm-blonde hair. Breathes at offset phase so the couch
+            scene reads as two people watching together. */}
+        <g className="ln-interior-breathe-a">
+          {/* torso */}
+          <path d="M1410 990 Q1410 905 1465 895 Q1520 905 1520 990 L1500 1090 L1430 1090 Z" fill="#C76F45" {...inkStroke} />
+          {/* head, tilted slightly toward the first parent */}
+          <circle cx="1465" cy="852" r="42" fill="#F4D6B8" {...inkStroke} />
+          {/* hair */}
+          <path d="M1423 852 Q1423 810 1467 802 Q1510 810 1507 852 Q1507 834 1487 834 Q1467 826 1452 834 Q1423 840 1423 852" fill="#7C4D2A" {...inkStroke} />
+          {/* arm reaching toward the tablet */}
+          <path d="M1518 970 Q1530 1000 1500 1040" fill="none" {...inkStroke} />
+        </g>
+
+        {/* kid playing in the foreground — bounces excitedly */}
+        <g className="ln-interior-bounce">
+          {/* body */}
+          <path d="M880 1140 Q880 1080 920 1075 Q960 1080 960 1140 L955 1210 L885 1210 Z" fill="#7D8C5C" {...inkStroke} />
+          {/* head */}
+          <circle cx="920" cy="1040" r="30" fill="#F4D6B8" {...inkStroke} />
+          {/* hair, slightly tousled */}
+          <path d="M890 1040 Q890 1010 920 1003 Q950 1010 950 1040 Q950 1024 935 1024 Q920 1018 905 1024 Q890 1030 890 1040" fill="#D4A56A" {...inkStroke} />
+          {/* arms raised — playing */}
+          <path d="M885 1140 Q860 1110 855 1078" fill="none" {...inkStroke} />
+          <path d="M955 1140 Q985 1115 990 1078" fill="none" {...inkStroke} />
+          {/* legs */}
+          <line x1="900" y1="1210" x2="900" y2="1260" stroke={INK} strokeWidth="3" strokeLinecap="round" />
+          <line x1="940" y1="1210" x2="940" y2="1260" stroke={INK} strokeWidth="3" strokeLinecap="round" />
+        </g>
+
         {/* person on the couch holding a tablet */}
-        <g>
+        <g className="ln-interior-breathe">
           {/* torso */}
           <path d="M1560 980 Q1560 880 1620 870 Q1680 880 1680 980 L1660 1090 L1580 1090 Z" fill="#4F2B8C" {...inkStroke} />
           {/* head */}
@@ -936,7 +966,7 @@ function VsEverything() {
     <section className="ln-vs" data-anim>
       <div className="ln-vs-inner">
         <div className="ln-eyebrow">Why Residente</div>
-        <h2 className="ln-vs-title">Residente vs.<br />everything else.</h2>
+        <h2 className="ln-vs-title">Residente vs. everything else.</h2>
 
         <div className="ln-vs-grid">
           <div className="ln-vs-old">
