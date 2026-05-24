@@ -100,21 +100,21 @@ body:has(.landing-screen) { min-width: 0; }
 .ln-brand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: 14px;
   font-weight: 600;
-  font-size: 17px;
-  letter-spacing: -0.01em;
+  font-size: 24px;
+  letter-spacing: -0.015em;
 }
 .ln-brand-dot {
-  width: 14px; height: 14px;
+  width: 20px; height: 20px;
   border-radius: 50%;
   background: var(--ln-accent);
-  box-shadow: 0 0 0 4px rgba(199,111,69,0.14);
+  box-shadow: 0 0 0 5px rgba(199,111,69,0.14);
   animation: brand-pulse 4s ease-in-out infinite;
 }
 @keyframes brand-pulse {
-  0%, 100% { box-shadow: 0 0 0 4px rgba(199,111,69,0.14); }
-  50%      { box-shadow: 0 0 0 7px rgba(199,111,69,0.06); }
+  0%, 100% { box-shadow: 0 0 0 5px rgba(199,111,69,0.14); }
+  50%      { box-shadow: 0 0 0 9px rgba(199,111,69,0.06); }
 }
 
 .ln-nav-links {
