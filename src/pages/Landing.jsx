@@ -140,16 +140,16 @@ function Hero() {
     }
   }, [enabled])
 
-  // Exponential zoom: 10^(1-p) → 10 at p=0, 1 at p=1, ~3.16 at p=0.5.
-  // Each unit of scroll halves the zoom level (constant log-rate dolly),
-  // which is what real camera pull-backs feel like.
+  // ZOOM-IN arc. p=0 → wide community (zoom=1). p ramps up to ~12 at
+  // p=0.78 (we're inside the door frame, it fills the screen, lights
+  // visible past the frame). p=0.78 → 1.0: cross-fade to the interior
+  // SVG (we crossed the threshold — now we're inside the house).
   //
-  // We zoom by animating the SVG's viewBox attribute instead of applying
-  // `transform: scale()` to the container, because scaling a 2400x1500
-  // SVG by 10x asks the GPU for a 24000x15000 composited layer — Chromium
-  // crashes the page above ~8K. viewBox manipulation re-renders the SVG
-  // at viewport size every frame, no GPU layer blow-up.
-  const zoom = enabled ? Math.pow(10, 1 - p) : 1
+  // viewBox animation (not CSS transform) — Chromium crashes on a
+  // 24000x15000 GPU layer if you `transform: scale(10)` a 2400x1500 SVG.
+  const ZOOM_END = 0.78
+  const zp = Math.min(1, p / ZOOM_END)
+  const zoom = enabled ? Math.pow(12, zp) : 1
   const VBW = 2400, VBH = 1500, CX = 1200, CY = 750
   const vbW = VBW / zoom
   const vbH = VBH / zoom
@@ -157,9 +157,18 @@ function Hero() {
   const vbY = CY - vbH / 2
   const viewBox = `${vbX.toFixed(1)} ${vbY.toFixed(1)} ${vbW.toFixed(1)} ${vbH.toFixed(1)}`
 
-  // Two captions: an intimate opener fades out as the closing tagline fades in.
-  const openIn  = Math.max(0, Math.min(1, (0.25 - p) / 0.18))
-  const closeIn = Math.max(0, Math.min(1, (p - 0.60) / 0.20))
+  // Interior crossfade — starts fading in once the door fills the frame.
+  const interiorOpacity = enabled
+    ? Math.max(0, Math.min(1, (p - ZOOM_END) / (1 - ZOOM_END)))
+    : 0
+
+  // Three captions arcing across the journey:
+  //   p=0    "Your community, finally clear"   (wide view)
+  //   p≈0.5  "Your home, at the heart of it"   (focal house close-up)
+  //   p=1    "And you, in the loop."           (interior, you're inside)
+  const cap1 = Math.max(0, Math.min(1, 1 - p / 0.30))                        // 1→0 over 0..0.30
+  const cap2 = Math.max(0, Math.min(1, Math.min((p - 0.30) / 0.15, (0.68 - p) / 0.15))) // 0→1→0
+  const cap3 = Math.max(0, Math.min(1, (p - 0.72) / 0.18))                   // 0→1 over 0.72..0.90
 
   return (
     <section className="ln-hero" id="top">
@@ -168,21 +177,33 @@ function Hero() {
           <div className="ln-zoom-scene" aria-hidden="true">
             <CommunitySvg viewBox={viewBox} />
           </div>
+          <div
+            className="ln-zoom-interior"
+            style={{ opacity: interiorOpacity }}
+            aria-hidden="true"
+          >
+            <InteriorSvg />
+          </div>
 
           <div className="ln-hero-overlay">
             <div className="ln-hero-inner">
               <div className="ln-hero-eyebrow">Resident portal · Early access</div>
               <h1 className="ln-hero-title">
                 {enabled && (
-                  <span className="ln-hero-title-open" style={{ opacity: openIn }}>
-                    Your home,<br />in the loop.
-                  </span>
+                  <>
+                    <span className="ln-hero-title-stack" style={{ opacity: cap1 }}>
+                      Your community,<br />finally clear.
+                    </span>
+                    <span className="ln-hero-title-stack" style={{ opacity: cap2 }}>
+                      Your home,<br />at the heart of it.
+                    </span>
+                  </>
                 )}
                 <span
-                  className="ln-hero-title-close"
-                  style={enabled ? { opacity: closeIn } : undefined}
+                  className="ln-hero-title-stack"
+                  style={enabled ? { opacity: cap3 } : undefined}
                 >
-                  Your community,<br />finally clear.
+                  And you,<br />in the loop.
                 </span>
               </h1>
               <p className="ln-hero-sub">
@@ -229,8 +250,29 @@ const TREE      = '#7D8C5C'
 const TRUNK     = '#5C5238'
 const STREET    = '#3A3E55'
 
+// Hand-drawn ink stroke applied to every shape so the whole scene reads
+// as someone's pencil sketch instead of a vector diagram.
+const INK = '#1F2233'
+const inkStroke = { stroke: INK, strokeWidth: 2.2, strokeLinejoin: 'round', strokeLinecap: 'round' }
+const thinInk   = { stroke: INK, strokeWidth: 1.4, strokeOpacity: 0.6, strokeLinecap: 'round' }
+
+// The "sketch wobble" filter — feTurbulence + feDisplacementMap pushes
+// every pixel a few units in a noise pattern, which turns straight SVG
+// edges into wavy hand-drawn ones. baseFrequency controls how busy the
+// scribble looks; scale controls how far the edges wobble. Tuned to
+// read as "drawn with a pen" without dissolving the silhouette.
+function SketchFilter({ id }) {
+  return (
+    <filter id={id} x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.022" numOctaves="2" seed="7" result="noise" />
+      <feDisplacementMap in="SourceGraphic" in2="noise" scale="3.5" xChannelSelector="R" yChannelSelector="G" />
+    </filter>
+  )
+}
+
 // Generic neighbourhood house. Used for every house in CommunitySvg
 // except the focal one (which is drawn inline with extra detail).
+// All shapes get an ink outline so the whole community reads as a sketch.
 function House({ x, y, w, h, doorColor = DOOR, wallColor = WALL_WARM, winClass = '' }) {
   const cx = x + w / 2
   const doorW = Math.max(18, w * 0.13)
@@ -240,11 +282,47 @@ function House({ x, y, w, h, doorColor = DOOR, wallColor = WALL_WARM, winClass =
   const winY = y + h * 0.18
   return (
     <g>
-      <rect x={x} y={y} width={w} height={h} fill={wallColor} />
-      <path d={`M${x} ${y} L${cx} ${y - h * 0.6} L${x + w} ${y} Z`} fill={ROOF} />
-      <rect x={x + w * 0.15} y={winY} width={winW} height={winH} fill="#9FB7C2" className={winClass} />
-      <rect x={x + w - w * 0.15 - winW} y={winY} width={winW} height={winH} fill="#9FB7C2" />
-      <rect x={cx - doorW / 2} y={y + h - doorH} width={doorW} height={doorH} fill={doorColor} />
+      <rect x={x} y={y} width={w} height={h} fill={wallColor} {...inkStroke} />
+      <path d={`M${x - 6} ${y} L${cx} ${y - h * 0.6} L${x + w + 6} ${y} Z`} fill={ROOF} {...inkStroke} />
+      <rect x={x + w * 0.15} y={winY} width={winW} height={winH} fill="#9FB7C2" className={winClass} {...thinInk} />
+      <rect x={x + w - w * 0.15 - winW} y={winY} width={winW} height={winH} fill="#9FB7C2" {...thinInk} />
+      <rect x={cx - doorW / 2} y={y + h - doorH} width={doorW} height={doorH} fill={doorColor} {...thinInk} rx="2" />
+    </g>
+  )
+}
+
+// Tiny stick-figure family used to populate the scene. Hand-drawn ink
+// silhouettes (oval head + simple body line). Scales naturally with the
+// viewBox zoom so they're proportionate to the houses they stand near.
+function Person({ x, y, scale = 1, color = INK, hairColor }) {
+  const s = scale
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      {/* body */}
+      <path d={`M0 ${10*s} L0 ${36*s} M-${8*s} ${50*s} L0 ${36*s} L${8*s} ${50*s} M-${10*s} ${22*s} L${10*s} ${22*s}`}
+            fill="none" stroke={color} strokeWidth={2*s} strokeLinecap="round" strokeLinejoin="round" />
+      {/* head */}
+      <circle cx="0" cy={3*s} r={7*s} fill={hairColor || '#F4D6B8'} stroke={color} strokeWidth={1.8*s} />
+    </g>
+  )
+}
+function Dog({ x, y, scale = 1 }) {
+  const s = scale
+  return (
+    <g transform={`translate(${x}, ${y})`}>
+      {/* body */}
+      <ellipse cx="0" cy="0" rx={14*s} ry={6*s} fill="#B88A5C" stroke={INK} strokeWidth={1.6*s} />
+      {/* head */}
+      <circle cx={12*s} cy={-3*s} r={5*s} fill="#B88A5C" stroke={INK} strokeWidth={1.6*s} />
+      {/* ears */}
+      <path d={`M${10*s} ${-7*s} L${8*s} ${-12*s} L${14*s} ${-9*s} Z`} fill="#8B6543" stroke={INK} strokeWidth={1.2*s} />
+      {/* legs */}
+      <line x1={-8*s} y1={5*s} x2={-8*s} y2={11*s} stroke={INK} strokeWidth={1.6*s} strokeLinecap="round" />
+      <line x1={-3*s} y1={5*s} x2={-3*s} y2={11*s} stroke={INK} strokeWidth={1.6*s} strokeLinecap="round" />
+      <line x1={6*s}  y1={5*s} x2={6*s}  y2={11*s} stroke={INK} strokeWidth={1.6*s} strokeLinecap="round" />
+      <line x1={10*s} y1={5*s} x2={10*s} y2={11*s} stroke={INK} strokeWidth={1.6*s} strokeLinecap="round" />
+      {/* tail */}
+      <path d={`M${-13*s} ${-2*s} Q${-20*s} ${-8*s} ${-18*s} ${-12*s}`} fill="none" stroke={INK} strokeWidth={1.6*s} strokeLinecap="round" />
     </g>
   )
 }
@@ -258,7 +336,7 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
   const DX = 1200  // door anchor X
   const DY = 750   // door anchor Y (also: ground level / horizon-ish)
   return (
-    <svg viewBox={viewBox} preserveAspectRatio="xMidYMid slice" role="img" aria-label="An aerial illustration of a small HOA community">
+    <svg viewBox={viewBox} preserveAspectRatio="xMidYMid slice" role="img" aria-label="A hand-drawn sketch of a small HOA community">
       <defs>
         <linearGradient id="cm-sky" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor={SKY_TOP} />
@@ -268,7 +346,9 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
           <stop offset="0" stopColor={GROUND_T} />
           <stop offset="1" stopColor={GROUND_B} />
         </linearGradient>
+        <SketchFilter id="cm-sketch" />
       </defs>
+      <g filter="url(#cm-sketch)">
 
       {/* Sky + ground */}
       <rect width="2400" height={DY + 50} fill="url(#cm-sky)" />
@@ -416,8 +496,167 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
       <circle cx={DX + 246} cy={DY + 20}  r="40" fill={TREE} className="ln-tree-sway-b" />
 
       {/* mailbox at the curb */}
-      <rect x={DX - 4} y={DY + 220} width="8" height="60" fill="#5C5238" />
+      <rect x={DX - 4} y={DY + 220} width="8" height="60" fill="#5C5238" {...thinInk} />
       <rect x={DX - 18} y={DY + 208} width="36" height="18" rx="2" fill="#1F2233" />
+
+      {/* === CHARACTERS — give the neighbourhood life === */}
+      {/* family walking up the path toward the focal door */}
+      <Person x={DX - 30} y={DY + 130} scale={1.0} hairColor="#7C4D2A" />
+      <Person x={DX + 10} y={DY + 140} scale={1.0} hairColor="#D4A56A" />
+      <Person x={DX + 38} y={DY + 155} scale={0.6} hairColor="#E8C285" />
+      {/* dog wagging on the lawn */}
+      <Dog x={DX - 130} y={DY + 145} scale={1.4} />
+      {/* neighbour pushing a stroller along the cul-de-sac */}
+      <Person x={DX - 460} y={DY + 250} scale={1.1} hairColor="#3A2A1A" />
+      <g transform={`translate(${DX - 440}, ${DY + 268})`}>
+        <rect x="-12" y="-4" width="24" height="16" rx="3" fill="#C76F45" {...thinInk} />
+        <circle cx="-8" cy="14" r="3" fill={INK} />
+        <circle cx="8"  cy="14" r="3" fill={INK} />
+      </g>
+      {/* kid on a bike further down the street */}
+      <Person x={DX + 380} y={DY + 240} scale={0.9} hairColor="#E8C285" />
+      <g transform={`translate(${DX + 380}, ${DY + 268})`}>
+        <circle cx="-10" cy="12" r="7" fill="none" stroke={INK} strokeWidth="1.8" />
+        <circle cx="10"  cy="12" r="7" fill="none" stroke={INK} strokeWidth="1.8" />
+        <line x1="-10" y1="12" x2="10" y2="12" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
+        <line x1="0" y1="12" x2="0" y2="0" stroke={INK} strokeWidth="1.6" strokeLinecap="round" />
+      </g>
+      {/* one wide-shot neighbour out by their front door */}
+      <Person x={870 + 105} y={DY + 350} scale={0.9} hairColor="#7C4D2A" />
+      </g>
+    </svg>
+  )
+}
+
+/* ============================================================
+   InteriorSvg — the reveal frame at p=1. Camera has crossed the
+   threshold and we're now inside the focal house: a cozy living room
+   with someone on the couch holding a tablet that's showing the
+   Residente product (budget rings + decision feed visible on the
+   screen). Same sketch filter as the exterior so the two scenes feel
+   like the same artist drew them.
+   ============================================================ */
+function InteriorSvg() {
+  return (
+    <svg viewBox="0 0 2400 1500" preserveAspectRatio="xMidYMid slice" role="img" aria-label="A hand-drawn sketch of the home's interior, with a resident checking the Residente app">
+      <defs>
+        <linearGradient id="int-wall" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stopColor="#EFE3CF" />
+          <stop offset="1" stopColor="#E2D2B5" />
+        </linearGradient>
+        <linearGradient id="int-floor" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stopColor="#B58A5C" />
+          <stop offset="1" stopColor="#8E6A41" />
+        </linearGradient>
+        <SketchFilter id="int-sketch" />
+      </defs>
+
+      <g filter="url(#int-sketch)">
+        {/* back wall */}
+        <rect width="2400" height="1050" fill="url(#int-wall)" />
+        {/* floor */}
+        <rect y="1050" width="2400" height="450" fill="url(#int-floor)" />
+        {/* floorboards */}
+        <g stroke={INK} strokeOpacity="0.2" strokeWidth="2">
+          <line x1="0" y1="1180" x2="2400" y2="1180" />
+          <line x1="0" y1="1300" x2="2400" y2="1300" />
+          <line x1="0" y1="1420" x2="2400" y2="1420" />
+        </g>
+
+        {/* window on the left — view of the community we just came from */}
+        <rect x="120" y="200" width="500" height="500" fill="#9FB7C2" {...inkStroke} className="ln-win-glow" />
+        <line x1="370" y1="200" x2="370" y2="700" {...inkStroke} />
+        <line x1="120" y1="450" x2="620" y2="450" {...inkStroke} />
+        <rect x="100" y="180" width="540" height="40" fill={WALL_WARM} {...inkStroke} />
+        <rect x="100" y="680" width="540" height="40" fill={WALL_WARM} {...inkStroke} />
+        {/* tiny house silhouettes in the window — continuity with outside */}
+        <g opacity="0.5">
+          {[180, 280, 380, 480, 560].map((x, i) => (
+            <g key={`win-${i}`}>
+              <rect x={x} y="540" width="50" height="40" fill={WALL_WARM} />
+              <path d={`M${x} 540 L${x+25} 520 L${x+50} 540 Z`} fill={ROOF} />
+            </g>
+          ))}
+        </g>
+
+        {/* potted plant by the window */}
+        <g>
+          <rect x="700" y="820" width="80" height="100" rx="6" fill="#C76F45" {...inkStroke} />
+          <path d="M740 820 Q700 700 720 600 Q750 680 760 640 Q780 720 770 820 Q740 770 740 820" fill={TREE} {...inkStroke} />
+        </g>
+
+        {/* couch */}
+        <g>
+          <rect x="1300" y="980" width="800" height="200" rx="20" fill="#C76F45" {...inkStroke} />
+          <rect x="1320" y="900" width="180" height="200" rx="14" fill="#A8552F" {...inkStroke} />
+          <rect x="1520" y="900" width="180" height="200" rx="14" fill="#A8552F" {...inkStroke} />
+          <rect x="1720" y="900" width="180" height="200" rx="14" fill="#A8552F" {...inkStroke} />
+          <rect x="1920" y="900" width="180" height="200" rx="14" fill="#A8552F" {...inkStroke} />
+          {/* couch legs */}
+          <rect x="1320" y="1180" width="20" height="40" fill={INK} />
+          <rect x="2060" y="1180" width="20" height="40" fill={INK} />
+        </g>
+
+        {/* coffee table */}
+        <g>
+          <rect x="1000" y="1150" width="260" height="30" rx="6" fill="#7C4D2A" {...inkStroke} />
+          <rect x="1020" y="1180" width="14" height="80" fill="#5C3A1F" />
+          <rect x="1226" y="1180" width="14" height="80" fill="#5C3A1F" />
+          {/* mug on the table */}
+          <ellipse cx="1100" cy="1142" rx="22" ry="8" fill="#F4EFE8" {...thinInk} />
+          <rect x="1078" y="1130" width="44" height="20" fill="#F4EFE8" {...thinInk} />
+          <path d="M1124 1132 Q1140 1138 1124 1148" fill="none" {...thinInk} />
+          {/* steam */}
+          <path d="M1095 1120 Q1098 1110 1095 1100 M1105 1115 Q1108 1105 1105 1095" fill="none" stroke={INK} strokeOpacity="0.4" strokeWidth="1.4" strokeLinecap="round" />
+        </g>
+
+        {/* person on the couch holding a tablet */}
+        <g>
+          {/* torso */}
+          <path d="M1560 980 Q1560 880 1620 870 Q1680 880 1680 980 L1660 1090 L1580 1090 Z" fill="#4F2B8C" {...inkStroke} />
+          {/* head */}
+          <circle cx="1620" cy="820" r="48" fill="#E8C285" {...inkStroke} />
+          {/* hair */}
+          <path d="M1572 820 Q1572 770 1620 760 Q1680 770 1668 820 Q1668 800 1640 800 Q1620 790 1600 800 Q1572 810 1572 820" fill="#3A2A1A" {...inkStroke} />
+          {/* arms holding tablet */}
+          <path d="M1580 950 Q1520 990 1500 1050" fill="none" {...inkStroke} />
+          <path d="M1660 950 Q1720 990 1740 1050" fill="none" {...inkStroke} />
+          {/* tablet */}
+          <rect x="1480" y="1030" width="280" height="180" rx="12" fill="#1F2233" {...inkStroke} />
+          <rect x="1495" y="1045" width="250" height="150" rx="6" fill="#F4EFE8" />
+          {/* tiny "Residente" UI on the tablet */}
+          <text x="1505" y="1062" fontFamily="Inter, system-ui" fontSize="12" fontWeight="700" fill={INK}>Residente</text>
+          {/* budget rings */}
+          <circle cx="1530" cy="1110" r="22" fill="none" stroke="#C76F45" strokeWidth="6" />
+          <circle cx="1580" cy="1110" r="22" fill="none" stroke="#7D8C5C" strokeWidth="6" />
+          <circle cx="1630" cy="1110" r="22" fill="none" stroke="#4F2B8C" strokeWidth="6" />
+          {/* decision feed lines */}
+          <rect x="1665" y="1085" width="68" height="6" rx="2" fill={INK} opacity="0.6" />
+          <rect x="1665" y="1100" width="50" height="6" rx="2" fill={INK} opacity="0.4" />
+          <rect x="1665" y="1115" width="68" height="6" rx="2" fill={INK} opacity="0.6" />
+          <rect x="1665" y="1130" width="40" height="6" rx="2" fill={INK} opacity="0.4" />
+          <rect x="1505" y="1160" width="230" height="20" rx="4" fill="#C76F45" />
+          <text x="1620" y="1174" fontFamily="Inter, system-ui" fontSize="10" fontWeight="700" fill="#F4EFE8" textAnchor="middle">PAY DUES — $245</text>
+        </g>
+
+        {/* small dog napping by the couch */}
+        <Dog x={1260} y={1240} scale={2.2} />
+
+        {/* picture frames on the back wall */}
+        <g>
+          <rect x="900" y="280" width="160" height="120" fill="#F4EFE8" {...inkStroke} />
+          <path d="M920 380 L960 320 L990 360 L1020 300 L1040 380" fill="none" stroke={TREE} strokeWidth="3" />
+          <rect x="1100" y="320" width="120" height="100" fill="#F4EFE8" {...inkStroke} />
+          <circle cx="1160" cy="370" r="20" fill="#FFE3B8" {...thinInk} />
+        </g>
+
+        {/* lamp behind the couch */}
+        <g>
+          <rect x="2210" y="1000" width="14" height="200" fill="#5C3A1F" />
+          <path d="M2160 880 L2270 880 L2250 980 L2180 980 Z" fill="#FFE3B8" {...inkStroke} />
+          <circle cx="2217" cy="900" r="46" fill="#FFE3B8" opacity="0.55" />
+        </g>
+      </g>
     </svg>
   )
 }

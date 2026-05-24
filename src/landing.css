@@ -198,6 +198,22 @@ body:has(.landing-screen) { min-width: 0; }
   display: block;
 }
 
+/* Interior reveal — crossfades in over the top of the community SVG
+   once the camera has zoomed through the front door. */
+.ln-zoom-interior {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  transition: opacity 80ms linear;
+  will-change: opacity;
+}
+.ln-zoom-interior > svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
 .ln-hero-overlay {
   position: absolute;
   inset: 0;
@@ -310,10 +326,9 @@ body:has(.landing-screen) { min-width: 0; }
   margin: 0 0 22px;
   text-shadow: 0 2px 30px rgba(0,0,0,0.45);
 }
-.ln-hero-title-open,
-.ln-hero-title-close {
+.ln-hero-title-stack {
   grid-area: 1 / 1;
-  transition: opacity 200ms linear;
+  transition: opacity 120ms linear;
 }
 .ln-hero-sub {
   font-size: clamp(15px, 1.4vw, 19px);
