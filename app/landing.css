@@ -322,9 +322,33 @@ body:has(.landing-screen) { min-width: 0; }
   transform-origin: 50% 50%;
 }
 
+/* Mailbox flag — pivots at its base on the post, gentle "someone has
+   mail" wave. */
+@keyframes ln-flag-wave {
+  0%, 100% { transform: rotate(0deg); }
+  50%      { transform: rotate(-22deg); }
+}
+.ln-flag-wave {
+  animation: ln-flag-wave 2.6s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: 0% 100%;
+}
+
+/* Sun rays — very slow rotation around the sun's centre. The sun face
+   itself stays put (eyes, smile) while the rays spin behind it. */
+@keyframes ln-sun-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+.ln-sun-spin {
+  animation: ln-sun-spin 32s linear infinite;
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ln-walk, .ln-walk-a, .ln-walk-b, .ln-walk-c,
-  .ln-dog-bounce, .ln-wheel-spin {
+  .ln-dog-bounce, .ln-wheel-spin, .ln-flag-wave, .ln-sun-spin {
     animation: none;
   }
 }

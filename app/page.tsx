@@ -368,6 +368,33 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
       <rect width="2400" height={DY + 50} fill="url(#cm-sky)" />
       <rect y={DY + 50} width="2400" height={1500 - DY - 50} fill="url(#cm-ground)" />
 
+      {/* Friendly morning sun on the right side of the sky. Rays rotate
+          slowly, body has a gentle glow halo. Drawn after the sky so
+          it's visible, but before the houses so anything in front
+          (focal house, etc.) still occludes if needed. */}
+      <g transform="translate(2080, 220)">
+        <circle r="80" fill="#FFE3B8" opacity="0.18" />
+        <circle r="62" fill="#FFE3B8" opacity="0.32" />
+        <g className="ln-sun-spin">
+          {Array.from({ length: 12 }).map((_, i) => {
+            const a = (i * Math.PI) / 6
+            const x1 = Math.cos(a) * 68
+            const y1 = Math.sin(a) * 68
+            const x2 = Math.cos(a) * 92
+            const y2 = Math.sin(a) * 92
+            return (
+              <line key={i} x1={x1.toFixed(1)} y1={y1.toFixed(1)} x2={x2.toFixed(1)} y2={y2.toFixed(1)}
+                    stroke="#E6A95E" strokeWidth="4" strokeLinecap="round" />
+            )
+          })}
+        </g>
+        <circle r="46" fill="#FFC97A" {...inkStroke} />
+        {/* tiny smile + eyes so the sun reads as friendly */}
+        <circle cx="-14" cy="-6" r="3" fill={INK} />
+        <circle cx="14"  cy="-6" r="3" fill={INK} />
+        <path d="M-14 10 Q0 22 14 10" fill="none" stroke={INK} strokeWidth="2.5" strokeLinecap="round" />
+      </g>
+
       {/* Distant background houses — tiny silhouettes at the horizon,
           only visible when fully zoomed out. */}
       <g opacity="0.55">
@@ -394,7 +421,9 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
           { x: 390,  y: DY + 30, w: 130, h: 88,  win: 'ln-win-dim',  dc: '#8B5A3C' },
           { x: 560,  y: DY + 30, w: 140, h: 92,  win: 'ln-win-glow-a', dc: DOOR },
           { x: 730,  y: DY + 30, w: 130, h: 88,  win: '',            dc: '#8B5A3C' },
-          { x: 900,  y: DY + 30, w: 130, h: 90,  win: 'ln-win-glow-b', dc: '#8B5A3C' },
+          // Removed back-row house at x=900: its right 30 units (1000-1030)
+          // were being hidden by the focal house body (x=1000-1400), which
+          // read as the focal house "cutting" its left neighbour.
           // big gap in the middle behind the focal house — gives breathing room
           { x: 1430, y: DY + 30, w: 130, h: 90,  win: 'ln-win-glow', dc: '#8B5A3C' },
           { x: 1600, y: DY + 30, w: 140, h: 95,  win: 'ln-win-dim',  dc: DOOR },
@@ -407,10 +436,11 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
         ))}
       </g>
 
-      {/* Horizon trees */}
+      {/* Horizon trees — trunks extended down so they actually reach
+          the ground line of the back houses instead of floating */}
       {[40, 200, 370, 540, 710, 880, 1040, 1410, 1580, 1750, 1920, 2090, 2250, 2380].map((cx, i) => (
         <g key={`htree-${i}`}>
-          <rect x={cx - 3} y={DY + 35} width="6" height="32" fill={TRUNK} />
+          <rect x={cx - 3} y={DY + 35} width="6" height="85" fill={TRUNK} />
           <circle cx={cx} cy={DY + 30} r="22" fill={TREE} className={['ln-tree-sway', 'ln-tree-sway-a', 'ln-tree-sway-b'][i % 3]} />
         </g>
       ))}
@@ -441,10 +471,11 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
         ))}
       </g>
 
-      {/* Foreground trees for parallax + life */}
+      {/* Foreground trees for parallax + life — trunks extended down
+          so they reach the grass line just above the cul-de-sac road */}
       {[30, 290, 550, 810, 1070, 1370, 1620, 1880, 2150, 2370].map((cx, i) => (
         <g key={`ftree-${i}`}>
-          <rect x={cx - 4} y={DY + 270} width="8" height="42" fill={TRUNK} />
+          <rect x={cx - 4} y={DY + 270} width="8" height="110" fill={TRUNK} />
           <circle cx={cx} cy={DY + 265} r="32" fill={TREE} className={['ln-tree-sway', 'ln-tree-sway-a', 'ln-tree-sway-b'][i % 3]} />
         </g>
       ))}
@@ -452,8 +483,8 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
       {/* === FOCAL HOUSE — drawn in extra detail because the zoom-in
           frame at scale ~10 sits right on top of it === */}
 
-      {/* house body */}
-      <rect x={DX - 200} y={DY - 200} width="400" height="280" fill={WALL_LITE} />
+      {/* house body — black ink outline to match every other house */}
+      <rect x={DX - 200} y={DY - 200} width="400" height="280" fill={WALL_LITE} {...inkStroke} />
       {/* subtle siding so the wall reads as material at extreme zoom */}
       <g stroke="#1F2233" strokeOpacity="0.06" strokeWidth="1">
         {Array.from({ length: 14 }).map((_, i) => (
@@ -461,7 +492,7 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
         ))}
       </g>
       {/* roof */}
-      <path d={`M${DX - 200} ${DY - 200} L${DX} ${DY - 400} L${DX + 200} ${DY - 200} Z`} fill={ROOF_LITE} />
+      <path d={`M${DX - 206} ${DY - 200} L${DX} ${DY - 400} L${DX + 206} ${DY - 200} Z`} fill={ROOF_LITE} {...inkStroke} />
       <path d={`M${DX - 200} ${DY - 200} L${DX} ${DY - 400} L${DX + 200} ${DY - 200} Z`} fill={ROOF} opacity="0.55" />
 
       {/* big front windows with mullions */}
@@ -507,9 +538,17 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
       <rect x={DX + 242} y={DY + 30} width="8" height="70" fill={TRUNK} />
       <circle cx={DX + 246} cy={DY + 20}  r="40" fill={TREE} className="ln-tree-sway-b" />
 
-      {/* mailbox at the curb */}
-      <rect x={DX - 4} y={DY + 220} width="8" height="60" fill="#5C5238" {...thinInk} />
-      <rect x={DX - 18} y={DY + 208} width="36" height="18" rx="2" fill="#1F2233" />
+      {/* mailbox — right of the front door, in the yard. Red flag on
+          the right side of the box waves gently. */}
+      <rect x={DX + 86} y={DY + 20} width="8" height="80" fill="#5C5238" {...thinInk} />
+      <rect x={DX + 72} y={DY + 4}  width="36" height="20" rx="3" fill="#1F2233" />
+      {/* tiny slot detail on the box */}
+      <rect x={DX + 78} y={DY + 11} width="14" height="2" fill={WALL_LITE} opacity="0.6" />
+      {/* red signal flag, pivoting at its base on the right side of the box */}
+      <g transform={`translate(${DX + 108}, ${DY + 12})`} className="ln-flag-wave">
+        <rect x="0" y="-14" width="3" height="14" fill="#1F2233" />
+        <path d="M3 -14 L14 -10 L3 -6 Z" fill="#D9362C" {...thinInk} />
+      </g>
 
       {/* === CHARACTERS — give the neighbourhood life === */}
       {/* family walking up the path toward the focal door — bobbing at
