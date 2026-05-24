@@ -10,6 +10,7 @@ import {
 } from '@/lib/voice'
 import { useVoiceMeetings, useVoiceMeeting } from '@/hooks/useVoiceMeetings'
 import { useCommunityNotices } from '@/hooks/useNotices'
+import { logAudit } from '@/lib/audit'
 
 const withTimeout = (p, ms = 10000) =>
   Promise.race([
@@ -265,6 +266,13 @@ function MeetingDetail({ meetingId, onBack }) {
         supabase.from('ev_meetings').update({ status: next }).eq('id', meetingId)
       )
       if (error) throw error
+      logAudit({
+        community_id: meeting.community_id,
+        event_type:   'meeting.status_changed',
+        target_type:  'meeting',
+        target_id:    meetingId,
+        metadata:     { from: meeting.status, to: next },
+      })
       if (next === 'notice_sent') {
         const copy = defaultNoticeCopy('meeting_published', { meetingTitle: meeting.title })
         try {
@@ -278,6 +286,12 @@ function MeetingDetail({ meetingId, onBack }) {
               body:         copy.body,
             })
           )
+          logAudit({
+            community_id: meeting.community_id,
+            event_type:   'notice.sent',
+            target_type:  'notice',
+            metadata:     { kind: 'meeting_published', meeting_id: meeting.id },
+          })
         } catch { /* status change succeeded; notice is best-effort */ }
       }
       reload()
@@ -339,7 +353,7 @@ function MeetingDetail({ meetingId, onBack }) {
             {meeting.quorum_confirmed
               ? <span className="voice-badge-quorum">Quorum confirmed</span>
               : meeting.status === 'in_progress'
-                ? <QuorumConfirmBtn meetingId={meetingId} onDone={reload} />
+                ? <QuorumConfirmBtn meetingId={meetingId} communityId={meeting.community_id} onDone={reload} />
                 : null}
           </div>
         )}
@@ -387,6 +401,12 @@ function NotifyPanel({ meeting }) {
         })
       )
       if (error) throw error
+      logAudit({
+        community_id: meeting.community_id,
+        event_type:   'notice.sent',
+        target_type:  'notice',
+        metadata:     { kind: 'custom_broadcast', meeting_id: meeting.id, subject: subject.trim() },
+      })
       setSubject('')
       setBody('')
       reload()
@@ -456,7 +476,7 @@ function NotifyPanel({ meeting }) {
   )
 }
 
-function QuorumConfirmBtn({ meetingId, onDone }) {
+function QuorumConfirmBtn({ meetingId, communityId, onDone }) {
   const [confirming, setConfirming] = useState(false)
   const { profile } = useAuth() || {}
 
@@ -471,6 +491,12 @@ function QuorumConfirmBtn({ meetingId, onDone }) {
         }).eq('id', meetingId)
       )
       if (error) throw error
+      logAudit({
+        community_id: communityId,
+        event_type:   'meeting.quorum_confirmed',
+        target_type:  'meeting',
+        target_id:    meetingId,
+      })
       onDone()
     } catch {
       /* keep going */
@@ -528,6 +554,13 @@ function VoteRow({ vote: v, meetingStatus, onChanged }) {
         supabase.from('ev_votes').update({ status: 'open', opens_at: new Date().toISOString() }).eq('id', v.id)
       )
       if (error) throw error
+      logAudit({
+        community_id: v.community_id,
+        event_type:   'vote.opened',
+        target_type:  'vote',
+        target_id:    v.id,
+        metadata:     { title: v.title, ballot_type: v.ballot_type, type: v.type },
+      })
       onChanged()
     } catch { /* keep */ } finally { setActing(false) }
   }
@@ -545,6 +578,13 @@ function VoteRow({ vote: v, meetingStatus, onChanged }) {
         }).eq('id', v.id)
       )
       if (error) throw error
+      logAudit({
+        community_id: v.community_id,
+        event_type:   'vote.closed',
+        target_type:  'vote',
+        target_id:    v.id,
+        metadata:     { yes: v.yes_count ?? 0, no: v.no_count ?? 0, abstain: v.abstain_count ?? 0, result },
+      })
       onChanged()
     } catch { /* keep */ } finally { setActing(false) }
   }
@@ -556,6 +596,13 @@ function VoteRow({ vote: v, meetingStatus, onChanged }) {
         supabase.from('ev_votes').update({ status: 'published' }).eq('id', v.id)
       )
       if (error) throw error
+      logAudit({
+        community_id: v.community_id,
+        event_type:   'vote.published',
+        target_type:  'vote',
+        target_id:    v.id,
+        metadata:     { result: v.result },
+      })
       onChanged()
     } catch { /* keep */ } finally { setActing(false) }
   }
@@ -699,7 +746,7 @@ function DocsPanel({ meeting, reload }) {
         supabase.storage.from('ev-documents').upload(path, file)
       )
       if (upErr) throw upErr
-      const { error: dbErr } = await withTimeout(
+      const { data: docRow, error: dbErr } = await withTimeout(
         supabase.from('ev_meeting_docs').insert({
           meeting_id:   meeting.id,
           community_id: meeting.community_id,
@@ -708,9 +755,16 @@ function DocsPanel({ meeting, reload }) {
           storage_path: path,
           file_size:    file.size,
           uploaded_by:  profile?.id,
-        })
+        }).select('id').single()
       )
       if (dbErr) throw dbErr
+      logAudit({
+        community_id: meeting.community_id,
+        event_type:   'document.uploaded',
+        target_type:  'document',
+        target_id:    docRow?.id ?? null,
+        metadata:     { meeting_id: meeting.id, type: docType, title: docTitle.trim(), file_size: file.size },
+      })
       // Silent for draft meetings (board still composing) and for
       // supporting/notice_record docs (admin can broadcast manually).
       if (
@@ -730,6 +784,12 @@ function DocsPanel({ meeting, reload }) {
               body:         copy.body,
             })
           )
+          logAudit({
+            community_id: meeting.community_id,
+            event_type:   'notice.sent',
+            target_type:  'notice',
+            metadata:     { kind, meeting_id: meeting.id, doc_title: docTitle.trim() },
+          })
         } catch { /* upload succeeded; notice is best-effort */ }
       }
       setDocTitle('')
@@ -767,12 +827,12 @@ function DocsPanel({ meeting, reload }) {
         <div className="admin-placeholder">No documents attached yet.</div>
       )}
 
-      {docs.map(d => <DocRow key={d.id} doc={d} onDeleted={reload} />)}
+      {docs.map(d => <DocRow key={d.id} doc={d} communityId={meeting.community_id} onDeleted={reload} />)}
     </div>
   )
 }
 
-function DocRow({ doc: d, onDeleted }) {
+function DocRow({ doc: d, communityId, onDeleted }) {
   const [deleting, setDeleting] = useState(false)
   const [url, setUrl] = useState(null)
   const typeLabel = DOC_TYPES.find(t => t.value === d.type)?.label ?? d.type
@@ -791,6 +851,13 @@ function DocRow({ doc: d, onDeleted }) {
     try {
       await supabase.storage.from('ev-documents').remove([d.storage_path])
       await withTimeout(supabase.from('ev_meeting_docs').delete().eq('id', d.id))
+      logAudit({
+        community_id: communityId,
+        event_type:   'document.deleted',
+        target_type:  'document',
+        target_id:    d.id,
+        metadata:     { meeting_id: d.meeting_id, type: d.type, title: d.title },
+      })
       onDeleted()
     } catch { /* keep */ } finally { setDeleting(false) }
   }
