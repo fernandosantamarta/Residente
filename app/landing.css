@@ -346,6 +346,21 @@ body:has(.landing-screen) { min-width: 0; }
   transform-origin: 50% 50%;
 }
 
+/* Plane drifting across the left half of the sky. Enters offscreen
+   left, glides to about middle of the SVG viewBox, then loops back
+   off the left side after a brief rest. SVG viewBox is 2400 wide, so
+   "left half" means roughly x=-100 → x=1200. */
+@keyframes ln-plane-fly {
+  0%   { transform: translateX(-120px); opacity: 0; }
+  6%   { opacity: 1; }
+  60%  { transform: translateX(1200px); opacity: 1; }
+  70%  { transform: translateX(1200px); opacity: 0; }
+  100% { transform: translateX(-120px); opacity: 0; }
+}
+.ln-plane-fly {
+  animation: ln-plane-fly 18s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .ln-walk, .ln-walk-a, .ln-walk-b, .ln-walk-c,
   .ln-dog-bounce, .ln-wheel-spin, .ln-flag-wave, .ln-sun-spin {
@@ -408,17 +423,6 @@ body:has(.landing-screen) { min-width: 0; }
   align-items: center;
   gap: 14px;
   flex-wrap: wrap;
-}
-/* Variant: pull the CTAs to the bottom-centre of the hero section. The
-   hero overlay is position:absolute over the whole stage, so we use
-   absolute positioning here too. translateX(-50%) centres the group. */
-.ln-hero-ctas-centered {
-  position: absolute;
-  left: 50%;
-  bottom: 56px;
-  transform: translateX(-50%);
-  z-index: 2;
-  justify-content: center;
 }
 .ln-hero-btn {
   display: inline-flex;
@@ -828,8 +832,8 @@ body:has(.landing-screen) { min-width: 0; }
   margin: 0 auto 36px;
 }
 .ln-waitlist-form {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 10px;
   max-width: 620px;
   margin: 0 auto;
@@ -855,11 +859,16 @@ body:has(.landing-screen) { min-width: 0; }
 .ln-waitlist-form input:disabled { opacity: 0.6; cursor: not-allowed; }
 
 .ln-waitlist-btn {
-  flex: 0 0 auto;
+  /* Span both grid columns and center horizontally below the inputs.
+     margin-top adds a bit of breathing room so it sits "a little
+     lower" than the inputs above. */
+  grid-column: 1 / -1;
+  justify-self: center;
+  margin-top: 14px;
   background: var(--ln-accent);
   color: #FFFFFF;
   border: none;
-  padding: 15px 28px;
+  padding: 15px 36px;
   border-radius: 14px;
   font-size: 15px;
   font-weight: 600;
@@ -942,15 +951,6 @@ body:has(.landing-screen) { min-width: 0; }
   .ln-hero-sub   { font-size: 15px; }
   .ln-hero-eyebrow { font-size: 11px; padding: 6px 12px; margin-bottom: 18px; }
   .ln-hero-ctas { flex-direction: column; align-items: flex-start; gap: 10px; }
-  /* On phones keep the centered CTAs absolute-positioned, just snug
-     closer to the bottom edge, and center-align the stacked items so
-     the button + ghost link sit on the centre axis. */
-  .ln-hero-ctas-centered {
-    bottom: 24px;
-    align-items: center;
-    width: max-content;
-  }
-  .ln-hero-ctas-centered .ln-hero-btn { width: auto; }
   .ln-hero-btn { width: 100%; justify-content: center; }
   .ln-hero-ghost { padding-left: 0; }
   .ln-hero-scroll { display: none; }
@@ -963,8 +963,8 @@ body:has(.landing-screen) { min-width: 0; }
   .ln-stats { grid-template-columns: repeat(2, 1fr); padding: 28px var(--ln-side); }
 
   .ln-waitlist-card { padding: 44px 26px; border-radius: var(--ln-radius-md); }
-  .ln-waitlist-form { flex-direction: column; }
-  .ln-waitlist-btn  { width: 100%; }
+  .ln-waitlist-form { grid-template-columns: 1fr; }
+  .ln-waitlist-btn  { justify-self: stretch; width: 100%; }
 
   .ln-foot-inner { flex-direction: column; align-items: flex-start; gap: 12px; }
 }

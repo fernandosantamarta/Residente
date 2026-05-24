@@ -219,16 +219,13 @@ function Hero() {
                 The resident portal that shows where your dues go, what the
                 board is up to, and how to pay. All in one place.
               </p>
-            </div>
-            {/* CTAs pulled out of the inner-content block so they can be
-                centered horizontally in the hero section and sit a bit
-                lower than the rest of the copy. */}
-            <div className="ln-hero-ctas ln-hero-ctas-centered">
-              <a href="#waitlist" className="ln-hero-btn">Get early access</a>
-              <a href="#what" className="ln-hero-ghost">
-                See how it works
-                <span aria-hidden="true">↓</span>
-              </a>
+              <div className="ln-hero-ctas">
+                <a href="#waitlist" className="ln-hero-btn">Get early access</a>
+                <a href="#what" className="ln-hero-ghost">
+                  See how it works
+                  <span aria-hidden="true">↓</span>
+                </a>
+              </div>
             </div>
           </div>
 
@@ -370,6 +367,26 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
       {/* Sky + ground */}
       <rect width="2400" height={DY + 50} fill="url(#cm-sky)" />
       <rect y={DY + 50} width="2400" height={1500 - DY - 50} fill="url(#cm-ground)" />
+
+      {/* Small ink-style plane drifting across the left half of the sky.
+          Wrapped in two <g>: outer for vertical positioning, inner for
+          the CSS-driven horizontal fly so the two transforms compose. */}
+      <g transform="translate(0, 180)">
+        <g className="ln-plane-fly">
+          {/* fuselage */}
+          <ellipse cx="0" cy="0" rx="26" ry="3.5" fill={INK} />
+          {/* nose cone */}
+          <path d="M22 -2 L34 0 L22 2 Z" fill={INK} />
+          {/* vertical tail fin */}
+          <path d="M-22 -2 L-14 -2 L-18 -11 Z" fill={INK} />
+          {/* main wing (sweeping back) */}
+          <path d="M-4 1 L10 1 L-2 12 L-12 10 Z" fill={INK} />
+          {/* small contrail puffs */}
+          <circle cx="-34" cy="0" r="2.5" fill={INK} opacity="0.35" />
+          <circle cx="-44" cy="0" r="3"   fill={INK} opacity="0.22" />
+          <circle cx="-56" cy="1" r="3.5" fill={INK} opacity="0.12" />
+        </g>
+      </g>
 
       {/* Friendly morning sun on the right side of the sky. Rays rotate
           slowly, body has a gentle glow halo. Drawn after the sky so
