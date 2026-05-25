@@ -325,7 +325,7 @@ body:has(.landing-screen) { min-width: 0; }
 .ln-hero-moon,
 .ln-hero-plane {
   opacity: var(--ambient-op, 1);
-  transition: opacity 240ms ease-out;
+  transition: opacity 160ms ease-out;
   will-change: opacity;
 }
 

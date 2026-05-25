@@ -369,10 +369,13 @@ function Hero() {
         // After scroll settles, snap currentP to wherever the target
         // actually is and apply that final state once. No frame-by-frame
         // updates during the scroll itself — that's what caused the
-        // perceived flashing on fast scroll-back.
+        // perceived flashing on fast scroll-back. 80ms is short enough
+        // that the user perceives the cinematic catching up as
+        // instantaneous, long enough that micro scroll-bounces between
+        // events don't fire it repeatedly.
         currentP = targetP
         applyP(currentP)
-      }, 200)
+      }, 80)
     }
 
     const onScroll = () => {
