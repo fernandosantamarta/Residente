@@ -207,16 +207,11 @@ body:has(.landing-screen) { min-width: 0; }
 .ln-hero-stage.is-scrolling .ln-hero-plane {
   opacity: 0 !important;
 }
-/* Window glow animations stay OFF permanently — Fernando saw the
-   left window switching colors and wants windows to read as static
-   default fills. Other ambient animations (characters, dog, trees,
-   doors, UFO) keep their default behavior. */
-.ln-win-glow,
-.ln-win-glow-a,
-.ln-win-glow-b,
-.ln-win-dim {
-  animation: none !important;
-}
+/* Window flicker stays running normally. Other ambient animations
+   (characters walking, dog bouncing, tree sway, door pulse, smoke,
+   UFO) pause during scroll to avoid the per-repaint flicker; windows
+   are simple enough opacity loops that they don't cause glitching
+   even when they continue through scroll. */
 
 /* Diagnostic confirmed the cause: when the cinematic SVG's internal
    CSS animations (window glow, tree sway, characters walking, dog
@@ -231,7 +226,7 @@ body:has(.landing-screen) { min-width: 0; }
    is removed 200ms after the last scroll event, animations re-attach
    and play from frame 0 — visible jump only happens ONCE on
    scroll-stop, not during the scroll motion itself. */
-.ln-hero-stage.is-scrolling .ln-zoom-scene *,
+.ln-hero-stage.is-scrolling .ln-zoom-scene *:not(.ln-win-glow):not(.ln-win-glow-a):not(.ln-win-glow-b):not(.ln-win-dim),
 .ln-hero-stage.is-scrolling .ln-zoom-interior *,
 .ln-hero-stage.is-scrolling .ln-zoom-scene *::before,
 .ln-hero-stage.is-scrolling .ln-zoom-scene *::after {

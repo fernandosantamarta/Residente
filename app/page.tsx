@@ -381,12 +381,20 @@ function Hero() {
     const onScroll = () => {
       computeTarget()
       markScrolling()
-      // Forward scroll (zooming in) eases via the lerp tick so the
-      // dolly-in plays smoothly. Backward scroll does NOT update during
-      // the scroll itself — the SVG stays frozen at its last state
-      // until the scroll-settle timer fires above. No intermediate
-      // frames = no flashing.
-      if (targetP > currentP && !raf) raf = requestAnimationFrame(tick)
+      const delta = targetP - currentP
+      if (delta < 0) {
+        // Backward scroll: apply each new target immediately so the
+        // dolly-out tracks the scroll wheel. With overlays hidden and
+        // house animations disabled by .is-scrolling, the per-event
+        // SVG repaint is just static geometry — no flicker risk —
+        // and the user feels the cinematic respond instantly instead
+        // of lagging behind a settle timer.
+        currentP = targetP
+        applyP(currentP)
+        return
+      }
+      // Forward scroll (zooming in) eases via the lerp tick.
+      if (!raf) raf = requestAnimationFrame(tick)
     }
 
     // Initial state: read scroll, snap currentP to target (no fade-in).
