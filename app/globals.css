@@ -278,7 +278,9 @@ button { font-family: inherit; }
   grid-template-columns: 220px 1fr 340px;
   min-height: 100vh;
   width: 100%;
-  min-width: 1280px;  /* lock desktop layout — narrow windows scroll horizontally instead of reflowing */
+  min-width: 1280px;   /* never collapses narrower than this — horizontal scroll if needed */
+  max-width: 1600px;   /* stop growing past this — empty space on both sides instead */
+  margin: 0 auto;       /* centered when viewport is wider than max */
 }
 
 /* ============ LEFT RAIL ============ */
@@ -2111,6 +2113,10 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
   color: var(--sidebar-text);
   font-family: 'Inter', system-ui, sans-serif;
 }
+[data-theme="sketch"] .rail-right {
+  background: var(--sidebar-bg);   /* match the left rail's warm white */
+  border-left: 1px solid var(--sidebar-border);
+}
 [data-theme="sketch"] .rail-left .brand-sub {
   font-size: 9px;
   letter-spacing: 1.6px;
@@ -2381,8 +2387,8 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 
 /* ---- RIGHT RAIL — household → "Your residence" dark navy card ---- */
 [data-theme="sketch"] .rail-right {
-  background: transparent;
-  border-left: 1px solid var(--border);
+  background: var(--sidebar-bg);
+  border-left: 1px solid var(--sidebar-border);
 }
 [data-theme="sketch"] .feed-title {
   color: var(--text-dim);
@@ -2775,7 +2781,7 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 }
 [data-theme="sketch"] .fin-period svg { width: 11px; height: 11px; }
 
-/* Main row: left column (numbers + progress) | right column (chart) */
+/* Main row: left column (numbers + progress) | right column (chart) — chart gets more room */
 [data-theme="sketch"] .fin-main {
   display: grid;
   grid-template-columns: minmax(180px, 0.85fr) 1.4fr;
