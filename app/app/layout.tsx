@@ -9,6 +9,7 @@ import { useBoardDecisions } from '@/hooks/useBoardDecisions'
 import { useMyResident } from '@/hooks/useMyResident'
 import { useUnreadNoticeCount, useMyNotices } from '@/hooks/useNotices'
 import { NOTICE_KIND_LABELS, noticeHref, NoticeKind } from '@/lib/voice'
+import { useCommunityData } from '@/hooks/useCommunityData'
 import { DUES_LABEL } from '@/lib/dues'
 import { CommunitySvg, InteriorSvg } from '../page'
 
@@ -24,15 +25,21 @@ const initialsFrom = (name?: string | null): string => {
 
 type NavItem = { href: string; label: string; icon: ReactNode; pulse?: boolean; exact?: boolean }
 
+// Nav order matches the mockup 2.png left rail. Some routes (voice,
+// schedule, vendor, reports) don't have pages yet — they show up so the
+// rail visually matches; the pages can be stubbed in as they're built.
 const NAV: NavItem[] = [
   { href: '/app',           label: 'Home',      exact: true, icon: <><path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/></> },
   { href: '/app/pay',       label: 'Pay',       icon: <><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/></> },
+  { href: '/app/contact',   label: 'Requests',  icon: <><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></> },
   { href: '/app/board',     label: 'Board',     pulse: true, icon: <><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/><path d="M15 19c0-2 2-3.5 4-3.5s3 1.2 3 3"/></> },
   { href: '/app/voice',     label: 'Voice',     icon: <><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="22"/></> },
   { href: '/app/rules',     label: 'Rules',     icon: <><path d="M4 4h12l4 4v12H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></> },
   { href: '/app/documents', label: 'Documents', icon: <><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/></> },
-  { href: '/app/contact',   label: 'Contact',   icon: <><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></> },
-  { href: '/app/community', label: 'Community', icon: <><circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a14 14 0 0 1 0 18"/><path d="M12 3a14 14 0 0 0 0 18"/></> },
+  { href: '/app/schedule',  label: 'Schedule',  icon: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></> },
+  { href: '/app/vendor',    label: 'Vendor',    icon: <><path d="M3 7h18l-1.4 11.2A2 2 0 0 1 17.6 20H6.4a2 2 0 0 1-2-1.8z"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></> },
+  { href: '/app/reports',   label: 'Reports',   icon: <><path d="M4 4h16v16H4z"/><path d="M8 16v-4M12 16v-7M16 16v-2"/></> },
+  { href: '/app/settings',  label: 'Settings',  icon: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></> },
 ]
 
 const isActive = (pathname: string, href: string, exact?: boolean) =>
@@ -47,11 +54,20 @@ const fmtTime = () => {
 
 export default function CockpitLayout({ children }: { children: ReactNode }) {
   const { session, profile } = useAuth()
+  const { community } = useCommunityData()
   const pathname = usePathname() || '/app'
   const router = useRouter()
   const showRightRail = pathname === '/app'
   const [navOpen, setNavOpen] = useState(false)
   const showAdmin = !hasSupabase || ['board_member', 'admin'].includes(profile?.role || '')
+  const communityName = community?.name || 'Sunset Lakes'
+  const now = new Date()
+  const quarter = `Q${Math.floor(now.getMonth() / 3) + 1} ${now.getFullYear()}`
+  // Always show the current quarter; if the DB has a fiscal_year that
+  // already includes a Q, prefer that.
+  const fyLabel = community?.fiscal_year && /\bQ\d/.test(community.fiscal_year)
+    ? community.fiscal_year
+    : quarter
 
   // Auth gate — bounce unauthed users to /login. Mirrors the old App.jsx
   // `requireAuth ? <Navigate to="/login" /> : <Layout />` guard.
@@ -69,10 +85,10 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <CockpitIntro />
-    <div className="cockpit" style={!showRightRail ? { gridTemplateColumns: '240px 1fr' } : undefined}>
+    <div className="cockpit" style={!showRightRail ? { gridTemplateColumns: '220px 1fr' } : undefined}>
       <aside className={`rail-left${navOpen ? ' open' : ''}`}>
         <div className="brand">
-          <div className="brand-dot"></div>
+          <img src="/residente-logo.png" alt="" className="brand-logo" />
           <div className="brand-word">Residente</div>
         </div>
 
@@ -104,6 +120,20 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
         </nav>
 
         <div className="rail-footer">
+          <div className="rail-meta">
+            <span className="rail-meta-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/>
+              </svg>
+              {now.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+            </span>
+            <span className="rail-meta-item">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/>
+              </svg>
+              82° Sunny
+            </span>
+          </div>
           <Link href="/app/settings" className="user-block">
             <div className="user-avatar">{userInitials}</div>
             <div className="user-meta">
@@ -138,11 +168,10 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
             >
               <span /><span /><span />
             </button>
-            <span className="brand-dot"></span>
-            <span>Residente · Q2 2026</span>
+            <span className="live-dot" aria-label="Live" title="Live"></span>
+            <span className="kicker-text">{communityName} · {fyLabel}</span>
           </div>
           <div className="topbar-right">
-            <div className="time-chip">{fmtTime()}</div>
             <NotificationBell />
           </div>
         </div>
@@ -235,88 +264,131 @@ function CockpitIntro() {
   )
 }
 
-const STATUS_META: Record<string, { cls: string; label: string }> = {
-  approved:   { cls: 'yes',        label: 'Approved' },
-  pending:    { cls: 'pending',    label: 'Pending' },
-  paid:       { cls: 'paid',       label: 'Paid ✓' },
-  discussion: { cls: 'discussion', label: 'Discussion' },
-}
-const vendorInitials = (s?: string | null) => {
-  if (!s) return '··'
-  const p = String(s).trim().split(/\s+/).filter(Boolean)
-  return ((p[0]?.[0] || '') + (p[1]?.[0] || '')).toUpperCase() || '··'
-}
-const relTime = (dateStr?: string | null) => {
-  if (!dateStr) return ''
-  const days = Math.round((Date.now() - new Date(dateStr + 'T00:00:00').getTime()) / 86400000)
-  if (days <= 0) return 'Today'
-  if (days === 1) return 'Yesterday'
-  if (days < 7) return `${days} days ago`
-  const weeks = Math.round(days / 7)
-  if (weeks < 5) return weeks === 1 ? '1 week ago' : `${weeks} weeks ago`
-  const months = Math.max(1, Math.round(days / 30))
-  return months === 1 ? '1 month ago' : `${months} months ago`
-}
 const fmtAmt = (n: number | string | null | undefined) =>
   '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
 
+// HOA convention: dues for month N are due on the 1st of month N.
+// If we're already past the 1st, the next bill is for next month.
+function nextDueDate(): Date {
+  const now = new Date()
+  if (now.getDate() === 1) return new Date(now.getFullYear(), now.getMonth(), 1)
+  return new Date(now.getFullYear(), now.getMonth() + 1, 1)
+}
+function nextDueLabel(): string {
+  return nextDueDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+function nextDueMonth(): string {
+  return nextDueDate().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+}
+
+// Date-pill items in the UP NEXT rail. In real life these would come from
+// board calendar + vendor schedule + dues schedule. For now we synthesize
+// from board_decisions (recent contracts/invoices = "next" entries) and
+// pad with a few sensible community events so the rail has 4-5 rows.
+const DEMO_UPNEXT = [
+  { id: 'u1', date: '2026-10-28', title: 'Pest re-authoring',         vendor: 'Oak Ridge Nursery', amount: 19820, tag: 'pending'  },
+  { id: 'u2', date: '2026-07-15', title: 'Gate motor replacement',    vendor: 'SecureGate Co',     amount: null,  tag: 'pending'  },
+  { id: 'u3', date: '2026-09-15', title: 'Landscape contract renews', vendor: 'Oak Ridge Nursery', amount: 1400,  tag: 'renewed'  },
+  { id: 'u4', date: '2026-11-28', title: 'Board meeting',             vendor: null,                amount: null,  tag: 'hosted'   },
+]
+
+const UP_TAG_LABEL: Record<string, string> = {
+  pending: 'pending',
+  renewed: 'renewed',
+  hosted:  'hosted',
+}
+
+function shortDate(s: string) {
+  const d = new Date(s + 'T00:00:00')
+  return {
+    day: d.toLocaleDateString('en-US', { day: '2-digit' }),
+    mo:  d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
+  }
+}
+
 function RightRail() {
   const { profile } = useAuth()
-  const { decisions, loading } = useBoardDecisions(5) as { decisions: any[] | null; loading: boolean }
+  const { decisions } = useBoardDecisions(5) as { decisions: any[] | null; loading: boolean }
   const { resident, balance, status: dues } = useMyResident() as { resident: any; balance: number | null; status: 'paid' | 'due' | 'late' }
-  const unitLabel = resident?.address || (profile?.unit_number ? `Unit ${profile.unit_number}` : '—')
+  const unitLabel = resident?.address || (profile?.unit_number ? `Unit ${profile.unit_number}` : 'Unit —')
+
+  // Build UP NEXT — prefer real decisions, fall back to demo
+  const items = (decisions && decisions.length > 0)
+    ? decisions.slice(0, 4).map((d: any, i: number) => ({
+        id: d.id ?? `r${i}`,
+        date: d.decided_on || new Date().toISOString().slice(0, 10),
+        title: d.title,
+        vendor: d.vendor,
+        amount: d.amount,
+        tag: d.status === 'approved' ? 'renewed' : d.status === 'paid' ? 'hosted' : 'pending',
+      }))
+    : DEMO_UPNEXT
 
   return (
     <aside className="rail-right">
-      <div className="feed-head">
-        <div className="feed-title">This Week on the Board</div>
-        <div className="see-all">See all</div>
+      <div className="up-head">
+        <div className="up-title">Up next</div>
+        <Link href="/app/board" className="up-see-all">View all</Link>
       </div>
 
-      <div className="feed">
-        {decisions === null && !loading && <DemoFeed />}
-        {decisions !== null && decisions.length === 0 && (
-          <div style={{ fontSize: 13, color: 'var(--text-dim)', padding: '6px 0' }}>
-            No board activity logged yet.
-          </div>
-        )}
-        {decisions !== null && decisions.map((d: any, i: number) => {
-          const meta = STATUS_META[d.status] || STATUS_META.discussion
+      <div className="up-list">
+        {items.map((it) => {
+          const { day, mo } = shortDate(it.date)
           return (
-            <FeedRow
-              key={d.id}
-              avatar={vendorInitials(d.vendor || d.title)}
-              v={i > 0 ? `v${i + 1}` : undefined}
-              text={<>
-                {d.title}
-                {d.vendor && <> · <span className="vendor">{d.vendor}</span></>}
-                {d.amount != null && <> · <span className="amt">{fmtAmt(d.amount)}</span></>}
-              </>}
-              meta={<>{relTime(d.decided_on)} <span className="dot">·</span> <span className={`status ${meta.cls}`}>{meta.label}</span></>}
-            />
+            <div key={it.id} className="up-row">
+              <div className="up-date">
+                <div className="up-date-day">{day}</div>
+                <div className="up-date-mo">{mo}</div>
+              </div>
+              <div className="up-body">
+                <div className="up-row-title">{it.title}</div>
+                <div className="up-row-meta">
+                  {it.vendor && <span className="up-vendor">{it.vendor}</span>}
+                  {it.amount != null && <>
+                    {it.vendor && <span className="up-dot">·</span>}
+                    <span className="up-amt">{fmtAmt(it.amount)}</span>
+                  </>}
+                </div>
+              </div>
+              <div className={`up-tag tag-${it.tag}`}>{UP_TAG_LABEL[it.tag] || it.tag}</div>
+            </div>
           )
         })}
       </div>
 
       <div className="household">
-        <div className="household-title">Your household</div>
+        <div className="household-title">Your residence</div>
         <div className="household-row">
           <span className="h-label">Unit</span>
-          <span className="h-val">{unitLabel}</span>
+          <span className="h-val unit">{unitLabel}</span>
         </div>
         <div className="household-divider"></div>
         <div className="household-row">
           <span className="h-label">What you owe</span>
-          <span className={`h-val ${balance ? 'due' : 'ok'}`}>
+          <span className={`h-val h-val-amount ${balance ? 'due' : 'ok'}`}>
             {balance === null ? '—' : fmtAmt(balance)}
           </span>
         </div>
         <div className="household-row">
+          <span className="h-label">Due</span>
+          <span className="h-val">{nextDueLabel()}</span>
+        </div>
+        <div className="household-row">
+          <span className="h-label">For</span>
+          <span className="h-val">{nextDueMonth()}</span>
+        </div>
+        <div className="household-row">
           <span className="h-label">Dues status</span>
-          <span className={`h-val ${dues === 'paid' ? 'ok' : 'due'}`}>
+          <span className={`h-val h-val-pill ${dues === 'paid' ? 'ok' : 'due'}`}>
             {resident ? DUES_LABEL[dues] : '—'}
           </span>
         </div>
+        <Link href="/app/pay" className="household-cta household-cta-dark">
+          Make a payment
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>
+          </svg>
+        </Link>
       </div>
     </aside>
   )

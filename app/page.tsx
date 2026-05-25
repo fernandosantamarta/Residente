@@ -840,7 +840,7 @@ export function InteriorSvg() {
           {/* hair */}
           <path d="M528 912 Q528 874 560 866 Q592 874 592 912 Q592 898 576 898 Q560 892 545 898 Q528 902 528 912" fill="#3A2A1A" {...inkStroke} />
           {/* headphone band over the top of the head */}
-          <path d="M535 893 Q560 868 585 893" fill="none" stroke={INK} strokeWidth="2.5" strokeLinecap="round" fill-opacity="0" />
+          <path d="M535 893 Q560 868 585 893" fill="none" stroke={INK} strokeWidth="2.5" strokeLinecap="round" />
           {/* ear cups */}
           <ellipse cx="532" cy="902" rx="6" ry="9" fill={INK} />
           <ellipse cx="588" cy="902" rx="6" ry="9" fill={INK} />

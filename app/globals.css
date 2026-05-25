@@ -103,16 +103,16 @@
    hand-drawn hero. Headlines get a soft serif so the dashboard reads
    "drawn", not "engineered". */
 [data-theme="sketch"] {
-  --bg: #F4EFE8;
-  --bg-elev: #FBF6EE;
+  --bg: #FFFFFF;
+  --bg-elev: #FFFFFF;
   --bg-card: #FFFFFF;
-  --text: #1F2233;
-  --text-dim: rgba(31,34,51,0.62);
-  --text-faint: rgba(31,34,51,0.42);
-  --border: rgba(31,34,51,0.14);
-  --border-hover: rgba(31,34,51,0.28);
-  --hover: rgba(31,34,51,0.04);
-  --track: rgba(31,34,51,0.08);
+  --text: #0A2440;
+  --text-dim: #0A2440;
+  --text-faint: #0A2440;
+  --border: rgba(15, 28, 46, 0.14);
+  --border-hover: rgba(15, 28, 46, 0.28);
+  --hover: rgba(15, 28, 46, 0.04);
+  --track: rgba(15, 28, 46, 0.08);
   --pink: #C76F45;
   --magenta: #A8552F;
   --violet: #C76F45;
@@ -275,7 +275,7 @@ button { font-family: inherit; }
 /* ============ COCKPIT LAYOUT ============ */
 .cockpit {
   display: grid;
-  grid-template-columns: 240px 1fr 340px;
+  grid-template-columns: 220px 1fr 340px;
   min-height: 100vh;
   width: 100%;
 }
@@ -395,6 +395,36 @@ button { font-family: inherit; }
 
 /* ============ CENTER ============ */
 .center { padding: 32px 40px 48px; position: relative; overflow: hidden; }
+
+/* Sunset banner backdrop — sits behind everything in the main column,
+   spans the full content width, extends well past the hero into the
+   middle of the page, and dissolves into pure white via a stacked
+   bottom-fade gradient on top of the image. */
+[data-theme="sketch"] .center::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1400px;
+  background-image:
+    linear-gradient(180deg,
+      rgba(255, 255, 255, 0) 0%,
+      rgba(255, 255, 255, 0) 22%,
+      rgba(255, 255, 255, 0.20) 32%,
+      rgba(255, 255, 255, 0.55) 42%,
+      rgba(255, 255, 255, 0.85) 52%,
+      rgba(255, 255, 255, 0.98) 60%,
+      #FFFFFF 70%,
+      #FFFFFF 100%),
+    url('/hero-banner.png?v=3');
+  background-repeat: no-repeat, no-repeat;
+  background-position: top center, top center;
+  background-size: 100% 100%, 100% auto;
+  pointer-events: none;
+  z-index: 0;
+}
+[data-theme="sketch"] .center > * { position: relative; z-index: 1; }
 
 .topbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 36px; }
 
@@ -2050,3 +2080,1372 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 }
 .inbox-load-more:hover:not(:disabled) { color: var(--text); border-color: var(--border-hover); }
 .inbox-load-more:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ============================================================
+   IMAGE-MATCHED OVERRIDES (sketch theme = the "Sunset Lakes" UI)
+   Dark navy sidebar + dark navy "Your residence" card with an
+   orange Make-a-payment CTA + tighter hero row with a spending
+   trend mini chart + 4-card "Your money" row. Everything below
+   is scoped to [data-theme="sketch"] so the other themes are
+   unaffected. The sidebar and right rail are owned by the
+   layout, so these styles automatically apply to every tab.
+   ============================================================ */
+
+[data-theme="sketch"] {
+  --sidebar-bg: #FDF7F5;
+  --sidebar-bg-elev: #F8EFEA;
+  --sidebar-text: #1F2233;
+  --sidebar-text-dim: rgba(31, 34, 51, 0.62);
+  --sidebar-text-faint: rgba(31, 34, 51, 0.40);
+  --sidebar-border: rgba(31, 34, 51, 0.08);
+  --sidebar-hover: rgba(31, 34, 51, 0.04);
+  --cta: #E8743E;
+  --cta-hover: #D9632D;
+}
+
+/* ---- LEFT RAIL — dark navy, light text, orange active state ---- */
+[data-theme="sketch"] .rail-left {
+  background: var(--sidebar-bg);
+  border-right: 1px solid var(--sidebar-border);
+  color: var(--sidebar-text);
+  font-family: 'Inter', system-ui, sans-serif;
+}
+[data-theme="sketch"] .rail-left .brand-sub {
+  font-size: 9px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--sidebar-text-faint);
+  font-weight: 600;
+  margin-top: 2px;
+  padding-left: 32px;
+}
+[data-theme="sketch"] .brand { gap: 6px; margin-bottom: 40px; }
+[data-theme="sketch"] .brand-word {
+  color: var(--sidebar-text);
+  font-weight: 700;
+  font-size: 24px;
+  letter-spacing: -0.4px;
+}
+[data-theme="sketch"] .brand-logo {
+  width: 42px; height: 42px; display: block; flex-shrink: 0;
+  background: transparent;
+  filter: none;
+  image-rendering: -webkit-optimize-contrast;
+}
+[data-theme="sketch"] .rail-left .nav-item { color: #0A2440; font-weight: 500; }
+[data-theme="sketch"] .rail-left .nav-item:hover {
+  color: var(--sidebar-text); background: var(--sidebar-hover);
+}
+[data-theme="sketch"] .rail-left .nav-item.active {
+  background-color: #E14909;
+  background-image:
+    radial-gradient(circle at 85% -10%, rgba(255, 220, 190, 0.22), transparent 55%),
+    radial-gradient(circle at 0% 110%, rgba(0, 0, 0, 0.10), transparent 60%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='180' viewBox='0 0 220 180'><g fill='none' stroke='%23FFFFFF' stroke-width='1.1' stroke-linecap='round' opacity='0.06'><path d='M-20 50 Q 55 10 110 50 T 240 50'/><path d='M-20 80 Q 55 40 110 80 T 240 80'/><path d='M-20 110 Q 55 70 110 110 T 240 110'/><path d='M-20 140 Q 55 100 110 140 T 240 140'/><path d='M-20 170 Q 55 130 110 170 T 240 170'/></g></svg>");
+  background-repeat: no-repeat, no-repeat, repeat;
+  background-size: auto, auto, 220px 180px;
+  color: #FFFFFF;
+  box-shadow: none;
+}
+[data-theme="sketch"] .rail-left .nav-item.active .ic { opacity: 1; }
+[data-theme="sketch"] .rail-left .pulse-dot { background: var(--cta); }
+[data-theme="sketch"] .rail-footer {
+  border-top: 1px solid var(--sidebar-border);
+}
+[data-theme="sketch"] .user-block:hover { background: var(--sidebar-hover); }
+[data-theme="sketch"] .user-meta .label { color: var(--sidebar-text-faint); }
+[data-theme="sketch"] .user-meta .val { color: var(--sidebar-text); }
+[data-theme="sketch"] .user-avatar {
+  background: var(--cta); color: #FFFFFF;
+}
+[data-theme="sketch"] .user-block-chevron { color: var(--sidebar-text-faint); }
+[data-theme="sketch"] .logout-btn { color: var(--sidebar-text-faint); }
+[data-theme="sketch"] .logout-btn:hover {
+  color: var(--cta); background: rgba(232, 116, 62, 0.10);
+}
+
+/* ---- TOPBAR — pill kicker + small bell ---- */
+[data-theme="sketch"] .kicker {
+  background: rgba(31, 42, 58, 0.06);
+  border: 1px solid rgba(31, 42, 58, 0.10);
+  padding: 6px 12px;
+  border-radius: 999px;
+  letter-spacing: 1.4px;
+  font-size: 10.5px;
+  color: var(--text-dim);
+}
+[data-theme="sketch"] .kicker-logo {
+  width: 14px; height: 14px; display: block; flex-shrink: 0;
+}
+[data-theme="sketch"] .bell {
+  background: #FFFFFF;
+  border: 1px solid rgba(31, 42, 58, 0.10);
+  border-radius: 10px;
+}
+[data-theme="sketch"] .bell-badge {
+  background: var(--cta);
+  border-color: var(--bg);
+}
+
+/* ---- HERO — three-column row (rings · money · trend) ---- */
+[data-theme="sketch"] .headline {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 500; font-style: italic;
+  font-size: 64px; letter-spacing: -1.4px;
+  color: var(--text);
+  background-image: none;            /* drop the wavy underline on this page */
+  padding-bottom: 0;
+}
+[data-theme="sketch"] .sub {
+  display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  color: var(--text-dim);
+}
+[data-theme="sketch"] .sub-ic {
+  width: 14px; height: 14px;
+  color: var(--text-faint);
+  margin-right: 2px;
+}
+[data-theme="sketch"] .sub .bullet { margin: 0 6px; }
+
+[data-theme="sketch"] .hero-row {
+  grid-template-columns: 280px 1fr 1.05fr;
+  gap: 28px;
+  align-items: stretch;
+  margin-bottom: 40px;
+}
+[data-theme="sketch"] .rings-wrap { width: 280px; height: 280px; }
+[data-theme="sketch"] .rings-wrap svg { width: 280px !important; height: 280px !important; }
+[data-theme="sketch"] .ring-center-label .pct {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 56px; font-weight: 600;
+  color: var(--cta);
+  letter-spacing: -1.5px;
+}
+[data-theme="sketch"] .ring-center-label .lbl {
+  color: var(--text-faint);
+  letter-spacing: 1.8px;
+}
+[data-theme="sketch"] .money {
+  display: flex; flex-direction: column; gap: 10px; justify-content: center;
+}
+[data-theme="sketch"] .money .label {
+  font-size: 10px; letter-spacing: 1.8px;
+  color: var(--text-faint);
+}
+[data-theme="sketch"] .money .amount {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 56px; font-weight: 600; letter-spacing: -2px;
+  color: var(--text);
+}
+[data-theme="sketch"] .money .of { font-size: 13px; color: var(--text-dim); }
+
+[data-theme="sketch"] .pace-chip {
+  background: var(--cta);
+  border: none;
+  color: #FFFFFF;
+  padding: 9px 18px;
+  border-radius: 999px;
+  letter-spacing: 1.2px;
+  font-size: 11px;
+}
+[data-theme="sketch"] .pace-chip.over {
+  background: #C76F45;
+}
+[data-theme="sketch"] .pace-chip .warn-ic {
+  background: #FFFFFF; color: var(--cta);
+}
+[data-theme="sketch"] .pace-chip::before { display: none; }  /* drop sketch ink outline */
+
+[data-theme="sketch"] .pace-trio {
+  display: flex; gap: 28px;
+  margin-top: 14px; padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+[data-theme="sketch"] .pace-lbl {
+  font-size: 10px; letter-spacing: 1.6px; text-transform: uppercase;
+  color: var(--text-faint); margin-bottom: 4px;
+}
+[data-theme="sketch"] .pace-num {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 22px; font-weight: 600; letter-spacing: -0.4px;
+  color: var(--text-dim);
+}
+[data-theme="sketch"] .pace-num.accent { color: var(--cta); }
+[data-theme="sketch"] .pace-num.warn { color: #C76F45; }
+
+/* ---- SPENDING TREND mini chart card ---- */
+[data-theme="sketch"] .trend-card {
+  background: var(--bg-card);
+  border: 1px solid rgba(31, 34, 51, 0.10);
+  border-radius: 18px;
+  padding: 20px 22px 12px;
+  display: flex; flex-direction: column;
+  box-shadow: 0 8px 28px -22px rgba(31, 34, 51, 0.30);
+}
+[data-theme="sketch"] .trend-head {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 10px;
+}
+[data-theme="sketch"] .trend-title {
+  font-size: 11px; font-weight: 600;
+  letter-spacing: 1.6px; text-transform: uppercase;
+  color: var(--text-dim);
+}
+[data-theme="sketch"] .trend-dd {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(31, 42, 58, 0.06);
+  border: 1px solid rgba(31, 42, 58, 0.10);
+  padding: 5px 10px; border-radius: 999px;
+  font-size: 11px; color: var(--text-dim);
+  cursor: pointer;
+}
+[data-theme="sketch"] .trend-dd svg { width: 12px; height: 12px; }
+[data-theme="sketch"] .trend-svg { width: 100%; height: 200px; display: block; }
+
+/* ---- "YOUR MONEY" 4-card row ---- */
+[data-theme="sketch"] .ym-section { margin-top: 8px; }
+[data-theme="sketch"] .ym-head {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  margin-bottom: 16px; gap: 16px;
+}
+[data-theme="sketch"] .ym-title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 500; font-style: italic;
+  font-size: 28px; letter-spacing: -0.5px;
+  color: var(--text);
+  background-image: none;
+  padding-bottom: 0;
+}
+[data-theme="sketch"] .ym-sub {
+  font-size: 13px; color: var(--text-dim); margin-top: 2px;
+}
+[data-theme="sketch"] .ym-unit {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-size: 12px; color: var(--text-dim);
+}
+[data-theme="sketch"] .ym-unit-amt { font-weight: 600; color: var(--text); }
+
+[data-theme="sketch"] .ym-cards {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+}
+[data-theme="sketch"] .ym-card {
+  background: var(--bg-card);
+  border: 1px solid rgba(31, 34, 51, 0.10);
+  border-radius: 18px;
+  padding: 18px 18px 16px;
+  display: flex; flex-direction: column; gap: 6px;
+  position: relative;
+  box-shadow: 0 8px 28px -22px rgba(31, 34, 51, 0.30);
+}
+[data-theme="sketch"] .ym-card.warn {
+  border-color: rgba(232, 116, 62, 0.35);
+  background: rgba(232, 116, 62, 0.04);
+}
+[data-theme="sketch"] .ym-icon {
+  width: 36px; height: 36px; border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(232, 116, 62, 0.12);
+  color: var(--cta);
+  margin-bottom: 6px;
+}
+[data-theme="sketch"] .ym-icon svg { width: 18px; height: 18px; }
+[data-theme="sketch"] .ym-card-label {
+  font-size: 11px; letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--text-faint); font-weight: 600;
+}
+[data-theme="sketch"] .ym-card-val {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 28px; font-weight: 600; letter-spacing: -0.6px;
+  color: var(--text);
+  line-height: 1.1;
+}
+[data-theme="sketch"] .ym-card.warn .ym-card-val { color: var(--cta); }
+[data-theme="sketch"] .ym-card-cap {
+  font-size: 12px; color: var(--text-dim);
+}
+
+[data-theme="sketch"] .ym-owe {
+  margin-top: 16px;
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 18px; border-radius: 14px;
+  background: rgba(232, 116, 62, 0.08);
+  border: 1px solid rgba(232, 116, 62, 0.30);
+  color: var(--text); font-size: 14px;
+}
+[data-theme="sketch"] .ym-owe-tag {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px; padding: 4px 10px; border-radius: 999px;
+  color: var(--cta); border: 1px solid currentColor;
+}
+
+/* ---- RIGHT RAIL — household → "Your residence" dark navy card ---- */
+[data-theme="sketch"] .rail-right {
+  background: transparent;
+  border-left: 1px solid var(--border);
+}
+[data-theme="sketch"] .feed-title {
+  color: var(--text-dim);
+  letter-spacing: 1.6px;
+}
+[data-theme="sketch"] .see-all { color: var(--cta); }
+[data-theme="sketch"] .vendor-avatar { background: var(--cta); color: #FFFFFF; }
+[data-theme="sketch"] .vendor-avatar.v2 { background: #B05A30; }
+[data-theme="sketch"] .vendor-avatar.v3 { background: #D88660; }
+[data-theme="sketch"] .vendor-avatar.v4 { background: #8E4628; }
+[data-theme="sketch"] .vendor-avatar.v5 { background: #E8743E; }
+[data-theme="sketch"] .feed-text .vendor { color: var(--cta); }
+[data-theme="sketch"] .feed-row { border-bottom-color: rgba(31, 34, 51, 0.08); }
+
+[data-theme="sketch"] .household {
+  background-color: #E14909;
+  /* One large fingerprint whorl centered with a slight bottom-right lean,
+     plus a top warm glow + bottom shadow for depth. */
+  background-image:
+    radial-gradient(circle at 85% -10%, rgba(255, 220, 190, 0.22), transparent 55%),
+    radial-gradient(circle at 0% 110%, rgba(0, 0, 0, 0.10), transparent 60%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='180' viewBox='0 0 220 180'><g fill='none' stroke='%23FFFFFF' stroke-width='1.1' stroke-linecap='round' opacity='0.06'><path d='M-20 50 Q 55 10 110 50 T 240 50'/><path d='M-20 80 Q 55 40 110 80 T 240 80'/><path d='M-20 110 Q 55 70 110 110 T 240 110'/><path d='M-20 140 Q 55 100 110 140 T 240 140'/><path d='M-20 170 Q 55 130 110 170 T 240 170'/></g></svg>");
+  background-repeat: no-repeat, no-repeat, repeat;
+  background-size: auto, auto, 220px 180px;
+  border: 1px solid rgba(255, 180, 130, 0.55);
+  border-radius: 20px;
+  padding: 28px 24px 24px;
+  gap: 22px;
+  min-height: 340px;
+  color: #FFFFFF;
+  /* Glow on all sides with a heavier drop on the bottom for a 3D lift */
+  box-shadow:
+    0 0 0 1px rgba(255, 175, 120, 0.35),
+    0 0 22px 2px rgba(225, 73, 9, 0.40),
+    0 0 60px 8px rgba(225, 73, 9, 0.22),
+    0 22px 36px -10px rgba(160, 50, 5, 0.55),
+    0 36px 64px -16px rgba(225, 73, 9, 0.45),
+    inset 0 1px 0 rgba(255, 220, 190, 0.30);
+}
+[data-theme="sketch"] .household-title {
+  color: rgba(255, 245, 235, 0.78);
+  letter-spacing: 1.8px;
+}
+[data-theme="sketch"] .h-label {
+  color: rgba(255, 245, 235, 0.85);
+  font-size: 13px;
+}
+[data-theme="sketch"] .h-val {
+  color: #FFFFFF;
+  font-size: 16px;
+}
+[data-theme="sketch"] .h-val.unit { font-weight: 600; }
+[data-theme="sketch"] .h-val.ok { color: #FFFFFF; }
+[data-theme="sketch"] .h-val.due { color: #FFFFFF; }
+
+[data-theme="sketch"] .h-val-amount {
+  font-size: 24px;
+  line-height: 1;
+  font-weight: 700;
+  letter-spacing: -0.6px;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-theme="sketch"] .h-val-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 245, 235, 0.55);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.4px;
+  text-transform: uppercase;
+}
+
+[data-theme="sketch"] .household-divider {
+  background: rgba(255, 245, 235, 0.20);
+}
+
+[data-theme="sketch"] .household-cta {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  margin-top: auto;
+  padding: 14px 18px;
+  background: var(--cta); color: #FFFFFF;
+  border-radius: 12px;
+  font-size: 14px; font-weight: 600; letter-spacing: 0.2px;
+  text-decoration: none;
+  transition: background 0.15s ease, transform 0.1s ease;
+  box-shadow: 0 6px 18px -10px rgba(232, 116, 62, 0.9);
+}
+[data-theme="sketch"] .household-cta:hover {
+  background: var(--cta-hover);
+  transform: translateY(-1px);
+}
+[data-theme="sketch"] .household-cta svg { width: 16px; height: 16px; }
+
+/* ============================================================
+   SKETCH COCKPIT — Sunset Lakes dashboard (matches mockup 2.png)
+   Hero greeting + photo / Financial Overview + Quick Actions /
+   At-a-glance / Recent Activity / dark navy household card.
+   ============================================================ */
+
+/* ---- topbar kicker text — community name pill ---- */
+[data-theme="sketch"] .kicker-text {
+  font-size: 12.5px;
+  font-weight: 800;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: #0A2440;
+}
+
+/* Live indicator — pulsing red dot to the left of the kicker text */
+[data-theme="sketch"] .live-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #FF3B30;
+  box-shadow:
+    0 0 0 0 rgba(255, 59, 48, 0.55),
+    0 0 8px 1px rgba(255, 59, 48, 0.55);
+  animation: live-pulse 1.8s ease-out infinite;
+  flex-shrink: 0;
+}
+@keyframes live-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0.55), 0 0 8px 1px rgba(255, 59, 48, 0.65); }
+  70%  { box-shadow: 0 0 0 10px rgba(255, 59, 48, 0), 0 0 8px 1px rgba(255, 59, 48, 0.35); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 59, 48, 0), 0 0 8px 1px rgba(255, 59, 48, 0.55); }
+}
+
+/* Date + weather block in the left rail footer, just above the user profile chip */
+[data-theme="sketch"] .rail-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  background: rgba(10, 36, 64, 0.05);
+  border: 1px solid rgba(10, 36, 64, 0.10);
+  border-radius: 12px;
+  font-size: 13px;
+  color: #0A2440;
+  font-weight: 700;
+  letter-spacing: 0.1px;
+}
+[data-theme="sketch"] .rail-meta-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+[data-theme="sketch"] .rail-meta-item svg {
+  width: 15px; height: 15px;
+  flex-shrink: 0;
+  color: #E14909;
+  stroke-width: 2;
+}
+
+/* Date + weather strip in the topbar, just left of the bell */
+[data-theme="sketch"] .topbar-meta {
+  display: flex; align-items: center; gap: 12px;
+  font-size: 13.5px;
+  color: #0A2440;
+  font-weight: 800;
+  letter-spacing: 0.15px;
+  margin-right: 6px;
+}
+[data-theme="sketch"] .topbar-meta-item {
+  display: inline-flex; align-items: center; gap: 7px;
+  white-space: nowrap;
+}
+[data-theme="sketch"] .topbar-meta-item svg {
+  width: 15px; height: 15px;
+  flex-shrink: 0;
+  color: #0A2440;
+  stroke-width: 2.2;
+}
+[data-theme="sketch"] .topbar-meta-dot { color: rgba(10, 36, 64, 0.55); font-weight: 700; }
+
+/* Bell — white circle with navy icon */
+[data-theme="sketch"] .bell {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: #FFFFFF;
+  border: 1px solid rgba(15, 28, 46, 0.14);
+  color: #0A2440;
+  cursor: pointer;
+  padding: 0;
+}
+[data-theme="sketch"] .bell svg { color: #0A2440; width: 17px; height: 17px; }
+[data-theme="sketch"] .bell:hover { background: #F4F6F9; }
+[data-theme="sketch"] .bell-badge {
+  background: #FF3B30;
+  color: #FFFFFF;
+  border: 2px solid #FFFFFF;
+}
+
+/* Avatar — circular profile icon */
+[data-theme="sketch"] .topbar-avatar {
+  position: relative;
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: #0A2440;
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+  color: #FFFFFF;
+  cursor: pointer;
+  padding: 0;
+}
+[data-theme="sketch"] .topbar-avatar svg { width: 18px; height: 18px; color: #FFFFFF; }
+[data-theme="sketch"] .topbar-avatar:hover { background: #1B2C45; }
+
+/* ---- HERO — FULL-BLEED sunset photo with COLOR bleed-down ---- */
+/* Photo content sits in the TOP portion. Below it, a peach/cream fade
+   washes the photo's warmth downward behind the dash-row1 cards.
+   dash-row1 uses margin-top: -160px to overlap into the faded peach area
+   (not the photo content), so the sunset/palms stay visible up top. */
+[data-theme="sketch"] .hero-bleed {
+  position: relative;
+  width: 100%;
+  height: 220px;
+  margin-bottom: 0;
+  overflow: visible;
+  background: transparent;
+}
+[data-theme="sketch"] .hero-bleed-img { display: none; }
+[data-theme="sketch"] .hero-bleed-fade { display: none; }
+[data-theme="sketch"] .hero-bleed-content {
+  position: relative;
+  z-index: 2;
+  display: flex; flex-direction: column; justify-content: flex-start;
+  gap: 12px;
+  padding: 16px 40px 0;
+  max-width: 520px;
+  height: 220px; /* aligns vertically with the photo block above */
+}
+[data-theme="sketch"] .hero-title {
+  font-family: 'Playfair Display', Georgia, serif;
+  font-size: 52px;
+  line-height: 1.02;
+  letter-spacing: -1.4px;
+  font-weight: 700;
+  color: #0A2440;
+  margin: 0;
+  white-space: nowrap;
+}
+[data-theme="sketch"] .hero-title-em {
+  display: inline-block;
+  position: relative;
+  font-style: normal;
+  font-weight: 700;
+  padding-bottom: 14px;
+}
+/* Hand-drawn orange swoosh underline beneath the name */
+[data-theme="sketch"] .hero-title-em::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: -4px;
+  bottom: 0;
+  height: 12px;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 300 14' preserveAspectRatio='none'><defs><linearGradient id='f' x1='0' x2='1' y1='0' y2='0'><stop offset='0%25' stop-color='%23E14909' stop-opacity='1'/><stop offset='70%25' stop-color='%23E14909' stop-opacity='1'/><stop offset='100%25' stop-color='%23E14909' stop-opacity='0'/></linearGradient></defs><path d='M2 10 Q 75 1 150 7 T 298 10' stroke='url(%23f)' stroke-width='3' fill='none' stroke-linecap='round'/></svg>");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  pointer-events: none;
+}
+[data-theme="sketch"] .hero-sub {
+  font-size: 15px;
+  font-weight: 600;
+  color: #0A2440;
+  max-width: 380px;
+}
+[data-theme="sketch"] .hero-chips {
+  display: flex; flex-wrap: nowrap; gap: 10px;
+  margin-top: 4px;
+  white-space: nowrap;
+}
+[data-theme="sketch"] .hero-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(15, 28, 46, 0.12);
+  color: #0A2440;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 2px 10px rgba(15, 28, 46, 0.10);
+}
+[data-theme="sketch"] .hero-chip-accent {
+  background: #03101C;
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #FFFFFF;
+  font-weight: 700;
+  box-shadow: 0 4px 14px rgba(3, 16, 28, 0.55);
+}
+[data-theme="sketch"] .chip-ic { width: 14px; height: 14px; }
+
+/* ---- HERO PHOTO CARD — real image, contained within center column ---- */
+/* Mockup ratio is roughly 2.5:1 (wide and shallow) */
+[data-theme="sketch"] .hero-photo {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  min-height: 240px;
+  box-shadow: 0 22px 56px -28px rgba(31, 42, 58, 0.45);
+  background: #2A1810;
+}
+[data-theme="sketch"] .hero-photo::after {
+  /* Soft fade on the left edge so the photo blends into the cream bg */
+  content: '';
+  position: absolute; inset: 0;
+  pointer-events: none;
+  background: linear-gradient(90deg, rgba(244, 239, 232, 0.40) 0%, rgba(244, 239, 232, 0) 18%);
+}
+[data-theme="sketch"] .hero-photo-img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 240px;
+  object-fit: cover;
+  object-position: center;
+}
+
+/* ---- DASH ROW 1 — Financial Overview + Quick Actions ---- */
+/* Pull cards UP into the hero photo so the photo bleeds behind/around them */
+[data-theme="sketch"] .dash-row1 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) minmax(0, 0.85fr);
+  align-items: stretch;        /* both cards share the same bottom edge */
+  gap: 26px;
+  margin-top: 36px;
+  margin-bottom: 20px;
+  position: relative;
+  z-index: 3;
+}
+
+/* Financial Overview card — outer white shell, inset dark navy hero block */
+/* Whole card is now dark navy (no inner hero block). */
+[data-theme="sketch"] .fin-card {
+  background: #07101D;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 22px;
+  padding: 18px 22px 16px;
+  color: #FFFFFF;
+  box-shadow: 0 18px 40px -22px rgba(7, 16, 29, 0.65);
+  display: flex; flex-direction: column;
+  justify-content: space-between;   /* distribute head / main / foot evenly */
+  gap: 12px;
+}
+[data-theme="sketch"] .fin-head {
+  display: flex; align-items: center; justify-content: space-between;
+}
+[data-theme="sketch"] .fin-eyebrow {
+  font-size: 14px;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: #FFFFFF;
+  font-weight: 700;
+}
+
+/* Date + weather strip on the page, just above the Financial Overview card.
+   Left-padded so the calendar icon lines up with the home icon inside
+   the "166 homes" chip (40px hero-content offset + 14px chip padding). */
+[data-theme="sketch"] .fin-meta {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12.5px;
+  color: #0A2440;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  margin-top: 12px;
+  margin-bottom: 10px;
+  padding-left: 54px;
+}
+[data-theme="sketch"] .fin-meta-item {
+  display: inline-flex; align-items: center; gap: 6px;
+}
+[data-theme="sketch"] .fin-meta-item .chip-ic { width: 14px; height: 14px; color: #0A2440; }
+[data-theme="sketch"] .fin-meta-dot { color: rgba(15, 28, 46, 0.40); }
+
+[data-theme="sketch"] .fin-period {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 12px; font-weight: 500;
+  cursor: pointer;
+}
+[data-theme="sketch"] .fin-period svg { width: 11px; height: 11px; }
+
+/* Main row: left column (numbers + progress) | right column (chart) */
+[data-theme="sketch"] .fin-main {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.85fr) 1.4fr;
+  gap: 24px;
+  align-items: stretch;
+}
+[data-theme="sketch"] .fin-left {
+  display: flex; flex-direction: column;
+  justify-content: space-between;
+  padding: 4px 0 6px;
+}
+[data-theme="sketch"] .fin-label {
+  font-size: 12px; color: rgba(255,255,255,0.62);
+  font-weight: 500;
+}
+[data-theme="sketch"] .fin-amount {
+  font-size: 44px; font-weight: 700;
+  letter-spacing: -1.4px;
+  color: #FFFFFF;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  margin: 10px 0 4px;
+}
+[data-theme="sketch"] .fin-of {
+  font-size: 13px;
+  color: rgba(255,255,255,0.62);
+  margin-top: 4px;
+}
+[data-theme="sketch"] .fin-progress {
+  display: flex; align-items: center; gap: 12px;
+  margin-top: 14px;
+}
+[data-theme="sketch"] .fin-progress-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.10);
+  overflow: hidden;
+}
+[data-theme="sketch"] .fin-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #EB5507 0%, #FF8B47 100%);
+  border-radius: 999px;
+  box-shadow: 0 0 12px rgba(235, 85, 7, 0.55);
+}
+[data-theme="sketch"] .fin-progress-pct {
+  font-size: 13px;
+  font-weight: 700;
+  color: #EB5507;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-theme="sketch"] .fin-right { min-width: 0; }
+[data-theme="sketch"] .fin-chart {
+  width: 100%;
+  height: 170px;
+  display: block;
+}
+
+/* Bottom row: View budget button on the left, 3 pace stats centered */
+[data-theme="sketch"] .fin-foot {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 16px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+}
+[data-theme="sketch"] .fin-foot .fin-view-btn { grid-column: 1; }
+[data-theme="sketch"] .fin-foot .fin-stats {
+  grid-column: 2;
+  justify-self: center;
+}
+[data-theme="sketch"] .fin-view-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #FFFFFF;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+[data-theme="sketch"] .fin-view-btn:hover { background: rgba(255, 255, 255, 0.14); }
+[data-theme="sketch"] .fin-view-btn svg { width: 12px; height: 12px; }
+[data-theme="sketch"] .fin-stats {
+  display: flex; align-items: center; gap: 44px;
+}
+[data-theme="sketch"] .fin-stat-label {
+  font-size: 10px; letter-spacing: 0.6px; text-transform: uppercase;
+  color: rgba(255,255,255,0.55); font-weight: 600;
+  margin-bottom: 2px;
+}
+[data-theme="sketch"] .fin-stat-value {
+  font-size: 18px; font-weight: 700;
+  letter-spacing: -0.3px;
+  color: rgba(255,255,255,0.92);
+  font-variant-numeric: tabular-nums;
+}
+[data-theme="sketch"] .fin-stat-value.accent { color: #EB5507; }
+[data-theme="sketch"] .fin-stat-value.warn   { color: #FFB58A; }
+
+/* Quick Actions card */
+[data-theme="sketch"] .qa-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  padding: 22px 18px 14px;
+  box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
+}
+[data-theme="sketch"] .qa-eyebrow {
+  font-size: 14px;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: #0A2440 !important;
+  font-weight: 700 !important;
+  font-weight: 600;
+  padding: 0 6px 12px;
+}
+[data-theme="sketch"] .qa-list { display: flex; flex-direction: column; }
+[data-theme="sketch"] .qa-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 9px 6px;
+  border-top: 1px solid var(--border);
+  text-decoration: none;
+  color: var(--text);
+  transition: background 0.12s ease;
+}
+[data-theme="sketch"] .qa-row:first-child { border-top: none; }
+[data-theme="sketch"] .qa-row:hover {
+  background: rgba(31, 34, 51, 0.03);
+}
+[data-theme="sketch"] .qa-icon {
+  width: 40px; height: 40px;
+  border-radius: 12px;
+  background: rgba(232, 116, 62, 0.10);
+  color: var(--cta);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+[data-theme="sketch"] .qa-icon svg { width: 20px; height: 20px; }
+[data-theme="sketch"] .qa-body { flex: 1; min-width: 0; }
+[data-theme="sketch"] .qa-title {
+  font-size: 14px; font-weight: 700;
+  color: #0A2440;
+  letter-spacing: -0.1px;
+}
+[data-theme="sketch"] .qa-sub {
+  font-size: 11px;
+  color: #0A2440;
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+[data-theme="sketch"] .qa-chev {
+  width: 16px; height: 16px;
+  color: var(--text-faint);
+  flex-shrink: 0;
+}
+
+/* ---- AT A GLANCE ---- */
+/* At-a-glance + Recent Activity row — two white cards side by side */
+[data-theme="sketch"] .dash-row2 {
+  display: grid;
+  grid-template-columns: minmax(0, 1.45fr) minmax(0, 1fr);
+  align-items: stretch;
+  gap: 26px;
+  margin-bottom: 24px;
+}
+[data-theme="sketch"] .glance-row {
+  background: var(--bg-card);
+  border: 1px solid rgba(15, 28, 46, 0.08);
+  border-radius: 22px;
+  padding: 20px 22px;
+  box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
+  display: flex; flex-direction: column;
+  gap: 16px;
+  margin-bottom: 0;
+}
+[data-theme="sketch"] .glance-row .glance-cards {
+  margin-top: auto;
+  margin-bottom: auto;
+}
+[data-theme="sketch"] .glance-head {
+  font-size: 14px;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: #0A2440 !important;
+  font-weight: 700;
+}
+[data-theme="sketch"] .glance-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  align-items: stretch;
+}
+[data-theme="sketch"] .glance-card {
+  background: transparent;
+  border: none;
+  padding: 0;
+  display: grid;
+  grid-template-rows: 52px 18px 28px 18px;   /* icon | label | value | caption — fixed rhythm */
+  row-gap: 10px;
+  align-items: start;
+  align-content: start;
+  justify-items: center;                       /* centered content */
+  text-align: center;
+  box-shadow: none;
+  min-width: 0;
+}
+[data-theme="sketch"] .glance-icon {
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 0;
+  flex-shrink: 0;
+  box-shadow: 0 6px 16px -8px rgba(15, 28, 46, 0.22);
+}
+[data-theme="sketch"] .glance-icon.tone-orange { background: rgba(225, 73, 9, 0.20);   color: #E14909; }
+[data-theme="sketch"] .glance-icon.tone-green  { background: rgba(22, 163, 74, 0.18);  color: #16A34A; }
+[data-theme="sketch"] .glance-icon.tone-navy   { background: rgba(15, 28, 46, 0.12);   color: #0A2440; }
+[data-theme="sketch"] .glance-icon.tone-purple { background: rgba(124, 58, 237, 0.18); color: #7C3AED; }
+[data-theme="sketch"] .glance-icon.tone-blue   { background: rgba(37, 99, 235, 0.18);  color: #2563EB; }
+[data-theme="sketch"] .glance-icon svg {
+  width: 24px; height: 24px;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: url(#sketch-wobble);
+}
+[data-theme="sketch"] .glance-label {
+  font-size: 12px; font-weight: 500;
+  color: #0A2440;
+  letter-spacing: 0.1px;
+  line-height: 18px;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+[data-theme="sketch"] .glance-value {
+  font-size: 22px; font-weight: 700;
+  letter-spacing: -0.6px;
+  color: #0A2440;
+  font-variant-numeric: tabular-nums;
+  line-height: 28px;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+[data-theme="sketch"] .glance-caption {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 18px;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+[data-theme="sketch"] .glance-caption.tone-orange { color: #E14909; }
+[data-theme="sketch"] .glance-caption.tone-green  { color: #16A34A; }
+[data-theme="sketch"] .glance-caption.tone-red    { color: #DC2626; }
+[data-theme="sketch"] .glance-caption.tone-muted  { color: #0A2440; font-weight: 500; }
+
+/* ---- RECENT ACTIVITY ---- */
+[data-theme="sketch"] .activity-card {
+  background: var(--bg-card);
+  border: 1px solid rgba(15, 28, 46, 0.08);
+  border-radius: 22px;
+  padding: 18px 22px 8px;
+  box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
+  margin-bottom: 0;
+}
+[data-theme="sketch"] .activity-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 8px;
+}
+[data-theme="sketch"] .activity-title {
+  font-size: 14px;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: #0A2440 !important;
+  font-weight: 700;
+}
+[data-theme="sketch"] .activity-see-all {
+  font-size: 13px; font-weight: 600;
+  color: var(--cta);
+  text-decoration: none;
+}
+[data-theme="sketch"] .activity-empty {
+  font-size: 13px; color: var(--text-dim);
+  padding: 12px 0;
+}
+[data-theme="sketch"] .activity-list { display: flex; flex-direction: column; }
+[data-theme="sketch"] .activity-row {
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid rgba(15, 28, 46, 0.06);
+}
+[data-theme="sketch"] .activity-row:first-of-type { border-top: none; }
+[data-theme="sketch"] .activity-icon {
+  width: 32px; height: 32px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+[data-theme="sketch"] .activity-icon svg { width: 15px; height: 15px; }
+[data-theme="sketch"] .activity-icon.tone-green  { background: rgba(34, 197, 94, 0.14);  color: #16A34A; }
+[data-theme="sketch"] .activity-icon.tone-orange { background: rgba(232, 116, 62, 0.14); color: #E14909; }
+[data-theme="sketch"] .activity-icon.tone-navy   { background: rgba(15, 28, 46, 0.08);   color: #0A2440; }
+[data-theme="sketch"] .activity-icon.tone-purple { background: rgba(139, 92, 246, 0.14); color: #7C3AED; }
+[data-theme="sketch"] .activity-body { min-width: 0; }
+[data-theme="sketch"] .activity-row-title {
+  font-size: 13.5px; font-weight: 600;
+  color: #0A2440;
+  letter-spacing: -0.1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+[data-theme="sketch"] .activity-row-sub {
+  font-size: 11.5px; color: #0A2440;
+  margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+[data-theme="sketch"] .activity-right {
+  display: flex; flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+[data-theme="sketch"] .activity-amount {
+  font-size: 13px; font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.1px;
+}
+[data-theme="sketch"] .activity-amount.tone-green  { color: #16A34A; }
+[data-theme="sketch"] .activity-amount.tone-orange { color: #E14909; }
+[data-theme="sketch"] .activity-amount.tone-navy   { color: #0A2440; }
+[data-theme="sketch"] .activity-amount.tone-purple { color: #7C3AED; }
+[data-theme="sketch"] .activity-date {
+  font-size: 11.5px;
+  color: #0A2440;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* ---- OWE BANNER ---- */
+[data-theme="sketch"] .owe-banner {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px;
+  border-radius: 14px;
+  background: rgba(232, 116, 62, 0.10);
+  border: 1px solid rgba(232, 116, 62, 0.30);
+  color: var(--text); font-size: 14px;
+  text-decoration: none;
+  margin-bottom: 24px;
+}
+[data-theme="sketch"] .owe-tag {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.5px; padding: 4px 10px; border-radius: 999px;
+  color: var(--cta); border: 1px solid currentColor;
+}
+
+/* ---- RIGHT RAIL — UP NEXT ---- */
+[data-theme="sketch"] .up-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+[data-theme="sketch"] .up-title {
+  font-size: 14px;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: #0A2440 !important;
+  font-weight: 700;
+}
+[data-theme="sketch"] .up-see-all {
+  font-size: 13px; font-weight: 600;
+  color: var(--cta);
+  text-decoration: none;
+}
+[data-theme="sketch"] .up-list { display: flex; flex-direction: column; gap: 12px; }
+[data-theme="sketch"] .up-row {
+  display: grid;
+  grid-template-columns: 48px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 12px 14px;
+}
+[data-theme="sketch"] .up-date {
+  width: 48px;
+  text-align: center;
+  background: rgba(232, 116, 62, 0.10);
+  color: var(--cta);
+  border-radius: 10px;
+  padding: 6px 0;
+}
+[data-theme="sketch"] .up-date-day {
+  font-size: 18px; font-weight: 700;
+  letter-spacing: -0.4px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+[data-theme="sketch"] .up-date-mo {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  margin-top: 2px;
+  opacity: 0.85;
+}
+[data-theme="sketch"] .up-body { min-width: 0; }
+[data-theme="sketch"] .up-row-title {
+  font-size: 13px; font-weight: 700;
+  color: #0A2440;
+  letter-spacing: -0.1px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+[data-theme="sketch"] .up-row-meta {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 11px;
+  color: #0A2440;
+  margin-top: 2px;
+}
+[data-theme="sketch"] .up-vendor { color: #0A2440; font-weight: 600; }
+[data-theme="sketch"] .up-dot { color: #0A2440; }
+[data-theme="sketch"] .up-amt { font-weight: 700; color: #0A2440; }
+[data-theme="sketch"] .up-tag {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  padding: 4px 9px;
+  border-radius: 999px;
+}
+[data-theme="sketch"] .tag-pending { color: var(--cta); background: rgba(232, 116, 62, 0.10); }
+[data-theme="sketch"] .tag-renewed { color: #2E7C50; background: rgba(40, 140, 80, 0.10); }
+[data-theme="sketch"] .tag-hosted  { color: #0A2440; background: rgba(15, 28, 46, 0.08); }
+
+/* ---- WHERE YOUR DUES GO — matches the other cockpit cards ---- */
+[data-theme="sketch"] .dues-section {
+  background: var(--bg-card);
+  border: 1px solid rgba(15, 28, 46, 0.08);
+  border-radius: 22px;
+  padding: 22px 24px 20px;
+  margin-top: 0;
+  margin-bottom: 24px;
+  box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
+}
+[data-theme="sketch"] .dues-head {
+  margin-bottom: 22px;
+}
+[data-theme="sketch"] .dues-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+[data-theme="sketch"] .dues-title {
+  font-family: inherit;
+  font-size: 14px;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: #0A2440;
+  margin: 0;
+  line-height: 1;
+}
+[data-theme="sketch"] .dues-tabs {
+  display: inline-flex;
+  background: rgba(15, 28, 46, 0.06);
+  border-radius: 999px;
+  padding: 4px;
+  gap: 2px;
+}
+[data-theme="sketch"] .dues-tab {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: #0A2440;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  padding: 7px 16px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+[data-theme="sketch"] .dues-tab:hover { color: #0A2440; }
+[data-theme="sketch"] .dues-tab.active {
+  background: #0A2440;
+  color: #FFFFFF;
+  box-shadow: 0 2px 6px rgba(15, 28, 46, 0.18);
+}
+[data-theme="sketch"] .dues-stat {
+  display: flex; flex-direction: row; align-items: center;
+  gap: 18px;
+  padding: 16px 18px;
+  background: rgba(232, 116, 62, 0.10);
+  border: 1px solid rgba(232, 116, 62, 0.22);
+  border-radius: 14px;
+  margin-bottom: 18px;
+}
+[data-theme="sketch"] .dues-stat-main {
+  flex: 1; min-width: 0;
+  display: flex; flex-direction: column; gap: 4px;
+}
+
+/* Circular rating indicator on the right of the stat box */
+[data-theme="sketch"] .rating-ring {
+  position: relative;
+  width: 88px;
+  flex-shrink: 0;
+  display: flex; flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+[data-theme="sketch"] .rating-ring-svg {
+  width: 80px; height: 80px;
+}
+[data-theme="sketch"] .rating-ring-num {
+  position: absolute;
+  top: 28px;
+  left: 0; right: 0;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.4px;
+  color: #E14909;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+[data-theme="sketch"] .rating-ring-label {
+  margin-top: 4px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: #0A2440;
+  text-align: center;
+  line-height: 1.2;
+}
+[data-theme="sketch"] .dues-stat-label {
+  font-size: 11px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: #0A2440;
+  font-weight: 600;
+}
+[data-theme="sketch"] .dues-stat-value {
+  font-size: 28px; font-weight: 700;
+  letter-spacing: -0.8px;
+  color: #0A2440;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+  margin-top: 4px;
+}
+[data-theme="sketch"] .dues-stat-meta {
+  font-size: 12px;
+  color: #0A2440;
+  font-weight: 500;
+  margin-top: 2px;
+}
+[data-theme="sketch"] .dues-updated {
+  font-size: 11px;
+  color: #0A2440;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  margin-top: 6px;
+}
+[data-theme="sketch"] .dues-breakdown {
+  display: flex; flex-direction: column;
+  gap: 12px;
+}
+[data-theme="sketch"] .dues-cat-row {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: 6px;
+  gap: 12px;
+}
+[data-theme="sketch"] .dues-cat-name {
+  font-size: 13px;
+  color: #0A2440;
+  font-weight: 600;
+}
+[data-theme="sketch"] .dues-cat-meta {
+  display: inline-flex; align-items: center; gap: 10px;
+  flex-shrink: 0;
+}
+[data-theme="sketch"] .dues-cat-amt {
+  font-size: 13px;
+  color: #0A2440;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Trend pill — small up/down/flat indicator next to the dollar amount */
+[data-theme="sketch"] .trend-chip {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 11px; font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.2px;
+  min-width: 50px;
+  justify-content: center;
+}
+[data-theme="sketch"] .trend-chip svg { width: 10px; height: 10px; flex-shrink: 0; }
+[data-theme="sketch"] .trend-chip.trend-up   { background: rgba(220, 38, 38, 0.10); color: #DC2626; }
+[data-theme="sketch"] .trend-chip.trend-down { background: rgba(22, 163, 74, 0.10); color: #16A34A; }
+[data-theme="sketch"] .trend-chip.trend-flat { background: rgba(15, 28, 46, 0.06); color: #0A2440; }
+[data-theme="sketch"] .dues-bar {
+  height: 6px;
+  background: rgba(15, 28, 46, 0.06);
+  border-radius: 999px;
+  overflow: hidden;
+}
+[data-theme="sketch"] .dues-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #E14909, #FF8B47);
+  border-radius: 999px;
+}
+
+@media (max-width: 900px) {
+  [data-theme="sketch"] .dues-grid { grid-template-columns: 1fr; }
+  [data-theme="sketch"] .dues-title { font-size: 30px; }
+}
+
+/* ---- HOUSEHOLD CTA — dark navy button on orange card ---- */
+[data-theme="sketch"] .household-cta-dark {
+  background: #0B1832;
+  color: #FFFFFF;
+  box-shadow: 0 8px 20px -10px rgba(0, 0, 0, 0.55);
+}
+[data-theme="sketch"] .household-cta-dark:hover {
+  background: #050B1A;
+}
+
+/* ---- RESPONSIVE ---- */
+@media (max-width: 1199px) {
+  [data-theme="sketch"] .hero-grid {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  [data-theme="sketch"] .hero-photo { min-height: 200px; }
+  [data-theme="sketch"] .dash-row1 { grid-template-columns: 1fr; }
+  [data-theme="sketch"] .glance-cards { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 767px) {
+  [data-theme="sketch"] .hero-title { font-size: 36px; letter-spacing: -0.8px; }
+  [data-theme="sketch"] .fin-amount { font-size: 34px; letter-spacing: -1px; }
+  [data-theme="sketch"] .glance-cards { grid-template-columns: 1fr 1fr; gap: 10px; }
+  [data-theme="sketch"] .glance-card { padding: 14px; }
+  [data-theme="sketch"] .activity-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  [data-theme="sketch"] .activity-cell-status { justify-self: start; }
+  [data-theme="sketch"] .fin-chart { height: 130px; }
+}
+
+/* ---- legacy classes from prior WIP (still rendered as no-ops if unused) ---- */
+/* .hero-row, .ym-cards, .pace-trio, .trend-* now unused — keep their old
+   rules in place above; they simply don't match anything in the new JSX. */
