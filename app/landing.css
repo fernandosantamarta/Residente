@@ -170,6 +170,12 @@ body:has(.landing-screen) { min-width: 0; }
      ~60vh of scroll where the interior reveal sits at full opacity
      before the pin exits. */
   height: 500vh;
+  /* overflow-anchor: none disables the browser's scroll-anchoring on the
+     pinned section. Otherwise, scrolling back UP into the cinematic from
+     below causes the browser to try to "anchor" the viewport to a child
+     of the pin, which fights the sticky positioning and produces visible
+     stutter while p updates frame-by-frame. */
+  overflow-anchor: none;
 }
 .ln-hero-pin.is-static {
   height: auto;
@@ -262,12 +268,18 @@ body:has(.landing-screen) { min-width: 0; }
 /* All sky overlays (sun, moon, plane) fade out as the cinematic scroll
    zoom begins — driven by --ambient-op on .ln-hero-stage. At p=0 the
    overlays are fully visible; by p≈0.15 they're gone, so they don't
-   float strangely above the zoomed scene. */
+   float strangely above the zoomed scene. No CSS transition here —
+   the value already changes once per scroll frame via React, and a
+   transition would fight that on every tick (especially when scrolling
+   back UP into the hero from below, where rapid scroll-rate changes
+   to --ambient-op pile up mid-transition and stutter). will-change
+   promotes each overlay to its own compositing layer so opacity
+   changes are GPU-cheap. */
 .ln-hero-sun,
 .ln-hero-moon,
 .ln-hero-plane {
   opacity: var(--ambient-op, 1);
-  transition: opacity 120ms linear;
+  will-change: opacity;
 }
 
 /* Daytime sun, upper-right corner of the hero stage. CSS overlay (outside
