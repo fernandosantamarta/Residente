@@ -306,9 +306,14 @@ function Hero() {
   const vbY = CY - vbH / 2
   const viewBox = `${vbX.toFixed(1)} ${vbY.toFixed(1)} ${vbW.toFixed(1)} ${vbH.toFixed(1)}`
 
-  // Interior crossfade — starts fading in once the door fills the frame.
+  // Interior crossfade — starts fading in once the door fills the frame
+  // and reaches full opacity at INTERIOR_FADE_END (0.85). From 0.85 → 1.0
+  // the interior LINGERS at full opacity, giving the user a longer beat
+  // to read the inside-the-home scene before the page scrolls past the
+  // pinned hero.
+  const INTERIOR_FADE_END = 0.85
   const interiorOpacity = enabled
-    ? Math.max(0, Math.min(1, (p - ZOOM_END) / (1 - ZOOM_END)))
+    ? Math.max(0, Math.min(1, (p - ZOOM_END) / (INTERIOR_FADE_END - ZOOM_END)))
     : 0
 
   // Ambient sky overlays (sun, moon, plane) fade out as the dolly-in

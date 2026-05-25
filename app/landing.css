@@ -165,7 +165,11 @@ body:has(.landing-screen) { min-width: 0; }
    one-screen hero for reduced-motion + narrow viewports. */
 .ln-hero-pin {
   position: relative;
-  height: 380vh;
+  /* 500vh (was 380vh) — 400vh of scroll runway through the cinematic.
+     Combined with interior fade ending at p=0.85 in page.tsx, that gives
+     ~60vh of scroll where the interior reveal sits at full opacity
+     before the pin exits. */
+  height: 500vh;
 }
 .ln-hero-pin.is-static {
   height: auto;
