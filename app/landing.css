@@ -207,21 +207,25 @@ body:has(.landing-screen) { min-width: 0; }
 .ln-hero-stage.is-scrolling .ln-hero-plane {
   opacity: 0 !important;
 }
-/* DIAGNOSTIC: kill every CSS animation inside the cinematic SVG entirely,
-   not just during scroll. If "still glitching" persists with zero
-   internal animations, the cause isn't animation churn — it's the
-   raw SVG repaint cost or a sticky-positioning artifact. Once we
-   know which it is we can bring the ambient animations back to the
-   wide-community view selectively. */
-.ln-zoom-scene *,
-.ln-zoom-interior *,
-.ln-zoom-scene *::before,
-.ln-zoom-scene *::after {
+/* Diagnostic confirmed the cause: when the cinematic SVG's internal
+   CSS animations (window glow, tree sway, characters walking, dog
+   bouncing, wheel spin, door pulse, smoke, flag wave) run during
+   scroll, each frame's repaint catches them mid-cycle and the
+   combined visual reads as glitchy.
+   Fix: disable them entirely during scroll, restore normally otherwise.
+   `animation: none` (not `play-state: paused`) — pausing left elements
+   at mid-cycle state which the browser still had to composite per
+   scroll repaint; setting animation to none flattens them to their
+   default keyframe and removes the per-frame work. When .is-scrolling
+   is removed 200ms after the last scroll event, animations re-attach
+   and play from frame 0 — visible jump only happens ONCE on
+   scroll-stop, not during the scroll motion itself. */
+.ln-hero-stage.is-scrolling .ln-zoom-scene *,
+.ln-hero-stage.is-scrolling .ln-zoom-interior *,
+.ln-hero-stage.is-scrolling .ln-zoom-scene *::before,
+.ln-hero-stage.is-scrolling .ln-zoom-scene *::after {
   animation: none !important;
 }
-/* Also kill the .is-scrolling pause rule — moot when animations are
-   already disabled, but keep this comment for future when we re-enable
-   animations and want them paused during scroll. */
 .ln-hero-pin.is-static .ln-hero-stage {
   position: relative;
   height: min(82vh, 760px);
