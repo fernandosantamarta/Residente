@@ -336,21 +336,14 @@ function Hero() {
     const tick = () => {
       raf = 0
       const delta = targetP - currentP
-      // Snap immediately on scroll-back (when the target is BEHIND
-      // current). Replaying the cinematic in fast-reverse looked like
-      // a stutter — much cleaner to jump to the target wide view and
-      // let the user pick up scrolling forward from there. Only the
-      // forward direction (zoom-in) eases.
-      if (delta < 0) {
+      // Only forward easing here. Backward scroll is handled in the
+      // scroll-settle timer in markScrolling() — the SVG stays frozen
+      // throughout the scroll-back motion and only updates once on
+      // scroll-stop. That's what kills the per-frame visual churn.
+      if (delta <= 0) return
+      if (delta < EPS) {
         currentP = targetP
         applyP(currentP)
-        return
-      }
-      if (Math.abs(delta) < EPS) {
-        if (currentP !== targetP) {
-          currentP = targetP
-          applyP(currentP)
-        }
         return
       }
       currentP += delta * LERP_RATE
@@ -358,13 +351,11 @@ function Hero() {
       raf = requestAnimationFrame(tick)
     }
 
-    // Pause all CSS animations inside the hero stage while the user is
-    // actively scrolling. The 78-child cinematic SVG has dozens of running
-    // CSS animations (window glow, tree sway, characters, UFO, plane) —
-    // each scroll-driven viewBox repaint forces every animated child to
-    // re-rasterize at its current animation frame, and on fast scroll
-    // that's enough work to drop frames. Pausing animations means the
-    // repaint only has to project static shapes against the new viewBox.
+    // Mark the stage as actively scrolling. The CSS rule hides every
+    // sky overlay (sun/moon/plane) while .is-scrolling is on, so they
+    // can't visibly flash during fast scroll-back. Cleared 200ms after
+    // the last scroll event, at which point a CSS transition fades the
+    // overlays back in based on var(--ambient-op).
     let scrollEndTimer: ReturnType<typeof setTimeout> | undefined
     const markScrolling = () => {
       const stage = stageRef.current
@@ -375,13 +366,24 @@ function Hero() {
       if (scrollEndTimer) clearTimeout(scrollEndTimer)
       scrollEndTimer = setTimeout(() => {
         stage.classList.remove('is-scrolling')
-      }, 160)
+        // After scroll settles, snap currentP to wherever the target
+        // actually is and apply that final state once. No frame-by-frame
+        // updates during the scroll itself — that's what caused the
+        // perceived flashing on fast scroll-back.
+        currentP = targetP
+        applyP(currentP)
+      }, 200)
     }
 
     const onScroll = () => {
       computeTarget()
       markScrolling()
-      if (!raf) raf = requestAnimationFrame(tick)
+      // Forward scroll (zooming in) eases via the lerp tick so the
+      // dolly-in plays smoothly. Backward scroll does NOT update during
+      // the scroll itself — the SVG stays frozen at its last state
+      // until the scroll-settle timer fires above. No intermediate
+      // frames = no flashing.
+      if (targetP > currentP && !raf) raf = requestAnimationFrame(tick)
     }
 
     // Initial state: read scroll, snap currentP to target (no fade-in).
