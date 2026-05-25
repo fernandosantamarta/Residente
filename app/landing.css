@@ -65,18 +65,11 @@ body:has(.landing-screen) { min-width: 0; }
   .landing-screen { scroll-behavior: auto; }
 }
 
-/* ============ NAV (sticky, glass on scroll) ============ */
+/* ============ NAV (scrolls away with the page) ============ */
 .ln-nav {
-  position: sticky;
-  top: 0;
+  position: relative;
   z-index: 50;
   padding: 18px var(--ln-side);
-  transition:
-    background 280ms var(--ln-ease),
-    backdrop-filter 280ms var(--ln-ease),
-    padding 280ms var(--ln-ease),
-    box-shadow 280ms var(--ln-ease),
-    border-color 280ms var(--ln-ease);
   border-bottom: 1px solid transparent;
 }
 .ln-nav.scrolled {
