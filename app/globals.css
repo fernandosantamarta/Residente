@@ -3455,6 +3455,88 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
   [data-theme="sketch"] .fin-chart { height: 130px; }
 }
 
+/* ============================================================
+   SIGN-IN CARD — same orange "Your residence" aesthetic
+   ============================================================ */
+
+/* The default sketch theme draws an inky wobble outline on .login-card;
+   suppress it so the orange card's soft glow reads cleanly. */
+[data-theme="sketch"] .login-card::before { content: none; }
+
+[data-theme="sketch"] .login-screen { background: #FFF5EE; }
+
+[data-theme="sketch"] .login-glow {
+  width: 820px; height: 820px;
+  background: radial-gradient(circle, rgba(225, 73, 9, 0.35), transparent 70%);
+  filter: blur(70px);
+}
+
+[data-theme="sketch"] .login-card {
+  background-color: #E14909;
+  background-image:
+    radial-gradient(circle at 85% -10%, rgba(255, 220, 190, 0.22), transparent 55%),
+    radial-gradient(circle at 0% 110%, rgba(0, 0, 0, 0.10), transparent 60%),
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='220' height='180' viewBox='0 0 220 180'><g fill='none' stroke='%23FFFFFF' stroke-width='1.1' stroke-linecap='round' opacity='0.06'><path d='M-20 50 Q 55 10 110 50 T 240 50'/><path d='M-20 80 Q 55 40 110 80 T 240 80'/><path d='M-20 110 Q 55 70 110 110 T 240 110'/><path d='M-20 140 Q 55 100 110 140 T 240 140'/><path d='M-20 170 Q 55 130 110 170 T 240 170'/></g></svg>");
+  background-repeat: no-repeat, no-repeat, repeat;
+  background-size: auto, auto, 220px 180px;
+  border: 1px solid rgba(255, 180, 130, 0.55);
+  border-radius: 22px;
+  color: #FFFFFF;
+  box-shadow:
+    0 0 0 1px rgba(255, 175, 120, 0.35),
+    0 0 22px 2px rgba(225, 73, 9, 0.40),
+    0 0 60px 8px rgba(225, 73, 9, 0.22),
+    0 22px 36px -10px rgba(160, 50, 5, 0.55),
+    0 36px 64px -16px rgba(225, 73, 9, 0.45),
+    inset 0 1px 0 rgba(255, 220, 190, 0.30);
+}
+
+[data-theme="sketch"] .login-brand-word { color: #FFFFFF; }
+[data-theme="sketch"] .login-brand-logo {
+  width: 32px; height: 32px;
+  filter: brightness(0) invert(1) drop-shadow(0 2px 6px rgba(0, 0, 0, 0.25));
+}
+[data-theme="sketch"] .login-title { color: #FFFFFF; }
+[data-theme="sketch"] .login-sub { color: rgba(255, 245, 235, 0.85); }
+
+[data-theme="sketch"] .login-label {
+  color: rgba(255, 245, 235, 0.78);
+  letter-spacing: 1.6px;
+}
+
+[data-theme="sketch"] .login-field input {
+  background: rgba(255, 255, 255, 0.10);
+  border: 1px solid rgba(255, 220, 190, 0.40);
+  color: #FFFFFF;
+}
+[data-theme="sketch"] .login-field input::placeholder {
+  color: rgba(255, 245, 235, 0.55);
+}
+[data-theme="sketch"] .login-field input:focus {
+  border-color: rgba(255, 245, 235, 0.85);
+  box-shadow: 0 0 0 3px rgba(255, 220, 190, 0.22);
+}
+
+[data-theme="sketch"] .login-error {
+  color: #FFFFFF;
+  background: rgba(11, 24, 50, 0.30);
+  border-color: rgba(255, 245, 235, 0.40);
+}
+
+[data-theme="sketch"] .login-btn {
+  background: #0B1832;
+  color: #FFFFFF;
+  border-radius: 999px;
+  box-shadow: 0 10px 24px -12px rgba(0, 0, 0, 0.65);
+}
+[data-theme="sketch"] .login-btn:hover:not(:disabled) {
+  background: #050B1A;
+}
+
+[data-theme="sketch"] .login-foot { color: rgba(255, 245, 235, 0.78); }
+[data-theme="sketch"] .login-back { color: rgba(255, 245, 235, 0.78); }
+[data-theme="sketch"] .login-back:hover { color: #FFFFFF; }
+
 /* ---- legacy classes from prior WIP (still rendered as no-ops if unused) ---- */
 /* .hero-row, .ym-cards, .pace-trio, .trend-* now unused — keep their old
    rules in place above; they simply don't match anything in the new JSX. */

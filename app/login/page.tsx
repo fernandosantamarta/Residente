@@ -46,7 +46,7 @@ export default function Login() {
       <div className="login-glow" />
       <div className="login-card">
         <Link href="/" className="login-brand" aria-label="Back to Residente home">
-          <div className="brand-dot" style={{ width: 16, height: 16 }} />
+          <img src="/residente-logo.png" alt="" className="brand-logo login-brand-logo" />
           <div className="login-brand-word">Residente</div>
         </Link>
 
