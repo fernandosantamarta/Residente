@@ -16,8 +16,8 @@ body:has(.landing-screen) { min-width: 0; }
   --ln-ink-dim:   rgba(31,34,51,0.64);
   --ln-ink-faint: rgba(31,34,51,0.40);
   --ln-border:    rgba(31,34,51,0.10);
-  --ln-accent:    #C76F45;
-  --ln-accent-2:  #A8552F;
+  --ln-accent:    #E14909;
+  --ln-accent-2:  #B83B07;
   --ln-on-dark:   #F4EFE8;
   --ln-on-dark-dim: rgba(244,239,232,0.72);
 
@@ -100,22 +100,30 @@ body:has(.landing-screen) { min-width: 0; }
 .ln-brand {
   display: inline-flex;
   align-items: center;
-  gap: 14px;
-  font-weight: 600;
+  gap: 6px;
+  font-weight: 700;
   font-size: 24px;
-  letter-spacing: -0.015em;
+  letter-spacing: -0.4px;
 }
 .ln-brand-dot {
   width: 20px; height: 20px;
   border-radius: 50%;
   background: var(--ln-accent);
-  box-shadow: 0 0 0 5px rgba(199,111,69,0.14);
+  box-shadow: 0 0 0 5px rgba(225,73,9,0.14);
   animation: brand-pulse 4s ease-in-out infinite;
 }
 @keyframes brand-pulse {
-  0%, 100% { box-shadow: 0 0 0 5px rgba(199,111,69,0.14); }
-  50%      { box-shadow: 0 0 0 9px rgba(199,111,69,0.06); }
+  0%, 100% { box-shadow: 0 0 0 5px rgba(225,73,9,0.14); }
+  50%      { box-shadow: 0 0 0 9px rgba(225,73,9,0.06); }
 }
+.ln-brand-logo {
+  width: 42px; height: 42px;
+  display: block;
+  flex-shrink: 0;
+  background: transparent;
+  image-rendering: -webkit-optimize-contrast;
+}
+.ln-foot-brand .ln-brand-logo { width: 32px; height: 32px; }
 
 .ln-nav-links {
   display: flex;
@@ -212,6 +220,138 @@ body:has(.landing-screen) { min-width: 0; }
   width: 100%;
   height: 100%;
   display: block;
+}
+
+/* ============ TIME-OF-DAY PALETTES ============
+   The cinematic SVG ships with the daytime palette baked into stop-color
+   attributes. The two rule blocks below override those stops via CSS when
+   .ln-hero-stage has data-time="sunset" or data-time="night" — set by the
+   Hero component based on the wall clock (or ?mock= for previewing). */
+
+/* Sunrise — orange-red sky (the "warmer, fierier" palette, since that
+   one reads more like dawn rolling in). */
+.ln-hero-stage[data-time="sunrise"] #cm-sky stop:nth-child(1) { stop-color: #FF8C5C; }
+.ln-hero-stage[data-time="sunrise"] #cm-sky stop:nth-child(2) { stop-color: #FFD0A0; }
+.ln-hero-stage[data-time="sunrise"] #cm-ground stop:nth-child(1) { stop-color: #A89888; }
+.ln-hero-stage[data-time="sunrise"] #cm-ground stop:nth-child(2) { stop-color: #7A6C58; }
+
+/* Sunset — orange-pink sky (cooler, with a pink/coral lean). */
+.ln-hero-stage[data-time="sunset"] #cm-sky stop:nth-child(1) { stop-color: #FF8A75; }
+.ln-hero-stage[data-time="sunset"] #cm-sky stop:nth-child(2) { stop-color: #FFD0B8; }
+.ln-hero-stage[data-time="sunset"] #cm-ground stop:nth-child(1) { stop-color: #A89888; }
+.ln-hero-stage[data-time="sunset"] #cm-ground stop:nth-child(2) { stop-color: #7A6C58; }
+
+.ln-hero-stage[data-time="night"] #cm-sky stop:nth-child(1) { stop-color: #0E1430; }
+.ln-hero-stage[data-time="night"] #cm-sky stop:nth-child(2) { stop-color: #2A2342; }
+.ln-hero-stage[data-time="night"] #cm-ground stop:nth-child(1) { stop-color: #36364A; }
+.ln-hero-stage[data-time="night"] #cm-ground stop:nth-child(2) { stop-color: #1F2235; }
+/* Plane at night: silver fill + dark navy outline so it's still readable
+   when it crosses the moon (which is also light-colored). */
+.ln-hero-stage[data-time="night"] .ln-hero-plane {
+  --plane-color: #F4EFE8;
+  --plane-stroke: #0E1430;
+  --plane-stroke-w: 0.6;
+}
+
+/* ============ SKY BODIES ============ */
+
+/* All sky overlays (sun, moon, plane) fade out as the cinematic scroll
+   zoom begins — driven by --ambient-op on .ln-hero-stage. At p=0 the
+   overlays are fully visible; by p≈0.15 they're gone, so they don't
+   float strangely above the zoomed scene. */
+.ln-hero-sun,
+.ln-hero-moon,
+.ln-hero-plane {
+  opacity: var(--ambient-op, 1);
+  transition: opacity 120ms linear;
+}
+
+/* Daytime sun, upper-right corner of the hero stage. CSS overlay (outside
+   the cinematic SVG) so xMidYMid slice can't crop it on narrow viewports.
+   Size scales with viewport via clamp(); position stays glued. */
+.ln-hero-sun {
+  position: absolute;
+  top: clamp(36px, 4.5vw, 88px);
+  right: clamp(36px, 4.5vw, 96px);
+  width: clamp(140px, 14vw, 220px);
+  height: clamp(140px, 14vw, 220px);
+  pointer-events: none;
+  z-index: 2;
+}
+.ln-hero-sun svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* Sunset/sunrise variant: same right column as the day sun, but lower —
+   roughly at the focal house window height. Keeps the "sun is in the
+   same place" feel while reading as a low warm setting/rising sun. */
+.ln-hero-sun.ln-hero-sun-low {
+  top: clamp(16vh, 22vh, 28vh);
+  right: clamp(36px, 4.5vw, 96px);
+}
+
+/* Night moon — sits where the sun usually sits. */
+.ln-hero-moon {
+  position: absolute;
+  top: clamp(36px, 4.5vw, 88px);
+  right: clamp(36px, 4.5vw, 96px);
+  width: clamp(140px, 14vw, 200px);
+  height: clamp(140px, 14vw, 200px);
+  pointer-events: none;
+  z-index: 2;
+}
+.ln-hero-moon svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* ============ PLANE OVERLAY ============
+   Pulled out of the cinematic SVG so it can sit ABOVE the sun overlay
+   (z-index 3 > sun's 2). Drifts the full stage width with a vw-based
+   translateX so the cross-time visibly passes in front of the sun. */
+.ln-hero-plane {
+  position: absolute;
+  /* 17vh ≈ viewBox y=260 (where the plane lived before the SVG → CSS
+     extraction), so the plane returns to its original cruising altitude. */
+  top: 17vh;
+  left: 0;
+  width: clamp(80px, 9vw, 140px);
+  height: auto;
+  pointer-events: none;
+  z-index: 3;
+  /* Ambient fade handled at the .ln-hero-sun/.ln-hero-moon/.ln-hero-plane
+     rule above. Drift animation lives on the inner wrapper so its
+     keyframe opacity doesn't fight the ambient opacity here. */
+}
+.ln-hero-plane-inner {
+  width: 100%;
+  /* 24s cycle matched to the UFO. Negative delay -12s starts the plane
+     half-way through its cycle at page load, so at t=0 the plane is
+     already drifting (visible) while the UFO is still entering. From
+     there the two stay offset by half a cycle, guaranteeing at least
+     one of them is visible at any moment. */
+  animation-name: ln-plane-drift;
+  animation-duration: 24s;
+  animation-timing-function: linear;
+  animation-delay: -12s;
+  animation-iteration-count: infinite;
+}
+/* Every keyframe sets BOTH transform and opacity explicitly so the loop
+   reset can't interpolate the plane right→left across iterations
+   (some browsers would otherwise tween the transform between the 100%
+   keyframe and the next cycle's 0%, producing a brief backwards drift). */
+@keyframes ln-plane-drift {
+  0%   { transform: translateX(-200px); opacity: 0; }
+  8%   { transform: translateX(-200px); opacity: 0; }
+  12%  { transform: translateX(-200px); opacity: 1; }
+  /* Drift fully left → right */
+  80%  { transform: translateX(calc(100vw + 200px)); opacity: 1; }
+  84%  { transform: translateX(calc(100vw + 200px)); opacity: 0; }
+  /* Held off-screen right, opacity 0, until the cycle restarts */
+  100% { transform: translateX(calc(100vw + 200px)); opacity: 0; }
 }
 
 .ln-hero-overlay {
@@ -385,22 +525,61 @@ body:has(.landing-screen) { min-width: 0; }
    left, glides to about middle of the SVG viewBox, then loops back
    off the left side after a brief rest. SVG viewBox is 2400 wide, so
    "left half" means roughly x=-100 → x=1200. */
+/* Plane: drifts the FULL width of the sky (left edge to right edge of the
+   2400-unit viewBox plus buffer). Slower and steadier than the UFO so the
+   two background animations don't compete for attention. */
 @keyframes ln-plane-fly {
-  0%   { transform: translateX(-120px); opacity: 0; }
-  6%   { opacity: 1; }
-  60%  { transform: translateX(1200px); opacity: 1; }
-  70%  { transform: translateX(1200px); opacity: 0; }
-  100% { transform: translateX(-120px); opacity: 0; }
+  0%   { transform: translateX(-200px); opacity: 0; }
+  4%   { opacity: 1; }
+  90%  { transform: translateX(2600px); opacity: 1; }
+  95%  { transform: translateX(2600px); opacity: 0; }
+  100% { transform: translateX(-200px); opacity: 0; }
 }
 .ln-plane-fly {
-  animation: ln-plane-fly 18s linear infinite;
+  animation: ln-plane-fly 24s linear infinite;
+}
+
+/* UFO: drifts in from the far left, cruises all the way across the sky
+   to the focal house, hovers, then shoots straight up off the top. The
+   beam wrap below fades in during the hover phase, on the same 16s cycle. */
+@keyframes ln-ufo-fly {
+  0%   { transform: translate(-300px, 0); opacity: 0; }
+  4%   { opacity: 1; }
+  /* Travel the full length of the sky to focal-house x=1200 */
+  32%  { transform: translate(1200px, 0); opacity: 1; }
+  /* Hover above focal house while the beam phase plays */
+  55%  { transform: translate(1200px, 0); opacity: 1; }
+  /* Shoot up off the top */
+  70%  { transform: translate(1200px, -1500px); opacity: 0; }
+  /* Stay off-screen, reset to left edge for next cycle */
+  100% { transform: translate(-300px, -1500px); opacity: 0; }
+}
+.ln-ufo-fly {
+  /* 24s cycle (was 16s) so it matches the plane's cycle. Combined with
+     the plane's -12s animation-delay below, the two are phase-locked
+     half a cycle apart — when the UFO is invisible (shoot-up exit, 70%
+     onward), the plane is mid-drift across the sky. Visitors always see
+     at least one of them. */
+  animation: ln-ufo-fly 24s ease-in-out infinite;
+}
+
+@keyframes ln-ufo-beam {
+  0%, 33%  { opacity: 0; }
+  38%      { opacity: 0.9; }
+  55%      { opacity: 0.9; }
+  62%      { opacity: 0; }
+  100%     { opacity: 0; }
+}
+.ln-ufo-beam-wrap {
+  animation: ln-ufo-beam 24s ease-in-out infinite;
+  opacity: 0;
 }
 
 @media (prefers-reduced-motion: reduce) {
   .ln-walk, .ln-walk-a, .ln-walk-b, .ln-walk-c,
   .ln-dog-bounce, .ln-wheel-spin, .ln-flag-wave, .ln-sun-spin,
   .ln-interior-breathe, .ln-interior-breathe-a, .ln-interior-bounce,
-  .ln-plane-fly, .ln-smoke-rise, .ln-smoke-rise-a, .ln-smoke-rise-b, .ln-smoke-rise-c {
+  .ln-hero-plane-inner, .ln-ufo-fly, .ln-ufo-beam-wrap, .ln-smoke-rise, .ln-smoke-rise-a, .ln-smoke-rise-b, .ln-smoke-rise-c {
     animation: none;
   }
 }
@@ -475,7 +654,7 @@ body:has(.landing-screen) { min-width: 0; }
 .ln-hero-btn:hover {
   background: var(--ln-accent-2);
   transform: translateY(-2px);
-  box-shadow: 0 14px 30px -12px rgba(199,111,69,0.55);
+  box-shadow: 0 14px 30px -12px rgba(225,73,9,0.55);
 }
 /* `.landing-screen a { color: inherit }` earlier in this file has
    higher specificity than a single-class selector, so it was forcing
@@ -612,14 +791,14 @@ body:has(.landing-screen) { min-width: 0; }
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #E8A57F 0%, var(--ln-accent) 100%);
+  background: linear-gradient(135deg, #FFA070 0%, var(--ln-accent) 100%);
   color: #FFF;
   display: flex;
   align-items: center;
   justify-content: center;
   margin-bottom: auto;
   align-self: flex-start;
-  box-shadow: 0 12px 28px -10px rgba(199,111,69,0.55);
+  box-shadow: 0 12px 28px -10px rgba(225,73,9,0.55);
   transition: transform 400ms var(--ln-ease);
 }
 .ln-card-accent:hover .ln-card-icon { transform: rotate(-6deg) scale(1.04); }
@@ -639,7 +818,7 @@ body:has(.landing-screen) { min-width: 0; }
 .ln-card-shine {
   position: absolute;
   inset: -50%;
-  background: radial-gradient(circle, rgba(199,111,69,0.18) 0%, transparent 60%);
+  background: radial-gradient(circle, rgba(225,73,9,0.18) 0%, transparent 60%);
   opacity: 0;
   transition: opacity 400ms var(--ln-ease), transform 600ms var(--ln-ease);
   pointer-events: none;
@@ -815,6 +994,83 @@ body:has(.landing-screen) { min-width: 0; }
 }
 .ln-use-link:hover { gap: 12px; }
 
+/* ============ DASHBOARD PREVIEW ============ */
+.ln-preview {
+  margin: clamp(96px, 14vh, 144px) auto 0;
+  padding: 0 var(--ln-side);
+  max-width: var(--ln-content);
+  text-align: center;
+}
+.ln-preview-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+.ln-preview-title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-weight: 500;
+  font-size: clamp(36px, 5vw, 64px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  color: var(--ln-ink);
+  margin: 14px 0 22px;
+}
+.ln-preview-sub {
+  font-size: clamp(15px, 1.4vw, 18px);
+  color: var(--ln-ink-dim);
+  max-width: 640px;
+  margin: 0 auto 48px;
+}
+.ln-preview-frame {
+  position: relative;
+  border-radius: var(--ln-radius-md);
+  background: var(--ln-ink);
+  box-shadow:
+    0 30px 80px -30px rgba(31,34,51,0.45),
+    0 12px 32px -16px rgba(31,34,51,0.25);
+  overflow: hidden;
+  margin: 0 auto;
+  max-width: 1120px;
+}
+.ln-preview-chrome {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 13px 18px;
+  background: rgba(255,255,255,0.06);
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.ln-preview-dot {
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.22);
+}
+.ln-preview-dot:nth-child(1) { background: #FF6058; }
+.ln-preview-dot:nth-child(2) { background: #FFBE2E; }
+.ln-preview-dot:nth-child(3) { background: #28C840; }
+.ln-preview-url {
+  margin-left: 18px;
+  font-size: 13px;
+  color: rgba(255,255,255,0.55);
+  font-family: 'Inter', system-ui, sans-serif;
+}
+.ln-preview-img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.ln-preview-ctas {
+  margin-top: 40px;
+  display: flex;
+  justify-content: center;
+}
+
+@media (max-width: 720px) {
+  .ln-preview-chrome { padding: 9px 12px; }
+  .ln-preview-dot { width: 9px; height: 9px; }
+  .ln-preview-url { display: none; }
+}
+
 /* ============ WAITLIST CTA ============ */
 .ln-waitlist {
   margin: clamp(96px, 14vh, 144px) auto 0;
@@ -834,7 +1090,7 @@ body:has(.landing-screen) { min-width: 0; }
   position: absolute;
   top: -200px; left: -200px;
   width: 700px; height: 700px;
-  background: radial-gradient(circle, rgba(199,111,69,0.42), transparent 65%);
+  background: radial-gradient(circle, rgba(225,73,9,0.42), transparent 65%);
   pointer-events: none;
   animation: glow-drift 12s ease-in-out infinite alternate;
   z-index: 0;
@@ -895,7 +1151,7 @@ body:has(.landing-screen) { min-width: 0; }
   outline: none;
   border-color: var(--ln-accent);
   background: rgba(255,255,255,0.10);
-  box-shadow: 0 0 0 4px rgba(199,111,69,0.18);
+  box-shadow: 0 0 0 4px rgba(225,73,9,0.18);
 }
 .ln-waitlist-form input:disabled { opacity: 0.6; cursor: not-allowed; }
 
@@ -920,7 +1176,7 @@ body:has(.landing-screen) { min-width: 0; }
 .ln-waitlist-btn:hover:not(:disabled) {
   background: var(--ln-accent-2);
   transform: translateY(-2px);
-  box-shadow: 0 12px 28px -10px rgba(199,111,69,0.55);
+  box-shadow: 0 12px 28px -10px rgba(225,73,9,0.55);
 }
 .ln-waitlist-btn:disabled { opacity: 0.7; cursor: not-allowed; }
 
@@ -1049,8 +1305,8 @@ body:has(.landing-screen) { min-width: 0; }
   border-radius: var(--ln-radius-md);
   background:
     radial-gradient(120% 100% at 0% 0%,
-      rgba(199,111,69,0.10) 0%,
-      rgba(199,111,69,0.00) 60%),
+      rgba(225,73,9,0.10) 0%,
+      rgba(225,73,9,0.00) 60%),
     #FFFFFF;
   border: 1.5px solid var(--ln-accent);
   display: flex;

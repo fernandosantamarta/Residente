@@ -71,6 +71,7 @@ export default function Landing() {
       <TrustMarquee />
       <BuiltForBoth />
       <VsEverything />
+      <DashboardPreview />
       <CtaBlock />
       <LandingFoot />
     </div>
@@ -83,7 +84,7 @@ function LandingNav() {
     <header className={`ln-nav${scrolled ? ' scrolled' : ''}`}>
       <div className="ln-nav-inner">
         <a href="#top" className="ln-brand">
-          <span className="ln-brand-dot" />
+          <img src="/residente-logo.png" alt="" className="ln-brand-logo" />
           <span className="ln-brand-word">Residente</span>
         </a>
         <nav className="ln-nav-links">
@@ -98,6 +99,108 @@ function LandingNav() {
   )
 }
 
+// Sky body — sun by day/sunset, moon at night. Lives outside the
+// cinematic SVG as a CSS overlay so xMidYMid slice can't crop it. The
+// `mode` prop drives both position and colors:
+//   day     — bright yellow sun, upper-right corner (fixed)
+//   sunset  — warm orange-red sun, low on the right, clip-path hides the
+//             bottom so it reads as rising/setting behind the housetops
+//   night   — sleepy crescent moon in the upper-right corner
+function SunOverlay({ mode }: { mode: TimeOfDay }) {
+  if (mode === 'night') {
+    return (
+      <div className="ln-hero-moon" aria-hidden="true">
+        <svg viewBox="-100 -100 200 200">
+          <circle r="78" fill="#C8D3E5" opacity="0.16" />
+          <circle r="58" fill="#C8D3E5" opacity="0.28" />
+          <circle r="46" fill="#F4EFE8" stroke="#1F2233" strokeWidth="2.2" />
+          <circle cx="-14" cy="-10" r="6" fill="#C8C0BC" opacity="0.55" />
+          <circle cx="12"  cy="6"  r="4" fill="#C8C0BC" opacity="0.55" />
+          <circle cx="-4"  cy="14" r="3" fill="#C8C0BC" opacity="0.55" />
+          {/* sleepy face */}
+          <path d="M-13 -3 L-7 -3" fill="none" stroke="#1F2233" strokeWidth="2.4" strokeLinecap="round" />
+          <path d="M7 -3 L13 -3"   fill="none" stroke="#1F2233" strokeWidth="2.4" strokeLinecap="round" />
+          <path d="M-10 10 Q0 16 10 10" fill="none" stroke="#1F2233" strokeWidth="2.2" strokeLinecap="round" />
+        </svg>
+      </div>
+    )
+  }
+
+  // Day / sunrise / sunset: same friendly sun, palette varies.
+  //   day      — bright yellow, upper-right corner
+  //   sunrise  — pink-coral, right side at focal-window height
+  //   sunset   — orange-red, right side at focal-window height
+  // Sunrise vs sunset is distinguished by sky palette (sunrise = orange-pink,
+  // sunset = orange-red) and the sun's own pink-vs-red tint.
+  const isSunrise = mode === 'sunrise'
+  const isSunset  = mode === 'sunset'
+  // Swapped vs an earlier round: the fierier red-orange now belongs to
+  // sunrise, the cooler pink-coral to sunset (matches Fernando's mental
+  // model of which palette feels like which time of day).
+  const body  = isSunrise ? '#E16040' : isSunset ? '#FF7A6E' : '#FFC97A'
+  const glow  = isSunrise ? '#FFA888' : isSunset ? '#FFC4B0' : '#FFE3B8'
+  const rays  = isSunrise ? '#B83B07' : isSunset ? '#D44862' : '#E6A95E'
+  const positionClass = (isSunrise || isSunset) ? ' ln-hero-sun-low' : ''
+  return (
+    <div className={`ln-hero-sun${positionClass}`} aria-hidden="true">
+      <svg viewBox="-100 -100 200 200">
+        <circle r="80" fill={glow} opacity="0.18" />
+        <circle r="62" fill={glow} opacity="0.32" />
+        <g className="ln-sun-spin">
+          {Array.from({ length: 12 }).map((_, i) => {
+            const a = (i * Math.PI) / 6
+            const x1 = Math.cos(a) * 68
+            const y1 = Math.sin(a) * 68
+            const x2 = Math.cos(a) * 92
+            const y2 = Math.sin(a) * 92
+            return (
+              <line key={i} x1={x1.toFixed(1)} y1={y1.toFixed(1)} x2={x2.toFixed(1)} y2={y2.toFixed(1)}
+                    stroke={rays} strokeWidth="4" strokeLinecap="round" />
+            )
+          })}
+        </g>
+        <circle r="46" fill={body} stroke="#1F2233" strokeWidth="2.2" />
+        <circle cx="-14" cy="-6" r="3" fill="#1F2233" />
+        <circle cx="14"  cy="-6" r="3" fill="#1F2233" />
+        <path d="M-14 10 Q0 22 14 10" fill="none" stroke="#1F2233" strokeWidth="2.5" strokeLinecap="round" />
+      </svg>
+    </div>
+  )
+}
+
+// Plane: pulled out of the cinematic SVG so it sits in front of the sun
+// overlay (z-index above .ln-hero-sun). Traverses the full stage width
+// via CSS translateX; vw-based animation in landing.css.
+function PlaneOverlay() {
+  // Two-layer structure so the ambient-op fade (used to hide overlays
+  // during the cinematic zoom) doesn't fight the plane's own fade-in /
+  // fade-out keyframes. Outer .ln-hero-plane carries --ambient-op
+  // opacity; inner .ln-hero-plane-inner carries the drift animation
+  // (transform + its own opacity). The two opacities multiply, so the
+  // plane disappears with the rest of the sky overlays on scroll.
+  const c = 'var(--plane-color, #1F2233)'
+  const s = 'var(--plane-stroke, none)'
+  const sw = 'var(--plane-stroke-w, 0)'
+  return (
+    <div className="ln-hero-plane" aria-hidden="true">
+      <div className="ln-hero-plane-inner">
+        <svg viewBox="-60 -20 120 40">
+          <g transform="scale(1.4)" stroke={s} strokeWidth={sw as string} strokeLinejoin="round" strokeLinecap="round">
+            <ellipse cx="0" cy="0" rx="26" ry="3.5" fill={c} />
+            <path d="M22 -2 L34 0 L22 2 Z" fill={c} />
+            <path d="M-22 -2 L-14 -2 L-18 -11 Z" fill={c} />
+            <path d="M-4 1 L10 1 L-2 12 L-12 10 Z" fill={c} />
+            {/* Contrail puffs — no stroke (they're faint by design) */}
+            <circle cx="-34" cy="0" r="2.5" fill={c} stroke="none" opacity="0.35" />
+            <circle cx="-44" cy="0" r="3"   fill={c} stroke="none" opacity="0.22" />
+            <circle cx="-56" cy="1" r="3.5" fill={c} stroke="none" opacity="0.12" />
+          </g>
+        </svg>
+      </div>
+    </div>
+  )
+}
+
 // Scroll-pinned cinematic hero — ONE comprehensive SVG that holds the
 // whole story (focal house at the dead center with a terracotta door,
 // surrounded by streets, neighbours, trees, and a community pool). As
@@ -108,10 +211,46 @@ function LandingNav() {
 // community in frame). One layer → no cross-fade discontinuity → no
 // "the photo at the end doesn't match" problem. Exponential zoom curve
 // gives the cinematic decel of a real dolly pull-back.
+type TimeOfDay = 'day' | 'sunrise' | 'sunset' | 'night'
+
+// Mode buckets:
+//   night    — 7pm to 5:30am  (sky dark, moon)
+//   sunrise  — 5:30-7am       (pink sky, sun rising on the LEFT)
+//   day      — 7am to 5pm     (default — bright sky, corner sun)
+//   sunset   — 5-7pm          (orange-red sky, sun setting on the RIGHT)
+function detectTimeOfDay(): TimeOfDay {
+  const h = new Date().getHours() + new Date().getMinutes() / 60
+  if (h < 5.5 || h >= 19) return 'night'
+  if (h < 7)              return 'sunrise'
+  if (h >= 17)            return 'sunset'
+  return 'day'
+}
+
 function Hero() {
   const pinRef = useRef(null)
   const [p, setP] = useState(0)
   const [enabled, setEnabled] = useState(true)
+  const [mode, setMode] = useState<TimeOfDay>('day')
+
+  // Time-of-day mode + URL ?mock= override for previewing.
+  // setMode runs client-side only, so SSR always sees 'day' (matches CSS
+  // default) — no hydration mismatch.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const mock = params.get('mock')
+    const apply = () => {
+      if (mock === 'day' || mock === 'sunrise' || mock === 'sunset' || mock === 'night') {
+        setMode(mock)
+      } else {
+        setMode(detectTimeOfDay())
+      }
+    }
+    apply()
+    if (!mock) {
+      const id = setInterval(apply, 60_000)
+      return () => clearInterval(id)
+    }
+  }, [])
 
   useEffect(() => {
     const mqReduce = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -172,6 +311,12 @@ function Hero() {
     ? Math.max(0, Math.min(1, (p - ZOOM_END) / (1 - ZOOM_END)))
     : 0
 
+  // Ambient sky overlays (sun, moon, plane) fade out as the dolly-in
+  // starts — by p=0.15 they're gone, so they don't float weirdly over
+  // the zoomed scene. Static mode (reduced motion / narrow viewport)
+  // keeps them visible the whole time.
+  const ambientOp = enabled ? Math.max(0, 1 - p / 0.15) : 1
+
   // Three captions arcing across the journey:
   //   p=0    "Your community, finally clear"   (wide view)
   //   p≈0.5  "Your home, at the heart of it"   (focal house close-up)
@@ -183,9 +328,13 @@ function Hero() {
   return (
     <section className="ln-hero" id="top">
       <div className={`ln-hero-pin${enabled ? '' : ' is-static'}`} ref={pinRef}>
-        <div className="ln-hero-stage">
+        <div
+          className="ln-hero-stage"
+          data-time={mode}
+          style={{ '--ambient-op': ambientOp } as React.CSSProperties}
+        >
           <div className="ln-zoom-scene" aria-hidden="true">
-            <CommunitySvg viewBox={viewBox} />
+            <CommunitySvg viewBox={viewBox} mode={mode} />
           </div>
           <div
             className="ln-zoom-interior"
@@ -194,6 +343,9 @@ function Hero() {
           >
             <InteriorSvg />
           </div>
+
+          <SunOverlay mode={mode} />
+          <PlaneOverlay />
 
           <div className="ln-hero-overlay">
             <div className="ln-hero-inner">
@@ -342,7 +494,7 @@ function Dog({ x, y, scale = 1 }) {
 // at the dead center (1200, 750) — that's the zoom anchor. Drawn from
 // back-to-front so the foreground layers (focal house, foreground trees)
 // occlude the rest correctly.
-export function CommunitySvg({ viewBox = '0 0 2400 1500' }: { viewBox?: string }) {
+export function CommunitySvg({ viewBox = '0 0 2400 1500', mode = 'day' }: { viewBox?: string; mode?: TimeOfDay }) {
   const DX = 1200  // door anchor X
   const DY = 750   // door anchor Y (also: ground level / horizon-ish)
   return (
@@ -351,6 +503,11 @@ export function CommunitySvg({ viewBox = '0 0 2400 1500' }: { viewBox?: string }
         <linearGradient id="cm-sky" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor={SKY_TOP} />
           <stop offset="1" stopColor={SKY_BOT} />
+        </linearGradient>
+        <linearGradient id="ufo-beam" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stopColor="#5BFF8C" stopOpacity="0.85" />
+          <stop offset="0.55" stopColor="#7BFFB0" stopOpacity="0.35" />
+          <stop offset="1" stopColor="#A0FFCC" stopOpacity="0" />
         </linearGradient>
         <linearGradient id="cm-ground" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor={GROUND_T} />
@@ -369,54 +526,32 @@ export function CommunitySvg({ viewBox = '0 0 2400 1500' }: { viewBox?: string }
       <rect width="2400" height={DY + 50} fill="url(#cm-sky)" />
       <rect y={DY + 50} width="2400" height={1500 - DY - 50} fill="url(#cm-ground)" />
 
-      {/* Ink-style plane drifting across the left half of the sky.
-          Three nested <g>: outer for vertical position (SVG transform),
-          middle for the CSS fly animation, inner for scale so the
-          translate/animation/scale don't collide. */}
-      <g transform="translate(0, 180)">
-        <g className="ln-plane-fly">
-          <g transform="scale(1.8)">
-            {/* fuselage */}
-            <ellipse cx="0" cy="0" rx="26" ry="3.5" fill={INK} />
-            {/* nose cone */}
-            <path d="M22 -2 L34 0 L22 2 Z" fill={INK} />
-            {/* vertical tail fin */}
-            <path d="M-22 -2 L-14 -2 L-18 -11 Z" fill={INK} />
-            {/* main wing (sweeping back) */}
-            <path d="M-4 1 L10 1 L-2 12 L-12 10 Z" fill={INK} />
-            {/* small contrail puffs */}
-            <circle cx="-34" cy="0" r="2.5" fill={INK} opacity="0.35" />
-            <circle cx="-44" cy="0" r="3"   fill={INK} opacity="0.22" />
-            <circle cx="-56" cy="1" r="3.5" fill={INK} opacity="0.12" />
+      {/* UFO sequence: drifts in from the far left, hovers above the focal
+          house, drops a green tractor beam onto the roof, then shoots
+          straight up off the top. Outer transform sets the resting Y
+          (just above focal-house roof at y=350). Inner .ln-ufo-fly is the
+          CSS-animated wrapper that handles drift + shoot-up. The beam
+          wrap fades in/out on its own keyframe synced to the same cycle. */}
+      <g transform="translate(0, 150)">
+        <g className="ln-ufo-fly">
+          {/* tractor beam — wide cone widening from UFO underside down past
+              the focal-house roofline */}
+          <g className="ln-ufo-beam-wrap">
+            <path d="M-26 14 L26 14 L150 230 L-150 230 Z" fill="url(#ufo-beam)" />
+          </g>
+          <g transform="scale(2.6)">
+            {/* saucer dish + rim */}
+            <ellipse cx="0" cy="0" rx="44" ry="11" fill="#3A3E55" stroke={INK} strokeWidth="1.6" />
+            <ellipse cx="0" cy="-2" rx="36" ry="8" fill="#5A5E75" stroke={INK} strokeWidth="1.2" />
+            {/* glass dome */}
+            <path d="M-22 -3 Q-22 -22 0 -22 Q22 -22 22 -3 Z" fill="#9FD7E5" stroke={INK} strokeWidth="1.4" />
+            <ellipse cx="-8" cy="-13" rx="6" ry="3" fill="#FFFFFF" opacity="0.55" />
+            {/* underside green running lights */}
+            <circle cx="-26" cy="6" r="3" fill="#5BFF8C" stroke={INK} strokeWidth="0.8" />
+            <circle cx="0"   cy="8" r="3.5" fill="#5BFF8C" stroke={INK} strokeWidth="0.8" />
+            <circle cx="26"  cy="6" r="3" fill="#5BFF8C" stroke={INK} strokeWidth="0.8" />
           </g>
         </g>
-      </g>
-
-      {/* Friendly morning sun on the right side of the sky. Rays rotate
-          slowly, body has a gentle glow halo. Drawn after the sky so
-          it's visible, but before the houses so anything in front
-          (focal house, etc.) still occludes if needed. */}
-      <g transform="translate(2080, 220)">
-        <circle r="80" fill="#FFE3B8" opacity="0.18" />
-        <circle r="62" fill="#FFE3B8" opacity="0.32" />
-        <g className="ln-sun-spin">
-          {Array.from({ length: 12 }).map((_, i) => {
-            const a = (i * Math.PI) / 6
-            const x1 = Math.cos(a) * 68
-            const y1 = Math.sin(a) * 68
-            const x2 = Math.cos(a) * 92
-            const y2 = Math.sin(a) * 92
-            return (
-              <line key={i} x1={x1.toFixed(1)} y1={y1.toFixed(1)} x2={x2.toFixed(1)} y2={y2.toFixed(1)}
-                    stroke="#E6A95E" strokeWidth="4" strokeLinecap="round" />
-            )
-          })}
-        </g>
-        <circle r="46" fill="#FFC97A" {...inkStroke} />
-        {/* tiny smile + eyes so the sun reads as friendly */}
-        <circle cx="-14" cy="-6" r="3" fill={INK} />
-        <circle cx="14"  cy="-6" r="3" fill={INK} />
-        <path d="M-14 10 Q0 22 14 10" fill="none" stroke={INK} strokeWidth="2.5" strokeLinecap="round" />
       </g>
 
       {/* Distant background houses — tiny silhouettes at the horizon,
@@ -1072,6 +1207,39 @@ function VsEverything() {
   )
 }
 
+function DashboardPreview() {
+  return (
+    <section className="ln-preview" data-anim>
+      <div className="ln-preview-inner">
+        <div className="ln-eyebrow">A peek inside</div>
+        <h2 className="ln-preview-title">This is what your community sees.</h2>
+        <p className="ln-preview-sub">
+          Every resident logs into their own cockpit — budgets, board
+          decisions, dues, all in one place. Below is the real product,
+          loaded with a sample community so you can poke around.
+        </p>
+        <div className="ln-preview-frame">
+          <div className="ln-preview-chrome" aria-hidden="true">
+            <span className="ln-preview-dot" />
+            <span className="ln-preview-dot" />
+            <span className="ln-preview-dot" />
+            <span className="ln-preview-url">residente.io/app</span>
+          </div>
+          <img
+            src="/dashboard-preview.png"
+            alt="Screenshot of the Residente resident cockpit — sidebar nav, hero greeting, financial overview chart, dues breakdown, and an Up Next rail"
+            className="ln-preview-img"
+            loading="lazy"
+          />
+        </div>
+        <div className="ln-preview-ctas">
+          <Link href="/app?preview=1" className="ln-pill-btn">Walk through the live demo</Link>
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function CtaBlock() {
   const [email, setEmail] = useState('')
   const [community, setCommunity] = useState('')
@@ -1165,7 +1333,7 @@ function LandingFoot() {
     <footer className="ln-foot">
       <div className="ln-foot-inner">
         <div className="ln-foot-brand">
-          <span className="ln-brand-dot" />
+          <img src="/residente-logo.png" alt="" className="ln-brand-logo" />
           <span>Residente</span>
         </div>
         <div className="ln-foot-meta">

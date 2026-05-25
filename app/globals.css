@@ -2625,11 +2625,11 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
   height: 220px; /* aligns vertically with the photo block above */
 }
 [data-theme="sketch"] .hero-title {
-  font-family: 'Playfair Display', Georgia, serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   font-size: 52px;
-  line-height: 1.02;
-  letter-spacing: -1.4px;
-  font-weight: 700;
+  line-height: 0.98;
+  letter-spacing: -0.035em;
+  font-weight: 500;
   color: #0A2440;
   margin: 0;
   white-space: nowrap;
@@ -2638,7 +2638,7 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
   display: inline-block;
   position: relative;
   font-style: normal;
-  font-weight: 700;
+  font-weight: 500;
   padding-bottom: 14px;
 }
 /* Hand-drawn orange swoosh underline beneath the name */
@@ -3443,7 +3443,7 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
   [data-theme="sketch"] .glance-cards { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 767px) {
-  [data-theme="sketch"] .hero-title { font-size: 36px; letter-spacing: -0.8px; }
+  [data-theme="sketch"] .hero-title { font-size: 36px; letter-spacing: -0.035em; }
   [data-theme="sketch"] .fin-amount { font-size: 34px; letter-spacing: -1px; }
   [data-theme="sketch"] .glance-cards { grid-template-columns: 1fr 1fr; gap: 10px; }
   [data-theme="sketch"] .glance-card { padding: 14px; }

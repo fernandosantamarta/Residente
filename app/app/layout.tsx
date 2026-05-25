@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, ReactNode } from 'react'
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { signOut, hasSupabase } from '@/lib/supabase'
 import { useAuth } from '../providers'
 import { useBoardDecisions } from '@/hooks/useBoardDecisions'
@@ -57,6 +57,13 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
   const { community } = useCommunityData()
   const pathname = usePathname() || '/app'
   const router = useRouter()
+  const searchParams = useSearchParams()
+  // /app?preview=1 — unauthenticated demo view. Renders the cockpit with
+  // its demo community (Sunset Lakes) so we can screenshot for the
+  // landing and share a live walkthrough URL with prospects. Demo data
+  // already flows through useCommunityData when no community is linked,
+  // so the only change is skipping the auth redirect.
+  const isPreview = searchParams?.get('preview') === '1'
   const showRightRail = pathname === '/app'
   const [navOpen, setNavOpen] = useState(false)
   const showAdmin = !hasSupabase || ['board_member', 'admin'].includes(profile?.role || '')
@@ -70,14 +77,15 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
     : quarter
 
   // Auth gate — bounce unauthed users to /login. Mirrors the old App.jsx
-  // `requireAuth ? <Navigate to="/login" /> : <Layout />` guard.
+  // `requireAuth ? <Navigate to="/login" /> : <Layout />` guard. Skipped
+  // when ?preview=1 so the unauthenticated demo view can render.
   useEffect(() => {
-    if (hasSupabase && !session) router.replace('/login')
-  }, [session, router])
+    if (hasSupabase && !session && !isPreview) router.replace('/login')
+  }, [session, router, isPreview])
 
   useEffect(() => { setNavOpen(false) }, [pathname])
 
-  if (hasSupabase && !session) return null  // don't flash cockpit during redirect
+  if (hasSupabase && !session && !isPreview) return null  // don't flash cockpit during redirect
 
   const userInitials = initialsFrom(profile?.full_name) || 'FM'
   const userUnit = profile?.unit_number ? `Unit ${profile.unit_number}` : 'Unit —'
