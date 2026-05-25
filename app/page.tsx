@@ -310,19 +310,55 @@ function Hero() {
       applyP(1)
       return
     }
+
+    // Lerp-smoothed cinematic. The scroll handler only updates a TARGET
+    // p; a continuously running rAF loop eases the actual rendered p
+    // toward the target by 15% per frame. Fast scroll-back stops looking
+    // like a series of frame snapshots and reads as a smooth dolly-out
+    // because the visible state can never jump more than ~15% of the
+    // remaining distance per 16ms tick.
+    let targetP = 0
+    let currentP = 0
     let raf = 0
-    const update = () => {
-      raf = 0
+    const LERP_RATE = 0.15
+    const EPS = 0.0005
+
+    const computeTarget = () => {
       const el = pinRef.current
       if (!el) return
       const rect = el.getBoundingClientRect()
       const span = el.offsetHeight - window.innerHeight
-      if (span <= 0) { applyP(0); return }
+      if (span <= 0) { targetP = 0; return }
       const scrolled = Math.min(span, Math.max(0, -rect.top))
-      applyP(scrolled / span)
+      targetP = scrolled / span
     }
-    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update) }
-    update()
+
+    const tick = () => {
+      raf = 0
+      const delta = targetP - currentP
+      // If we're already close enough, snap to target and stop ticking.
+      if (Math.abs(delta) < EPS) {
+        if (currentP !== targetP) {
+          currentP = targetP
+          applyP(currentP)
+        }
+        return
+      }
+      currentP += delta * LERP_RATE
+      applyP(currentP)
+      raf = requestAnimationFrame(tick)
+    }
+
+    const onScroll = () => {
+      computeTarget()
+      if (!raf) raf = requestAnimationFrame(tick)
+    }
+
+    // Initial state: read scroll, snap currentP to target (no fade-in).
+    computeTarget()
+    currentP = targetP
+    applyP(currentP)
+
     window.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('resize', onScroll)
     return () => {
