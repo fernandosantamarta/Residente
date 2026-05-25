@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, forwardRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase, hasSupabase } from '@/lib/supabase'
@@ -227,8 +227,18 @@ function detectTimeOfDay(): TimeOfDay {
 }
 
 function Hero() {
-  const pinRef = useRef(null)
-  const [p, setP] = useState(0)
+  // Refs everywhere — scroll-driven values write straight to the DOM in
+  // the rAF callback below. React only re-renders Hero on mode/enabled
+  // change (rare), NOT on every scroll tick. Without this, the 78-child
+  // CommunitySvg JSX tree was being walked once per scroll frame, which
+  // produced visible popping when scrolling fast back into the hero.
+  const pinRef      = useRef<HTMLDivElement | null>(null)
+  const stageRef    = useRef<HTMLDivElement | null>(null)
+  const svgRef      = useRef<SVGSVGElement   | null>(null)
+  const interiorRef = useRef<HTMLDivElement | null>(null)
+  const cap1Ref     = useRef<HTMLSpanElement | null>(null)
+  const cap2Ref     = useRef<HTMLSpanElement | null>(null)
+  const cap3Ref     = useRef<HTMLSpanElement | null>(null)
   const [enabled, setEnabled] = useState(true)
   const [mode, setMode] = useState<TimeOfDay>('day')
 
@@ -265,8 +275,41 @@ function Hero() {
     }
   }, [])
 
+  // Applies all p-derived DOM state imperatively. No React state, no
+  // re-renders — every value goes straight to the relevant element.
+  const applyP = (p: number) => {
+    const ZOOM_END = 0.78
+    const INTERIOR_FADE_END = 0.85
+    const zp = Math.min(1, p / ZOOM_END)
+    const zoom = Math.pow(12, zp)
+    const vbW = 2400 / zoom
+    const vbH = 1500 / zoom
+    const vbX = 1200 - vbW / 2
+    const vbY = 750  - vbH / 2
+    const viewBox = `${vbX.toFixed(1)} ${vbY.toFixed(1)} ${vbW.toFixed(1)} ${vbH.toFixed(1)}`
+    svgRef.current?.setAttribute('viewBox', viewBox)
+
+    const interiorOpacity = Math.max(0, Math.min(1, (p - ZOOM_END) / (INTERIOR_FADE_END - ZOOM_END)))
+    if (interiorRef.current) interiorRef.current.style.opacity = String(interiorOpacity)
+
+    const ambientOp = Math.max(0, 1 - p / 0.35)
+    stageRef.current?.style.setProperty('--ambient-op', String(ambientOp))
+
+    const cap1 = Math.max(0, Math.min(1, 1 - p / 0.30))
+    const cap2 = Math.max(0, Math.min(1, Math.min((p - 0.30) / 0.15, (0.68 - p) / 0.15)))
+    const cap3 = Math.max(0, Math.min(1, (p - 0.72) / 0.18))
+    if (cap1Ref.current) cap1Ref.current.style.opacity = String(cap1)
+    if (cap2Ref.current) cap2Ref.current.style.opacity = String(cap2)
+    if (cap3Ref.current) cap3Ref.current.style.opacity = String(cap3)
+  }
+
   useEffect(() => {
-    if (!enabled) { setP(1); return }
+    if (!enabled) {
+      // Static fallback (mobile / reduced motion): pin the scene at
+      // p=1 — fully zoomed in with the interior visible.
+      applyP(1)
+      return
+    }
     let raf = 0
     const update = () => {
       raf = 0
@@ -274,9 +317,9 @@ function Hero() {
       if (!el) return
       const rect = el.getBoundingClientRect()
       const span = el.offsetHeight - window.innerHeight
-      if (span <= 0) { setP(0); return }
+      if (span <= 0) { applyP(0); return }
       const scrolled = Math.min(span, Math.max(0, -rect.top))
-      setP(scrolled / span)
+      applyP(scrolled / span)
     }
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(update) }
     update()
@@ -289,62 +332,21 @@ function Hero() {
     }
   }, [enabled])
 
-  // ZOOM-IN arc. p=0 → wide community (zoom=1). p ramps up to ~12 at
-  // p=0.78 (we're inside the door frame, it fills the screen, lights
-  // visible past the frame). p=0.78 → 1.0: cross-fade to the interior
-  // SVG (we crossed the threshold — now we're inside the house).
-  //
-  // viewBox animation (not CSS transform) — Chromium crashes on a
-  // 24000x15000 GPU layer if you `transform: scale(10)` a 2400x1500 SVG.
-  const ZOOM_END = 0.78
-  const zp = Math.min(1, p / ZOOM_END)
-  const zoom = enabled ? Math.pow(12, zp) : 1
-  const VBW = 2400, VBH = 1500, CX = 1200, CY = 750
-  const vbW = VBW / zoom
-  const vbH = VBH / zoom
-  const vbX = CX - vbW / 2
-  const vbY = CY - vbH / 2
-  const viewBox = `${vbX.toFixed(1)} ${vbY.toFixed(1)} ${vbW.toFixed(1)} ${vbH.toFixed(1)}`
-
-  // Interior crossfade — starts fading in once the door fills the frame
-  // and reaches full opacity at INTERIOR_FADE_END (0.85). From 0.85 → 1.0
-  // the interior LINGERS at full opacity, giving the user a longer beat
-  // to read the inside-the-home scene before the page scrolls past the
-  // pinned hero.
-  const INTERIOR_FADE_END = 0.85
-  const interiorOpacity = enabled
-    ? Math.max(0, Math.min(1, (p - ZOOM_END) / (INTERIOR_FADE_END - ZOOM_END)))
-    : 0
-
-  // Ambient sky overlays (sun, moon, plane) fade out as the dolly-in
-  // starts — by p=0.35 they're gone, so they don't float weirdly over
-  // the zoomed scene. The wide fade window (0.35 of pin scroll ≈ 140vh)
-  // means each scroll tick produces a small opacity delta even during
-  // fast scroll-back, which kills the "popping in/out" stutter.
-  const ambientOp = enabled ? Math.max(0, 1 - p / 0.35) : 1
-
-  // Three captions arcing across the journey:
-  //   p=0    "Your community, finally clear"   (wide view)
-  //   p≈0.5  "Your home, at the heart of it"   (focal house close-up)
-  //   p=1    "And you, in the loop."           (interior, you're inside)
-  const cap1 = Math.max(0, Math.min(1, 1 - p / 0.30))                        // 1→0 over 0..0.30
-  const cap2 = Math.max(0, Math.min(1, Math.min((p - 0.30) / 0.15, (0.68 - p) / 0.15))) // 0→1→0
-  const cap3 = Math.max(0, Math.min(1, (p - 0.72) / 0.18))                   // 0→1 over 0.72..0.90
-
   return (
     <section className="ln-hero" id="top">
       <div className={`ln-hero-pin${enabled ? '' : ' is-static'}`} ref={pinRef}>
         <div
           className="ln-hero-stage"
           data-time={mode}
-          style={{ '--ambient-op': ambientOp } as React.CSSProperties}
+          ref={stageRef}
         >
           <div className="ln-zoom-scene" aria-hidden="true">
-            <CommunitySvg viewBox={viewBox} mode={mode} />
+            <CommunitySvg ref={svgRef} mode={mode} />
           </div>
           <div
             className="ln-zoom-interior"
-            style={{ opacity: interiorOpacity }}
+            ref={interiorRef}
+            style={{ opacity: 0 }}
             aria-hidden="true"
           >
             <InteriorSvg />
@@ -359,17 +361,18 @@ function Hero() {
               <h1 className="ln-hero-title">
                 {enabled && (
                   <>
-                    <span className="ln-hero-title-stack" style={{ opacity: cap1 }}>
+                    <span className="ln-hero-title-stack" ref={cap1Ref} style={{ opacity: 1 }}>
                       Your community,<br />finally clear.
                     </span>
-                    <span className="ln-hero-title-stack" style={{ opacity: cap2 }}>
+                    <span className="ln-hero-title-stack" ref={cap2Ref} style={{ opacity: 0 }}>
                       Your home,<br />at the heart of it.
                     </span>
                   </>
                 )}
                 <span
                   className="ln-hero-title-stack"
-                  style={enabled ? { opacity: cap3 } : undefined}
+                  ref={cap3Ref}
+                  style={enabled ? { opacity: 0 } : undefined}
                 >
                   And you,<br />in the loop.
                 </span>
@@ -500,11 +503,14 @@ function Dog({ x, y, scale = 1 }) {
 // at the dead center (1200, 750) — that's the zoom anchor. Drawn from
 // back-to-front so the foreground layers (focal house, foreground trees)
 // occlude the rest correctly.
-export function CommunitySvg({ viewBox = '0 0 2400 1500', mode = 'day' }: { viewBox?: string; mode?: TimeOfDay }) {
+export const CommunitySvg = forwardRef<SVGSVGElement, { viewBox?: string; mode?: TimeOfDay }>(function CommunitySvg(
+  { viewBox = '0 0 2400 1500', mode = 'day' },
+  ref,
+) {
   const DX = 1200  // door anchor X
   const DY = 750   // door anchor Y (also: ground level / horizon-ish)
   return (
-    <svg viewBox={viewBox} preserveAspectRatio="xMidYMid slice" role="img" aria-label="A hand-drawn sketch of a small HOA community">
+    <svg ref={ref} viewBox={viewBox} preserveAspectRatio="xMidYMid slice" role="img" aria-label="A hand-drawn sketch of a small HOA community">
       <defs>
         <linearGradient id="cm-sky" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor={SKY_TOP} />
@@ -777,7 +783,7 @@ export function CommunitySvg({ viewBox = '0 0 2400 1500', mode = 'day' }: { view
       </g>
     </svg>
   )
-}
+})
 
 /* ============================================================
    InteriorSvg — the reveal frame at p=1. Camera has crossed the
