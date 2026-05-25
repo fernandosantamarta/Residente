@@ -207,6 +207,17 @@ body:has(.landing-screen) { min-width: 0; }
 .ln-hero-stage.is-scrolling .ln-hero-plane {
   opacity: 0 !important;
 }
+/* Window glow animations stay OFF permanently — Fernando saw the
+   left window switching colors and wants windows to read as static
+   default fills. Other ambient animations (characters, dog, trees,
+   doors, UFO) keep their default behavior. */
+.ln-win-glow,
+.ln-win-glow-a,
+.ln-win-glow-b,
+.ln-win-dim {
+  animation: none !important;
+}
+
 /* Diagnostic confirmed the cause: when the cinematic SVG's internal
    CSS animations (window glow, tree sway, characters walking, dog
    bouncing, wheel spin, door pulse, smoke, flag wave) run during
