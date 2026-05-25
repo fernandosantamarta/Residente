@@ -207,12 +207,21 @@ body:has(.landing-screen) { min-width: 0; }
 .ln-hero-stage.is-scrolling .ln-hero-plane {
   opacity: 0 !important;
 }
-.ln-hero-stage.is-scrolling .ln-zoom-scene *,
-.ln-hero-stage.is-scrolling .ln-zoom-interior *,
-.ln-hero-stage.is-scrolling .ln-zoom-scene *::before,
-.ln-hero-stage.is-scrolling .ln-zoom-scene *::after {
-  animation-play-state: paused !important;
+/* DIAGNOSTIC: kill every CSS animation inside the cinematic SVG entirely,
+   not just during scroll. If "still glitching" persists with zero
+   internal animations, the cause isn't animation churn — it's the
+   raw SVG repaint cost or a sticky-positioning artifact. Once we
+   know which it is we can bring the ambient animations back to the
+   wide-community view selectively. */
+.ln-zoom-scene *,
+.ln-zoom-interior *,
+.ln-zoom-scene *::before,
+.ln-zoom-scene *::after {
+  animation: none !important;
 }
+/* Also kill the .is-scrolling pause rule — moot when animations are
+   already disabled, but keep this comment for future when we re-enable
+   animations and want them paused during scroll. */
 .ln-hero-pin.is-static .ln-hero-stage {
   position: relative;
   height: min(82vh, 760px);
@@ -245,6 +254,12 @@ body:has(.landing-screen) { min-width: 0; }
   width: 100%;
   height: 100%;
   display: block;
+  /* Performance hints to the browser SVG renderer. optimizeSpeed
+     tells it to skip anti-aliasing on shape edges (slightly cruder
+     edges, much faster paint). crispEdges is the SVG-1.1 fallback. */
+  shape-rendering: optimizeSpeed;
+  image-rendering: optimizeSpeed;
+  pointer-events: none;
 }
 
 /* Interior reveal — crossfades in over the top of the community SVG
