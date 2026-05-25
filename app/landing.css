@@ -186,18 +186,18 @@ body:has(.landing-screen) { min-width: 0; }
      and the browser can keep the stage on its own compositing layer */
   contain: paint;
 }
-/* While the user is actively scrolling, pause every CSS animation inside
-   the cinematic SVG. The 78-child scene has dozens of running animations
-   (window glow, tree sway, walking characters, UFO drift, beam fade,
-   plane drift, sun spin). Each one would otherwise re-rasterize every
-   time the viewBox changes — dropping frames on fast scroll-back.
-   Pausing them means the scroll repaint only re-projects static shapes
-   to the new viewBox. The Hero scroll handler adds .is-scrolling on
-   scroll events and clears it 160ms after the last one. */
-.ln-hero-stage.is-scrolling *,
-.ln-hero-stage.is-scrolling *::before,
-.ln-hero-stage.is-scrolling *::after {
-  animation-play-state: paused !important;
+/* While the user is actively scrolling, HIDE the sky overlays entirely
+   (sun, moon, plane). They were the source of the perceived flashing:
+   their --ambient-op changed every scroll frame, and the CSS keyframe
+   animations on plane/UFO produced visibly different positions between
+   scroll-driven repaints. Cleanest fix is to mask them off completely
+   during active scroll and let them fade back in once scroll settles
+   (the inline opacity in style="" is re-applied by the Hero scroll
+   handler's tick on the next stable frame). */
+.ln-hero-stage.is-scrolling .ln-hero-sun,
+.ln-hero-stage.is-scrolling .ln-hero-moon,
+.ln-hero-stage.is-scrolling .ln-hero-plane {
+  opacity: 0 !important;
 }
 .ln-hero-pin.is-static .ln-hero-stage {
   position: relative;
@@ -275,19 +275,16 @@ body:has(.landing-screen) { min-width: 0; }
 /* ============ SKY BODIES ============ */
 
 /* All sky overlays (sun, moon, plane) fade out as the cinematic scroll
-   zoom begins — driven by --ambient-op on .ln-hero-stage. At p=0 the
-   overlays are fully visible; by p≈0.15 they're gone, so they don't
-   float strangely above the zoomed scene. No CSS transition here —
-   the value already changes once per scroll frame via React, and a
-   transition would fight that on every tick (especially when scrolling
-   back UP into the hero from below, where rapid scroll-rate changes
-   to --ambient-op pile up mid-transition and stutter). will-change
-   promotes each overlay to its own compositing layer so opacity
-   changes are GPU-cheap. */
+   zoom begins — driven by --ambient-op on .ln-hero-stage. During active
+   scroll they're force-hidden by the .is-scrolling rule below (kills
+   the visible flashing on fast scroll-back). The transition here only
+   fires when the .is-scrolling class is removed, so overlays fade in
+   smoothly once scroll settles instead of popping. */
 .ln-hero-sun,
 .ln-hero-moon,
 .ln-hero-plane {
   opacity: var(--ambient-op, 1);
+  transition: opacity 240ms ease-out;
   will-change: opacity;
 }
 
