@@ -317,10 +317,11 @@ function Hero() {
     : 0
 
   // Ambient sky overlays (sun, moon, plane) fade out as the dolly-in
-  // starts — by p=0.15 they're gone, so they don't float weirdly over
-  // the zoomed scene. Static mode (reduced motion / narrow viewport)
-  // keeps them visible the whole time.
-  const ambientOp = enabled ? Math.max(0, 1 - p / 0.15) : 1
+  // starts — by p=0.35 they're gone, so they don't float weirdly over
+  // the zoomed scene. The wide fade window (0.35 of pin scroll ≈ 140vh)
+  // means each scroll tick produces a small opacity delta even during
+  // fast scroll-back, which kills the "popping in/out" stutter.
+  const ambientOp = enabled ? Math.max(0, 1 - p / 0.35) : 1
 
   // Three captions arcing across the journey:
   //   p=0    "Your community, finally clear"   (wide view)
