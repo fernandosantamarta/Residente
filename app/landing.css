@@ -230,7 +230,15 @@ body:has(.landing-screen) { min-width: 0; }
   align-items: center;
   justify-content: center;
   transform-origin: 50% 50%;
+  /* translateZ(0) forces a GPU compositing layer so the browser caches
+     the rasterized SVG and composites it on scroll instead of
+     re-rasterizing 78 children every scroll-driven repaint. This is
+     the fix for the houses/characters "glitching" during scroll —
+     they were being re-painted alongside every page scroll repaint
+     even when paused. */
+  transform: translateZ(0);
   will-change: transform;
+  backface-visibility: hidden;
   backface-visibility: hidden;
 }
 .ln-zoom-scene > svg {
