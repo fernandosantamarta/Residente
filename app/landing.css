@@ -189,6 +189,22 @@ body:has(.landing-screen) { min-width: 0; }
   overflow: hidden;
   background: #1F2233;
   box-shadow: 0 40px 80px -40px rgba(31,34,51,0.40);
+  /* paint isolation — repainting children doesn't bubble out to the page,
+     and the browser can keep the stage on its own compositing layer */
+  contain: paint;
+}
+/* While the user is actively scrolling, pause every CSS animation inside
+   the cinematic SVG. The 78-child scene has dozens of running animations
+   (window glow, tree sway, walking characters, UFO drift, beam fade,
+   plane drift, sun spin). Each one would otherwise re-rasterize every
+   time the viewBox changes — dropping frames on fast scroll-back.
+   Pausing them means the scroll repaint only re-projects static shapes
+   to the new viewBox. The Hero scroll handler adds .is-scrolling on
+   scroll events and clears it 160ms after the last one. */
+.ln-hero-stage.is-scrolling *,
+.ln-hero-stage.is-scrolling *::before,
+.ln-hero-stage.is-scrolling *::after {
+  animation-play-state: paused !important;
 }
 .ln-hero-pin.is-static .ln-hero-stage {
   position: relative;

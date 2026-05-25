@@ -349,8 +349,29 @@ function Hero() {
       raf = requestAnimationFrame(tick)
     }
 
+    // Pause all CSS animations inside the hero stage while the user is
+    // actively scrolling. The 78-child cinematic SVG has dozens of running
+    // CSS animations (window glow, tree sway, characters, UFO, plane) —
+    // each scroll-driven viewBox repaint forces every animated child to
+    // re-rasterize at its current animation frame, and on fast scroll
+    // that's enough work to drop frames. Pausing animations means the
+    // repaint only has to project static shapes against the new viewBox.
+    let scrollEndTimer: ReturnType<typeof setTimeout> | undefined
+    const markScrolling = () => {
+      const stage = stageRef.current
+      if (!stage) return
+      if (!stage.classList.contains('is-scrolling')) {
+        stage.classList.add('is-scrolling')
+      }
+      if (scrollEndTimer) clearTimeout(scrollEndTimer)
+      scrollEndTimer = setTimeout(() => {
+        stage.classList.remove('is-scrolling')
+      }, 160)
+    }
+
     const onScroll = () => {
       computeTarget()
+      markScrolling()
       if (!raf) raf = requestAnimationFrame(tick)
     }
 
@@ -363,6 +384,8 @@ function Hero() {
     window.addEventListener('resize', onScroll)
     return () => {
       if (raf) cancelAnimationFrame(raf)
+      if (scrollEndTimer) clearTimeout(scrollEndTimer)
+      stageRef.current?.classList.remove('is-scrolling')
       window.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', onScroll)
     }
