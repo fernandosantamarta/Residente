@@ -336,7 +336,16 @@ function Hero() {
     const tick = () => {
       raf = 0
       const delta = targetP - currentP
-      // If we're already close enough, snap to target and stop ticking.
+      // Snap immediately on scroll-back (when the target is BEHIND
+      // current). Replaying the cinematic in fast-reverse looked like
+      // a stutter — much cleaner to jump to the target wide view and
+      // let the user pick up scrolling forward from there. Only the
+      // forward direction (zoom-in) eases.
+      if (delta < 0) {
+        currentP = targetP
+        applyP(currentP)
+        return
+      }
       if (Math.abs(delta) < EPS) {
         if (currentP !== targetP) {
           currentP = targetP
