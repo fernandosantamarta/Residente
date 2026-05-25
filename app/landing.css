@@ -186,18 +186,32 @@ body:has(.landing-screen) { min-width: 0; }
      and the browser can keep the stage on its own compositing layer */
   contain: paint;
 }
-/* While the user is actively scrolling, HIDE the sky overlays entirely
-   (sun, moon, plane). They were the source of the perceived flashing:
-   their --ambient-op changed every scroll frame, and the CSS keyframe
-   animations on plane/UFO produced visibly different positions between
-   scroll-driven repaints. Cleanest fix is to mask them off completely
-   during active scroll and let them fade back in once scroll settles
-   (the inline opacity in style="" is re-applied by the Hero scroll
-   handler's tick on the next stable frame). */
+/* While the user is actively scrolling: hide the sky overlays (sun,
+   moon, plane) AND pause every CSS animation inside the cinematic SVG.
+   Two coordinated sources of perceived flashing were:
+   (1) overlays whose --ambient-op was changing every scroll tick
+       combined with their own keyframe animations (sun spin, plane
+       drift, UFO drift+beam) — hidden entirely via opacity:0 below.
+   (2) house-level animations (window glow, porch pulse, tree sway,
+       walking characters, wheel spin, door pulse) continuously
+       re-rasterizing the 78-child SVG while the user scrolls. Pausing
+       them during scroll means the SVG only has its base shapes to
+       paint — no internal animation churn — so the scroll repaints
+       don't flicker.
+   The .is-scrolling class is removed 200ms after the last scroll event
+   by the Hero handler, at which point overlays fade in (240ms transition
+   on opacity) and the cinematic's ambient animations resume from where
+   they paused. */
 .ln-hero-stage.is-scrolling .ln-hero-sun,
 .ln-hero-stage.is-scrolling .ln-hero-moon,
 .ln-hero-stage.is-scrolling .ln-hero-plane {
   opacity: 0 !important;
+}
+.ln-hero-stage.is-scrolling .ln-zoom-scene *,
+.ln-hero-stage.is-scrolling .ln-zoom-interior *,
+.ln-hero-stage.is-scrolling .ln-zoom-scene *::before,
+.ln-hero-stage.is-scrolling .ln-zoom-scene *::after {
+  animation-play-state: paused !important;
 }
 .ln-hero-pin.is-static .ln-hero-stage {
   position: relative;
