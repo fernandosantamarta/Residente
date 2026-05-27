@@ -4,6 +4,7 @@ import { ReactNode, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { hasSupabase } from '@/lib/supabase'
+import { AdminErrorBoundary } from '@/components/AdminErrorBoundary'
 import { useAuth } from '../providers'
 
 // Board-only admin section. Gated by role check — only board_member/admin
@@ -57,7 +58,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       </nav>
 
       <main className="admin-main">
-        {children}
+        <AdminErrorBoundary>{children}</AdminErrorBoundary>
       </main>
     </div>
   )
