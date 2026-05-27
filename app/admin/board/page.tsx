@@ -154,7 +154,7 @@ export default function Board() {
   return (
     <div className="admin-page">
       <div className="admin-kicker">Board</div>
-      <h1 className="admin-h1">Board &amp; decisions</h1>
+      <h1 className="admin-h1">Board <span className="rb-amp">&amp;</span> decisions</h1>
       <p className="admin-dek">
         Who sits on the board, and the decisions they make — every decision
         shows on each resident's Home under &ldquo;This Week on the Board.&rdquo;
