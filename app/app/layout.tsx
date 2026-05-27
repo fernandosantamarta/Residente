@@ -5,8 +5,8 @@ import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { signOut, hasSupabase } from '@/lib/supabase'
 import { useAuth } from '../providers'
-import { useBoardDecisions } from '@/hooks/useBoardDecisions'
 import { useMyResident } from '@/hooks/useMyResident'
+import { kindToUpTag, upcomingFrom, useScheduleEvents } from '@/lib/schedule'
 import { useUnreadNoticeCount, useMyNotices } from '@/hooks/useNotices'
 import { NOTICE_KIND_LABELS, noticeHref, NoticeKind } from '@/lib/voice'
 import { useCommunityData } from '@/hooks/useCommunityData'
@@ -31,7 +31,6 @@ type NavItem = { href: string; label: string; icon: ReactNode; pulse?: boolean; 
 const NAV: NavItem[] = [
   { href: '/app',           label: 'Home',      exact: true, icon: <><path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/></> },
   { href: '/app/pay',       label: 'Pay',       icon: <><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/></> },
-  { href: '/app/contact',   label: 'Requests',  icon: <><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></> },
   { href: '/app/board',     label: 'Board',     pulse: true, icon: <><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/><path d="M15 19c0-2 2-3.5 4-3.5s3 1.2 3 3"/></> },
   { href: '/app/voice',     label: 'Voice',     icon: <><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="22"/></> },
   { href: '/app/rules',     label: 'Rules',     icon: <><path d="M4 4h12l4 4v12H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></> },
@@ -289,17 +288,6 @@ function nextDueMonth(): string {
   return nextDueDate().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 }
 
-// Date-pill items in the UP NEXT rail. In real life these would come from
-// board calendar + vendor schedule + dues schedule. For now we synthesize
-// from board_decisions (recent contracts/invoices = "next" entries) and
-// pad with a few sensible community events so the rail has 4-5 rows.
-const DEMO_UPNEXT = [
-  { id: 'u1', date: '2026-10-28', title: 'Pest re-authoring',         vendor: 'Oak Ridge Nursery', amount: 19820, tag: 'pending'  },
-  { id: 'u2', date: '2026-07-15', title: 'Gate motor replacement',    vendor: 'SecureGate Co',     amount: null,  tag: 'pending'  },
-  { id: 'u3', date: '2026-09-15', title: 'Landscape contract renews', vendor: 'Oak Ridge Nursery', amount: 1400,  tag: 'renewed'  },
-  { id: 'u4', date: '2026-11-28', title: 'Board meeting',             vendor: null,                amount: null,  tag: 'hosted'   },
-]
-
 const UP_TAG_LABEL: Record<string, string> = {
   pending: 'pending',
   renewed: 'renewed',
@@ -316,34 +304,37 @@ function shortDate(s: string) {
 
 function RightRail() {
   const { profile } = useAuth()
-  const { decisions } = useBoardDecisions(5) as { decisions: any[] | null; loading: boolean }
   const { resident, balance, status: dues } = useMyResident() as { resident: any; balance: number | null; status: 'paid' | 'due' | 'late' }
   const unitLabel = resident?.address || (profile?.unit_number ? `Unit ${profile.unit_number}` : 'Unit —')
 
-  // Build UP NEXT — prefer real decisions, fall back to demo
-  const items = (decisions && decisions.length > 0)
-    ? decisions.slice(0, 4).map((d: any, i: number) => ({
-        id: d.id ?? `r${i}`,
-        date: d.decided_on || new Date().toISOString().slice(0, 10),
-        title: d.title,
-        vendor: d.vendor,
-        amount: d.amount,
-        tag: d.status === 'approved' ? 'renewed' : d.status === 'paid' ? 'hosted' : 'pending',
-      }))
-    : DEMO_UPNEXT
+  // UP NEXT — wired to the same schedule events the /app/schedule
+  // calendar uses, so this rail always matches what the resident
+  // sees on the full calendar. Upcoming = date >= today, sorted
+  // ascending, first 4.
+  const allEvents = useScheduleEvents()
+  const todayISO = new Date().toISOString().slice(0, 10)
+  const items = upcomingFrom(allEvents, todayISO, 4).map(e => ({
+    id: e.id,
+    date: e.date,
+    title: e.title,
+    vendor: e.vendor ?? null,
+    amount: null as number | null,
+    tag: kindToUpTag(e.kind),
+    href: e.href,
+  }))
 
   return (
     <aside className="rail-right">
       <div className="up-head">
         <div className="up-title">Up next</div>
-        <Link href="/app/board" className="up-see-all">View all</Link>
+        <Link href="/app/schedule" className="up-see-all">View all</Link>
       </div>
 
       <div className="up-list">
         {items.map((it) => {
           const { day, mo } = shortDate(it.date)
-          return (
-            <div key={it.id} className="up-row">
+          const row = (
+            <>
               <div className="up-date">
                 <div className="up-date-day">{day}</div>
                 <div className="up-date-mo">{mo}</div>
@@ -359,7 +350,12 @@ function RightRail() {
                 </div>
               </div>
               <div className={`up-tag tag-${it.tag}`}>{UP_TAG_LABEL[it.tag] || it.tag}</div>
-            </div>
+            </>
+          )
+          return it.href ? (
+            <Link key={it.id} href={it.href} className="up-row up-row-link">{row}</Link>
+          ) : (
+            <div key={it.id} className="up-row">{row}</div>
           )
         })}
       </div>

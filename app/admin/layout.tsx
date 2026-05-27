@@ -13,6 +13,7 @@ const ADMIN_NAV = [
   { href: '/admin/residents', label: 'Residents' },
   { href: '/admin/board',     label: 'Board' },
   { href: '/admin/voice',     label: 'Voice' },
+  { href: '/admin/schedule',  label: 'Schedule' },
   { href: '/admin/rules',     label: 'Rules' },
   { href: '/admin/documents', label: 'Documents' },
 ]
@@ -35,7 +36,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <div className="admin">
       <header className="admin-top">
         <div className="admin-brand">
-          <span className="brand-dot" />
+          <img src="/residente-logo.png" alt="" className="brand-logo admin-brand-logo" />
           <span className="admin-brand-word">Residente</span>
           <span className="admin-tag">Admin</span>
         </div>

@@ -1190,15 +1190,22 @@ function Stat({ n, l }) {
 
 function TrustMarquee() {
   const names = [
-    'Sunset Lakes', 'Pelican Reserve', 'Bayshore Pointe',
-    'Miramar Oaks',  'Coral Bend',      'Palm Crossing',
-    'Heron Cove',    'Magnolia Park',   'Cypress Bend',
+    'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California',
+    'Colorado', 'Connecticut', 'Delaware', 'Florida', 'Georgia',
+    'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa',
+    'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland',
+    'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri',
+    'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey',
+    'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio',
+    'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina',
+    'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont',
+    'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming',
   ]
   return (
     <section className="ln-trust" data-anim>
       <div className="ln-trust-label">
-        Designed with the small Florida HOAs that
-        <br />make up most of the country.
+        Designed in Florida, for HOAs of every
+        <br />size that make up our beautiful country.
       </div>
       <div className="ln-marquee">
         <div className="ln-marquee-track">

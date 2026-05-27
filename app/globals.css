@@ -2947,6 +2947,111 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
   flex-shrink: 0;
 }
 
+/* ---- OPEN VOTES BAND ---- */
+/* Shows above Row 1 only when there's an open vote awaiting the resident.
+   Cream-tinted card with a burnt-orange left border so it reads as
+   "action needed" without screaming. Hidden entirely when no votes. */
+[data-theme="sketch"] .open-votes-band {
+  background: rgba(225, 73, 9, 0.06);
+  border: 2px solid #E14909;
+  border-left: 6px solid #E14909;
+  border-radius: 22px;
+  padding: 18px 22px 16px;
+  margin-top: 96px;   /* same breathing room Row 1 used to have below hero */
+  margin-bottom: 0;
+  box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
+}
+/* When the band is present, Row 1 sits just below it with the same 16px
+   gap the rest of the page uses between stacked cards (matches the
+   Row 1 → Row 2 spacing). The band absorbs the larger hero breathing-room
+   on its own top edge. */
+[data-theme="sketch"] .open-votes-band + .dash-row1 {
+  margin-top: 16px;
+}
+[data-theme="sketch"] .ovb-eyebrow {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  color: #C76F45;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+[data-theme="sketch"] .ovb-dot {
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  background: #C76F45;
+  box-shadow: 0 0 0 0 rgba(199, 111, 69, 0.55);
+  animation: ovb-pulse 1.8s ease-out infinite;
+}
+@keyframes ovb-pulse {
+  0%   { box-shadow: 0 0 0 0   rgba(199, 111, 69, 0.55); }
+  70%  { box-shadow: 0 0 0 10px rgba(199, 111, 69, 0);   }
+  100% { box-shadow: 0 0 0 0   rgba(199, 111, 69, 0);    }
+}
+[data-theme="sketch"] .ovb-row {
+  display: flex; align-items: center; gap: 18px;
+  flex-wrap: wrap;
+}
+[data-theme="sketch"] .ovb-left { flex: 1; min-width: 240px; }
+[data-theme="sketch"] .ovb-body { /* text block inside .ovb-left */ }
+[data-theme="sketch"] .ovb-motion {
+  font-family: 'Fraunces', Georgia, serif;
+  font-style: italic;
+  font-size: 22px;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.3px;
+  color: #0A2440;
+}
+[data-theme="sketch"] .ovb-meta {
+  font-size: 13px;
+  color: rgba(10, 36, 64, 0.7);
+  margin-top: 4px;
+}
+[data-theme="sketch"] .ovb-cta {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 18px;
+  background: #0A2440;
+  color: #FFFFFF;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+[data-theme="sketch"] .ovb-cta:hover {
+  background: #102E50;
+  transform: translateX(2px);
+}
+[data-theme="sketch"] .ovb-cta svg { width: 16px; height: 16px; }
+[data-theme="sketch"] .ovb-list {
+  display: flex; flex-direction: column;
+}
+[data-theme="sketch"] .ovb-list-row {
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 0;
+  border-top: 1px solid rgba(199, 111, 69, 0.18);
+  text-decoration: none;
+  color: inherit;
+}
+[data-theme="sketch"] .ovb-list-row:first-child { border-top: none; }
+[data-theme="sketch"] .ovb-list-row:hover .ovb-motion { color: #C76F45; }
+[data-theme="sketch"] .ovb-chev {
+  width: 18px; height: 18px;
+  color: rgba(10, 36, 64, 0.45);
+  flex-shrink: 0;
+}
+[data-theme="sketch"] .ovb-see-all {
+  display: inline-block;
+  margin-top: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #C76F45;
+  text-decoration: none;
+}
+[data-theme="sketch"] .ovb-see-all:hover { text-decoration: underline; }
+
 /* ---- AT A GLANCE ---- */
 /* At-a-glance + Recent Activity row — two white cards side by side */
 [data-theme="sketch"] .dash-row2 {
@@ -3430,6 +3535,1885 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 }
 [data-theme="sketch"] .household-cta-dark:hover {
   background: #050B1A;
+}
+
+/* ============================================================
+   SCHEDULE PAGE
+   Full-bleed sunset hero → toolbar → 7-col calendar grid + side panel.
+   Each event kind has its own accent color so the month reads as a
+   color-coded landscape of what's coming up.
+   ============================================================ */
+
+[data-theme="sketch"] .sched-wrap {
+  /* The cockpit center column already has padding; the hero needs to
+     bleed full-width inside that column, so we pull negative margins. */
+}
+
+/* Schedule hero — sunset photo (same /sunset.jpg Home uses as an asset)
+   shown tall enough that the houses + sun + water are all visible. Type
+   rhythm matches Home's hero-bleed: Inter 52px / weight 500 / tight
+   letterspacing. White title since text sits on the photo. */
+/* Shallow sunset hero with a small eyebrow, serif title, and subtitle —
+   matches the reference. The photo's bias toward the right keeps the
+   text-side dark enough for the white text to read. */
+/* Hero bleeds edge-to-edge — negative margins offset the .center
+   padding so the photo touches the rail on the left and the page
+   edge on the right, with no white "box" around it. */
+/* Bare page title — no banner, no photo, no card. Text sits directly on
+   the cream cockpit background like a normal page header. Same eyebrow
+   + serif title + subtitle structure for visual continuity. */
+[data-theme="sketch"] .sched-hero {
+  position: relative;
+  margin-bottom: 64px;
+  background: transparent;
+}
+[data-theme="sketch"] .sched-hero-content {
+  display: flex; flex-direction: column;
+  gap: 6px;
+  color: #0A2440;
+}
+[data-theme="sketch"] .sched-hero-eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 11px;
+  letter-spacing: 1.8px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: rgba(10, 36, 64, 0.65);
+}
+[data-theme="sketch"] .sched-hero-eyebrow-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: #E14909;
+}
+[data-theme="sketch"] .sched-hero-eyebrow-sep {
+  opacity: 0.50;
+  font-weight: 500;
+}
+[data-theme="sketch"] .sched-hero-eyebrow-chev {
+  width: 12px; height: 12px;
+  opacity: 0.55;
+  margin-left: 2px;
+}
+[data-theme="sketch"] .sched-hero-title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 44px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  margin: 0;
+  color: #0A2440;
+}
+[data-theme="sketch"] .sched-hero-sub {
+  font-size: 13px;
+  font-weight: 500;
+  color: rgba(10, 36, 64, 0.75);
+  max-width: 460px;
+}
+
+/* Toolbar — single horizontal row matching the reference. Today button,
+   month picker (prev / month-dropdown / next), Month/Week/Day pills,
+   Filter button, and the Today indicator block all in one strip. */
+[data-theme="sketch"] .sched-toolbar {
+  display: flex; align-items: center; gap: 14px;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+  background: var(--bg-card);
+  border: 1px solid rgba(15, 28, 46, 0.10);
+  border-radius: 14px;
+  padding: 10px 14px;
+  box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
+}
+[data-theme="sketch"] .sched-today-btn {
+  padding: 7px 16px;
+  background: transparent;
+  border: 1.5px solid rgba(15, 28, 46, 0.16);
+  border-radius: 999px;
+  color: #0A2440;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+[data-theme="sketch"] .sched-today-btn:hover {
+  border-color: #0A2440;
+  background: rgba(15, 28, 46, 0.04);
+}
+[data-theme="sketch"] .sched-monthnav {
+  display: flex; align-items: center; gap: 8px;
+}
+[data-theme="sketch"] .sched-nav-btn {
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  color: rgba(10, 36, 64, 0.65);
+  cursor: pointer;
+  transition: color 0.12s ease, background 0.12s ease;
+}
+[data-theme="sketch"] .sched-nav-btn:hover {
+  color: #0A2440;
+  background: rgba(15, 28, 46, 0.05);
+}
+[data-theme="sketch"] .sched-nav-btn svg { width: 16px; height: 16px; }
+[data-theme="sketch"] .sched-monthnav-title {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px;
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0A2440;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  border-radius: 8px;
+  transition: background 0.12s ease;
+}
+[data-theme="sketch"] .sched-monthnav-title:hover { background: rgba(15, 28, 46, 0.05); }
+[data-theme="sketch"] .sched-monthnav-title svg {
+  width: 14px; height: 14px;
+  opacity: 0.6;
+}
+
+[data-theme="sketch"] .sched-views {
+  margin-left: auto;
+  display: inline-flex;
+  gap: 4px;
+}
+[data-theme="sketch"] .sched-view-btn {
+  padding: 7px 16px;
+  background: transparent;
+  border: none;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(10, 36, 64, 0.55);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+[data-theme="sketch"] .sched-view-btn:hover:not(:disabled) {
+  background: rgba(15, 28, 46, 0.05);
+  color: #0A2440;
+}
+[data-theme="sketch"] .sched-view-btn:disabled { cursor: not-allowed; opacity: 0.55; }
+[data-theme="sketch"] .sched-view-btn.active {
+  background: rgba(225, 73, 9, 0.10);
+  color: #E14909;
+}
+
+[data-theme="sketch"] .sched-filter-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 7px 16px;
+  background: transparent;
+  border: 1.5px solid rgba(15, 28, 46, 0.16);
+  border-radius: 999px;
+  color: #0A2440;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+[data-theme="sketch"] .sched-filter-btn:hover {
+  border-color: #0A2440;
+  background: rgba(15, 28, 46, 0.04);
+}
+[data-theme="sketch"] .sched-filter-btn svg { width: 15px; height: 15px; }
+
+[data-theme="sketch"] .sched-toolbar-today {
+  display: flex; flex-direction: column;
+  padding: 4px 14px;
+  border-left: 1px solid rgba(15, 28, 46, 0.10);
+  min-width: 200px;
+}
+[data-theme="sketch"] .sched-toolbar-today-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0A2440;
+  letter-spacing: -0.01em;
+}
+[data-theme="sketch"] .sched-toolbar-today-count {
+  font-size: 12px;
+  font-weight: 700;
+  color: #E14909;
+  margin-top: 2px;
+}
+
+/* Layout: calendar + side panel */
+[data-theme="sketch"] .sched-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 22px;
+  align-items: start;
+}
+
+/* Calendar */
+[data-theme="sketch"] .sched-cal {
+  background: var(--bg-card);
+  border: 1px solid rgba(15, 28, 46, 0.10);
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
+}
+[data-theme="sketch"] .sched-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+  margin-bottom: 8px;
+}
+[data-theme="sketch"] .sched-weekday {
+  font-size: 11px;
+  letter-spacing: 1.4px;
+  font-weight: 700;
+  color: rgba(10, 36, 64, 0.50);
+  text-align: center;
+  padding: 6px 0;
+}
+[data-theme="sketch"] .sched-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 6px;
+}
+[data-theme="sketch"] .sched-cell {
+  position: relative;
+  min-height: 100px;
+  padding: 6px;
+  background: rgba(15, 28, 46, 0.02);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  text-align: left;
+  cursor: pointer;
+  display: flex; flex-direction: column;
+  gap: 4px;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+[data-theme="sketch"] .sched-cell:hover { background: rgba(15, 28, 46, 0.05); }
+[data-theme="sketch"] .sched-cell.empty { background: transparent; cursor: default; }
+[data-theme="sketch"] .sched-cell.today {
+  background: rgba(225, 73, 9, 0.10);
+  border-color: rgba(225, 73, 9, 0.45);
+}
+[data-theme="sketch"] .sched-cell.selected {
+  border-color: #0A2440;
+}
+[data-theme="sketch"] .sched-cell.today.selected {
+  border-color: #E14909;
+}
+[data-theme="sketch"] .sched-cell-day {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0A2440;
+  padding: 2px 2px 0;
+}
+[data-theme="sketch"] .sched-cell.today .sched-cell-day {
+  color: #E14909;
+}
+[data-theme="sketch"] .sched-cell-events {
+  display: flex; flex-direction: column;
+  gap: 3px;
+}
+
+/* Event pills inside calendar cells */
+[data-theme="sketch"] .sched-pill {
+  display: flex; align-items: center; gap: 5px;
+  padding: 3px 6px;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #0A2440;
+  background: #FFFFFF;
+  border: 1px solid rgba(15, 28, 46, 0.08);
+  line-height: 1.2;
+}
+[data-theme="sketch"] .sched-pill-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+[data-theme="sketch"] .sched-pill-more {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: rgba(10, 36, 64, 0.55);
+  padding: 1px 6px;
+}
+
+/* Kind colors — used by .sched-dot and as pill accent. Keep palette in
+   the existing burnt-orange + navy + cream system; each color is muted
+   enough to live together on a single page without screaming. */
+[data-theme="sketch"] .sched-dot {
+  display: inline-block;
+  width: 8px; height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+[data-theme="sketch"] .sched-dot.kind-meeting     { background: #FF7A6E; }
+[data-theme="sketch"] .sched-dot.kind-vote        { background: #E14909; }
+[data-theme="sketch"] .sched-dot.kind-dues        { background: #B83377; }
+[data-theme="sketch"] .sched-dot.kind-maintenance { background: #6FA8DC; }
+[data-theme="sketch"] .sched-dot.kind-event       { background: #7D8C5C; }
+[data-theme="sketch"] .sched-dot.kind-inspection  { background: #9F7AEA; }
+[data-theme="sketch"] .sched-dot.kind-holiday     { background: #C82E2E; }
+
+[data-theme="sketch"] .sched-pill.kind-meeting     { background: rgba(255, 122, 110, 0.12); }
+[data-theme="sketch"] .sched-pill.kind-vote        { background: rgba(225, 73, 9, 0.10); }
+[data-theme="sketch"] .sched-pill.kind-dues        { background: rgba(184, 51, 119, 0.10); }
+[data-theme="sketch"] .sched-pill.kind-maintenance { background: rgba(111, 168, 220, 0.14); }
+[data-theme="sketch"] .sched-pill.kind-event       { background: rgba(125, 140, 92, 0.14); }
+[data-theme="sketch"] .sched-pill.kind-inspection  { background: rgba(159, 122, 234, 0.12); }
+[data-theme="sketch"] .sched-pill.kind-holiday     { background: rgba(200, 46, 46, 0.10); }
+
+/* Legend strip below the grid */
+[data-theme="sketch"] .sched-legend {
+  display: flex; flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(15, 28, 46, 0.08);
+}
+[data-theme="sketch"] .sched-legend-item {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(10, 36, 64, 0.7);
+}
+
+/* Side panel — column of stacked cards */
+[data-theme="sketch"] .sched-side {
+  display: flex; flex-direction: column;
+  gap: 16px;
+}
+[data-theme="sketch"] .sched-side-card {
+  background: var(--bg-card);
+  border: 1px solid rgba(15, 28, 46, 0.10);
+  border-radius: 18px;
+  padding: 16px 18px;
+  box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
+}
+[data-theme="sketch"] .sched-side-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  margin-bottom: 12px;
+}
+[data-theme="sketch"] .sched-side-eyebrow {
+  font-size: 11px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: rgba(10, 36, 64, 0.55);
+}
+[data-theme="sketch"] .sched-side-count {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0A2440;
+  margin-top: 2px;
+}
+[data-theme="sketch"] .sched-side-check {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  background: #7D8C5C;
+  color: #FFFFFF;
+  border-radius: 50%;
+  font-size: 12px;
+  font-weight: 800;
+}
+[data-theme="sketch"] .sched-side-subhead {
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(10, 36, 64, 0.55);
+  text-transform: uppercase;
+  letter-spacing: 1.3px;
+  margin-bottom: 6px;
+  margin-top: 4px;
+}
+[data-theme="sketch"] .sched-side-empty {
+  font-size: 13px;
+  color: rgba(10, 36, 64, 0.55);
+  padding: 8px 0;
+}
+[data-theme="sketch"] .sched-side-list {
+  display: flex; flex-direction: column;
+  gap: 8px;
+}
+
+/* Event row used in side panel */
+[data-theme="sketch"] .sched-row {
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 10px 10px 12px;
+  border-radius: 12px;
+  background: rgba(15, 28, 46, 0.03);
+  text-decoration: none;
+  color: inherit;
+  transition: background 0.12s ease;
+}
+[data-theme="sketch"] .sched-row:hover { background: rgba(15, 28, 46, 0.06); }
+[data-theme="sketch"] .sched-row-stripe {
+  width: 3px;
+  align-self: stretch;
+  border-radius: 99px;
+  flex-shrink: 0;
+}
+[data-theme="sketch"] .sched-row-stripe.kind-meeting     { background: #FF7A6E; }
+[data-theme="sketch"] .sched-row-stripe.kind-vote        { background: #E14909; }
+[data-theme="sketch"] .sched-row-stripe.kind-dues        { background: #B83377; }
+[data-theme="sketch"] .sched-row-stripe.kind-maintenance { background: #6FA8DC; }
+[data-theme="sketch"] .sched-row-stripe.kind-event       { background: #7D8C5C; }
+[data-theme="sketch"] .sched-row-stripe.kind-inspection  { background: #9F7AEA; }
+[data-theme="sketch"] .sched-row-stripe.kind-holiday     { background: #C82E2E; }
+[data-theme="sketch"] .sched-row-body { flex: 1; min-width: 0; }
+[data-theme="sketch"] .sched-row-kind {
+  font-size: 10.5px;
+  letter-spacing: 1.2px;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: rgba(10, 36, 64, 0.55);
+}
+[data-theme="sketch"] .sched-row-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0A2440;
+  margin-top: 1px;
+}
+[data-theme="sketch"] .sched-row-meta {
+  font-size: 12px;
+  color: rgba(10, 36, 64, 0.6);
+  margin-top: 2px;
+}
+[data-theme="sketch"] .sched-row-dot {
+  margin: 0 5px;
+  color: rgba(10, 36, 64, 0.35);
+}
+[data-theme="sketch"] .sched-row-chev {
+  width: 16px; height: 16px;
+  color: rgba(10, 36, 64, 0.40);
+  flex-shrink: 0;
+}
+
+/* Filters card */
+[data-theme="sketch"] .sched-filters-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0A2440;
+  margin-bottom: 10px;
+}
+[data-theme="sketch"] .sched-filters-clear {
+  background: none; border: none;
+  font-size: 12px;
+  font-weight: 600;
+  color: #E14909;
+  cursor: pointer;
+}
+[data-theme="sketch"] .sched-filters-clear:hover { text-decoration: underline; }
+[data-theme="sketch"] .sched-filters-list {
+  display: flex; flex-direction: column;
+  gap: 6px;
+}
+[data-theme="sketch"] .sched-filter {
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 4px;
+  cursor: pointer;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(10, 36, 64, 0.85);
+}
+[data-theme="sketch"] .sched-filter:hover { background: rgba(15, 28, 46, 0.04); }
+[data-theme="sketch"] .sched-filter input[type="checkbox"] {
+  width: 16px; height: 16px;
+  margin: 0;
+  accent-color: #E14909;
+  cursor: pointer;
+}
+[data-theme="sketch"] .sched-filter:not(.on) { color: rgba(10, 36, 64, 0.40); }
+
+/* Subscribe block */
+[data-theme="sketch"] .sched-subscribe {
+  background: linear-gradient(135deg, #E14909 0%, #C76F45 100%);
+  border-radius: 18px;
+  padding: 16px 18px;
+  color: #FFFFFF;
+  box-shadow: 0 10px 30px -18px rgba(225, 73, 9, 0.55);
+}
+[data-theme="sketch"] .sched-subscribe-title {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+[data-theme="sketch"] .sched-subscribe-sub {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.88);
+  margin-top: 3px;
+  margin-bottom: 12px;
+}
+[data-theme="sketch"] .sched-subscribe-row {
+  display: flex; gap: 8px;
+}
+[data-theme="sketch"] .sched-subscribe-btn {
+  flex: 1;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.30);
+  border-radius: 999px;
+  color: #FFFFFF;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s ease;
+}
+[data-theme="sketch"] .sched-subscribe-btn:hover { background: rgba(255, 255, 255, 0.28); }
+
+/* ============================================================
+   RULES — resident-facing rule book page (/app/rules).
+   Hero banner → search + chip strip → 2-col main (Browse + Most
+   Viewed) → Violations & Enforcement stats → Suggest a change CTA.
+   ============================================================ */
+
+[data-theme="sketch"] .rb-wrap {
+  display: flex; flex-direction: column;
+  gap: 22px;
+  padding-bottom: 64px;
+}
+
+/* Bare title — no photo banner. Same treatment as the Schedule
+   page so the cockpit reads as one coherent app across surfaces. */
+[data-theme="sketch"] .rb-hero {
+  margin-bottom: 22px;
+  background: transparent;
+}
+[data-theme="sketch"] .rb-hero-content {
+  display: flex; flex-direction: column;
+  gap: 6px;
+  color: #0A2440;
+}
+[data-theme="sketch"] .rb-hero-title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 44px;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  margin: 0;
+  color: #0A2440;
+}
+/* Plain ampersand — sans-serif. DM Sans renders heavier than Fraunces
+   at the same weight, so we drop two steps below the title weight so
+   the "&" sits visually level with the words on either side. */
+[data-theme="sketch"] .rb-amp {
+  font-family: 'DM Sans', 'Inter', system-ui, sans-serif;
+  font-style: normal;
+  font-weight: 400;
+  color: inherit;
+}
+[data-theme="sketch"] .rb-hero-sub {
+  font-size: 14px;
+  font-weight: 500;
+  color: rgba(10, 36, 64, 0.75);
+  max-width: 560px;
+  /* Distribute the two-ish lines evenly so neither line is much
+     longer than the other — clean visual rhythm under the title. */
+  text-wrap: balance;
+}
+
+/* Standalone search bar — its own pill, no toolbar wrapper. */
+[data-theme="sketch"] .rb-search {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px;
+  background-color: #FBF7F1;
+  border: 1.5px solid rgba(199, 111, 69, 0.30);
+  border-radius: 999px;
+  color: rgba(10, 36, 64, 0.55);
+  max-width: 360px;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+[data-theme="sketch"] .rb-search:hover { border-color: rgba(225, 73, 9, 0.55); background-color: rgba(225, 73, 9, 0.06); }
+[data-theme="sketch"] .rb-search:focus-within { border-color: #E14909; background-color: #FFFFFF; }
+[data-theme="sketch"] .rb-search svg { width: 16px; height: 16px; color: #C76F45; flex-shrink: 0; }
+[data-theme="sketch"] .rb-search input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0A2440;
+  min-width: 0;
+}
+[data-theme="sketch"] .rb-search input::placeholder { color: rgba(10, 36, 64, 0.40); font-weight: 500; }
+
+/* Category chips as vertical box cards: icon in circle on top,
+   name in the middle, "N rules" count below. Active card gets the
+   burnt-orange border + tinted icon background. */
+[data-theme="sketch"] .rb-chips {
+  display: flex; align-items: stretch; gap: 10px;
+  flex: 1;
+  overflow-x: auto;
+  overflow-y: visible;     /* don't clip the hover translateY lift */
+  padding: 6px 2px 8px;    /* room above + below so the lift doesn't get cut */
+}
+/* Inline variant — chips sit inside the Browse card. Tighter spacing
+   so the strip fits the card width cleanly. */
+[data-theme="sketch"] .rb-chips-inline {
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+}
+[data-theme="sketch"] .rb-chip {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 8px;
+  min-width: 112px;
+  padding: 14px 12px;
+  background-color: #FFFFFF;
+  border: 1.5px solid rgba(15, 28, 46, 0.10);
+  border-radius: 16px;
+  color: #0A2440;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background-color 0.12s ease, transform 0.12s ease, box-shadow 0.12s ease;
+  flex-shrink: 0;
+  font-family: inherit;
+}
+[data-theme="sketch"] .rb-chip:hover {
+  border-color: #E14909;
+  background-color: rgba(225, 73, 9, 0.04);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px -6px rgba(225, 73, 9, 0.30);
+}
+[data-theme="sketch"] .rb-chip-icon {
+  width: 44px; height: 44px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background-color: rgba(15, 28, 46, 0.06);
+  color: #0A2440;
+  border-radius: 50%;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+[data-theme="sketch"] .rb-chip-icon svg { width: 22px; height: 22px; }
+[data-theme="sketch"] .rb-chip-label {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-align: center;
+  white-space: nowrap;
+}
+[data-theme="sketch"] .rb-chip-count {
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(10, 36, 64, 0.55);
+}
+[data-theme="sketch"] .rb-chip.active {
+  border-color: #E14909;
+  background-color: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.10);
+}
+[data-theme="sketch"] .rb-chip.active .rb-chip-icon {
+  background-color: rgba(225, 73, 9, 0.14);
+  color: #E14909;
+}
+[data-theme="sketch"] .rb-chip.active .rb-chip-label { color: #0A2440; }
+[data-theme="sketch"] .rb-chip.active .rb-chip-count { color: #E14909; font-weight: 700; }
+
+/* 2-col main — both cards stretch to the same height so their
+   bottom borders line up alongside the Browse Rules card. */
+[data-theme="sketch"] .rb-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 22px;
+  align-items: stretch;
+}
+[data-theme="sketch"] .rb-col,
+[data-theme="sketch"] .rb-aside {
+  background: var(--bg-card);
+  border: 1px solid rgba(15, 28, 46, 0.10);
+  border-radius: 18px;
+  padding: 20px 22px;
+  box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
+}
+[data-theme="sketch"] .rb-col-head {
+  font-size: 11px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: rgba(10, 36, 64, 0.55);
+  margin-bottom: 14px;
+}
+
+/* Category card list (left column) — vertical list of horizontal cards. */
+[data-theme="sketch"] .rb-cat-list {
+  display: flex; flex-direction: column;
+  gap: 8px;
+}
+[data-theme="sketch"] .rb-cat-card {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 16px;
+  background-color: #FBF7F1;
+  border: 1.5px solid rgba(199, 111, 69, 0.22);
+  border-radius: 14px;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background-color 0.12s ease, transform 0.12s ease;
+  font-family: inherit;
+}
+[data-theme="sketch"] .rb-cat-card:hover {
+  border-color: rgba(225, 73, 9, 0.55);
+  background-color: rgba(225, 73, 9, 0.06);
+  transform: translateY(-1px);
+}
+[data-theme="sketch"] .rb-cat-card-icon {
+  width: 44px; height: 44px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background-color: rgba(225, 73, 9, 0.12);
+  color: #E14909;
+  border-radius: 12px;
+  flex-shrink: 0;
+}
+[data-theme="sketch"] .rb-cat-card-icon svg { width: 22px; height: 22px; }
+[data-theme="sketch"] .rb-cat-card-body { display: flex; flex-direction: column; gap: 2px; flex: 1; min-width: 0; }
+[data-theme="sketch"] .rb-cat-card-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0A2440;
+  letter-spacing: -0.01em;
+}
+[data-theme="sketch"] .rb-cat-card-desc {
+  font-size: 12px;
+  color: rgba(10, 36, 64, 0.65);
+}
+[data-theme="sketch"] .rb-cat-card-count {
+  padding: 5px 11px;
+  background-color: rgba(15, 28, 46, 0.06);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 800;
+  color: rgba(10, 36, 64, 0.70);
+  flex-shrink: 0;
+}
+
+/* Active section's rule items (rendered inline below the cat list
+   when a chip is selected) */
+[data-theme="sketch"] .rb-active-section { margin-top: 22px; }
+[data-theme="sketch"] .rb-active-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+[data-theme="sketch"] .rb-active-head h2 {
+  margin: 0;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: #0A2440;
+}
+[data-theme="sketch"] .rb-active-clear {
+  background: none; border: none;
+  font-size: 12px;
+  font-weight: 700;
+  color: #E14909;
+  cursor: pointer;
+}
+[data-theme="sketch"] .rb-active-clear:hover { text-decoration: underline; }
+[data-theme="sketch"] .rb-rule-list { display: flex; flex-direction: column; gap: 10px; }
+[data-theme="sketch"] .rb-rule {
+  padding: 12px 14px;
+  background-color: rgba(15, 28, 46, 0.03);
+  border-radius: 12px;
+}
+[data-theme="sketch"] .rb-rule-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+[data-theme="sketch"] .rb-rule-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0A2440;
+}
+[data-theme="sketch"] .rb-rule-fine {
+  padding: 3px 10px;
+  background-color: rgba(200, 46, 46, 0.10);
+  color: #C82E2E;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+[data-theme="sketch"] .rb-rule-body {
+  font-size: 13px;
+  color: rgba(10, 36, 64, 0.75);
+  margin-top: 6px;
+  line-height: 1.45;
+}
+
+/* Most viewed (right column) */
+[data-theme="sketch"] .rb-most-list {
+  list-style: none;
+  padding: 0; margin: 0;
+  display: flex; flex-direction: column;
+  gap: 4px;
+}
+[data-theme="sketch"] .rb-most-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 4px;
+  border-top: 1px solid rgba(15, 28, 46, 0.08);
+}
+[data-theme="sketch"] .rb-most-item:first-child { border-top: none; }
+[data-theme="sketch"] .rb-most-rank {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px;
+  background-color: rgba(225, 73, 9, 0.10);
+  color: #E14909;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+[data-theme="sketch"] .rb-most-body { flex: 1; min-width: 0; }
+[data-theme="sketch"] .rb-most-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0A2440;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+[data-theme="sketch"] .rb-most-meta {
+  font-size: 12px;
+  color: rgba(10, 36, 64, 0.55);
+}
+[data-theme="sketch"] .rb-most-views {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 4px 10px;
+  background-color: rgba(15, 28, 46, 0.06);
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  color: rgba(10, 36, 64, 0.70);
+  flex-shrink: 0;
+}
+[data-theme="sketch"] .rb-most-views svg {
+  width: 13px; height: 13px;
+  color: rgba(10, 36, 64, 0.55);
+}
+
+/* Empty states */
+[data-theme="sketch"] .rb-empty {
+  padding: 22px;
+  text-align: center;
+  color: rgba(10, 36, 64, 0.65);
+  font-size: 13px;
+}
+[data-theme="sketch"] .rb-empty-card {
+  background: rgba(15, 28, 46, 0.03);
+  border-radius: 12px;
+}
+[data-theme="sketch"] .rb-empty-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #0A2440;
+  margin-bottom: 4px;
+}
+[data-theme="sketch"] .rb-empty-sub {
+  font-size: 13px;
+  color: rgba(10, 36, 64, 0.60);
+}
+
+/* Violations & Enforcement strip */
+[data-theme="sketch"] .rb-vi {
+  background: var(--bg-card);
+  border: 1px solid rgba(15, 28, 46, 0.10);
+  border-radius: 18px;
+  padding: 22px 24px;
+  box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
+}
+[data-theme="sketch"] .rb-vi-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+[data-theme="sketch"] .rb-vi-head h2 {
+  margin: 0;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: #0A2440;
+}
+[data-theme="sketch"] .rb-vi-sub {
+  font-size: 12px;
+  color: rgba(10, 36, 64, 0.55);
+}
+[data-theme="sketch"] .rb-vi-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+[data-theme="sketch"] .rb-vi-stat {
+  padding: 14px 16px;
+  background: rgba(225, 73, 9, 0.05);
+  border: 1px solid rgba(225, 73, 9, 0.18);
+  border-radius: 14px;
+}
+[data-theme="sketch"] .rb-vi-stat-n {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 28px;
+  font-weight: 600;
+  color: #E14909;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+[data-theme="sketch"] .rb-vi-stat-l {
+  font-size: 13px;
+  font-weight: 700;
+  color: #0A2440;
+  margin-top: 8px;
+}
+[data-theme="sketch"] .rb-vi-stat-d {
+  font-size: 12px;
+  color: rgba(10, 36, 64, 0.60);
+  margin-top: 3px;
+  line-height: 1.4;
+}
+
+/* Suggest a change CTA — hot-orange banner with white text and a
+   dark-navy button (same #03101C as the "% through the year" hero
+   chip on Home). */
+[data-theme="sketch"] .rb-suggest {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 18px;
+  padding: 20px 24px;
+  background: #E14909;
+  border-radius: 18px;
+  color: #FFFFFF;
+  box-shadow: 0 10px 30px -14px rgba(225, 73, 9, 0.45);
+}
+[data-theme="sketch"] .rb-suggest-eyebrow {
+  font-size: 11px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: rgba(255, 255, 255, 0.85);
+}
+[data-theme="sketch"] .rb-suggest-title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 22px;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin-top: 2px;
+}
+[data-theme="sketch"] .rb-suggest-sub {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.90);
+  margin-top: 3px;
+}
+[data-theme="sketch"] .rb-suggest-cta {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 20px;
+  background: #03101C;
+  color: #FFFFFF;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: background 0.12s ease, transform 0.12s ease;
+  box-shadow: 0 4px 14px rgba(3, 16, 28, 0.45);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+[data-theme="sketch"] .rb-suggest-cta:hover { background: #102E50; transform: translateX(2px); }
+[data-theme="sketch"] .rb-suggest-cta svg { width: 16px; height: 16px; }
+
+@media (max-width: 1099px) {
+  [data-theme="sketch"] .rb-grid { grid-template-columns: 1fr; }
+  [data-theme="sketch"] .rb-vi-stats { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 599px) {
+  [data-theme="sketch"] .rb-hero { height: 160px; }
+  [data-theme="sketch"] .rb-hero-title { font-size: 32px; }
+  [data-theme="sketch"] .rb-vi-stats { grid-template-columns: 1fr; }
+  [data-theme="sketch"] .rb-suggest { flex-direction: column; align-items: flex-start; }
+}
+
+/* ============================================================
+   ADMIN BRAND HEADER — matches the dashboard left-rail brand
+   (real logo + "Residente" wordmark) instead of the stub dot.
+   ============================================================ */
+[data-theme="sketch"] .admin-brand {
+  display: flex; align-items: center; gap: 8px;
+}
+[data-theme="sketch"] .admin-brand-logo {
+  width: 32px; height: 32px;
+  display: block;
+  flex-shrink: 0;
+}
+[data-theme="sketch"] .admin-brand-word {
+  font-weight: 700;
+  font-size: 20px;
+  letter-spacing: -0.3px;
+  color: #0A2440;
+}
+[data-theme="sketch"] .admin-tag {
+  margin-left: 6px;
+  padding: 3px 10px;
+  background: rgba(225, 73, 9, 0.10);
+  color: #E14909;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   ADMIN → SCHEDULE
+   Board-side calendar manager: manual add form, bulk PDF/Excel
+   upload, and a deletable list of events the board has added.
+   ============================================================ */
+
+[data-theme="sketch"] .admin-schedule {
+  display: flex; flex-direction: column;
+  gap: 22px;
+  max-width: 920px;
+  padding-bottom: 64px;
+}
+/* The events-added card stretches to match the left column's height,
+   then scrolls internally so the page footer stays put if the list
+   gets long. */
+[data-theme="sketch"] .admin-h-wrap { margin-bottom: 4px; }
+[data-theme="sketch"] .admin-dek {
+  font-size: 14px;
+  color: rgba(10, 36, 64, 0.70);
+  max-width: 640px;
+  margin-top: 6px;
+}
+[data-theme="sketch"] .admin-sched-status {
+  padding: 10px 14px;
+  background: rgba(125, 140, 92, 0.12);
+  border: 1px solid rgba(125, 140, 92, 0.40);
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #4F5D38;
+}
+[data-theme="sketch"] .admin-sched-card {
+  background: var(--bg-card);
+  border: 1px solid rgba(15, 28, 46, 0.10);
+  border-radius: 18px;
+  padding: 20px 22px;
+  box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
+}
+[data-theme="sketch"] .admin-sched-card-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+[data-theme="sketch"] .admin-sched-card-head h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0A2440;
+  letter-spacing: -0.01em;
+}
+[data-theme="sketch"] .admin-sched-card-sub {
+  font-size: 12px;
+  color: rgba(10, 36, 64, 0.55);
+  text-align: right;
+}
+[data-theme="sketch"] .admin-sched-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px 18px;
+}
+[data-theme="sketch"] .admin-field {
+  display: flex; flex-direction: column;
+  gap: 4px;
+}
+[data-theme="sketch"] .admin-field span {
+  font-size: 11px;
+  letter-spacing: 1.3px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: rgba(10, 36, 64, 0.65);
+}
+[data-theme="sketch"] .admin-field em {
+  font-style: normal;
+  color: rgba(10, 36, 64, 0.40);
+  font-weight: 500;
+  letter-spacing: 0.6px;
+  text-transform: none;
+}
+[data-theme="sketch"] .admin-field input,
+[data-theme="sketch"] .admin-field select {
+  padding: 10px 16px;
+  background-color: #FBF7F1;
+  border: 1.5px solid rgba(199, 111, 69, 0.30);
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0A2440;
+  outline: none;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+}
+[data-theme="sketch"] .admin-field input::placeholder { color: rgba(10, 36, 64, 0.40); font-weight: 500; }
+[data-theme="sketch"] .admin-field input:hover,
+[data-theme="sketch"] .admin-field select:hover {
+  border-color: rgba(225, 73, 9, 0.55);
+  background-color: rgba(225, 73, 9, 0.06);
+}
+[data-theme="sketch"] .admin-field input:focus,
+[data-theme="sketch"] .admin-field select:focus {
+  border-color: #E14909;
+  background-color: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.14);
+}
+/* Native select chevron replaced with a burnt-orange one so the
+   dropdown reads like the rest of the theme instead of stock OS. */
+[data-theme="sketch"] .admin-field select,
+[data-theme="sketch"] .admin-sched-filter select {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23C76F45' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px 14px;
+  padding-right: 36px;
+  cursor: pointer;
+}
+[data-theme="sketch"] .admin-sched-form-foot {
+  grid-column: 1 / -1;
+  display: flex; justify-content: flex-end;
+  margin-top: 4px;
+}
+[data-theme="sketch"] .admin-primary-btn {
+  padding: 10px 22px;
+  background: #0A2440;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+[data-theme="sketch"] .admin-primary-btn:hover:not(:disabled) {
+  background: #102E50;
+  transform: translateY(-1px);
+}
+[data-theme="sketch"] .admin-primary-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+[data-theme="sketch"] .admin-secondary-btn {
+  padding: 10px 18px;
+  background: transparent;
+  color: #0A2440;
+  border: 1.5px solid rgba(15, 28, 46, 0.20);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+[data-theme="sketch"] .admin-secondary-btn:hover {
+  border-color: #0A2440;
+  background: rgba(15, 28, 46, 0.04);
+}
+
+/* Bulk-upload section on the admin Rules page — wraps the BulkBox
+   pattern with its own head so it slots neatly between the manual
+   form and the rule book list. */
+[data-theme="sketch"] .admin-rules-bulk {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(15, 28, 46, 0.08);
+}
+[data-theme="sketch"] .admin-rules-bulk-head {
+  display: flex; align-items: baseline; justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+/* Bulk upload (PDF + Excel) */
+[data-theme="sketch"] .admin-sched-bulk {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+[data-theme="sketch"] .admin-bulk-box {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 16px;
+  border: 1.5px dashed rgba(15, 28, 46, 0.22);
+  border-radius: 14px;
+  background: rgba(15, 28, 46, 0.02);
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+[data-theme="sketch"] .admin-bulk-box:hover {
+  border-color: #E14909;
+  background: rgba(225, 73, 9, 0.04);
+}
+[data-theme="sketch"] .admin-bulk-icon {
+  width: 48px; height: 48px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 12px;
+  background: rgba(225, 73, 9, 0.10);
+  color: #E14909;
+  flex-shrink: 0;
+}
+[data-theme="sketch"] .admin-bulk-icon svg { width: 28px; height: 28px; }
+[data-theme="sketch"] .admin-bulk-body { flex: 1; min-width: 0; }
+[data-theme="sketch"] .admin-bulk-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0A2440;
+}
+[data-theme="sketch"] .admin-bulk-sub {
+  font-size: 12px;
+  color: rgba(10, 36, 64, 0.65);
+  margin-top: 3px;
+  line-height: 1.45;
+}
+[data-theme="sketch"] .admin-bulk-file {
+  margin-top: 8px;
+  padding: 6px 10px;
+  background: rgba(15, 28, 46, 0.06);
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #0A2440;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+[data-theme="sketch"] .admin-bulk-actions {
+  display: flex; gap: 8px;
+  margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+/* List of events the board added */
+[data-theme="sketch"] .admin-sched-list {
+  display: flex; flex-direction: column;
+  gap: 4px;
+}
+[data-theme="sketch"] .admin-sched-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 8px;
+  border-top: 1px solid rgba(15, 28, 46, 0.08);
+}
+[data-theme="sketch"] .admin-sched-row:first-child { border-top: none; }
+[data-theme="sketch"] .admin-sched-row .sched-dot {
+  width: 10px; height: 10px;
+}
+[data-theme="sketch"] .admin-sched-row-body { flex: 1; min-width: 0; }
+[data-theme="sketch"] .admin-sched-row-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0A2440;
+}
+[data-theme="sketch"] .admin-sched-row-meta {
+  font-size: 12px;
+  color: rgba(10, 36, 64, 0.60);
+  margin-top: 2px;
+}
+[data-theme="sketch"] .admin-sched-row-del,
+[data-theme="sketch"] .admin-rules-danger {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid rgba(200, 46, 46, 0.40);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #C82E2E;
+  cursor: pointer;
+  transition: background 0.12s ease;
+  font-family: inherit;
+}
+[data-theme="sketch"] .admin-rules-danger:hover {
+  background: rgba(200, 46, 46, 0.10);
+}
+
+/* Categories management on /admin/rules — title, search+add row,
+   then the chip list. Custom categories get a hover-revealed delete
+   button in the top-right corner. */
+[data-theme="sketch"] .admin-cat-section {
+  margin-top: 32px;
+  padding-top: 24px;
+  border-top: 1px solid rgba(15, 28, 46, 0.08);
+}
+[data-theme="sketch"] .admin-cat-head {
+  display: flex; flex-direction: column; gap: 4px;
+  margin-bottom: 14px;
+}
+[data-theme="sketch"] .admin-cat-search-form {
+  display: flex; gap: 10px;
+  align-items: stretch;
+  max-width: 560px;
+  margin-bottom: 16px;
+}
+[data-theme="sketch"] .admin-cat-search {
+  flex: 1;
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 14px;
+  background-color: #FBF7F1;
+  border: 1.5px solid rgba(199, 111, 69, 0.30);
+  border-radius: 999px;
+  color: rgba(10, 36, 64, 0.55);
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+[data-theme="sketch"] .admin-cat-search:focus-within {
+  border-color: #E14909;
+  background-color: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.14);
+}
+[data-theme="sketch"] .admin-cat-search svg { width: 16px; height: 16px; color: #C76F45; flex-shrink: 0; }
+[data-theme="sketch"] .admin-cat-search input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0A2440;
+  min-width: 0;
+}
+[data-theme="sketch"] .admin-cat-search input::placeholder { color: rgba(10, 36, 64, 0.45); font-weight: 500; }
+
+[data-theme="sketch"] .admin-cat-list {
+  display: flex; flex-wrap: wrap; gap: 10px;
+}
+[data-theme="sketch"] .admin-cat-chip {
+  position: relative;
+  display: inline-flex; align-items: center;
+  padding: 8px 16px;
+  background: #FBF7F1;
+  border: 1.5px solid rgba(199, 111, 69, 0.30);
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0A2440;
+  transition: border-color 0.12s ease, background-color 0.12s ease, transform 0.12s ease;
+}
+[data-theme="sketch"] .admin-cat-chip:hover {
+  border-color: rgba(225, 73, 9, 0.55);
+  background-color: rgba(225, 73, 9, 0.06);
+}
+[data-theme="sketch"] .admin-cat-chip.built-in {
+  background: rgba(15, 28, 46, 0.04);
+  border-color: rgba(15, 28, 46, 0.14);
+  color: rgba(10, 36, 64, 0.78);
+}
+[data-theme="sketch"] .admin-cat-chip.built-in:hover {
+  border-color: rgba(15, 28, 46, 0.28);
+  background-color: rgba(15, 28, 46, 0.06);
+}
+[data-theme="sketch"] .admin-cat-chip-del {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px;
+  background: #C82E2E;
+  color: #FFFFFF;
+  border: 2px solid #FFFFFF;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 0.12s ease, transform 0.12s ease, background 0.12s ease;
+  box-shadow: 0 2px 6px rgba(200, 46, 46, 0.30);
+}
+[data-theme="sketch"] .admin-cat-chip:hover .admin-cat-chip-del,
+[data-theme="sketch"] .admin-cat-chip-del:focus-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+[data-theme="sketch"] .admin-cat-chip-del:hover { background: #9D1A1A; }
+[data-theme="sketch"] .admin-cat-empty {
+  font-size: 13px;
+  color: rgba(10, 36, 64, 0.60);
+  padding: 8px 4px;
+}
+/* Small helper text under the Section field — explains the mixed
+   pick-or-create behavior the datalist enables. */
+[data-theme="sketch"] .admin-field-hint {
+  font-size: 11px;
+  color: rgba(10, 36, 64, 0.55);
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+/* Rule book on /admin/rules — single-column stack of clickable tiles. */
+[data-theme="sketch"] .bd-list {
+  display: flex; flex-direction: column;
+  gap: 8px;
+}
+[data-theme="sketch"] .bd-row {
+  position: relative;
+  display: flex; flex-direction: column;
+  background: #FFFFFF;
+  border: 1px solid rgba(15, 28, 46, 0.10);
+  border-radius: 12px;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+[data-theme="sketch"] .bd-row:hover { border-color: rgba(225, 73, 9, 0.30); }
+[data-theme="sketch"] .bd-row.open {
+  border-color: rgba(225, 73, 9, 0.55);
+  box-shadow: 0 8px 24px -16px rgba(225, 73, 9, 0.25);
+}
+[data-theme="sketch"] .bd-row-toggle {
+  width: 100%;
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+  background: transparent;
+  border: none;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  color: inherit;
+}
+[data-theme="sketch"] .bd-row-toggle .bd-main { flex: 1; min-width: 0; }
+[data-theme="sketch"] .bd-row-toggle .bd-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0A2440;
+}
+[data-theme="sketch"] .bd-row-toggle .bd-meta {
+  font-size: 12px;
+  color: rgba(10, 36, 64, 0.65);
+  margin-top: 3px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+}
+[data-theme="sketch"] .bd-row-toggle .bd-dot { color: rgba(10, 36, 64, 0.35); }
+[data-theme="sketch"] .bd-row-toggle .bd-amount {
+  font-size: 13px;
+  font-weight: 700;
+  color: #C82E2E;
+  flex-shrink: 0;
+}
+[data-theme="sketch"] .bd-chev {
+  width: 16px; height: 16px;
+  color: rgba(10, 36, 64, 0.50);
+  flex-shrink: 0;
+  transition: transform 0.16s ease;
+}
+[data-theme="sketch"] .bd-row.open .bd-chev { transform: rotate(180deg); color: #E14909; }
+
+/* Expanded detail panel */
+[data-theme="sketch"] .bd-body {
+  padding: 0 16px 16px;
+  border-top: 1px dashed rgba(15, 28, 46, 0.10);
+  margin-top: -2px;
+}
+[data-theme="sketch"] .bd-body p {
+  margin: 14px 0 12px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #0A2440;
+  white-space: pre-wrap;
+}
+[data-theme="sketch"] .bd-body-empty { color: rgba(10, 36, 64, 0.55); font-style: italic; }
+[data-theme="sketch"] .bd-body-meta {
+  display: flex; flex-wrap: wrap; gap: 12px;
+  font-size: 12px;
+  color: rgba(10, 36, 64, 0.70);
+}
+[data-theme="sketch"] .bd-body-meta strong { color: rgba(10, 36, 64, 0.55); font-weight: 700; margin-right: 4px; }
+
+/* Delete button sits on top-right of the row, above the toggle */
+[data-theme="sketch"] .bd-row .bc-del {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 1;
+  width: 26px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent;
+  border: 1px solid rgba(200, 46, 46, 0.30);
+  border-radius: 50%;
+  color: #C82E2E;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+  opacity: 0;
+  transition: opacity 0.12s ease, background 0.12s ease;
+}
+[data-theme="sketch"] .bd-row:hover .bc-del { opacity: 1; }
+[data-theme="sketch"] .bd-row .bc-del:hover { background: rgba(200, 46, 46, 0.10); }
+
+/* Pagination — used on rule book, events-added, and documents archive. */
+[data-theme="sketch"] .pgn {
+  display: flex; align-items: center; justify-content: center; gap: 18px;
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(15, 28, 46, 0.08);
+}
+[data-theme="sketch"] .pgn-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px;
+  background: transparent;
+  border: 1.5px solid rgba(15, 28, 46, 0.18);
+  border-radius: 999px;
+  color: #0A2440;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.12s ease, background-color 0.12s ease, color 0.12s ease;
+}
+[data-theme="sketch"] .pgn-btn:hover:not(:disabled) {
+  border-color: #E14909;
+  background-color: rgba(225, 73, 9, 0.06);
+  color: #E14909;
+}
+[data-theme="sketch"] .pgn-btn:disabled {
+  opacity: 0.40;
+  cursor: not-allowed;
+}
+[data-theme="sketch"] .pgn-btn svg { width: 14px; height: 14px; }
+[data-theme="sketch"] .pgn-info {
+  font-size: 13px;
+  font-weight: 600;
+  color: rgba(10, 36, 64, 0.65);
+  font-variant-numeric: tabular-nums;
+}
+[data-theme="sketch"] .admin-sched-row-del:hover {
+  background: rgba(200, 46, 46, 0.08);
+}
+[data-theme="sketch"] .admin-sched-empty {
+  font-size: 13px;
+  color: rgba(10, 36, 64, 0.55);
+  padding: 8px 0;
+}
+[data-theme="sketch"] .admin-sched-empty-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-left: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #E14909;
+  cursor: pointer;
+  text-decoration: underline;
+}
+[data-theme="sketch"] .admin-sched-filters {
+  display: inline-flex; align-items: center; gap: 14px;
+  flex-wrap: nowrap;
+}
+[data-theme="sketch"] .admin-sched-filter label {
+  white-space: nowrap;
+}
+[data-theme="sketch"] .admin-sched-filter {
+  display: inline-flex; align-items: center; gap: 8px;
+}
+[data-theme="sketch"] .admin-sched-filter label {
+  font-size: 11px;
+  letter-spacing: 1.2px;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: rgba(10, 36, 64, 0.55);
+}
+[data-theme="sketch"] .admin-sched-filter select {
+  padding: 8px 36px 8px 14px;
+  background-color: #FBF7F1;
+  border: 1.5px solid rgba(199, 111, 69, 0.30);
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0A2440;
+  outline: none;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+[data-theme="sketch"] .admin-sched-filter select:hover {
+  border-color: rgba(225, 73, 9, 0.65);
+  background-color: rgba(225, 73, 9, 0.08);
+}
+[data-theme="sketch"] .admin-sched-filter select:focus {
+  border-color: #E14909;
+  background-color: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.14);
+}
+/* Custom Dropdown component (replaces native <select> so the popup
+   panel itself can be themed — rounded corners, cream/orange palette,
+   no OS-blue selection). */
+[data-theme="sketch"] .ad-dd {
+  position: relative;
+  display: inline-block;
+  width: 100%;
+}
+[data-theme="sketch"] .ad-dd-trigger {
+  width: 100%;
+  display: inline-flex; align-items: center; justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px;
+  background-color: #FBF7F1;
+  border: 1.5px solid rgba(199, 111, 69, 0.30);
+  border-radius: 999px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0A2440;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
+}
+[data-theme="sketch"] .ad-dd-trigger:hover {
+  border-color: rgba(225, 73, 9, 0.55);
+  background-color: rgba(225, 73, 9, 0.06);
+}
+[data-theme="sketch"] .ad-dd.open .ad-dd-trigger,
+[data-theme="sketch"] .ad-dd-trigger:focus-visible {
+  border-color: #E14909;
+  background-color: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.14);
+}
+[data-theme="sketch"] .ad-dd-trigger svg {
+  width: 14px; height: 14px;
+  color: #C76F45;
+  transition: transform 0.16s ease;
+  flex-shrink: 0;
+}
+[data-theme="sketch"] .ad-dd.open .ad-dd-trigger svg { transform: rotate(180deg); }
+[data-theme="sketch"] .ad-dd-trigger-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The popup panel — fully rounded, cream-tinted, orange-bordered. */
+[data-theme="sketch"] .ad-dd-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  min-width: 200px;
+  max-height: 320px;
+  overflow-y: auto;
+  background: #FFFFFF;
+  border: 1.5px solid rgba(225, 73, 9, 0.28);
+  border-radius: 16px;
+  box-shadow: 0 16px 44px -18px rgba(31, 42, 58, 0.30);
+  padding: 6px;
+  z-index: 60;
+  display: flex; flex-direction: column;
+  gap: 2px;
+}
+[data-theme="sketch"] .ad-dd-option {
+  text-align: left;
+  padding: 9px 14px;
+  border-radius: 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0A2440;
+  transition: background 0.10s ease;
+}
+[data-theme="sketch"] .ad-dd-option:hover {
+  background: rgba(225, 73, 9, 0.10);
+}
+[data-theme="sketch"] .ad-dd-option.active {
+  background: rgba(225, 73, 9, 0.18);
+  color: #E14909;
+}
+
+/* Searchable variant — the trigger itself is the input, no extra
+   search bar inside the popup. */
+[data-theme="sketch"] .ad-dd-trigger-search {
+  display: flex; align-items: center;
+  padding: 0;
+  background-color: #FBF7F1;
+  border: 1.5px solid rgba(199, 111, 69, 0.30);
+  border-radius: 999px;
+  cursor: text;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+[data-theme="sketch"] .ad-dd-trigger-search:hover {
+  border-color: rgba(225, 73, 9, 0.55);
+  background-color: rgba(225, 73, 9, 0.06);
+}
+[data-theme="sketch"] .ad-dd.open .ad-dd-trigger-search,
+[data-theme="sketch"] .ad-dd-trigger-search:focus-within {
+  border-color: #E14909;
+  background-color: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.14);
+}
+/* Higher specificity than `.admin-field input` so we cancel the
+   pill styling that rule was inheriting — otherwise the form field
+   wrapper paints a second nested pill inside the combobox. */
+[data-theme="sketch"] .ad-dd-trigger-search .ad-dd-trigger-input,
+[data-theme="sketch"] .admin-field .ad-dd-trigger-input {
+  flex: 1;
+  padding: 10px 0 10px 18px;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  outline: none !important;
+  box-shadow: none !important;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  color: #0A2440;
+  min-width: 0;
+}
+[data-theme="sketch"] .ad-dd-trigger-input::placeholder {
+  color: rgba(10, 36, 64, 0.45);
+  font-weight: 500;
+}
+/* Chevron at the right of the search pill — clickable to toggle open
+   without breaking the "one whole pill" look (no separate circle). */
+[data-theme="sketch"] .ad-dd-trigger-chev-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0 14px;
+  height: 100%;
+  background: transparent !important;
+  border: none !important;
+  border-radius: 0 !important;
+  color: #C76F45;
+  cursor: pointer;
+  flex-shrink: 0;
+  font-family: inherit;
+}
+[data-theme="sketch"] .ad-dd-trigger-chev-btn:hover { color: #E14909; }
+[data-theme="sketch"] .ad-dd-trigger-chev-btn svg {
+  width: 14px; height: 14px;
+  transition: transform 0.16s ease;
+}
+[data-theme="sketch"] .ad-dd.open .ad-dd-trigger-chev-btn svg {
+  transform: rotate(180deg);
+}
+
+/* Option row — wraps the pick button + optional hover-delete so they
+   sit side by side within a single row. */
+[data-theme="sketch"] .ad-dd-option-row {
+  position: relative;
+  display: flex; align-items: center;
+  border-radius: 12px;
+  transition: background 0.10s ease;
+}
+[data-theme="sketch"] .ad-dd-option-row.active {
+  background: rgba(225, 73, 9, 0.18);
+}
+[data-theme="sketch"] .ad-dd-option-row .ad-dd-option {
+  flex: 1;
+  min-width: 0;
+}
+[data-theme="sketch"] .ad-dd-option-row.active .ad-dd-option { color: #E14909; }
+/* Hover-only red × on the right side of the row */
+[data-theme="sketch"] .ad-dd-option-del {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px;
+  margin: 0 8px 0 4px;
+  background: #C82E2E;
+  color: #FFFFFF;
+  border: none;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 0;
+  cursor: pointer;
+  font-family: inherit;
+  opacity: 0;
+  transform: scale(0.85);
+  transition: opacity 0.12s ease, transform 0.12s ease, background 0.12s ease;
+  flex-shrink: 0;
+}
+[data-theme="sketch"] .ad-dd-option-row:hover .ad-dd-option-del,
+[data-theme="sketch"] .ad-dd-option-del:focus-visible {
+  opacity: 1;
+  transform: scale(1);
+}
+[data-theme="sketch"] .ad-dd-option-del:hover { background: #9D1A1A; }
+
+/* Success confirmation banner — orange-tinted card that auto-dismisses
+   after 4s. Used for "Added X" toasts on /admin/rules. */
+[data-theme="sketch"] .admin-success {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 16px;
+  background: rgba(225, 73, 9, 0.10);
+  border: 1px solid rgba(225, 73, 9, 0.40);
+  border-radius: 12px;
+  color: #9B3A0B;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 14px;
+}
+[data-theme="sketch"] .admin-success-check {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px;
+  background: #E14909;
+  color: #FFFFFF;
+  border-radius: 50%;
+  font-size: 13px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+/* No-matches helper text */
+[data-theme="sketch"] .ad-dd-empty {
+  padding: 10px 14px;
+  font-size: 13px;
+  color: rgba(10, 36, 64, 0.55);
+  font-style: italic;
+}
+
+/* "+ Add <query>" row — orange-tinted action option pinned to the
+   bottom of the popup. */
+[data-theme="sketch"] .ad-dd-create {
+  display: flex; align-items: center; gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 10px 14px;
+  margin-top: 4px;
+  border-radius: 12px;
+  background: rgba(225, 73, 9, 0.10);
+  border: 1.5px dashed rgba(225, 73, 9, 0.40);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #E14909;
+  transition: background 0.10s ease, border-color 0.10s ease;
+}
+[data-theme="sketch"] .ad-dd-create:hover {
+  background: rgba(225, 73, 9, 0.18);
+  border-color: #E14909;
+}
+[data-theme="sketch"] .ad-dd-create-plus {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px;
+  background: #E14909;
+  color: #FFFFFF;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: 800;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+@media (max-width: 767px) {
+  [data-theme="sketch"] .admin-sched-form { grid-template-columns: 1fr; }
+  [data-theme="sketch"] .admin-sched-bulk { grid-template-columns: 1fr; }
+}
+
+/* Responsive: stack side panel below calendar on narrow screens */
+@media (max-width: 1199px) {
+  [data-theme="sketch"] .sched-layout {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 767px) {
+  [data-theme="sketch"] .sched-cell { min-height: 78px; }
+  [data-theme="sketch"] .sched-pill { font-size: 10px; padding: 2px 4px; }
+  [data-theme="sketch"] .sched-hero-title { font-size: 32px; }
+  [data-theme="sketch"] .sched-views { width: 100%; }
 }
 
 /* ---- RESPONSIVE ---- */

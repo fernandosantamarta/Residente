@@ -122,6 +122,13 @@ export default function Home() {
         </div>
       </section>
 
+      {/* OPEN VOTES — sits directly on top of Financial Overview when there's
+          a vote awaiting the resident. Time-bound work deserves the first
+          slot of the day; the band disappears entirely when no votes are
+          open, so the dashboard quietly rearranges to demand attention only
+          when it should. */}
+      <OpenVotesBand />
+
       {/* ROW 1 — Financial Overview (with embedded trend chart) + Quick Actions */}
       <section className="dash-row1">
         <FinancialOverview
@@ -547,6 +554,93 @@ function FinStat({ label, value, accent, warn }:
       <div className="fin-stat-label">{label}</div>
       <div className={`fin-stat-value${accent ? ' accent' : ''}${warn ? ' warn' : ''}`}>{value}</div>
     </div>
+  )
+}
+
+// ---------- Open votes band ----------
+
+// Demo data — replace with useVoiceMeetings() once we're wiring real votes.
+// Each entry is a single open motion the resident hasn't cast on yet.
+type OpenVote = {
+  meetingId: string
+  voteId: string
+  motion: string
+  closesAt: string  // ISO date
+  votedCount: number
+  totalCount: number
+}
+
+const DEMO_OPEN_VOTES: OpenVote[] = [
+  {
+    meetingId: 'demo-meeting-1',
+    voteId: 'demo-vote-1',
+    motion: 'Pool vendor: Miramar Aquatics — $8,900/yr',
+    closesAt: '2026-10-30',
+    votedCount: 2,
+    totalCount: 3,
+  },
+]
+
+function fmtCloses(iso: string) {
+  const d = new Date(iso + 'T00:00:00')
+  return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
+
+function OpenVotesBand() {
+  const votes = DEMO_OPEN_VOTES
+  if (votes.length === 0) return null
+
+  const single = votes.length === 1
+  const v0 = votes[0]
+
+  return (
+    <section className="open-votes-band" data-count={votes.length}>
+      {single ? (
+        <div className="ovb-row">
+          <div className="ovb-left">
+            <div className="ovb-eyebrow">
+              <span className="ovb-dot" aria-hidden="true" />
+              Your vote is needed
+            </div>
+            <div className="ovb-body">
+              <div className="ovb-motion">{v0.motion}</div>
+              <div className="ovb-meta">
+                Closes {fmtCloses(v0.closesAt)} · {v0.votedCount} of {v0.totalCount} board members have voted
+              </div>
+            </div>
+          </div>
+          <Link href={`/app/voice/${v0.meetingId}`} className="ovb-cta">
+            Cast your vote
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>
+            </svg>
+          </Link>
+        </div>
+      ) : (
+        <>
+          <div className="ovb-eyebrow">
+            <span className="ovb-dot" aria-hidden="true" />
+            {votes.length} votes need you
+          </div>
+          <div className="ovb-list">
+            {votes.map(v => (
+              <Link key={v.voteId} href={`/app/voice/${v.meetingId}`} className="ovb-list-row">
+                <div className="ovb-body">
+                  <div className="ovb-motion">{v.motion}</div>
+                  <div className="ovb-meta">
+                    Closes {fmtCloses(v.closesAt)} · {v.votedCount} of {v.totalCount} board members have voted
+                  </div>
+                </div>
+                <svg className="ovb-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </Link>
+            ))}
+          </div>
+          <Link href="/app/voice" className="ovb-see-all">View all {votes.length} open votes →</Link>
+        </>
+      )}
+    </section>
   )
 }
 
