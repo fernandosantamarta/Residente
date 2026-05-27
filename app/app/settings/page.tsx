@@ -339,17 +339,17 @@ function DialogBody({
         <>
           <ProfilePhotoEditor prefs={prefs} patch={patch} />
           <Field label="Full name">
-            <input className="set-input" value={prefs.full_name}
+            <input name="full_name" autoComplete="name" className="set-input" value={prefs.full_name}
               onChange={e => patch({ full_name: e.target.value })}
               placeholder="Maria Santos" />
           </Field>
           <Field label="Email">
-            <input className="set-input" type="email" value={prefs.email}
+            <input name="email" autoComplete="email" className="set-input" type="email" value={prefs.email}
               onChange={e => patch({ email: e.target.value })}
               placeholder="you@example.com" />
           </Field>
           <Field label="Phone">
-            <input className="set-input" type="tel" value={prefs.phone}
+            <input name="phone" autoComplete="tel" className="set-input" type="tel" value={prefs.phone}
               onChange={e => patch({ phone: e.target.value })}
               placeholder="(305) 555-0142" />
           </Field>
@@ -413,10 +413,10 @@ function DialogBody({
           />
           <Field label="Quiet hours">
             <div className="set-time-row">
-              <input className="set-input" type="time" value={prefs.quiet_hours_start}
+              <input name="quiet_hours_start" className="set-input" type="time" value={prefs.quiet_hours_start}
                 onChange={e => patch({ quiet_hours_start: e.target.value })} />
               <span className="set-time-sep">to</span>
-              <input className="set-input" type="time" value={prefs.quiet_hours_end}
+              <input name="quiet_hours_end" className="set-input" type="time" value={prefs.quiet_hours_end}
                 onChange={e => patch({ quiet_hours_end: e.target.value })} />
             </div>
           </Field>
@@ -517,11 +517,11 @@ function DialogBody({
             No non-emergency notifications will reach you during this window.
           </p>
           <Field label="Start">
-            <input className="set-input" type="time" value={prefs.quiet_hours_start}
+            <input name="quiet_start" className="set-input" type="time" value={prefs.quiet_hours_start}
               onChange={e => patch({ quiet_hours_start: e.target.value })} />
           </Field>
           <Field label="End">
-            <input className="set-input" type="time" value={prefs.quiet_hours_end}
+            <input name="quiet_end" className="set-input" type="time" value={prefs.quiet_hours_end}
               onChange={e => patch({ quiet_hours_end: e.target.value })} />
           </Field>
         </>
@@ -719,11 +719,11 @@ function PaymentMethodsEditor({ prefs, patch }: { prefs: Preferences; patch: (p:
             ]}
           />
           <Field label={kind === 'card' ? 'Card brand' : 'Bank name'}>
-            <input className="set-input" value={brand} onChange={e => setBrand(e.target.value)}
+            <input name="brand" className="set-input" value={brand} onChange={e => setBrand(e.target.value)}
               placeholder={kind === 'card' ? 'Visa' : 'Bank of America'} />
           </Field>
           <Field label="Last 4 digits">
-            <input className="set-input" value={last4} inputMode="numeric"
+            <input name="last4" className="set-input" value={last4} inputMode="numeric"
               onChange={e => setLast4(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="4242" />
           </Field>
           <div className="set-list-add-actions">
@@ -774,9 +774,9 @@ function ContactsEditor({ prefs, patch }: { prefs: Preferences; patch: (p: Parti
       ))}
       {adding ? (
         <div className="set-list-add">
-          <Field label="Name"><input className="set-input" value={name} onChange={e => setName(e.target.value)} placeholder="Maria Santos" /></Field>
-          <Field label="Relation"><input className="set-input" value={relation} onChange={e => setRelation(e.target.value)} placeholder="Spouse" /></Field>
-          <Field label="Phone"><input className="set-input" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(305) 555-0142" /></Field>
+          <Field label="Name"><input name="contact_name" className="set-input" value={name} onChange={e => setName(e.target.value)} placeholder="Maria Santos" /></Field>
+          <Field label="Relation"><input name="contact_relation" className="set-input" value={relation} onChange={e => setRelation(e.target.value)} placeholder="Spouse" /></Field>
+          <Field label="Phone"><input name="contact_phone" className="set-input" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(305) 555-0142" /></Field>
           <div className="set-list-add-actions">
             <button type="button" className="set-btn-primary" onClick={submit}>Add contact</button>
             <button type="button" className="set-btn-ghost" onClick={reset}>Cancel</button>
@@ -821,10 +821,10 @@ function VehiclesEditor({ prefs, patch }: { prefs: Preferences; patch: (p: Parti
       ))}
       {adding ? (
         <div className="set-list-add">
-          <Field label="Make"><input className="set-input" value={make} onChange={e => setMake(e.target.value)} placeholder="Toyota" /></Field>
-          <Field label="Model"><input className="set-input" value={model} onChange={e => setModel(e.target.value)} placeholder="RAV4" /></Field>
-          <Field label="Plate"><input className="set-input" value={plate} onChange={e => setPlate(e.target.value)} placeholder="FL-7G3K2P" /></Field>
-          <Field label="Color"><input className="set-input" value={color} onChange={e => setColor(e.target.value)} placeholder="Silver" /></Field>
+          <Field label="Make"><input name="vehicle_make" className="set-input" value={make} onChange={e => setMake(e.target.value)} placeholder="Toyota" /></Field>
+          <Field label="Model"><input name="vehicle_model" className="set-input" value={model} onChange={e => setModel(e.target.value)} placeholder="RAV4" /></Field>
+          <Field label="Plate"><input name="vehicle_plate" className="set-input" value={plate} onChange={e => setPlate(e.target.value)} placeholder="FL-7G3K2P" /></Field>
+          <Field label="Color"><input name="vehicle_color" className="set-input" value={color} onChange={e => setColor(e.target.value)} placeholder="Silver" /></Field>
           <div className="set-list-add-actions">
             <button type="button" className="set-btn-primary" onClick={submit}>Add vehicle</button>
             <button type="button" className="set-btn-ghost" onClick={reset}>Cancel</button>
@@ -868,9 +868,9 @@ function PetsEditor({ prefs, patch }: { prefs: Preferences; patch: (p: Partial<P
       ))}
       {adding ? (
         <div className="set-list-add">
-          <Field label="Name"><input className="set-input" value={name} onChange={e => setName(e.target.value)} placeholder="Luna" /></Field>
-          <Field label="Species"><input className="set-input" value={species} onChange={e => setSpecies(e.target.value)} placeholder="Dog" /></Field>
-          <Field label="Breed"><input className="set-input" value={breed} onChange={e => setBreed(e.target.value)} placeholder="Mini Labradoodle" /></Field>
+          <Field label="Name"><input name="pet_name" className="set-input" value={name} onChange={e => setName(e.target.value)} placeholder="Luna" /></Field>
+          <Field label="Species"><input name="pet_species" className="set-input" value={species} onChange={e => setSpecies(e.target.value)} placeholder="Dog" /></Field>
+          <Field label="Breed"><input name="pet_breed" className="set-input" value={breed} onChange={e => setBreed(e.target.value)} placeholder="Mini Labradoodle" /></Field>
           <div className="set-list-add-actions">
             <button type="button" className="set-btn-primary" onClick={submit}>Add pet</button>
             <button type="button" className="set-btn-ghost" onClick={reset}>Cancel</button>
@@ -915,7 +915,7 @@ function AvatarButton({
           <path d="m18.4 2.6 3 3L12 15l-4 1 1-4z"/>
         </svg>
       </span>
-      <input ref={inputRef} type="file" accept="image/*" onChange={onChange} hidden />
+      <input name="avatar-upload" ref={inputRef} type="file" accept="image/*" onChange={onChange} hidden />
     </button>
   )
 }
@@ -956,6 +956,7 @@ function ProfilePhotoEditor({
           </button>
         )}
         <input
+          name="profile-photo-upload"
           ref={inputRef}
           type="file"
           accept="image/*"
@@ -995,7 +996,7 @@ function ReferDialog({ community }: { community: string }) {
         community-picker on sign-up.
       </p>
       <div className="set-refer-row">
-        <input className="set-input" value={link} readOnly onFocus={e => e.currentTarget.select()} />
+        <input name="refer-link" className="set-input" value={link} readOnly onFocus={e => e.currentTarget.select()} />
         <button type="button" className="set-btn-primary" onClick={copy}>
           {copied ? 'Copied ✓' : 'Copy link'}
         </button>

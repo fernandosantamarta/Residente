@@ -219,6 +219,7 @@ export default function Rules() {
           <path d="m20 20-3.5-3.5" />
         </svg>
         <input
+          name="rules-search"
           type="search"
           value={search}
           onChange={e => setSearch(e.target.value)}

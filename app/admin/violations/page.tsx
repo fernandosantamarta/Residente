@@ -222,14 +222,14 @@ export default function AdminViolations() {
 
         <label className="admin-field">
           <span className="admin-field-label">Resident or unit</span>
-          <input className="admin-input" placeholder="Unit 14B"
+          <input name="resident" className="admin-input" placeholder="Unit 14B"
             value={form.resident} onChange={e => setField('resident', e.target.value)} />
         </label>
 
         {form.kind === 'fine' && (
           <label className="admin-field" style={{ maxWidth: 200 }}>
             <span className="admin-field-label">Fine $</span>
-            <input className="admin-input" type="number" placeholder="50"
+            <input name="amount" className="admin-input" type="number" placeholder="50"
               value={form.amount} onChange={e => setField('amount', e.target.value)} />
             <span className="admin-field-hint">
               Stripe invoice is generated and emailed to the resident automatically.
@@ -239,13 +239,13 @@ export default function AdminViolations() {
 
         <label className="admin-field" style={{ maxWidth: 220 }}>
           <span className="admin-field-label">Date</span>
-          <input className="admin-input" type="date"
+          <input name="opened_at" className="admin-input" type="date"
             value={form.opened_at} onChange={e => setField('opened_at', e.target.value)} />
         </label>
 
         <label className="admin-field">
           <span className="admin-field-label">Notes (optional)</span>
-          <textarea className="admin-input admin-textarea" rows={3}
+          <textarea name="notes" className="admin-input admin-textarea" rows={3}
             placeholder="What happened, what the resident said, any follow-up."
             value={form.notes} onChange={e => setField('notes', e.target.value)} />
         </label>

@@ -171,6 +171,7 @@ export default function AdminSchedule() {
           <label className="admin-field">
             <span>Title</span>
             <input
+              name="title"
               type="text"
               value={form.title}
               onChange={onChange('title')}
@@ -191,12 +192,13 @@ export default function AdminSchedule() {
 
           <label className="admin-field">
             <span>Date</span>
-            <input type="date" value={form.date} onChange={onChange('date')} required />
+            <input name="date" type="date" value={form.date} onChange={onChange('date')} required />
           </label>
 
           <label className="admin-field">
             <span>Time <em>(optional)</em></span>
             <input
+              name="time"
               type="text"
               value={form.time}
               onChange={onChange('time')}
@@ -207,6 +209,7 @@ export default function AdminSchedule() {
           <label className="admin-field">
             <span>Vendor <em>(optional)</em></span>
             <input
+              name="vendor"
               type="text"
               value={form.vendor}
               onChange={onChange('vendor')}
@@ -217,6 +220,7 @@ export default function AdminSchedule() {
           <label className="admin-field">
             <span>Location <em>(optional)</em></span>
             <input
+              name="location"
               type="text"
               value={form.location}
               onChange={onChange('location')}
@@ -387,6 +391,7 @@ function BulkBox({
         {file && <div className="admin-bulk-file">{file.name}</div>}
         <div className="admin-bulk-actions">
           <input
+            name="bulk-upload"
             ref={ref}
             type="file"
             accept={accept}

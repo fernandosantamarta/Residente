@@ -125,13 +125,14 @@ export default function Reports() {
             <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
           </svg>
           <input
+            name="report-search"
             type="search"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search reports…"
           />
         </div>
-        <select className="rep-select" value={active}
+        <select name="report-category" className="rep-select" value={active}
           onChange={e => setActive(e.target.value as any)}>
           <option value="all">All Categories</option>
           {CATEGORY_GRID.map(c => (

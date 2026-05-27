@@ -106,13 +106,14 @@ export default function Vendors() {
             <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
           </svg>
           <input
+            name="vendor-search"
             type="search"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search vendors by name, service, or location…"
           />
         </div>
-        <select className="ven-select" value={active}
+        <select name="vendor-category" className="ven-select" value={active}
           onChange={e => setActive(e.target.value as any)}>
           <option value="all">All Categories</option>
           {CATEGORY_GRID.map(c => (
@@ -453,6 +454,7 @@ function RatingDialog({
           <label className="ven-rd-field">
             <span className="ven-rd-field-label">Review <span className="ven-rd-optional">(optional)</span></span>
             <textarea
+              name="review"
               className="ven-rd-textarea"
               rows={4}
               value={review}

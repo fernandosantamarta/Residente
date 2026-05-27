@@ -249,6 +249,7 @@ export default function Schedule() {
                 return (
                   <label key={k} className={`sched-filter${on ? ' on' : ''}`}>
                     <input
+                      name={`kind-${k}`}
                       type="checkbox"
                       checked={on}
                       onChange={() => toggleKind(k)}

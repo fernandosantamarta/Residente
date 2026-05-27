@@ -202,18 +202,18 @@ export default function Rules() {
             </div>
             <label className="admin-field">
               <span className="admin-field-label">Rule</span>
-              <input className="admin-input" placeholder="Trash bins stored out of street view"
+              <input name="title" className="admin-input" placeholder="Trash bins stored out of street view"
                 value={form.title} onChange={e => setField('title', e.target.value)} />
             </label>
             <label className="admin-field">
               <span className="admin-field-label">Detail (optional)</span>
-              <textarea className="admin-input admin-textarea" rows={3}
+              <textarea name="body" className="admin-input admin-textarea" rows={3}
                 placeholder="Plain-language explanation residents will read."
                 value={form.body} onChange={e => setField('body', e.target.value)} />
             </label>
             <label className="admin-field" style={{ maxWidth: 200 }}>
               <span className="admin-field-label">Fine $ (optional)</span>
-              <input className="admin-input" type="number" placeholder="50"
+              <input name="fine" className="admin-input" type="number" placeholder="50"
                 value={form.fine} onChange={e => setField('fine', e.target.value)} />
             </label>
             <div className="admin-form-actions">
@@ -248,6 +248,7 @@ export default function Rules() {
                 {pdfStatus && <div className="admin-bulk-file" style={{ background: 'rgba(125,140,92,0.14)' }}>{pdfStatus}</div>}
                 <div className="admin-bulk-actions">
                   <input
+                    name="rule-book-pdf"
                     ref={pdfInputRef}
                     type="file"
                     accept="application/pdf"

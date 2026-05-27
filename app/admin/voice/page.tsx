@@ -167,7 +167,7 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
       <form className="voice-form" onSubmit={save}>
         <div className="voice-form-row">
           <label>Meeting type</label>
-          <select value={form.type} onChange={e => set('type', e.target.value)}>
+          <select name="type" value={form.type} onChange={e => set('type', e.target.value)}>
             {MEETING_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </div>
@@ -175,6 +175,7 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
         <div className="voice-form-row">
           <label>Title</label>
           <input
+            name="title"
             type="text"
             value={form.title}
             onChange={e => set('title', e.target.value)}
@@ -186,6 +187,7 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
         <div className="voice-form-row">
           <label>Date &amp; time</label>
           <input
+            name="scheduled_at"
             type="datetime-local"
             value={form.scheduled_at}
             onChange={e => set('scheduled_at', e.target.value)}
@@ -206,6 +208,7 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
         <div className="voice-form-row">
           <label>Location <span className="voice-opt">(optional)</span></label>
           <input
+            name="location"
             type="text"
             value={form.location}
             onChange={e => set('location', e.target.value)}
@@ -216,6 +219,7 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
         <div className="voice-form-row">
           <label>Virtual link <span className="voice-opt">(optional)</span></label>
           <input
+            name="virtual_link"
             type="url"
             value={form.virtual_link}
             onChange={e => set('virtual_link', e.target.value)}
@@ -226,6 +230,7 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
         <div className="voice-form-row">
           <label>Quorum % <span className="voice-opt">(optional — overrides community default)</span></label>
           <input
+            name="quorum_required_pct"
             type="number"
             min="1" max="100" step="0.1"
             value={form.quorum_required_pct}
@@ -425,6 +430,7 @@ function NotifyPanel({ meeting }) {
         <div className="voice-form-row">
           <label>Subject</label>
           <input
+            name="notice-subject"
             type="text"
             value={subject}
             onChange={e => setSubject(e.target.value)}
@@ -434,6 +440,7 @@ function NotifyPanel({ meeting }) {
         <div className="voice-form-row">
           <label>Body</label>
           <textarea
+            name="notice-body"
             value={body}
             onChange={e => setBody(e.target.value)}
             rows={3}
@@ -689,24 +696,24 @@ function VoteForm({ meetingId, communityId, onSaved, onCancel }) {
     <form className="voice-vote-form" onSubmit={save}>
       <div className="voice-form-row">
         <label>Vote title</label>
-        <input type="text" value={form.title} onChange={e => set('title', e.target.value)}
+        <input name="vote-title" type="text" value={form.title} onChange={e => set('title', e.target.value)}
           placeholder="e.g. Approve pool renovation special assessment" required />
       </div>
       <div className="voice-form-row">
         <label>Description <span className="voice-opt">(optional)</span></label>
-        <textarea value={form.description} onChange={e => set('description', e.target.value)}
+        <textarea name="vote-description" value={form.description} onChange={e => set('description', e.target.value)}
           rows={2} placeholder="Additional details visible to residents…" />
       </div>
       <div className="voice-form-inline">
         <div className="voice-form-row">
           <label>Type</label>
-          <select value={form.type} onChange={e => set('type', e.target.value)}>
+          <select name="vote-type" value={form.type} onChange={e => set('type', e.target.value)}>
             {VOTE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
           </select>
         </div>
         <div className="voice-form-row">
           <label>Ballot type</label>
-          <select value={form.ballot_type} onChange={e => set('ballot_type', e.target.value)}
+          <select name="ballot-type" value={form.ballot_type} onChange={e => set('ballot_type', e.target.value)}
             disabled={form.type === 'election'}>
             <option value="open">Open</option>
             <option value="secret">Secret</option>
@@ -806,10 +813,11 @@ function DocsPanel({ meeting, reload }) {
       <div className="voice-panel-head"><span>Meeting documents</span></div>
 
       <div className="voice-upload-row">
-        <select value={docType} onChange={e => setDocType(e.target.value)}>
+        <select name="doc-type" value={docType} onChange={e => setDocType(e.target.value)}>
           {DOC_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
         </select>
         <input
+          name="doc-title"
           type="text"
           value={docTitle}
           onChange={e => setDocTitle(e.target.value)}
@@ -817,7 +825,7 @@ function DocsPanel({ meeting, reload }) {
         />
         <label className={`admin-btn-sm voice-upload-btn${uploading ? ' disabled' : ''}`}>
           {uploading ? 'Uploading…' : 'Choose file'}
-          <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" onChange={upload} disabled={uploading} style={{ display: 'none' }} />
+          <input name="meeting-doc" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" onChange={upload} disabled={uploading} style={{ display: 'none' }} />
         </label>
       </div>
 

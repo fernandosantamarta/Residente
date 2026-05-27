@@ -182,7 +182,7 @@ export default function Board() {
             </div>
 
             <div className="bm-search">
-              <input className="admin-input" placeholder="Type a resident's name…"
+              <input name="member-search" className="admin-input" placeholder="Type a resident's name…"
                 value={memberQuery} onChange={e => setMemberQuery(e.target.value)} />
               {memberQuery.trim() && (
                 <div className="bm-dropdown">
@@ -211,7 +211,7 @@ export default function Board() {
                       <div className="bm-row-name">{m.full_name}</div>
                       <div className="bm-row-sub">{subline(m) || '—'}</div>
                     </div>
-                    <select className="bm-pos" value={m.board_position || ''}
+                    <select name={`position-${m.id}`} className="bm-pos" value={m.board_position || ''}
                       onChange={e => setPosition(m.id, e.target.value || null)}>
                       <option value="">No position</option>
                       {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
@@ -232,30 +232,30 @@ export default function Board() {
           <form className="admin-form" onSubmit={add}>
             <label className="admin-field">
               <span className="admin-field-label">What was decided</span>
-              <input className="admin-input" placeholder="Approved landscaping contract"
+              <input name="title" className="admin-input" placeholder="Approved landscaping contract"
                 value={form.title} onChange={e => setField('title', e.target.value)} />
             </label>
             <label className="admin-field">
               <span className="admin-field-label">Vendor / who (optional)</span>
-              <input className="admin-input" placeholder="Oak Ridge Nursery"
+              <input name="vendor" className="admin-input" placeholder="Oak Ridge Nursery"
                 value={form.vendor} onChange={e => setField('vendor', e.target.value)} />
             </label>
             <div className="bd-form-row">
               <label className="admin-field">
                 <span className="admin-field-label">Amount $ (optional)</span>
-                <input className="admin-input" type="number" placeholder="5200"
+                <input name="amount" className="admin-input" type="number" placeholder="5200"
                   value={form.amount} onChange={e => setField('amount', e.target.value)} />
               </label>
               <label className="admin-field">
                 <span className="admin-field-label">Status</span>
-                <select className="admin-input" value={form.status}
+                <select name="status" className="admin-input" value={form.status}
                   onChange={e => setField('status', e.target.value)}>
                   {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
               </label>
               <label className="admin-field">
                 <span className="admin-field-label">Date</span>
-                <input className="admin-input" type="date"
+                <input name="decided_on" className="admin-input" type="date"
                   value={form.decided_on} onChange={e => setField('decided_on', e.target.value)} />
               </label>
             </div>

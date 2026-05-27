@@ -48,7 +48,7 @@ export default function NotificationsInboxPage() {
       </div>
 
       <div className="inbox-toolbar">
-        <select className="inbox-filter" value={kind} onChange={e => setKind(e.target.value)}>
+        <select name="notice-kind" className="inbox-filter" value={kind} onChange={e => setKind(e.target.value)}>
           {KIND_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
         <button

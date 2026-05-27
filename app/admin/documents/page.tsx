@@ -142,19 +142,19 @@ export default function Documents() {
           <form className="admin-form" onSubmit={upload}>
             <label className="admin-field">
               <span className="admin-field-label">Title</span>
-              <input className="admin-input" placeholder="April 2026 board meeting minutes"
+              <input name="title" className="admin-input" placeholder="April 2026 board meeting minutes"
                 value={form.title} onChange={e => setField('title', e.target.value)} />
             </label>
             <label className="admin-field" style={{ maxWidth: 240 }}>
               <span className="admin-field-label">Category</span>
-              <select className="admin-input" value={form.category}
+              <select name="category" className="admin-input" value={form.category}
                 onChange={e => setField('category', e.target.value)}>
                 {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </label>
             <label className="admin-field">
               <span className="admin-field-label">File</span>
-              <input ref={fileRef} type="file" className="admin-file"
+              <input name="document" ref={fileRef} type="file" className="admin-file"
                 onChange={e => setFile(e.target.files?.[0] || null)} />
             </label>
             <div className="admin-form-actions">

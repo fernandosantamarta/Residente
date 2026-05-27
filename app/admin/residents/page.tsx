@@ -228,30 +228,30 @@ export default function Residents() {
           <form className="admin-form" onSubmit={add}>
             <label className="admin-field">
               <span className="admin-field-label">Resident name</span>
-              <input className="admin-input" placeholder="Jane Doe"
+              <input name="full_name" className="admin-input" placeholder="Jane Doe"
                 value={form.full_name} onChange={e => setField('full_name', e.target.value)} />
             </label>
             <div className="admin-2col">
               <label className="admin-field">
                 <span className="admin-field-label">Subdivision</span>
-                <input className="admin-input" placeholder="Lakeside"
+                <input name="subdivision" className="admin-input" placeholder="Lakeside"
                   value={form.subdivision} onChange={e => setField('subdivision', e.target.value)} />
               </label>
               <label className="admin-field">
                 <span className="admin-field-label">Address / unit</span>
-                <input className="admin-input" placeholder="1247 Oak Street"
+                <input name="address" className="admin-input" placeholder="1247 Oak Street"
                   value={form.address} onChange={e => setField('address', e.target.value)} />
               </label>
             </div>
             <div className="admin-2col">
               <label className="admin-field">
                 <span className="admin-field-label">Email</span>
-                <input className="admin-input" type="email" placeholder="jane@email.com"
+                <input name="email" className="admin-input" type="email" placeholder="jane@email.com"
                   value={form.email} onChange={e => setField('email', e.target.value)} />
               </label>
               <label className="admin-field">
                 <span className="admin-field-label">Phone</span>
-                <input className="admin-input" placeholder="(555) 123-4567"
+                <input name="phone" className="admin-input" placeholder="(555) 123-4567"
                   value={form.phone} onChange={e => setField('phone', e.target.value)} />
               </label>
             </div>
@@ -264,7 +264,7 @@ export default function Residents() {
                 onClick={() => fileRef.current && fileRef.current.click()}>
                 Import CSV
               </button>
-              <input ref={fileRef} type="file" accept=".csv,text/csv"
+              <input name="residents-csv" ref={fileRef} type="file" accept=".csv,text/csv"
                 onChange={onPickFile} style={{ display: 'none' }} />
               {error && <span className="admin-err-inline">{error}</span>}
             </div>
@@ -328,7 +328,7 @@ function ResidentRow({ r, monthlyDues, interestRate, payments, onLocal, onCommit
         <span className="res-open-lbl">Opening</span>
         <span className="res-open-field">
           <span className="res-bal-pre">$</span>
-          <input className="res-bal-input" type="number" placeholder="0"
+          <input name={`opening-balance-${r.id}`} className="res-bal-input" type="number" placeholder="0"
             value={r.opening_balance ?? ''}
             onChange={e => onLocal(r.id, 'opening_balance', e.target.value)}
             onBlur={e => onCommit(r.id, { opening_balance: Number(e.target.value) || 0 })} />

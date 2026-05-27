@@ -123,20 +123,21 @@ export default function Documents() {
             <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
           </svg>
           <input
+            name="doc-search"
             type="search"
             value={search}
             onChange={e => setSearch(e.target.value)}
             placeholder="Search documents…"
           />
         </div>
-        <select className="doc-select" value={filterCategory}
+        <select name="doc-category" className="doc-select" value={filterCategory}
           onChange={e => setFilterCategory(e.target.value)}>
           <option value="all">All Categories</option>
           {CATEGORY_GRID.map(c => (
             <option key={c.key} value={c.label}>{c.label}</option>
           ))}
         </select>
-        <select className="doc-select" value={filterPeriod}
+        <select name="doc-period" className="doc-select" value={filterPeriod}
           onChange={e => setFilterPeriod(e.target.value as any)}>
           <option value="recent">Recently Updated</option>
           <option value="oldest">Oldest First</option>

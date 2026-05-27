@@ -119,6 +119,7 @@ export default function CommunitySettings() {
                 <div className="admin-input-wrap">
                   {f.prefix && <span className="admin-input-prefix">{f.prefix}</span>}
                   <input
+                    name={f.key}
                     type={f.type} className="admin-input"
                     value={form[f.key] ?? ''} placeholder={f.placeholder}
                     onChange={e => setField(f.key, e.target.value)}
@@ -236,11 +237,11 @@ function BudgetCategories({ communityId }) {
           )}
           {rows.map((r, i) => (
             <div className="bc-row" key={r.id || `new-${i}`}>
-              <input className="admin-input" placeholder="Landscape"
+              <input name={`cat-name-${i}`} className="admin-input" placeholder="Landscape"
                 value={r.name ?? ''} onChange={e => setCell(i, 'name', e.target.value)} />
-              <input className="admin-input" type="number" placeholder="0"
+              <input name={`cat-budget-${i}`} className="admin-input" type="number" placeholder="0"
                 value={r.budget ?? ''} onChange={e => setCell(i, 'budget', e.target.value)} />
-              <input className="admin-input" type="number" placeholder="0"
+              <input name={`cat-spent-${i}`} className="admin-input" type="number" placeholder="0"
                 value={r.spent ?? ''} onChange={e => setCell(i, 'spent', e.target.value)} />
               <button type="button" className="bc-del" onClick={() => removeRow(i)}
                 aria-label="Remove category">&times;</button>
@@ -253,7 +254,7 @@ function BudgetCategories({ communityId }) {
               onClick={() => fileRef.current && fileRef.current.click()}>
               Import CSV
             </button>
-            <input ref={fileRef} type="file" accept=".csv,text/csv"
+            <input name="categories-csv" ref={fileRef} type="file" accept=".csv,text/csv"
               onChange={onImport} style={{ display: 'none' }} />
             <button type="button" className="admin-btn" onClick={save}
               disabled={status === 'saving' || status === 'saved'}>
