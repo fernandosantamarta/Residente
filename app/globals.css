@@ -7621,6 +7621,256 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .rep-cat-label { font-size: 13px; font-weight: 700; color: #0A2440; }
 [data-theme="sketch"] .rep-cat-count { font-size: 11.5px; font-weight: 700; color: #0A2440; }
 
+/* =====================================================================
+   /app/board — 2026-05-27 mockup. Bare-title hero, two-column grid:
+   left col has Upcoming Meeting + Members + Recent Minutes + How
+   Decisions Are Made; right aside has Board Updates + Committees.
+   ===================================================================== */
+[data-theme="sketch"] .brd-wrap { display: flex; flex-direction: column; gap: 22px; padding-bottom: 64px; }
+[data-theme="sketch"] .brd-hero { margin-bottom: 4px; background: transparent; }
+[data-theme="sketch"] .brd-hero-content { display: flex; flex-direction: column; gap: 6px; color: #0A2440; }
+[data-theme="sketch"] .brd-hero-title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 44px; font-weight: 600; line-height: 1; letter-spacing: -0.02em; margin: 0; color: #0A2440;
+}
+[data-theme="sketch"] .brd-hero-sub {
+  font-size: 14px; font-weight: 500; color: #0A2440; max-width: 620px; text-wrap: balance;
+}
+
+[data-theme="sketch"] .brd-grid {
+  display: grid; grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 22px; align-items: start;
+}
+@media (max-width: 1080px) { [data-theme="sketch"] .brd-grid { grid-template-columns: 1fr; } }
+[data-theme="sketch"] .brd-col { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+[data-theme="sketch"] .brd-aside { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+
+[data-theme="sketch"] .brd-card {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 22px; background: #FFFFFF;
+  border: 1px solid rgba(15, 28, 46, 0.08); border-radius: 18px;
+}
+[data-theme="sketch"] .brd-tile-tight { padding: 18px; gap: 12px; }
+[data-theme="sketch"] .brd-card-title, [data-theme="sketch"] .brd-tile-title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 18px; font-weight: 600; letter-spacing: -0.01em; color: #0A2440; margin: 0;
+}
+[data-theme="sketch"] .brd-card-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+[data-theme="sketch"] .brd-card-link, [data-theme="sketch"] .brd-card-meta {
+  font-size: 13px; font-weight: 700; color: #C45F2A; text-decoration: none;
+}
+[data-theme="sketch"] .brd-card-meta { color: #0A2440; }
+[data-theme="sketch"] .brd-card-link:hover { color: #E14909; }
+
+/* Upcoming meeting hero card — orange wash to draw the eye */
+[data-theme="sketch"] .brd-upcoming {
+  background: linear-gradient(135deg, #FFF7F0 0%, #FBF7F1 100%);
+  border-color: rgba(225, 73, 9, 0.30);
+  gap: 10px;
+}
+[data-theme="sketch"] .brd-up-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+[data-theme="sketch"] .brd-up-eyebrow {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.6px; text-transform: uppercase; color: #C45F2A;
+}
+[data-theme="sketch"] .brd-up-save {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: transparent; border: none; padding: 4px 8px;
+  font-family: inherit; font-size: 12px; font-weight: 700;
+  color: #0A2440; cursor: pointer; border-radius: 8px;
+  transition: background-color 0.12s ease;
+}
+[data-theme="sketch"] .brd-up-save:hover { background: rgba(225, 73, 9, 0.08); color: #C45F2A; }
+[data-theme="sketch"] .brd-up-save svg { width: 13px; height: 13px; }
+[data-theme="sketch"] .brd-up-when {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 24px; font-weight: 600; color: #0A2440; line-height: 1.2;
+}
+[data-theme="sketch"] .brd-up-where { font-size: 13.5px; color: #0A2440; font-weight: 600; }
+[data-theme="sketch"] .brd-up-agenda-label {
+  margin-top: 8px;
+  font-size: 11px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase; color: #0A2440;
+}
+[data-theme="sketch"] .brd-up-agenda { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 4px; }
+[data-theme="sketch"] .brd-up-agenda li { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #0A2440; }
+[data-theme="sketch"] .brd-up-agenda li svg { width: 14px; height: 14px; color: #C45F2A; flex: 0 0 auto; }
+[data-theme="sketch"] .brd-up-actions { display: flex; gap: 10px; margin-top: 8px; flex-wrap: wrap; }
+[data-theme="sketch"] .brd-up-all { align-self: flex-start; font-size: 12.5px; font-weight: 700; color: #C45F2A; text-decoration: none; }
+[data-theme="sketch"] .brd-up-all:hover { color: #E14909; }
+
+[data-theme="sketch"] .brd-cta-primary, [data-theme="sketch"] .brd-cta-secondary {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 10px 18px;
+  border-radius: 999px; font-family: inherit; font-size: 13px; font-weight: 700;
+  cursor: pointer; text-decoration: none; transition: background-color 0.12s ease;
+}
+[data-theme="sketch"] .brd-cta-primary { background: #E14909; color: #FFFFFF; border: 1px solid #E14909; }
+[data-theme="sketch"] .brd-cta-primary:hover { background: #C73E07; }
+[data-theme="sketch"] .brd-cta-secondary { background: transparent; color: #C45F2A; border: 1.5px solid rgba(199, 111, 69, 0.40); }
+[data-theme="sketch"] .brd-cta-secondary:hover { background: rgba(225, 73, 9, 0.08); }
+
+/* Board members row */
+[data-theme="sketch"] .brd-members {
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px;
+}
+@media (max-width: 900px) { [data-theme="sketch"] .brd-members { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 600px) { [data-theme="sketch"] .brd-members { grid-template-columns: repeat(2, 1fr); } }
+[data-theme="sketch"] .brd-member {
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+  padding: 14px 8px;
+  background: #FBF7F1;
+  border: 1.5px solid rgba(199, 111, 69, 0.20);
+  border-radius: 14px;
+  text-align: center;
+}
+[data-theme="sketch"] .brd-member-avatar {
+  width: 56px; height: 56px; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, #E14909, #C45F2A);
+  color: #FFFFFF;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 20px; font-weight: 600;
+  box-shadow: 0 4px 12px -4px rgba(15, 28, 46, 0.25);
+  margin-bottom: 4px;
+}
+[data-theme="sketch"] .brd-member-name { font-size: 13px; font-weight: 700; color: #0A2440; line-height: 1.2; }
+[data-theme="sketch"] .brd-member-role {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase; color: #C45F2A;
+}
+[data-theme="sketch"] .brd-member-mail {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  color: #C45F2A;
+  margin-top: 4px;
+  transition: background-color 0.12s ease;
+}
+[data-theme="sketch"] .brd-member-mail svg { width: 13px; height: 13px; }
+[data-theme="sketch"] .brd-member-mail:hover { background: rgba(225, 73, 9, 0.12); }
+
+/* Recent minutes table */
+[data-theme="sketch"] .brd-minutes { display: flex; flex-direction: column; }
+[data-theme="sketch"] .brd-min-row {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto auto;
+  gap: 14px; align-items: center;
+  padding: 12px 4px;
+  text-decoration: none;
+  border-top: 1px solid rgba(15, 28, 46, 0.06);
+  transition: background-color 0.12s ease;
+}
+[data-theme="sketch"] .brd-min-row:first-child { border-top: none; }
+[data-theme="sketch"] .brd-min-row:hover { background: rgba(225, 73, 9, 0.05); }
+[data-theme="sketch"] .brd-min-date {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 52px; height: 52px;
+  border-radius: 10px;
+  background: rgba(225, 73, 9, 0.10);
+  color: #C45F2A;
+}
+[data-theme="sketch"] .brd-min-mo { font-size: 10px; font-weight: 700; letter-spacing: 1px; line-height: 1; }
+[data-theme="sketch"] .brd-min-day {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 18px; font-weight: 600; color: #0A2440; line-height: 1;
+}
+[data-theme="sketch"] .brd-min-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+[data-theme="sketch"] .brd-min-title { font-size: 13.5px; font-weight: 700; color: #0A2440; }
+[data-theme="sketch"] .brd-min-sum { font-size: 12px; color: #0A2440; line-height: 1.4; }
+[data-theme="sketch"] .brd-min-tags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+[data-theme="sketch"] .brd-min-tag {
+  display: inline-flex; padding: 1px 8px;
+  background: rgba(10, 36, 64, 0.06);
+  color: #0A2440;
+  border-radius: 999px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+}
+[data-theme="sketch"] .brd-min-action { font-size: 12.5px; font-weight: 700; color: #C45F2A; }
+
+[data-theme="sketch"] .brd-pill {
+  display: inline-flex; padding: 2px 10px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+  border: 1px solid transparent; white-space: nowrap;
+}
+[data-theme="sketch"] .brd-pill-on  { background: rgba(125, 140, 92, 0.18); color: #4A5A2D; border-color: rgba(125, 140, 92, 0.36); }
+[data-theme="sketch"] .brd-pill-off { background: rgba(10, 36, 64, 0.06); color: #0A2440; border-color: rgba(10, 36, 64, 0.20); }
+
+/* How Decisions Are Made */
+[data-theme="sketch"] .brd-how-grid {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+}
+@media (max-width: 900px) { [data-theme="sketch"] .brd-how-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 480px) { [data-theme="sketch"] .brd-how-grid { grid-template-columns: 1fr; } }
+[data-theme="sketch"] .brd-how-step {
+  position: relative;
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 16px 14px;
+  background: #FBF7F1;
+  border: 1.5px solid rgba(199, 111, 69, 0.20);
+  border-radius: 14px;
+}
+[data-theme="sketch"] .brd-how-num {
+  position: absolute; top: 10px; right: 12px;
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 28px; font-weight: 600; color: rgba(225, 73, 9, 0.30); line-height: 1;
+}
+[data-theme="sketch"] .brd-how-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 10px;
+  background: rgba(225, 73, 9, 0.12); color: #C45F2A;
+}
+[data-theme="sketch"] .brd-how-icon svg { width: 18px; height: 18px; }
+[data-theme="sketch"] .brd-how-title { font-size: 14px; font-weight: 700; color: #0A2440; }
+[data-theme="sketch"] .brd-how-desc { font-size: 12px; color: #0A2440; line-height: 1.4; }
+
+/* Right sidebar — Board Updates */
+[data-theme="sketch"] .brd-updates { display: flex; flex-direction: column; }
+[data-theme="sketch"] .brd-update {
+  display: grid; grid-template-columns: 32px minmax(0, 1fr);
+  gap: 12px; align-items: flex-start;
+  padding: 10px 4px;
+  text-decoration: none;
+  border-top: 1px solid rgba(15, 28, 46, 0.06);
+  transition: background-color 0.12s ease;
+}
+[data-theme="sketch"] .brd-update:first-of-type { border-top: none; }
+[data-theme="sketch"] .brd-update:hover { background: rgba(225, 73, 9, 0.05); }
+[data-theme="sketch"] .brd-update-dot {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 50%;
+  flex: 0 0 auto;
+}
+[data-theme="sketch"] .brd-update-dot svg { width: 14px; height: 14px; }
+[data-theme="sketch"] .brd-update-approval { background: rgba(125, 140, 92, 0.18); color: #4A5A2D; }
+[data-theme="sketch"] .brd-update-contract { background: rgba(74, 122, 174, 0.16); color: #2B5C8E; }
+[data-theme="sketch"] .brd-update-budget   { background: rgba(225, 73, 9, 0.14); color: #C45F2A; }
+[data-theme="sketch"] .brd-update-announce { background: rgba(160, 90, 180, 0.16); color: #6B3F87; }
+[data-theme="sketch"] .brd-update-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+[data-theme="sketch"] .brd-update-title { font-size: 13px; font-weight: 700; color: #0A2440; line-height: 1.3; }
+[data-theme="sketch"] .brd-update-sub { font-size: 11.5px; color: #0A2440; line-height: 1.35; }
+[data-theme="sketch"] .brd-update-date { font-size: 11px; color: #0A2440; margin-top: 2px; }
+
+/* Right sidebar — Committees */
+[data-theme="sketch"] .brd-committees { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+[data-theme="sketch"] .brd-committee {
+  display: grid; grid-template-columns: 32px minmax(0, 1fr) auto;
+  gap: 10px; align-items: center;
+  padding: 10px 6px;
+  border-top: 1px solid rgba(15, 28, 46, 0.06);
+  text-decoration: none;
+  transition: background-color 0.12s ease;
+}
+[data-theme="sketch"] .brd-committees li:first-child .brd-committee { border-top: none; }
+[data-theme="sketch"] .brd-committee:hover { background: rgba(225, 73, 9, 0.05); }
+[data-theme="sketch"] .brd-committee-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 10px;
+  background: rgba(225, 73, 9, 0.10); color: #C45F2A;
+}
+[data-theme="sketch"] .brd-committee-icon svg { width: 16px; height: 16px; }
+[data-theme="sketch"] .brd-committee-body { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+[data-theme="sketch"] .brd-committee-name { font-size: 13px; font-weight: 700; color: #0A2440; }
+[data-theme="sketch"] .brd-committee-meta { font-size: 11.5px; color: #0A2440; }
+[data-theme="sketch"] .brd-committee-chev { width: 14px; height: 14px; color: #0A2440; }
+
 /* ---- legacy classes from prior WIP (still rendered as no-ops if unused) ---- */
 /* .hero-row, .ym-cards, .pace-trio, .trend-* now unused — keep their old
    rules in place above; they simply don't match anything in the new JSX. */
