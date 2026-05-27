@@ -215,21 +215,33 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
 // One-time sign-in zoom: replays the landing's cinematic dolly-in
 // (community → focal house → door → interior) as a welcome animation
 // the first time the cockpit mounts in a browser session. Uses
-// sessionStorage so internal cockpit navigation doesn't replay it.
+// sessionStorage so internal cockpit navigation, refreshes, and
+// admin-to-cockpit hops don't replay it.
+const INTRO_PLAYED_KEY = 'residente-intro-played'
 function CockpitIntro() {
   const [phase, setPhase] = useState<'init' | 'playing' | 'done'>('init')
   const [p, setP] = useState(0)              // 0..1 zoom progress
   const startRef = useRef<number | null>(null)
   const [prefs] = usePreferences()
 
-  // Play every time the cockpit layout mounts (i.e. every sign-in and
-  // every page refresh on /app/*). Skip if the user has reduced-motion
-  // set — either via /app/settings → Accessibility or via their OS
-  // preferences.
+  // Play once per browser tab/session. Subsequent page refreshes
+  // inside the same tab, and trips between /admin and /app, skip
+  // the intro. Also skip if the user has reduced-motion set —
+  // either via /app/settings → Accessibility or OS preferences.
   useEffect(() => {
     if (typeof window === 'undefined') return
     const osReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
     if (osReduced || prefs.reduced_motion) { setPhase('done'); return }
+    try {
+      if (window.sessionStorage.getItem(INTRO_PLAYED_KEY) === '1') {
+        setPhase('done')
+        return
+      }
+      window.sessionStorage.setItem(INTRO_PLAYED_KEY, '1')
+    } catch {
+      // sessionStorage unavailable (incognito edge cases) — fall
+      // through to playing rather than blocking the mount.
+    }
     setPhase('playing')
   }, [prefs.reduced_motion])
 

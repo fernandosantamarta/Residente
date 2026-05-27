@@ -41,8 +41,6 @@ const EMPTY = { section: '', title: '', body: '', fine: '' }
 export default function Rules() {
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
-  const [rows, setRows] = useState([])
-  const [status, setStatus] = useState('loading')   // loading | ready | none | error
   const [error, setError] = useState('')
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
@@ -69,17 +67,17 @@ export default function Rules() {
   }, [successMsg])
 
   // Shared rule book — local DEMO + localStorage. The board sees the
-  // same rules the residents see at /app/rules. When Supabase is wired
-  // up, swap this hook for a real query.
-  const shared = useRulesData()
-  useEffect(() => {
-    setRows(shared as any)
-    setStatus('ready')
-  }, [shared])
+  // same rules the residents see at /app/rules. The hook already
+  // re-renders on storage changes; we use it directly so we don't
+  // introduce a derived `rows` state whose useEffect would set it on
+  // every render (useRulesData returns a fresh array reference each
+  // time → previous "rows" useEffect was an infinite render loop that
+  // froze this page).
+  const rows = useRulesData() as any[]
+  const status = 'ready' as const   // legacy 'loading | none | error' kept narrow
 
   const load = useCallback(async () => {
     // No-op in the shared-storage path; kept for the retry button.
-    setStatus('ready')
   }, [])
 
   const setField = (k, v) => setForm(f => ({ ...f, [k]: v }))

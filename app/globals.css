@@ -6637,6 +6637,28 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .pay-breakdown-total { font-weight: 700; }
 [data-theme="sketch"] .pay-amt-credit { color: #4A7A2D; }
 
+/* Shimmer skeleton — replaces the balance + due-date strings while
+   useMyResident() is loading so the real number never has to flash a
+   fallback. */
+[data-theme="sketch"] .pay-skel {
+  background: linear-gradient(
+    90deg,
+    rgba(15, 28, 46, 0.06) 0%,
+    rgba(15, 28, 46, 0.14) 50%,
+    rgba(15, 28, 46, 0.06) 100%
+  );
+  background-size: 200% 100%;
+  animation: pay-skel-shimmer 1.4s infinite linear;
+  border-radius: 8px;
+  color: transparent !important;
+}
+[data-theme="sketch"] .pay-skel-amt { display: block; width: 240px; height: 56px; }
+[data-theme="sketch"] .pay-skel-due { display: block; width: 160px; height: 16px; margin-top: 6px; }
+@keyframes pay-skel-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
 /* CTAs */
 [data-theme="sketch"] .pay-cta-primary,
 [data-theme="sketch"] .pay-cta-secondary {

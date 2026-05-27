@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { ReactNode, useState } from 'react'
 import { useMyResident } from '@/hooks/useMyResident'
-import { stripeEnabled, supabase } from '@/lib/supabase'
+import { hasSupabase, stripeEnabled, supabase } from '@/lib/supabase'
 import { usePreferences } from '@/lib/preferences'
 import { fmtMoney } from '@/lib/dues'
 
@@ -40,8 +40,11 @@ export default function Pay() {
   const [prefs] = usePreferences()
   const [checkout, setCheckout] = useState({ loading: false, error: '' })
 
-  // In preview mode (no resident) fall back to the mockup amount so the
-  // page reads as lived-in for design walkthroughs.
+  // Only fall back to a demo number when we're genuinely offline of
+  // a resident record (preview mode for design walkthroughs). For a
+  // real authed resident, we wait for the real number and show a
+  // skeleton — no flashing of a wrong amount.
+  const isLoading = loading || (resident == null && balance == null && !!hasSupabase)
   const currentBalance = balance == null ? 1250.00 : balance
   const dueDate = '2026-12-05'
 
@@ -88,11 +91,19 @@ export default function Pay() {
           <section className="pay-card pay-balance-card">
             <div className="pay-balance-head">
               <div className="pay-balance-label">Current Balance</div>
-              <div className="pay-balance-amt">{fmtMoney(currentBalance)}</div>
-              <div className="pay-balance-due">Due {fmtDate(dueDate)}</div>
+              {isLoading ? (
+                <div className="pay-balance-amt pay-skel pay-skel-amt" aria-label="Loading balance">&nbsp;</div>
+              ) : (
+                <div className="pay-balance-amt">{fmtMoney(currentBalance)}</div>
+              )}
+              {isLoading ? (
+                <div className="pay-balance-due pay-skel pay-skel-due">&nbsp;</div>
+              ) : (
+                <div className="pay-balance-due">Due {fmtDate(dueDate)}</div>
+              )}
               <div className="pay-balance-actions">
                 <button type="button" className="pay-cta-primary"
-                  disabled={checkout.loading || !stripeEnabled}
+                  disabled={checkout.loading || !stripeEnabled || isLoading}
                   onClick={startCheckout}>
                   {checkout.loading ? 'Starting checkout…' : 'Make Payment'}
                 </button>
