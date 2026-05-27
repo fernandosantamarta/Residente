@@ -67,6 +67,8 @@ export default function Login() {
           <label className="login-field">
             <span className="login-label">Email</span>
             <input
+              id="login-email"
+              name="email"
               type="email"
               autoComplete="email"
               value={email}
@@ -79,6 +81,8 @@ export default function Login() {
           <label className="login-field">
             <span className="login-label">Password</span>
             <input
+              id="login-password"
+              name="password"
               type="password"
               autoComplete="current-password"
               value={password}
