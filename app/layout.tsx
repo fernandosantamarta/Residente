@@ -7,6 +7,14 @@ import './admin.css'
 export const metadata: Metadata = {
   title: 'Residente',
   description: 'The HOA cockpit your community has been quietly hoping for.',
+  // Wires the existing brand mark as the favicon so browsers stop
+  // 404'ing for /favicon.ico. Next emits the right <link rel="icon">
+  // and apple-touch-icon tags from this block.
+  icons: {
+    icon: '/residente-logo.png',
+    shortcut: '/residente-logo.png',
+    apple: '/residente-logo.png',
+  },
 }
 
 export const viewport: Viewport = {
