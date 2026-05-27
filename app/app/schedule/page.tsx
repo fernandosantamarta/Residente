@@ -9,8 +9,10 @@ import {
   ScheduleEvent,
   useScheduleEvents,
 } from '@/lib/schedule'
+import { usePreferences } from '@/lib/preferences'
 
-const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+const WEEKDAYS_SUN = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
+const WEEKDAYS_MON = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
 
 function daysInMonth(y: number, m: number) { return new Date(y, m + 1, 0).getDate() }
 function toISO(y: number, m: number, d: number) {
@@ -49,6 +51,9 @@ export default function Schedule() {
   const [enabledKinds, setEnabledKinds] = useState<Set<EventKind>>(new Set(ALL_KINDS))
 
   const allEvents = useScheduleEvents()
+  const [prefs] = usePreferences()
+  const startDay = prefs.calendar_week_start === 'mon' ? 1 : 0
+  const WEEKDAYS = startDay === 1 ? WEEKDAYS_MON : WEEKDAYS_SUN
   const events = useMemo(
     () => allEvents.filter(e => enabledKinds.has(e.kind)),
     [allEvents, enabledKinds]
@@ -62,9 +67,10 @@ export default function Schedule() {
 
   const todayISO = toISO(today.getFullYear(), today.getMonth(), today.getDate())
 
-  // Visible month grid — start Sunday, fill rows of 7.
+  // Visible month grid — start day governed by Settings → Calendar
+  // (Sunday by default, Monday if the resident opted in).
   const monthStart = new Date(cursor.y, cursor.m, 1)
-  const leadingBlanks = monthStart.getDay()
+  const leadingBlanks = (monthStart.getDay() - startDay + 7) % 7
   const totalDays = daysInMonth(cursor.y, cursor.m)
   const cells: ({ day: number; iso: string } | null)[] = []
   for (let i = 0; i < leadingBlanks; i++) cells.push(null)

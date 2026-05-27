@@ -15,6 +15,7 @@ const ADMIN_NAV = [
   { href: '/admin/voice',     label: 'Voice' },
   { href: '/admin/schedule',  label: 'Schedule' },
   { href: '/admin/rules',     label: 'Rules' },
+  { href: '/admin/violations', label: 'Violations' },
   { href: '/admin/documents', label: 'Documents' },
 ]
 

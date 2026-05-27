@@ -10,6 +10,7 @@ import { kindToUpTag, upcomingFrom, useScheduleEvents } from '@/lib/schedule'
 import { useUnreadNoticeCount, useMyNotices } from '@/hooks/useNotices'
 import { NOTICE_KIND_LABELS, noticeHref, NoticeKind } from '@/lib/voice'
 import { useCommunityData } from '@/hooks/useCommunityData'
+import { usePreferences } from '@/lib/preferences'
 import { DUES_LABEL } from '@/lib/dues'
 import { CommunitySvg, InteriorSvg } from '../page'
 
@@ -38,8 +39,9 @@ const NAV: NavItem[] = [
   { href: '/app/schedule',  label: 'Schedule',  icon: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></> },
   { href: '/app/vendor',    label: 'Vendor',    icon: <><path d="M3 7h18l-1.4 11.2A2 2 0 0 1 17.6 20H6.4a2 2 0 0 1-2-1.8z"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></> },
   { href: '/app/reports',   label: 'Reports',   icon: <><path d="M4 4h16v16H4z"/><path d="M8 16v-4M12 16v-7M16 16v-2"/></> },
-  { href: '/app/settings',  label: 'Settings',  icon: <><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 0 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 0 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3h0a1.7 1.7 0 0 0 1-1.5V3a2 2 0 0 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8v0a1.7 1.7 0 0 0 1.5 1H21a2 2 0 0 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></> },
 ]
+// Settings is intentionally not in NAV — the bottom-left user-block in
+// rail-footer is the entry point, matching the profile-tab pattern.
 
 const isActive = (pathname: string, href: string, exact?: boolean) =>
   exact ? pathname === href : pathname === href || pathname.startsWith(href + '/')
@@ -54,6 +56,7 @@ const fmtTime = () => {
 export default function CockpitLayout({ children }: { children: ReactNode }) {
   const { session, profile } = useAuth()
   const { community } = useCommunityData()
+  const [prefs] = usePreferences()
   const pathname = usePathname() || '/app'
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -86,8 +89,20 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
 
   if (hasSupabase && !session && !isPreview) return null  // don't flash cockpit during redirect
 
-  const userInitials = initialsFrom(profile?.full_name) || 'FM'
+  // Self-typed profile name (from /app/settings → Profile Information)
+  // beats the auth full_name. This is the resident's chosen display.
+  const effectiveFullName = prefs.full_name || profile?.full_name || ''
+  const userInitials = initialsFrom(effectiveFullName) || 'FM'
   const userUnit = profile?.unit_number ? `Unit ${profile.unit_number}` : 'Unit —'
+
+  // Apply Accessibility prefs at the document root so CSS can target
+  // [data-text-size="large"] / [data-contrast="high"] globally.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const root = document.documentElement
+    if (prefs.large_text)  root.setAttribute('data-text-size', 'large'); else root.removeAttribute('data-text-size')
+    if (prefs.high_contrast) root.setAttribute('data-contrast', 'high'); else root.removeAttribute('data-contrast')
+  }, [prefs.large_text, prefs.high_contrast])
 
   return (
     <>
@@ -142,7 +157,12 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
             </span>
           </div>
           <Link href="/app/settings" className="user-block">
-            <div className="user-avatar">{userInitials}</div>
+            <div
+              className={`user-avatar${prefs.profile_image ? ' has-image' : ''}`}
+              style={prefs.profile_image ? { backgroundImage: `url(${prefs.profile_image})` } : undefined}
+            >
+              {!prefs.profile_image && userInitials}
+            </div>
             <div className="user-meta">
               <span className="label">Signed in as</span>
               <span className="val">{userUnit}</span>
@@ -200,18 +220,18 @@ function CockpitIntro() {
   const [phase, setPhase] = useState<'init' | 'playing' | 'done'>('init')
   const [p, setP] = useState(0)              // 0..1 zoom progress
   const startRef = useRef<number | null>(null)
+  const [prefs] = usePreferences()
 
   // Play every time the cockpit layout mounts (i.e. every sign-in and
-  // every page refresh on /app/*). Only skip if the user has
-  // reduced-motion set in their OS preferences. The sessionStorage
-  // "play once per session" gate was removed at the user's request —
-  // they want the welcome-home moment every time.
+  // every page refresh on /app/*). Skip if the user has reduced-motion
+  // set — either via /app/settings → Accessibility or via their OS
+  // preferences.
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-    if (reduced) { setPhase('done'); return }
+    const osReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (osReduced || prefs.reduced_motion) { setPhase('done'); return }
     setPhase('playing')
-  }, [])
+  }, [prefs.reduced_motion])
 
   // Drive p from 0 → 1 over 2.6s, then linger briefly so the interior
   // reveal is visible, then fade out. Total ~3.6s.

@@ -4,7 +4,16 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { signIn, hasSupabase } from '@/lib/supabase'
+import { getStoredPrefs } from '@/lib/preferences'
 import { useAuth } from '../providers'
+
+// Where to land after sign-in. Reads the local preference written
+// from /app/settings → Default landing page; falls back to /app.
+function landingTarget(): string {
+  if (typeof window === 'undefined') return '/app'
+  try { return getStoredPrefs().default_homepage || '/app' }
+  catch { return '/app' }
+}
 
 export default function Login() {
   const { session } = useAuth()
@@ -14,9 +23,10 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // If already signed in, bounce to the cockpit.
+  // If already signed in, bounce to the cockpit at the user's
+  // preferred landing page.
   useEffect(() => {
-    if (session) router.replace('/app')
+    if (session) router.replace(landingTarget())
   }, [session, router])
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -32,7 +42,7 @@ export default function Login() {
       if (err) {
         setError(err.message || 'Sign in failed')
       } else {
-        router.replace('/app')
+        router.replace(landingTarget())
       }
     } catch (err) {
       setError((err as Error)?.message || 'Sign in failed')

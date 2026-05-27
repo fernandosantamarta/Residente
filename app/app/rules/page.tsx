@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useCategoriesData, useRulesData } from '@/lib/rules'
+import { computeStats, useViolationsData } from '@/lib/violations'
 import { useCommunityData } from '@/hooks/useCommunityData'
 
 // Demo view counts for the "Most Viewed Rules" list — replace with a
@@ -92,6 +93,13 @@ export default function Rules() {
   const [search, setSearch] = useState('')
   const [active, setActive] = useState<string>('all') // 'all' or a section name
   const activeSectionRef = useRef<HTMLDivElement>(null)
+  const chipStripRef = useRef<HTMLDivElement>(null)
+  // How many chips fit in row 1 of the strip — the rest spill into the
+  // "All categories" panel below. `null` means we haven't measured yet,
+  // in which case we show everything in one wrapping strip (the
+  // measurement runs in a useLayoutEffect so the user won't see this
+  // intermediate state).
+  const [firstRowCount, setFirstRowCount] = useState<number | null>(null)
 
   // When the resident picks a category chip, scroll down to the rules
   // for that category so they don't have to hunt for them. Only fires
@@ -103,6 +111,36 @@ export default function Rules() {
     })
     return () => cancelAnimationFrame(id)
   }, [active])
+
+  // Measure how many chips fit in the strip's first row. Re-measure
+  // on viewport changes via ResizeObserver. Renders with flex-wrap on
+  // first pass so the browser positions each chip naturally; we then
+  // count which ones share the top row and split rendering on update.
+  useLayoutEffect(() => {
+    const strip = chipStripRef.current
+    if (!strip) return
+    const measure = () => {
+      const chips = Array.from(strip.children) as HTMLElement[]
+      if (chips.length === 0) { setFirstRowCount(null); return }
+      const top = chips[0].offsetTop
+      let count = 0
+      for (const c of chips) {
+        if (c.offsetTop > top) break
+        count++
+      }
+      // Re-render the split only if it actually changed, to avoid
+      // resize-loop thrash with the ResizeObserver.
+      setFirstRowCount(prev => prev === count ? prev : count)
+    }
+    // Defer one frame so initial flex-wrap layout has settled.
+    const raf = requestAnimationFrame(measure)
+    const ro = new ResizeObserver(() => requestAnimationFrame(measure))
+    ro.observe(strip)
+    return () => {
+      cancelAnimationFrame(raf)
+      ro.disconnect()
+    }
+  }, [list.length, allCategories.length])
 
   // Group everything by section once for the chip strip + category cards.
   const bySection = useMemo(() => {
@@ -155,14 +193,11 @@ export default function Rules() {
       .slice(0, 5)
   }, [list])
 
-  // Demo numbers for the Violations & Enforcement strip. Wire to real
-  // data once a violations table exists.
-  const violations = {
-    warnings: 12,
-    fines: 1840,
-    resolved: 38,
-    appeals: 2,
-  }
+  // Derived from the shared violations log — same source the board
+  // writes to from /admin/violations. Numbers update live as the
+  // board adds entries or moves them through the workflow.
+  const violationsList = useViolationsData()
+  const violations = useMemo(() => computeStats(violationsList), [violationsList])
 
   return (
     <div className="rb-wrap">
@@ -243,65 +278,115 @@ export default function Rules() {
             <section className="rb-col">
               <div className="rb-col-head">Browse rules by category</div>
 
-              {/* Category chip strip lives inside the Browse card now. */}
-              <div className="rb-chips rb-chips-inline">
-                <button
-                  className={`rb-chip${active === 'all' ? ' active' : ''}`}
-                  onClick={() => setActive('all')}
-                >
-                  <span className="rb-chip-icon"><CatIcon name="shield" /></span>
-                  <span className="rb-chip-label">All Rules</span>
-                  <span className="rb-chip-count">{list.length} {list.length === 1 ? 'rule' : 'rules'}</span>
-                </button>
-                {sections.map(name => {
-                  const count = bySection[name]?.length || 0
-                  return (
-                    <button
-                      key={name}
-                      className={`rb-chip${active === name ? ' active' : ''}`}
-                      onClick={() => setActive(name)}
-                    >
-                      <span className="rb-chip-icon"><CatIcon name={iconFor(name)} /></span>
-                      <span className="rb-chip-label">{name}</span>
-                      <span className="rb-chip-count">
-                        {count} {count === 1 ? 'rule' : 'rules'}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-
-              {filteredSections.length === 0 ? (
-                <div className="rb-empty rb-empty-card">
-                  <div className="rb-empty-title">No rules match your search.</div>
-                  <div className="rb-empty-sub">
-                    Try a different category or clear your search.
+              {/* Category chip strip — the chips that fit in row 1
+                  render here; the rest fall into an "All categories"
+                  panel below. Measurement happens in a layout effect
+                  so the wrap-and-split is invisible to the user. */}
+              {(() => {
+                type Chip = {
+                  key: string
+                  label: string
+                  count: number
+                  icon: CatIconName
+                  onClick: () => void
+                  isActive: boolean
+                }
+                const chips: Chip[] = [
+                  {
+                    key: '__all__',
+                    label: 'All Rules',
+                    count: list.length,
+                    icon: 'shield',
+                    onClick: () => setActive('all'),
+                    isActive: active === 'all',
+                  },
+                  ...sections.map(name => ({
+                    key: name,
+                    label: name,
+                    count: bySection[name]?.length || 0,
+                    icon: iconFor(name),
+                    onClick: () => setActive(name),
+                    isActive: active === name,
+                  })),
+                ]
+                const renderChip = (c: Chip) => (
+                  <button
+                    key={c.key}
+                    className={`rb-chip${c.isActive ? ' active' : ''}`}
+                    onClick={c.onClick}
+                  >
+                    <span className="rb-chip-icon"><CatIcon name={c.icon} /></span>
+                    <span className="rb-chip-label">{c.label}</span>
+                    <span className="rb-chip-count">
+                      {c.count} {c.count === 1 ? 'rule' : 'rules'}
+                    </span>
+                  </button>
+                )
+                // Before measurement (firstRowCount == null): render
+                // every chip in the strip with flex-wrap so the browser
+                // can show them where row 1 ends. After measurement:
+                // first N stay in the strip, the rest go below.
+                const splitAt = firstRowCount ?? chips.length
+                const visible = chips.slice(0, splitAt)
+                const overflow = chips.slice(splitAt)
+                return (
+                  <div className="rb-chips rb-chips-inline" ref={chipStripRef}>
+                    {(firstRowCount === null ? chips : visible).map(renderChip)}
                   </div>
-                </div>
-              ) : (
-                <div className="rb-cat-list">
-                  {filteredSections.map(name => (
-                    <button
-                      key={name}
-                      className="rb-cat-card"
-                      onClick={() => setActive(name)}
-                    >
-                      <span className="rb-cat-card-icon">
-                        <CatIcon name={iconFor(name)} />
-                      </span>
-                      <span className="rb-cat-card-body">
-                        <span className="rb-cat-card-title">{name}</span>
-                        <span className="rb-cat-card-desc">
-                          {describeSection(name, filteredBySection[name].length)}
-                        </span>
-                      </span>
-                      <span className="rb-cat-card-count">
-                        {filteredBySection[name].length} {filteredBySection[name].length === 1 ? 'rule' : 'rules'}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              )}
+                )
+              })()}
+
+              {(() => {
+                // Every category gets a card here — the chip strip up
+                // top only shows what fits in row 1, but this list is
+                // the canonical "all categories" view. Counts reflect
+                // the current filter (search + active chip).
+                const q = search.trim().toLowerCase()
+                const cardCategories = sections.filter(name => {
+                  if (!q) return true
+                  // Show if the name matches OR there's at least one
+                  // rule in this section that matches the search.
+                  if (name.toLowerCase().includes(q)) return true
+                  return (filteredBySection[name]?.length || 0) > 0
+                })
+                if (cardCategories.length === 0) {
+                  return (
+                    <div className="rb-empty rb-empty-card">
+                      <div className="rb-empty-title">No categories match your search.</div>
+                      <div className="rb-empty-sub">
+                        Try a different keyword or clear your search.
+                      </div>
+                    </div>
+                  )
+                }
+                return (
+                  <div className="rb-cat-list">
+                    {cardCategories.map(name => {
+                      const count = filteredBySection[name]?.length || 0
+                      return (
+                        <button
+                          key={name}
+                          className="rb-cat-card"
+                          onClick={() => setActive(name)}
+                        >
+                          <span className="rb-cat-card-icon">
+                            <CatIcon name={iconFor(name)} />
+                          </span>
+                          <span className="rb-cat-card-body">
+                            <span className="rb-cat-card-title">{name}</span>
+                            <span className="rb-cat-card-desc">
+                              {describeSection(name, count)}
+                            </span>
+                          </span>
+                          <span className="rb-cat-card-count">
+                            {count} {count === 1 ? 'rule' : 'rules'}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                )
+              })()}
 
               {/* When a chip is active, show the actual rule items below
                   the category list so the resident can read them in-place.
