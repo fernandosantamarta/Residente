@@ -7893,6 +7893,33 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .brd-committee-meta { font-size: 11.5px; color: #0A2440; }
 [data-theme="sketch"] .brd-committee-chev { width: 14px; height: 14px; color: #0A2440; }
 
+/* ===== Caret + cursor hygiene =====================================
+   Any input that's read-only, disabled, or used as a click-target
+   (the searchable-dropdown trigger) should NOT show the blinking
+   text caret when focused — it implies "type here" when the user
+   can't. Hides the caret entirely without disabling text selection,
+   so users can still copy the contents (e.g. the refer link).
+   ================================================================== */
+input[readonly],
+input[disabled],
+textarea[readonly],
+textarea[disabled] {
+  caret-color: transparent;
+}
+/* The Dropdown component's searchable mode uses an <input> as the
+   trigger, but for non-searchable usages the same input is purely a
+   display + click target. Even in searchable mode the caret-color
+   stays — typing still works because caret-color is overridden when
+   the input gains key focus in a real session. The cursor itself
+   becomes a pointer so the affordance reads as "click to open" not
+   "click to type". */
+[data-theme="sketch"] .ad-dd-trigger-search {
+  cursor: pointer;
+}
+[data-theme="sketch"] .ad-dd.searchable .ad-dd-trigger-search { cursor: text; }
+[data-theme="sketch"] .ad-dd-trigger-input { caret-color: #E14909; }
+[data-theme="sketch"] .ad-dd:not(.open) .ad-dd-trigger-input { caret-color: transparent; }
+
 /* ---- legacy classes from prior WIP (still rendered as no-ops if unused) ---- */
 /* .hero-row, .ym-cards, .pace-trio, .trend-* now unused — keep their old
    rules in place above; they simply don't match anything in the new JSX. */
