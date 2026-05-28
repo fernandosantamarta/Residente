@@ -129,15 +129,19 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
             </Link>
           ))}
           {showAdmin && (
-            <Link
-              href="/admin"
-              className={`nav-item${pathname.startsWith('/admin') ? ' active' : ''}`}
-            >
-              <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 2 4 6v6c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6z"/>
-              </svg>
-              <span>Admin</span>
-            </Link>
+            <>
+              {/* Set the board-only Admin entry apart from the resident tabs. */}
+              <div aria-hidden="true" style={{ height: 1, background: 'var(--border)', margin: '14px 14px 6px' }} />
+              <Link
+                href="/admin"
+                className={`nav-item${pathname.startsWith('/admin') ? ' active' : ''}`}
+              >
+                <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2 4 6v6c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6z"/>
+                </svg>
+                <span>Admin</span>
+              </Link>
+            </>
           )}
         </nav>
 
