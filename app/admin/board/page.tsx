@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
+import { Dropdown } from '@/components/Dropdown'
 
 const withTimeout = (p, ms = 10000) =>
   Promise.race([
@@ -43,6 +44,14 @@ export default function Board() {
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [memberQuery, setMemberQuery] = useState('')
+  const [successMsg, setSuccessMsg] = useState('')
+
+  // Auto-dismiss the green confirmation banner after 4 seconds.
+  useEffect(() => {
+    if (!successMsg) return
+    const id = setTimeout(() => setSuccessMsg(''), 4000)
+    return () => clearTimeout(id)
+  }, [successMsg])
 
   const load = useCallback(async () => {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
@@ -89,6 +98,7 @@ export default function Board() {
         supabase.from('residents').update({ is_board: value }).eq('id', id)
       )
       if (error) throw error
+      setSuccessMsg(value ? 'Added to the board.' : 'Removed from the board.')
     } catch (err) {
       setResidents(prev) // roll back
       setError(err?.message || 'Could not update board membership')
@@ -103,6 +113,7 @@ export default function Board() {
         supabase.from('residents').update({ board_position }).eq('id', id)
       )
       if (error) throw error
+      setSuccessMsg(board_position ? `Set position to ${board_position}.` : 'Cleared position.')
     } catch (err) {
       setResidents(prev) // roll back
       setError(err?.message || 'Could not update the position')
@@ -130,6 +141,7 @@ export default function Board() {
       if (error) throw error
       setRows(rs => [data, ...rs])
       setForm(EMPTY)
+      setSuccessMsg(`Logged "${row.title}".`)
     } catch (err) {
       setError(err?.message || 'Could not add the decision')
     } finally {
@@ -173,6 +185,13 @@ export default function Board() {
         </div>
       )}
 
+      {successMsg && (
+        <div className="admin-success" role="status">
+          <span className="admin-success-check" aria-hidden="true">✓</span>
+          {successMsg}
+        </div>
+      )}
+
       {(status === 'ready' || status === 'loading') && (
         <>
           <div className="bm-section">
@@ -211,11 +230,17 @@ export default function Board() {
                       <div className="bm-row-name">{m.full_name}</div>
                       <div className="bm-row-sub">{subline(m) || '—'}</div>
                     </div>
-                    <select name={`position-${m.id}`} className="bm-pos" value={m.board_position || ''}
-                      onChange={e => setPosition(m.id, e.target.value || null)}>
-                      <option value="">No position</option>
-                      {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-                    </select>
+                    <div style={{ width: 180, flexShrink: 0 }}>
+                      <Dropdown<string>
+                        value={m.board_position || ''}
+                        onChange={v => setPosition(m.id, v || null)}
+                        ariaLabel={`Position for ${m.full_name}`}
+                        options={[
+                          { value: '', label: 'No position' },
+                          ...POSITIONS.map(p => ({ value: p, label: p })),
+                        ]}
+                      />
+                    </div>
                     <button type="button" className="bc-del" onClick={() => setBoard(m.id, false)}
                       aria-label="Remove from board">&times;</button>
                   </div>
@@ -246,13 +271,15 @@ export default function Board() {
                 <input name="amount" className="admin-input" type="number" placeholder="5200"
                   value={form.amount} onChange={e => setField('amount', e.target.value)} />
               </label>
-              <label className="admin-field">
+              <div className="admin-field">
                 <span className="admin-field-label">Status</span>
-                <select name="status" className="admin-input" value={form.status}
-                  onChange={e => setField('status', e.target.value)}>
-                  {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
-              </label>
+                <Dropdown<string>
+                  value={form.status}
+                  onChange={v => setField('status', v)}
+                  ariaLabel="Decision status"
+                  options={STATUSES}
+                />
+              </div>
               <label className="admin-field">
                 <span className="admin-field-label">Date</span>
                 <input name="decided_on" className="admin-input" type="date"
@@ -260,7 +287,7 @@ export default function Board() {
               </label>
             </div>
             <div className="admin-form-actions">
-              <button type="submit" className="admin-btn" disabled={saving}>
+              <button type="submit" className="admin-primary-btn" disabled={saving}>
                 {saving ? 'Adding…' : 'Add decision'}
               </button>
               {error && <span className="admin-err-inline">{error}</span>}

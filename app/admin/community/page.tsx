@@ -128,7 +128,7 @@ export default function CommunitySettings() {
               </label>
             ))}
             <div className="admin-form-actions">
-              <button type="submit" className="admin-btn"
+              <button type="submit" className="admin-primary-btn"
                 disabled={status === 'saving' || status === 'saved'}>
                 {status === 'saving' ? 'Saving…' : status === 'saved' ? '✓ Saved' : 'Save changes'}
               </button>
@@ -249,14 +249,14 @@ function BudgetCategories({ communityId }) {
           ))}
           <div className="bc-actions">
             <button type="button" className="admin-btn-ghost" onClick={addRow}>+ Add category</button>
-            <button type="button" className="admin-btn-ghost"
+            <button type="button" className="admin-secondary-btn"
               title="CSV columns: name, budget, spent"
               onClick={() => fileRef.current && fileRef.current.click()}>
               Import CSV
             </button>
             <input name="categories-csv" ref={fileRef} type="file" accept=".csv,text/csv"
               onChange={onImport} style={{ display: 'none' }} />
-            <button type="button" className="admin-btn" onClick={save}
+            <button type="button" className="admin-primary-btn" onClick={save}
               disabled={status === 'saving' || status === 'saved'}>
               {status === 'saving' ? 'Saving…' : status === 'saved' ? '✓ Saved' : 'Save categories'}
             </button>
