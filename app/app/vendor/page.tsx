@@ -9,6 +9,7 @@ import {
   type Rating,
   type Stars,
 } from '@/lib/vendor-ratings'
+import { supabase } from '@/lib/supabase'
 
 // Vendor page — board-curated list of trusted service providers. The
 // data lives in code for now (demo seed); when the vendor table is
@@ -69,23 +70,51 @@ export default function Vendors() {
   const [rateOpen, setRateOpen] = useState<string | null>(null)   // vendor_id being rated
   const ratings = useVendorRatings()
 
+  // Board-curated vendors from Supabase. Falls back to the in-code demo
+  // seed when the table is empty or unreachable, so the page never breaks.
+  const [dbVendors, setDbVendors] = useState<Vendor[] | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (!supabase) return
+      try {
+        const { data, error } = await supabase
+          .from('vendors').select('*')
+          .order('featured', { ascending: false })
+          .order('created_at', { ascending: false })
+        if (cancelled || error || !data || data.length === 0) return
+        setDbVendors(data.map((r: any) => ({
+          id: r.id,
+          name: r.name,
+          category: r.category as VendorCat,
+          contact: { phone: r.phone || undefined, email: r.email || undefined },
+          featured: r.featured,
+          blurb: r.blurb || undefined,
+          badge: r.badge || undefined,
+        })))
+      } catch { /* fall back to demo seed */ }
+    })()
+    return () => { cancelled = true }
+  }, [])
+  const vendors = dbVendors ?? VENDORS
+
   const counts = useMemo(() => {
     const map: Record<VendorCat, number> = {
       property: 0, cleaning: 0, security: 0, plumbing: 0, electrical: 0, hvac: 0,
     }
-    for (const v of VENDORS) map[v.category]++
+    for (const v of vendors) map[v.category]++
     return map
-  }, [])
+  }, [vendors])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return VENDORS.filter(v => {
+    return vendors.filter(v => {
       if (active !== 'all' && v.category !== active) return false
       if (!q) return true
       const hay = `${v.name} ${CATEGORY_LABEL[v.category]} ${v.blurb || ''}`.toLowerCase()
       return hay.includes(q)
     })
-  }, [search, active])
+  }, [search, active, vendors])
   const featured = filtered.filter(v => v.featured)
 
   return (
@@ -129,7 +158,7 @@ export default function Vendors() {
           <section className="ven-card">
             <h2 className="ven-card-title">Vendor Categories</h2>
             <div className="ven-cat-grid">
-              <CategoryTile k="all" label="All" count={VENDORS.length}
+              <CategoryTile k="all" label="All" count={vendors.length}
                 active={active === 'all'} onClick={() => setActive('all')} />
               {CATEGORY_GRID.map(c => (
                 <CategoryTile
@@ -282,7 +311,7 @@ export default function Vendors() {
 
       {rateOpen && (
         <RatingDialog
-          vendor={VENDORS.find(v => v.id === rateOpen)!}
+          vendor={vendors.find(v => v.id === rateOpen)!}
           current={ratings.myRating(rateOpen)}
           onClose={() => setRateOpen(null)}
         />

@@ -8,16 +8,23 @@ import { AdminErrorBoundary } from '@/components/AdminErrorBoundary'
 import { useAuth } from '../providers'
 
 // Board-only admin section. Gated by role check — only board_member/admin
-// (or local dev without Supabase) reach here. Lean by design: 5 pages.
+// (or local dev without Supabase) reach here.
+// Order mirrors the resident rail (app/app/layout.tsx NAV): the sections that
+// exist on both sides follow the same sequence — Board, Voice, Rules,
+// Documents, Schedule, Vendors, Reports. Admin-only sections lead with the
+// setup pair (Community, Residents); Violations sits right after Rules since
+// it enforces them.
 const ADMIN_NAV = [
-  { href: '/admin/community', label: 'Community' },
-  { href: '/admin/residents', label: 'Residents' },
-  { href: '/admin/board',     label: 'Board' },
-  { href: '/admin/voice',     label: 'Voice' },
-  { href: '/admin/schedule',  label: 'Schedule' },
-  { href: '/admin/rules',     label: 'Rules' },
+  { href: '/admin/community',  label: 'Community' },
+  { href: '/admin/residents',  label: 'Residents' },
+  { href: '/admin/board',      label: 'Board' },
+  { href: '/admin/voice',      label: 'Voice' },
+  { href: '/admin/rules',      label: 'Rules' },
   { href: '/admin/violations', label: 'Violations' },
-  { href: '/admin/documents', label: 'Documents' },
+  { href: '/admin/documents',  label: 'Documents' },
+  { href: '/admin/schedule',   label: 'Schedule' },
+  { href: '/admin/vendor',     label: 'Vendors' },
+  { href: '/admin/reports',    label: 'Reports' },
 ]
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

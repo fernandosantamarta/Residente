@@ -1,7 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { ReactNode, useMemo, useState } from 'react'
+import { ReactNode, useEffect, useMemo, useState } from 'react'
+import { supabase } from '@/lib/supabase'
 
 // Reports page — board-published reports the resident can browse.
 // Featured row, recent log, scheduled queue, plus two small overview
@@ -80,20 +81,54 @@ export default function Reports() {
   const [search, setSearch] = useState('')
   const [active, setActive] = useState<'all' | Category>('all')
 
+  // Board-published reports from Supabase. Falls back to the in-code demo
+  // seed when the table is empty or unreachable, so the page never breaks.
+  const [dbReports, setDbReports] = useState<Report[] | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (!supabase) return
+      try {
+        const { data, error } = await supabase
+          .from('reports').select('*')
+          .order('report_date', { ascending: false })
+        if (cancelled || error || !data || data.length === 0) return
+        const sizeOf = (b: number | null) => {
+          const n = Number(b) || 0
+          if (!n) return undefined
+          if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`
+          return `${(n / 1024 / 1024).toFixed(1)} MB`
+        }
+        setDbReports(data.map((r: any) => ({
+          id: r.id,
+          title: r.title,
+          category: r.category as Category,
+          date: r.report_date || (r.created_at ? String(r.created_at).slice(0, 10) : ''),
+          status: r.status as Report['status'],
+          size: sizeOf(r.file_size),
+          blurb: r.blurb || undefined,
+          featured: r.featured,
+        })))
+      } catch { /* fall back to demo seed */ }
+    })()
+    return () => { cancelled = true }
+  }, [])
+  const reports = dbReports ?? REPORTS
+
   const counts = useMemo(() => {
     const map: Partial<Record<Category, number>> = {}
-    for (const r of REPORTS) map[r.category] = (map[r.category] || 0) + 1
+    for (const r of reports) map[r.category] = (map[r.category] || 0) + 1
     return map
-  }, [])
+  }, [reports])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    return REPORTS.filter(r => {
+    return reports.filter(r => {
       if (active !== 'all' && r.category !== active) return false
       if (!q) return true
       return (r.title + ' ' + (r.blurb || '') + ' ' + CATEGORY_LABEL[r.category]).toLowerCase().includes(q)
     }).sort((a, b) => b.date.localeCompare(a.date))
-  }, [search, active])
+  }, [search, active, reports])
 
   const featured = filtered.filter(r => r.featured).slice(0, 4)
   const recent = filtered.filter(r => !r.featured).slice(0, 5)
@@ -302,7 +337,7 @@ export default function Reports() {
                   onClick={() => setActive('all')}>
                   <span className="rep-cat-icon">{categoryIcon('all' as any)}</span>
                   <span className="rep-cat-label">All Reports</span>
-                  <span className="rep-cat-count">{REPORTS.length}</span>
+                  <span className="rep-cat-count">{reports.length}</span>
                 </button>
               </li>
               {CATEGORY_GRID.map(c => (
