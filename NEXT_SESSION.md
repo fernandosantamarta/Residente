@@ -1,7 +1,209 @@
 # Next session — Residente
 
-Last touched: 2026-05-23 (landing page + waitlist shipped on top of the
-2026-05-20 admin/dues session; routes moved cockpit to `/app`).
+Last touched: 2026-05-24 (Easy Voice Phase 4 in flight on
+`andres/easy-voice-nextjs` — pilot launch readiness).
+
+## ⚠️ FIRST THING (Phase 4) — re-run `supabase/easy-voice.sql`
+
+Phase 4 appends new blocks to the bottom of `supabase/easy-voice.sql`.
+Open the file in Supabase SQL editor and run the **PHASE 4** sections at
+the very bottom (safe to re-run — everything uses `IF NOT EXISTS`):
+
+- **Commit 1 (Owner roster CSV import)** — adds
+  `residents.first_name`, `residents.last_name`, and a unique partial
+  index on `(community_id, lower(email))`. Without it, the new
+  `/admin/voice/roster` page will save data but won't enforce dedupe.
+
+## Phase 4 — what's shipped so far on `andres/easy-voice-nextjs`
+
+- **Commit 1 — Owner roster CSV import (admin)**
+  New page `/admin/voice/roster` with a sub-nav between Meetings and
+  Roster. Drop a CSV (header: `unit_number, first_name, last_name,
+  email, phone`) → live preview table flagging per-row errors (bad
+  email, missing fields, duplicates, unit/email already in roster) →
+  one-click import upserts `ev_units` then `residents` (idempotent;
+  existing owners matched by email are updated, not duplicated).
+  `residents.full_name` is kept in sync (`first || ' ' || last`) so
+  the dues dashboard and right-rail remain unaffected. Logs
+  `roster.imported` audit event with counts.
+  Files: `lib/voiceRoster.ts`, `app/admin/voice/roster/page.tsx`,
+  CSS additions in `app/admin.css`, new audit event types in
+  `lib/audit.ts`. Build green; route appears in build output.
+
+- **Commit 2 — Owner invitation flow + magic-link emails**
+  New edge function `supabase/functions/voice-invite-owner` — board user
+  in `/admin/voice/roster` clicks **Invite** (per row) or **Send N
+  invitations** (bulk). The function verifies caller's board role
+  against the resident's community, generates a Supabase auth invite
+  (falls back to magic link if the auth user already exists), sends
+  a branded "You're invited to … on Residente" email via Resend
+  (default sender `onboarding@resend.dev` until `notices@residente.io`
+  is DNS-verified), and writes back `residents.invited_at` +
+  `residents.profile_id`. Resend logs success. Logs `invite.sent`
+  audit event. Re-invite button on already-invited rows handles the
+  24-hour magic-link expiry.
+  **Deploy (one-time):** see [§ Easy Voice owner invites](supabase/README.md#easy-voice-owner-invites)
+  in the supabase README. Needs `supabase functions deploy
+  voice-invite-owner` and optionally setting `NOTIFY_FROM_VOICE`.
+
+- **Commit 3 — Onboarding + electronic voting consent**
+  New public route `/onboard` — the magic-link landing page for invited
+  owners. Multi-step flow: **password → terms → consent**. The consent
+  step is a visually-distinct red-tinted screen with four plain-English
+  disclosures (PLACEHOLDER COPY — Andres should review before pilot),
+  a single "I consent" button, and a foot-note explaining the immutable
+  log. Writes a row to `ev_consents` with server-derived IP (via new
+  `/api/ip` route) and `navigator.userAgent`. Sets
+  `residents.activated_at` once consent succeeds (idempotent — only if
+  null). Already-activated users with no consent row skip straight to
+  the consent step.
+
+  SQL appended: `ev_has_consented(profile, community)` stable helper +
+  `ev_ballot_consent_guard` trigger on `ev_ballots` BEFORE INSERT.
+  Result: even if a buggy client bypasses the UI, **the database refuses
+  to record a ballot from a profile without a consent row in that
+  community** (FL 718.128 / 720.317 hard block).
+
+  Resident voting UI catches the new error: when `cast()` fails with
+  "consent required", the vote card shows a friendly red banner with a
+  one-tap **Consent now →** link to `/onboard` instead of a raw error.
+
+  Files: `app/onboard/page.tsx`, `app/onboard/onboard.css`,
+  `app/api/ip/route.ts`, additions to `lib/voice.ts`
+  (`CONSENT_DISCLOSURES`), `app/app/voice/[id]/page.tsx` (friendlier
+  error path), and the SQL block at the bottom of
+  `supabase/easy-voice.sql`.
+
+- **Commit 4 — Email notice delivery via Resend**
+  Notices sent from the admin Notify panel now fan out by email in
+  addition to in-app. New edge function `notice-email-fanout` (DB
+  webhook on `ev_notices` INSERT) reads queued `ev_notice_recipients`
+  for the new notice, batches sends through Resend `/emails/batch`
+  (up to 100/req), flips each row's `email_status` to `sent` or
+  `bounced`, and merges per-profile statuses into
+  `ev_notices.delivery_report` jsonb.
+
+  SQL: `ev_notice_fanout()` now also materialises email-channel
+  recipient rows (for every profile in the community with a non-null
+  email). The auto-notice triggers (`vote_opened`, `vote_results`)
+  default to both channels.
+
+  Admin Notify panel: replaced the "in-app only (email coming soon)"
+  readout with two real checkboxes — In-app and Email — defaulting to
+  both. The two other in-page notices (meeting_published auto-send +
+  agenda/minutes upload auto-send) now use `DEFAULT_CHANNELS` from
+  `lib/voice.ts` so they pick up the email channel automatically too.
+
+  **Deploy (one-time):** see [§ Easy Voice notice email fan-out](supabase/README.md#easy-voice-notice-email-fan-out).
+  Needs `supabase functions deploy notice-email-fanout --no-verify-jwt`,
+  a new `NOTICE_WEBHOOK_SECRET` secret, and a DB webhook wired in the
+  Supabase dashboard.
+
+- **Commit 5 — Ballot encryption for secret ballots (tweetnacl)**
+  Secret ballots are now end-to-end encrypted client-side. New
+  `lib/ballotCrypto.ts` wraps tweetnacl + tweetnacl-util (added as
+  prod deps). Per-vote nacl.box keypair; the secret key is wrapped to
+  the admin's tally password with PBKDF2-SHA256 (200k iters) +
+  nacl.secretbox and stored on `ev_votes.wrapped_secret_key`. The
+  platform operator never holds the unwrapped key.
+
+  Wire format documented in the header of `lib/ballotCrypto.ts`. All
+  bytes are base64-encoded text in the DB (Supabase bytea is awkward
+  through PostgREST); the existing unused `ev_ballots.encrypted_answer`
+  column is converted from bytea to text in the migration.
+
+  **Admin VoteForm**: secret votes now prompt for a tally password
+  (with a confirm-it-was-saved checkbox), generate the keypair, wrap
+  the secret key, and force download a key card text file as the
+  offline recovery path. Lose both the password AND the card → ballots
+  are unrecoverable, which is the legal point of a secret ballot.
+
+  **Admin VoteRow**: secret votes get a two-step close flow — first
+  click "Close vote" (flips status to `closed` so no new ballots
+  arrive), then "Decrypt & tally" prompts for the password,
+  unwraps the secret in-browser, decrypts every ballot's
+  `encrypted_answer`, and writes back plaintext `answer`. The tally
+  trigger picks up the UPDATE and updates `yes/no/abstain_count`.
+
+  **Resident `/app/voice/[id]`**: cast() detects `ballot_type=secret`,
+  encrypts the answer with the vote's public key, and inserts
+  `answer=null, encrypted_answer=<base64>`.
+
+  SQL: `ev_votes` gains `public_key`, `wrapped_secret_key`,
+  `key_created_by`. `ev_ballot_tally()` now handles the
+  null→answer UPDATE path so the tally trigger fires on decrypt.
+  `grant update (answer)` + board-only RLS policy for `ev_ballots`.
+
+  No edge function — all crypto is client-side, intentionally.
+
+- **Commit 6 — Multi-association workspace switcher**
+  A profile that belongs to more than one community now gets a small
+  dropdown picker in the brand area of both the resident cockpit
+  (`/app/*`) and the admin chrome (`/admin/*`). For single-community
+  profiles (the common case for the first pilot) the component
+  renders nothing.
+
+  Architectural note: the active community still lives on
+  `profiles.community_id` — that's the single source of truth read by
+  every `ev_*` RLS policy. The switcher writes there on pick; React
+  context updates synchronously and `router.refresh()` re-fetches
+  server data. This avoids the silent-mis-scope risk of computing
+  scope dynamically per request from `residents` + email matches.
+
+  SQL: new `ev_membership(profile_id, community_id, role, last_active_at)`
+  join table with RLS (owner-reads-own, owner-updates-own-last-active).
+  One-time backfill from `residents → profiles` joined on
+  `lower(email)`. Upsert trigger on `residents` keeps the join in sync
+  whenever `profile_id` is set (during the /onboard flow or
+  voice-invite-owner).
+
+  New files: `hooks/useMyMemberships.ts`, `app/CommunitySwitcher.tsx`.
+  CSS in `globals.css` (default placement) with an
+  inline-positioning override in `admin.css`.
+
+## Phase 4 complete — pilot launch readiness checklist
+
+All thirteen Milestone 1 items are now shipped. Remaining manual
+steps before onboarding a real pilot HOA:
+
+1. Run the new SQL blocks at the bottom of `supabase/easy-voice.sql`
+   (Phase 4 / Commits 1, 3, 4, 5, 6) in the Supabase SQL editor.
+2. Deploy the two new edge functions:
+   - `supabase functions deploy voice-invite-owner`
+   - `supabase functions deploy notice-email-fanout --no-verify-jwt`
+3. Set the new secrets:
+   - `NOTIFY_FROM_VOICE` (optional, defaults to `onboarding@resend.dev`)
+   - `NOTICE_WEBHOOK_SECRET=$(openssl rand -hex 32)`
+4. Wire the DB webhook on `ev_notices` INSERT to
+   `notice-email-fanout` with header `X-Webhook-Secret: <secret>`
+   (see [supabase/README.md](supabase/README.md#easy-voice-notice-email-fan-out)).
+5. (Pilot blocker, lawyer review.) Replace the placeholder
+   `CONSENT_DISCLOSURES` strings in `lib/voice.ts` with the
+   FL-required disclosure language — these are shown verbatim on the
+   `/onboard` consent step.
+6. (Pilot blocker, deliverability.) Verify `notices@residente.io` in
+   Resend so notice emails ship from the Residente domain rather than
+   `onboarding@resend.dev`.
+
+Verification rehearsal end-to-end:
+
+- Import a 5-row roster → send all invitations → click an invite
+  email → onboard (set password → TOS → consent) → land in `/app`.
+- Board creates a meeting with one open-ballot and one secret-ballot
+  vote (sets tally password, downloads key card).
+- Publish & send notice with both channels checked → both in-app
+  notification *and* email arrive.
+- Cast ballots (open inserts plaintext; secret inserts ciphertext —
+  check `ev_ballots.encrypted_answer` is non-null and
+  `ev_votes.{yes,no,abstain}_count` are zero until tally).
+- Board closes the secret vote, prompts for tally password, decrypts
+  client-side, counts populate via trigger.
+- Switch communities (if a second one exists) and confirm the right-
+  rail / Voice list re-render for the new tenant.
+- SQL spot-check: `ev_consents` has one row per onboarded owner with
+  non-null `ip_address`; `ev_notice_recipients` shows both channels
+  populated; `ev_audit_log` shows `roster.imported`, `invite.sent`,
+  `consent.recorded`, `vote.opened`, `ballot.cast`.
 
 ## ⚠️ FIRST THING — confirm both SQL blocks ran
 

@@ -840,3 +840,299 @@ begin
     alter publication supabase_realtime add table public.ev_notice_recipients;
   end if;
 end $$;
+
+-- ============================================================
+-- Phase 4 — Pilot launch readiness
+-- ============================================================
+
+-- ---------- Phase 4 / Commit 1: Owner roster import ----------
+-- The Voice roster needs first/last separately (the dues system stores
+-- only full_name). Keep both populated: full_name = first || ' ' || last
+-- is written from the import UI, so existing dues/right-rail keeps working.
+alter table public.residents
+  add column if not exists first_name text,
+  add column if not exists last_name  text;
+
+-- Guard against importing the same email twice into one community.
+create unique index if not exists residents_community_email_idx
+  on public.residents (community_id, lower(email))
+  where email is not null;
+
+-- ---------- Phase 4 / Commit 3: Electronic voting consent guard ----------
+-- FL 718.128 / 720.317 require explicit electronic voting consent per owner
+-- before any electronic ballot is valid. This is enforced in two places:
+--   1. The /onboard flow collects consent and writes ev_consents.
+--   2. This trigger hard-blocks any ev_ballots insert from a profile that
+--      has not consented in the ballot's community. Bypasses the app entirely.
+
+create or replace function public.ev_has_consented(p_profile uuid, p_community uuid)
+returns boolean language sql stable as $$
+  select exists (
+    select 1 from public.ev_consents
+    where profile_id = p_profile and community_id = p_community
+  );
+$$;
+grant execute on function public.ev_has_consented(uuid, uuid) to authenticated;
+
+create or replace function public.ev_ballot_consent_guard()
+returns trigger language plpgsql as $$
+declare v_community uuid;
+begin
+  select community_id into v_community
+    from public.ev_votes where id = new.vote_id;
+  if v_community is null then
+    raise exception 'Vote % not found', new.vote_id;
+  end if;
+  if not public.ev_has_consented(new.profile_id, v_community) then
+    raise exception 'Electronic voting consent required (FL 718.128 / 720.317)'
+      using errcode = 'P0001';
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists ev_ballot_consent_guard_trg on public.ev_ballots;
+create trigger ev_ballot_consent_guard_trg
+  before insert on public.ev_ballots
+  for each row execute function public.ev_ballot_consent_guard();
+
+-- ---------- Phase 4 / Commit 4: Email notice delivery ----------
+-- Extend ev_notice_fanout() to materialise email-channel recipients in
+-- addition to the existing in_app rows. The notice-email-fanout edge
+-- function (DB webhook on ev_notices INSERT) then picks them up,
+-- batches sends to Resend, and writes email_status back.
+
+create or replace function public.ev_notice_fanout()
+returns trigger language plpgsql security definer as $$
+declare in_app_inserted int := 0;
+        email_inserted  int := 0;
+begin
+  if 'in_app' = any (new.channels) then
+    insert into public.ev_notice_recipients
+      (notice_id, community_id, profile_id, channel)
+    select new.id, new.community_id, p.id, 'in_app'
+      from public.profiles p
+     where p.community_id = new.community_id
+    on conflict (notice_id, profile_id, channel) do nothing;
+    get diagnostics in_app_inserted = row_count;
+  end if;
+
+  if 'email' = any (new.channels) then
+    insert into public.ev_notice_recipients
+      (notice_id, community_id, profile_id, channel, email_status)
+    select new.id, new.community_id, p.id, 'email', 'queued'
+      from public.profiles p
+     where p.community_id = new.community_id
+       and p.email is not null
+    on conflict (notice_id, profile_id, channel) do nothing;
+    get diagnostics email_inserted = row_count;
+  end if;
+
+  -- recipient_count tracks the broader audience (max of channels, since
+  -- it represents "how many distinct people will see this notice").
+  update public.ev_notices
+     set recipient_count = greatest(in_app_inserted, email_inserted)
+   where id = new.id;
+  return new;
+end $$;
+
+-- Update the two auto-notice triggers so vote-opened / vote-results
+-- also fan out by email, not just in-app.
+create or replace function public.ev_vote_opened_notice()
+returns trigger language plpgsql as $$
+begin
+  if old.status is distinct from new.status and new.status = 'open' then
+    if not exists (
+      select 1 from public.ev_notices
+       where vote_id = new.id and kind = 'vote_opened'
+    ) then
+      insert into public.ev_notices
+        (community_id, meeting_id, vote_id, kind, channels,
+         subject, body, sent_by)
+      values
+        (new.community_id, new.meeting_id, new.id, 'vote_opened',
+         array['in_app','email'],
+         'Vote now open: ' || new.title,
+         'A vote is now open for your community. Tap to cast your ballot.',
+         auth.uid());
+    end if;
+  end if;
+  return new;
+end $$;
+
+create or replace function public.ev_vote_results_notice()
+returns trigger language plpgsql as $$
+begin
+  if old.status is distinct from new.status and new.status = 'published' then
+    if not exists (
+      select 1 from public.ev_notices
+       where vote_id = new.id and kind = 'vote_results'
+    ) then
+      insert into public.ev_notices
+        (community_id, meeting_id, vote_id, kind, channels,
+         subject, body, sent_by)
+      values
+        (new.community_id, new.meeting_id, new.id, 'vote_results',
+         array['in_app','email'],
+         'Results: ' || new.title,
+         'Final result: ' || coalesce(upper(new.result), 'no quorum') ||
+           '. Yes ' || new.yes_count ||
+           ' · No ' || new.no_count ||
+           ' · Abstain ' || new.abstain_count || '.',
+         auth.uid());
+    end if;
+  end if;
+  return new;
+end $$;
+
+-- ---------- Phase 4 / Commit 5: Ballot encryption ----------
+-- Secret ballots are encrypted client-side with a per-vote NaCl keypair
+-- whose secret key is password-wrapped by the admin and stored in the
+-- DB. The platform operator never holds the unwrapped key, which is the
+-- legal point of a secret ballot.
+--
+-- Storage:
+--   ev_votes.public_key          — base64-encoded 32-byte nacl box public key
+--   ev_votes.wrapped_secret_key  — base64-encoded password-wrapped secret key
+--   ev_votes.key_created_by      — auth.users(id) of the admin who set the password
+--   ev_ballots.encrypted_answer  — base64-encoded sealed ciphertext per ballot
+--   ev_ballots.encryption_key_id — denormalised vote_id for fast lookup
+--
+-- The existing bytea columns were never populated; we convert them to
+-- text so the JS client can write base64 strings directly without
+-- wrestling with PostgREST's bytea encoding rules.
+alter table public.ev_votes
+  add column if not exists public_key         text,
+  add column if not exists wrapped_secret_key text,
+  add column if not exists key_created_by     uuid references auth.users(id);
+
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public' and table_name = 'ev_ballots'
+      and column_name = 'encrypted_answer' and data_type = 'bytea'
+  ) then
+    alter table public.ev_ballots drop column encrypted_answer;
+  end if;
+end $$;
+alter table public.ev_ballots
+  add column if not exists encrypted_answer text;
+
+-- The tally trigger originally fired only on INSERT with a non-null
+-- answer. Secret ballots insert with answer=null + encrypted_answer set,
+-- then the admin's decrypt-and-write path runs UPDATEs that flip answer
+-- from null to plaintext. Extend the trigger to handle both cases.
+create or replace function public.ev_ballot_tally()
+returns trigger language plpgsql as $$
+declare bumped boolean := false;
+        v_answer text;
+begin
+  if (tg_op = 'INSERT' and new.answer is not null) then
+    v_answer := new.answer;
+    bumped := true;
+  elsif (tg_op = 'UPDATE' and old.answer is null and new.answer is not null) then
+    v_answer := new.answer;
+    bumped := true;
+  end if;
+
+  if bumped then
+    if v_answer = 'yes' then
+      update public.ev_votes set yes_count = yes_count + 1 where id = new.vote_id;
+    elsif v_answer = 'no' then
+      update public.ev_votes set no_count = no_count + 1 where id = new.vote_id;
+    elsif v_answer = 'abstain' then
+      update public.ev_votes set abstain_count = abstain_count + 1 where id = new.vote_id;
+    end if;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists ev_ballot_tally_trg on public.ev_ballots;
+create trigger ev_ballot_tally_trg
+  after insert or update on public.ev_ballots
+  for each row execute function public.ev_ballot_tally();
+
+-- The board's tally path needs UPDATE permission on the answer column.
+-- Allowed only on votes in their own community whose status is closed
+-- or tallied (never open — would let admins front-run live results).
+grant update (answer) on public.ev_ballots to authenticated;
+
+drop policy if exists "board writes tally answer" on public.ev_ballots;
+create policy "board writes tally answer"
+  on public.ev_ballots for update to authenticated
+  using (
+    vote_id in (
+      select id from public.ev_votes
+      where community_id = (select community_id from public.profiles where id = auth.uid())
+        and status in ('closed','tallied')
+    )
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+  )
+  with check (answer in ('yes','no','abstain'));
+
+-- ---------- Phase 4 / Commit 6: Multi-association workspace switcher ----------
+-- A profile can belong to more than one community (an owner with units in
+-- two HOAs, a property-manager admin spread across associations). The
+-- *active* community lives on profiles.community_id — that's still the
+-- single source of truth for every ev_* RLS policy.
+--
+-- ev_membership is a thin join recording the *full* list of communities
+-- a profile is a member of. The switcher UI reads from here and, on
+-- pick, writes profiles.community_id so RLS picks up the change.
+create table if not exists public.ev_membership (
+  profile_id     uuid not null references public.profiles(id)    on delete cascade,
+  community_id   uuid not null references public.communities(id) on delete cascade,
+  role           text not null default 'resident',
+  last_active_at timestamptz not null default now(),
+  primary key (profile_id, community_id)
+);
+alter table public.ev_membership enable row level security;
+-- owners can SELECT their own memberships and UPDATE last_active_at;
+-- writes for new rows happen via the trigger below, not direct insert.
+grant select, update on public.ev_membership to authenticated;
+
+drop policy if exists "owner reads own memberships" on public.ev_membership;
+create policy "owner reads own memberships"
+  on public.ev_membership for select to authenticated
+  using (profile_id = auth.uid());
+
+drop policy if exists "owner updates own last_active" on public.ev_membership;
+create policy "owner updates own last_active"
+  on public.ev_membership for update to authenticated
+  using (profile_id = auth.uid())
+  with check (profile_id = auth.uid());
+
+-- One-time backfill from residents joined to profiles by lower(email).
+-- Safe to re-run; on conflict do nothing.
+insert into public.ev_membership (profile_id, community_id, role)
+select p.id, r.community_id, coalesce(p.role, 'resident')
+  from public.profiles p
+  join public.residents r on lower(r.email) = lower(p.email)
+on conflict (profile_id, community_id) do nothing;
+
+-- Keep ev_membership in sync as residents are activated: whenever
+-- residents.profile_id is set (during /onboard), upsert the join row.
+-- security definer because residents.profile_id can be written by the
+-- voice-invite-owner service role; the trigger then writes to a table
+-- that the calling auth.uid wouldn't have direct insert grant on.
+create or replace function public.ev_membership_upsert()
+returns trigger language plpgsql security definer as $$
+begin
+  if new.profile_id is not null
+     and (tg_op = 'INSERT' or old.profile_id is distinct from new.profile_id)
+  then
+    insert into public.ev_membership (profile_id, community_id, role)
+    values (
+      new.profile_id, new.community_id,
+      coalesce((select role from public.profiles where id = new.profile_id), 'resident')
+    )
+    on conflict (profile_id, community_id) do nothing;
+  end if;
+  return new;
+end $$;
+
+drop trigger if exists ev_membership_upsert_trg on public.residents;
+create trigger ev_membership_upsert_trg
+  after insert or update of profile_id on public.residents
+  for each row execute function public.ev_membership_upsert();
+

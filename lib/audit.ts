@@ -33,10 +33,15 @@ export type AuditEventType =
   | 'attendance.self_checkin'
   // consent (Session 3)
   | 'consent.recorded'
+  // roster + invites (Phase 4)
+  | 'roster.imported'
+  | 'invite.sent'
+  | 'invite.accepted'
 
 export type AuditTargetType =
   | 'vote' | 'ballot' | 'meeting' | 'document' | 'notice'
   | 'proxy' | 'candidate' | 'attendance' | 'consent'
+  | 'roster' | 'resident'
 
 export interface LogAuditArgs {
   community_id: string

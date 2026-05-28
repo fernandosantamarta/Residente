@@ -6,25 +6,32 @@ import { usePathname, useRouter } from 'next/navigation'
 import { hasSupabase } from '@/lib/supabase'
 import { AdminErrorBoundary } from '@/components/AdminErrorBoundary'
 import { useAuth } from '../providers'
+import { CommunitySwitcher } from '../CommunitySwitcher'
 
 // Board-only admin section. Gated by role check — only board_member/admin
 // (or local dev without Supabase) reach here.
 // Shared sections follow the resident rail order (app/app/layout.tsx NAV):
-// Board, Voice, Contact, Rules, Documents, Schedule, Vendors. Admin-only
-// sections lead with the setup pair (Community, Residents); Violations sits
-// right after Rules since it enforces them.
-const ADMIN_NAV = [
+// Easy Voice, Rules, Documents, Schedule, Vendors. Easy Voice merges the
+// former Board, Voice (meetings/votes), and Contact admin sections — its
+// sub-tabs (EasyVoiceTabs) live on those pages. Admin-only sections lead
+// with the setup pair (Community, Residents); Violations sits right after
+// Rules since it enforces them.
+type AdminNavItem = { href: string; label: string; match?: string[] }
+const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/community',  label: 'Community' },
   { href: '/admin/residents',  label: 'Residents' },
-  { href: '/admin/board',      label: 'Board' },
-  { href: '/admin/voice',      label: 'Voice' },
-  { href: '/admin/requests',   label: 'Contact' },
+  { href: '/admin/voice',      label: 'Easy Voice', match: ['/admin/board', '/admin/requests'] },
   { href: '/admin/rules',      label: 'Rules' },
   { href: '/admin/violations', label: 'Violations' },
   { href: '/admin/documents',  label: 'Documents' },
   { href: '/admin/schedule',   label: 'Schedule' },
   { href: '/admin/vendor',     label: 'Vendors' },
 ]
+
+const navActive = (pathname: string, item: AdminNavItem) => {
+  const hrefs = [item.href, ...(item.match ?? [])]
+  return hrefs.some(h => pathname === h || pathname.startsWith(h + '/'))
+}
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   const { session, profile } = useAuth()
@@ -47,6 +54,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <img src="/residente-logo.png" alt="" className="brand-logo admin-brand-logo" />
           <span className="admin-brand-word">Residente</span>
           <span className="admin-tag">Admin</span>
+          <CommunitySwitcher />
         </div>
         <Link href="/app" className="admin-back">&larr; Back to app</Link>
       </header>
@@ -56,7 +64,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <Link
             key={item.href}
             href={item.href}
-            className={`admin-nav-item${pathname === item.href || pathname.startsWith(item.href + '/') ? ' active' : ''}`}
+            className={`admin-nav-item${navActive(pathname, item) ? ' active' : ''}`}
           >
             {item.label}
           </Link>

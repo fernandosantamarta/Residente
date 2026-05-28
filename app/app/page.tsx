@@ -648,9 +648,9 @@ function OpenVotesBand() {
 
 const QUICK_ACTIONS: { href: string; icon: 'pay' | 'note' | 'cal' | 'mail'; title: string; sub: string }[] = [
   { href: '/app/pay',       icon: 'pay',  title: 'Make a payment',         sub: 'Dues, fees, special assessments' },
-  { href: '/app/contact',   icon: 'note', title: 'Submit a request',       sub: 'Maintenance, complaints, ideas' },
+  { href: '/app/voice#contact', icon: 'note', title: 'Submit a request',       sub: 'Maintenance, complaints, ideas' },
   { href: '/app/community', icon: 'cal',  title: 'View community calendar', sub: 'Meetings, events, deadlines' },
-  { href: '/app/contact',   icon: 'mail', title: 'Contact management',     sub: 'Reach the board or your manager' },
+  { href: '/app/voice#contact', icon: 'mail', title: 'Contact management',     sub: 'Reach the board or your manager' },
 ]
 
 function QuickActions() {
@@ -741,7 +741,7 @@ function RecentActivity() {
     <section className="activity-card">
       <div className="activity-head">
         <div className="activity-title">Recent activity</div>
-        <Link href="/app/board" className="activity-see-all">View all</Link>
+        <Link href="/app/voice#board" className="activity-see-all">View all</Link>
       </div>
       {empty ? (
         <div className="activity-empty">No recent activity in your community.</div>

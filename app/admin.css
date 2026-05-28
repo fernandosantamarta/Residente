@@ -13,6 +13,8 @@
 }
 .admin-brand { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
 .admin-brand-word { letter-spacing: -0.3px; }
+/* Inline switcher placement in the admin chrome (overrides the left-rail margins). */
+.admin-brand .comm-switcher { margin: 0 0 0 8px; min-width: 220px; }
 .admin-tag {
   font-size: 10px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
   padding: 3px 8px; border-radius: 5px; background: var(--grad); color: #fff;
@@ -478,6 +480,61 @@
   font-size: 13px; color: var(--text-dim);
   padding: 8px 0;
 }
+.voice-channels {
+  display: flex; gap: 16px; padding: 8px 0;
+}
+.voice-channel-opt {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; color: var(--text); cursor: pointer;
+}
+.voice-channel-opt input { cursor: pointer; }
+
+/* Secret-vote setup + tally */
+.voice-secret-config {
+  margin-top: 12px; padding: 14px 16px;
+  background: rgba(255, 139, 168, 0.06);
+  border: 1px solid rgba(255, 139, 168, 0.30);
+  border-radius: 8px;
+}
+.voice-secret-config-title {
+  font-size: 13px; font-weight: 700; letter-spacing: 0.3px;
+  color: #FF8BA8; margin-bottom: 6px; text-transform: uppercase;
+}
+.voice-secret-config-body {
+  font-size: 13px; line-height: 1.55; color: var(--text-dim); margin: 0 0 12px;
+}
+.voice-secret-confirm {
+  display: flex; align-items: flex-start; gap: 8px; cursor: pointer;
+  font-size: 13px; color: var(--text); margin-top: 10px;
+}
+.voice-secret-confirm input { margin-top: 2px; cursor: pointer; }
+
+.voice-keycard-banner {
+  display: inline-block; padding: 4px 10px;
+  background: #FF3B5F; color: white;
+  border-radius: 999px; font-size: 11px; font-weight: 700;
+  letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;
+}
+.voice-keycard-block {
+  font-family: 'SF Mono', Menlo, Monaco, monospace;
+  background: var(--bg-card); padding: 14px;
+  border: 1px solid var(--border); border-radius: 8px;
+  font-size: 13px; color: var(--text); word-break: break-all; white-space: pre-wrap;
+  margin: 0 0 14px;
+}
+
+.voice-vote-row-wrap { display: flex; flex-direction: column; gap: 4px; }
+.voice-tally-prompt {
+  display: flex; flex-direction: column; gap: 10px;
+  margin-top: 6px; padding: 14px 16px;
+  background: var(--bg-card); border: 1px solid var(--border-hover); border-radius: 8px;
+}
+.voice-tally-prompt input[type="password"] {
+  width: 100%; padding: 10px 12px; border-radius: 8px;
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  font-size: 14px; outline: none;
+}
+.voice-tally-prompt input[type="password"]:focus { border-color: var(--pink); }
 .voice-notice-row {
   display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
   padding: 12px 16px; background: var(--bg-card); border: 1px solid var(--border);
@@ -493,3 +550,62 @@
 .voice-notice-body { font-size: 12px; color: var(--text-dim); }
 .voice-notice-meta { font-size: 11px; color: var(--text-faint); }
 .voice-notice-stats { font-size: 12px; color: var(--text-dim); margin-top: 4px; font-variant-numeric: tabular-nums; }
+
+/* Sub-nav for /admin/voice and /admin/voice/roster */
+.voice-tabs {
+  display: flex; gap: 4px; border-bottom: 1px solid var(--border);
+  margin: -8px -4px 0;
+}
+.voice-tab {
+  display: inline-block; padding: 10px 14px;
+  font-size: 13px; font-weight: 600; color: var(--text-dim);
+  border-bottom: 2px solid transparent;
+  text-decoration: none; transition: color 0.15s, border-color 0.15s;
+}
+.voice-tab:hover { color: var(--text); }
+.voice-tab.active { color: var(--text); border-bottom-color: var(--pink); }
+
+/* Voice roster — preview table + list */
+.voice-roster-preview {
+  margin-top: 18px; padding: 16px;
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
+}
+.voice-roster-preview-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-bottom: 12px;
+}
+.voice-roster-preview-actions { display: flex; gap: 10px; }
+
+.voice-roster-table-wrap { overflow-x: auto; }
+.voice-roster-table {
+  width: 100%; border-collapse: collapse; font-size: 13px;
+}
+.voice-roster-table th, .voice-roster-table td {
+  text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.voice-roster-table th {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.6px;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.voice-roster-table tr:last-child td { border-bottom: none; }
+.voice-roster-row-bad td { background: #F4717410; }
+.voice-roster-missing { color: #F47174; }
+
+.voice-roster-ok {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.4px;
+  text-transform: uppercase; color: #6ee7a7;
+}
+.voice-roster-badge {
+  display: inline-block; padding: 2px 8px; margin: 1px 4px 1px 0;
+  border-radius: 999px; font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+  background: var(--bg-elev); color: var(--text-dim); border: 1px solid var(--border);
+}
+.voice-roster-badge.ok   { color: #6ee7a7; border-color: #6ee7a755; background: #6ee7a715; }
+.voice-roster-badge.warn { color: #f4c172; border-color: #f4c17255; background: #f4c17215; }
+.voice-roster-badge.bad  { color: #F47174; border-color: #F4717455; background: #F4717415; }
+
+.voice-roster-list-head {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.4px;
+  text-transform: uppercase; color: var(--text-faint); margin-bottom: 8px;
+}
