@@ -58,7 +58,15 @@ export default function Residents() {
   const [saving, setSaving] = useState(false)
   const [pending, setPending] = useState(null) // parsed CSV rows awaiting confirm
   const [importing, setImporting] = useState(false)
+  const [successMsg, setSuccessMsg] = useState('')
   const fileRef = useRef(null)
+
+  // Auto-dismiss the green confirmation banner after 4 seconds.
+  useEffect(() => {
+    if (!successMsg) return
+    const id = setTimeout(() => setSuccessMsg(''), 4000)
+    return () => clearTimeout(id)
+  }, [successMsg])
 
   const load = useCallback(async () => {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
@@ -127,6 +135,7 @@ export default function Residents() {
       if (error) throw error
       setRows(rs => sortRows([data, ...rs]))
       setForm(EMPTY)
+      setSuccessMsg(`Added ${row.full_name}.`)
     } catch (err) {
       setError(err?.message || 'Could not add the resident')
     } finally { setSaving(false) }
@@ -190,8 +199,10 @@ export default function Residents() {
       }))
       const { error } = await withTimeout(supabase.from('residents').insert(toInsert))
       if (error) throw error
+      const n = toInsert.length
       setPending(null)
       await load()
+      setSuccessMsg(`Imported ${n} resident${n === 1 ? '' : 's'}.`)
     } catch (err) {
       setError(err?.message || 'Import failed')
     } finally { setImporting(false) }
@@ -208,6 +219,7 @@ export default function Residents() {
         {monthlyDues > 0
           ? `Dues are ${fmtMoney(monthlyDues)}/mo per home and accrue automatically — set each household's opening balance below.`
           : 'Set monthly dues on the Community page to start dues tracking.'}
+        {' '}Residents maintain their own name, phone, and email from their Settings — those edits sync to this roster.
       </p>
 
       {status === 'none' && (
@@ -220,6 +232,13 @@ export default function Residents() {
         <div className="admin-note admin-note-err">
           {error}
           <button type="button" className="admin-btn-ghost" onClick={load}>Retry</button>
+        </div>
+      )}
+
+      {successMsg && (
+        <div className="admin-success" role="status">
+          <span className="admin-success-check" aria-hidden="true">✓</span>
+          {successMsg}
         </div>
       )}
 
@@ -256,10 +275,10 @@ export default function Residents() {
               </label>
             </div>
             <div className="admin-form-actions">
-              <button type="submit" className="admin-btn" disabled={saving}>
+              <button type="submit" className="admin-primary-btn" disabled={saving}>
                 {saving ? 'Adding…' : 'Add resident'}
               </button>
-              <button type="button" className="admin-btn-ghost"
+              <button type="button" className="admin-secondary-btn"
                 title="CSV columns: name, subdivision, address, email, phone"
                 onClick={() => fileRef.current && fileRef.current.click()}>
                 Import CSV
@@ -275,7 +294,7 @@ export default function Residents() {
               <span>
                 Found <strong>{pending.length}</strong> resident{pending.length === 1 ? '' : 's'} in that file.
               </span>
-              <button type="button" className="admin-btn" disabled={importing} onClick={confirmImport}>
+              <button type="button" className="admin-primary-btn" disabled={importing} onClick={confirmImport}>
                 {importing ? 'Importing…' : `Import all ${pending.length}`}
               </button>
               <button type="button" className="admin-btn-ghost" onClick={() => setPending(null)}>

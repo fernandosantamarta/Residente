@@ -3,7 +3,7 @@
 import { ChangeEvent, ReactNode, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
-import { signOut } from '@/lib/supabase'
+import { signOut, supabase, hasSupabase } from '@/lib/supabase'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import {
   EMAIL_PREF_LABEL,
@@ -44,6 +44,70 @@ export default function Settings() {
   const { community } = useCommunityData()
   const [prefs, patch] = usePreferences()
   const [dialog, setDialog] = useState<DialogKey | null>(null)
+
+  // Two-way sync with the board's roster. The signed-in resident is matched
+  // to their public.residents row by email (same match as useMyResident).
+  // That row is the shared source of truth for name/email/phone: we seed
+  // prefs from it once on load, and write name/phone back on edit so the
+  // admin Residents page reflects what the resident maintains. Falls back to
+  // localStorage-only when Supabase is off or there's no roster match yet.
+  const [roster, setRoster] = useState<any | null>(null)
+  const seededRef = useRef(false)
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (!hasSupabase || !supabase || !profile?.community_id || !profile?.email || !profile?.id) return
+      try {
+        // Match by the stable account link first; fall back to the legacy
+        // email match and claim the row. Mirrors useMyResident so the
+        // resident's Settings and the rest of the app resolve the same row.
+        let row: any = null
+        try {
+          const byId = await supabase.from('residents').select('*')
+            .eq('profile_id', profile.id).limit(1)
+          if (!byId.error && byId.data && byId.data[0]) row = byId.data[0]
+        } catch { /* no profile_id column yet — fall through */ }
+        if (!row) {
+          const byEmail = await supabase.from('residents').select('*')
+            .eq('community_id', profile.community_id)
+            .ilike('email', profile.email).limit(1)
+          if (!byEmail.error && byEmail.data && byEmail.data[0]) {
+            row = byEmail.data[0]
+            if (!row.profile_id) {
+              try {
+                const claim = await supabase.from('residents').update({ profile_id: profile.id })
+                  .eq('id', row.id).select().single()
+                if (!claim.error && claim.data) row = claim.data
+              } catch { /* pre-migration — ignore */ }
+            }
+          }
+        }
+        if (cancelled || !row) return
+        setRoster(row)
+        if (!seededRef.current) {
+          seededRef.current = true
+          // Name + phone come from the roster; email is the login email
+          // (canonical), which providers already keeps current.
+          const seed: Partial<Preferences> = {}
+          if (row.full_name) seed.full_name = row.full_name
+          if (row.phone)     seed.phone = row.phone
+          if (profile.email) seed.email = profile.email
+          if (Object.keys(seed).length) patch(seed)
+        }
+      } catch { /* prefs-only fallback */ }
+    })()
+    return () => { cancelled = true }
+  }, [profile?.community_id, profile?.email, profile?.id])
+
+  // Write a name/phone edit back to the roster row. No-op (local-only) when
+  // there's no matched row yet — the board hasn't added this resident.
+  const saveContact = async (next: { full_name?: string; phone?: string }) => {
+    if (!supabase || !roster?.id) return
+    try {
+      const { error } = await supabase.from('residents').update(next).eq('id', roster.id)
+      if (!error) setRoster((r: any) => ({ ...r, ...next }))
+    } catch { /* keep the local prefs copy */ }
+  }
 
   const fullName    = prefs.full_name || profile?.full_name || 'Resident'
   const email       = prefs.email     || profile?.email     || 'resident@example.com'
@@ -212,6 +276,8 @@ export default function Settings() {
           patch={patch}
           unitLabel={unitLabel}
           community={communityName}
+          roster={roster}
+          onSaveContact={saveContact}
           onClose={() => setDialog(null)}
         />
       )}
@@ -266,13 +332,15 @@ function Row({
 // -- dialog ----------------------------------------------------------
 
 function SettingsDialog({
-  k, prefs, patch, unitLabel, community, onClose,
+  k, prefs, patch, unitLabel, community, roster, onSaveContact, onClose,
 }: {
   k: DialogKey
   prefs: Preferences
   patch: (p: Partial<Preferences>) => void
   unitLabel: string
   community: string
+  roster: any | null
+  onSaveContact: (next: { full_name?: string; phone?: string }) => void
   onClose: () => void
 }) {
   // Esc closes the dialog.
@@ -292,7 +360,8 @@ function SettingsDialog({
           <button type="button" className="set-dialog-close" aria-label="Close" onClick={onClose}>×</button>
         </header>
         <div className="set-dialog-body">
-          <DialogBody k={k} prefs={prefs} patch={patch} unitLabel={unitLabel} community={community} />
+          <DialogBody k={k} prefs={prefs} patch={patch} unitLabel={unitLabel}
+            community={community} roster={roster} onSaveContact={onSaveContact} />
         </div>
         <footer className="set-dialog-foot">
           <button type="button" className="set-btn-primary" onClick={onClose}>Done</button>
@@ -325,13 +394,15 @@ const DIALOG_TITLE: Record<DialogKey, string> = {
 }
 
 function DialogBody({
-  k, prefs, patch, unitLabel, community,
+  k, prefs, patch, unitLabel, community, roster, onSaveContact,
 }: {
   k: DialogKey
   prefs: Preferences
   patch: (p: Partial<Preferences>) => void
   unitLabel: string
   community: string
+  roster: any | null
+  onSaveContact: (next: { full_name?: string; phone?: string }) => void
 }) {
   switch (k) {
     case 'profile':
@@ -341,18 +412,26 @@ function DialogBody({
           <Field label="Full name">
             <input name="full_name" autoComplete="name" className="set-input" value={prefs.full_name}
               onChange={e => patch({ full_name: e.target.value })}
+              onBlur={e => onSaveContact({ full_name: e.target.value.trim() })}
               placeholder="Maria Santos" />
           </Field>
-          <Field label="Email">
-            <input name="email" autoComplete="email" className="set-input" type="email" value={prefs.email}
-              onChange={e => patch({ email: e.target.value })}
-              placeholder="you@example.com" />
-          </Field>
+          <EmailChanger />
           <Field label="Phone">
             <input name="phone" autoComplete="tel" className="set-input" type="tel" value={prefs.phone}
               onChange={e => patch({ phone: e.target.value })}
+              onBlur={e => onSaveContact({ phone: e.target.value.trim() })}
               placeholder="(305) 555-0142" />
           </Field>
+          {roster ? (
+            <span className="set-dialog-note set-dialog-note-tight">
+              ✓ Synced to your community record — your name and phone update the board&rsquo;s roster.
+            </span>
+          ) : (
+            <span className="set-dialog-note set-dialog-note-tight">
+              Saved on this device. Once the board adds you to the roster (matched by this email),
+              your name and phone will sync to them automatically.
+            </span>
+          )}
         </>
       )
 
@@ -917,6 +996,59 @@ function AvatarButton({
       </span>
       <input name="avatar-upload" ref={inputRef} type="file" accept="image/*" onChange={onChange} hidden />
     </button>
+  )
+}
+
+// Verified email change. Email doubles as the login credential, so a new
+// address isn't trusted until the resident clicks the confirmation link
+// Supabase mails them. On confirmation the new email flows back into the
+// profile (providers reads it from the auth session) and the roster
+// (useMyResident syncs it on next load).
+function EmailChanger() {
+  const { profile } = useAuth() || {}
+  const current = profile?.email || ''
+  const [value, setValue] = useState(current)
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => { setValue(current) }, [current])
+
+  const valid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim())
+  const changed = value.trim().toLowerCase() !== current.toLowerCase()
+
+  const submit = async () => {
+    if (!supabase || !valid || !changed) return
+    setStatus('sending'); setMsg('')
+    try {
+      const { error } = await supabase.auth.updateUser({ email: value.trim() })
+      if (error) throw error
+      setStatus('sent')
+      setMsg(`Confirmation link sent to ${value.trim()}. Click it to finish — your email won't change until you do.`)
+    } catch (e: any) {
+      setStatus('error'); setMsg(e?.message || 'Could not start the email change.')
+    }
+  }
+
+  return (
+    <Field label="Email">
+      <input name="email" autoComplete="email" className="set-input" type="email"
+        value={value} onChange={e => { setValue(e.target.value); if (status !== 'idle') setStatus('idle') }}
+        placeholder="you@example.com" />
+      <div className="set-list-add-actions" style={{ marginTop: 8 }}>
+        <button type="button" className="set-btn-primary" onClick={submit}
+          disabled={!valid || !changed || status === 'sending'}>
+          {status === 'sending' ? 'Sending…' : 'Change email'}
+        </button>
+      </div>
+      {status === 'sent'  && <span className="set-dialog-note set-dialog-note-tight">✓ {msg}</span>}
+      {status === 'error' && <span className="set-dialog-note set-dialog-note-tight">{msg}</span>}
+      {(status === 'idle' || status === 'sending') && (
+        <span className="set-dialog-note set-dialog-note-tight">
+          This is your login email. Changing it sends a confirmation link to the new
+          address; it updates everywhere — including the board&rsquo;s roster — once you confirm.
+        </span>
+      )}
+    </Field>
   )
 }
 
