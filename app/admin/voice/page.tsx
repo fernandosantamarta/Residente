@@ -52,7 +52,8 @@ export default function Meetings() {
     <div className="admin-section">
       <div className="admin-section-head">
         <div>
-          <div className="admin-section-title">Easy Voice — Meetings</div>
+          <div className="admin-kicker">Easy Voice</div>
+          <div className="admin-section-title">Meetings</div>
           <div className="admin-section-sub">Create meetings, manage documents, and run votes.</div>
         </div>
         <button className="admin-primary-btn" onClick={() => setView('create')}>+ New Meeting</button>

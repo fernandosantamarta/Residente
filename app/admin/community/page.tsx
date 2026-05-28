@@ -46,6 +46,14 @@ export default function CommunitySettings() {
   const [form, setForm] = useState(null)
   const [status, setStatus] = useState('loading') // loading | ready | none | error | saving | saved
   const [error, setError] = useState('')
+  const [successMsg, setSuccessMsg] = useState('')
+
+  // Auto-dismiss the green confirmation banner after 4s, matching the Rules page.
+  useEffect(() => {
+    if (!successMsg) return
+    const id = setTimeout(() => setSuccessMsg(''), 4000)
+    return () => clearTimeout(id)
+  }, [successMsg])
 
   const load = useCallback(async () => {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
@@ -81,7 +89,7 @@ export default function CommunitySettings() {
         supabase.from('communities').update(patch).eq('id', communityId)
       )
       if (error) throw error
-      setStatus('saved'); setTimeout(() => setStatus('ready'), 1600)
+      setStatus('ready'); setSuccessMsg('Community settings saved.')
     } catch (err) {
       setError(err?.message || 'Save failed'); setStatus('error')
     }
@@ -94,6 +102,13 @@ export default function CommunitySettings() {
       <p className="admin-dek">
         The community profile and budget behind the app — these numbers drive the Home dashboard.
       </p>
+
+      {successMsg && (
+        <div className="admin-success" role="status">
+          <span className="admin-success-check" aria-hidden="true">✓</span>
+          {successMsg}
+        </div>
+      )}
 
       {status === 'loading' && <div className="admin-note">Loading…</div>}
 
@@ -129,14 +144,14 @@ export default function CommunitySettings() {
             ))}
             <div className="admin-form-actions">
               <button type="submit" className="admin-primary-btn"
-                disabled={status === 'saving' || status === 'saved'}>
-                {status === 'saving' ? 'Saving…' : status === 'saved' ? '✓ Saved' : 'Save changes'}
+                disabled={status === 'saving'}>
+                {status === 'saving' ? 'Saving…' : 'Save changes'}
               </button>
               {status === 'error' && <span className="admin-err-inline">{error}</span>}
             </div>
           </form>
 
-          <BudgetCategories communityId={communityId} />
+          <BudgetCategories communityId={communityId} onSaved={setSuccessMsg} />
         </>
       )}
     </div>
@@ -144,7 +159,7 @@ export default function CommunitySettings() {
 }
 
 // Budget categories editor — clean-replace save (delete all + insert current).
-function BudgetCategories({ communityId }) {
+function BudgetCategories({ communityId, onSaved }) {
   const [rows, setRows] = useState([])
   const [status, setStatus] = useState('loading') // loading | ready | error | saving | saved
   const [error, setError] = useState('')
@@ -205,7 +220,7 @@ function BudgetCategories({ communityId }) {
         const ins = await withTimeout(supabase.from('budget_categories').insert(toInsert))
         if (ins.error) throw ins.error
       }
-      setStatus('saved'); setTimeout(() => setStatus('ready'), 1500)
+      setStatus('ready'); onSaved?.('Budget categories saved.')
     } catch (err) {
       setError(err?.message || 'Save failed'); setStatus('error')
     }
@@ -257,8 +272,8 @@ function BudgetCategories({ communityId }) {
             <input name="categories-csv" ref={fileRef} type="file" accept=".csv,text/csv"
               onChange={onImport} style={{ display: 'none' }} />
             <button type="button" className="admin-primary-btn" onClick={save}
-              disabled={status === 'saving' || status === 'saved'}>
-              {status === 'saving' ? 'Saving…' : status === 'saved' ? '✓ Saved' : 'Save categories'}
+              disabled={status === 'saving'}>
+              {status === 'saving' ? 'Saving…' : 'Save categories'}
             </button>
           </div>
         </>
