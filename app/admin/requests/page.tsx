@@ -114,10 +114,10 @@ export default function RequestsAdmin() {
 
   return (
     <div className="admin-page">
-      <div className="admin-kicker">Requests</div>
-      <h1 className="admin-h1">Resident requests</h1>
+      <div className="admin-kicker">Contact</div>
+      <h1 className="admin-h1">Contact requests</h1>
       <p className="admin-dek">
-        Everything residents submit from their Contact page — maintenance issues,
+        Everything residents submit from their Contact tab — maintenance issues,
         appeals, and questions. Set each one&rsquo;s status to keep residents in the loop.
       </p>
 

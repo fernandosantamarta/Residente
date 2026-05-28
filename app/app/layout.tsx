@@ -26,20 +26,19 @@ const initialsFrom = (name?: string | null): string => {
 
 type NavItem = { href: string; label: string; icon: ReactNode; pulse?: boolean; exact?: boolean }
 
-// Resident left rail. Contact is the place residents submit requests
-// (maintenance issues, appeals, questions) — kept last as the catch-all
-// "reach the board" entry.
+// Resident left rail. Contact (under Voice) is where residents submit
+// requests — maintenance issues, appeals, questions.
 const NAV: NavItem[] = [
   { href: '/app',           label: 'Home',      exact: true, icon: <><path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/></> },
   { href: '/app/pay',       label: 'Pay',       icon: <><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/></> },
   { href: '/app/board',     label: 'Board',     pulse: true, icon: <><circle cx="9" cy="8" r="3"/><circle cx="17" cy="10" r="2.5"/><path d="M3 19c0-3 3-5 6-5s6 2 6 5"/><path d="M15 19c0-2 2-3.5 4-3.5s3 1.2 3 3"/></> },
   { href: '/app/voice',     label: 'Voice',     icon: <><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="22"/></> },
+  { href: '/app/contact',   label: 'Contact',   icon: <><path d="M3 11h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H4a1 1 0 0 1-1-1v-5a9 9 0 0 1 18 0v5a1 1 0 0 1-1 1h-2a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3"/><path d="M21 16v2a4 4 0 0 1-4 4h-5"/></> },
   { href: '/app/rules',     label: 'Rules',     icon: <><path d="M4 4h12l4 4v12H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></> },
   { href: '/app/documents', label: 'Documents', icon: <><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/></> },
   { href: '/app/schedule',  label: 'Schedule',  icon: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></> },
   { href: '/app/vendor',    label: 'Vendor',    icon: <><path d="M3 7h18l-1.4 11.2A2 2 0 0 1 17.6 20H6.4a2 2 0 0 1-2-1.8z"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></> },
   { href: '/app/reports',   label: 'Reports',   icon: <><path d="M4 4h16v16H4z"/><path d="M8 16v-4M12 16v-7M16 16v-2"/></> },
-  { href: '/app/contact',   label: 'Contact',   icon: <><path d="M21 12a8 8 0 0 1-12 7L3 21l2-5a8 8 0 1 1 16-4z"/></> },
 ]
 // Settings is intentionally not in NAV — the bottom-left user-block in
 // rail-footer is the entry point, matching the profile-tab pattern.

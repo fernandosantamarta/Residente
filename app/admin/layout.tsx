@@ -17,7 +17,7 @@ import { useAuth } from '../providers'
 const ADMIN_NAV = [
   { href: '/admin/community',  label: 'Community' },
   { href: '/admin/residents',  label: 'Residents' },
-  { href: '/admin/requests',   label: 'Requests' },
+  { href: '/admin/requests',   label: 'Contact' },
   { href: '/admin/board',      label: 'Board' },
   { href: '/admin/voice',      label: 'Voice' },
   { href: '/admin/rules',      label: 'Rules' },
