@@ -37,6 +37,8 @@ const fmtDate = (d: string | null | undefined) =>
 
 type Request = {
   id: string
+  profile_id: string
+  community_id: string
   submitter_name: string | null
   submitter_unit: string | null
   category: string
@@ -46,7 +48,13 @@ type Request = {
   created_at: string
   attachment_path: string | null
   attachment_name: string | null
+  board_note: string | null
+  board_note_at: string | null
+  board_note_attachment_path: string | null
+  board_note_attachment_name: string | null
 }
+
+const MAX_FILE = 10 * 1024 * 1024  // 10MB
 
 // Admin → Requests. The board's triage queue for everything residents submit
 // from /app/contact — maintenance issues, appeals, questions. Set the status
@@ -61,6 +69,11 @@ export default function RequestsAdmin() {
   const [filterCategory, setFilterCategory] = useState<'all' | Category>('all')
   const [filterStatus, setFilterStatus] = useState<'all' | Status>('all')
   const [page, setPage] = useState(1)
+  // Per-request note drafts (keyed by id), the photo each note is sending, and
+  // which one is mid-save.
+  const [noteDrafts, setNoteDrafts] = useState<Record<string, string>>({})
+  const [noteFiles, setNoteFiles] = useState<Record<string, File | null>>({})
+  const [savingNote, setSavingNote] = useState<string | null>(null)
 
   useEffect(() => {
     if (!successMsg) return
@@ -111,6 +124,47 @@ export default function RequestsAdmin() {
     } catch (err: any) {
       setRows(rs => rs.map(x => x.id === r.id ? { ...x, status: prevStatus } : x))   // roll back
       setError(err?.message || 'Could not update that request')
+    }
+  }
+
+  // The note the resident sees on their Contact page — text plus an optional
+  // photo. Clearing the text (with no photo) removes the note.
+  const saveNote = async (r: Request) => {
+    const text = (noteDrafts[r.id] ?? r.board_note ?? '').trim()
+    const file = noteFiles[r.id] || null
+    if (file && file.size > MAX_FILE) { setError('Photo must be 10MB or smaller.'); return }
+    setSavingNote(r.id)
+    try {
+      const patch: Record<string, any> = { board_note: text || null }
+      // Upload into the resident's own folder so their existing read policy
+      // covers it: <community_id>/<resident_profile_id>/<uuid>.<ext>.
+      if (file) {
+        const ext = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : 'bin'
+        const path = `${r.community_id}/${r.profile_id}/${crypto.randomUUID()}.${ext}`
+        const up = await withTimeout(
+          supabase!.storage.from('request-attachments').upload(path, file), 30000
+        )
+        if ((up as any).error) throw (up as any).error
+        patch.board_note_attachment_path = path
+        patch.board_note_attachment_name = file.name
+      }
+      // Stamp the time whenever there's anything to show (note text or a photo).
+      const hasContent = Boolean(text) || Boolean(file) || Boolean(r.board_note_attachment_path)
+      patch.board_note_at = hasContent ? new Date().toISOString() : null
+      const { error } = await withTimeout(
+        supabase!.from('resident_requests').update(patch).eq('id', r.id)
+      )
+      if (error) throw error
+      setRows(rs => rs.map(x => x.id === r.id ? { ...x, ...patch } : x))
+      setNoteDrafts(d => { const n = { ...d }; delete n[r.id]; return n })
+      setNoteFiles(f => { const n = { ...f }; delete n[r.id]; return n })
+      setSuccessMsg(
+        text || file ? `Note saved on "${r.subject}".` : `Note cleared on "${r.subject}".`
+      )
+    } catch (err: any) {
+      setError(err?.message || 'Could not save that note')
+    } finally {
+      setSavingNote(null)
     }
   }
 
@@ -195,40 +249,95 @@ export default function RequestsAdmin() {
             <div className="bc-empty">No requests match these filters.</div>
           )}
 
-          <div className="bd-list">
-            {visible.map(r => (
-              <div className="bd-row" key={r.id}>
-                <div className="bd-main">
-                  <div className="bd-title">{r.subject}</div>
-                  <div className="bd-meta">
-                    <span>{r.submitter_name || 'Resident'}</span>
-                    {r.submitter_unit && <><span className="bd-dot">·</span><span>{r.submitter_unit}</span></>}
-                    <span className="bd-dot">·</span>
-                    <span>{CAT_LABEL[r.category] || r.category}</span>
-                    <span className="bd-dot">·</span>
-                    <span>{fmtDate(r.created_at)}</span>
+          <div className="bd-list" style={{ maxWidth: 860 }}>
+            {visible.map(r => {
+              const draft = noteDrafts[r.id] ?? r.board_note ?? ''
+              const file = noteFiles[r.id] || null
+              const dirty = draft !== (r.board_note ?? '') || Boolean(file)
+              return (
+              <div className="bd-row" key={r.id} style={{ padding: 16, gap: 14, alignItems: 'stretch' }}>
+                {/* Request info — grouped in a faded-orange card for structure. */}
+                <div style={{
+                  width: '100%', boxSizing: 'border-box',
+                  background: 'rgba(225, 73, 9, 0.07)',
+                  border: '1px solid rgba(225, 73, 9, 0.16)',
+                  borderRadius: 14, padding: '13px 16px',
+                  display: 'flex', alignItems: 'flex-start', gap: 14,
+                }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div className="bd-title">{r.subject}</div>
+                    <div className="bd-meta">
+                      <span>{r.submitter_name || 'Resident'}</span>
+                      {r.submitter_unit && <><span className="bd-dot">·</span><span>{r.submitter_unit}</span></>}
+                      <span className="bd-dot">·</span>
+                      <span>{CAT_LABEL[r.category] || r.category}</span>
+                      <span className="bd-dot">·</span>
+                      <span>{fmtDate(r.created_at)}</span>
+                    </div>
+                    {r.body && <div className="bd-meta" style={{ marginTop: 6 }}>{r.body}</div>}
+                    {r.attachment_path && (
+                      <button type="button" onClick={() => openAttachment(r.attachment_path!)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#E14909', font: 'inherit', fontSize: 13, padding: '6px 0 0', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                        <Clip />
+                        {r.attachment_name || 'View attachment'}
+                      </button>
+                    )}
                   </div>
-                  {r.body && <div className="bd-meta" style={{ marginTop: 4 }}>{r.body}</div>}
-                  {r.attachment_path && (
-                    <button type="button" onClick={() => openAttachment(r.attachment_path!)}
-                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#E14909', font: 'inherit', fontSize: 13, padding: '6px 0 0', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M21 11.5 12.5 20a5 5 0 0 1-7-7l8.5-8.5a3.5 3.5 0 0 1 5 5L10.5 18a2 2 0 0 1-3-3l7.5-7.5" />
-                      </svg>
-                      {r.attachment_name || 'View attachment'}
-                    </button>
-                  )}
+                  <div style={{ width: 150, flexShrink: 0 }}>
+                    <Dropdown<Status>
+                      value={r.status as Status}
+                      onChange={v => setRequestStatus(r, v)}
+                      ariaLabel={`Status for ${r.subject}`}
+                      options={STATUSES}
+                    />
+                  </div>
                 </div>
-                <div style={{ width: 170, flexShrink: 0 }}>
-                  <Dropdown<Status>
-                    value={r.status as Status}
-                    onChange={v => setRequestStatus(r, v)}
-                    ariaLabel={`Status for ${r.subject}`}
-                    options={STATUSES}
+
+                {/* Board's reply — note text + optional photo, both seen by the resident. */}
+                <div style={{ width: '100%', boxSizing: 'border-box', textAlign: 'left' }}>
+                  <label htmlFor={`note-${r.id}`}
+                    style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#0A2440', marginBottom: 5 }}>
+                    Note to resident{' '}
+                    <span style={{ fontWeight: 400, color: 'rgba(15,28,46,0.5)' }}>— shown on their Contact page</span>
+                  </label>
+                  <textarea
+                    id={`note-${r.id}`}
+                    className="admin-input admin-textarea"
+                    rows={2}
+                    style={{ width: '100%', boxSizing: 'border-box' }}
+                    placeholder="e.g. Reviewed and checked — fixing by Friday."
+                    value={draft}
+                    onChange={e => setNoteDrafts(d => ({ ...d, [r.id]: e.target.value }))}
                   />
+                  <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginTop: 8 }}>
+                    <button
+                      type="button"
+                      className="admin-secondary-btn"
+                      onClick={() => saveNote(r)}
+                      disabled={savingNote === r.id || !dirty}
+                    >
+                      {savingNote === r.id ? 'Saving…' : 'Save note'}
+                    </button>
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#E14909' }}>
+                      <input type="file" accept="image/*" hidden
+                        onChange={e => setNoteFiles(f => ({ ...f, [r.id]: e.target.files?.[0] || null }))} />
+                      <Clip />
+                      {file ? file.name : (r.board_note_attachment_name ? 'Replace photo' : 'Attach a photo')}
+                    </label>
+                    {!file && r.board_note_attachment_path && (
+                      <button type="button" onClick={() => openAttachment(r.board_note_attachment_path!)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'rgba(15,28,46,0.6)', font: 'inherit', fontSize: 12, textDecoration: 'underline' }}>
+                        View sent photo
+                      </button>
+                    )}
+                    {r.board_note_at && !dirty && (
+                      <span style={{ fontSize: 12, color: 'rgba(15,28,46,0.5)' }}>Sent {fmtDate(r.board_note_at)}</span>
+                    )}
+                  </div>
                 </div>
               </div>
-            ))}
+              )
+            })}
           </div>
           <Pagination
             page={page}
@@ -239,5 +348,14 @@ export default function RequestsAdmin() {
         </>
       )}
     </div>
+  )
+}
+
+function Clip() {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 11.5 12.5 20a5 5 0 0 1-7-7l8.5-8.5a3.5 3.5 0 0 1 5 5L10.5 18a2 2 0 0 1-3-3l7.5-7.5" />
+    </svg>
   )
 }

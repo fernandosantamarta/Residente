@@ -115,6 +115,52 @@
 .con-badge-in_progress { background: rgba(62, 124, 177, 0.16); color: #2c5e87; }
 .con-badge-resolved { background: rgba(31, 138, 76, 0.14); color: #1f7a44; }
 
+/* Board's reply to the resident — full-width line under its request row. */
+.con-note {
+  display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap;
+  margin: -2px 0 11px; padding: 9px 12px;
+  background: rgba(62, 124, 177, 0.08);
+  border-left: 3px solid #3e7cb1; border-radius: 0 8px 8px 0;
+  font-size: 12.5px; line-height: 1.5;
+}
+.con-note-tag {
+  font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: #2c5e87; flex-shrink: 0;
+}
+.con-note-body { color: #0A2440; flex: 1; min-width: 0; }
+.con-note-date { color: rgba(15, 28, 46, 0.45); font-size: 11px; flex-shrink: 0; }
+.con-note-photo {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-left: 8px; padding: 0; background: none; border: none; cursor: pointer;
+  color: #E14909; font: inherit; font-size: 12px; font-weight: 600;
+}
+.con-note-photo:hover { text-decoration: underline; }
+.con-note-photo svg { width: 13px; height: 13px; }
+
+/* Clickable submission rows — tap to expand full detail. */
+.con-trow-click { cursor: pointer; transition: background .12s; border-radius: 8px; }
+.con-trow-click:hover { background: rgba(225, 73, 9, 0.05); }
+.con-trow-click.open { background: rgba(225, 73, 9, 0.06); }
+.con-trow-click:focus-visible { outline: 2px solid rgba(225, 73, 9, 0.5); outline-offset: 2px; }
+.con-chev { display: flex; align-items: center; justify-content: flex-end; gap: 6px; color: rgba(15, 28, 46, 0.4); }
+.con-chev-ic { transition: transform .15s ease; }
+.con-chev-ic.open { transform: rotate(180deg); color: #E14909; }
+.con-reply-dot { width: 7px; height: 7px; border-radius: 50%; background: #3e7cb1; flex-shrink: 0; }
+
+/* Expanded detail panel under a submission row. */
+.con-detail {
+  margin: -2px 0 12px; padding: 12px 14px;
+  background: rgba(15, 28, 46, 0.025);
+  border: 1px solid rgba(15, 28, 46, 0.07); border-radius: 10px;
+  display: flex; flex-direction: column; gap: 10px; font-size: 13px;
+}
+.con-detail-row { display: flex; flex-direction: column; gap: 3px; }
+.con-detail-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: rgba(15, 28, 46, 0.45);
+}
+.con-detail-val { color: #0A2440; line-height: 1.5; white-space: pre-wrap; }
+
 .con-viewall {
   margin-top: 16px; width: 100%; background: none; border: none; cursor: pointer;
   color: #E14909; font: inherit; font-size: 13px; font-weight: 600; padding: 8px;
