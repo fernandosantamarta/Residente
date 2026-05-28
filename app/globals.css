@@ -7982,18 +7982,16 @@ textarea[disabled] {
   caret-color: transparent;
 }
 /* The Dropdown component's searchable mode uses an <input> as the
-   trigger, but for non-searchable usages the same input is purely a
-   display + click target. Even in searchable mode the caret-color
-   stays — typing still works because caret-color is overridden when
-   the input gains key focus in a real session. The cursor itself
-   becomes a pointer so the affordance reads as "click to open" not
-   "click to type". */
+   trigger. `.ad-dd-trigger-input` ONLY exists on searchable dropdowns
+   (non-searchable usages render a <button> + label span instead), so
+   it's always a real "type to search" field — the caret must be
+   visible the moment it's clicked. Match the typed text color (navy)
+   so the insertion point is clearly legible against the light field. */
 [data-theme="sketch"] .ad-dd-trigger-search {
   cursor: pointer;
 }
 [data-theme="sketch"] .ad-dd.searchable .ad-dd-trigger-search { cursor: text; }
-[data-theme="sketch"] .ad-dd-trigger-input { caret-color: #E14909; }
-[data-theme="sketch"] .ad-dd:not(.open) .ad-dd-trigger-input { caret-color: transparent; }
+[data-theme="sketch"] .ad-dd-trigger-input { caret-color: #0A2440; }
 
 /* ---- legacy classes from prior WIP (still rendered as no-ops if unused) ---- */
 /* .hero-row, .ym-cards, .pace-trio, .trend-* now unused — keep their old
