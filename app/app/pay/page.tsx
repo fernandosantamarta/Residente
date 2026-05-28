@@ -304,7 +304,7 @@ export default function Pay() {
             If you have any questions or need assistance, our support team is here to help.
           </div>
         </div>
-        <Link href="/app/contact" className="pay-cta-secondary">Contact Support</Link>
+        <Link href="/app/voice#contact" className="pay-cta-secondary">Contact Support</Link>
       </section>
     </div>
   )

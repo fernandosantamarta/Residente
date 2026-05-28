@@ -1876,6 +1876,20 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 .voice-page-title { font-size: 28px; font-weight: 600; letter-spacing: -0.5px; margin-bottom: 6px; }
 .voice-page-sub   { font-size: 14px; color: var(--text-dim); line-height: 1.5; }
 
+/* Easy Voice hub — merges Meetings & Votes, Board, and Contact into one
+   single-scroll surface. Sections keep their own inner wrappers; these
+   rules add the between-section rhythm and anchor offsets for the
+   quick-jump strip. */
+.ev-hub-head { margin-bottom: 16px; }
+.ev-hub-head .voice-page-title { font-size: 32px; }
+.ev-jump { margin-bottom: 28px; }
+.ev-section { scroll-margin-top: 24px; }
+.ev-section + .ev-section {
+  margin-top: 44px;
+  padding-top: 44px;
+  border-top: 1px solid var(--border);
+}
+
 .voice-placeholder { font-size: 14px; color: var(--text-dim); padding: 24px 0; }
 .voice-err         { font-size: 13px; color: #F47174; padding: 10px 0; }
 

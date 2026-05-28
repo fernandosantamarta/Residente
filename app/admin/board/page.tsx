@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { Dropdown } from '@/components/Dropdown'
+import { EasyVoiceTabs } from '../EasyVoiceTabs'
 
 const withTimeout = (p, ms = 10000) =>
   Promise.race([
@@ -165,6 +166,7 @@ export default function Board() {
 
   return (
     <div className="admin-page">
+      <EasyVoiceTabs active="board" />
       <div className="admin-kicker">Board</div>
       <h1 className="admin-h1">Board <span className="rb-amp">&amp;</span> decisions</h1>
       <p className="admin-dek">

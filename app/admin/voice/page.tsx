@@ -1,8 +1,8 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { useAuth } from '@/app/providers'
+import { EasyVoiceTabs } from '../EasyVoiceTabs'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import {
   MEETING_TYPES, VOTE_TYPES, DOC_TYPES,
@@ -56,7 +56,7 @@ export default function Meetings() {
 
   return (
     <div className="admin-section">
-      <VoiceTabs active="meetings" />
+      <EasyVoiceTabs active="meetings" />
 
       <div className="admin-section-head" style={{ marginTop: 18 }}>
         <div>
@@ -1209,19 +1209,3 @@ function DocRow({ doc: d, communityId, onDeleted }) {
   )
 }
 
-// Sub-nav for /admin/voice and /admin/voice/roster. Kept inline so each
-// page renders independently without an extra layout shell.
-function VoiceTabs({ active }: { active: 'meetings' | 'roster' }) {
-  return (
-    <div className="voice-tabs">
-      <Link href="/admin/voice"
-            className={`voice-tab${active === 'meetings' ? ' active' : ''}`}>
-        Meetings
-      </Link>
-      <Link href="/admin/voice/roster"
-            className={`voice-tab${active === 'roster' ? ' active' : ''}`}>
-        Roster
-      </Link>
-    </div>
-  )
-}

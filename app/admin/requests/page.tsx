@@ -5,6 +5,7 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { Dropdown } from '@/components/Dropdown'
 import { Pagination, paginate } from '@/components/Pagination'
+import { EasyVoiceTabs } from '../EasyVoiceTabs'
 
 const REQ_PAGE_SIZE = 10
 
@@ -177,6 +178,7 @@ export default function RequestsAdmin() {
 
   return (
     <div className="admin-page">
+      <EasyVoiceTabs active="contact" />
       <div className="admin-kicker">Contact</div>
       <h1 className="admin-h1">Contact requests</h1>
       <p className="admin-dek">

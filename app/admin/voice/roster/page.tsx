@@ -1,10 +1,10 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { logAudit } from '@/lib/audit'
+import { EasyVoiceTabs } from '../../EasyVoiceTabs'
 import {
   parseRosterCsv, validateRoster, isImportable,
   type RosterRow,
@@ -182,7 +182,7 @@ export default function VoiceRosterPage() {
 
   return (
     <div className="admin-section">
-      <VoiceTabs active="roster" />
+      <EasyVoiceTabs active="roster" />
 
       <div className="admin-section-head" style={{ marginTop: 18 }}>
         <div>
@@ -477,22 +477,4 @@ function inviteStateLabel(o: OwnerListRow): React.ReactNode {
   if (o.activated_at) return <span className="voice-roster-badge ok">Activated</span>
   if (o.invited_at)   return <span className="voice-roster-badge warn">Invited</span>
   return <span className="voice-roster-badge">Not invited</span>
-}
-
-// Local sub-nav so Meetings and Roster are one tap apart. Duplicated in
-// the parent admin/voice page; small enough that DRY isn't worth a shared
-// component for two callsites.
-function VoiceTabs({ active }: { active: 'meetings' | 'roster' }) {
-  return (
-    <div className="voice-tabs">
-      <Link href="/admin/voice"
-            className={`voice-tab${active === 'meetings' ? ' active' : ''}`}>
-        Meetings
-      </Link>
-      <Link href="/admin/voice/roster"
-            className={`voice-tab${active === 'roster' ? ' active' : ''}`}>
-        Roster
-      </Link>
-    </div>
-  )
 }

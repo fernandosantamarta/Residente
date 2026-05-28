@@ -202,7 +202,7 @@ export default function Documents() {
                 the board and they&rsquo;ll surface it here.
               </div>
             </div>
-            <Link href="/app/contact" className="doc-cta-primary">Request a Document</Link>
+            <Link href="/app/voice#contact" className="doc-cta-primary">Request a Document</Link>
           </section>
 
           <section className="doc-card doc-stay">

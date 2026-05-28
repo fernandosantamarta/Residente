@@ -252,7 +252,7 @@ export default function Vendors() {
               <QuickRow icon={<IconList />}
                 title="View Service Requests"
                 desc="See the status of your open requests."
-                href="/app/contact" />
+                href="/app/voice#contact" />
             </div>
           </section>
 

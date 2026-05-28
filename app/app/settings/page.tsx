@@ -232,8 +232,8 @@ export default function Settings() {
           <div className="set-tile">
             <div className="set-tile-title">Quick links</div>
             <ul className="set-links">
-              <li><Link href="/app/contact">Help center</Link></li>
-              <li><Link href="/app/contact">Contact management</Link></li>
+              <li><Link href="/app/voice#contact">Help center</Link></li>
+              <li><Link href="/app/voice#contact">Contact management</Link></li>
               <li><button type="button" className="set-links-btn" onClick={() => setDialog('notifications')}>Update communication preferences</button></li>
               <li><Link href="/app/documents">Download center</Link></li>
               <li><button type="button" className="set-links-btn" onClick={() => setDialog('refer')}>Refer a neighbor</button></li>
