@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, forwardRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { supabase, hasSupabase } from '@/lib/supabase'
@@ -71,6 +71,7 @@ export default function Landing() {
       <TrustMarquee />
       <BuiltForBoth />
       <VsEverything />
+      <DashboardPreview />
       <CtaBlock />
       <LandingFoot />
     </div>
@@ -83,7 +84,7 @@ function LandingNav() {
     <header className={`ln-nav${scrolled ? ' scrolled' : ''}`}>
       <div className="ln-nav-inner">
         <a href="#top" className="ln-brand">
-          <span className="ln-brand-dot" />
+          <img src="/residente-logo.png" alt="" className="ln-brand-logo" />
           <span className="ln-brand-word">Residente</span>
         </a>
         <nav className="ln-nav-links">
@@ -98,6 +99,108 @@ function LandingNav() {
   )
 }
 
+// Sky body — sun by day/sunset, moon at night. Lives outside the
+// cinematic SVG as a CSS overlay so xMidYMid slice can't crop it. The
+// `mode` prop drives both position and colors:
+//   day     — bright yellow sun, upper-right corner (fixed)
+//   sunset  — warm orange-red sun, low on the right, clip-path hides the
+//             bottom so it reads as rising/setting behind the housetops
+//   night   — sleepy crescent moon in the upper-right corner
+function SunOverlay({ mode }: { mode: TimeOfDay }) {
+  if (mode === 'night') {
+    return (
+      <div className="ln-hero-moon" aria-hidden="true">
+        <svg viewBox="-100 -100 200 200">
+          <circle r="78" fill="#C8D3E5" opacity="0.16" />
+          <circle r="58" fill="#C8D3E5" opacity="0.28" />
+          <circle r="46" fill="#F4EFE8" stroke="#1F2233" strokeWidth="2.2" />
+          <circle cx="-14" cy="-10" r="6" fill="#C8C0BC" opacity="0.55" />
+          <circle cx="12"  cy="6"  r="4" fill="#C8C0BC" opacity="0.55" />
+          <circle cx="-4"  cy="14" r="3" fill="#C8C0BC" opacity="0.55" />
+          {/* sleepy face */}
+          <path d="M-13 -3 L-7 -3" fill="none" stroke="#1F2233" strokeWidth="2.4" strokeLinecap="round" />
+          <path d="M7 -3 L13 -3"   fill="none" stroke="#1F2233" strokeWidth="2.4" strokeLinecap="round" />
+          <path d="M-10 10 Q0 16 10 10" fill="none" stroke="#1F2233" strokeWidth="2.2" strokeLinecap="round" />
+        </svg>
+      </div>
+    )
+  }
+
+  // Day / sunrise / sunset: same friendly sun, palette varies.
+  //   day      — bright yellow, upper-right corner
+  //   sunrise  — pink-coral, right side at focal-window height
+  //   sunset   — orange-red, right side at focal-window height
+  // Sunrise vs sunset is distinguished by sky palette (sunrise = orange-pink,
+  // sunset = orange-red) and the sun's own pink-vs-red tint.
+  const isSunrise = mode === 'sunrise'
+  const isSunset  = mode === 'sunset'
+  // Swapped vs an earlier round: the fierier red-orange now belongs to
+  // sunrise, the cooler pink-coral to sunset (matches Fernando's mental
+  // model of which palette feels like which time of day).
+  const body  = isSunrise ? '#E16040' : isSunset ? '#FF7A6E' : '#FFC97A'
+  const glow  = isSunrise ? '#FFA888' : isSunset ? '#FFC4B0' : '#FFE3B8'
+  const rays  = isSunrise ? '#B83B07' : isSunset ? '#D44862' : '#E6A95E'
+  const positionClass = (isSunrise || isSunset) ? ' ln-hero-sun-low' : ''
+  return (
+    <div className={`ln-hero-sun${positionClass}`} aria-hidden="true">
+      <svg viewBox="-100 -100 200 200">
+        <circle r="80" fill={glow} opacity="0.18" />
+        <circle r="62" fill={glow} opacity="0.32" />
+        <g className="ln-sun-spin">
+          {Array.from({ length: 12 }).map((_, i) => {
+            const a = (i * Math.PI) / 6
+            const x1 = Math.cos(a) * 68
+            const y1 = Math.sin(a) * 68
+            const x2 = Math.cos(a) * 92
+            const y2 = Math.sin(a) * 92
+            return (
+              <line key={i} x1={x1.toFixed(1)} y1={y1.toFixed(1)} x2={x2.toFixed(1)} y2={y2.toFixed(1)}
+                    stroke={rays} strokeWidth="4" strokeLinecap="round" />
+            )
+          })}
+        </g>
+        <circle r="46" fill={body} stroke="#1F2233" strokeWidth="2.2" />
+        <circle cx="-14" cy="-6" r="3" fill="#1F2233" />
+        <circle cx="14"  cy="-6" r="3" fill="#1F2233" />
+        <path d="M-14 10 Q0 22 14 10" fill="none" stroke="#1F2233" strokeWidth="2.5" strokeLinecap="round" />
+      </svg>
+    </div>
+  )
+}
+
+// Plane: pulled out of the cinematic SVG so it sits in front of the sun
+// overlay (z-index above .ln-hero-sun). Traverses the full stage width
+// via CSS translateX; vw-based animation in landing.css.
+function PlaneOverlay() {
+  // Two-layer structure so the ambient-op fade (used to hide overlays
+  // during the cinematic zoom) doesn't fight the plane's own fade-in /
+  // fade-out keyframes. Outer .ln-hero-plane carries --ambient-op
+  // opacity; inner .ln-hero-plane-inner carries the drift animation
+  // (transform + its own opacity). The two opacities multiply, so the
+  // plane disappears with the rest of the sky overlays on scroll.
+  const c = 'var(--plane-color, #1F2233)'
+  const s = 'var(--plane-stroke, none)'
+  const sw = 'var(--plane-stroke-w, 0)'
+  return (
+    <div className="ln-hero-plane" aria-hidden="true">
+      <div className="ln-hero-plane-inner">
+        <svg viewBox="-60 -20 120 40">
+          <g transform="scale(1.4)" stroke={s} strokeWidth={sw as string} strokeLinejoin="round" strokeLinecap="round">
+            <ellipse cx="0" cy="0" rx="26" ry="3.5" fill={c} />
+            <path d="M22 -2 L34 0 L22 2 Z" fill={c} />
+            <path d="M-22 -2 L-14 -2 L-18 -11 Z" fill={c} />
+            <path d="M-4 1 L10 1 L-2 12 L-12 10 Z" fill={c} />
+            {/* Contrail puffs — no stroke (they're faint by design) */}
+            <circle cx="-34" cy="0" r="2.5" fill={c} stroke="none" opacity="0.35" />
+            <circle cx="-44" cy="0" r="3"   fill={c} stroke="none" opacity="0.22" />
+            <circle cx="-56" cy="1" r="3.5" fill={c} stroke="none" opacity="0.12" />
+          </g>
+        </svg>
+      </div>
+    </div>
+  )
+}
+
 // Scroll-pinned cinematic hero — ONE comprehensive SVG that holds the
 // whole story (focal house at the dead center with a terracotta door,
 // surrounded by streets, neighbours, trees, and a community pool). As
@@ -108,10 +211,56 @@ function LandingNav() {
 // community in frame). One layer → no cross-fade discontinuity → no
 // "the photo at the end doesn't match" problem. Exponential zoom curve
 // gives the cinematic decel of a real dolly pull-back.
+type TimeOfDay = 'day' | 'sunrise' | 'sunset' | 'night'
+
+// Mode buckets:
+//   night    — 7pm to 5:30am  (sky dark, moon)
+//   sunrise  — 5:30-7am       (pink sky, sun rising on the LEFT)
+//   day      — 7am to 5pm     (default — bright sky, corner sun)
+//   sunset   — 5-7pm          (orange-red sky, sun setting on the RIGHT)
+function detectTimeOfDay(): TimeOfDay {
+  const h = new Date().getHours() + new Date().getMinutes() / 60
+  if (h < 5.5 || h >= 19) return 'night'
+  if (h < 7)              return 'sunrise'
+  if (h >= 17)            return 'sunset'
+  return 'day'
+}
+
 function Hero() {
-  const pinRef = useRef(null)
-  const [p, setP] = useState(0)
+  // Refs everywhere — scroll-driven values write straight to the DOM in
+  // the rAF callback below. React only re-renders Hero on mode/enabled
+  // change (rare), NOT on every scroll tick. Without this, the 78-child
+  // CommunitySvg JSX tree was being walked once per scroll frame, which
+  // produced visible popping when scrolling fast back into the hero.
+  const pinRef      = useRef<HTMLDivElement | null>(null)
+  const stageRef    = useRef<HTMLDivElement | null>(null)
+  const svgRef      = useRef<SVGSVGElement   | null>(null)
+  const interiorRef = useRef<HTMLDivElement | null>(null)
+  const cap1Ref     = useRef<HTMLSpanElement | null>(null)
+  const cap2Ref     = useRef<HTMLSpanElement | null>(null)
+  const cap3Ref     = useRef<HTMLSpanElement | null>(null)
   const [enabled, setEnabled] = useState(true)
+  const [mode, setMode] = useState<TimeOfDay>('day')
+
+  // Time-of-day mode + URL ?mock= override for previewing.
+  // setMode runs client-side only, so SSR always sees 'day' (matches CSS
+  // default) — no hydration mismatch.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const mock = params.get('mock')
+    const apply = () => {
+      if (mock === 'day' || mock === 'sunrise' || mock === 'sunset' || mock === 'night') {
+        setMode(mock)
+      } else {
+        setMode(detectTimeOfDay())
+      }
+    }
+    apply()
+    if (!mock) {
+      const id = setInterval(apply, 60_000)
+      return () => clearInterval(id)
+    }
+  }, [])
 
   useEffect(() => {
     const mqReduce = window.matchMedia('(prefers-reduced-motion: reduce)')
@@ -126,74 +275,166 @@ function Hero() {
     }
   }, [])
 
+  // Applies all p-derived DOM state imperatively. No React state, no
+  // re-renders — every value goes straight to the relevant element.
+  const applyP = (p: number) => {
+    const ZOOM_END = 0.78
+    const INTERIOR_FADE_END = 0.85
+    const zp = Math.min(1, p / ZOOM_END)
+    const zoom = Math.pow(12, zp)
+    const vbW = 2400 / zoom
+    const vbH = 1500 / zoom
+    const vbX = 1200 - vbW / 2
+    const vbY = 750  - vbH / 2
+    const viewBox = `${vbX.toFixed(1)} ${vbY.toFixed(1)} ${vbW.toFixed(1)} ${vbH.toFixed(1)}`
+    svgRef.current?.setAttribute('viewBox', viewBox)
+
+    const interiorOpacity = Math.max(0, Math.min(1, (p - ZOOM_END) / (INTERIOR_FADE_END - ZOOM_END)))
+    if (interiorRef.current) interiorRef.current.style.opacity = String(interiorOpacity)
+
+    const ambientOp = Math.max(0, 1 - p / 0.35)
+    stageRef.current?.style.setProperty('--ambient-op', String(ambientOp))
+
+    const cap1 = Math.max(0, Math.min(1, 1 - p / 0.30))
+    const cap2 = Math.max(0, Math.min(1, Math.min((p - 0.30) / 0.15, (0.68 - p) / 0.15)))
+    const cap3 = Math.max(0, Math.min(1, (p - 0.72) / 0.18))
+    if (cap1Ref.current) cap1Ref.current.style.opacity = String(cap1)
+    if (cap2Ref.current) cap2Ref.current.style.opacity = String(cap2)
+    if (cap3Ref.current) cap3Ref.current.style.opacity = String(cap3)
+  }
+
   useEffect(() => {
-    if (!enabled) { setP(1); return }
+    if (!enabled) {
+      // Static fallback (mobile / reduced motion): pin the scene at
+      // p=1 — fully zoomed in with the interior visible.
+      applyP(1)
+      return
+    }
+
+    // Lerp-smoothed cinematic. The scroll handler only updates a TARGET
+    // p; a continuously running rAF loop eases the actual rendered p
+    // toward the target by 15% per frame. Fast scroll-back stops looking
+    // like a series of frame snapshots and reads as a smooth dolly-out
+    // because the visible state can never jump more than ~15% of the
+    // remaining distance per 16ms tick.
+    let targetP = 0
+    let currentP = 0
     let raf = 0
-    const update = () => {
-      raf = 0
+    const LERP_RATE = 0.15
+    const EPS = 0.0005
+
+    const computeTarget = () => {
       const el = pinRef.current
       if (!el) return
       const rect = el.getBoundingClientRect()
       const span = el.offsetHeight - window.innerHeight
-      if (span <= 0) { setP(0); return }
+      if (span <= 0) { targetP = 0; return }
       const scrolled = Math.min(span, Math.max(0, -rect.top))
-      setP(scrolled / span)
+      targetP = scrolled / span
     }
-    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update) }
-    update()
+
+    const tick = () => {
+      raf = 0
+      const delta = targetP - currentP
+      // Only forward easing here. Backward scroll is handled in the
+      // scroll-settle timer in markScrolling() — the SVG stays frozen
+      // throughout the scroll-back motion and only updates once on
+      // scroll-stop. That's what kills the per-frame visual churn.
+      if (delta <= 0) return
+      if (delta < EPS) {
+        currentP = targetP
+        applyP(currentP)
+        return
+      }
+      currentP += delta * LERP_RATE
+      applyP(currentP)
+      raf = requestAnimationFrame(tick)
+    }
+
+    // Mark the stage as actively scrolling. The CSS rule hides every
+    // sky overlay (sun/moon/plane) while .is-scrolling is on, so they
+    // can't visibly flash during fast scroll-back. Cleared 200ms after
+    // the last scroll event, at which point a CSS transition fades the
+    // overlays back in based on var(--ambient-op).
+    let scrollEndTimer: ReturnType<typeof setTimeout> | undefined
+    const markScrolling = () => {
+      const stage = stageRef.current
+      if (!stage) return
+      if (!stage.classList.contains('is-scrolling')) {
+        stage.classList.add('is-scrolling')
+      }
+      if (scrollEndTimer) clearTimeout(scrollEndTimer)
+      scrollEndTimer = setTimeout(() => {
+        stage.classList.remove('is-scrolling')
+        // After scroll settles, snap currentP to wherever the target
+        // actually is and apply that final state once. No frame-by-frame
+        // updates during the scroll itself — that's what caused the
+        // perceived flashing on fast scroll-back. 80ms is short enough
+        // that the user perceives the cinematic catching up as
+        // instantaneous, long enough that micro scroll-bounces between
+        // events don't fire it repeatedly.
+        currentP = targetP
+        applyP(currentP)
+      }, 80)
+    }
+
+    const onScroll = () => {
+      computeTarget()
+      markScrolling()
+      const delta = targetP - currentP
+      if (delta < 0) {
+        // Backward scroll: apply each new target immediately so the
+        // dolly-out tracks the scroll wheel. With overlays hidden and
+        // house animations disabled by .is-scrolling, the per-event
+        // SVG repaint is just static geometry — no flicker risk —
+        // and the user feels the cinematic respond instantly instead
+        // of lagging behind a settle timer.
+        currentP = targetP
+        applyP(currentP)
+        return
+      }
+      // Forward scroll (zooming in) eases via the lerp tick.
+      if (!raf) raf = requestAnimationFrame(tick)
+    }
+
+    // Initial state: read scroll, snap currentP to target (no fade-in).
+    computeTarget()
+    currentP = targetP
+    applyP(currentP)
+
     window.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('resize', onScroll)
     return () => {
       if (raf) cancelAnimationFrame(raf)
+      if (scrollEndTimer) clearTimeout(scrollEndTimer)
+      stageRef.current?.classList.remove('is-scrolling')
       window.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', onScroll)
     }
   }, [enabled])
 
-  // ZOOM-IN arc. p=0 → wide community (zoom=1). p ramps up to ~12 at
-  // p=0.78 (we're inside the door frame, it fills the screen, lights
-  // visible past the frame). p=0.78 → 1.0: cross-fade to the interior
-  // SVG (we crossed the threshold — now we're inside the house).
-  //
-  // viewBox animation (not CSS transform) — Chromium crashes on a
-  // 24000x15000 GPU layer if you `transform: scale(10)` a 2400x1500 SVG.
-  const ZOOM_END = 0.78
-  const zp = Math.min(1, p / ZOOM_END)
-  const zoom = enabled ? Math.pow(12, zp) : 1
-  const VBW = 2400, VBH = 1500, CX = 1200, CY = 750
-  const vbW = VBW / zoom
-  const vbH = VBH / zoom
-  const vbX = CX - vbW / 2
-  const vbY = CY - vbH / 2
-  const viewBox = `${vbX.toFixed(1)} ${vbY.toFixed(1)} ${vbW.toFixed(1)} ${vbH.toFixed(1)}`
-
-  // Interior crossfade — starts fading in once the door fills the frame.
-  const interiorOpacity = enabled
-    ? Math.max(0, Math.min(1, (p - ZOOM_END) / (1 - ZOOM_END)))
-    : 0
-
-  // Three captions arcing across the journey:
-  //   p=0    "Your community, finally clear"   (wide view)
-  //   p≈0.5  "Your home, at the heart of it"   (focal house close-up)
-  //   p=1    "And you, in the loop."           (interior, you're inside)
-  const cap1 = Math.max(0, Math.min(1, 1 - p / 0.30))                        // 1→0 over 0..0.30
-  const cap2 = Math.max(0, Math.min(1, Math.min((p - 0.30) / 0.15, (0.68 - p) / 0.15))) // 0→1→0
-  const cap3 = Math.max(0, Math.min(1, (p - 0.72) / 0.18))                   // 0→1 over 0.72..0.90
-
   return (
     <section className="ln-hero" id="top">
       <div className={`ln-hero-pin${enabled ? '' : ' is-static'}`} ref={pinRef}>
-        <div className="ln-hero-stage">
+        <div
+          className="ln-hero-stage"
+          data-time={mode}
+          ref={stageRef}
+        >
           <div className="ln-zoom-scene" aria-hidden="true">
-            <CommunitySvg viewBox={viewBox} />
+            <CommunitySvg ref={svgRef} mode={mode} />
           </div>
           <div
             className="ln-zoom-interior"
-            style={{ opacity: interiorOpacity }}
+            ref={interiorRef}
+            style={{ opacity: 0 }}
             aria-hidden="true"
           >
             <InteriorSvg />
           </div>
+
+          <SunOverlay mode={mode} />
+          <PlaneOverlay />
 
           <div className="ln-hero-overlay">
             <div className="ln-hero-inner">
@@ -201,17 +442,18 @@ function Hero() {
               <h1 className="ln-hero-title">
                 {enabled && (
                   <>
-                    <span className="ln-hero-title-stack" style={{ opacity: cap1 }}>
+                    <span className="ln-hero-title-stack" ref={cap1Ref} style={{ opacity: 1 }}>
                       Your community,<br />finally clear.
                     </span>
-                    <span className="ln-hero-title-stack" style={{ opacity: cap2 }}>
+                    <span className="ln-hero-title-stack" ref={cap2Ref} style={{ opacity: 0 }}>
                       Your home,<br />at the heart of it.
                     </span>
                   </>
                 )}
                 <span
                   className="ln-hero-title-stack"
-                  style={enabled ? { opacity: cap3 } : undefined}
+                  ref={cap3Ref}
+                  style={enabled ? { opacity: 0 } : undefined}
                 >
                   And you,<br />in the loop.
                 </span>
@@ -342,15 +584,23 @@ function Dog({ x, y, scale = 1 }) {
 // at the dead center (1200, 750) — that's the zoom anchor. Drawn from
 // back-to-front so the foreground layers (focal house, foreground trees)
 // occlude the rest correctly.
-function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
+export const CommunitySvg = forwardRef<SVGSVGElement, { viewBox?: string; mode?: TimeOfDay }>(function CommunitySvg(
+  { viewBox = '0 0 2400 1500', mode = 'day' },
+  ref,
+) {
   const DX = 1200  // door anchor X
   const DY = 750   // door anchor Y (also: ground level / horizon-ish)
   return (
-    <svg viewBox={viewBox} preserveAspectRatio="xMidYMid slice" role="img" aria-label="A hand-drawn sketch of a small HOA community">
+    <svg ref={ref} viewBox={viewBox} preserveAspectRatio="xMidYMid slice" role="img" aria-label="A hand-drawn sketch of a small HOA community">
       <defs>
         <linearGradient id="cm-sky" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor={SKY_TOP} />
           <stop offset="1" stopColor={SKY_BOT} />
+        </linearGradient>
+        <linearGradient id="ufo-beam" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0" stopColor="#5BFF8C" stopOpacity="0.85" />
+          <stop offset="0.55" stopColor="#7BFFB0" stopOpacity="0.35" />
+          <stop offset="1" stopColor="#A0FFCC" stopOpacity="0" />
         </linearGradient>
         <linearGradient id="cm-ground" x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor={GROUND_T} />
@@ -369,54 +619,32 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
       <rect width="2400" height={DY + 50} fill="url(#cm-sky)" />
       <rect y={DY + 50} width="2400" height={1500 - DY - 50} fill="url(#cm-ground)" />
 
-      {/* Ink-style plane drifting across the left half of the sky.
-          Three nested <g>: outer for vertical position (SVG transform),
-          middle for the CSS fly animation, inner for scale so the
-          translate/animation/scale don't collide. */}
-      <g transform="translate(0, 180)">
-        <g className="ln-plane-fly">
-          <g transform="scale(1.8)">
-            {/* fuselage */}
-            <ellipse cx="0" cy="0" rx="26" ry="3.5" fill={INK} />
-            {/* nose cone */}
-            <path d="M22 -2 L34 0 L22 2 Z" fill={INK} />
-            {/* vertical tail fin */}
-            <path d="M-22 -2 L-14 -2 L-18 -11 Z" fill={INK} />
-            {/* main wing (sweeping back) */}
-            <path d="M-4 1 L10 1 L-2 12 L-12 10 Z" fill={INK} />
-            {/* small contrail puffs */}
-            <circle cx="-34" cy="0" r="2.5" fill={INK} opacity="0.35" />
-            <circle cx="-44" cy="0" r="3"   fill={INK} opacity="0.22" />
-            <circle cx="-56" cy="1" r="3.5" fill={INK} opacity="0.12" />
+      {/* UFO sequence: drifts in from the far left, hovers above the focal
+          house, drops a green tractor beam onto the roof, then shoots
+          straight up off the top. Outer transform sets the resting Y
+          (just above focal-house roof at y=350). Inner .ln-ufo-fly is the
+          CSS-animated wrapper that handles drift + shoot-up. The beam
+          wrap fades in/out on its own keyframe synced to the same cycle. */}
+      <g transform="translate(0, 150)">
+        <g className="ln-ufo-fly">
+          {/* tractor beam — wide cone widening from UFO underside down past
+              the focal-house roofline */}
+          <g className="ln-ufo-beam-wrap">
+            <path d="M-26 14 L26 14 L150 230 L-150 230 Z" fill="url(#ufo-beam)" />
+          </g>
+          <g transform="scale(2.6)">
+            {/* saucer dish + rim */}
+            <ellipse cx="0" cy="0" rx="44" ry="11" fill="#3A3E55" stroke={INK} strokeWidth="1.6" />
+            <ellipse cx="0" cy="-2" rx="36" ry="8" fill="#5A5E75" stroke={INK} strokeWidth="1.2" />
+            {/* glass dome */}
+            <path d="M-22 -3 Q-22 -22 0 -22 Q22 -22 22 -3 Z" fill="#9FD7E5" stroke={INK} strokeWidth="1.4" />
+            <ellipse cx="-8" cy="-13" rx="6" ry="3" fill="#FFFFFF" opacity="0.55" />
+            {/* underside green running lights */}
+            <circle cx="-26" cy="6" r="3" fill="#5BFF8C" stroke={INK} strokeWidth="0.8" />
+            <circle cx="0"   cy="8" r="3.5" fill="#5BFF8C" stroke={INK} strokeWidth="0.8" />
+            <circle cx="26"  cy="6" r="3" fill="#5BFF8C" stroke={INK} strokeWidth="0.8" />
           </g>
         </g>
-      </g>
-
-      {/* Friendly morning sun on the right side of the sky. Rays rotate
-          slowly, body has a gentle glow halo. Drawn after the sky so
-          it's visible, but before the houses so anything in front
-          (focal house, etc.) still occludes if needed. */}
-      <g transform="translate(2080, 220)">
-        <circle r="80" fill="#FFE3B8" opacity="0.18" />
-        <circle r="62" fill="#FFE3B8" opacity="0.32" />
-        <g className="ln-sun-spin">
-          {Array.from({ length: 12 }).map((_, i) => {
-            const a = (i * Math.PI) / 6
-            const x1 = Math.cos(a) * 68
-            const y1 = Math.sin(a) * 68
-            const x2 = Math.cos(a) * 92
-            const y2 = Math.sin(a) * 92
-            return (
-              <line key={i} x1={x1.toFixed(1)} y1={y1.toFixed(1)} x2={x2.toFixed(1)} y2={y2.toFixed(1)}
-                    stroke="#E6A95E" strokeWidth="4" strokeLinecap="round" />
-            )
-          })}
-        </g>
-        <circle r="46" fill="#FFC97A" {...inkStroke} />
-        {/* tiny smile + eyes so the sun reads as friendly */}
-        <circle cx="-14" cy="-6" r="3" fill={INK} />
-        <circle cx="14"  cy="-6" r="3" fill={INK} />
-        <path d="M-14 10 Q0 22 14 10" fill="none" stroke={INK} strokeWidth="2.5" strokeLinecap="round" />
       </g>
 
       {/* Distant background houses — tiny silhouettes at the horizon,
@@ -636,7 +864,7 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
       </g>
     </svg>
   )
-}
+})
 
 /* ============================================================
    InteriorSvg — the reveal frame at p=1. Camera has crossed the
@@ -646,7 +874,7 @@ function CommunitySvg({ viewBox = '0 0 2400 1500' }) {
    screen). Same sketch filter as the exterior so the two scenes feel
    like the same artist drew them.
    ============================================================ */
-function InteriorSvg() {
+export function InteriorSvg() {
   return (
     <svg viewBox="0 0 2400 1500" preserveAspectRatio="xMidYMid slice" role="img" aria-label="A hand-drawn sketch of the home's interior, with a resident checking the Residente app">
       <defs>
@@ -716,12 +944,52 @@ function InteriorSvg() {
           <ellipse cx="1100" cy="1142" rx="22" ry="8" fill="#F4EFE8" {...thinInk} />
           <rect x="1078" y="1130" width="44" height="20" fill="#F4EFE8" {...thinInk} />
           <path d="M1124 1132 Q1140 1138 1124 1148" fill="none" {...thinInk} />
-          {/* steam */}
-          <path d="M1095 1120 Q1098 1110 1095 1100 M1105 1115 Q1108 1105 1105 1095" fill="none" stroke={INK} strokeOpacity="0.4" strokeWidth="1.4" strokeLinecap="round" />
+          {/* coffee surface — darker ellipse inside the mug rim */}
+          <ellipse cx="1100" cy="1138" rx="17" ry="5" fill="#3A2415" />
+          {/* highlight on the coffee surface so it reads as liquid */}
+          <ellipse cx="1095" cy="1136.5" rx="6" ry="1.4" fill="#6B4A2C" opacity="0.7" />
+          {/* animated steam — four wavy wisps rising and fading at
+              staggered phases. Thicker stroke + longer curves + higher
+              peak opacity than v1 so the steam actually reads from
+              across the room. */}
+          <path className="ln-smoke-rise"   d="M1088 1124 Q1082 1108 1092 1092 Q1100 1078 1088 1062" fill="none" stroke={INK} strokeWidth="4" strokeLinecap="round" />
+          <path className="ln-smoke-rise-a" d="M1100 1124 Q1108 1108 1098 1092 Q1090 1078 1102 1062" fill="none" stroke={INK} strokeWidth="4" strokeLinecap="round" />
+          <path className="ln-smoke-rise-b" d="M1112 1124 Q1106 1108 1116 1092 Q1108 1078 1116 1062" fill="none" stroke={INK} strokeWidth="4" strokeLinecap="round" />
+          <path className="ln-smoke-rise-c" d="M1095 1124 Q1100 1110 1095 1096 Q1090 1082 1098 1068" fill="none" stroke={INK} strokeWidth="3.2" strokeLinecap="round" />
+        </g>
+
+        {/* second parent, leaning toward the tablet — orange jumper,
+            warm-blonde hair. Breathes at offset phase so the couch
+            scene reads as two people watching together. */}
+        <g className="ln-interior-breathe-a">
+          {/* torso */}
+          <path d="M1410 990 Q1410 905 1465 895 Q1520 905 1520 990 L1500 1090 L1430 1090 Z" fill="#C76F45" {...inkStroke} />
+          {/* head, tilted slightly toward the first parent */}
+          <circle cx="1465" cy="852" r="42" fill="#F4D6B8" {...inkStroke} />
+          {/* hair */}
+          <path d="M1423 852 Q1423 810 1467 802 Q1510 810 1507 852 Q1507 834 1487 834 Q1467 826 1452 834 Q1423 840 1423 852" fill="#7C4D2A" {...inkStroke} />
+          {/* arm reaching toward the tablet */}
+          <path d="M1518 970 Q1530 1000 1500 1040" fill="none" {...inkStroke} />
+        </g>
+
+        {/* kid playing in the foreground — bounces excitedly */}
+        <g className="ln-interior-bounce">
+          {/* body */}
+          <path d="M880 1140 Q880 1080 920 1075 Q960 1080 960 1140 L955 1210 L885 1210 Z" fill="#7D8C5C" {...inkStroke} />
+          {/* head */}
+          <circle cx="920" cy="1040" r="30" fill="#F4D6B8" {...inkStroke} />
+          {/* hair, slightly tousled */}
+          <path d="M890 1040 Q890 1010 920 1003 Q950 1010 950 1040 Q950 1024 935 1024 Q920 1018 905 1024 Q890 1030 890 1040" fill="#D4A56A" {...inkStroke} />
+          {/* arms raised — playing */}
+          <path d="M885 1140 Q860 1110 855 1078" fill="none" {...inkStroke} />
+          <path d="M955 1140 Q985 1115 990 1078" fill="none" {...inkStroke} />
+          {/* legs */}
+          <line x1="900" y1="1210" x2="900" y2="1260" stroke={INK} strokeWidth="3" strokeLinecap="round" />
+          <line x1="940" y1="1210" x2="940" y2="1260" stroke={INK} strokeWidth="3" strokeLinecap="round" />
         </g>
 
         {/* person on the couch holding a tablet */}
-        <g>
+        <g className="ln-interior-breathe">
           {/* torso */}
           <path d="M1560 980 Q1560 880 1620 870 Q1680 880 1680 980 L1660 1090 L1580 1090 Z" fill="#4F2B8C" {...inkStroke} />
           {/* head */}
@@ -752,8 +1020,75 @@ function InteriorSvg() {
           <text x="1620" y="1174" fontFamily="Inter, system-ui" fontSize="10" fontWeight="700" fill="#F4EFE8" textAnchor="middle">YOU&apos;RE ALL CLEAR ✓</text>
         </g>
 
-        {/* small dog napping by the couch */}
-        <Dog x={1260} y={1240} scale={2.2} />
+        {/* family dog napping by the couch — bigger so it actually
+            reads as a pet, not a smudge */}
+        <Dog x={1170} y={1248} scale={3.0} />
+
+        {/* grandfather next to grandma — burgundy sweater, gray
+            receding hair, white mustache, hand resting on grandma's
+            arm so they read as a couple */}
+        <g className="ln-interior-breathe">
+          {/* torso */}
+          <path d="M1770 985 Q1770 905 1825 895 Q1880 905 1880 985 L1865 1090 L1785 1090 Z" fill="#7C3A3A" {...inkStroke} />
+          {/* head */}
+          <circle cx="1825" cy="852" r="40" fill="#F4D6B8" {...inkStroke} />
+          {/* receding gray hair (smaller crown patch) */}
+          <path d="M1797 838 Q1800 815 1825 810 Q1850 815 1853 838 Q1853 822 1838 822 Q1825 817 1813 822 Q1797 826 1797 838" fill="#A8A29C" {...inkStroke} />
+          {/* white mustache */}
+          <path d="M1812 868 Q1825 874 1838 868" fill="none" stroke="#D6D2CC" strokeWidth="3" strokeLinecap="round" />
+          {/* arm reaching toward grandma's arm — affectionate */}
+          <path d="M1878 980 Q1898 985 1912 990" fill="none" {...inkStroke} />
+        </g>
+
+        {/* grandparent on the right end of the couch — silver hair,
+            little round glasses, teal cardigan. Same gentle breathe
+            as the other adults. */}
+        <g className="ln-interior-breathe">
+          {/* torso */}
+          <path d="M1900 985 Q1900 905 1955 895 Q2010 905 2010 985 L1995 1090 L1915 1090 Z" fill="#3D7B7E" {...inkStroke} />
+          {/* head */}
+          <circle cx="1955" cy="852" r="40" fill="#F4D6B8" {...inkStroke} />
+          {/* silver hair */}
+          <path d="M1915 852 Q1915 810 1955 802 Q1995 810 1995 852 Q1995 832 1975 832 Q1955 824 1940 832 Q1915 838 1915 852" fill="#C8C0BC" {...inkStroke} />
+          {/* arm resting on the couch arm */}
+          <path d="M2008 980 Q2030 1000 2040 1042" fill="none" {...inkStroke} />
+          {/* little round reading glasses */}
+          <circle cx="1942" cy="850" r="7" fill="none" stroke={INK} strokeWidth="1.5" />
+          <circle cx="1968" cy="850" r="7" fill="none" stroke={INK} strokeWidth="1.5" />
+          <line x1="1949" y1="850" x2="1961" y2="850" stroke={INK} strokeWidth="1.5" />
+        </g>
+
+        {/* teenager standing on the left, headphones on, watching the
+            chaos in the room. Rust-orange hoodie, dark hair. */}
+        <g className="ln-interior-breathe">
+          {/* torso */}
+          <path d="M520 1040 Q520 960 560 952 Q600 960 600 1040 L595 1180 L525 1180 Z" fill="#9B4A28" {...inkStroke} />
+          {/* head */}
+          <circle cx="560" cy="912" r="32" fill="#F4D6B8" {...inkStroke} />
+          {/* hair */}
+          <path d="M528 912 Q528 874 560 866 Q592 874 592 912 Q592 898 576 898 Q560 892 545 898 Q528 902 528 912" fill="#3A2A1A" {...inkStroke} />
+          {/* headphone band over the top of the head */}
+          <path d="M535 893 Q560 868 585 893" fill="none" stroke={INK} strokeWidth="2.5" strokeLinecap="round" />
+          {/* ear cups */}
+          <ellipse cx="532" cy="902" rx="6" ry="9" fill={INK} />
+          <ellipse cx="588" cy="902" rx="6" ry="9" fill={INK} />
+          {/* arms hanging at sides */}
+          <path d="M525 1030 Q510 1075 510 1130" fill="none" {...inkStroke} />
+          <path d="M595 1030 Q610 1075 610 1130" fill="none" {...inkStroke} />
+        </g>
+
+        {/* younger sibling sitting cross-legged on the floor next to
+            the bouncing kid — light-blue overalls, dark hair */}
+        <g className="ln-interior-breathe-a">
+          {/* body (seated) */}
+          <ellipse cx="800" cy="1232" rx="34" ry="22" fill="#9FB7C2" {...inkStroke} />
+          {/* head */}
+          <circle cx="800" cy="1175" r="24" fill="#F4D6B8" {...inkStroke} />
+          {/* hair */}
+          <path d="M776 1175 Q776 1153 800 1148 Q826 1153 824 1175 Q824 1163 812 1163 Q800 1158 788 1163 Q776 1167 776 1175" fill="#3A2A1A" {...inkStroke} />
+          {/* small arm pointing toward the older kid */}
+          <path d="M770 1218 Q748 1208 742 1188" fill="none" {...inkStroke} />
+        </g>
 
         {/* picture frames on the back wall */}
         <g>
@@ -855,15 +1190,22 @@ function Stat({ n, l }) {
 
 function TrustMarquee() {
   const names = [
-    'Sunset Lakes', 'Pelican Reserve', 'Bayshore Pointe',
-    'Miramar Oaks',  'Coral Bend',      'Palm Crossing',
-    'Heron Cove',    'Magnolia Park',   'Cypress Bend',
+    'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California',
+    'Colorado', 'Connecticut', 'Delaware', 'Florida', 'Georgia',
+    'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa',
+    'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland',
+    'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri',
+    'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey',
+    'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio',
+    'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina',
+    'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont',
+    'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming',
   ]
   return (
     <section className="ln-trust" data-anim>
       <div className="ln-trust-label">
-        Designed with the small Florida HOAs that
-        <br />make up most of the country.
+        Designed in Florida, for HOAs of every
+        <br />size that make up our beautiful country.
       </div>
       <div className="ln-marquee">
         <div className="ln-marquee-track">
@@ -936,7 +1278,7 @@ function VsEverything() {
     <section className="ln-vs" data-anim>
       <div className="ln-vs-inner">
         <div className="ln-eyebrow">Why Residente</div>
-        <h2 className="ln-vs-title">Residente vs.<br />everything else.</h2>
+        <h2 className="ln-vs-title">Residente vs everything else.</h2>
 
         <div className="ln-vs-grid">
           <div className="ln-vs-old">
@@ -959,6 +1301,39 @@ function VsEverything() {
               every decision, every dollar. Everyone is part of it.
             </p>
           </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function DashboardPreview() {
+  return (
+    <section className="ln-preview" data-anim>
+      <div className="ln-preview-inner">
+        <div className="ln-eyebrow">A peek inside</div>
+        <h2 className="ln-preview-title">This is what your community sees.</h2>
+        <p className="ln-preview-sub">
+          Every resident logs into their own cockpit — budgets, board
+          decisions, dues, all in one place. Below is the real product,
+          loaded with a sample community so you can poke around.
+        </p>
+        <div className="ln-preview-frame">
+          <div className="ln-preview-chrome" aria-hidden="true">
+            <span className="ln-preview-dot" />
+            <span className="ln-preview-dot" />
+            <span className="ln-preview-dot" />
+            <span className="ln-preview-url">residente.io/app</span>
+          </div>
+          <img
+            src="/dashboard-preview.png"
+            alt="Screenshot of the Residente resident cockpit — sidebar nav, hero greeting, financial overview chart, dues breakdown, and an Up Next rail"
+            className="ln-preview-img"
+            loading="lazy"
+          />
+        </div>
+        <div className="ln-preview-ctas">
+          <Link href="/app?preview=1" className="ln-pill-btn">Walk through the live demo</Link>
         </div>
       </div>
     </section>
@@ -1058,7 +1433,7 @@ function LandingFoot() {
     <footer className="ln-foot">
       <div className="ln-foot-inner">
         <div className="ln-foot-brand">
-          <span className="ln-brand-dot" />
+          <img src="/residente-logo.png" alt="" className="ln-brand-logo" />
           <span>Residente</span>
         </div>
         <div className="ln-foot-meta">

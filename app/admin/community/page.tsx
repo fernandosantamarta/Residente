@@ -46,6 +46,14 @@ export default function CommunitySettings() {
   const [form, setForm] = useState(null)
   const [status, setStatus] = useState('loading') // loading | ready | none | error | saving | saved
   const [error, setError] = useState('')
+  const [successMsg, setSuccessMsg] = useState('')
+
+  // Auto-dismiss the green confirmation banner after 4s, matching the Rules page.
+  useEffect(() => {
+    if (!successMsg) return
+    const id = setTimeout(() => setSuccessMsg(''), 4000)
+    return () => clearTimeout(id)
+  }, [successMsg])
 
   const load = useCallback(async () => {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
@@ -81,7 +89,7 @@ export default function CommunitySettings() {
         supabase.from('communities').update(patch).eq('id', communityId)
       )
       if (error) throw error
-      setStatus('saved'); setTimeout(() => setStatus('ready'), 1600)
+      setStatus('ready'); setSuccessMsg('Community settings saved.')
     } catch (err) {
       setError(err?.message || 'Save failed'); setStatus('error')
     }
@@ -94,6 +102,13 @@ export default function CommunitySettings() {
       <p className="admin-dek">
         The community profile and budget behind the app — these numbers drive the Home dashboard.
       </p>
+
+      {successMsg && (
+        <div className="admin-success" role="status">
+          <span className="admin-success-check" aria-hidden="true">✓</span>
+          {successMsg}
+        </div>
+      )}
 
       {status === 'loading' && <div className="admin-note">Loading…</div>}
 
@@ -119,6 +134,7 @@ export default function CommunitySettings() {
                 <div className="admin-input-wrap">
                   {f.prefix && <span className="admin-input-prefix">{f.prefix}</span>}
                   <input
+                    name={f.key}
                     type={f.type} className="admin-input"
                     value={form[f.key] ?? ''} placeholder={f.placeholder}
                     onChange={e => setField(f.key, e.target.value)}
@@ -127,15 +143,15 @@ export default function CommunitySettings() {
               </label>
             ))}
             <div className="admin-form-actions">
-              <button type="submit" className="admin-btn"
-                disabled={status === 'saving' || status === 'saved'}>
-                {status === 'saving' ? 'Saving…' : status === 'saved' ? '✓ Saved' : 'Save changes'}
+              <button type="submit" className="admin-primary-btn"
+                disabled={status === 'saving'}>
+                {status === 'saving' ? 'Saving…' : 'Save changes'}
               </button>
               {status === 'error' && <span className="admin-err-inline">{error}</span>}
             </div>
           </form>
 
-          <BudgetCategories communityId={communityId} />
+          <BudgetCategories communityId={communityId} onSaved={setSuccessMsg} />
         </>
       )}
     </div>
@@ -143,7 +159,7 @@ export default function CommunitySettings() {
 }
 
 // Budget categories editor — clean-replace save (delete all + insert current).
-function BudgetCategories({ communityId }) {
+function BudgetCategories({ communityId, onSaved }) {
   const [rows, setRows] = useState([])
   const [status, setStatus] = useState('loading') // loading | ready | error | saving | saved
   const [error, setError] = useState('')
@@ -204,7 +220,7 @@ function BudgetCategories({ communityId }) {
         const ins = await withTimeout(supabase.from('budget_categories').insert(toInsert))
         if (ins.error) throw ins.error
       }
-      setStatus('saved'); setTimeout(() => setStatus('ready'), 1500)
+      setStatus('ready'); onSaved?.('Budget categories saved.')
     } catch (err) {
       setError(err?.message || 'Save failed'); setStatus('error')
     }
@@ -236,11 +252,11 @@ function BudgetCategories({ communityId }) {
           )}
           {rows.map((r, i) => (
             <div className="bc-row" key={r.id || `new-${i}`}>
-              <input className="admin-input" placeholder="Landscape"
+              <input name={`cat-name-${i}`} className="admin-input" placeholder="Landscape"
                 value={r.name ?? ''} onChange={e => setCell(i, 'name', e.target.value)} />
-              <input className="admin-input" type="number" placeholder="0"
+              <input name={`cat-budget-${i}`} className="admin-input" type="number" placeholder="0"
                 value={r.budget ?? ''} onChange={e => setCell(i, 'budget', e.target.value)} />
-              <input className="admin-input" type="number" placeholder="0"
+              <input name={`cat-spent-${i}`} className="admin-input" type="number" placeholder="0"
                 value={r.spent ?? ''} onChange={e => setCell(i, 'spent', e.target.value)} />
               <button type="button" className="bc-del" onClick={() => removeRow(i)}
                 aria-label="Remove category">&times;</button>
@@ -248,16 +264,16 @@ function BudgetCategories({ communityId }) {
           ))}
           <div className="bc-actions">
             <button type="button" className="admin-btn-ghost" onClick={addRow}>+ Add category</button>
-            <button type="button" className="admin-btn-ghost"
+            <button type="button" className="admin-secondary-btn"
               title="CSV columns: name, budget, spent"
               onClick={() => fileRef.current && fileRef.current.click()}>
               Import CSV
             </button>
-            <input ref={fileRef} type="file" accept=".csv,text/csv"
+            <input name="categories-csv" ref={fileRef} type="file" accept=".csv,text/csv"
               onChange={onImport} style={{ display: 'none' }} />
-            <button type="button" className="admin-btn" onClick={save}
-              disabled={status === 'saving' || status === 'saved'}>
-              {status === 'saving' ? 'Saving…' : status === 'saved' ? '✓ Saved' : 'Save categories'}
+            <button type="button" className="admin-primary-btn" onClick={save}
+              disabled={status === 'saving'}>
+              {status === 'saving' ? 'Saving…' : 'Save categories'}
             </button>
           </div>
         </>

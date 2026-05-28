@@ -58,7 +58,15 @@ export default function Residents() {
   const [saving, setSaving] = useState(false)
   const [pending, setPending] = useState(null) // parsed CSV rows awaiting confirm
   const [importing, setImporting] = useState(false)
+  const [successMsg, setSuccessMsg] = useState('')
   const fileRef = useRef(null)
+
+  // Auto-dismiss the green confirmation banner after 4 seconds.
+  useEffect(() => {
+    if (!successMsg) return
+    const id = setTimeout(() => setSuccessMsg(''), 4000)
+    return () => clearTimeout(id)
+  }, [successMsg])
 
   const load = useCallback(async () => {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
@@ -127,6 +135,7 @@ export default function Residents() {
       if (error) throw error
       setRows(rs => sortRows([data, ...rs]))
       setForm(EMPTY)
+      setSuccessMsg(`Added ${row.full_name}.`)
     } catch (err) {
       setError(err?.message || 'Could not add the resident')
     } finally { setSaving(false) }
@@ -190,8 +199,10 @@ export default function Residents() {
       }))
       const { error } = await withTimeout(supabase.from('residents').insert(toInsert))
       if (error) throw error
+      const n = toInsert.length
       setPending(null)
       await load()
+      setSuccessMsg(`Imported ${n} resident${n === 1 ? '' : 's'}.`)
     } catch (err) {
       setError(err?.message || 'Import failed')
     } finally { setImporting(false) }
@@ -208,6 +219,7 @@ export default function Residents() {
         {monthlyDues > 0
           ? `Dues are ${fmtMoney(monthlyDues)}/mo per home and accrue automatically — set each household's opening balance below.`
           : 'Set monthly dues on the Community page to start dues tracking.'}
+        {' '}Residents maintain their own name, phone, and email from their Settings — those edits sync to this roster.
       </p>
 
       {status === 'none' && (
@@ -223,48 +235,55 @@ export default function Residents() {
         </div>
       )}
 
+      {successMsg && (
+        <div className="admin-success" role="status">
+          <span className="admin-success-check" aria-hidden="true">✓</span>
+          {successMsg}
+        </div>
+      )}
+
       {(status === 'ready' || status === 'loading') && (
         <>
           <form className="admin-form" onSubmit={add}>
             <label className="admin-field">
               <span className="admin-field-label">Resident name</span>
-              <input className="admin-input" placeholder="Jane Doe"
+              <input name="full_name" className="admin-input" placeholder="Jane Doe"
                 value={form.full_name} onChange={e => setField('full_name', e.target.value)} />
             </label>
             <div className="admin-2col">
               <label className="admin-field">
                 <span className="admin-field-label">Subdivision</span>
-                <input className="admin-input" placeholder="Lakeside"
+                <input name="subdivision" className="admin-input" placeholder="Lakeside"
                   value={form.subdivision} onChange={e => setField('subdivision', e.target.value)} />
               </label>
               <label className="admin-field">
                 <span className="admin-field-label">Address / unit</span>
-                <input className="admin-input" placeholder="1247 Oak Street"
+                <input name="address" className="admin-input" placeholder="1247 Oak Street"
                   value={form.address} onChange={e => setField('address', e.target.value)} />
               </label>
             </div>
             <div className="admin-2col">
               <label className="admin-field">
                 <span className="admin-field-label">Email</span>
-                <input className="admin-input" type="email" placeholder="jane@email.com"
+                <input name="email" className="admin-input" type="email" placeholder="jane@email.com"
                   value={form.email} onChange={e => setField('email', e.target.value)} />
               </label>
               <label className="admin-field">
                 <span className="admin-field-label">Phone</span>
-                <input className="admin-input" placeholder="(555) 123-4567"
+                <input name="phone" className="admin-input" placeholder="(555) 123-4567"
                   value={form.phone} onChange={e => setField('phone', e.target.value)} />
               </label>
             </div>
             <div className="admin-form-actions">
-              <button type="submit" className="admin-btn" disabled={saving}>
+              <button type="submit" className="admin-primary-btn" disabled={saving}>
                 {saving ? 'Adding…' : 'Add resident'}
               </button>
-              <button type="button" className="admin-btn-ghost"
+              <button type="button" className="admin-secondary-btn"
                 title="CSV columns: name, subdivision, address, email, phone"
                 onClick={() => fileRef.current && fileRef.current.click()}>
                 Import CSV
               </button>
-              <input ref={fileRef} type="file" accept=".csv,text/csv"
+              <input name="residents-csv" ref={fileRef} type="file" accept=".csv,text/csv"
                 onChange={onPickFile} style={{ display: 'none' }} />
               {error && <span className="admin-err-inline">{error}</span>}
             </div>
@@ -275,7 +294,7 @@ export default function Residents() {
               <span>
                 Found <strong>{pending.length}</strong> resident{pending.length === 1 ? '' : 's'} in that file.
               </span>
-              <button type="button" className="admin-btn" disabled={importing} onClick={confirmImport}>
+              <button type="button" className="admin-primary-btn" disabled={importing} onClick={confirmImport}>
                 {importing ? 'Importing…' : `Import all ${pending.length}`}
               </button>
               <button type="button" className="admin-btn-ghost" onClick={() => setPending(null)}>
@@ -328,7 +347,7 @@ function ResidentRow({ r, monthlyDues, interestRate, payments, onLocal, onCommit
         <span className="res-open-lbl">Opening</span>
         <span className="res-open-field">
           <span className="res-bal-pre">$</span>
-          <input className="res-bal-input" type="number" placeholder="0"
+          <input name={`opening-balance-${r.id}`} className="res-bal-input" type="number" placeholder="0"
             value={r.opening_balance ?? ''}
             onChange={e => onLocal(r.id, 'opening_balance', e.target.value)}
             onBlur={e => onCommit(r.id, { opening_balance: Number(e.target.value) || 0 })} />

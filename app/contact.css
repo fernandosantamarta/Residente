@@ -1,0 +1,197 @@
+/* Resident Contact / "Submit a request" — themed to match the resident rail
+   (light navy text + terracotta accent). Two columns: the request form, and a
+   "Your past submissions" table. */
+
+.con-wrap { max-width: 1120px; margin: 0 auto; padding: 28px 8px 48px; color: #0A2440; }
+.con-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 430px) 1fr;
+  gap: 20px;
+  align-items: stretch;   /* both cards share a height so their bottoms line up */
+}
+@media (max-width: 900px) { .con-grid { grid-template-columns: 1fr; } }
+
+.con-card {
+  background: #fff;
+  border: 1px solid rgba(15, 28, 46, 0.10);
+  border-radius: 16px;
+  padding: 22px 22px 24px;
+  box-shadow: 0 1px 2px rgba(15, 28, 46, 0.04);
+}
+.con-card-title { font-size: 17px; font-weight: 700; color: #0A2440; margin: 0 0 16px; }
+
+.con-field { margin-bottom: 16px; }
+.con-label {
+  display: block; font-size: 12px; font-weight: 600;
+  color: rgba(15, 28, 46, 0.6); margin-bottom: 7px;
+}
+
+.con-input {
+  width: 100%; box-sizing: border-box;
+  background: #fff; border: 1px solid rgba(15, 28, 46, 0.16);
+  border-radius: 10px; padding: 11px 13px;
+  font: inherit; font-size: 14px; color: #0A2440;
+  outline: none; transition: border-color .12s;
+}
+.con-input::placeholder { color: rgba(15, 28, 46, 0.38); }
+.con-input:focus { border-color: #E14909; }
+.con-textarea { resize: vertical; min-height: 92px; }
+.con-count { text-align: right; font-size: 11px; color: rgba(15, 28, 46, 0.45); margin-top: 5px; }
+
+/* category icon options */
+.con-cats { display: flex; flex-direction: column; gap: 8px; }
+.con-cat {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; text-align: left; cursor: pointer;
+  background: #fff; border: 1px solid rgba(15, 28, 46, 0.14);
+  border-radius: 11px; padding: 10px 12px; transition: border-color .12s, background .12s;
+}
+.con-cat:hover { border-color: rgba(225, 73, 9, 0.5); }
+.con-cat.on { border-color: #E14909; background: rgba(225, 73, 9, 0.05); }
+.con-cat-ic {
+  display: grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0;
+  border-radius: 9px; background: rgba(225, 73, 9, 0.10); color: #E14909;
+}
+.con-cat-ic svg { width: 18px; height: 18px; }
+.con-cat-label { flex: 1; font-size: 14px; font-weight: 500; color: #0A2440; }
+.con-cat-radio {
+  width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid rgba(15, 28, 46, 0.22); transition: border-color .12s, background .12s;
+}
+.con-cat.on .con-cat-radio {
+  border-color: #E14909;
+  background: radial-gradient(circle, #E14909 0 5px, transparent 6px);
+}
+
+/* attach */
+.con-attach { margin-bottom: 18px; }
+.con-attach-row {
+  display: flex; align-items: center; gap: 12px; cursor: pointer;
+  border: 1px dashed rgba(15, 28, 46, 0.22); border-radius: 11px; padding: 12px 14px;
+  transition: border-color .12s;
+}
+.con-attach-row:hover { border-color: #E14909; }
+.con-attach-ic { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; color: rgba(15, 28, 46, 0.5); }
+.con-attach-ic svg { width: 18px; height: 18px; }
+.con-attach-title { display: block; font-size: 13px; font-weight: 600; color: #0A2440; }
+.con-attach-sub { display: block; font-size: 11px; color: rgba(15, 28, 46, 0.5); margin-top: 2px; }
+
+.con-submit {
+  width: 100%; border: none; cursor: pointer;
+  background: #0A2440; color: #fff; font: inherit; font-size: 15px; font-weight: 600;
+  border-radius: 11px; padding: 13px; transition: background .12s;
+}
+.con-submit:hover:not(:disabled) { background: #14365c; }
+.con-submit:disabled { opacity: .6; cursor: default; }
+.con-error { color: #c0392b; font-size: 13px; margin-top: 10px; }
+.con-ok { color: #1f8a4c; font-size: 13px; margin-top: 10px; font-weight: 500; }
+
+/* submissions table */
+.con-list-card { min-width: 0; }
+.con-thead, .con-trow {
+  display: grid;
+  grid-template-columns: 84px 1.6fr 1fr 112px 96px 16px;
+  gap: 10px; align-items: center;
+}
+.con-thead {
+  font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  color: rgba(15, 28, 46, 0.45); padding: 0 0 10px;
+  border-bottom: 1px solid rgba(15, 28, 46, 0.08);
+}
+.con-trow { padding: 13px 0; border-bottom: 1px solid rgba(15, 28, 46, 0.07); font-size: 13px; }
+.con-trow:last-child { border-bottom: none; }
+.con-id { color: #E14909; font-weight: 600; font-variant-numeric: tabular-nums; }
+.con-subj { color: #0A2440; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.con-cat-cell { color: rgba(15, 28, 46, 0.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.con-date { color: rgba(15, 28, 46, 0.5); white-space: nowrap; }
+.con-chev { color: rgba(15, 28, 46, 0.3); text-align: center; }
+.con-clip { background: none; border: none; cursor: pointer; color: rgba(15, 28, 46, 0.5); padding: 0; display: inline-grid; place-items: center; }
+.con-clip:hover { color: #E14909; }
+.con-clip svg { width: 15px; height: 15px; }
+.con-empty { padding: 32px 0; text-align: center; color: rgba(15, 28, 46, 0.45); font-size: 13px; }
+
+.con-badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.con-badge-new { background: rgba(176, 116, 31, 0.14); color: #9a6312; }
+.con-badge-in_progress { background: rgba(62, 124, 177, 0.16); color: #2c5e87; }
+.con-badge-resolved { background: rgba(31, 138, 76, 0.14); color: #1f7a44; }
+
+/* Board's reply to the resident — full-width line under its request row. */
+.con-note {
+  display: flex; align-items: baseline; gap: 9px; flex-wrap: wrap;
+  margin: -2px 0 11px; padding: 9px 12px;
+  background: rgba(62, 124, 177, 0.08);
+  border-left: 3px solid #3e7cb1; border-radius: 0 8px 8px 0;
+  font-size: 12.5px; line-height: 1.5;
+}
+.con-note-tag {
+  font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: #2c5e87; flex-shrink: 0;
+}
+.con-note-body { color: #0A2440; flex: 1; min-width: 0; }
+.con-note-date { color: rgba(15, 28, 46, 0.45); font-size: 11px; flex-shrink: 0; }
+.con-note-photo {
+  display: inline-flex; align-items: center; gap: 5px;
+  margin-left: 8px; padding: 0; background: none; border: none; cursor: pointer;
+  color: #E14909; font: inherit; font-size: 12px; font-weight: 600;
+}
+.con-note-photo:hover { text-decoration: underline; }
+.con-note-photo svg { width: 13px; height: 13px; }
+
+/* Clickable submission rows — tap to expand full detail. */
+.con-trow-click { cursor: pointer; transition: background .12s; border-radius: 8px; }
+.con-trow-click:hover { background: rgba(225, 73, 9, 0.05); }
+.con-trow-click.open { background: rgba(225, 73, 9, 0.06); }
+.con-trow-click:focus-visible { outline: 2px solid rgba(225, 73, 9, 0.5); outline-offset: 2px; }
+.con-chev { display: flex; align-items: center; justify-content: flex-end; gap: 6px; color: rgba(15, 28, 46, 0.4); }
+.con-chev-ic { transition: transform .15s ease; }
+.con-chev-ic.open { transform: rotate(180deg); color: #E14909; }
+.con-reply-dot { width: 7px; height: 7px; border-radius: 50%; background: #3e7cb1; flex-shrink: 0; }
+
+/* Expanded detail panel under a submission row. */
+.con-detail {
+  margin: -2px 0 12px; padding: 12px 14px;
+  background: rgba(15, 28, 46, 0.025);
+  border: 1px solid rgba(15, 28, 46, 0.07); border-radius: 10px;
+  display: flex; flex-direction: column; gap: 10px; font-size: 13px;
+}
+.con-detail-row { display: flex; flex-direction: column; gap: 3px; }
+.con-detail-label {
+  font-size: 10px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+  color: rgba(15, 28, 46, 0.45);
+}
+.con-detail-val { color: #0A2440; line-height: 1.5; white-space: pre-wrap; }
+
+.con-viewall {
+  margin-top: 16px; width: 100%; background: none; border: none; cursor: pointer;
+  color: #E14909; font: inherit; font-size: 13px; font-weight: 600; padding: 8px;
+}
+.con-viewall:hover { text-decoration: underline; }
+
+/* narrow screens: keep ID / Subject / Status, drop the rest */
+@media (max-width: 700px) {
+  .con-thead, .con-trow { grid-template-columns: 64px 1fr 104px; }
+  .con-thead span:nth-child(3),
+  .con-thead span:nth-child(5),
+  .con-thead span:nth-child(6),
+  .con-trow .con-cat-cell,
+  .con-trow .con-date,
+  .con-trow .con-chev { display: none; }
+}
+
+/* emergency banner — solid orange */
+.con-emerg {
+  display: flex; align-items: center; gap: 16px; margin-top: 20px;
+  background: linear-gradient(90deg, #E14909, #F06A2E);
+  border: none; border-radius: 16px; padding: 20px 24px;
+  box-shadow: 0 6px 18px rgba(225, 73, 9, 0.22);
+}
+.con-emerg-ic {
+  display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0;
+  border-radius: 12px; background: rgba(255, 255, 255, 0.18); color: #fff;
+}
+.con-emerg-ic svg { width: 22px; height: 22px; }
+.con-emerg-body { flex: 1; }
+.con-emerg-title { font-size: 15px; font-weight: 700; color: #fff; }
+.con-emerg-sub { font-size: 13px; color: rgba(255, 255, 255, 0.92); margin-top: 2px; }
+.con-emerg-sub a { color: #fff; font-weight: 700; text-decoration: underline; }
+.con-emerg-sub a:hover { opacity: 0.85; }

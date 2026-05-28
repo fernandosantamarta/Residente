@@ -4,18 +4,27 @@ import { ReactNode, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { hasSupabase } from '@/lib/supabase'
+import { AdminErrorBoundary } from '@/components/AdminErrorBoundary'
 import { useAuth } from '../providers'
 import { CommunitySwitcher } from '../CommunitySwitcher'
 
 // Board-only admin section. Gated by role check — only board_member/admin
-// (or local dev without Supabase) reach here. Lean by design: 5 pages.
+// (or local dev without Supabase) reach here.
+// Shared sections follow the resident rail order (app/app/layout.tsx NAV):
+// Board, Voice, Contact, Rules, Documents, Schedule, Vendors. Admin-only
+// sections lead with the setup pair (Community, Residents); Violations sits
+// right after Rules since it enforces them.
 const ADMIN_NAV = [
-  { href: '/admin/community', label: 'Community' },
-  { href: '/admin/residents', label: 'Residents' },
-  { href: '/admin/board',     label: 'Board' },
-  { href: '/admin/voice',     label: 'Voice' },
-  { href: '/admin/rules',     label: 'Rules' },
-  { href: '/admin/documents', label: 'Documents' },
+  { href: '/admin/community',  label: 'Community' },
+  { href: '/admin/residents',  label: 'Residents' },
+  { href: '/admin/board',      label: 'Board' },
+  { href: '/admin/voice',      label: 'Voice' },
+  { href: '/admin/requests',   label: 'Contact' },
+  { href: '/admin/rules',      label: 'Rules' },
+  { href: '/admin/violations', label: 'Violations' },
+  { href: '/admin/documents',  label: 'Documents' },
+  { href: '/admin/schedule',   label: 'Schedule' },
+  { href: '/admin/vendor',     label: 'Vendors' },
 ]
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
@@ -36,7 +45,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <div className="admin">
       <header className="admin-top">
         <div className="admin-brand">
-          <span className="brand-dot" />
+          <img src="/residente-logo.png" alt="" className="brand-logo admin-brand-logo" />
           <span className="admin-brand-word">Residente</span>
           <span className="admin-tag">Admin</span>
           <CommunitySwitcher />
@@ -57,7 +66,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       </nav>
 
       <main className="admin-main">
-        {children}
+        <AdminErrorBoundary>{children}</AdminErrorBoundary>
       </main>
     </div>
   )

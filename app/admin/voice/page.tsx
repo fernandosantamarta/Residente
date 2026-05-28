@@ -17,6 +17,7 @@ import {
   generateVoteKeypair, wrapSecretKey, unwrapSecretKey,
   decryptAnswer, exportKeyCard, bytesToBase64,
 } from '@/lib/ballotCrypto'
+import { Dropdown } from '@/components/Dropdown'
 
 const withTimeout = (p, ms = 10000) =>
   Promise.race([
@@ -59,10 +60,11 @@ export default function Meetings() {
 
       <div className="admin-section-head" style={{ marginTop: 18 }}>
         <div>
-          <div className="admin-section-title">Easy Voice — Meetings</div>
+          <div className="admin-kicker">Easy Voice</div>
+          <div className="admin-section-title">Meetings</div>
           <div className="admin-section-sub">Create meetings, manage documents, and run votes.</div>
         </div>
-        <button className="admin-btn" onClick={() => setView('create')}>+ New Meeting</button>
+        <button className="admin-primary-btn" onClick={() => setView('create')}>+ New Meeting</button>
       </div>
 
       {loading && <div className="admin-placeholder">Loading meetings…</div>}
@@ -175,14 +177,18 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
       <form className="voice-form" onSubmit={save}>
         <div className="voice-form-row">
           <label>Meeting type</label>
-          <select value={form.type} onChange={e => set('type', e.target.value)}>
-            {MEETING_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
+          <Dropdown<string>
+            value={form.type}
+            onChange={v => set('type', v)}
+            ariaLabel="Meeting type"
+            options={MEETING_TYPES}
+          />
         </div>
 
         <div className="voice-form-row">
           <label>Title</label>
           <input
+            name="title"
             type="text"
             value={form.title}
             onChange={e => set('title', e.target.value)}
@@ -194,6 +200,7 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
         <div className="voice-form-row">
           <label>Date &amp; time</label>
           <input
+            name="scheduled_at"
             type="datetime-local"
             value={form.scheduled_at}
             onChange={e => set('scheduled_at', e.target.value)}
@@ -214,6 +221,7 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
         <div className="voice-form-row">
           <label>Location <span className="voice-opt">(optional)</span></label>
           <input
+            name="location"
             type="text"
             value={form.location}
             onChange={e => set('location', e.target.value)}
@@ -224,6 +232,7 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
         <div className="voice-form-row">
           <label>Virtual link <span className="voice-opt">(optional)</span></label>
           <input
+            name="virtual_link"
             type="url"
             value={form.virtual_link}
             onChange={e => set('virtual_link', e.target.value)}
@@ -234,6 +243,7 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
         <div className="voice-form-row">
           <label>Quorum % <span className="voice-opt">(optional — overrides community default)</span></label>
           <input
+            name="quorum_required_pct"
             type="number"
             min="1" max="100" step="0.1"
             value={form.quorum_required_pct}
@@ -245,7 +255,7 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
         {err && <div className="admin-err">{err}</div>}
 
         <div className="voice-form-actions">
-          <button type="submit" className="admin-btn" disabled={saving}>
+          <button type="submit" className="admin-primary-btn" disabled={saving}>
             {saving ? 'Saving…' : existing ? 'Save changes' : 'Create meeting'}
           </button>
           <button type="button" className="admin-btn-ghost" onClick={onCancel}>Cancel</button>
@@ -445,6 +455,7 @@ function NotifyPanel({ meeting }) {
         <div className="voice-form-row">
           <label>Subject</label>
           <input
+            name="notice-subject"
             type="text"
             value={subject}
             onChange={e => setSubject(e.target.value)}
@@ -454,6 +465,7 @@ function NotifyPanel({ meeting }) {
         <div className="voice-form-row">
           <label>Body</label>
           <textarea
+            name="notice-body"
             value={body}
             onChange={e => setBody(e.target.value)}
             rows={3}
@@ -483,7 +495,7 @@ function NotifyPanel({ meeting }) {
         </div>
         {err && <div className="admin-err">{err}</div>}
         <div className="voice-form-actions">
-          <button type="submit" className="admin-btn" disabled={sending}>
+          <button type="submit" className="admin-primary-btn" disabled={sending}>
             {sending ? 'Sending…' : 'Send notice'}
           </button>
         </div>
@@ -940,30 +952,41 @@ function VoteForm({ meetingId, communityId, onSaved, onCancel }) {
     <form className="voice-vote-form" onSubmit={save}>
       <div className="voice-form-row">
         <label>Vote title</label>
-        <input type="text" value={form.title} onChange={e => set('title', e.target.value)}
+        <input name="vote-title" type="text" value={form.title} onChange={e => set('title', e.target.value)}
           placeholder="e.g. Approve pool renovation special assessment" required />
       </div>
       <div className="voice-form-row">
         <label>Description <span className="voice-opt">(optional)</span></label>
-        <textarea value={form.description} onChange={e => set('description', e.target.value)}
+        <textarea name="vote-description" value={form.description} onChange={e => set('description', e.target.value)}
           rows={2} placeholder="Additional details visible to residents…" />
       </div>
       <div className="voice-form-inline">
         <div className="voice-form-row">
           <label>Type</label>
-          <select value={form.type} onChange={e => set('type', e.target.value)}>
-            {VOTE_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
+          <Dropdown<string>
+            value={form.type}
+            onChange={v => set('type', v)}
+            ariaLabel="Vote type"
+            options={VOTE_TYPES}
+          />
         </div>
         <div className="voice-form-row">
           <label>Ballot type</label>
-          <select value={form.ballot_type} onChange={e => set('ballot_type', e.target.value)}
-            disabled={form.type === 'election'}>
-            <option value="open">Open</option>
-            <option value="secret">Secret</option>
-          </select>
-          {form.type === 'election' && (
-            <div className="voice-hard-block">Elections must use secret ballot (FL 718.112(2)(d)(3))</div>
+          {form.type === 'election' ? (
+            <>
+              <div className="voice-channels-readonly">Secret ballot</div>
+              <div className="voice-hard-block">Elections must use secret ballot (FL 718.112(2)(d)(3))</div>
+            </>
+          ) : (
+            <Dropdown<string>
+              value={form.ballot_type}
+              onChange={v => set('ballot_type', v)}
+              ariaLabel="Ballot type"
+              options={[
+                { value: 'open', label: 'Open' },
+                { value: 'secret', label: 'Secret' },
+              ]}
+            />
           )}
         </div>
       </div>
@@ -998,7 +1021,7 @@ function VoteForm({ meetingId, communityId, onSaved, onCancel }) {
       )}
       {err && <div className="admin-err">{err}</div>}
       <div className="voice-form-actions">
-        <button type="submit" className="admin-btn" disabled={saving}>{saving ? 'Adding…' : 'Add vote item'}</button>
+        <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Adding…' : 'Add vote item'}</button>
         <button type="button" className="admin-btn-ghost" onClick={onCancel}>Cancel</button>
       </div>
     </form>
@@ -1108,10 +1131,16 @@ function DocsPanel({ meeting, reload }) {
       <div className="voice-panel-head"><span>Meeting documents</span></div>
 
       <div className="voice-upload-row">
-        <select value={docType} onChange={e => setDocType(e.target.value)}>
-          {DOC_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-        </select>
+        <div style={{ minWidth: 190 }}>
+          <Dropdown<string>
+            value={docType}
+            onChange={setDocType}
+            ariaLabel="Document type"
+            options={DOC_TYPES}
+          />
+        </div>
         <input
+          name="doc-title"
           type="text"
           value={docTitle}
           onChange={e => setDocTitle(e.target.value)}
@@ -1119,7 +1148,7 @@ function DocsPanel({ meeting, reload }) {
         />
         <label className={`admin-btn-sm voice-upload-btn${uploading ? ' disabled' : ''}`}>
           {uploading ? 'Uploading…' : 'Choose file'}
-          <input type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" onChange={upload} disabled={uploading} style={{ display: 'none' }} />
+          <input name="meeting-doc" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" onChange={upload} disabled={uploading} style={{ display: 'none' }} />
         </label>
       </div>
 

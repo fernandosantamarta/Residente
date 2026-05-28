@@ -3,6 +3,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
+import { Dropdown } from '@/components/Dropdown'
+import { Pagination, paginate } from '@/components/Pagination'
+
+const DOCS_PAGE_SIZE = 8
 
 // Uploads can be large — give them a longer leash than ordinary queries.
 const withTimeout = (p, ms = 30000) =>
@@ -35,7 +39,16 @@ export default function Documents() {
   const [form, setForm] = useState(EMPTY)
   const [file, setFile] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [successMsg, setSuccessMsg] = useState('')
+  const [page, setPage] = useState(1)
   const fileRef = useRef(null)
+
+  // Auto-dismiss the green confirmation banner after 4 seconds.
+  useEffect(() => {
+    if (!successMsg) return
+    const id = setTimeout(() => setSuccessMsg(''), 4000)
+    return () => clearTimeout(id)
+  }, [successMsg])
 
   const load = useCallback(async () => {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
@@ -94,6 +107,7 @@ export default function Documents() {
       setForm(EMPTY)
       setFile(null)
       if (fileRef.current) fileRef.current.value = ''
+      setSuccessMsg(`Uploaded "${row.title}".`)
     } catch (err) {
       setError(err?.message || 'Upload failed')
     } finally {
@@ -108,6 +122,7 @@ export default function Documents() {
       await withTimeout(supabase.storage.from('documents').remove([doc.storage_path]))
       const { error } = await withTimeout(supabase.from('documents').delete().eq('id', doc.id))
       if (error) throw error
+      setSuccessMsg(`Removed "${doc.title}".`)
     } catch (err) {
       setRows(prev)   // roll back
       setError(err?.message || 'Could not remove that document')
@@ -137,28 +152,37 @@ export default function Documents() {
         </div>
       )}
 
+      {successMsg && (
+        <div className="admin-success" role="status">
+          <span className="admin-success-check" aria-hidden="true">✓</span>
+          {successMsg}
+        </div>
+      )}
+
       {(status === 'ready' || status === 'loading') && (
         <>
           <form className="admin-form" onSubmit={upload}>
             <label className="admin-field">
               <span className="admin-field-label">Title</span>
-              <input className="admin-input" placeholder="April 2026 board meeting minutes"
+              <input name="title" className="admin-input" placeholder="April 2026 board meeting minutes"
                 value={form.title} onChange={e => setField('title', e.target.value)} />
             </label>
-            <label className="admin-field" style={{ maxWidth: 240 }}>
+            <div className="admin-field" style={{ maxWidth: 240 }}>
               <span className="admin-field-label">Category</span>
-              <select className="admin-input" value={form.category}
-                onChange={e => setField('category', e.target.value)}>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </label>
+              <Dropdown
+                value={form.category}
+                onChange={v => setField('category', v)}
+                ariaLabel="Document category"
+                options={CATEGORIES.map(c => ({ value: c, label: c }))}
+              />
+            </div>
             <label className="admin-field">
               <span className="admin-field-label">File</span>
-              <input ref={fileRef} type="file" className="admin-file"
+              <input name="document" ref={fileRef} type="file" className="admin-file"
                 onChange={e => setFile(e.target.files?.[0] || null)} />
             </label>
             <div className="admin-form-actions">
-              <button type="submit" className="admin-btn" disabled={saving}>
+              <button type="submit" className="admin-primary-btn" disabled={saving}>
                 {saving ? 'Uploading…' : 'Upload document'}
               </button>
               {error && <span className="admin-err-inline">{error}</span>}
@@ -177,7 +201,7 @@ export default function Documents() {
             <div className="bc-empty">No documents yet — upload the first one above.</div>
           )}
           <div className="bd-list">
-            {rows.map(d => (
+            {paginate(rows, page, DOCS_PAGE_SIZE).map(d => (
               <div className="bd-row" key={d.id}>
                 <div className="bd-main">
                   <div className="bd-title">{d.title}</div>
@@ -192,6 +216,12 @@ export default function Documents() {
               </div>
             ))}
           </div>
+          <Pagination
+            page={page}
+            pageSize={DOCS_PAGE_SIZE}
+            total={rows.length}
+            onPageChange={setPage}
+          />
         </>
       )}
     </div>

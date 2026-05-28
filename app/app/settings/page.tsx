@@ -1,80 +1,1188 @@
 'use client'
 
-import { useState } from 'react'
+import { ChangeEvent, ReactNode, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/app/providers'
-import { THEMES, getTheme, setTheme } from '@/lib/theme'
+import { signOut, supabase, hasSupabase } from '@/lib/supabase'
+import { useCommunityData } from '@/hooks/useCommunityData'
+import {
+  EMAIL_PREF_LABEL,
+  HOMEPAGE_LABEL,
+  LANGUAGE_LABEL,
+  PUSH_PREF_LABEL,
+  SMS_PREF_LABEL,
+  TIMEZONE_LABEL,
+  WEEK_START_LABEL,
+  fileToProfileImage,
+  formatTime12,
+  newId,
+  usePreferences,
+  type EmailPref,
+  type HomepageRoute,
+  type LanguageCode,
+  type Preferences,
+  type PushPref,
+  type SmsPref,
+  type TimezoneCode,
+  type WeekStart,
+} from '@/lib/preferences'
 
-// A small preview swatch per theme: the card surface + the accent chip.
-const SWATCH = {
-  'sketch':      { bg: '#FFFFFF', accent: '#C76F45', desc: 'Hand-drawn warmth, matches the landing' },
-  'linear-dark': { bg: '#17171B', accent: '#7C6CDB', desc: 'Refined charcoal and violet' },
-  'original':    { bg: '#16162A', accent: '#FF3B5F', desc: 'The original neon look' },
-  'mercury':     { bg: '#FFFFFF', accent: '#1F5C3D', desc: 'Light fintech, forest green' },
-  'concierge':   { bg: '#FFFFFF', accent: '#0F6E6A', desc: 'Warm cream, editorial serif' },
-}
+// Every row + sidebar CTA opens a dialog (keyed below). One generic
+// SettingsDialog component switches on the key. State writes through
+// usePreferences() immediately on change so closing the dialog is the
+// only "save" the user has to do.
+type DialogKey =
+  | 'profile' | 'security' | 'notifications'
+  | 'language' | 'accessibility'
+  | 'email' | 'sms' | 'push' | 'quiet-hours'
+  | 'homepage' | 'calendar' | 'payment' | 'privacy'
+  | 'unit' | 'contacts' | 'vehicles' | 'pets'
+  | 'refer' | 'updates'
 
-// Settings — reached by clicking your profile in the sidebar. Holds the
-// theme picker; account details are read-only (managed by the board).
 export default function Settings() {
   const { profile } = useAuth() || {}
-  const [theme, setLocal] = useState(getTheme)
+  const { community } = useCommunityData()
+  const [prefs, patch] = usePreferences()
+  const [dialog, setDialog] = useState<DialogKey | null>(null)
 
-  function pick(id) {
-    setLocal(id)
-    setTheme(id)
+  // Two-way sync with the board's roster. The signed-in resident is matched
+  // to their public.residents row by email (same match as useMyResident).
+  // That row is the shared source of truth for name/email/phone: we seed
+  // prefs from it once on load, and write name/phone back on edit so the
+  // admin Residents page reflects what the resident maintains. Falls back to
+  // localStorage-only when Supabase is off or there's no roster match yet.
+  const [roster, setRoster] = useState<any | null>(null)
+  const seededRef = useRef(false)
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (!hasSupabase || !supabase || !profile?.community_id || !profile?.email || !profile?.id) return
+      try {
+        // Match by the stable account link first; fall back to the legacy
+        // email match and claim the row. Mirrors useMyResident so the
+        // resident's Settings and the rest of the app resolve the same row.
+        let row: any = null
+        try {
+          const byId = await supabase.from('residents').select('*')
+            .eq('profile_id', profile.id).limit(1)
+          if (!byId.error && byId.data && byId.data[0]) row = byId.data[0]
+        } catch { /* no profile_id column yet — fall through */ }
+        if (!row) {
+          const byEmail = await supabase.from('residents').select('*')
+            .eq('community_id', profile.community_id)
+            .ilike('email', profile.email).limit(1)
+          if (!byEmail.error && byEmail.data && byEmail.data[0]) {
+            row = byEmail.data[0]
+            if (!row.profile_id) {
+              try {
+                const claim = await supabase.from('residents').update({ profile_id: profile.id })
+                  .eq('id', row.id).select().single()
+                if (!claim.error && claim.data) row = claim.data
+              } catch { /* pre-migration — ignore */ }
+            }
+          }
+        }
+        if (cancelled || !row) return
+        setRoster(row)
+        if (!seededRef.current) {
+          seededRef.current = true
+          // Name + phone come from the roster; email is the login email
+          // (canonical), which providers already keeps current.
+          const seed: Partial<Preferences> = {}
+          if (row.full_name) seed.full_name = row.full_name
+          if (row.phone)     seed.phone = row.phone
+          if (profile.email) seed.email = profile.email
+          if (Object.keys(seed).length) patch(seed)
+        }
+      } catch { /* prefs-only fallback */ }
+    })()
+    return () => { cancelled = true }
+  }, [profile?.community_id, profile?.email, profile?.id])
+
+  // Write a name/phone edit back to the roster row. No-op (local-only) when
+  // there's no matched row yet — the board hasn't added this resident.
+  const saveContact = async (next: { full_name?: string; phone?: string }) => {
+    if (!supabase || !roster?.id) return
+    try {
+      const { error } = await supabase.from('residents').update(next).eq('id', roster.id)
+      if (!error) setRoster((r: any) => ({ ...r, ...next }))
+    } catch { /* keep the local prefs copy */ }
+  }
+
+  const fullName    = prefs.full_name || profile?.full_name || 'Resident'
+  const email       = prefs.email     || profile?.email     || 'resident@example.com'
+  const unitLabel   = profile?.unit_number ? `Unit ${profile.unit_number}` : 'Unit —'
+  const memberSince = 'Jan 2023'
+  const communityName = community?.name || 'Sunset Lakes'
+
+  return (
+    <div className="set-wrap">
+      <section className="set-hero">
+        <div className="set-hero-content">
+          <h1 className="set-hero-title">Settings</h1>
+          <div className="set-hero-sub">
+            Manage your account, preferences, and site settings for {communityName}.
+          </div>
+        </div>
+      </section>
+
+      <div className="set-grid">
+        {/* MAIN COLUMN */}
+        <div className="set-col">
+          <SectionCard title="Account &amp; Profile">
+            <Row icon={<IconUser />}  title="Profile Information"      desc="Update your name, photo, and contact info."
+              onClick={() => setDialog('profile')} right={fullName} />
+            <Row icon={<IconLock />}  title="Login &amp; Security"     desc="Password, two-factor, and active sessions."
+              onClick={() => setDialog('security')} />
+            <Row icon={<IconBell />}  title="Notification Preferences" desc="Choose what reaches you and how."
+              onClick={() => setDialog('notifications')} />
+            <Row icon={<IconGlobe />} title="Language &amp; Region"    desc="Display language, timezone, and date format."
+              onClick={() => setDialog('language')}
+              right={`${LANGUAGE_LABEL[prefs.language]} · ${prefs.timezone}`} />
+            <Row icon={<IconEye />}   title="Accessibility"            desc="Larger text, reduced motion, high contrast."
+              onClick={() => setDialog('accessibility')}
+              right={accessibilitySummary(prefs)} />
+          </SectionCard>
+
+          <SectionCard title="Communication Preferences">
+            <Row icon={<IconMail />} title="Email Preferences"  desc="Newsletters, board updates, billing receipts."
+              onClick={() => setDialog('email')} right={EMAIL_PREF_LABEL[prefs.email_pref]} />
+            <Row icon={<IconChat />} title="SMS Preferences"    desc="Texts for emergencies and dues reminders."
+              onClick={() => setDialog('sms')}   right={SMS_PREF_LABEL[prefs.sms_pref]} />
+            <Row icon={<IconPush />} title="Browser Notifications" desc="Browser push alerts when Residente isn't open."
+              onClick={() => setDialog('push')}  right={PUSH_PREF_LABEL[prefs.push_pref]} />
+            <Row icon={<IconMoon />} title="Quiet Hours"        desc="No non-emergency notifications during this window."
+              onClick={() => setDialog('quiet-hours')}
+              right={`${formatTime12(prefs.quiet_hours_start)} – ${formatTime12(prefs.quiet_hours_end)}`} />
+          </SectionCard>
+
+          <SectionCard title="Site Preferences">
+            <Row icon={<IconHome />}     title="Default Landing Page" desc="Where Residente opens when you sign in."
+              onClick={() => setDialog('homepage')} right={HOMEPAGE_LABEL[prefs.default_homepage]} />
+            <Row icon={<IconCalendar />} title="Calendar Settings"   desc="Week start, default view, sync options."
+              onClick={() => setDialog('calendar')} right={WEEK_START_LABEL[prefs.calendar_week_start]} />
+            <Row icon={<IconCard />}     title="Payment Methods"     desc="Cards and bank accounts on file."
+              onClick={() => setDialog('payment')}  right={`${prefs.payment_methods.length} saved`} />
+            <Row icon={<IconShield />}   title="Privacy &amp; Data"  desc="Who can see your unit info and history."
+              onClick={() => setDialog('privacy')} />
+          </SectionCard>
+
+          <SectionCard title="Community &amp; Unit">
+            <Row icon={<IconKey />}   title="Unit Information"   desc="Address, square footage, ownership details."
+              onClick={() => setDialog('unit')} right={unitLabel} />
+            <Row icon={<IconPhone />} title="Emergency Contacts" desc="People the board reaches in an emergency."
+              onClick={() => setDialog('contacts')} right={`${prefs.emergency_contacts.length} on file`} />
+            <Row icon={<IconCar />}   title="Vehicle Information" desc="Cars registered for your designated spots."
+              onClick={() => setDialog('vehicles')} right={`${prefs.vehicles.length} registered`} />
+            <Row icon={<IconPaw />}   title="Pet Information"    desc="Pets registered with the community."
+              onClick={() => setDialog('pets')} right={`${prefs.pets.length} registered`} />
+          </SectionCard>
+
+          <button className="set-logout" onClick={() => signOut()}>
+            <span className="set-logout-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+              </svg>
+            </span>
+            <span className="set-logout-body">
+              <span className="set-logout-title">Log out</span>
+              <span className="set-logout-desc">Sign out of your Residente account.</span>
+            </span>
+            <span className="set-logout-chev" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </span>
+          </button>
+        </div>
+
+        {/* RIGHT SIDEBAR */}
+        <aside className="set-aside">
+          <div className="set-tile">
+            <div className="set-tile-title">Account summary</div>
+            <div className="set-account">
+              <AvatarButton
+                image={prefs.profile_image}
+                fallback={(fullName[0] || 'R').toUpperCase()}
+                onPick={async file => {
+                  try {
+                    const dataUrl = await fileToProfileImage(file)
+                    patch({ profile_image: dataUrl })
+                  } catch (err: any) {
+                    alert(err?.message || 'Could not load that image.')
+                  }
+                }}
+              />
+              <div className="set-account-meta">
+                <div className="set-account-name">{unitLabel}</div>
+                <div className="set-account-email">{email}</div>
+              </div>
+            </div>
+            <div className="set-account-rows">
+              <div className="set-account-row"><span>Member since</span><span>{memberSince}</span></div>
+              <div className="set-account-row"><span>Community</span><span>{communityName}</span></div>
+            </div>
+            <button className="set-tile-cta" type="button" onClick={() => setDialog('profile')}>
+              View profile
+            </button>
+          </div>
+
+          <div className="set-tile">
+            <div className="set-tile-title">Quick links</div>
+            <ul className="set-links">
+              <li><Link href="/app/contact">Help center</Link></li>
+              <li><Link href="/app/contact">Contact management</Link></li>
+              <li><button type="button" className="set-links-btn" onClick={() => setDialog('notifications')}>Update communication preferences</button></li>
+              <li><Link href="/app/documents">Download center</Link></li>
+              <li><button type="button" className="set-links-btn" onClick={() => setDialog('refer')}>Refer a neighbor</button></li>
+            </ul>
+          </div>
+
+          <div className="set-tile">
+            <div className="set-tile-title">Preferences overview</div>
+            <div className="set-prefs">
+              <div className="set-pref-row"><span>Email</span><span>{EMAIL_PREF_LABEL[prefs.email_pref]}</span></div>
+              <div className="set-pref-row"><span>SMS</span><span>{SMS_PREF_LABEL[prefs.sms_pref]}</span></div>
+              <div className="set-pref-row"><span>Push</span><span>{PUSH_PREF_LABEL[prefs.push_pref]}</span></div>
+              <div className="set-pref-row"><span>Quiet hours</span><span>{formatTime12(prefs.quiet_hours_start)} – {formatTime12(prefs.quiet_hours_end)}</span></div>
+              <div className="set-pref-row"><span>Language</span><span>{LANGUAGE_LABEL[prefs.language]}</span></div>
+              <div className="set-pref-row"><span>Timezone</span><span>{prefs.timezone}</span></div>
+            </div>
+            <button className="set-tile-cta" type="button" onClick={() => setDialog('notifications')}>
+              Edit preferences
+            </button>
+          </div>
+
+          <div className="set-tile">
+            <div className="set-tile-title">About this site</div>
+            <div className="set-prefs">
+              <div className="set-pref-row"><span>Build</span><span>1.2.5 (web)</span></div>
+              <div className="set-pref-row"><span>Last deployed</span><span>May 27, 2026</span></div>
+              <div className="set-pref-row"><span>Native apps</span><span>Coming soon</span></div>
+            </div>
+            <button className="set-tile-cta" type="button" onClick={() => setDialog('updates')}>
+              Reload latest
+            </button>
+          </div>
+        </aside>
+      </div>
+
+      {dialog && (
+        <SettingsDialog
+          k={dialog}
+          prefs={prefs}
+          patch={patch}
+          unitLabel={unitLabel}
+          community={communityName}
+          roster={roster}
+          onSaveContact={saveContact}
+          onClose={() => setDialog(null)}
+        />
+      )}
+    </div>
+  )
+}
+
+// -- small helpers --------------------------------------------------
+
+function accessibilitySummary(p: Preferences): string {
+  const flags = [
+    p.large_text && 'Larger text',
+    p.reduced_motion && 'Reduced motion',
+    p.high_contrast && 'High contrast',
+  ].filter(Boolean) as string[]
+  return flags.length ? flags.join(' · ') : 'Default'
+}
+
+function SectionCard({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className="set-section">
+      <h2 className="set-section-title" dangerouslySetInnerHTML={{ __html: titleWithAmp(title) }} />
+      <div className="set-section-rows">{children}</div>
+    </section>
+  )
+}
+
+function titleWithAmp(t: string) {
+  return t.replace(/&amp;/g, '<span class="rb-amp">&amp;</span>')
+}
+
+function Row({
+  icon, title, desc, right, onClick,
+}: {
+  icon: ReactNode; title: string; desc: string; right?: string; onClick: () => void
+}) {
+  return (
+    <button type="button" className="set-row" onClick={onClick}>
+      <span className="set-row-icon">{icon}</span>
+      <span className="set-row-body">
+        <span className="set-row-title" dangerouslySetInnerHTML={{ __html: titleWithAmp(title) }} />
+        <span className="set-row-desc">{desc.replace(/&amp;/g, '&').replace(/&ndash;/g, '–')}</span>
+      </span>
+      {right && <span className="set-row-right">{right}</span>}
+      <svg className="set-row-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+    </button>
+  )
+}
+
+// -- dialog ----------------------------------------------------------
+
+function SettingsDialog({
+  k, prefs, patch, unitLabel, community, roster, onSaveContact, onClose,
+}: {
+  k: DialogKey
+  prefs: Preferences
+  patch: (p: Partial<Preferences>) => void
+  unitLabel: string
+  community: string
+  roster: any | null
+  onSaveContact: (next: { full_name?: string; phone?: string }) => void
+  onClose: () => void
+}) {
+  // Esc closes the dialog.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose])
+
+  const title = DIALOG_TITLE[k]
+  return (
+    <div className="set-dialog-backdrop" onClick={onClose}>
+      <div className="set-dialog-card" role="dialog" aria-modal="true"
+           onClick={e => e.stopPropagation()}>
+        <header className="set-dialog-head">
+          <h2 className="set-dialog-title">{title}</h2>
+          <button type="button" className="set-dialog-close" aria-label="Close" onClick={onClose}>×</button>
+        </header>
+        <div className="set-dialog-body">
+          <DialogBody k={k} prefs={prefs} patch={patch} unitLabel={unitLabel}
+            community={community} roster={roster} onSaveContact={onSaveContact} />
+        </div>
+        <footer className="set-dialog-foot">
+          <button type="button" className="set-btn-primary" onClick={onClose}>Done</button>
+        </footer>
+      </div>
+    </div>
+  )
+}
+
+const DIALOG_TITLE: Record<DialogKey, string> = {
+  profile:        'Profile information',
+  security:       'Login & security',
+  notifications:  'Notification preferences',
+  language:       'Language & region',
+  accessibility:  'Accessibility',
+  email:          'Email preferences',
+  sms:            'SMS preferences',
+  push:           'Push notifications',
+  'quiet-hours':  'Quiet hours',
+  homepage:       'Default landing page',
+  calendar:       'Calendar settings',
+  payment:        'Payment methods',
+  privacy:        'Privacy & data',
+  unit:           'Unit information',
+  contacts:       'Emergency contacts',
+  vehicles:       'Vehicle information',
+  pets:           'Pet information',
+  refer:          'Refer a neighbor',
+  updates:        'Reload latest',
+}
+
+function DialogBody({
+  k, prefs, patch, unitLabel, community, roster, onSaveContact,
+}: {
+  k: DialogKey
+  prefs: Preferences
+  patch: (p: Partial<Preferences>) => void
+  unitLabel: string
+  community: string
+  roster: any | null
+  onSaveContact: (next: { full_name?: string; phone?: string }) => void
+}) {
+  switch (k) {
+    case 'profile':
+      return (
+        <>
+          <ProfilePhotoEditor prefs={prefs} patch={patch} />
+          <Field label="Full name">
+            <input name="full_name" autoComplete="name" className="set-input" value={prefs.full_name}
+              onChange={e => patch({ full_name: e.target.value })}
+              onBlur={e => onSaveContact({ full_name: e.target.value.trim() })}
+              placeholder="Maria Santos" />
+          </Field>
+          <EmailChanger />
+          <Field label="Phone">
+            <input name="phone" autoComplete="tel" className="set-input" type="tel" value={prefs.phone}
+              onChange={e => patch({ phone: e.target.value })}
+              onBlur={e => onSaveContact({ phone: e.target.value.trim() })}
+              placeholder="(305) 555-0142" />
+          </Field>
+          {roster ? (
+            <span className="set-dialog-note set-dialog-note-tight">
+              ✓ Synced to your community record — your name and phone update the board&rsquo;s roster.
+            </span>
+          ) : (
+            <span className="set-dialog-note set-dialog-note-tight">
+              Saved on this device. Once the board adds you to the roster (matched by this email),
+              your name and phone will sync to them automatically.
+            </span>
+          )}
+        </>
+      )
+
+    case 'security':
+      return (
+        <>
+          <p className="set-dialog-note">
+            Password and 2FA are managed by your community&rsquo;s Supabase auth.
+            From the demo build these actions surface as stubs.
+          </p>
+          <button type="button" className="set-btn-ghost"
+            onClick={() => alert('A reset link would be sent to ' + (prefs.email || 'your email') + '.')}>
+            Send password reset link
+          </button>
+          <button type="button" className="set-btn-ghost"
+            onClick={() => alert('Two-factor setup is wired up in production.')}>
+            Set up two-factor authentication
+          </button>
+          <button type="button" className="set-btn-ghost"
+            onClick={() => alert('No other active sessions detected.')}>
+            View active sessions
+          </button>
+        </>
+      )
+
+    case 'notifications':
+      return (
+        <>
+          <RadioGroup<EmailPref>
+            label="Email"
+            value={prefs.email_pref}
+            onChange={v => patch({ email_pref: v })}
+            options={[
+              { value: 'all',       label: 'All updates',     desc: 'Board posts, billing receipts, newsletters.' },
+              { value: 'important', label: 'Important only',  desc: 'Billing, votes, emergencies.' },
+              { value: 'none',      label: 'None',            desc: 'Mute community email entirely.' },
+            ]}
+          />
+          <RadioGroup<SmsPref>
+            label="SMS"
+            value={prefs.sms_pref}
+            onChange={v => patch({ sms_pref: v })}
+            options={[
+              { value: 'all',       label: 'All texts',         desc: 'Reminders, RSVP nudges, dues prompts.' },
+              { value: 'emergency', label: 'Emergency only',    desc: 'Texts only when something urgent is happening.' },
+              { value: 'none',      label: 'None',              desc: 'No SMS at all.' },
+            ]}
+          />
+          <RadioGroup<PushPref>
+            label="Push"
+            value={prefs.push_pref}
+            onChange={v => patch({ push_pref: v })}
+            options={[
+              { value: 'all',       label: 'All',              desc: 'Every push the board sends.' },
+              { value: 'important', label: 'Important only',   desc: 'Votes, dues, emergencies.' },
+              { value: 'none',      label: 'None',             desc: 'Silence in-app and mobile push.' },
+            ]}
+          />
+          <Field label="Quiet hours">
+            <div className="set-time-row">
+              <input name="quiet_hours_start" className="set-input" type="time" value={prefs.quiet_hours_start}
+                onChange={e => patch({ quiet_hours_start: e.target.value })} />
+              <span className="set-time-sep">to</span>
+              <input name="quiet_hours_end" className="set-input" type="time" value={prefs.quiet_hours_end}
+                onChange={e => patch({ quiet_hours_end: e.target.value })} />
+            </div>
+          </Field>
+        </>
+      )
+
+    case 'language':
+      return (
+        <>
+          <RadioGroup<LanguageCode>
+            label="Display language"
+            value={prefs.language}
+            onChange={v => patch({ language: v })}
+            options={[
+              { value: 'en', label: 'English',     desc: 'Default for the cockpit.' },
+              { value: 'es', label: 'Español',     desc: 'Para residentes hispanohablantes.' },
+              { value: 'pt', label: 'Português',   desc: 'Para residentes que falam português.' },
+            ]}
+          />
+          <RadioGroup<TimezoneCode>
+            label="Timezone"
+            value={prefs.timezone}
+            onChange={v => patch({ timezone: v })}
+            options={(Object.keys(TIMEZONE_LABEL) as TimezoneCode[]).map(tz => ({
+              value: tz, label: TIMEZONE_LABEL[tz],
+            }))}
+          />
+        </>
+      )
+
+    case 'accessibility':
+      return (
+        <>
+          <ToggleRow
+            label="Larger text"
+            desc="Bump body and label sizes for easier reading."
+            checked={prefs.large_text}
+            onChange={v => patch({ large_text: v })}
+          />
+          <ToggleRow
+            label="Reduce motion"
+            desc="Skip the welcome zoom and other animated transitions."
+            checked={prefs.reduced_motion}
+            onChange={v => patch({ reduced_motion: v })}
+          />
+          <ToggleRow
+            label="High contrast"
+            desc="Stronger borders and darker text for low-light viewing."
+            checked={prefs.high_contrast}
+            onChange={v => patch({ high_contrast: v })}
+          />
+        </>
+      )
+
+    case 'email':
+      return (
+        <RadioGroup<EmailPref>
+          value={prefs.email_pref}
+          onChange={v => patch({ email_pref: v })}
+          options={[
+            { value: 'all',       label: 'All updates',     desc: 'Board posts, billing receipts, newsletters.' },
+            { value: 'important', label: 'Important only',  desc: 'Billing, votes, emergencies.' },
+            { value: 'none',      label: 'None',            desc: 'Mute community email entirely.' },
+          ]}
+        />
+      )
+
+    case 'sms':
+      return (
+        <RadioGroup<SmsPref>
+          value={prefs.sms_pref}
+          onChange={v => patch({ sms_pref: v })}
+          options={[
+            { value: 'all',       label: 'All texts',         desc: 'Reminders, RSVP nudges, dues prompts.' },
+            { value: 'emergency', label: 'Emergency only',    desc: 'Texts only when something urgent is happening.' },
+            { value: 'none',      label: 'None',              desc: 'No SMS at all.' },
+          ]}
+        />
+      )
+
+    case 'push':
+      return (
+        <RadioGroup<PushPref>
+          value={prefs.push_pref}
+          onChange={v => patch({ push_pref: v })}
+          options={[
+            { value: 'all',       label: 'All',              desc: 'Every push the board sends.' },
+            { value: 'important', label: 'Important only',   desc: 'Votes, dues, emergencies.' },
+            { value: 'none',      label: 'None',             desc: 'Silence in-app and mobile push.' },
+          ]}
+        />
+      )
+
+    case 'quiet-hours':
+      return (
+        <>
+          <p className="set-dialog-note">
+            No non-emergency notifications will reach you during this window.
+          </p>
+          <Field label="Start">
+            <input name="quiet_start" className="set-input" type="time" value={prefs.quiet_hours_start}
+              onChange={e => patch({ quiet_hours_start: e.target.value })} />
+          </Field>
+          <Field label="End">
+            <input name="quiet_end" className="set-input" type="time" value={prefs.quiet_hours_end}
+              onChange={e => patch({ quiet_hours_end: e.target.value })} />
+          </Field>
+        </>
+      )
+
+    case 'homepage':
+      return (
+        <RadioGroup<HomepageRoute>
+          value={prefs.default_homepage}
+          onChange={v => patch({ default_homepage: v })}
+          options={(Object.keys(HOMEPAGE_LABEL) as HomepageRoute[]).map(r => ({
+            value: r, label: HOMEPAGE_LABEL[r],
+          }))}
+        />
+      )
+
+    case 'calendar':
+      return (
+        <RadioGroup<WeekStart>
+          label="Week starts on"
+          value={prefs.calendar_week_start}
+          onChange={v => patch({ calendar_week_start: v })}
+          options={[
+            { value: 'sun', label: 'Sunday' },
+            { value: 'mon', label: 'Monday' },
+          ]}
+        />
+      )
+
+    case 'payment':
+      return <PaymentMethodsEditor prefs={prefs} patch={patch} />
+
+    case 'privacy':
+      return (
+        <>
+          <p className="set-dialog-note">
+            Demo privacy toggles &mdash; production will surface the real
+            data-sharing controls from the community settings table.
+          </p>
+          <ToggleRow label="Show my unit in the resident directory" desc="Other residents can see your name + unit." checked={true}  onChange={() => {}} />
+          <ToggleRow label="Share vehicle info with the gate"        desc="Speeds up plate-based gate access."         checked={true}  onChange={() => {}} />
+          <ToggleRow label="Include me in community-wide polls"      desc="Anonymous tallies, no individual votes."    checked={true}  onChange={() => {}} />
+        </>
+      )
+
+    case 'unit':
+      return (
+        <>
+          <p className="set-dialog-note">
+            Unit details are managed by the HOA board. Contact management to update.
+          </p>
+          <div className="set-readonly-rows">
+            <div className="set-readonly-row"><span>Unit</span><span>{unitLabel}</span></div>
+            <div className="set-readonly-row"><span>Community</span><span>{community}</span></div>
+            <div className="set-readonly-row"><span>Square footage</span><span>1,420 sq ft</span></div>
+            <div className="set-readonly-row"><span>Ownership</span><span>Owner-occupied</span></div>
+            <div className="set-readonly-row"><span>Move-in date</span><span>Jan 15, 2023</span></div>
+          </div>
+        </>
+      )
+
+    case 'contacts':
+      return (
+        <ContactsEditor prefs={prefs} patch={patch} />
+      )
+
+    case 'vehicles':
+      return (
+        <VehiclesEditor prefs={prefs} patch={patch} />
+      )
+
+    case 'pets':
+      return (
+        <PetsEditor prefs={prefs} patch={patch} />
+      )
+
+    case 'refer':
+      return <ReferDialog community={community} />
+
+    case 'updates':
+      return <UpdatesDialog />
+
+    default:
+      return <p>Unknown setting.</p>
+  }
+}
+
+// -- shared field/control components --------------------------------
+
+function Field({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <label className="set-dialog-field">
+      <span className="set-dialog-field-label">{label}</span>
+      {children}
+    </label>
+  )
+}
+
+function RadioGroup<T extends string>({
+  label, value, onChange, options,
+}: {
+  label?: string
+  value: T
+  onChange: (v: T) => void
+  options: { value: T; label: string; desc?: string }[]
+}) {
+  return (
+    <div className="set-dialog-field">
+      {label && <span className="set-dialog-field-label">{label}</span>}
+      <div className="set-radio-list">
+        {options.map(o => {
+          const on = value === o.value
+          return (
+            <button
+              key={o.value}
+              type="button"
+              className={`set-radio${on ? ' on' : ''}`}
+              onClick={() => onChange(o.value)}
+            >
+              <span className={`set-radio-dot${on ? ' on' : ''}`} aria-hidden="true" />
+              <span className="set-radio-body">
+                <span className="set-radio-label">{o.label}</span>
+                {o.desc && <span className="set-radio-desc">{o.desc}</span>}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function ToggleRow({
+  label, desc, checked, onChange,
+}: {
+  label: string; desc: string; checked: boolean; onChange: (v: boolean) => void
+}) {
+  return (
+    <div className="set-toggle-row">
+      <div className="set-toggle-body">
+        <div className="set-toggle-label">{label}</div>
+        <div className="set-toggle-desc">{desc}</div>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        className={`set-toggle${checked ? ' on' : ''}`}
+        onClick={() => onChange(!checked)}
+      >
+        <span className="set-toggle-knob" />
+      </button>
+    </div>
+  )
+}
+
+function PaymentMethodsEditor({ prefs, patch }: { prefs: Preferences; patch: (p: Partial<Preferences>) => void }) {
+  const [adding, setAdding] = useState(false)
+  const [kind, setKind] = useState<'card' | 'bank'>('card')
+  const [brand, setBrand] = useState('')
+  const [last4, setLast4] = useState('')
+  const reset = () => { setKind('card'); setBrand(''); setLast4(''); setAdding(false) }
+  const submit = () => {
+    if (!brand.trim() || !/^\d{4}$/.test(last4)) return
+    patch({
+      payment_methods: [
+        ...prefs.payment_methods,
+        { id: newId('pm'), brand: brand.trim(), last4, kind },
+      ],
+    })
+    reset()
+  }
+  return (
+    <div className="set-list">
+      {prefs.payment_methods.length === 0 && <div className="set-list-empty">No payment methods saved.</div>}
+      {prefs.payment_methods.map(pm => (
+        <div key={pm.id} className="set-list-row">
+          <div className="set-list-row-body">
+            <strong>{pm.brand} ···· {pm.last4}</strong>
+            <span>{pm.kind === 'card' ? 'Credit / debit card' : 'Bank account'}</span>
+          </div>
+          <button type="button" className="set-list-remove" aria-label="Remove"
+            onClick={() => patch({ payment_methods: prefs.payment_methods.filter(x => x.id !== pm.id) })}>×</button>
+        </div>
+      ))}
+      {adding ? (
+        <div className="set-list-add">
+          <RadioGroup<'card' | 'bank'>
+            label="Type"
+            value={kind}
+            onChange={setKind}
+            options={[
+              { value: 'card', label: 'Credit or debit card' },
+              { value: 'bank', label: 'Bank account (ACH)' },
+            ]}
+          />
+          <Field label={kind === 'card' ? 'Card brand' : 'Bank name'}>
+            <input name="brand" className="set-input" value={brand} onChange={e => setBrand(e.target.value)}
+              placeholder={kind === 'card' ? 'Visa' : 'Bank of America'} />
+          </Field>
+          <Field label="Last 4 digits">
+            <input name="last4" className="set-input" value={last4} inputMode="numeric"
+              onChange={e => setLast4(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="4242" />
+          </Field>
+          <div className="set-list-add-actions">
+            <button type="button" className="set-btn-primary" onClick={submit}>Save</button>
+            <button type="button" className="set-btn-ghost" onClick={reset}>Cancel</button>
+          </div>
+          <p className="set-dialog-note set-dialog-note-tight">
+            Stripe handles the real card details &mdash; this only stores the brand + last 4 for display.
+          </p>
+        </div>
+      ) : (
+        <button type="button" className="set-btn-ghost" onClick={() => setAdding(true)}>+ Add payment method</button>
+      )}
+    </div>
+  )
+}
+
+// -- list-editor add forms ------------------------------------------
+
+function ContactsEditor({ prefs, patch }: { prefs: Preferences; patch: (p: Partial<Preferences>) => void }) {
+  const [adding, setAdding] = useState(false)
+  const [name, setName] = useState('')
+  const [relation, setRelation] = useState('')
+  const [phone, setPhone] = useState('')
+  const reset = () => { setName(''); setRelation(''); setPhone(''); setAdding(false) }
+  const submit = () => {
+    if (!name.trim()) return
+    patch({
+      emergency_contacts: [
+        ...prefs.emergency_contacts,
+        { id: newId('c'), name: name.trim(), relation: relation.trim() || 'Contact', phone: phone.trim() },
+      ],
+    })
+    reset()
+  }
+  return (
+    <div className="set-list">
+      {prefs.emergency_contacts.length === 0 && <div className="set-list-empty">No emergency contacts saved.</div>}
+      {prefs.emergency_contacts.map(c => (
+        <div key={c.id} className="set-list-row">
+          <div className="set-list-row-body">
+            <strong>{c.name}</strong>
+            <span>{c.relation}{c.phone ? ` · ${c.phone}` : ''}</span>
+          </div>
+          <button type="button" className="set-list-remove" aria-label="Remove"
+            onClick={() => patch({ emergency_contacts: prefs.emergency_contacts.filter(x => x.id !== c.id) })}>×</button>
+        </div>
+      ))}
+      {adding ? (
+        <div className="set-list-add">
+          <Field label="Name"><input name="contact_name" className="set-input" value={name} onChange={e => setName(e.target.value)} placeholder="Maria Santos" /></Field>
+          <Field label="Relation"><input name="contact_relation" className="set-input" value={relation} onChange={e => setRelation(e.target.value)} placeholder="Spouse" /></Field>
+          <Field label="Phone"><input name="contact_phone" className="set-input" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(305) 555-0142" /></Field>
+          <div className="set-list-add-actions">
+            <button type="button" className="set-btn-primary" onClick={submit}>Add contact</button>
+            <button type="button" className="set-btn-ghost" onClick={reset}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" className="set-btn-ghost" onClick={() => setAdding(true)}>+ Add contact</button>
+      )}
+    </div>
+  )
+}
+
+function VehiclesEditor({ prefs, patch }: { prefs: Preferences; patch: (p: Partial<Preferences>) => void }) {
+  const [adding, setAdding] = useState(false)
+  const [make, setMake] = useState('')
+  const [model, setModel] = useState('')
+  const [plate, setPlate] = useState('')
+  const [color, setColor] = useState('')
+  const reset = () => { setMake(''); setModel(''); setPlate(''); setColor(''); setAdding(false) }
+  const submit = () => {
+    if (!make.trim() && !plate.trim()) return
+    patch({
+      vehicles: [
+        ...prefs.vehicles,
+        { id: newId('v'), make: make.trim(), model: model.trim(), plate: plate.trim().toUpperCase(), color: color.trim() },
+      ],
+    })
+    reset()
+  }
+  return (
+    <div className="set-list">
+      {prefs.vehicles.length === 0 && <div className="set-list-empty">No vehicles registered.</div>}
+      {prefs.vehicles.map(v => (
+        <div key={v.id} className="set-list-row">
+          <div className="set-list-row-body">
+            <strong>{[v.make, v.model].filter(Boolean).join(' ') || 'Vehicle'}</strong>
+            <span>{[v.plate, v.color].filter(Boolean).join(' · ') || '—'}</span>
+          </div>
+          <button type="button" className="set-list-remove" aria-label="Remove"
+            onClick={() => patch({ vehicles: prefs.vehicles.filter(x => x.id !== v.id) })}>×</button>
+        </div>
+      ))}
+      {adding ? (
+        <div className="set-list-add">
+          <Field label="Make"><input name="vehicle_make" className="set-input" value={make} onChange={e => setMake(e.target.value)} placeholder="Toyota" /></Field>
+          <Field label="Model"><input name="vehicle_model" className="set-input" value={model} onChange={e => setModel(e.target.value)} placeholder="RAV4" /></Field>
+          <Field label="Plate"><input name="vehicle_plate" className="set-input" value={plate} onChange={e => setPlate(e.target.value)} placeholder="FL-7G3K2P" /></Field>
+          <Field label="Color"><input name="vehicle_color" className="set-input" value={color} onChange={e => setColor(e.target.value)} placeholder="Silver" /></Field>
+          <div className="set-list-add-actions">
+            <button type="button" className="set-btn-primary" onClick={submit}>Add vehicle</button>
+            <button type="button" className="set-btn-ghost" onClick={reset}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" className="set-btn-ghost" onClick={() => setAdding(true)}>+ Add vehicle</button>
+      )}
+    </div>
+  )
+}
+
+function PetsEditor({ prefs, patch }: { prefs: Preferences; patch: (p: Partial<Preferences>) => void }) {
+  const [adding, setAdding] = useState(false)
+  const [name, setName] = useState('')
+  const [species, setSpecies] = useState('Dog')
+  const [breed, setBreed] = useState('')
+  const reset = () => { setName(''); setSpecies('Dog'); setBreed(''); setAdding(false) }
+  const submit = () => {
+    if (!name.trim()) return
+    patch({
+      pets: [
+        ...prefs.pets,
+        { id: newId('p'), name: name.trim(), species: species.trim(), breed: breed.trim() },
+      ],
+    })
+    reset()
+  }
+  return (
+    <div className="set-list">
+      {prefs.pets.length === 0 && <div className="set-list-empty">No pets registered.</div>}
+      {prefs.pets.map(p => (
+        <div key={p.id} className="set-list-row">
+          <div className="set-list-row-body">
+            <strong>{p.name}</strong>
+            <span>{[p.species, p.breed].filter(Boolean).join(' · ')}</span>
+          </div>
+          <button type="button" className="set-list-remove" aria-label="Remove"
+            onClick={() => patch({ pets: prefs.pets.filter(x => x.id !== p.id) })}>×</button>
+        </div>
+      ))}
+      {adding ? (
+        <div className="set-list-add">
+          <Field label="Name"><input name="pet_name" className="set-input" value={name} onChange={e => setName(e.target.value)} placeholder="Luna" /></Field>
+          <Field label="Species"><input name="pet_species" className="set-input" value={species} onChange={e => setSpecies(e.target.value)} placeholder="Dog" /></Field>
+          <Field label="Breed"><input name="pet_breed" className="set-input" value={breed} onChange={e => setBreed(e.target.value)} placeholder="Mini Labradoodle" /></Field>
+          <div className="set-list-add-actions">
+            <button type="button" className="set-btn-primary" onClick={submit}>Add pet</button>
+            <button type="button" className="set-btn-ghost" onClick={reset}>Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <button type="button" className="set-btn-ghost" onClick={() => setAdding(true)}>+ Add pet</button>
+      )}
+    </div>
+  )
+}
+
+// Avatar button that doubles as the file picker. Clicking opens the
+// native file chooser; once a file is picked, fileToProfileImage
+// resizes it and the parent patches the preference.
+function AvatarButton({
+  image, fallback, onPick,
+}: {
+  image: string
+  fallback: string
+  onPick: (file: File) => void
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null)
+  const onChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) onPick(file)
+    e.target.value = ''
+  }
+  return (
+    <button
+      type="button"
+      className={`set-account-avatar set-avatar-btn${image ? ' has-image' : ''}`}
+      onClick={() => inputRef.current?.click()}
+      aria-label={image ? 'Change profile photo' : 'Add a profile photo'}
+      title={image ? 'Change profile photo' : 'Add a profile photo'}
+      style={image ? { backgroundImage: `url(${image})` } : undefined}
+    >
+      {!image && <span>{fallback}</span>}
+      <span className="set-avatar-edit" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M12 5h-7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-7"/>
+          <path d="m18.4 2.6 3 3L12 15l-4 1 1-4z"/>
+        </svg>
+      </span>
+      <input name="avatar-upload" ref={inputRef} type="file" accept="image/*" onChange={onChange} hidden />
+    </button>
+  )
+}
+
+// Verified email change. Email doubles as the login credential, so a new
+// address isn't trusted until the resident clicks the confirmation link
+// Supabase mails them. On confirmation the new email flows back into the
+// profile (providers reads it from the auth session) and the roster
+// (useMyResident syncs it on next load).
+function EmailChanger() {
+  const { profile } = useAuth() || {}
+  const current = profile?.email || ''
+  const [value, setValue] = useState(current)
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => { setValue(current) }, [current])
+
+  const valid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value.trim())
+  const changed = value.trim().toLowerCase() !== current.toLowerCase()
+
+  const submit = async () => {
+    if (!supabase || !valid || !changed) return
+    setStatus('sending'); setMsg('')
+    try {
+      const { error } = await supabase.auth.updateUser({ email: value.trim() })
+      if (error) throw error
+      setStatus('sent')
+      setMsg(`Confirmation link sent to ${value.trim()}. Click it to finish — your email won't change until you do.`)
+    } catch (e: any) {
+      setStatus('error'); setMsg(e?.message || 'Could not start the email change.')
+    }
   }
 
   return (
-    <div className="settings-wrap">
-      <div className="settings-kicker">Settings</div>
-      <h1 className="settings-h1">Preferences</h1>
-
-      <div className="settings-section">
-        <div className="settings-section-title">Appearance</div>
-        <div className="settings-section-sub">
-          Choose how Residente looks. Your pick is saved to this browser.
-        </div>
-        <div className="theme-grid">
-          {THEMES.map(t => {
-            const sw = SWATCH[t.id] || { bg: '#FFFFFF', accent: '#999', desc: '' }
-            const on = theme === t.id
-            return (
-              <button
-                key={t.id}
-                className={`theme-card${on ? ' on' : ''}`}
-                onClick={() => pick(t.id)}
-                aria-pressed={on}
-              >
-                <div className="theme-card-swatch" style={{ background: sw.bg }}>
-                  <span style={{ background: sw.accent }} />
-                </div>
-                <div className="theme-card-meta">
-                  <div className="theme-card-name">{t.label}</div>
-                  <div className="theme-card-desc">{sw.desc}</div>
-                </div>
-                {on && <div className="theme-card-check">✓</div>}
-              </button>
-            )
-          })}
-        </div>
+    <Field label="Email">
+      <input name="email" autoComplete="email" className="set-input" type="email"
+        value={value} onChange={e => { setValue(e.target.value); if (status !== 'idle') setStatus('idle') }}
+        placeholder="you@example.com" />
+      <div className="set-list-add-actions" style={{ marginTop: 8 }}>
+        <button type="button" className="set-btn-primary" onClick={submit}
+          disabled={!valid || !changed || status === 'sending'}>
+          {status === 'sending' ? 'Sending…' : 'Change email'}
+        </button>
       </div>
+      {status === 'sent'  && <span className="set-dialog-note set-dialog-note-tight">✓ {msg}</span>}
+      {status === 'error' && <span className="set-dialog-note set-dialog-note-tight">{msg}</span>}
+      {(status === 'idle' || status === 'sending') && (
+        <span className="set-dialog-note set-dialog-note-tight">
+          This is your login email. Changing it sends a confirmation link to the new
+          address; it updates everywhere — including the board&rsquo;s roster — once you confirm.
+        </span>
+      )}
+    </Field>
+  )
+}
 
-      <div className="settings-section" style={{ marginTop: 18 }}>
-        <div className="settings-section-title">Account</div>
-        <div className="settings-section-sub">Managed by your HOA board.</div>
-        <div className="settings-rows">
-          <div className="settings-row">
-            <span>Name</span><span>{profile?.full_name || '—'}</span>
-          </div>
-          <div className="settings-row">
-            <span>Unit</span>
-            <span>{profile?.unit_number ? `Unit ${profile.unit_number}` : '—'}</span>
-          </div>
-          <div className="settings-row">
-            <span>Email</span><span>{profile?.email || '—'}</span>
-          </div>
-        </div>
+function ProfilePhotoEditor({
+  prefs, patch,
+}: {
+  prefs: Preferences
+  patch: (p: Partial<Preferences>) => void
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null)
+  const fallback = ((prefs.full_name || 'R')[0] || 'R').toUpperCase()
+  const onPick = async (file: File) => {
+    try {
+      const dataUrl = await fileToProfileImage(file)
+      patch({ profile_image: dataUrl })
+    } catch (err: any) {
+      alert(err?.message || 'Could not load that image.')
+    }
+  }
+  return (
+    <div className="set-photo">
+      <div
+        className={`set-photo-avatar${prefs.profile_image ? ' has-image' : ''}`}
+        style={prefs.profile_image ? { backgroundImage: `url(${prefs.profile_image})` } : undefined}
+      >
+        {!prefs.profile_image && <span>{fallback}</span>}
+      </div>
+      <div className="set-photo-actions">
+        <button type="button" className="set-btn-primary"
+          onClick={() => inputRef.current?.click()}>
+          {prefs.profile_image ? 'Change photo' : 'Upload a photo'}
+        </button>
+        {prefs.profile_image && (
+          <button type="button" className="set-btn-ghost"
+            onClick={() => patch({ profile_image: '' })}>
+            Remove photo
+          </button>
+        )}
+        <input
+          name="profile-photo-upload"
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          hidden
+          onChange={e => {
+            const f = e.target.files?.[0]
+            if (f) onPick(f)
+            e.target.value = ''
+          }}
+        />
+        <p className="set-photo-hint">
+          Square JPG or PNG &mdash; we&rsquo;ll crop and resize to 256&times;256.
+        </p>
       </div>
     </div>
+  )
+}
+
+function ReferDialog({ community }: { community: string }) {
+  const [copied, setCopied] = useState(false)
+  const link = typeof window !== 'undefined'
+    ? `${window.location.origin}/login?ref=${encodeURIComponent(community.toLowerCase().replace(/\s+/g, '-'))}`
+    : '/login'
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(link)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      setCopied(false)
+    }
+  }
+  return (
+    <>
+      <p className="set-dialog-note">
+        Send this link to a neighbor at {community}. They&rsquo;ll skip the
+        community-picker on sign-up.
+      </p>
+      <div className="set-refer-row">
+        <input name="refer-link" className="set-input" value={link} readOnly onFocus={e => e.currentTarget.select()} />
+        <button type="button" className="set-btn-primary" onClick={copy}>
+          {copied ? 'Copied ✓' : 'Copy link'}
+        </button>
+      </div>
+    </>
+  )
+}
+
+function UpdatesDialog() {
+  return (
+    <>
+      <p className="set-dialog-note">
+        Residente runs in the browser, so it&rsquo;s always up to date the
+        next time you load it. If something looks stale, force a refresh
+        and we&rsquo;ll pull the latest build.
+      </p>
+      <div className="set-readonly-rows">
+        <div className="set-readonly-row"><span>Build</span><span>1.2.5 (web)</span></div>
+        <div className="set-readonly-row"><span>Last deployed</span><span>May 27, 2026</span></div>
+        <div className="set-readonly-row"><span>Native apps</span><span>Coming soon</span></div>
+      </div>
+      <button type="button" className="set-btn-primary"
+        onClick={() => { if (typeof window !== 'undefined') window.location.reload() }}>
+        Reload now
+      </button>
+    </>
+  )
+}
+
+// -- icons ----------------------------------------------------------
+
+function IconUser()    { return <Svg><><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-7 8-7s8 3 8 7"/></></Svg> }
+function IconLock()    { return <Svg><><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></></Svg> }
+function IconBell()    { return <Svg><><path d="M6 8a6 6 0 0 1 12 0v5l2 3H4l2-3z"/><path d="M10 19a2 2 0 0 0 4 0"/></></Svg> }
+function IconGlobe()   { return <Svg><><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></></Svg> }
+function IconEye()     { return <Svg><><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></></Svg> }
+function IconMail()    { return <Svg><><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 7 9-7"/></></Svg> }
+function IconChat()    { return <Svg><><path d="M21 12a8 8 0 0 1-12 7L3 21l2-5a8 8 0 1 1 16-4z"/></></Svg> }
+function IconPush()    { return <Svg><><rect x="6" y="3" width="12" height="18" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></></Svg> }
+function IconMoon()    { return <Svg><><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></></Svg> }
+function IconHome()    { return <Svg><><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></></Svg> }
+function IconCalendar(){ return <Svg><><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></></Svg> }
+function IconCard()    { return <Svg><><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/></></Svg> }
+function IconShield()  { return <Svg><><path d="M12 3 4 6v6c0 4.5 3.2 8.5 8 9 4.8-.5 8-4.5 8-9V6z"/></></Svg> }
+function IconKey()     { return <Svg><><circle cx="8" cy="14" r="3"/><path d="m10 12 9-9 3 3-2 2 2 2-2 2-2-2-2 2"/></></Svg> }
+function IconPhone()   { return <Svg><><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .3 1.9.6 2.7a2 2 0 0 1-.4 2.1L8 9.6a16 16 0 0 0 6 6l1.1-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.5 2.7.6a2 2 0 0 1 1.7 2z"/></></Svg> }
+function IconCar()     { return <Svg><><path d="M5 11l2-5h10l2 5"/><rect x="3" y="11" width="18" height="7" rx="2"/><circle cx="7.5" cy="18" r="1.5"/><circle cx="16.5" cy="18" r="1.5"/></></Svg> }
+function IconPaw()     { return <Svg><><ellipse cx="12" cy="16" rx="5" ry="4"/><circle cx="6" cy="10" r="2"/><circle cx="18" cy="10" r="2"/><circle cx="9" cy="6" r="2"/><circle cx="15" cy="6" r="2"/></></Svg> }
+
+function Svg({ children }: { children: ReactNode }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {children}
+    </svg>
   )
 }

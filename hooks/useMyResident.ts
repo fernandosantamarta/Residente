@@ -18,6 +18,7 @@ export function useMyResident() {
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const email = profile?.email
+  const profileId = profile?.id
   const [state, setState] = useState({ ...EMPTY, loading: true })
 
   useEffect(() => {
@@ -28,15 +29,52 @@ export function useMyResident() {
         return
       }
       try {
-        const resR = await withTimeout(
-          supabase.from('residents').select('*')
-            .eq('community_id', communityId).ilike('email', email).limit(1)
-        )
-        if (resR.error) throw resR.error
-        const resident = (resR.data && resR.data[0]) || null
+        // Match by the stable account link first. Before the
+        // resident-self-service migration runs there's no profile_id
+        // column, so this returns an error we ignore and fall back to the
+        // legacy email match — dues never break during the transition.
+        let resident: any = null
+        try {
+          const byId = await withTimeout(
+            supabase.from('residents').select('*').eq('profile_id', profileId).limit(1)
+          )
+          if (!byId.error && byId.data && byId.data[0]) resident = byId.data[0]
+        } catch { /* column may not exist yet — fall through to email */ }
+
+        // Email fallback + one-time claim (pins the row to this account).
+        if (!resident) {
+          const byEmail = await withTimeout(
+            supabase.from('residents').select('*')
+              .eq('community_id', communityId).ilike('email', email).limit(1)
+          )
+          if (byEmail.error) throw byEmail.error
+          resident = (byEmail.data && byEmail.data[0]) || null
+          if (resident && !resident.profile_id) {
+            try {
+              const claim = await withTimeout(
+                supabase.from('residents').update({ profile_id: profileId })
+                  .eq('id', resident.id).select().single()
+              )
+              if (!claim.error && claim.data) resident = claim.data
+            } catch { /* pre-migration — no profile_id column, ignore */ }
+          }
+        }
+
         if (!resident) {
           if (!cancelled) setState(EMPTY)
           return
+        }
+
+        // Keep the roster email aligned with the (verified) login email
+        // after an email change. No-op when they already match or when the
+        // resident can't write yet (pre-migration RLS).
+        if (resident.email && resident.email.toLowerCase() !== email.toLowerCase()) {
+          try {
+            const sync = await withTimeout(
+              supabase.from('residents').update({ email }).eq('id', resident.id).select().single()
+            )
+            if (!sync.error && sync.data) resident = sync.data
+          } catch { /* ignore — keep the matched row */ }
         }
         const [comR, payR] = await Promise.all([
           withTimeout(supabase.from('communities').select('*')
@@ -59,7 +97,7 @@ export function useMyResident() {
     }
     load()
     return () => { cancelled = true }
-  }, [communityId, email])
+  }, [communityId, email, profileId])
 
   return state
 }
