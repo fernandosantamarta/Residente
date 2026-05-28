@@ -1,0 +1,147 @@
+/* Resident Contact / "Submit a request" — themed to match the resident rail
+   (light navy text + terracotta accent). Two columns: the request form, and a
+   "Your past submissions" table. */
+
+.con-wrap { max-width: 1120px; margin: 0 auto; padding: 28px 8px 48px; color: #0A2440; }
+.con-grid {
+  display: grid;
+  grid-template-columns: minmax(320px, 430px) 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 900px) { .con-grid { grid-template-columns: 1fr; } }
+
+.con-card {
+  background: #fff;
+  border: 1px solid rgba(15, 28, 46, 0.10);
+  border-radius: 16px;
+  padding: 22px 22px 24px;
+  box-shadow: 0 1px 2px rgba(15, 28, 46, 0.04);
+}
+.con-card-title { font-size: 17px; font-weight: 700; color: #0A2440; margin: 0 0 16px; }
+
+.con-field { margin-bottom: 16px; }
+.con-label {
+  display: block; font-size: 12px; font-weight: 600;
+  color: rgba(15, 28, 46, 0.6); margin-bottom: 7px;
+}
+
+.con-input {
+  width: 100%; box-sizing: border-box;
+  background: #fff; border: 1px solid rgba(15, 28, 46, 0.16);
+  border-radius: 10px; padding: 11px 13px;
+  font: inherit; font-size: 14px; color: #0A2440;
+  outline: none; transition: border-color .12s;
+}
+.con-input::placeholder { color: rgba(15, 28, 46, 0.38); }
+.con-input:focus { border-color: #E14909; }
+.con-textarea { resize: vertical; min-height: 92px; }
+.con-count { text-align: right; font-size: 11px; color: rgba(15, 28, 46, 0.45); margin-top: 5px; }
+
+/* category icon options */
+.con-cats { display: flex; flex-direction: column; gap: 8px; }
+.con-cat {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; text-align: left; cursor: pointer;
+  background: #fff; border: 1px solid rgba(15, 28, 46, 0.14);
+  border-radius: 11px; padding: 10px 12px; transition: border-color .12s, background .12s;
+}
+.con-cat:hover { border-color: rgba(225, 73, 9, 0.5); }
+.con-cat.on { border-color: #E14909; background: rgba(225, 73, 9, 0.05); }
+.con-cat-ic {
+  display: grid; place-items: center; width: 34px; height: 34px; flex-shrink: 0;
+  border-radius: 9px; background: rgba(225, 73, 9, 0.10); color: #E14909;
+}
+.con-cat-ic svg { width: 18px; height: 18px; }
+.con-cat-label { flex: 1; font-size: 14px; font-weight: 500; color: #0A2440; }
+.con-cat-radio {
+  width: 18px; height: 18px; border-radius: 50%; flex-shrink: 0;
+  border: 2px solid rgba(15, 28, 46, 0.22); transition: border-color .12s, background .12s;
+}
+.con-cat.on .con-cat-radio {
+  border-color: #E14909;
+  background: radial-gradient(circle, #E14909 0 5px, transparent 6px);
+}
+
+/* attach */
+.con-attach { margin-bottom: 18px; }
+.con-attach-row {
+  display: flex; align-items: center; gap: 12px; cursor: pointer;
+  border: 1px dashed rgba(15, 28, 46, 0.22); border-radius: 11px; padding: 12px 14px;
+  transition: border-color .12s;
+}
+.con-attach-row:hover { border-color: #E14909; }
+.con-attach-ic { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; color: rgba(15, 28, 46, 0.5); }
+.con-attach-ic svg { width: 18px; height: 18px; }
+.con-attach-title { display: block; font-size: 13px; font-weight: 600; color: #0A2440; }
+.con-attach-sub { display: block; font-size: 11px; color: rgba(15, 28, 46, 0.5); margin-top: 2px; }
+
+.con-submit {
+  width: 100%; border: none; cursor: pointer;
+  background: #E14909; color: #fff; font: inherit; font-size: 15px; font-weight: 600;
+  border-radius: 11px; padding: 13px; transition: background .12s;
+}
+.con-submit:hover:not(:disabled) { background: #c63f06; }
+.con-submit:disabled { opacity: .6; cursor: default; }
+.con-error { color: #c0392b; font-size: 13px; margin-top: 10px; }
+.con-ok { color: #1f8a4c; font-size: 13px; margin-top: 10px; font-weight: 500; }
+
+/* submissions table */
+.con-list-card { min-width: 0; }
+.con-thead, .con-trow {
+  display: grid;
+  grid-template-columns: 84px 1.6fr 1fr 112px 96px 16px;
+  gap: 10px; align-items: center;
+}
+.con-thead {
+  font-size: 11px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+  color: rgba(15, 28, 46, 0.45); padding: 0 0 10px;
+  border-bottom: 1px solid rgba(15, 28, 46, 0.08);
+}
+.con-trow { padding: 13px 0; border-bottom: 1px solid rgba(15, 28, 46, 0.07); font-size: 13px; }
+.con-trow:last-child { border-bottom: none; }
+.con-id { color: #E14909; font-weight: 600; font-variant-numeric: tabular-nums; }
+.con-subj { color: #0A2440; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.con-cat-cell { color: rgba(15, 28, 46, 0.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.con-date { color: rgba(15, 28, 46, 0.5); white-space: nowrap; }
+.con-chev { color: rgba(15, 28, 46, 0.3); text-align: center; }
+.con-empty { padding: 32px 0; text-align: center; color: rgba(15, 28, 46, 0.45); font-size: 13px; }
+
+.con-badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.con-badge-new { background: rgba(176, 116, 31, 0.14); color: #9a6312; }
+.con-badge-in_progress { background: rgba(62, 124, 177, 0.16); color: #2c5e87; }
+.con-badge-resolved { background: rgba(31, 138, 76, 0.14); color: #1f7a44; }
+
+.con-viewall {
+  margin-top: 16px; width: 100%; background: none; border: none; cursor: pointer;
+  color: #E14909; font: inherit; font-size: 13px; font-weight: 600; padding: 8px;
+}
+.con-viewall:hover { text-decoration: underline; }
+
+/* narrow screens: keep ID / Subject / Status, drop the rest */
+@media (max-width: 700px) {
+  .con-thead, .con-trow { grid-template-columns: 64px 1fr 104px; }
+  .con-thead span:nth-child(3),
+  .con-thead span:nth-child(5),
+  .con-thead span:nth-child(6),
+  .con-trow .con-cat-cell,
+  .con-trow .con-date,
+  .con-trow .con-chev { display: none; }
+}
+
+/* emergency banner */
+.con-emerg {
+  display: flex; align-items: center; gap: 16px; margin-top: 20px;
+  background: linear-gradient(90deg, rgba(225, 73, 9, 0.06), rgba(225, 73, 9, 0.02));
+  border: 1px solid rgba(225, 73, 9, 0.18); border-radius: 16px; padding: 18px 22px;
+}
+.con-emerg-ic {
+  display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0;
+  border-radius: 12px; background: rgba(225, 73, 9, 0.12); color: #E14909;
+}
+.con-emerg-ic svg { width: 22px; height: 22px; }
+.con-emerg-body { flex: 1; }
+.con-emerg-title { font-size: 15px; font-weight: 700; color: #0A2440; }
+.con-emerg-sub { font-size: 13px; color: rgba(15, 28, 46, 0.6); margin-top: 2px; }
+.con-emerg-sub a { color: #E14909; font-weight: 600; text-decoration: none; }
+.con-emerg-sub a:hover { text-decoration: underline; }

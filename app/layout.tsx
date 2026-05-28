@@ -3,6 +3,7 @@ import { AuthProvider } from './providers'
 import './globals.css'
 import './landing.css'
 import './admin.css'
+import './contact.css'
 
 export const metadata: Metadata = {
   title: 'Residente',
