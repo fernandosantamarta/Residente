@@ -78,10 +78,10 @@
 
 .con-submit {
   width: 100%; border: none; cursor: pointer;
-  background: #E14909; color: #fff; font: inherit; font-size: 15px; font-weight: 600;
+  background: #0A2440; color: #fff; font: inherit; font-size: 15px; font-weight: 600;
   border-radius: 11px; padding: 13px; transition: background .12s;
 }
-.con-submit:hover:not(:disabled) { background: #c63f06; }
+.con-submit:hover:not(:disabled) { background: #14365c; }
 .con-submit:disabled { opacity: .6; cursor: default; }
 .con-error { color: #c0392b; font-size: 13px; margin-top: 10px; }
 .con-ok { color: #1f8a4c; font-size: 13px; margin-top: 10px; font-weight: 500; }
