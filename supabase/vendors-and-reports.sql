@@ -1,7 +1,7 @@
 -- ============================================================
 -- Residente — Vendors & Reports setup
 -- Run once in the Supabase SQL editor (SQL editor → new query → paste → run).
--- Safe to re-run: tables/bucket use IF NOT EXISTS / ON CONFLICT.
+-- Safe to re-run: IF NOT EXISTS / ON CONFLICT / drop-policy-if-exists.
 -- ============================================================
 
 -- ---------- VENDORS ----------
@@ -24,10 +24,12 @@ create table if not exists public.vendors (
 alter table public.vendors enable row level security;
 grant select, insert, update, delete on public.vendors to authenticated;
 
+drop policy if exists "members read vendors" on public.vendors;
 create policy "members read vendors"
   on public.vendors for select to authenticated
   using (community_id = (select community_id from public.profiles where id = auth.uid()));
 
+drop policy if exists "board writes vendors" on public.vendors;
 create policy "board writes vendors"
   on public.vendors for all to authenticated
   using (
@@ -61,6 +63,7 @@ alter table public.reports enable row level security;
 grant select, insert, update, delete on public.reports to authenticated;
 
 -- Residents only see published/updated reports; drafts stay board-only.
+drop policy if exists "members read published reports" on public.reports;
 create policy "members read published reports"
   on public.reports for select to authenticated
   using (
@@ -71,6 +74,7 @@ create policy "members read published reports"
     )
   );
 
+drop policy if exists "board writes reports" on public.reports;
 create policy "board writes reports"
   on public.reports for all to authenticated
   using (
@@ -90,6 +94,7 @@ on conflict (id) do nothing;
 
 -- Files are stored under <community_id>/<uuid>.<ext>. The first path segment
 -- is the community id, so each policy matches it against the caller's community.
+drop policy if exists "members read community reports" on storage.objects;
 create policy "members read community reports"
   on storage.objects for select to authenticated
   using (
@@ -98,6 +103,7 @@ create policy "members read community reports"
         = (select community_id from public.profiles where id = auth.uid())::text
   );
 
+drop policy if exists "board uploads community reports" on storage.objects;
 create policy "board uploads community reports"
   on storage.objects for insert to authenticated
   with check (
@@ -107,6 +113,7 @@ create policy "board uploads community reports"
     and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
   );
 
+drop policy if exists "board deletes community reports" on storage.objects;
 create policy "board deletes community reports"
   on storage.objects for delete to authenticated
   using (

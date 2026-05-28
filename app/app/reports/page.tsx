@@ -1,8 +1,8 @@
 'use client'
 
 import Link from 'next/link'
-import { ReactNode, useEffect, useMemo, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { ReactNode, useMemo, useState } from 'react'
+import { useGeneratedReports } from '@/hooks/useGeneratedReports'
 
 // Reports page — board-published reports the resident can browse.
 // Featured row, recent log, scheduled queue, plus two small overview
@@ -81,39 +81,11 @@ export default function Reports() {
   const [search, setSearch] = useState('')
   const [active, setActive] = useState<'all' | Category>('all')
 
-  // Board-published reports from Supabase. Falls back to the in-code demo
-  // seed when the table is empty or unreachable, so the page never breaks.
-  const [dbReports, setDbReports] = useState<Report[] | null>(null)
-  useEffect(() => {
-    let cancelled = false
-    ;(async () => {
-      if (!supabase) return
-      try {
-        const { data, error } = await supabase
-          .from('reports').select('*')
-          .order('report_date', { ascending: false })
-        if (cancelled || error || !data || data.length === 0) return
-        const sizeOf = (b: number | null) => {
-          const n = Number(b) || 0
-          if (!n) return undefined
-          if (n < 1024 * 1024) return `${(n / 1024).toFixed(0)} KB`
-          return `${(n / 1024 / 1024).toFixed(1)} MB`
-        }
-        setDbReports(data.map((r: any) => ({
-          id: r.id,
-          title: r.title,
-          category: r.category as Category,
-          date: r.report_date || (r.created_at ? String(r.created_at).slice(0, 10) : ''),
-          status: r.status as Report['status'],
-          size: sizeOf(r.file_size),
-          blurb: r.blurb || undefined,
-          featured: r.featured,
-        })))
-      } catch { /* fall back to demo seed */ }
-    })()
-    return () => { cancelled = true }
-  }, [])
-  const reports = dbReports ?? REPORTS
+  // Auto-generated from the community's own data (Community budget,
+  // Residents, Payments, Board decisions) — nothing is hand-published.
+  // Falls back to the in-code demo seed when no community is loaded.
+  const gen = useGeneratedReports()
+  const reports: Report[] = gen.hasData ? (gen.reports as Report[]) : REPORTS
 
   const counts = useMemo(() => {
     const map: Partial<Record<Category, number>> = {}
@@ -133,15 +105,21 @@ export default function Reports() {
   const featured = filtered.filter(r => r.featured).slice(0, 4)
   const recent = filtered.filter(r => !r.featured).slice(0, 5)
 
-  // Financial Overview pie segments — demo allocation of operating
-  // budget. Numbers picked to read clean on the chart.
-  const FIN_SEGMENTS: { label: string; amount: number; color: string }[] = [
+  // Financial Overview pie — real budget categories when a community is
+  // loaded, else a demo allocation that reads clean on the chart.
+  const DEMO_FIN_SEGMENTS: { label: string; amount: number; color: string }[] = [
     { label: 'Operating Expenses', amount: 48000, color: '#E14909' },
     { label: 'Reserve Funds',      amount: 18000, color: '#0A2440' },
     { label: 'Marketing',          amount:  6500, color: '#C76F45' },
     { label: 'Misc',               amount:  3500, color: '#7D8C5C' },
   ]
-  const FIN_TOTAL = FIN_SEGMENTS.reduce((s, x) => s + x.amount, 0)
+  const useReal = gen.hasData && gen.finance.segments.length > 0
+  const FIN_SEGMENTS = useReal ? gen.finance.segments : DEMO_FIN_SEGMENTS
+  const FIN_TOTAL = useReal ? gen.finance.total : DEMO_FIN_SEGMENTS.reduce((s, x) => s + x.amount, 0)
+
+  // Dues Collection tile — real aggregates from Residents + Payments, demo otherwise.
+  const DEMO_DUES = { collected: 48000, outstanding: 6500, paid: 150, due: 12, late: 4, households: 166, rate: 88 }
+  const dues = gen.hasData ? gen.dues : DEMO_DUES
 
   return (
     <div className="rep-wrap">
@@ -257,52 +235,66 @@ export default function Reports() {
 
             <section className="rep-card rep-overview">
               <div className="rep-card-head">
-                <h3 className="rep-tile-title">Maintenance Overview</h3>
-                <span className="rep-tile-meta">This month</span>
+                <h3 className="rep-tile-title">Dues Collection</h3>
+                <span className="rep-tile-meta">{dues.rate}% collected</span>
               </div>
               <div className="rep-maint">
                 <div className="rep-maint-stat rep-maint-done">
-                  <div className="rep-maint-n">32</div>
-                  <div className="rep-maint-l">Completed</div>
+                  <div className="rep-maint-n">{dues.paid}</div>
+                  <div className="rep-maint-l">Paid</div>
                 </div>
                 <div className="rep-maint-stat rep-maint-pend">
-                  <div className="rep-maint-n">18</div>
-                  <div className="rep-maint-l">Pending</div>
+                  <div className="rep-maint-n">{dues.due}</div>
+                  <div className="rep-maint-l">Due</div>
                 </div>
                 <div className="rep-maint-stat rep-maint-total">
-                  <div className="rep-maint-n">64</div>
-                  <div className="rep-maint-l">Total YTD</div>
+                  <div className="rep-maint-n">{dues.late}</div>
+                  <div className="rep-maint-l">Late</div>
                 </div>
               </div>
-              <Link href="#" className="rep-cta-link">View Maintenance Report &rarr;</Link>
+              <Link href="/app/pay" className="rep-cta-link">Go to dues &amp; payments &rarr;</Link>
             </section>
           </div>
 
-          {/* Scheduled Reports */}
-          <section className="rep-card">
-            <div className="rep-card-head">
-              <h2 className="rep-card-title">Scheduled Reports</h2>
-              <Link href="#" className="rep-card-link">Manage Scheduled Reports</Link>
-            </div>
-            <div className="rep-table">
-              <div className="rep-row rep-row-head rep-row-sched">
-                <span>Report</span>
-                <span>Category</span>
-                <span>Cadence</span>
-                <span>Next run</span>
-                <span></span>
+          {/* Scheduled Reports — demo only. Live reports refresh automatically
+              from the community's data, so there's nothing to schedule. */}
+          {!gen.hasData ? (
+            <section className="rep-card">
+              <div className="rep-card-head">
+                <h2 className="rep-card-title">Scheduled Reports</h2>
+                <Link href="#" className="rep-card-link">Manage Scheduled Reports</Link>
               </div>
-              {SCHEDULED.map(s => (
-                <div key={s.id} className="rep-row rep-row-sched">
-                  <span className="rep-row-title">{s.title}</span>
-                  <span><span className={`rep-tag rep-tag-${s.category}`}>{CATEGORY_LABEL[s.category]}</span></span>
-                  <span className="rep-row-date">{s.cadence}</span>
-                  <span className="rep-row-date">{fmtDate(s.next)}</span>
-                  <a href="#" className="rep-row-action">Edit</a>
+              <div className="rep-table">
+                <div className="rep-row rep-row-head rep-row-sched">
+                  <span>Report</span>
+                  <span>Category</span>
+                  <span>Cadence</span>
+                  <span>Next run</span>
+                  <span></span>
                 </div>
-              ))}
-            </div>
-          </section>
+                {SCHEDULED.map(s => (
+                  <div key={s.id} className="rep-row rep-row-sched">
+                    <span className="rep-row-title">{s.title}</span>
+                    <span><span className={`rep-tag rep-tag-${s.category}`}>{CATEGORY_LABEL[s.category]}</span></span>
+                    <span className="rep-row-date">{s.cadence}</span>
+                    <span className="rep-row-date">{fmtDate(s.next)}</span>
+                    <a href="#" className="rep-row-action">Edit</a>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ) : (
+            <section className="rep-card">
+              <div className="rep-card-head">
+                <h2 className="rep-card-title">Always current</h2>
+              </div>
+              <p className="rep-fcard-blurb" style={{ padding: '4px 2px 2px' }}>
+                These reports are generated live from your community&rsquo;s budget,
+                residents, payments, and board activity — they refresh on their own,
+                nothing to schedule or upload.
+              </p>
+            </section>
+          )}
         </div>
 
         {/* RIGHT SIDEBAR */}
