@@ -39,7 +39,11 @@ type Request = {
   body: string | null
   status: string
   created_at: string
+  attachment_path: string | null
+  attachment_name: string | null
 }
+
+const MAX_FILE = 10 * 1024 * 1024  // 10MB
 
 const EMPTY = { category: 'maintenance' as Category, subject: '', body: '' }
 
@@ -81,14 +85,36 @@ export default function Contact() {
 
   const setField = (k: keyof typeof EMPTY, v: any) => setForm(f => ({ ...f, [k]: v }))
 
+  const openAttachment = async (path: string) => {
+    if (!supabase) return
+    try {
+      const { data } = await supabase.storage.from('request-attachments').createSignedUrl(path, 3600)
+      if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener')
+    } catch { /* ignore */ }
+  }
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.subject.trim()) { setError('Give your request a subject'); return }
     if (!supabase || !profile?.id || !profile?.community_id) {
       setError('Sign in to submit a request.'); return
     }
+    if (file && file.size > MAX_FILE) { setError('Attachment must be 10MB or smaller.'); return }
     setSaving(true); setError('')
+    let uploadedPath: string | null = null
     try {
+      // Upload the attachment first (if any) so the row carries its path.
+      let attachment_path: string | null = null
+      let attachment_name: string | null = null
+      if (file) {
+        const ext = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : 'bin'
+        const path = `${profile.community_id}/${profile.id}/${crypto.randomUUID()}.${ext}`
+        const up = await withTimeout(supabase.storage.from('request-attachments').upload(path, file), 30000)
+        if (up.error) throw up.error
+        uploadedPath = path
+        attachment_path = path
+        attachment_name = file.name
+      }
       const row = {
         community_id: profile.community_id,
         profile_id: profile.id,
@@ -98,11 +124,17 @@ export default function Contact() {
         subject: form.subject.trim(),
         body: form.body.trim() || null,
         status: 'new',
+        attachment_path,
+        attachment_name,
       }
       const { data, error } = await withTimeout(
         supabase.from('resident_requests').insert(row).select().single()
       )
-      if (error) throw error
+      if (error) {
+        // Don't leave an orphaned file if the row insert failed.
+        if (uploadedPath) supabase.storage.from('request-attachments').remove([uploadedPath])
+        throw error
+      }
       setRows(rs => [data as Request, ...rs])
       setForm(EMPTY)
       setFile(null)
@@ -196,7 +228,16 @@ export default function Contact() {
                 <span className="con-cat-cell">{CAT_LABEL[r.category] || r.category}</span>
                 <span><span className={`con-badge con-badge-${r.status}`}>{STATUS_LABEL[r.status] || r.status}</span></span>
                 <span className="con-date">{fmtDate(r.created_at)}</span>
-                <span className="con-chev" aria-hidden="true">›</span>
+                <span className="con-chev">
+                  {r.attachment_path ? (
+                    <button type="button" className="con-clip" title={r.attachment_name || 'View attachment'}
+                      onClick={() => openAttachment(r.attachment_path!)} aria-label="View attachment">
+                      <IconClip />
+                    </button>
+                  ) : (
+                    <span aria-hidden="true">›</span>
+                  )}
+                </span>
               </div>
             ))}
           </div>

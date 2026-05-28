@@ -44,6 +44,8 @@ type Request = {
   body: string | null
   status: string
   created_at: string
+  attachment_path: string | null
+  attachment_name: string | null
 }
 
 // Admin → Requests. The board's triage queue for everything residents submit
@@ -89,6 +91,13 @@ export default function RequestsAdmin() {
     }
   }, [communityId])
   useEffect(() => { load() }, [load])
+
+  const openAttachment = async (path: string) => {
+    try {
+      const { data } = await supabase!.storage.from('request-attachments').createSignedUrl(path, 3600)
+      if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener')
+    } catch { /* ignore */ }
+  }
 
   const setRequestStatus = async (r: Request, next: Status) => {
     const prevStatus = r.status
@@ -200,6 +209,15 @@ export default function RequestsAdmin() {
                     <span>{fmtDate(r.created_at)}</span>
                   </div>
                   {r.body && <div className="bd-meta" style={{ marginTop: 4 }}>{r.body}</div>}
+                  {r.attachment_path && (
+                    <button type="button" onClick={() => openAttachment(r.attachment_path!)}
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#E14909', font: 'inherit', fontSize: 13, padding: '6px 0 0', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                      <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 11.5 12.5 20a5 5 0 0 1-7-7l8.5-8.5a3.5 3.5 0 0 1 5 5L10.5 18a2 2 0 0 1-3-3l7.5-7.5" />
+                      </svg>
+                      {r.attachment_name || 'View attachment'}
+                    </button>
+                  )}
                 </div>
                 <div style={{ width: 170, flexShrink: 0 }}>
                   <Dropdown<Status>

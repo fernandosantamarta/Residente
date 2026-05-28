@@ -105,6 +105,9 @@
 .con-cat-cell { color: rgba(15, 28, 46, 0.62); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .con-date { color: rgba(15, 28, 46, 0.5); white-space: nowrap; }
 .con-chev { color: rgba(15, 28, 46, 0.3); text-align: center; }
+.con-clip { background: none; border: none; cursor: pointer; color: rgba(15, 28, 46, 0.5); padding: 0; display: inline-grid; place-items: center; }
+.con-clip:hover { color: #E14909; }
+.con-clip svg { width: 15px; height: 15px; }
 .con-empty { padding: 32px 0; text-align: center; color: rgba(15, 28, 46, 0.45); font-size: 13px; }
 
 .con-badge { display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
