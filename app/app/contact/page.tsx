@@ -115,7 +115,7 @@ export default function Contact() {
         attachment_path = path
         attachment_name = file.name
       }
-      const row = {
+      const row: Record<string, any> = {
         community_id: profile.community_id,
         profile_id: profile.id,
         submitter_name: profile.full_name || profile.email || null,
@@ -124,8 +124,12 @@ export default function Contact() {
         subject: form.subject.trim(),
         body: form.body.trim() || null,
         status: 'new',
-        attachment_path,
-        attachment_name,
+      }
+      // Only reference the attachment columns when there's actually a file, so
+      // text-only submits keep working even before the attachments migration runs.
+      if (attachment_path) {
+        row.attachment_path = attachment_path
+        row.attachment_name = attachment_name
       }
       const { data, error } = await withTimeout(
         supabase.from('resident_requests').insert(row).select().single()
