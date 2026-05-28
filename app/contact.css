@@ -7,7 +7,7 @@
   display: grid;
   grid-template-columns: minmax(320px, 430px) 1fr;
   gap: 20px;
-  align-items: start;
+  align-items: stretch;   /* both cards share a height so their bottoms line up */
 }
 @media (max-width: 900px) { .con-grid { grid-template-columns: 1fr; } }
 
@@ -129,19 +129,20 @@
   .con-trow .con-chev { display: none; }
 }
 
-/* emergency banner */
+/* emergency banner — solid orange */
 .con-emerg {
   display: flex; align-items: center; gap: 16px; margin-top: 20px;
-  background: linear-gradient(90deg, rgba(225, 73, 9, 0.06), rgba(225, 73, 9, 0.02));
-  border: 1px solid rgba(225, 73, 9, 0.18); border-radius: 16px; padding: 18px 22px;
+  background: linear-gradient(90deg, #E14909, #F06A2E);
+  border: none; border-radius: 16px; padding: 20px 24px;
+  box-shadow: 0 6px 18px rgba(225, 73, 9, 0.22);
 }
 .con-emerg-ic {
   display: grid; place-items: center; width: 44px; height: 44px; flex-shrink: 0;
-  border-radius: 12px; background: rgba(225, 73, 9, 0.12); color: #E14909;
+  border-radius: 12px; background: rgba(255, 255, 255, 0.18); color: #fff;
 }
 .con-emerg-ic svg { width: 22px; height: 22px; }
 .con-emerg-body { flex: 1; }
-.con-emerg-title { font-size: 15px; font-weight: 700; color: #0A2440; }
-.con-emerg-sub { font-size: 13px; color: rgba(15, 28, 46, 0.6); margin-top: 2px; }
-.con-emerg-sub a { color: #E14909; font-weight: 600; text-decoration: none; }
-.con-emerg-sub a:hover { text-decoration: underline; }
+.con-emerg-title { font-size: 15px; font-weight: 700; color: #fff; }
+.con-emerg-sub { font-size: 13px; color: rgba(255, 255, 255, 0.92); margin-top: 2px; }
+.con-emerg-sub a { color: #fff; font-weight: 700; text-decoration: underline; }
+.con-emerg-sub a:hover { opacity: 0.85; }
