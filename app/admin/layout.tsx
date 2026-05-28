@@ -9,17 +9,16 @@ import { useAuth } from '../providers'
 
 // Board-only admin section. Gated by role check — only board_member/admin
 // (or local dev without Supabase) reach here.
-// Order mirrors the resident rail (app/app/layout.tsx NAV): the sections that
-// exist on both sides follow the same sequence — Board, Voice, Rules,
-// Documents, Schedule, Vendors, Reports. Admin-only sections lead with the
-// setup pair (Community, Residents); Violations sits right after Rules since
-// it enforces them.
+// Shared sections follow the resident rail order (app/app/layout.tsx NAV):
+// Board, Voice, Contact, Rules, Documents, Schedule, Vendors. Admin-only
+// sections lead with the setup pair (Community, Residents); Violations sits
+// right after Rules since it enforces them.
 const ADMIN_NAV = [
   { href: '/admin/community',  label: 'Community' },
   { href: '/admin/residents',  label: 'Residents' },
-  { href: '/admin/requests',   label: 'Contact' },
   { href: '/admin/board',      label: 'Board' },
   { href: '/admin/voice',      label: 'Voice' },
+  { href: '/admin/requests',   label: 'Contact' },
   { href: '/admin/rules',      label: 'Rules' },
   { href: '/admin/violations', label: 'Violations' },
   { href: '/admin/documents',  label: 'Documents' },
