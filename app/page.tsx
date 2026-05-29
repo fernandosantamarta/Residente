@@ -797,17 +797,29 @@ export const CommunitySvg = forwardRef<SVGSVGElement, { viewBox?: string; mode?:
           and fades them back in on the ground once the UFO has left (24s loop,
           no pop). */}
       <g className="ln-abduct">
-        <g className="ln-walk">
-          <Person x={DX - 30} y={DY + 130} scale={1.0} hairColor="#7C4D2A" />
+        {/* One resident + the family dog emerge from the smaller house on the
+            LEFT (x=840). .ln-come-left walks them from that door in to the
+            gather spot; the parent .ln-abduct then lifts the whole group. */}
+        <g className="ln-come-left">
+          <g className="ln-walk">
+            <Person x={DX - 34} y={DY + 130} scale={1.0} hairColor="#7C4D2A" />
+          </g>
         </g>
-        <g className="ln-walk-a">
-          <Person x={DX + 10} y={DY + 140} scale={1.0} hairColor="#D4A56A" />
+        {/* Two residents emerge from the smaller house on the RIGHT (x=1400). */}
+        <g className="ln-come-right">
+          <g className="ln-walk-a">
+            <Person x={DX + 12} y={DY + 138} scale={1.0} hairColor="#D4A56A" />
+          </g>
+          <g className="ln-walk-b">
+            <Person x={DX + 40} y={DY + 152} scale={0.6} hairColor="#E8C285" />
+          </g>
         </g>
-        <g className="ln-walk-b">
-          <Person x={DX + 38} y={DY + 155} scale={0.6} hairColor="#E8C285" />
-        </g>
-        <g className="ln-dog-bounce">
-          <Dog x={DX - 90} y={DY + 145} scale={1.4} />
+        {/* Dog comes from the left house too, but is drawn LAST and a little
+            lower so it reads as leading the group, in front of the people. */}
+        <g className="ln-come-left">
+          <g className="ln-dog-bounce">
+            <Dog x={DX - 6} y={DY + 180} scale={1.3} />
+          </g>
         </g>
       </g>
       {/* neighbour pushing a stroller on the grass in front of the

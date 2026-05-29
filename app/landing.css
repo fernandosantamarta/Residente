@@ -654,30 +654,56 @@ body:has(.landing-screen) { min-width: 0; }
    UFO has left — so the 24s cycle repeats with no pop (both loop ends are
    translate(0,0) opacity 1). The snap from -985 back to 0 happens while
    opacity is 0, so it's invisible. */
+/* Parent: the shared VERTICAL rise + opacity. Linear timing (not ease-in-out)
+   so the climb is one smooth motion — ease-in-out was decelerating to a near
+   stop at every keyframe, which read as the group freezing midway up the beam.
+   Horizontal "come from the houses" movement lives on the child .ln-come-*
+   groups below so it composes with this rise. */
 @keyframes ln-abduct {
-  0%   { transform: translate(0, 0);      opacity: 1; }   /* standing (UFO drifting in) */
-  40%  { transform: translate(0, 0);      opacity: 1; }   /* saucer parked overhead */
-  44%  { transform: translate(0, -40px);  opacity: 1; }   /* beam grabs them */
-  52%  { transform: translate(0, -420px); opacity: 0.85; }/* rising up the beam */
-  55%  { transform: translate(0, -680px); opacity: 0.2; } /* almost at the saucer, fading */
-  57%  { transform: translate(0, -715px); opacity: 0; }   /* reach the saucer underside -> gone */
-  58%  { transform: translate(0, -730px); opacity: 0; }   /* fully inside, just under the dish */
-  74%  { transform: translate(0, -730px); opacity: 0; }   /* held offscreen while the UFO departs */
-  76%  { transform: translate(0, -120px); opacity: 0; }   /* reposition into the doorway (invisible) */
-  80%  { transform: translate(0, -120px); opacity: 1; }   /* step OUT of the front door */
-  90%  { transform: translate(0, 0);      opacity: 1; }   /* walk down to the standing spot */
-  100% { transform: translate(0, 0);      opacity: 1; }
+  0%   { transform: translateY(0);      opacity: 1; }   /* gathered, UFO drifting in */
+  40%  { transform: translateY(0);      opacity: 1; }   /* saucer parked overhead */
+  44%  { transform: translateY(-40px);  opacity: 1; }   /* beam grabs them */
+  50%  { transform: translateY(-300px); opacity: 0.9; } /* rising up the beam */
+  54%  { transform: translateY(-560px); opacity: 0.45; }
+  57%  { transform: translateY(-715px); opacity: 0; }   /* reach the saucer underside -> gone */
+  58%  { transform: translateY(-730px); opacity: 0; }   /* inside, just under the dish */
+  74%  { transform: translateY(-730px); opacity: 0; }   /* held while the UFO departs with them */
+  75%  { transform: translateY(0);      opacity: 0; }   /* drop back to ground level, invisible */
+  76%  { transform: translateY(0);      opacity: 1; }   /* a new group appears (at the houses) */
+  100% { transform: translateY(0);      opacity: 1; }
 }
 .ln-abduct {
-  animation: ln-abduct 24s ease-in-out infinite;
+  animation: ln-abduct 24s linear infinite;
 }
+
+/* Children: the HORIZONTAL approach. The fresh group appears AT the flanking
+   houses (translateX offset) the instant the parent makes them visible, then
+   walks in to the gather spot (translateX 0) where they stand until the next
+   abduction. The snap to the house offset happens at 74-75% while opacity is
+   0, so it's never seen. Linear so the walk-in is steady. */
+@keyframes ln-come-left {
+  0%   { transform: translateX(0); }       /* gathered (walked in last cycle) */
+  74%  { transform: translateX(0); }       /* through rise + gone (invisible) */
+  75%  { transform: translateX(-235px); }  /* snap to the LEFT house door (invisible) */
+  90%  { transform: translateX(0); }       /* walk from the house to the gather spot */
+  100% { transform: translateX(0); }
+}
+@keyframes ln-come-right {
+  0%   { transform: translateX(0); }
+  74%  { transform: translateX(0); }
+  75%  { transform: translateX(278px); }   /* snap to the RIGHT house door (invisible) */
+  90%  { transform: translateX(0); }
+  100% { transform: translateX(0); }
+}
+.ln-come-left  { animation: ln-come-left  24s linear infinite; }
+.ln-come-right { animation: ln-come-right 24s linear infinite; }
 
 
 @media (prefers-reduced-motion: reduce) {
   .ln-walk, .ln-walk-a, .ln-walk-b, .ln-walk-c,
   .ln-dog-bounce, .ln-wheel-spin, .ln-flag-wave, .ln-sun-spin,
   .ln-interior-breathe, .ln-interior-breathe-a, .ln-interior-bounce,
-  .ln-hero-plane-inner, .ln-ufo-fly, .ln-ufo-beam2, .ln-abduct, .ln-smoke-rise, .ln-smoke-rise-a, .ln-smoke-rise-b, .ln-smoke-rise-c {
+  .ln-hero-plane-inner, .ln-ufo-fly, .ln-ufo-beam2, .ln-abduct, .ln-come-left, .ln-come-right, .ln-smoke-rise, .ln-smoke-rise-a, .ln-smoke-rise-b, .ln-smoke-rise-c {
     animation: none;
   }
 }
