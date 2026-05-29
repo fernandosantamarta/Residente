@@ -237,11 +237,11 @@ function Property({ value, onPick }: {
       <HouseArt />
       <div className="su-content">
         <div className="su-choices">
-          <Tile icon={<IconHouse />} title="Home or condo"
-            desc="An individual home or condo unit."
+          <Tile icon={<IconHouse />} title="Home"
+            desc="A house in an HOA community (Florida Ch. 720)."
             selected={value === 'hoa'} onClick={() => onPick('hoa')} />
-          <Tile icon={<IconBuilding />} title="Condominium association"
-            desc="A condo association (Florida Ch. 718)."
+          <Tile icon={<IconBuilding />} title="Condo"
+            desc="A unit in a condo association (Florida Ch. 718)."
             selected={value === 'condo'} onClick={() => onPick('condo')} />
         </div>
         <p className="su-foot">Already have an account? <Link href="/login">Sign in</Link></p>
