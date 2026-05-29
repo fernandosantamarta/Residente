@@ -141,3 +141,6 @@
 .hv-modal-title { font-size: 18px; font-weight: 800; letter-spacing: -0.3px; color: var(--hv-ink); }
 .hv-textarea { resize: vertical; min-height: 64px; font: inherit; }
 .hv-modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+/* Brighter, more-orange Add button in the modal. */
+.hv-modal .hv-btn { background: #FF5A1F; box-shadow: 0 4px 12px rgba(255, 90, 31, 0.32); }
+.hv-modal .hv-btn:hover:not(:disabled) { background: #F2530E; opacity: 1; }
