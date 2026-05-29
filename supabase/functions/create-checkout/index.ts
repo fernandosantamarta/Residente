@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
 
     const { data: resident, error } = await supabase
       .from('residents')
-      .select('id, community_id, full_name, address')
+      .select('id, community_id, full_name, unit_number')
       .eq('id', resident_id)
       .single()
     if (error || !resident) return json({ error: 'Resident not found' }, 404)
@@ -65,7 +65,9 @@ Deno.serve(async (req) => {
           unit_amount: cents,
           product_data: {
             name: 'HOA dues',
-            description: resident.address || resident.full_name,
+            description: resident.unit_number
+              ? `Unit ${resident.unit_number}`
+              : (resident.full_name || 'HOA dues'),
           },
         },
       }],
