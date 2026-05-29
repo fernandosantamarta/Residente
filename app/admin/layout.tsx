@@ -51,8 +51,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <div className="admin">
       <header className="admin-top">
         <div className="admin-brand">
-          <img src="/residente-logo.png" alt="" className="brand-logo admin-brand-logo" />
-          <span className="admin-brand-word">Residente</span>
+          <Link href="/admin" className="admin-brand-home">
+            <img src="/residente-logo.png" alt="" className="brand-logo admin-brand-logo" />
+            <span className="admin-brand-word">Residente</span>
+          </Link>
           <span className="admin-tag">Admin</span>
           <CommunitySwitcher />
         </div>
