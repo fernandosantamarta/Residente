@@ -6209,6 +6209,13 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
   transition: border-color 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
 }
 [data-theme="sketch"] .set-input::placeholder { color: rgba(10, 36, 64, 0.40); }
+/* First name + Last name side by side in the Profile dialog. Stacks on
+   very narrow widths. */
+[data-theme="sketch"] .set-name-row { display: flex; gap: 12px; }
+[data-theme="sketch"] .set-name-row > * { flex: 1; min-width: 0; }
+@media (max-width: 380px) {
+  [data-theme="sketch"] .set-name-row { flex-direction: column; gap: 0; }
+}
 [data-theme="sketch"] .set-input:focus {
   border-color: #E14909;
   background: #FFFFFF;

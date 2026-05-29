@@ -41,7 +41,10 @@ const fmtMoney = (n: number) => '$' + Math.round(num(n)).toLocaleString('en-US')
 // Pulls a clean first name out of profile.full_name. Handles:
 //   "Fernando Santamarta" → "Fernando"
 //   "FernandoSantamarta"  → "Fernando" (camelCase split)
-//   "fernandosantamarta"  → "Fernando" (no separator: take first 8 chars)
+//   "andresvega"          → "Andresvega" (no separator: show the whole word —
+//                           we can't know where the first name ends, and a
+//                           fixed-length slice produced wrong names like
+//                           "Andresve", so never truncate.)
 function extractFirstName(raw: string | null | undefined): string {
   if (!raw) return 'there'
   const s = raw.trim()
@@ -50,7 +53,7 @@ function extractFirstName(raw: string | null | undefined): string {
   if (/\s/.test(s)) return cap(s.split(/\s+/)[0])
   const camelAt = s.slice(1).search(/[A-Z]/)
   if (camelAt > 0) return cap(s.slice(0, camelAt + 1))
-  return cap(s.slice(0, 8))
+  return cap(s)
 }
 
 export default function Home() {

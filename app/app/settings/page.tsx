@@ -678,12 +678,33 @@ function DialogBody({
       return (
         <>
           <ProfilePhotoEditor prefs={prefs} patch={patch} />
-          <Field label="Full name">
-            <input name="full_name" autoComplete="name" className="set-input" value={prefs.full_name}
-              onChange={e => patch({ full_name: e.target.value })}
-              onBlur={e => onSaveContact({ full_name: e.target.value.trim() })}
-              placeholder="Maria Santos" />
-          </Field>
+          {(() => {
+            // Split the single full_name into First / Last so the data is clean
+            // (a guaranteed space lets the home greeting pick the real first
+            // name — without it, "andresvega" can't be parsed). full_name stays
+            // the source of truth; we recombine on every edit.
+            const full = (prefs.full_name || '').trim()
+            const sp = full.indexOf(' ')
+            const first = sp === -1 ? full : full.slice(0, sp)
+            const last  = sp === -1 ? ''   : full.slice(sp + 1).trim()
+            const recombine = (f: string, l: string) => `${f.trim()} ${l.trim()}`.trim()
+            return (
+              <div className="set-name-row">
+                <Field label="First name">
+                  <input name="given-name" autoComplete="given-name" className="set-input" value={first}
+                    onChange={e => patch({ full_name: recombine(e.target.value, last) })}
+                    onBlur={() => onSaveContact({ full_name: recombine(first, last) })}
+                    placeholder="Maria" />
+                </Field>
+                <Field label="Last name">
+                  <input name="family-name" autoComplete="family-name" className="set-input" value={last}
+                    onChange={e => patch({ full_name: recombine(first, e.target.value) })}
+                    onBlur={() => onSaveContact({ full_name: recombine(first, last) })}
+                    placeholder="Santos" />
+                </Field>
+              </div>
+            )
+          })()}
           <EmailChanger />
           <Field label="Phone">
             <input name="phone" autoComplete="tel" className="set-input" type="tel" value={prefs.phone}
