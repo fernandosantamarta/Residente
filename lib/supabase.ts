@@ -33,8 +33,17 @@ export const hasSupabase: boolean = !!(SUPABASE_URL && SUPABASE_ANON_KEY)
 export const stripeEnabled: boolean =
   (process.env.NEXT_PUBLIC_STRIPE_ENABLED || process.env.REACT_APP_STRIPE_ENABLED) === 'true'
 
+// Auth lives in sessionStorage, not localStorage: the session survives page
+// refreshes and in-app navigation, but is cleared when the tab/browser closes
+// — so reopening the site requires signing in again.
 export const supabase: SupabaseClient | null = hasSupabase
-  ? createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!)
+  ? createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
+      auth: {
+        persistSession: true,
+        autoRefreshToken: true,
+        storage: typeof window !== 'undefined' ? window.sessionStorage : undefined,
+      },
+    })
   : null
 
 export type Profile = {

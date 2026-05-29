@@ -122,7 +122,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
           {NAV.map(item => (
             <Link
               key={item.href}
-              href={item.href}
+              href={isPreview ? `${item.href}?preview=1` : item.href}
               className={`nav-item${isActive(pathname, item) ? ' active' : ''}`}
             >
               <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
