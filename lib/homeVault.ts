@@ -73,27 +73,3 @@ export async function homeDocUrl(path: string): Promise<string | null> {
   if (error) return null
   return data?.signedUrl ?? null
 }
-
-export async function logPayment(opts: {
-  residentId: string; communityId: string | null; profileId: string
-  amount: number; paidOn: string; method: string; note: string; proofFile?: File | null
-}): Promise<void> {
-  if (!hasSupabase || !supabase) throw new Error('Supabase is not configured')
-  let proof_path: string | null = null
-  if (opts.proofFile) {
-    const ext = (opts.proofFile.name.split('.').pop() || 'bin').toLowerCase()
-    const path = `${opts.profileId}/${crypto.randomUUID()}.${ext}`
-    const up = await supabase.storage.from('home-vault').upload(path, opts.proofFile)
-    if (!up.error) proof_path = path
-  }
-  const { error } = await supabase.from('payments').insert({
-    resident_id: opts.residentId,
-    community_id: opts.communityId,
-    amount: opts.amount,
-    paid_on: opts.paidOn,
-    method: opts.method || null,
-    note: opts.note || null,
-    proof_path,
-  })
-  if (error) throw error
-}

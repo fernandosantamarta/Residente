@@ -63,23 +63,8 @@ create policy "owner deletes own home files"
     and (storage.foldername(name))[1] = auth.uid()::text
   );
 
--- 3. Resident-logged payments (proof of dues paid elsewhere) -----------
--- v1 has no money movement for self-managers; they record what they paid and
--- attach a receipt. Existing Stripe inserts (service role) are unaffected.
-alter table public.payments
-  add column if not exists method     text,
-  add column if not exists note       text,
-  add column if not exists proof_path text;
-
-grant select, insert on public.payments to authenticated;
-
--- A resident can read and log payments only against their own roster row.
-drop policy if exists "resident reads own payments" on public.payments;
-create policy "resident reads own payments"
-  on public.payments for select to authenticated
-  using ( resident_id in (select id from public.residents where profile_id = auth.uid()) );
-
-drop policy if exists "resident logs own payment" on public.payments;
-create policy "resident logs own payment"
-  on public.payments for insert to authenticated
-  with check ( resident_id in (select id from public.residents where profile_id = auth.uid()) );
+-- NOTE: payments/dues are owned by a separate workstream, so the Home Vault
+-- no longer touches the payments table. (An earlier version of this file added
+-- payments.method/note/proof_path + resident-insert policies; if you already
+-- ran it, those are harmless additive columns — coordinate before relying on
+-- or removing the "resident logs own payment" policy.)

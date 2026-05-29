@@ -4,18 +4,16 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/app/providers'
 import { useMyResident } from '@/hooks/useMyResident'
 import {
-  listHomeDocs, uploadHomeDoc, setConveys, deleteHomeDoc, homeDocUrl, logPayment,
+  listHomeDocs, uploadHomeDoc, setConveys, deleteHomeDoc, homeDocUrl,
   HOME_DOC_CATEGORIES, type HomeDoc,
 } from '@/lib/homeVault'
 import './home.css'
 
-const fmtMoney = (n: number) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
-const todayISO = () => new Date().toISOString().slice(0, 10)
 
 export default function HomePage() {
   const { profile } = useAuth() || {}
-  const { resident, balance, status, payments, monthlyDues, loading: resLoading } = useMyResident()
+  const { resident } = useMyResident()
   const profileId = profile?.id
 
   const [docs, setDocs] = useState<HomeDoc[]>([])
@@ -37,131 +35,15 @@ export default function HomePage() {
     <div className="hv">
       <div className="hv-kicker">Your home</div>
       <h1 className="hv-h1">{resident?.unit_number ? `Unit ${resident.unit_number}` : 'My home'}</h1>
-      <p className="hv-dek">Keep your home&apos;s records in one place, and track what you&apos;ve paid. Files you mark as conveying pass to the next owner.</p>
+      <p className="hv-dek">Keep your home&apos;s records in one place — deed, insurance, warranties, permits. The files you mark as conveying pass to the next owner when you sell.</p>
 
       {err && <div className="hv-err">{err} <button className="hv-link" onClick={() => { setErr(null); reload() }}>Retry</button></div>}
-
-      <DuesCard
-        resident={resident} balance={balance} status={status}
-        payments={payments} monthlyDues={monthlyDues} loading={resLoading}
-        profileId={profileId} onLogged={reload}
-      />
 
       <DocsCard
         docs={docs} loading={docsLoading} doneCategories={doneCategories}
         resident={resident} profileId={profileId} onChange={reload} setErr={setErr}
       />
     </div>
-  )
-}
-
-/* ----------------------------- dues ----------------------------- */
-
-function DuesCard({ resident, balance, status, payments, monthlyDues, loading, profileId, onLogged }: any) {
-  const [open, setOpen] = useState(false)
-  const [amount, setAmount] = useState('')
-  const [paidOn, setPaidOn] = useState(todayISO())
-  const [method, setMethod] = useState('Check')
-  const [note, setNote] = useState('')
-  const [proof, setProof] = useState<File | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const fileRef = useRef<HTMLInputElement>(null)
-
-  const owes = typeof balance === 'number' && balance > 0
-  const logged = (payments || []).filter((p: any) => !p.stripe_session_id)
-
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!resident || !profileId) return
-    const amt = Number(amount)
-    if (!amt || amt <= 0) { setError('Enter an amount.'); return }
-    setBusy(true); setError(null)
-    try {
-      await logPayment({
-        residentId: resident.id, communityId: resident.community_id, profileId,
-        amount: amt, paidOn, method, note, proofFile: proof,
-      })
-      setAmount(''); setNote(''); setProof(null); if (fileRef.current) fileRef.current.value = ''
-      setOpen(false)
-      // useMyResident has no refetch, so reload to show the new payment +
-      // updated balance right away.
-      window.location.reload()
-    } catch (e2) { setError((e2 as Error).message || 'Could not log payment.') }
-    finally { setBusy(false) }
-  }
-
-  return (
-    <section className="hv-card">
-      <div className="hv-card-head">
-        <h2 className="hv-card-title">Dues</h2>
-        {monthlyDues > 0 && <span className="hv-card-sub">{fmtMoney(monthlyDues)}/mo</span>}
-      </div>
-
-      {loading ? (
-        <div className="hv-muted">Loading…</div>
-      ) : !resident ? (
-        <div className="hv-muted">No home record found for your account yet.</div>
-      ) : (
-        <>
-          <div className={`hv-balance ${owes ? 'owes' : 'ok'}`}>
-            <div className="hv-balance-num">{typeof balance === 'number' ? fmtMoney(Math.abs(balance)) : '—'}</div>
-            <div className="hv-balance-label">{owes ? 'Balance due' : 'Paid up'}</div>
-          </div>
-
-          {!open && <button className="hv-btn" onClick={() => setOpen(true)}>Log a payment</button>}
-
-          {open && (
-            <form className="hv-form" onSubmit={submit}>
-              <div className="hv-form-row">
-                <label className="hv-field">
-                  <span className="hv-label">Amount</span>
-                  <input className="hv-input" inputMode="decimal" value={amount}
-                    onChange={e => setAmount(e.target.value.replace(/[^0-9.]/g, ''))} placeholder="0.00" autoFocus />
-                </label>
-                <label className="hv-field">
-                  <span className="hv-label">Date paid</span>
-                  <input className="hv-input" type="date" value={paidOn} onChange={e => setPaidOn(e.target.value)} />
-                </label>
-              </div>
-              <div className="hv-form-row">
-                <label className="hv-field">
-                  <span className="hv-label">Method</span>
-                  <select className="hv-input" value={method} onChange={e => setMethod(e.target.value)}>
-                    {['Check', 'Bank transfer', 'Zelle', 'Cash', 'Card', 'Other'].map(m => <option key={m}>{m}</option>)}
-                  </select>
-                </label>
-                <label className="hv-field">
-                  <span className="hv-label">Note (optional)</span>
-                  <input className="hv-input" value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. May dues" />
-                </label>
-              </div>
-              <label className="hv-field">
-                <span className="hv-label">Proof / receipt (optional)</span>
-                <input className="hv-input" ref={fileRef} type="file" onChange={e => setProof(e.target.files?.[0] ?? null)} />
-              </label>
-              {error && <div className="hv-err">{error}</div>}
-              <div className="hv-actions">
-                <button type="button" className="hv-btn-ghost" onClick={() => setOpen(false)} disabled={busy}>Cancel</button>
-                <button type="submit" className="hv-btn" disabled={busy}>{busy ? 'Saving…' : 'Save payment'}</button>
-              </div>
-            </form>
-          )}
-
-          {logged.length > 0 && (
-            <div className="hv-paylist">
-              {logged.map((p: any) => (
-                <div key={p.id} className="hv-payrow">
-                  <span className="hv-pay-amt">{fmtMoney(p.amount)}</span>
-                  <span className="hv-pay-meta">{p.method || 'Payment'} · {fmtDate(p.paid_on)}{p.note ? ` · ${p.note}` : ''}</span>
-                  {p.proof_path && <span className="hv-pay-proof" title="Has receipt">📎</span>}
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
-    </section>
   )
 }
 
