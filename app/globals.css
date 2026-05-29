@@ -922,6 +922,9 @@ button { font-family: inherit; }
 .brand-back { text-decoration: none; cursor: pointer; flex-wrap: nowrap; white-space: nowrap; }
 .brand-back:hover { opacity: 0.8; }
 .brand-back .brand-word { white-space: nowrap; font-size: 11.5px; font-weight: 600; }
+/* Sketch theme sets .brand-word to 24px (~line 2228) at equal specificity, so it
+   won by source order and the demo back-link rendered huge. Scope tighter to win. */
+[data-theme="sketch"] .brand-back .brand-word { font-size: 11.5px; font-weight: 600; }
 .brand-back-arrow { font-size: 13px; font-weight: 700; line-height: 1; }
 
 .login-back {
