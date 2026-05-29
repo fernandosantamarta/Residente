@@ -609,17 +609,20 @@ body:has(.landing-screen) { min-width: 0; }
 }
 
 /* UFO: drifts in from the far left, cruises all the way across the sky
-   to the focal house, hovers, then shoots straight up off the top. The
-   beam wrap below fades in during the hover phase, on the same 16s cycle. */
+   to the focal house, hovers while the beam + abduction play, then shoots
+   straight up off the top — carrying the family with it. The foreground
+   beam (.ln-ufo-beam2) and the abduction (.ln-abduct) are synced to this
+   same 24s cycle. */
 @keyframes ln-ufo-fly {
   0%   { transform: translate(-300px, 0); opacity: 0; }
   4%   { opacity: 1; }
   /* Travel the full length of the sky to focal-house x=1200 */
   32%  { transform: translate(1200px, 0); opacity: 1; }
-  /* Hover above focal house while the beam phase plays */
-  55%  { transform: translate(1200px, 0); opacity: 1; }
-  /* Shoot up off the top */
-  70%  { transform: translate(1200px, -1500px); opacity: 0; }
+  /* Hold the hover until the family has been fully absorbed (~58%) so the
+     saucer is still parked while they dock into it. */
+  58%  { transform: translate(1200px, 0); opacity: 1; }
+  /* Then shoot up off the top, right after — no dead idle beat. */
+  66%  { transform: translate(1200px, -1500px); opacity: 0; }
   /* Stay off-screen, reset to left edge for next cycle */
   100% { transform: translate(-300px, -1500px); opacity: 0; }
 }
@@ -639,8 +642,10 @@ body:has(.landing-screen) { min-width: 0; }
 @keyframes ln-ufo-beam2 {
   0%, 36% { opacity: 0; }
   41%     { opacity: 0.5; }
-  54%     { opacity: 0.5; }
-  60%     { opacity: 0; }
+  52%     { opacity: 0.5; }
+  /* Off by 58% — as the family finishes docking and the saucer departs — so
+     the static beam never lingers under the rising dish. */
+  58%     { opacity: 0; }
   100%    { opacity: 0; }
 }
 .ln-ufo-beam2 {
