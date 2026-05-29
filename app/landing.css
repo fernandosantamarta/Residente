@@ -658,11 +658,14 @@ body:has(.landing-screen) { min-width: 0; }
   0%   { transform: translate(0, 0);      opacity: 1; }   /* standing (UFO drifting in) */
   40%  { transform: translate(0, 0);      opacity: 1; }   /* saucer parked overhead */
   44%  { transform: translate(0, -40px);  opacity: 1; }   /* beam grabs them */
-  54%  { transform: translate(0, -930px); opacity: 0.12; }/* rising into the saucer */
-  57%  { transform: translate(0, -985px); opacity: 0; }   /* gone */
-  76%  { transform: translate(0, -985px); opacity: 0; }   /* UFO leaves with them */
-  80%  { transform: translate(0, 0);      opacity: 0; }   /* snap back down, invisible */
-  88%  { transform: translate(0, 0);      opacity: 1; }   /* fade back in on the ground */
+  52%  { transform: translate(0, -420px); opacity: 0.85; }/* rising up the beam */
+  55%  { transform: translate(0, -680px); opacity: 0.2; } /* almost at the saucer, fading */
+  57%  { transform: translate(0, -715px); opacity: 0; }   /* reach the saucer underside -> gone */
+  58%  { transform: translate(0, -730px); opacity: 0; }   /* fully inside, just under the dish */
+  74%  { transform: translate(0, -730px); opacity: 0; }   /* held offscreen while the UFO departs */
+  76%  { transform: translate(0, -120px); opacity: 0; }   /* reposition into the doorway (invisible) */
+  80%  { transform: translate(0, -120px); opacity: 1; }   /* step OUT of the front door */
+  90%  { transform: translate(0, 0);      opacity: 1; }   /* walk down to the standing spot */
   100% { transform: translate(0, 0);      opacity: 1; }
 }
 .ln-abduct {
