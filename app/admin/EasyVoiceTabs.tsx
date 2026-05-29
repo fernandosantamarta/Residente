@@ -16,11 +16,14 @@ const TABS: { key: EasyVoiceTab; href: string; label: string }[] = [
 ]
 
 export function EasyVoiceTabs({ active }: { active: EasyVoiceTab }) {
+  // Pill segmented look matches the resident sub-tabs (components/SegTabs.tsx).
+  // These stay <Link>s — each admin sub-tab is its own route, so navigation
+  // already shows one section at a time.
   return (
-    <div className="voice-tabs">
+    <div className="seg-tabs" role="tablist">
       {TABS.map(t => (
-        <Link key={t.key} href={t.href}
-              className={`voice-tab${active === t.key ? ' active' : ''}`}>
+        <Link key={t.key} href={t.href} role="tab" aria-selected={active === t.key}
+              className={`seg-tab${active === t.key ? ' active' : ''}`}>
           {t.label}
         </Link>
       ))}

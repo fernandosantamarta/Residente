@@ -1,44 +1,28 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import Link from 'next/link'
 
-export type EasyDocsTab = 'rules' | 'documents'
+// Admin Easy Documents sub-nav. Rules and Documents live on /admin/documents
+// (switched in-page via the #rules / #documents hash); Violations is its own
+// route folded in here so it reads as part of Easy Documents, not a separate
+// top-level section. Pill styling matches the resident sub-tabs and admin
+// Easy Voice (components/SegTabs.tsx + .seg-tabs in globals.css).
+export type AdminDocsTab = 'rules' | 'documents' | 'violations'
 
-const TABS: { key: EasyDocsTab; label: string; sectionId: string }[] = [
-  { key: 'rules',     label: 'Rules',     sectionId: 'easydocs-rules' },
-  { key: 'documents', label: 'Documents', sectionId: 'easydocs-documents' },
+const TABS: { key: AdminDocsTab; href: string; label: string }[] = [
+  { key: 'rules',      href: '/admin/documents#rules',     label: 'Rules' },
+  { key: 'documents',  href: '/admin/documents#documents', label: 'Documents' },
+  { key: 'violations', href: '/admin/violations',          label: 'Violations' },
 ]
 
-export function EasyDocsTabs() {
-  const [active, setActive] = useState<EasyDocsTab>('rules')
-
-  useEffect(() => {
-    const update = () => {
-      const docsEl = document.getElementById('easydocs-documents')
-      if (!docsEl) return
-      setActive(docsEl.getBoundingClientRect().top <= 80 ? 'documents' : 'rules')
-    }
-    window.addEventListener('scroll', update, { passive: true })
-    update()
-    return () => window.removeEventListener('scroll', update)
-  }, [])
-
-  const scrollTo = (key: EasyDocsTab, sectionId: string) => {
-    setActive(key)
-    document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }
-
+export function EasyDocsTabs({ active }: { active: AdminDocsTab }) {
   return (
-    <div className="easydocs-tabs">
+    <div className="seg-tabs" role="tablist">
       {TABS.map(t => (
-        <button
-          key={t.key}
-          type="button"
-          className={`easydocs-tab${active === t.key ? ' active' : ''}`}
-          onClick={() => scrollTo(t.key, t.sectionId)}
-        >
+        <Link key={t.key} href={t.href} role="tab" aria-selected={active === t.key}
+              className={`seg-tab${active === t.key ? ' active' : ''}`}>
           {t.label}
-        </button>
+        </Link>
       ))}
     </div>
   )

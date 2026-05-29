@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { MeetingsSection } from './_sections/MeetingsSection'
 import { BoardSection } from './_sections/BoardSection'
 import { ContactSection } from './_sections/ContactSection'
-import { SegTabs, SegTab } from '../SectionTabs'
+import { SegTabs, SegTab } from '@/components/SegTabs'
 
 // Easy Voice — the resident hub that merges the former Voice (Meetings &
 // Votes), Board, and Contact tabs. The segmented control switches between

@@ -11,20 +11,19 @@ import { CommunitySwitcher } from '../CommunitySwitcher'
 // Board-only admin section. Gated by role check — only board_member/admin
 // (or local dev without Supabase) reach here.
 // Shared sections follow the resident rail order (app/app/layout.tsx NAV):
-// Easy Voice, Rules, Documents, Schedule, Vendors. Easy Voice merges the
-// former Board, Voice (meetings/votes), and Contact admin sections — its
-// sub-tabs (EasyVoiceTabs) live on those pages. Admin-only sections lead
-// with the setup pair (Community, Residents); Violations sits right after
-// Rules since it enforces them.
+// Easy Track, Easy Voice, Easy Documents, Easy Schedule. Each hub merges
+// former standalone admin sections and exposes its own sub-tabs on its pages:
+//   Easy Track     → Residents, Vendors          (EasyTrackTabs)
+//   Easy Voice     → Meetings, Roster, Board, Contact (EasyVoiceTabs)
+//   Easy Documents → Rules, Documents, Violations (EasyDocsTabs)
+// The admin-only setup section (Community) leads.
 type AdminNavItem = { href: string; label: string; match?: string[] }
 const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/community',  label: 'Community' },
-  { href: '/admin/residents',  label: 'Residents' },
+  { href: '/admin/residents',  label: 'Easy Track', match: ['/admin/vendor'] },
   { href: '/admin/voice',      label: 'Easy Voice', match: ['/admin/board', '/admin/requests'] },
-  { href: '/admin/documents',  label: 'Easy Documents', match: ['/admin/rules'] },
-  { href: '/admin/violations', label: 'Violations' },
-  { href: '/admin/schedule',   label: 'Schedule' },
-  { href: '/admin/vendor',     label: 'Vendors' },
+  { href: '/admin/documents',  label: 'Easy Documents', match: ['/admin/rules', '/admin/violations'] },
+  { href: '/admin/schedule',   label: 'Easy Schedule' },
 ]
 
 const navActive = (pathname: string, item: AdminNavItem) => {

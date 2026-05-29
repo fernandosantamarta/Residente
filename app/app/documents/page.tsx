@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { SegTabs, SegTab } from '../SectionTabs'
+import { SegTabs, SegTab } from '@/components/SegTabs'
 import { useCategoriesData, useRulesData } from '@/lib/rules'
 import { computeStats, useViolationsData } from '@/lib/violations'
 import { useCommunityData } from '@/hooks/useCommunityData'

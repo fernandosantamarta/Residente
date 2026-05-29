@@ -4,9 +4,10 @@ import { ReactNode, useEffect } from 'react'
 
 export type SegTab = { id: string; label: ReactNode }
 
-// Segmented pill control shared by the Easy Track / Easy Voice / Easy
-// Documents hubs. The page owns the active-tab state and renders only the
-// matching section — one tab visible at a time.
+// Segmented pill control shared by the resident hubs (Easy Track / Easy Voice
+// / Easy Documents) and the admin Easy Documents page. The page owns the
+// active-tab state and renders only the matching section — one tab visible at
+// a time.
 //
 // Deep links keep working: when the URL hash names a tab (e.g. arriving at
 // /app/voice#contact, or an in-page <Link href="#pay">), the matching tab

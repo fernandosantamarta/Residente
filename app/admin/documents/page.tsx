@@ -89,6 +89,21 @@ export default function AdminEasyDocs() {
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
 
+  // Which section shows: 'rules' or 'documents'. Driven by the URL hash so the
+  // Easy Documents sub-nav (Rules / Documents / Violations) can switch Rules
+  // and Documents in-page while Violations is its own route. Only the active
+  // section renders.
+  const [tab, setTab] = useState<'rules' | 'documents'>('rules')
+  useEffect(() => {
+    const sync = () => {
+      const h = window.location.hash.replace(/^#/, '')
+      if (h === 'rules' || h === 'documents') setTab(h)
+    }
+    sync()
+    window.addEventListener('hashchange', sync)
+    return () => window.removeEventListener('hashchange', sync)
+  }, [])
+
   // ── Rules state ──────────────────────────────────────────────────────────
   const [ruleError, setRuleError] = useState('')
   const [ruleForm, setRuleForm] = useState(RULE_EMPTY)
@@ -258,11 +273,12 @@ export default function AdminEasyDocs() {
 
   return (
     <div className="easydocs-combined">
-      <EasyDocsTabs />
+      <EasyDocsTabs active={tab} />
 
       {/* ════════════════════════════════════════════════════════════════
           RULES SECTION
       ════════════════════════════════════════════════════════════════ */}
+      {tab === 'rules' && (
       <section id="easydocs-rules" style={{ scrollMarginTop: 56 }}>
         <div className="admin-page">
           <div className="admin-kicker">Rules</div>
@@ -502,10 +518,12 @@ export default function AdminEasyDocs() {
           })()}
         </div>
       </section>
+      )}
 
       {/* ════════════════════════════════════════════════════════════════
           DOCUMENTS SECTION
       ════════════════════════════════════════════════════════════════ */}
+      {tab === 'documents' && (
       <section id="easydocs-documents" style={{ scrollMarginTop: 56 }}>
         <div className="admin-page">
           <div className="admin-kicker">Documents</div>
@@ -636,6 +654,7 @@ export default function AdminEasyDocs() {
           )}
         </div>
       </section>
+      )}
     </div>
   )
 }

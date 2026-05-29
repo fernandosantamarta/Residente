@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { residentBalance, duesStatus, DUES_LABEL, fmtMoney } from '@/lib/dues'
+import { EasyTrackTabs } from '../EasyTrackTabs'
 
 const withTimeout = (p, ms = 10000) =>
   Promise.race([
@@ -211,6 +212,7 @@ export default function Residents() {
 
   return (
     <div className="admin-page">
+      <EasyTrackTabs active="residents" />
       <div className="admin-kicker">Residents</div>
       <h1 className="admin-h1">{communityName || 'Resident roster'}</h1>
       <p className="admin-dek">

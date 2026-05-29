@@ -1899,7 +1899,7 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 .ev-section { scroll-margin-top: 24px; }
 
 /* Segmented pill tabs — peach track, white active thumb. Shared by the
-   Easy Track / Easy Voice / Easy Documents hubs (see app/app/SectionTabs.tsx).
+   Easy Track / Easy Voice / Easy Documents hubs (see components/SegTabs.tsx).
    Only one section renders at a time, so this is a real switcher, not a
    scroll-spy. */
 .seg-tabs {

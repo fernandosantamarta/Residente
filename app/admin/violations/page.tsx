@@ -23,6 +23,7 @@ import {
 import { useRulesData } from '@/lib/rules'
 import { Dropdown } from '@/components/Dropdown'
 import { Pagination, paginate } from '@/components/Pagination'
+import { EasyDocsTabs } from '../EasyDocsTabs'
 
 const VIOLATIONS_PAGE_SIZE = 8
 
@@ -150,6 +151,7 @@ export default function AdminViolations() {
 
   return (
     <div className="admin-page">
+      <EasyDocsTabs active="violations" />
       <div className="admin-kicker">Violations</div>
       <h1 className="admin-h1">Violations <span className="rb-amp">&amp;</span> enforcement</h1>
       <p className="admin-dek">

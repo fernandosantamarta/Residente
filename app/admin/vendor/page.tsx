@@ -5,6 +5,7 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { Dropdown } from '@/components/Dropdown'
 import { Pagination, paginate } from '@/components/Pagination'
+import { EasyTrackTabs } from '../EasyTrackTabs'
 
 const VENDOR_PAGE_SIZE = 8
 
@@ -161,6 +162,7 @@ export default function VendorAdmin() {
 
   return (
     <div className="admin-page">
+      <EasyTrackTabs active="vendors" />
       <div className="admin-kicker">Vendors</div>
       <h1 className="admin-h1">Trusted vendors</h1>
       <p className="admin-dek">

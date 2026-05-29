@@ -25,6 +25,7 @@
 
 .admin-nav {
   display: flex; gap: 4px;
+  justify-content: center;
   padding: 14px 32px 0;
   background: var(--bg-elev);
   border-bottom: 1px solid var(--border);

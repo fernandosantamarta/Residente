@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { PaySection } from './_sections/PaySection'
 import { VendorSection } from './_sections/VendorSection'
 import { ReportsSection } from './_sections/ReportsSection'
-import { SegTabs, SegTab } from '../SectionTabs'
+import { SegTabs, SegTab } from '@/components/SegTabs'
 
 // Easy Track — the resident hub that merges the former Pay, Vendor, and
 // Reports tabs. The segmented control switches between them; only the active
