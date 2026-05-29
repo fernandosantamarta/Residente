@@ -675,24 +675,26 @@ body:has(.landing-screen) { min-width: 0; }
   animation: ln-abduct 24s linear infinite;
 }
 
-/* Children: the HORIZONTAL approach. The fresh group appears AT the flanking
-   houses (translateX offset) the instant the parent makes them visible, then
-   walks in to the gather spot (translateX 0) where they stand until the next
-   abduction. The snap to the house offset happens at 74-75% while opacity is
-   0, so it's never seen. Linear so the walk-in is steady. */
+/* Children: the DIAGONAL approach. The flanking houses sit lower on screen than
+   the cul-de-sac gather spot, so each group appears AT a house door (translate
+   out + DOWN ~190 units to door height) the instant the parent makes it visible,
+   then walks up+in to the gather spot (translate 0,0). translateX alone left
+   them at the houses' roofline — the dog looked like it dropped off the roof.
+   The snap to the door happens at 74-75% while opacity is 0, so it's never seen.
+   Linear so the walk-in is steady. */
 @keyframes ln-come-left {
-  0%   { transform: translateX(0); }       /* gathered (walked in last cycle) */
-  74%  { transform: translateX(0); }       /* through rise + gone (invisible) */
-  75%  { transform: translateX(-235px); }  /* snap to the LEFT house door (invisible) */
-  90%  { transform: translateX(0); }       /* walk from the house to the gather spot */
-  100% { transform: translateX(0); }
+  0%   { transform: translate(0, 0); }            /* gathered (walked in last cycle) */
+  74%  { transform: translate(0, 0); }            /* through rise + gone (invisible) */
+  75%  { transform: translate(-235px, 190px); }   /* snap to the LEFT house door (invisible) */
+  90%  { transform: translate(0, 0); }            /* walk up+in from the house to gather */
+  100% { transform: translate(0, 0); }
 }
 @keyframes ln-come-right {
-  0%   { transform: translateX(0); }
-  74%  { transform: translateX(0); }
-  75%  { transform: translateX(278px); }   /* snap to the RIGHT house door (invisible) */
-  90%  { transform: translateX(0); }
-  100% { transform: translateX(0); }
+  0%   { transform: translate(0, 0); }
+  74%  { transform: translate(0, 0); }
+  75%  { transform: translate(278px, 185px); }    /* snap to the RIGHT house door (invisible) */
+  90%  { transform: translate(0, 0); }
+  100% { transform: translate(0, 0); }
 }
 .ln-come-left  { animation: ln-come-left  24s linear infinite; }
 .ln-come-right { animation: ln-come-right 24s linear infinite; }
