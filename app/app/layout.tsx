@@ -35,7 +35,7 @@ const NAV: NavItem[] = [
   { href: '/app/track',     label: 'Easy Track', icon: <><path d="M3 3v18h18"/><path d="m7 14 3-3 3 3 5-5"/></> },
   { href: '/app/voice',     label: 'Easy Voice', pulse: true, icon: <><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="22"/></> },
   { href: '/app/documents', label: 'Easy Documents', match: ['/app/rules'], icon: <><path d="M4 4h12l4 4v12H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></> },
-  { href: '/app/schedule',  label: 'Schedule',  icon: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></> },
+  { href: '/app/schedule',  label: 'Easy Schedule',  icon: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></> },
 ]
 // Settings is intentionally not in NAV — the bottom-left user-block in
 // rail-footer is the entry point, matching the profile-tab pattern.

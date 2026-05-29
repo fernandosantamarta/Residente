@@ -106,7 +106,7 @@ export default function Schedule() {
       {/* Page title — bare on the page background, no banner */}
       <section className="sched-hero">
         <div className="sched-hero-content">
-          <h1 className="sched-hero-title">Schedule</h1>
+          <h1 className="sched-hero-title">Easy Schedule</h1>
           <div className="sched-hero-sub">Everything happening in your community.</div>
         </div>
       </section>
