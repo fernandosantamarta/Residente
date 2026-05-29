@@ -854,22 +854,15 @@ export const CommunitySvg = forwardRef<SVGSVGElement, { viewBox?: string; mode?:
         <Person x={DX + 1000} y={DY + 400} scale={0.9} hairColor="#7C4D2A" />
       </g>
 
-      {/* === UFO ABDUCTION (foreground) — the three residents + the family dog
-          gather in the cul-de-sac under the saucer, then get tractor-beamed up
-          just as the UFO parks overhead. This is the ONLY tractor beam (the
-          old roofline beam was removed to avoid a double light). Drawn last so
-          the beam cone + figures sit on top of the houses. Synced to the 24s
-          UFO cycle: gather 11-41%, beam on 36-60%, rise 44-58%, fade into the
-          saucer as it departs ~55-70%. */}
+      {/* UFO tractor beam — the only beam (the old roofline beam was removed to
+          avoid a double light). A full-length cone from the saucer underside to
+          the cul-de-sac, drawn here so it sits on top of the houses and tints
+          the family green as they rise. The figures it abducts are the
+          ln-abduct group in the CHARACTERS block above; the beam fades in and
+          out with that abduction (beam on roughly 36 to 60 percent of the
+          24s cycle). */}
       <g className="ln-ufo-beam2" aria-hidden="true">
         <path d={`M${DX - 30} 175 L${DX + 30} 175 L${DX + 166} 1150 L${DX - 166} 1150 Z`} fill="url(#ufo-beam)" />
-      </g>
-      <g className="ln-abduct" aria-hidden="true">
-        <Person x={DX - 38} y={1086} scale={1.0}  hairColor="#7C4D2A" />
-        <Person x={DX + 4}  y={1096} scale={1.05} hairColor="#D4A56A" />
-        <Person x={DX + 42} y={1080} scale={0.9}  hairColor="#3A2A1A" />
-        {/* the family dog gets taken too */}
-        <Dog x={DX - 8} y={1126} scale={1.2} />
       </g>
       </g>
     </svg>

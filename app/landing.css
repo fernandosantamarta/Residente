@@ -648,24 +648,25 @@ body:has(.landing-screen) { min-width: 0; }
   opacity: 0;
 }
 
-/* The three residents + the family dog: drift in from the right (+520px),
-   gather under the saucer (translate 0), then rise straight up into the UFO
-   and fade. Invisible at the loop seam (opacity 0 at both 100% and the reset),
-   so the restart never pops. */
+/* The family in front of the focal door (three people + dog) stands/bobs in
+   place for most of the loop, then rises straight up into the saucer when the
+   beam fires, fades out inside it, and fades back in on the ground after the
+   UFO has left — so the 24s cycle repeats with no pop (both loop ends are
+   translate(0,0) opacity 1). The snap from -985 back to 0 happens while
+   opacity is 0, so it's invisible. */
 @keyframes ln-abduct {
-  0%   { transform: translate(520px, 0);    opacity: 0; }
-  6%   { transform: translate(520px, 0);    opacity: 0; }
-  11%  { transform: translate(440px, 0);    opacity: 1; }
-  30%  { transform: translate(0, 0);        opacity: 1; }
-  41%  { transform: translate(0, 0);        opacity: 1; }
-  44%  { transform: translate(0, -40px);    opacity: 1; }
-  54%  { transform: translate(0, -930px);   opacity: 0.12; }
-  57%  { transform: translate(0, -980px);   opacity: 0; }
-  100% { transform: translate(0, -980px);   opacity: 0; }
+  0%   { transform: translate(0, 0);      opacity: 1; }   /* standing (UFO drifting in) */
+  40%  { transform: translate(0, 0);      opacity: 1; }   /* saucer parked overhead */
+  44%  { transform: translate(0, -40px);  opacity: 1; }   /* beam grabs them */
+  54%  { transform: translate(0, -930px); opacity: 0.12; }/* rising into the saucer */
+  57%  { transform: translate(0, -985px); opacity: 0; }   /* gone */
+  76%  { transform: translate(0, -985px); opacity: 0; }   /* UFO leaves with them */
+  80%  { transform: translate(0, 0);      opacity: 0; }   /* snap back down, invisible */
+  88%  { transform: translate(0, 0);      opacity: 1; }   /* fade back in on the ground */
+  100% { transform: translate(0, 0);      opacity: 1; }
 }
 .ln-abduct {
   animation: ln-abduct 24s ease-in-out infinite;
-  opacity: 0;
 }
 
 
