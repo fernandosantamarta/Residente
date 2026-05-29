@@ -821,7 +821,7 @@ export const CommunitySvg = forwardRef<SVGSVGElement, { viewBox?: string; mode?:
             lower so it reads as leading the group, in front of the people. */}
         <g className="ln-come-left">
           <g className="ln-dog-bounce">
-            <Dog x={DX - 6} y={DY + 205} scale={1.45} />
+            <Dog x={DX - 6} y={DY + 225} scale={1.5} />
           </g>
         </g>
       </g>
