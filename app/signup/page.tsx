@@ -11,13 +11,10 @@ import {
 } from '@/lib/signup'
 import './signup.css'
 
-// Duolingo-style self-serve sign-up. One decision per screen, a progress bar,
-// big tappable tiles, account creation deferred to the end. Two branches:
-//   board / management → create a new community (free trial), land in /admin
-//   resident           → join an existing community, land in /onboard (consent)
-//
-// All the data writes happen server-side in the signup-provision edge function;
-// the browser only collects answers, creates the auth user, then calls it.
+// Duolingo-style self-serve sign-up. Full-orange, one decision per screen, a
+// friendly house on every slide, account creation deferred to the end. Two
+// branches: board/management create a community (free trial) → /admin;
+// residents join an existing community → /onboard (consent).
 
 type Who = 'resident' | 'board' | 'management'
 type Step =
@@ -25,7 +22,6 @@ type Step =
   | 'community' | 'connect' | 'details' | 'account'
   | 'working' | 'confirm-email'
 
-// The ordered screens for each branch — drives the progress bar + Back button.
 const FLOW: Record<Who, Step[]> = {
   resident:   ['property', 'role', 'connect', 'details', 'account'],
   board:      ['property', 'role', 'community', 'details', 'account'],
@@ -37,7 +33,6 @@ export default function SignupPage() {
   const [who, setWho] = useState<Who | null>(null)
   const [propertyType, setPropertyType] = useState<PropertyType | null>(null)
 
-  // Collected answers.
   const [communityName, setCommunityName] = useState('')
   const [location, setLocation] = useState('')
   const [unitCount, setUnitCount] = useState('')
@@ -50,15 +45,15 @@ export default function SignupPage() {
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
-  // Progress: position within the active branch (defaults to a 2-step intro
-  // until the role is picked and the full path is known).
   const seq = who ? FLOW[who] : (['property', 'role'] as Step[])
   const idx = Math.max(0, seq.indexOf(step))
   const progress = step === 'working' ? 100 : ((idx + 1) / seq.length) * 100
+  const canBack = step !== 'working'
 
   const goBack = () => {
     setErr(null)
     if (idx > 0) setStep(seq[idx - 1])
+    else window.location.assign('/')
   }
 
   const startBranch = (w: Who) => {
@@ -74,9 +69,6 @@ export default function SignupPage() {
     }
     setBusy(true); setErr(null)
     try {
-      // 1. Make sure we have an authenticated session for this email. If the
-      //    account already exists with this password (e.g. a retry after a
-      //    failed provision), sign in instead of erroring.
       let session = (await supabase.auth.getSession()).data.session
       if (!session) {
         const { data: su, error: suErr } = await signUp({ email: email.trim(), password })
@@ -96,10 +88,8 @@ export default function SignupPage() {
           session = su.session
         }
       }
-      // 2. Email-confirmation is on → no session yet. Tell them to check inbox.
       if (!session) { setStep('confirm-email'); setBusy(false); return }
 
-      // 3. Provision (idempotent server-side).
       setStep('working')
       const input: ProvisionInput = who === 'resident'
         ? {
@@ -119,14 +109,10 @@ export default function SignupPage() {
             unit_number: unitNumber.trim() || undefined,
           }
       const res = await provisionAccount(input)
-
-      // 4. Hard navigate so AuthProvider re-bootstraps with the fresh profile
-      //    (community_id is brand new and not yet in client context).
       const dest = res.role === 'resident' ? '/onboard' : '/admin'
       window.location.assign(dest)
     } catch (e) {
       const pe = e as ProvisionError
-      // Resident community resolution failed → send them back to fix it.
       if (['bad_code', 'no_match', 'ambiguous'].includes(pe.code || '')) {
         setErr(pe.message)
         setStep('connect')
@@ -141,16 +127,24 @@ export default function SignupPage() {
 
   return (
     <div className="su-screen">
-      <div className="su-glow" />
-      <div className="su-card">
+      <Sparkles />
+      <div className="su-phone">
+        <div className="su-topbar">
+          {canBack ? (
+            <button className="su-back-circle" onClick={goBack} aria-label="Back" type="button">
+              <Chevron dir="left" />
+            </button>
+          ) : <span className="su-topbar-spacer" />}
+          <Link href="/" className="su-brand" aria-label="Residente home">
+            <span className="su-brand-chip"><img src="/residente-logo.png" alt="" /></span>
+            <span className="su-brand-word">Residente</span>
+          </Link>
+          <span className="su-topbar-spacer" />
+        </div>
+
         <div className="su-progress">
           <div className="su-progress-fill" style={{ width: `${progress}%` }} />
         </div>
-
-        <Link href="/" className="su-brand" aria-label="Residente home">
-          <img src="/residente-logo.png" alt="" className="su-brand-logo" />
-          <span className="su-brand-word">Residente</span>
-        </Link>
 
         {step === 'property' && (
           <Property
@@ -159,19 +153,15 @@ export default function SignupPage() {
           />
         )}
 
-        {step === 'role' && (
-          <Role onPick={startBranch} onBack={goBack} />
-        )}
+        {step === 'role' && <Role onPick={startBranch} />}
 
         {step === 'community' && (
           <Community
-            who={who!}
-            propertyType={propertyType!}
+            who={who!} propertyType={propertyType!}
             name={communityName} setName={setCommunityName}
             location={location} setLocation={setLocation}
             unitCount={unitCount} setUnitCount={setUnitCount}
             onNext={() => { setErr(null); setStep('details') }}
-            onBack={goBack}
           />
         )}
 
@@ -179,7 +169,6 @@ export default function SignupPage() {
           <Connect
             code={joinCode} setCode={setJoinCode}
             onNext={() => { setErr(null); setStep('details') }}
-            onBack={goBack}
             err={err}
           />
         )}
@@ -190,7 +179,6 @@ export default function SignupPage() {
             fullName={fullName} setFullName={setFullName}
             unitNumber={unitNumber} setUnitNumber={setUnitNumber}
             onNext={() => { setErr(null); setStep('account') }}
-            onBack={goBack}
           />
         )}
 
@@ -198,31 +186,33 @@ export default function SignupPage() {
           <Account
             email={email} setEmail={setEmail}
             password={password} setPassword={setPassword}
-            busy={busy} err={err}
-            onSubmit={finish}
-            onBack={goBack}
+            busy={busy} err={err} onSubmit={finish}
           />
         )}
 
         {step === 'working' && (
-          <div>
+          <>
+            <div className="su-kicker">Almost done</div>
             <h1 className="su-h1">Setting things up…</h1>
-            <p className="su-msg">Creating your account and getting your community ready.</p>
-          </div>
+            <p className="su-sub">Creating your account and getting your home ready.</p>
+            <HouseArt />
+          </>
         )}
 
         {step === 'confirm-email' && (
-          <div>
-            <div className="su-done-emoji">📬</div>
+          <>
             <h1 className="su-h1">Check your email</h1>
             <p className="su-sub">
               We sent a confirmation link to <strong>{email}</strong>. Click it to
               activate your account, then come back and sign in to finish.
             </p>
-            <Link href="/login" className="su-btn" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>
-              Go to sign in
-            </Link>
-          </div>
+            <HouseArt />
+            <div className="su-actions">
+              <Link href="/login" className="su-btn" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>
+                Go to sign in
+              </Link>
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -238,44 +228,43 @@ function Property({ value, onPick }: {
   return (
     <>
       <div className="su-kicker">Get started</div>
-      <h1 className="su-h1">What kind of community is it?</h1>
-      <p className="su-sub">This tailors the voting rules and notices to your association type.</p>
-      <div className="su-choices">
-        <Tile
-          emoji="🏢" title="Condominium"
-          desc="A condo association (Florida Ch. 718)."
-          selected={value === 'condo'} onClick={() => onPick('condo')}
-        />
-        <Tile
-          emoji="🏡" title="Homeowners (HOA)"
-          desc="A homeowners association (Florida Ch. 720)."
-          selected={value === 'hoa'} onClick={() => onPick('hoa')}
-        />
+      <h1 className="su-h1">Let&apos;s get started!</h1>
+      <p className="su-sub">First, what kind of community is it?</p>
+      <HouseArt />
+      <div className="su-content">
+        <div className="su-choices">
+          <Tile icon={<IconHouse />} title="Home or condo"
+            desc="An individual home or condo unit."
+            selected={value === 'hoa'} onClick={() => onPick('hoa')} />
+          <Tile icon={<IconBuilding />} title="Condominium association"
+            desc="A condo association (Florida Ch. 718)."
+            selected={value === 'condo'} onClick={() => onPick('condo')} />
+        </div>
+        <p className="su-foot">Already have an account? <Link href="/login">Sign in</Link></p>
       </div>
-      <p className="su-foot">Already have an account? <Link href="/login">Sign in</Link></p>
     </>
   )
 }
 
-function Role({ onPick, onBack }: { onPick: (w: Who) => void; onBack: () => void }) {
+function Role({ onPick }: { onPick: (w: Who) => void }) {
   return (
     <>
       <div className="su-kicker">Get started</div>
       <h1 className="su-h1">And who are you?</h1>
-      <p className="su-sub">We'll set you up with the right tools.</p>
-      <div className="su-choices">
-        <Tile emoji="🙋" title="A resident / owner"
-          desc="Join your community to see notices, docs, and vote."
-          onClick={() => onPick('resident')} />
-        <Tile emoji="🧑‍⚖️" title="A board member"
-          desc="Set up your community and run it. Free trial."
-          onClick={() => onPick('board')} />
-        <Tile emoji="🏬" title="Property management"
-          desc="Manage one or many associations. Free trial."
-          onClick={() => onPick('management')} />
-      </div>
-      <div className="su-actions">
-        <button className="su-back" onClick={onBack} type="button">Back</button>
+      <p className="su-sub">We&apos;ll set you up with the right tools.</p>
+      <HouseArt />
+      <div className="su-content">
+        <div className="su-choices">
+          <Tile icon={<IconPerson />} title="A resident / owner"
+            desc="Join your community to see notices, docs, and vote."
+            onClick={() => onPick('resident')} />
+          <Tile icon={<IconPeople />} title="Resident board or HOA management"
+            desc="Set up your community and run it. Free trial."
+            onClick={() => onPick('board')} />
+          <Tile icon={<IconBuilding />} title="Property management"
+            desc="Manage one or many associations. Free trial."
+            onClick={() => onPick('management')} />
+        </div>
       </div>
     </>
   )
@@ -283,39 +272,48 @@ function Role({ onPick, onBack }: { onPick: (w: Who) => void; onBack: () => void
 
 function Community({
   who, propertyType, name, setName, location, setLocation,
-  unitCount, setUnitCount, onNext, onBack,
+  unitCount, setUnitCount, onNext,
 }: {
   who: Who; propertyType: PropertyType
   name: string; setName: (s: string) => void
   location: string; setLocation: (s: string) => void
   unitCount: string; setUnitCount: (s: string) => void
-  onNext: () => void; onBack: () => void
+  onNext: () => void
 }) {
   const valid = name.trim().length > 1
-  const label = propertyType === 'condo' ? 'condo association' : 'HOA'
+  const label = propertyType === 'condo' ? 'condo association' : 'community'
   return (
     <>
       <div className="su-kicker">{who === 'management' ? 'Your first community' : 'Your community'}</div>
       <h1 className="su-h1">Tell us about your {label}.</h1>
-      <p className="su-sub">You can change all of this later in settings.</p>
-      <form className="su-form" onSubmit={(e) => { e.preventDefault(); if (valid) onNext() }}>
-        <label className="su-field">
-          <span className="su-label">Community name</span>
-          <input value={name} onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Palm Grove Condominiums" autoFocus required />
-        </label>
-        <label className="su-field">
-          <span className="su-label">City / location (optional)</span>
-          <input value={location} onChange={(e) => setLocation(e.target.value)}
-            placeholder="e.g. Miami, FL" />
-        </label>
-        <label className="su-field">
-          <span className="su-label">Number of units (optional)</span>
-          <input value={unitCount} onChange={(e) => setUnitCount(e.target.value.replace(/[^0-9]/g, ''))}
-            inputMode="numeric" placeholder="e.g. 120" />
-        </label>
+      <p className="su-sub">You can change all of this later.</p>
+      <HouseArt />
+      <form className="su-content" onSubmit={(e) => { e.preventDefault(); if (valid) onNext() }}>
+        <div className="su-form">
+          <label className="su-field">
+            <span className="su-label">Community name</span>
+            <div className="su-input-wrap">
+              <input className="su-input" value={name} onChange={(e) => setName(e.target.value)}
+                placeholder="e.g. Palm Grove" autoFocus required />
+            </div>
+          </label>
+          <label className="su-field">
+            <span className="su-label">City / location (optional)</span>
+            <div className="su-input-wrap">
+              <input className="su-input" value={location} onChange={(e) => setLocation(e.target.value)}
+                placeholder="e.g. Miami, FL" />
+            </div>
+          </label>
+          <label className="su-field">
+            <span className="su-label">Number of units (optional)</span>
+            <div className="su-input-wrap">
+              <input className="su-input" value={unitCount}
+                onChange={(e) => setUnitCount(e.target.value.replace(/[^0-9]/g, ''))}
+                inputMode="numeric" placeholder="e.g. 120" />
+            </div>
+          </label>
+        </div>
         <div className="su-actions">
-          <button className="su-back" onClick={onBack} type="button">Back</button>
           <button className="su-btn" type="submit" disabled={!valid}>Continue</button>
         </div>
       </form>
@@ -324,10 +322,10 @@ function Community({
 }
 
 function Connect({
-  code, setCode, onNext, onBack, err,
+  code, setCode, onNext, err,
 }: {
   code: string; setCode: (s: string) => void
-  onNext: () => void; onBack: () => void; err: string | null
+  onNext: () => void; err: string | null
 }) {
   return (
     <>
@@ -335,19 +333,23 @@ function Connect({
       <h1 className="su-h1">Got a join code?</h1>
       <p className="su-sub">
         Your board can share a short code. No code? If they already added your
-        email to the roster, we'll find you automatically — just continue.
+        email, we&apos;ll find you automatically — just continue.
       </p>
-      <form className="su-form" onSubmit={(e) => { e.preventDefault(); onNext() }}>
-        <label className="su-field">
-          <span className="su-label">Join code (optional)</span>
-          <input value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase().replace(/\s/g, ''))}
-            placeholder="e.g. PALM24" autoFocus maxLength={12}
-            style={{ letterSpacing: '2px', fontWeight: 700 }} />
-        </label>
-        {err && <div className="su-err">{err}</div>}
+      <HouseArt />
+      <form className="su-content" onSubmit={(e) => { e.preventDefault(); onNext() }}>
+        <div className="su-form">
+          <label className="su-field">
+            <span className="su-label">Join code (optional)</span>
+            <div className="su-input-wrap">
+              <input className="su-input" value={code}
+                onChange={(e) => setCode(e.target.value.toUpperCase().replace(/\s/g, ''))}
+                placeholder="e.g. PALM24" autoFocus maxLength={12}
+                style={{ letterSpacing: '2px', fontWeight: 700 }} />
+            </div>
+          </label>
+          {err && <div className="su-err">{err}</div>}
+        </div>
         <div className="su-actions">
-          <button className="su-back" onClick={onBack} type="button">Back</button>
           <button className="su-btn" type="submit">Continue</button>
         </div>
       </form>
@@ -356,35 +358,41 @@ function Connect({
 }
 
 function Details({
-  who, fullName, setFullName, unitNumber, setUnitNumber, onNext, onBack,
+  who, fullName, setFullName, unitNumber, setUnitNumber, onNext,
 }: {
   who: Who
   fullName: string; setFullName: (s: string) => void
   unitNumber: string; setUnitNumber: (s: string) => void
-  onNext: () => void; onBack: () => void
+  onNext: () => void
 }) {
   const valid = fullName.trim().length > 1
   const showUnit = who !== 'management'
   return (
     <>
       <div className="su-kicker">About you</div>
-      <h1 className="su-h1">What's your name?</h1>
+      <h1 className="su-h1">What&apos;s your name?</h1>
       <p className="su-sub">This is how neighbors and the board will see you.</p>
-      <form className="su-form" onSubmit={(e) => { e.preventDefault(); if (valid) onNext() }}>
-        <label className="su-field">
-          <span className="su-label">Full name</span>
-          <input value={fullName} onChange={(e) => setFullName(e.target.value)}
-            placeholder="e.g. Jane Doe" autoFocus required autoComplete="name" />
-        </label>
-        {showUnit && (
+      <HouseArt />
+      <form className="su-content" onSubmit={(e) => { e.preventDefault(); if (valid) onNext() }}>
+        <div className="su-form">
           <label className="su-field">
-            <span className="su-label">Your unit / address {who === 'resident' ? '(optional)' : '(optional)'}</span>
-            <input value={unitNumber} onChange={(e) => setUnitNumber(e.target.value)}
-              placeholder="e.g. 4B or 1420 Palm St" />
+            <span className="su-label">Full name</span>
+            <div className="su-input-wrap">
+              <input className="su-input" value={fullName} onChange={(e) => setFullName(e.target.value)}
+                placeholder="e.g. Jane Doe" autoFocus required autoComplete="name" />
+            </div>
           </label>
-        )}
+          {showUnit && (
+            <label className="su-field">
+              <span className="su-label">Your unit / address (optional)</span>
+              <div className="su-input-wrap">
+                <input className="su-input" value={unitNumber} onChange={(e) => setUnitNumber(e.target.value)}
+                  placeholder="e.g. 4B or 1420 Palm St" />
+              </div>
+            </label>
+          )}
+        </div>
         <div className="su-actions">
-          <button className="su-back" onClick={onBack} type="button">Back</button>
           <button className="su-btn" type="submit" disabled={!valid}>Continue</button>
         </div>
       </form>
@@ -393,35 +401,61 @@ function Details({
 }
 
 function Account({
-  email, setEmail, password, setPassword, busy, err, onSubmit, onBack,
+  email, setEmail, password, setPassword, busy, err, onSubmit,
 }: {
   email: string; setEmail: (s: string) => void
   password: string; setPassword: (s: string) => void
   busy: boolean; err: string | null
-  onSubmit: () => void; onBack: () => void
+  onSubmit: () => void
 }) {
-  const valid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) && password.length >= 8
+  const [show, setShow] = useState(false)
+  const reqs = [
+    { label: 'At least 8 characters', ok: password.length >= 8 },
+    { label: 'Includes a number', ok: /[0-9]/.test(password) },
+    { label: 'Includes a letter', ok: /[a-zA-Z]/.test(password) },
+  ]
+  const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+  const valid = emailOk && reqs.every(r => r.ok)
   return (
     <>
       <div className="su-kicker">Almost there</div>
-      <h1 className="su-h1">Create your login.</h1>
-      <p className="su-sub">You'll use this to sign in from now on.</p>
-      <form className="su-form" onSubmit={(e) => { e.preventDefault(); if (valid && !busy) onSubmit() }}>
-        <label className="su-field">
-          <span className="su-label">Email</span>
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@example.com" autoFocus required autoComplete="email" />
-        </label>
-        <label className="su-field">
-          <span className="su-label">Password</span>
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)}
-            placeholder="At least 8 characters" minLength={8} required autoComplete="new-password" />
-        </label>
-        {err && <div className="su-err">{err}</div>}
+      <h1 className="su-h1">Create a password</h1>
+      <p className="su-sub">Make it strong and secure.</p>
+      <HouseArt />
+      <form className="su-content" onSubmit={(e) => { e.preventDefault(); if (valid && !busy) onSubmit() }}>
+        <div className="su-form">
+          <label className="su-field">
+            <span className="su-label">Email</span>
+            <div className="su-input-wrap">
+              <input className="su-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com" autoFocus required autoComplete="email" />
+            </div>
+          </label>
+          <label className="su-field">
+            <span className="su-label">Password</span>
+            <div className="su-input-wrap">
+              <input className="su-input" type={show ? 'text' : 'password'} value={password}
+                onChange={(e) => setPassword(e.target.value)} placeholder="••••••••"
+                required autoComplete="new-password" />
+              <button type="button" className="su-eye" onClick={() => setShow(s => !s)}
+                aria-label={show ? 'Hide password' : 'Show password'}>
+                {show ? <IconEyeOff /> : <IconEye />}
+              </button>
+            </div>
+          </label>
+          <div className="su-reqs">
+            {reqs.map(r => (
+              <div key={r.label} className={`su-req${r.ok ? ' met' : ''}`}>
+                <span className="su-req-dot"><IconCheck /></span>
+                {r.label}
+              </div>
+            ))}
+          </div>
+          {err && <div className="su-err">{err}</div>}
+        </div>
         <div className="su-actions">
-          <button className="su-back" onClick={onBack} type="button" disabled={busy}>Back</button>
           <button className="su-btn" type="submit" disabled={!valid || busy}>
-            {busy ? 'Creating…' : 'Create account'}
+            {busy ? 'Creating…' : 'Continue'}
           </button>
         </div>
       </form>
@@ -430,17 +464,133 @@ function Account({
 }
 
 function Tile({
-  emoji, title, desc, selected, onClick,
+  icon, title, desc, selected, onClick,
 }: {
-  emoji: string; title: string; desc: string; selected?: boolean; onClick: () => void
+  icon: React.ReactNode; title: string; desc: string; selected?: boolean; onClick: () => void
 }) {
   return (
     <button type="button" className={`su-tile${selected ? ' selected' : ''}`} onClick={onClick}>
-      <span className="su-tile-emoji" aria-hidden="true">{emoji}</span>
-      <span className="su-tile-body">
+      <span className="su-tile-icon">{icon}</span>
+      <span className="su-tile-text">
         <span className="su-tile-title">{title}</span>
         <span className="su-tile-desc">{desc}</span>
       </span>
+      <span className="su-tile-chev"><Chevron dir="right" /></span>
     </button>
+  )
+}
+
+/* ----------------------------- art ----------------------------- */
+
+// Friendly house illustration — shown on every slide. No hearts, no mascot.
+function HouseArt() {
+  return (
+    <div className="su-house">
+      <svg viewBox="0 0 220 188" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="House">
+        <ellipse cx="110" cy="172" rx="80" ry="12" fill="rgba(90,28,0,0.22)" />
+        {/* walls */}
+        <rect x="50" y="86" width="120" height="82" rx="12" fill="#FFF3E2" />
+        {/* roof */}
+        <path d="M38 92 L110 34 L182 92 Z" fill="#C0341D" />
+        <path d="M38 92 L110 34 L182 92" stroke="#9E2A12" strokeWidth="6" strokeLinejoin="round" strokeLinecap="round" />
+        {/* chimney */}
+        <rect x="150" y="50" width="15" height="26" rx="3" fill="#9E2A12" />
+        {/* door */}
+        <rect x="96" y="120" width="30" height="48" rx="8" fill="#2E6E68" />
+        <circle cx="119" cy="146" r="2.6" fill="#FFE6B8" />
+        {/* windows */}
+        <rect x="63" y="104" width="27" height="27" rx="6" fill="#FFD489" />
+        <rect x="130" y="104" width="27" height="27" rx="6" fill="#FFD489" />
+        <path d="M76.5 104 V131 M63 117.5 H90" stroke="#C0341D" strokeWidth="3" strokeLinecap="round" />
+        <path d="M143.5 104 V131 M130 117.5 H157" stroke="#C0341D" strokeWidth="3" strokeLinecap="round" />
+      </svg>
+    </div>
+  )
+}
+
+function Sparkles() {
+  const stars = [
+    { top: '12%', left: '14%', size: 22, o: 0.9 },
+    { top: '22%', left: '82%', size: 16, o: 0.7 },
+    { top: '54%', left: '8%', size: 14, o: 0.6 },
+    { top: '68%', left: '88%', size: 20, o: 0.8 },
+    { top: '40%', left: '90%', size: 12, o: 0.5 },
+    { top: '83%', left: '20%', size: 16, o: 0.7 },
+  ]
+  return (
+    <div className="su-sparkles" aria-hidden="true">
+      {stars.map((s, i) => (
+        <span key={i} className="su-sparkle" style={{ top: s.top, left: s.left, opacity: s.o }}>
+          <Star size={s.size} />
+        </span>
+      ))}
+    </div>
+  )
+}
+
+function Star({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="#FFF">
+      <path d="M12 0c.8 6.4 4.8 10.4 12 11.2-7.2.8-11.2 4.8-12 12-.8-7.2-4.8-11.2-12-12C7.2 10.4 11.2 6.4 12 0Z" />
+    </svg>
+  )
+}
+
+/* ----------------------------- icons ----------------------------- */
+
+function Chevron({ dir }: { dir: 'left' | 'right' }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+      {dir === 'left' ? <polyline points="15 18 9 12 15 6" /> : <polyline points="9 18 15 12 9 6" />}
+    </svg>
+  )
+}
+function IconHouse() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 11.5 12 4l9 7.5" /><path d="M5 10v10h14V10" /><path d="M10 20v-6h4v6" />
+    </svg>
+  )
+}
+function IconBuilding() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="5" y="3" width="14" height="18" rx="1.5" /><path d="M9 7h2M13 7h2M9 11h2M13 11h2M9 15h2M13 15h2" /><path d="M10 21v-3h4v3" />
+    </svg>
+  )
+}
+function IconPerson() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="8" r="4" /><path d="M4 20c0-4 4-6 8-6s8 2 8 6" />
+    </svg>
+  )
+}
+function IconPeople() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="8" r="3.2" /><path d="M3 19c0-3.3 2.7-5 6-5s6 1.7 6 5" /><path d="M16 5.5a3.2 3.2 0 0 1 0 6M17.5 14c2.5.4 4 2 4 5" />
+    </svg>
+  )
+}
+function IconEye() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" /><circle cx="12" cy="12" r="3" />
+    </svg>
+  )
+}
+function IconEyeOff() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.9 5.2A9.5 9.5 0 0 1 12 5c6.5 0 10 7 10 7a13.2 13.2 0 0 1-2.4 3.2M6.1 6.1A13.3 13.3 0 0 0 2 12s3.5 7 10 7a9.3 9.3 0 0 0 4-.9" /><path d="m3 3 18 18" /><path d="M9.5 9.5a3 3 0 0 0 4.2 4.2" />
+    </svg>
+  )
+}
+function IconCheck() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="5 12 10 17 19 7" />
+    </svg>
   )
 }

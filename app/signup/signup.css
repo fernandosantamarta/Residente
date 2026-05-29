@@ -1,148 +1,189 @@
-/* Self-serve sign-up — the bright, friendly continuation of the landing page.
-   Duolingo-style: one decision per screen, a progress bar, big tappable choice
-   tiles, encouraging copy. Cream + navy + orange to match the brand. */
+/* Self-serve sign-up — full-orange, Duolingo-style. White headings, black
+   "Continue" pills, white rounded tiles + inputs, a friendly house on every
+   slide, sparkles. Mobile-first; on desktop the content sits in a phone-width
+   column so it reads the same as the mockup. */
 
 .su-screen {
-  --su-bg:     #F4EFE8;
-  --su-ink:    #0A2440;
-  --su-accent: #E14909;
-  --su-accent-2: #B83B07;
-  --su-muted:  rgba(10, 36, 64, 0.60);
-  --su-border: rgba(10, 36, 64, 0.12);
+  --o-ink:   #2A1206;   /* dark text inside white tiles/inputs */
+  --o-cream: #FFF5EC;   /* tile + input surface */
+  --o-black: #17130E;   /* primary button */
 
   min-height: 100vh;
-  display: flex; align-items: center; justify-content: center;
-  background:
-    radial-gradient(ellipse at top, #FBF7F1 0%, var(--su-bg) 60%);
-  padding: 40px 16px;
+  display: flex; justify-content: center;
+  background: linear-gradient(168deg, #FF8A3D 0%, #F4530E 52%, #DC440A 100%);
   position: relative; overflow: hidden;
-}
-.su-glow {
-  position: absolute; inset: 0; pointer-events: none;
-  background:
-    radial-gradient(circle at 18% 12%, rgba(225, 73, 9, 0.10), transparent 45%),
-    radial-gradient(circle at 85% 85%, rgba(225, 73, 9, 0.06), transparent 45%);
+  color: #fff;
 }
 
-.su-card {
+/* Decorative sparkles scattered behind the content. */
+.su-sparkles { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+.su-sparkle { position: absolute; opacity: 0.85; }
+.su-sparkle svg { display: block; }
+
+.su-phone {
   position: relative; z-index: 1;
-  width: 100%; max-width: 460px;
-  padding: 28px 30px 32px;
-  background: #FFFFFF;
-  border: 1px solid var(--su-border);
-  border-radius: 20px;
-  box-shadow: 0 18px 48px rgba(10, 36, 64, 0.10);
+  width: 100%; max-width: 440px;
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  padding: 18px 24px 32px;
 }
 
-/* ---- progress bar ---- */
+/* ---- top bar: back circle + brand ---- */
+.su-topbar {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px; height: 40px;
+}
+.su-back-circle {
+  width: 36px; height: 36px; flex-shrink: 0;
+  display: grid; place-items: center;
+  border-radius: 999px; border: none; cursor: pointer;
+  background: rgba(255, 255, 255, 0.18);
+  color: #fff; transition: background 0.14s;
+}
+.su-back-circle:hover { background: rgba(255, 255, 255, 0.3); }
+.su-back-circle svg { width: 18px; height: 18px; }
+.su-brand { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; }
+.su-brand-chip {
+  width: 26px; height: 26px; border-radius: 8px;
+  background: #fff; display: grid; place-items: center;
+  box-shadow: 0 2px 8px rgba(120, 40, 0, 0.18);
+}
+.su-brand-chip img { width: 18px; height: 18px; object-fit: contain; }
+.su-brand-word {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-weight: 700; color: #fff; font-size: 16px; letter-spacing: -0.3px;
+}
+.su-topbar-spacer { width: 36px; }
+
+/* ---- progress ---- */
 .su-progress {
   height: 6px; border-radius: 999px;
-  background: rgba(10, 36, 64, 0.08);
-  overflow: hidden; margin-bottom: 22px;
+  background: rgba(255, 255, 255, 0.22);
+  overflow: hidden; margin-bottom: 18px;
 }
 .su-progress-fill {
-  height: 100%; border-radius: 999px;
-  background: linear-gradient(90deg, var(--su-accent), var(--su-accent-2));
+  height: 100%; border-radius: 999px; background: #fff;
   transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ---- header ---- */
-.su-brand {
-  display: inline-flex; align-items: center; gap: 8px;
-  text-decoration: none; margin-bottom: 18px;
-}
-.su-brand-logo { width: 26px; height: 26px; border-radius: 6px; }
-.su-brand-word {
-  font-family: 'Space Grotesk', system-ui, sans-serif;
-  font-weight: 700; color: var(--su-ink); font-size: 17px; letter-spacing: -0.4px;
-}
+/* ---- headline ---- */
 .su-kicker {
-  font-size: 11px; font-weight: 700; letter-spacing: 1px;
-  text-transform: uppercase; color: var(--su-accent); margin-bottom: 8px;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.5px;
+  text-transform: uppercase; color: rgba(255, 245, 235, 0.85); margin-bottom: 6px;
 }
 .su-h1 {
-  font-size: 25px; font-weight: 700; letter-spacing: -0.5px;
-  color: var(--su-ink); margin: 0 0 8px; line-height: 1.2;
+  font-size: 28px; font-weight: 800; letter-spacing: -0.6px;
+  color: #fff; margin: 0 0 8px; line-height: 1.15;
 }
 .su-sub {
-  font-size: 14.5px; line-height: 1.55; color: var(--su-muted);
-  margin: 0 0 20px;
+  font-size: 15px; line-height: 1.5; color: rgba(255, 245, 235, 0.88);
+  margin: 0 0 8px;
 }
 
-/* ---- big choice tiles ---- */
+/* ---- the house, on every slide ---- */
+.su-house { display: flex; justify-content: center; margin: 14px 0 20px; }
+.su-house svg { width: 168px; height: auto; filter: drop-shadow(0 10px 18px rgba(120, 35, 0, 0.28)); }
+
+/* content grows so the button sits low like the mockup */
+.su-content { display: flex; flex-direction: column; flex: 1; }
+
+/* ---- choice tiles ---- */
 .su-choices { display: flex; flex-direction: column; gap: 12px; }
 .su-tile {
-  display: flex; align-items: center; gap: 14px; text-align: left;
-  padding: 16px 18px; width: 100%;
-  background: #FFFFFF;
-  border: 1.5px solid var(--su-border); border-radius: 14px;
-  cursor: pointer; transition: border-color 0.14s, background 0.14s, transform 0.08s;
+  display: flex; align-items: center; gap: 14px; text-align: left; width: 100%;
+  padding: 15px 16px;
+  background: var(--o-cream);
+  border: 2px solid transparent; border-radius: 16px;
+  cursor: pointer; transition: transform 0.08s, box-shadow 0.14s, border-color 0.14s;
+  box-shadow: 0 4px 0 rgba(120, 40, 0, 0.18);
 }
-.su-tile:hover { border-color: rgba(225, 73, 9, 0.55); background: rgba(225, 73, 9, 0.04); }
-.su-tile:active { transform: translateY(1px); }
-.su-tile.selected { border-color: var(--su-accent); background: rgba(225, 73, 9, 0.06); }
-.su-tile-emoji {
-  font-size: 26px; line-height: 1; flex-shrink: 0;
-  width: 44px; height: 44px; display: grid; place-items: center;
-  background: rgba(225, 73, 9, 0.08); border-radius: 12px;
+.su-tile:hover { box-shadow: 0 6px 0 rgba(120, 40, 0, 0.2); }
+.su-tile:active { transform: translateY(2px); box-shadow: 0 2px 0 rgba(120, 40, 0, 0.18); }
+.su-tile.selected { border-color: var(--o-black); }
+.su-tile-icon {
+  width: 42px; height: 42px; flex-shrink: 0;
+  display: grid; place-items: center; border-radius: 12px;
+  background: rgba(225, 73, 9, 0.12); color: #E14909;
 }
-.su-tile-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.su-tile-title { font-size: 15.5px; font-weight: 700; color: var(--su-ink); }
-.su-tile-desc { font-size: 13px; color: var(--su-muted); line-height: 1.4; }
+.su-tile-icon svg { width: 22px; height: 22px; }
+.su-tile-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.su-tile-title { font-size: 15.5px; font-weight: 800; color: var(--o-ink); }
+.su-tile-desc { font-size: 12.5px; color: rgba(42, 18, 6, 0.6); line-height: 1.35; }
+.su-tile-chev { color: rgba(42, 18, 6, 0.4); flex-shrink: 0; }
+.su-tile-chev svg { width: 18px; height: 18px; }
 
 /* ---- form fields ---- */
-.su-form { display: flex; flex-direction: column; gap: 15px; }
-.su-field { display: flex; flex-direction: column; gap: 6px; }
+.su-form { display: flex; flex-direction: column; gap: 16px; }
+.su-field { display: flex; flex-direction: column; gap: 7px; }
 .su-label {
-  font-size: 12px; font-weight: 700; letter-spacing: 0.3px;
-  color: var(--su-muted); text-transform: uppercase;
+  font-size: 12px; font-weight: 700; letter-spacing: 0.6px;
+  color: rgba(255, 245, 235, 0.9); text-transform: uppercase;
 }
-.su-field input {
-  padding: 12px 14px; border-radius: 11px;
-  background: #FBF7F1;
-  border: 1.5px solid var(--su-border);
-  color: var(--su-ink); font-size: 15px; font-family: inherit;
-  outline: none; transition: border-color 0.14s, background 0.14s;
+.su-input-wrap { position: relative; display: flex; align-items: center; }
+.su-input {
+  width: 100%;
+  padding: 15px 16px; border-radius: 14px;
+  background: var(--o-cream); border: 2px solid transparent;
+  color: var(--o-ink); font-size: 15px; font-family: inherit;
+  outline: none; transition: border-color 0.14s;
 }
-.su-field input:focus { border-color: var(--su-accent); background: #fff; }
-.su-field input::placeholder { color: rgba(10, 36, 64, 0.34); }
-.su-hint { font-size: 12.5px; line-height: 1.5; color: var(--su-muted); }
+.su-input:focus { border-color: var(--o-black); }
+.su-input::placeholder { color: rgba(42, 18, 6, 0.38); }
+.su-eye {
+  position: absolute; right: 12px;
+  background: none; border: none; cursor: pointer;
+  color: rgba(42, 18, 6, 0.5); display: grid; place-items: center; padding: 4px;
+}
+.su-eye svg { width: 20px; height: 20px; }
+.su-hint { font-size: 13px; line-height: 1.5; color: rgba(255, 245, 235, 0.85); }
 
-/* ---- actions ---- */
-.su-actions {
-  display: flex; align-items: center; gap: 10px; margin-top: 22px;
+/* ---- password requirements checklist ---- */
+.su-reqs { display: flex; flex-direction: column; gap: 8px; margin-top: 2px; }
+.su-req {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 13px; color: rgba(255, 245, 235, 0.75);
 }
+.su-req-dot {
+  width: 18px; height: 18px; border-radius: 999px; flex-shrink: 0;
+  display: grid; place-items: center;
+  background: rgba(255, 255, 255, 0.22); color: transparent;
+  transition: background 0.14s, color 0.14s;
+}
+.su-req-dot svg { width: 11px; height: 11px; }
+.su-req.met { color: #fff; }
+.su-req.met .su-req-dot { background: #fff; color: #E14909; }
+
+/* ---- buttons ---- */
+.su-actions { margin-top: auto; padding-top: 24px; }
 .su-btn {
-  flex: 1;
-  padding: 13px 22px;
-  background: linear-gradient(135deg, var(--su-accent), var(--su-accent-2));
-  border: none; border-radius: 12px;
-  color: #fff; font-size: 15px; font-weight: 700; font-family: inherit;
-  cursor: pointer; transition: opacity 0.14s, transform 0.08s;
+  width: 100%;
+  padding: 16px 24px;
+  background: var(--o-black); border: none; border-radius: 999px;
+  color: #fff; font-size: 16px; font-weight: 800; font-family: inherit;
+  cursor: pointer; transition: transform 0.08s, opacity 0.14s;
 }
-.su-btn:hover { opacity: 0.93; }
+.su-btn:hover { opacity: 0.94; }
 .su-btn:active { transform: translateY(1px); }
-.su-btn:disabled { opacity: 0.5; cursor: default; }
-.su-back {
-  padding: 13px 16px;
-  background: transparent; border: 1.5px solid var(--su-border); border-radius: 12px;
-  color: var(--su-muted); font-size: 14px; font-weight: 600; font-family: inherit;
-  cursor: pointer; transition: color 0.14s, border-color 0.14s;
-}
-.su-back:hover { color: var(--su-ink); border-color: rgba(10, 36, 64, 0.3); }
+.su-btn:disabled { opacity: 0.45; cursor: default; }
 
 .su-err {
   margin-top: 14px;
-  padding: 11px 13px; border-radius: 11px;
-  background: rgba(214, 40, 40, 0.08); color: #C0341D;
-  font-size: 13px; line-height: 1.5; border: 1px solid rgba(214, 40, 40, 0.25);
+  padding: 12px 14px; border-radius: 12px;
+  background: rgba(255, 255, 255, 0.16); color: #fff;
+  font-size: 13px; line-height: 1.45; border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
-.su-foot {
-  margin-top: 20px; font-size: 13px; color: var(--su-muted); text-align: center;
-}
-.su-foot a { color: var(--su-accent); font-weight: 600; text-decoration: none; }
-.su-foot a:hover { text-decoration: underline; }
+.su-foot { margin-top: 16px; font-size: 13px; color: rgba(255, 245, 235, 0.85); text-align: center; }
+.su-foot a { color: #fff; font-weight: 700; text-decoration: underline; }
 
-.su-done-emoji { font-size: 44px; text-align: center; margin-bottom: 10px; }
-.su-msg { font-size: 14px; color: var(--su-muted); text-align: center; padding: 8px 0; }
+.su-msg { font-size: 15px; color: rgba(255, 245, 235, 0.9); text-align: center; padding: 8px 0; }
+
+/* "You're in the right place!" little badge on the first slide. */
+.su-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  align-self: flex-start; margin-top: 16px;
+  padding: 8px 14px; border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16); border: 1px solid rgba(255, 255, 255, 0.28);
+  font-size: 13px; font-weight: 600; color: #fff;
+}
+.su-badge svg { width: 15px; height: 15px; }
