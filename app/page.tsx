@@ -790,12 +790,15 @@ export const CommunitySvg = forwardRef<SVGSVGElement, { viewBox?: string; mode?:
       <rect x={DX + 78} y={DY + 11} width="14" height="2" fill={WALL_LITE} opacity="0.6" />
 
       {/* === CHARACTERS — give the neighbourhood life === */}
-      {/* The family in front of the focal door (three people) plus the dog are
-          the group the UFO abducts. Each keeps its own idle bob/bounce; the
-          parent .ln-abduct holds them on the ground for most of the loop, then
-          lifts the whole group straight up into the saucer when the beam fires,
-          and fades them back in on the ground once the UFO has left (24s loop,
-          no pop). */}
+      {/* The group the UFO abducts: three residents + the family dog. They
+          emerge from the two smaller houses flanking the focal one, walk in to
+          gather in the cul-de-sac, and stand (each with its own idle bob/bounce)
+          until the saucer parks. The parent .ln-abduct then lifts the whole
+          group straight up into the saucer when the beam fires; once the UFO
+          has left, a fresh group emerges from the houses again. 24s loop, no
+          pop (every position snap happens while opacity is 0). The horizontal
+          "come from the houses" motion is on the child .ln-come-* groups so it
+          composes with the parent's vertical rise. */}
       <g className="ln-abduct">
         {/* One resident + the family dog emerge from the smaller house on the
             LEFT (x=840). .ln-come-left walks them from that door in to the
