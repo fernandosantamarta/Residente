@@ -13,8 +13,12 @@ This folder ships four edge function setups:
    triggered; emails every queued email-channel recipient of a new notice
    via Resend. (See [§ Easy Voice email fan-out](#easy-voice-notice-email-fan-out)
    at the bottom.)
+5. **Home transfer** — `home-transfer`. Hands a unit off to the next buyer:
+   reassigns the roster row, transfers the conveying Home Vault documents
+   (DB row + private storage object), and emails the buyer an invite.
+   (See [§ Home transfer](#home-transfer).)
 
-The four setups are independent — you can ship any subset without the others.
+The setups are independent — you can ship any subset without the others.
 
 ---
 
@@ -423,3 +427,91 @@ supabase functions logs notice-email-fanout
 - Bounces are surfaced as `email_status = 'bounced'`; the function does
   not retry. A future job could re-queue bounced rows for a different
   channel (SMS, once Twilio is wired).
+
+---
+
+# Home transfer
+
+`home-transfer` hands a unit off to the next buyer when a home is sold. The
+browser calls it (authenticated) with a `resident_id` and the buyer's email
+(optionally `buyer_name`); the function reassigns the roster row to the buyer,
+transfers the Home Vault documents flagged `conveys = true` (both the DB row and
+the underlying private storage object), emails the buyer a branded invite, and
+writes an audit row to `home_transfers`.
+
+Either the community **board** (`board_member`/`admin`) **or the current owner**
+of the roster row may initiate. Non-conveying documents stay with the seller's
+account untouched.
+
+## Prerequisites
+
+- `home-vault.sql` already run (the `home_documents` table + `home-vault` bucket).
+- `RESEND_API_KEY` already set (from the Waitlist section).
+- Supabase CLI linked.
+
+## 1. Run the migration
+
+Paste `supabase/home-transfer.sql` into the SQL editor and run it (adds the
+`home_transfers` audit table + its board/parties read policy).
+
+## 2. Set the function secrets
+
+```bash
+supabase secrets set APP_URL=https://residente.io   # already set for Stripe
+# Optional sender override (defaults to Residente <onboarding@resend.dev>):
+supabase secrets set NOTIFY_FROM_VOICE="Residente <notices@residente.io>"
+```
+
+`SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` are
+injected automatically. The service-role key is needed for
+`auth.admin.generateLink`, the RLS-bypassing writes, and the storage move.
+
+## 3. Deploy the function
+
+```bash
+supabase functions deploy home-transfer
+```
+
+No `--no-verify-jwt` — it's browser-called with a real session and verifies the
+caller is the board or the current owner of the unit.
+
+## How the document move works
+
+Home Vault files live in the private `home-vault` bucket under
+`{profile_id}/{uuid}.{ext}`, and both the table RLS (`profile_id = auth.uid()`)
+and the storage RLS (`(storage.foldername(name))[1] = auth.uid()`) are
+owner-scoped. So a transfer must move each conveying object from the seller's
+`{seller}/…` folder into the buyer's `{buyer}/…` folder and re-point
+`home_documents.profile_id` (and `storage_path`) at the buyer — otherwise the
+buyer couldn't read what they now own. A move whose source is already gone
+(re-run) is treated as non-fatal so the DB stays consistent with the new owner.
+
+## Test it
+
+1. As an owner with at least one Home Vault doc flagged **Conveys**, trigger a
+   transfer to a test email you control (buyer).
+2. The buyer gets a "Your new home on Residente" email with a set-up link to
+   `/onboard`.
+3. SQL spot-check:
+   - `select profile_id, activated_at from residents where id = '<id>';` → now the buyer's id, `activated_at` null (re-activates on onboard).
+   - `select count(*) from home_documents where profile_id = '<buyer>' and conveys;` → the conveyed docs.
+   - `select * from home_transfers order by created_at desc limit 1;` → the audit row.
+
+Tail logs while testing:
+
+```bash
+supabase functions logs home-transfer
+```
+
+## Notes
+
+- The buyer's `profiles` row is created insert-if-absent (never clobbers an
+  existing multi-community buyer's `community_id`/`role`; `ev_membership`
+  remains the multi-community source of truth).
+- `residents` has a unique `(community_id, lower(email))` index; if setting the
+  buyer's email on the roster row would collide with a stale duplicate in that
+  community, the reassignment retries without the email (profile_id is the real
+  link; the buyer fixes the address at `/onboard`).
+- The seller keeps their auth account — they just no longer own this roster row.
+- `home_transfers` is written only by the service role (no INSERT policy);
+  the board and either party can read it via RLS.
