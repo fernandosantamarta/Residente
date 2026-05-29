@@ -75,3 +75,41 @@ export async function homeDocUrl(path: string): Promise<string | null> {
   if (error) return null
   return data?.signedUrl ?? null
 }
+
+export interface TransferResult {
+  ok: boolean
+  docs_conveyed: number
+  email_sent: boolean
+}
+
+// Hand this home off to the next buyer. Calls the `home-transfer` edge function
+// (service role): reassigns the roster row to the buyer, moves the conveying
+// documents to them, and emails them an invite. The caller must be the current
+// owner or the board — the function re-checks. residentId is the roster row id
+// for this owner's unit.
+export async function transferHome(opts: {
+  residentId: string; buyerEmail: string; buyerName?: string
+}): Promise<TransferResult> {
+  if (!hasSupabase || !supabase) throw new Error('Supabase is not configured')
+  const { data, error } = await supabase.functions.invoke('home-transfer', {
+    body: {
+      resident_id: opts.residentId,
+      buyer_email: opts.buyerEmail,
+      buyer_name: opts.buyerName,
+    },
+  })
+  if (error) {
+    // functions.invoke surfaces a non-2xx as FunctionsHttpError; dig out the
+    // JSON {error} the function returns so the UI shows a real message.
+    let msg = error.message || 'Transfer failed.'
+    try {
+      const ctx = (error as any).context
+      if (ctx && typeof ctx.json === 'function') {
+        const body = await ctx.json()
+        if (body?.error) msg = body.error
+      }
+    } catch { /* keep the generic message */ }
+    throw new Error(msg)
+  }
+  return data as TransferResult
+}

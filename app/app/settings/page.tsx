@@ -28,7 +28,7 @@ import {
 } from '@/lib/preferences'
 import {
   listHomeDocs, uploadHomeDoc, setConveys, deleteHomeDoc, homeDocUrl,
-  HOME_DOC_CATEGORIES, type HomeDoc,
+  transferHome, HOME_DOC_CATEGORIES, type HomeDoc,
 } from '@/lib/homeVault'
 import '../home/home.css'
 
@@ -331,12 +331,61 @@ function HomeVaultPanel() {
   const [mTitle, setMTitle] = useState('')
   const [mNote, setMNote] = useState('')
   const [mBusy, setMBusy] = useState(false)
+  // Transfer (sell home) modal state.
+  const [residentId, setResidentId] = useState<string | null>(null)
+  const [xferOpen, setXferOpen] = useState(false)
+  const [xEmail, setXEmail] = useState('')
+  const [xName, setXName] = useState('')
+  const [xConfirm, setXConfirm] = useState(false)
+  const [xBusy, setXBusy] = useState(false)
+  const [xDone, setXDone] = useState<string | null>(null)
 
   const reload = async () => {
     if (!profileId) return
     try { setDocs(await listHomeDocs(profileId)) } catch (e) { setErr((e as Error).message) }
   }
   useEffect(() => { reload() }, [profileId])
+
+  // Resolve this owner's roster row id (residents) so the transfer can target
+  // their unit. Match by account id first, then email (pre-claim), mirroring
+  // the home page + useMyResident.
+  useEffect(() => {
+    if (!profileId || !supabase) return
+    ;(async () => {
+      try {
+        const byId = await supabase.from('residents').select('id').eq('profile_id', profileId).limit(1)
+        let id = byId.data?.[0]?.id ?? null
+        if (!id && communityId) {
+          const { data: prof } = await supabase.from('profiles').select('email').eq('id', profileId).single()
+          const email = prof?.email
+          if (email) {
+            const byEmail = await supabase.from('residents').select('id')
+              .eq('community_id', communityId).ilike('email', email).limit(1)
+            id = byEmail.data?.[0]?.id ?? null
+          }
+        }
+        setResidentId(id)
+      } catch { /* leave null — the transfer button stays disabled */ }
+    })()
+  }, [profileId, communityId])
+
+  const conveyCount = docs.filter(d => d.conveys).length
+
+  const openXfer = () => { setXEmail(''); setXName(''); setXConfirm(false); setXDone(null); setErr(null); setXferOpen(true) }
+  const submitXfer = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!residentId || !xEmail.trim() || !xConfirm) return
+    setXBusy(true); setErr(null)
+    try {
+      const res = await transferHome({ residentId, buyerEmail: xEmail.trim(), buyerName: xName.trim() || undefined })
+      setXDone(
+        `Home transferred. ${res.docs_conveyed} document${res.docs_conveyed === 1 ? '' : 's'} moved to the new owner` +
+        (res.email_sent ? ', and they were emailed a set-up link.' : '. (We could not send the email — share their invite link manually.)')
+      )
+      await reload()
+    } catch (e2) { setErr((e2 as Error).message || 'Transfer failed.') }
+    finally { setXBusy(false) }
+  }
 
   const openAdd = (cat: string) => { setAddCat(cat); setMFile(null); setMTitle(''); setMNote('') }
   const submitAdd = async (e: React.FormEvent) => {
@@ -395,6 +444,64 @@ function HomeVaultPanel() {
           </div>
         )
       })}
+
+      {/* Sell / transfer home — hands this unit + its conveying docs to the buyer. */}
+      <div className="hv-xfer-row">
+        <div className="hv-xfer-copy">
+          <div className="hv-xfer-title">Sell or transfer this home</div>
+          <div className="hv-xfer-desc">
+            Hand your unit to the next owner. The {conveyCount} document{conveyCount === 1 ? '' : 's'} marked
+            “Conveys” move to them, and they get an invite to set up their account.
+          </div>
+        </div>
+        <button type="button" className="hv-btn-ghost" onClick={openXfer} disabled={!residentId}
+          title={residentId ? 'Transfer this home to the next owner' : 'No home on file for your account yet'}>
+          Transfer home
+        </button>
+      </div>
+
+      {xferOpen && (
+        <div className="hv-modal-overlay" onClick={() => !xBusy && setXferOpen(false)}>
+          <form className="hv-modal" onClick={e => e.stopPropagation()} onSubmit={submitXfer}>
+            <div className="hv-modal-title">Transfer this home</div>
+            {xDone ? (
+              <>
+                <div className="hv-xfer-success">{xDone}</div>
+                <div className="hv-modal-actions">
+                  <button type="button" className="hv-btn" onClick={() => setXferOpen(false)}>Done</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="hv-xfer-warn">
+                  This moves your unit and its {conveyCount} conveying document{conveyCount === 1 ? '' : 's'} to
+                  the new owner. You’ll no longer own this home on Residente. This can’t be undone from here.
+                </div>
+                <label className="hv-field">
+                  <span className="hv-label">Buyer’s email</span>
+                  <input className="hv-input" type="email" required value={xEmail}
+                    onChange={e => setXEmail(e.target.value)} placeholder="newowner@email.com" autoFocus />
+                </label>
+                <label className="hv-field">
+                  <span className="hv-label">Buyer’s name (optional)</span>
+                  <input className="hv-input" value={xName} onChange={e => setXName(e.target.value)} placeholder="e.g. Jordan Lee" />
+                </label>
+                <label className="hv-conveys hv-xfer-confirm">
+                  <input type="checkbox" checked={xConfirm} onChange={e => setXConfirm(e.target.checked)} />
+                  <span>I understand this transfers ownership of my home.</span>
+                </label>
+                {err && <div className="hv-err">{err}</div>}
+                <div className="hv-modal-actions">
+                  <button type="button" className="hv-btn-ghost" onClick={() => setXferOpen(false)} disabled={xBusy}>Cancel</button>
+                  <button type="submit" className="hv-btn" disabled={xBusy || !xEmail.trim() || !xConfirm}>
+                    {xBusy ? 'Transferring…' : 'Transfer home'}
+                  </button>
+                </div>
+              </>
+            )}
+          </form>
+        </div>
+      )}
 
       {addCat && (
         <div className="hv-modal-overlay" onClick={() => !mBusy && setAddCat(null)}>
