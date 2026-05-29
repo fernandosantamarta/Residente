@@ -89,7 +89,7 @@ function LandingNav() {
           <a href="#residents">For residents</a>
           <Link href="/login" className="ln-nav-signin">Sign in</Link>
         </nav>
-        <Link href="/signup" className="ln-cta-pill">Get started</Link>
+        <Link href="/signup" className="ln-cta-pill">Sign up</Link>
       </div>
     </header>
   )
@@ -459,7 +459,7 @@ function Hero() {
                 board is up to, and how to pay. All in one place.
               </p>
               <div className="ln-hero-ctas">
-                <Link href="/signup" className="ln-hero-btn">Get started free</Link>
+                <Link href="/signup" className="ln-hero-btn">Sign up</Link>
                 <a href="#what" className="ln-hero-ghost">
                   See how it works
                   <span aria-hidden="true">↓</span>
@@ -1113,7 +1113,7 @@ function WhatIs() {
         <h2 className="ln-what-title">
           The HOA cockpit your community has been quietly hoping for.
         </h2>
-        <Link href="/signup" className="ln-pill-btn">Get started free</Link>
+        <Link href="/signup" className="ln-pill-btn">Sign up</Link>
       </div>
       <p className="ln-what-body">
         Most small HOAs still run on email chains, paper notices, and a
@@ -1351,7 +1351,7 @@ function CtaBlock() {
             managers, always free for residents. No spam, no upsell.
           </p>
           <div className="ln-waitlist-cta">
-            <Link href="/signup" className="ln-waitlist-btn">Get started free</Link>
+            <Link href="/signup" className="ln-waitlist-btn">Sign up</Link>
             <Link href="/login" className="ln-waitlist-signin">I already have an account</Link>
           </div>
         </div>
