@@ -499,8 +499,8 @@ function HomeTransferPanel() {
 
   return (
     <>
-      <button type="button" className="set-row" onClick={openModal} disabled={!residentId}
-        title={residentId ? 'Transfer this home to the next owner' : 'No home on file for your account yet'}>
+      <button type="button" className="set-row" onClick={openModal}
+        title="Transfer this home to the next owner">
         <span className="set-row-icon hv-xfer-icon"><IconHome /></span>
         <span className="set-row-body">
           <span className="set-row-title">Sell or transfer this home</span>
@@ -523,6 +523,18 @@ function HomeTransferPanel() {
                 <div className="hv-xfer-success">{done}</div>
                 <div className="hv-modal-actions">
                   <button type="button" className="hv-btn" onClick={() => setOpen(false)}>Done</button>
+                </div>
+              </>
+            ) : !residentId ? (
+              <>
+                <div className="hv-xfer-warn">
+                  We couldn’t find a home on your account to transfer. This tool moves a specific
+                  unit, so your account needs to be linked to a home on the community roster first.
+                  Ask your board to add you (or check that your account email matches the one they
+                  have on file), then come back here.
+                </div>
+                <div className="hv-modal-actions">
+                  <button type="button" className="hv-btn" onClick={() => setOpen(false)}>Got it</button>
                 </div>
               </>
             ) : (
