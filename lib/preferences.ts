@@ -12,7 +12,7 @@ export type SmsPref       = 'all' | 'emergency' | 'none'
 export type PushPref      = 'all' | 'important' | 'none'
 export type LanguageCode  = 'en' | 'es' | 'pt'
 export type TimezoneCode  = 'ET' | 'CT' | 'MT' | 'PT'
-export type HomepageRoute = '/app' | '/app/voice' | '/app/schedule' | '/app/pay'
+export type HomepageRoute = '/app' | '/app/track' | '/app/voice' | '/app/schedule'
 export type WeekStart     = 'sun' | 'mon'
 
 export type EmergencyContact = {
@@ -143,9 +143,9 @@ export const PUSH_PREF_LABEL: Record<PushPref, string> = {
 }
 export const HOMEPAGE_LABEL: Record<HomepageRoute, string> = {
   '/app':          'Home',
+  '/app/track':    'Easy Track',
   '/app/voice':    'Easy Voice',
   '/app/schedule': 'Schedule',
-  '/app/pay':      'Pay',
 }
 export const WEEK_START_LABEL: Record<WeekStart, string> = {
   sun: 'Sunday',

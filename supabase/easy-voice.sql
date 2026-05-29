@@ -422,6 +422,9 @@ create table if not exists public.ev_notices (
 );
 alter table public.ev_notices enable row level security;
 grant select, insert on public.ev_notices to authenticated;
+-- notice-email-fanout edge function runs as service_role and updates
+-- delivery_report; without this grant it hits "permission denied".
+grant select, update on public.ev_notices to service_role;
 
 drop policy if exists "board reads notices" on public.ev_notices;
 create policy "board reads notices"
@@ -683,6 +686,10 @@ create table if not exists public.ev_notice_recipients (
 alter table public.ev_notice_recipients enable row level security;
 -- no delete grant: mark-as-read only
 grant select, insert, update on public.ev_notice_recipients to authenticated;
+-- notice-email-fanout edge function runs as service_role: it reads the
+-- queued rows and flips email_status. Without this grant it hits
+-- "permission denied for table ev_notice_recipients".
+grant select, insert, update on public.ev_notice_recipients to service_role;
 
 create index if not exists ev_notice_recipients_profile_unread_idx
   on public.ev_notice_recipients (profile_id) where read_at is null;

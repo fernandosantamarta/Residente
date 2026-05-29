@@ -124,6 +124,72 @@ Watch logs while testing: `supabase functions logs stripe-webhook`.
 
 ---
 
+# Saved cards & autopay
+
+Adds real saved payment methods and recurring autopay on top of the one-time
+Pay button. Stripe **test mode** is fine for demos — same flow, test keys.
+
+Functions:
+
+- **`create-setup-checkout`** — opens Stripe hosted Checkout in `setup` mode so
+  a resident saves a card with no charge. Lazily creates the resident's Stripe
+  Customer and pins `stripe_customer_id` on the roster row. Backs "+ Add New".
+- **`list-payment-methods`** — returns the customer's saved cards (brand/last4/
+  exp, default flag) for the Pay section's Payment Methods grid.
+- **`set-autopay`** — toggles `autopay_enabled` / `autopay_pm_id` and sets the
+  customer's default card. Backs "Turn on/Pause autopay" and "Set as default".
+- **`charge-autopay`** — the recurring engine. Charges every autopay-enabled
+  resident their community's `monthly_dues` off-session. Runs on a schedule, not
+  from the browser; gated by a `CRON_SECRET` header.
+
+## 1. Run the migration
+
+Paste `supabase/stripe-autopay.sql` into the SQL editor and run it (adds
+`stripe_customer_id` / `autopay_enabled` / `autopay_pm_id` to `residents` and
+`stripe_payment_intent_id` to `payments`).
+
+## 2. Deploy
+
+```bash
+supabase functions deploy create-setup-checkout
+supabase functions deploy list-payment-methods
+supabase functions deploy set-autopay
+supabase functions deploy charge-autopay --no-verify-jwt
+supabase functions deploy stripe-webhook --no-verify-jwt   # redeploy: now also handles autopay charges
+supabase secrets set CRON_SECRET=$(openssl rand -hex 24)
+```
+
+`STRIPE_SECRET_KEY` / `APP_URL` from the Pay-button setup are reused.
+
+## 3. Add the autopay event to the webhook
+
+In Stripe → Developers → Webhooks → your endpoint, add the event
+**`payment_intent.succeeded`** (alongside `checkout.session.completed`). The
+webhook only records intents tagged `autopay=true`, dedup on the PaymentIntent
+id, so one-time payments aren't double-counted.
+
+## 4. Schedule the recurring charge
+
+Point a scheduler at `charge-autopay` (e.g. Stripe-style cron, a Supabase
+scheduled function, or any external cron) to run on the 1st of each month:
+
+```bash
+curl -X POST https://nozzfcxijdnllkiydhfi.supabase.co/functions/v1/charge-autopay \
+  -H "x-cron-secret: $CRON_SECRET"
+# optional: -d '{"community_id":"<uuid>"}' to scope to one community
+```
+
+## Test it
+
+1. Pay → Payment Methods → **+ Add New** → save test card `4242 4242 4242 4242`.
+2. You land back on `/app/track#pay`; the card shows in Payment Methods.
+3. **Turn on autopay** → the Autopay tile flips to Active and the card becomes
+   the customer's default.
+4. Trigger `charge-autopay` (curl above) → a dues payment appears in history
+   within a few seconds (via the `payment_intent.succeeded` webhook).
+
+---
+
 # Waitlist email notifications
 
 The landing page (`/`) drops emails into `public.waitlist`. `waitlist-notify`

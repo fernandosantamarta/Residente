@@ -48,6 +48,12 @@ Deno.serve(async (req) => {
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
+    // `setup` sessions (saving a card) carry no payment — ignore them here.
+    if (session.mode !== 'payment') {
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200, headers: { 'Content-Type': 'application/json' },
+      })
+    }
     const resident_id = session.metadata?.resident_id
     const community_id = session.metadata?.community_id
     // Trust Stripe's own figure for what was actually charged.
@@ -74,6 +80,47 @@ Deno.serve(async (req) => {
       })
       if (error) {
         console.error('Failed to insert payment:', error)
+        return new Response('Insert failed', { status: 500 })
+      }
+    }
+  }
+
+  // Off-session autopay charges (created by charge-autopay) arrive as
+  // payment_intent.succeeded. Record them the same way, dedup on the
+  // PaymentIntent id. One-time hosted-checkout payments also emit this event,
+  // but they're already recorded above and carry no resident_id metadata here,
+  // so we only act on intents tagged autopay=true.
+  if (event.type === 'payment_intent.succeeded') {
+    const pi = event.data.object as Stripe.PaymentIntent
+    if (pi.metadata?.autopay !== 'true') {
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200, headers: { 'Content-Type': 'application/json' },
+      })
+    }
+    const resident_id = pi.metadata?.resident_id
+    const community_id = pi.metadata?.community_id
+    const amount = (pi.amount_received ?? pi.amount ?? 0) / 100
+
+    if (!resident_id || !community_id || amount <= 0) {
+      console.error('payment_intent.succeeded missing metadata:', pi.id)
+      return new Response('Missing metadata', { status: 400 })
+    }
+
+    const { data: existing } = await admin
+      .from('payments')
+      .select('id')
+      .eq('stripe_payment_intent_id', pi.id)
+      .maybeSingle()
+
+    if (!existing) {
+      const { error } = await admin.from('payments').insert({
+        community_id,
+        resident_id,
+        amount,
+        stripe_payment_intent_id: pi.id,
+      })
+      if (error) {
+        console.error('Failed to insert autopay payment:', error)
         return new Response('Insert failed', { status: 500 })
       }
     }

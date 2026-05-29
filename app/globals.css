@@ -6735,6 +6735,89 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .pay-breakdown-total { font-weight: 700; }
 [data-theme="sketch"] .pay-amt-credit { color: #4A7A2D; }
 
+/* Current Balance rings — three donut dials that sit beside the balance.
+   Everything lives inside each ring: a headline value and a small label under
+   it. The primary face holds by default and swaps to the detail face (cross-
+   fading) while the ring is hovered or focused. */
+[data-theme="sketch"] .pay-balance-card { padding: 30px 32px !important; }
+[data-theme="sketch"] .pay-balance-head {
+  flex-direction: row; align-items: center; gap: 28px; flex-wrap: wrap;
+}
+[data-theme="sketch"] .pay-balance-main {
+  display: flex; flex-direction: column; gap: 8px; flex: 0 1 360px; min-width: 280px;
+}
+/* Vertical divider between the balance and the rings. */
+[data-theme="sketch"] .pay-balance-sep {
+  align-self: stretch; width: 1px; min-height: 158px; flex: 0 0 auto;
+  background: rgba(15, 28, 46, 0.12);
+}
+/* The three rings fill the space beside the balance and spread evenly. */
+[data-theme="sketch"] .pay-rings {
+  display: flex; flex: 1 1 380px; gap: 16px;
+  justify-content: space-around; align-items: flex-start; flex-wrap: wrap;
+}
+[data-theme="sketch"] .pay-ring {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  flex: 0 0 auto; padding: 0;
+  background: none; border: none; cursor: pointer; font-family: inherit;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+[data-theme="sketch"] .pay-ring:hover,
+[data-theme="sketch"] .pay-ring:focus-visible { transform: translateY(-2px); outline: none; }
+[data-theme="sketch"] .pay-ring-viz { position: relative; width: 156px; height: 156px; transition: filter 0.2s ease; }
+/* Coloured glow per tone on hover — makes each dial feel alive, not static. */
+[data-theme="sketch"] .pay-ring-dues:hover .pay-ring-viz { filter: drop-shadow(0 5px 13px rgba(225, 73, 9, 0.30)); }
+[data-theme="sketch"] .pay-ring-due:hover  .pay-ring-viz { filter: drop-shadow(0 5px 13px rgba(230, 162, 60, 0.34)); }
+[data-theme="sketch"] .pay-ring-ok:hover   .pay-ring-viz { filter: drop-shadow(0 5px 13px rgba(62, 155, 79, 0.32)); }
+[data-theme="sketch"] .pay-ring-warn:hover .pay-ring-viz { filter: drop-shadow(0 5px 13px rgba(224, 161, 6, 0.32)); }
+/* Opt out of the global .pay-card svg hand-ink wobble filter — the rings are
+   precise progress arcs, not sketch icons, so they must render clean. */
+[data-theme="sketch"] .pay-ring-viz svg { width: 100%; height: 100%; display: block; filter: none; }
+[data-theme="sketch"] .pay-ring-track { fill: none; stroke: rgba(15, 28, 46, 0.08); stroke-width: 7; }
+[data-theme="sketch"] .pay-ring-fill {
+  fill: none; stroke-width: 7; stroke-linecap: round;
+  /* draws the arc in on mount (0 → target) and eases it when growing on hover */
+  transition: stroke-dasharray 0.95s cubic-bezier(0.22, 1, 0.36, 1), stroke-width 0.2s ease;
+}
+[data-theme="sketch"] .pay-ring:hover .pay-ring-fill,
+[data-theme="sketch"] .pay-ring:focus-visible .pay-ring-fill { stroke-width: 9; }
+[data-theme="sketch"] .pay-ring-dues .pay-ring-fill { stroke: #E14909; }
+[data-theme="sketch"] .pay-ring-due  .pay-ring-fill { stroke: #E6A23C; }
+[data-theme="sketch"] .pay-ring-ok   .pay-ring-fill { stroke: #3E9B4F; }
+[data-theme="sketch"] .pay-ring-warn .pay-ring-fill { stroke: #E0A106; }
+[data-theme="sketch"] .pay-ring-bad  .pay-ring-fill { stroke: #C8372D; }
+/* Centred stack inside the ring: headline value + small label. */
+[data-theme="sketch"] .pay-ring-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px; padding: 0 26px; text-align: center;
+  animation: pay-ring-fade 0.32s ease;
+}
+[data-theme="sketch"] .pay-ring-value {
+  font-family: 'Inter', -apple-system, system-ui, sans-serif;
+  font-size: 25px; font-weight: 700; line-height: 1.08; letter-spacing: -0.01em;
+  color: #0A2440; font-variant-numeric: tabular-nums; max-width: 100%;
+}
+[data-theme="sketch"] .pay-ring-sub {
+  font-size: 11px; font-weight: 500; color: rgba(10, 36, 64, 0.55); line-height: 1.15;
+}
+/* Green checkmark for the on-track Payment Status ring. */
+[data-theme="sketch"] .pay-ring-check { width: 52px; height: 52px; display: block; color: #3E9B4F; }
+/* Category label beneath each ring (BALANCE / PAYMENT STATUS / DUE DATE). */
+[data-theme="sketch"] .pay-ring-cat {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: rgba(10, 36, 64, 0.5);
+}
+@keyframes pay-ring-fade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@media (max-width: 760px) {
+  [data-theme="sketch"] .pay-balance-sep { display: none; }
+  [data-theme="sketch"] .pay-rings { flex-basis: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="sketch"] .pay-ring,
+  [data-theme="sketch"] .pay-ring-fill { transition: none; }
+  [data-theme="sketch"] .pay-ring-center { animation: none; }
+}
+
 /* Shimmer skeleton — replaces the balance + due-date strings while
    useMyResident() is loading so the real number never has to flash a
    fallback. */

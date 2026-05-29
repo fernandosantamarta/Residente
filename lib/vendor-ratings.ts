@@ -1,18 +1,22 @@
 // Vendor ratings — residents can rate any vendor 1-5 stars with an
-// optional written review. Stored in localStorage for the demo path;
-// when the real `vendor_ratings` table is wired, swap the storage
-// functions and the hook consumers don't change.
+// optional written review.
 //
-// Two layers:
-//   - DEMO_RATINGS (in code) — sample reviews from "other residents"
-//     so the count next to each vendor isn't 0 from day one.
-//   - mine (in localStorage) — the current resident's reviews.
+// Three layers feed the effective rating shown on the Vendors page:
+//   - DEMO_RATINGS (in code) — sample reviews from "other residents" so
+//     the count next to each demo vendor isn't 0 from day one.
+//   - db (Supabase `vendor_ratings`) — every resident's rating across the
+//     whole community, so averages reflect the community, not just you.
+//   - mine (localStorage) — the current resident's rating, written
+//     optimistically so the UI updates instantly and still works offline /
+//     in preview mode where there's no Supabase session.
 //
-// "Mine" is upserted by vendor_id: one rating per resident per vendor.
-// Both layers feed averageFor() so the effective rating reflects the
-// whole community.
+// "Mine" is upserted by vendor_id: one rating per resident per vendor. The
+// hook writes through to Supabase when a session exists (see vendor-ratings.sql
+// for the table + RLS) and always mirrors to localStorage as the offline cache.
 
 import { useEffect, useState } from 'react'
+import { useAuth } from '@/app/providers'
+import { supabase, hasSupabase } from '@/lib/supabase'
 
 export type Stars = 1 | 2 | 3 | 4 | 5
 
@@ -22,7 +26,8 @@ export type Rating = {
   stars: Stars
   review: string
   created_at: string
-  source?: 'demo' | 'mine'
+  profile_id?: string
+  source?: 'demo' | 'mine' | 'db'
 }
 
 // Seeded "other resident" reviews. Distribute across the featured
@@ -69,6 +74,12 @@ export const DEMO_RATINGS: Rating[] = [
 
 const STORAGE_KEY = 'residente-vendor-ratings'
 
+// Vendor ids are uuids in the DB; the in-code demo seed uses 'v1'..'v9'.
+// Only push real uuids to Supabase — rating a demo-seed vendor (e.g. when a
+// community has no vendor rows yet) stays a localStorage-only action.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const isUuid = (s: string) => UUID_RE.test(s)
+
 export function getMyRatings(): Rating[] {
   if (typeof window === 'undefined') return []
   try {
@@ -87,8 +98,9 @@ export function setMyRatings(next: Rating[]) {
   window.dispatchEvent(new CustomEvent('residente-vendor-ratings-change'))
 }
 
-// Upsert: one rating per vendor for the current resident. Returns the
-// new rating record.
+// Optimistic localStorage upsert: one rating per vendor for the current
+// resident. Returns the new rating record. DB write-through is handled by the
+// hook's `submit`, which calls this first so the UI updates instantly.
 export function submitRating(vendor_id: string, stars: Stars, review: string): Rating {
   const existing = getMyRatings()
   const idx = existing.findIndex(r => r.vendor_id === vendor_id)
@@ -111,11 +123,18 @@ export function removeMyRating(vendor_id: string) {
   setMyRatings(getMyRatings().filter(r => r.vendor_id !== vendor_id))
 }
 
-// React hook — combines the demo seed with the resident's stored
-// reviews, listens for sibling-tab + sibling-component changes.
+// React hook — merges the demo seed, the community's DB ratings, and the
+// resident's own (optimistic) reviews, and exposes submit/remove that write
+// through to Supabase. Listens for sibling-tab + sibling-component changes.
 export function useVendorRatings() {
-  const [mine, setMine] = useState<Rating[]>([])
+  const { profile } = useAuth() || {}
+  const communityId = profile?.community_id
+  const profileId = profile?.id
 
+  const [mine, setMine] = useState<Rating[]>([])
+  const [db, setDb] = useState<Rating[]>([])
+
+  // Local (optimistic) layer — instant UI + offline/preview fallback.
   useEffect(() => {
     const refresh = () => setMine(getMyRatings())
     refresh()
@@ -129,7 +148,66 @@ export function useVendorRatings() {
     }
   }, [])
 
-  const all = [...DEMO_RATINGS, ...mine]
+  // Community layer — every resident's rating from Supabase.
+  const loadDb = async () => {
+    if (!hasSupabase || !supabase || !communityId) { setDb([]); return }
+    try {
+      const { data, error } = await supabase
+        .from('vendor_ratings')
+        .select('id, vendor_id, stars, review, created_at, profile_id')
+        .eq('community_id', communityId)
+      if (error || !data) return
+      setDb(data.map((r: any) => ({
+        id: r.id,
+        vendor_id: r.vendor_id,
+        stars: r.stars as Stars,
+        review: r.review || '',
+        created_at: (r.created_at || '').slice(0, 10),
+        profile_id: r.profile_id,
+        source: 'db' as const,
+      })))
+    } catch { /* keep whatever we have — demo + localStorage still render */ }
+  }
+  useEffect(() => { loadDb() /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [communityId])
+
+  // Write-through helpers. Always update localStorage optimistically; push to
+  // Supabase when there's a session and the vendor is a real (uuid) row.
+  const submit = async (vendor_id: string, stars: Stars, review: string) => {
+    submitRating(vendor_id, stars, review)
+    if (hasSupabase && supabase && communityId && profileId && isUuid(vendor_id)) {
+      try {
+        await supabase.from('vendor_ratings').upsert(
+          {
+            community_id: communityId,
+            vendor_id,
+            profile_id: profileId,
+            stars,
+            review: review.trim() || null,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: 'vendor_id,profile_id' },
+        )
+        await loadDb()
+      } catch { /* optimistic localStorage copy already applied */ }
+    }
+  }
+
+  const remove = async (vendor_id: string) => {
+    removeMyRating(vendor_id)
+    if (hasSupabase && supabase && profileId && isUuid(vendor_id)) {
+      try {
+        await supabase.from('vendor_ratings').delete()
+          .eq('vendor_id', vendor_id).eq('profile_id', profileId)
+        await loadDb()
+      } catch { /* optimistic localStorage removal already applied */ }
+    }
+  }
+
+  // Effective set: demo seed + community DB rows (minus my own, which the
+  // optimistic localStorage copy represents) + my localStorage rating. This
+  // keeps exactly one copy of my rating and makes it update instantly.
+  const dbOthers = profileId ? db.filter(r => r.profile_id !== profileId) : db
+  const all = [...DEMO_RATINGS, ...dbOthers, ...mine]
 
   const myByVendor = new Map<string, Rating>(mine.map(r => [r.vendor_id, r]))
 
@@ -148,5 +226,5 @@ export function useVendorRatings() {
   const myRating = (vendor_id: string): Rating | undefined =>
     myByVendor.get(vendor_id)
 
-  return { all, mine, myRating, ratingsFor, countFor, averageFor }
+  return { all, mine, myRating, ratingsFor, countFor, averageFor, submit, remove }
 }
