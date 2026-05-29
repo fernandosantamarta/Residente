@@ -21,9 +21,8 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/community',  label: 'Community' },
   { href: '/admin/residents',  label: 'Residents' },
   { href: '/admin/voice',      label: 'Easy Voice', match: ['/admin/board', '/admin/requests'] },
-  { href: '/admin/rules',      label: 'Rules' },
+  { href: '/admin/documents',  label: 'Easy Documents', match: ['/admin/rules'] },
   { href: '/admin/violations', label: 'Violations' },
-  { href: '/admin/documents',  label: 'Documents' },
   { href: '/admin/schedule',   label: 'Schedule' },
   { href: '/admin/vendor',     label: 'Vendors' },
 ]

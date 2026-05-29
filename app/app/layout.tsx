@@ -25,7 +25,7 @@ const initialsFrom = (name?: string | null): string => {
   return (first + last).toUpperCase().slice(0, 2) || '—'
 }
 
-type NavItem = { href: string; label: string; icon: ReactNode; pulse?: boolean; exact?: boolean }
+type NavItem = { href: string; label: string; icon: ReactNode; pulse?: boolean; exact?: boolean; match?: string[] }
 
 // Resident left rail. Easy Voice merges meetings & votes, the board, and
 // contact requests (maintenance issues, appeals, questions) into one tab.
@@ -33,8 +33,7 @@ const NAV: NavItem[] = [
   { href: '/app',           label: 'Home',      exact: true, icon: <><path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/></> },
   { href: '/app/pay',       label: 'Pay',       icon: <><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/></> },
   { href: '/app/voice',     label: 'Easy Voice', pulse: true, icon: <><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="22"/></> },
-  { href: '/app/rules',     label: 'Rules',     icon: <><path d="M4 4h12l4 4v12H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></> },
-  { href: '/app/documents', label: 'Documents', icon: <><path d="M14 3H6v18h12V7z"/><path d="M14 3v4h4"/></> },
+  { href: '/app/documents', label: 'Easy Documents', match: ['/app/rules'], icon: <><path d="M4 4h12l4 4v12H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></> },
   { href: '/app/schedule',  label: 'Schedule',  icon: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></> },
   { href: '/app/vendor',    label: 'Vendor',    icon: <><path d="M3 7h18l-1.4 11.2A2 2 0 0 1 17.6 20H6.4a2 2 0 0 1-2-1.8z"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></> },
   { href: '/app/reports',   label: 'Reports',   icon: <><path d="M4 4h16v16H4z"/><path d="M8 16v-4M12 16v-7M16 16v-2"/></> },
@@ -42,8 +41,11 @@ const NAV: NavItem[] = [
 // Settings is intentionally not in NAV — the bottom-left user-block in
 // rail-footer is the entry point, matching the profile-tab pattern.
 
-const isActive = (pathname: string, href: string, exact?: boolean) =>
-  exact ? pathname === href : pathname === href || pathname.startsWith(href + '/')
+const isActive = (pathname: string, item: NavItem) => {
+  const hrefs = [item.href, ...(item.match ?? [])]
+  if (item.exact) return hrefs.some(h => pathname === h)
+  return hrefs.some(h => pathname === h || pathname.startsWith(h + '/'))
+}
 
 const fmtTime = () => {
   const d = new Date()
@@ -120,7 +122,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
             <Link
               key={item.href}
               href={item.href}
-              className={`nav-item${isActive(pathname, item.href, item.exact) ? ' active' : ''}`}
+              className={`nav-item${isActive(pathname, item) ? ' active' : ''}`}
             >
               <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 {item.icon}
