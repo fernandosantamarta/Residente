@@ -229,8 +229,8 @@ export default function Settings() {
                 }}
               />
               <div className="set-account-meta">
-                <div className="set-account-name">{unitLabel}</div>
-                <div className="set-account-email">{email}</div>
+                <div className="set-account-name">{fullName}</div>
+                <div className="set-account-email">{unitLabel} · {email}</div>
               </div>
             </div>
             <div className="set-account-rows">
