@@ -1329,7 +1329,7 @@ function DashboardPreview() {
           />
         </div>
         <div className="ln-preview-ctas">
-          <Link href="/app?preview=1" className="ln-pill-btn">Walk through the live demo</Link>
+          <Link href="/app?preview=1" className="ln-pill-btn">Try the interactive demo</Link>
         </div>
       </div>
     </section>

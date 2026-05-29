@@ -1,0 +1,95 @@
+/* Home Vault — resident's personal home space. Light/cream sketch theme to
+   match the resident cockpit: navy text, warm orange accent. */
+
+.hv {
+  --hv-ink: #0A2440;
+  --hv-accent: #E14909;
+  --hv-muted: rgba(10, 36, 64, 0.6);
+  --hv-border: rgba(10, 36, 64, 0.12);
+  --hv-cream: #FBF7F1;
+  max-width: 760px; margin: 0 auto; padding: 8px 0 60px;
+  color: var(--hv-ink);
+}
+
+.hv-kicker {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+  color: var(--hv-accent); margin-bottom: 8px;
+}
+.hv-h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.5px; margin: 0 0 8px; }
+.hv-dek { font-size: 14.5px; line-height: 1.55; color: var(--hv-muted); margin: 0 0 24px; max-width: 620px; }
+
+.hv-card {
+  background: #fff; border: 1px solid var(--hv-border); border-radius: 16px;
+  padding: 22px 24px; margin-bottom: 18px;
+  box-shadow: 0 6px 20px rgba(10, 36, 64, 0.05);
+}
+.hv-card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.hv-card-title { font-size: 18px; font-weight: 700; letter-spacing: -0.3px; }
+.hv-card-sub { font-size: 13px; color: var(--hv-muted); font-weight: 600; }
+
+.hv-muted { font-size: 14px; color: var(--hv-muted); line-height: 1.5; padding: 6px 0; }
+
+/* dues balance */
+.hv-balance { display: flex; align-items: baseline; gap: 12px; margin-bottom: 16px; }
+.hv-balance-num { font-size: 34px; font-weight: 800; letter-spacing: -1px; }
+.hv-balance.owes .hv-balance-num { color: var(--hv-accent); }
+.hv-balance.ok .hv-balance-num { color: #1F9D62; }
+.hv-balance-label { font-size: 13px; font-weight: 600; color: var(--hv-muted); }
+
+.hv-paylist { margin-top: 16px; border-top: 1px solid var(--hv-border); padding-top: 8px; }
+.hv-payrow { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid var(--hv-border); }
+.hv-payrow:last-child { border-bottom: none; }
+.hv-pay-amt { font-weight: 700; font-size: 14px; min-width: 70px; }
+.hv-pay-meta { font-size: 13px; color: var(--hv-muted); flex: 1; }
+.hv-pay-proof { font-size: 13px; }
+
+/* forms */
+.hv-form { display: flex; flex-direction: column; gap: 14px; margin-top: 8px; }
+.hv-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 540px) { .hv-form-row { grid-template-columns: 1fr; } }
+.hv-field { display: flex; flex-direction: column; gap: 6px; }
+.hv-label { font-size: 12px; font-weight: 700; letter-spacing: 0.3px; color: var(--hv-muted); text-transform: uppercase; }
+.hv-input {
+  padding: 11px 13px; border-radius: 11px; background: var(--hv-cream);
+  border: 1.5px solid var(--hv-border); color: var(--hv-ink); font: inherit; font-size: 14px;
+  outline: none; transition: border-color 0.14s;
+}
+.hv-input:focus { border-color: var(--hv-accent); background: #fff; }
+
+.hv-actions { display: flex; gap: 10px; justify-content: flex-end; }
+.hv-btn {
+  padding: 11px 20px; border: none; border-radius: 999px;
+  background: var(--hv-accent); color: #fff; font: inherit; font-weight: 700; font-size: 14px;
+  cursor: pointer; transition: opacity 0.14s;
+}
+.hv-btn:hover { opacity: 0.92; }
+.hv-btn:disabled { opacity: 0.5; cursor: default; }
+.hv-btn-ghost {
+  padding: 11px 18px; border: 1.5px solid var(--hv-border); border-radius: 999px;
+  background: transparent; color: var(--hv-muted); font: inherit; font-weight: 600; font-size: 14px; cursor: pointer;
+}
+.hv-btn-ghost:hover { color: var(--hv-ink); }
+
+/* checklist chips */
+.hv-checklist { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 16px; }
+.hv-chip {
+  font-size: 12.5px; font-weight: 600; padding: 6px 12px; border-radius: 999px;
+  background: var(--hv-cream); border: 1.5px solid var(--hv-border); color: var(--hv-muted);
+}
+.hv-chip.done { background: rgba(31, 157, 98, 0.1); border-color: rgba(31, 157, 98, 0.4); color: #1F9D62; }
+
+/* document list */
+.hv-doclist { display: flex; flex-direction: column; }
+.hv-docrow { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--hv-border); }
+.hv-docrow:last-child { border-bottom: none; }
+.hv-doc-main { flex: 1; min-width: 0; text-align: left; background: none; border: none; cursor: pointer; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.hv-doc-title { font-size: 14.5px; font-weight: 600; color: var(--hv-ink); }
+.hv-doc-main:hover .hv-doc-title { color: var(--hv-accent); text-decoration: underline; }
+.hv-doc-meta { font-size: 12.5px; color: var(--hv-muted); }
+.hv-conveys { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 600; color: var(--hv-muted); cursor: pointer; white-space: nowrap; }
+.hv-conveys input { cursor: pointer; accent-color: var(--hv-accent); }
+.hv-doc-del { width: 28px; height: 28px; border-radius: 8px; border: 1.5px solid var(--hv-border); background: transparent; color: var(--hv-muted); font-size: 17px; line-height: 1; cursor: pointer; }
+.hv-doc-del:hover { color: var(--hv-accent); border-color: var(--hv-accent); }
+
+.hv-err { margin: 10px 0; padding: 10px 13px; border-radius: 10px; background: rgba(214, 40, 40, 0.08); color: #C0341D; font-size: 13px; border: 1px solid rgba(214, 40, 40, 0.25); }
+.hv-link { background: none; border: none; color: var(--hv-accent); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
