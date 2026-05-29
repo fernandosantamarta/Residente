@@ -648,12 +648,6 @@ body:has(.landing-screen) { min-width: 0; }
   opacity: 0;
 }
 
-/* The family in front of the focal door (three people + dog) stands/bobs in
-   place for most of the loop, then rises straight up into the saucer when the
-   beam fires, fades out inside it, and fades back in on the ground after the
-   UFO has left — so the 24s cycle repeats with no pop (both loop ends are
-   translate(0,0) opacity 1). The snap from -985 back to 0 happens while
-   opacity is 0, so it's invisible. */
 /* Parent: the shared VERTICAL rise + opacity. Linear timing (not ease-in-out)
    so the climb is one smooth motion — ease-in-out was decelerating to a near
    stop at every keyframe, which read as the group freezing midway up the beam.
