@@ -921,8 +921,8 @@ button { font-family: inherit; }
 /* Preview cockpit: brand area becomes a back-to-landing link. */
 .brand-back { text-decoration: none; cursor: pointer; flex-wrap: nowrap; white-space: nowrap; }
 .brand-back:hover { opacity: 0.8; }
-.brand-back .brand-word { white-space: nowrap; font-size: 13px; font-weight: 600; }
-.brand-back-arrow { font-size: 15px; font-weight: 700; line-height: 1; }
+.brand-back .brand-word { white-space: nowrap; font-size: 11.5px; font-weight: 600; }
+.brand-back-arrow { font-size: 13px; font-weight: 700; line-height: 1; }
 
 .login-back {
   display: block;

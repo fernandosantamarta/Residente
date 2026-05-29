@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { ReactNode, useState } from 'react'
 import { useMyResident } from '@/hooks/useMyResident'
+import { useAuth } from '@/app/providers'
 import { hasSupabase, stripeEnabled, supabase } from '@/lib/supabase'
 import { usePreferences } from '@/lib/preferences'
 import { fmtMoney } from '@/lib/dues'
@@ -37,14 +38,14 @@ const DEMO_STATEMENTS = [
 // methods (read from /app/settings preferences).
 export default function Pay() {
   const { resident, balance, monthlyDues, loading } = useMyResident() as any
+  const { session } = useAuth() || {}
   const [prefs] = usePreferences()
   const [checkout, setCheckout] = useState({ loading: false, error: '' })
 
-  // Only fall back to a demo number when we're genuinely offline of
-  // a resident record (preview mode for design walkthroughs). For a
-  // real authed resident, we wait for the real number and show a
-  // skeleton — no flashing of a wrong amount.
-  const isLoading = loading || (resident == null && balance == null && !!hasSupabase)
+  // Skeleton only while a SIGNED-IN resident's real number is still resolving.
+  // Logged-out preview has no session, so it shows the demo number immediately
+  // instead of an endless skeleton.
+  const isLoading = !!session && (loading || (resident == null && balance == null && !!hasSupabase))
   const currentBalance = balance == null ? 100.00 : balance
   const dueDate = '2026-12-05'
 
