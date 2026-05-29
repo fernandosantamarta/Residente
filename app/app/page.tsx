@@ -58,7 +58,10 @@ export default function Home() {
   const { profile } = useAuth() || {}
   const { balance: myBalance, status: myDues } = useMyResident()
 
-  // Real community when one is linked; otherwise the demo so Home never blanks.
+  // Real community when one is linked; otherwise the demo (marketing preview
+  // for logged-out visitors). A real signed-in community NEVER sees demo
+  // content — it gets its real data and clean empty states.
+  const demo = !community
   const c = community || DEMO
   const cats = community ? categories : DEMO_CATS
 
@@ -127,7 +130,7 @@ export default function Home() {
           slot of the day; the band disappears entirely when no votes are
           open, so the dashboard quietly rearranges to demand attention only
           when it should. */}
-      <OpenVotesBand />
+      <OpenVotesBand demo={demo} />
 
       {/* ROW 1 — Financial Overview (with embedded trend chart) + Quick Actions */}
       <section className="dash-row1">
@@ -176,13 +179,15 @@ export default function Home() {
           </div>
         </section>
 
-        <RecentActivity />
+        <RecentActivity demo={demo} />
       </section>
 
       <DuesSection
         monthlyDues={monthlyDues}
         unitCount={unitCount}
         unitNumber={profile?.unit_number ?? null}
+        demo={demo}
+        cats={cats}
       />
     </>
   )
@@ -234,8 +239,18 @@ function weatherIcon(condition: string): ChipIconName {
 // ---------- Where your dues go (tabbed) ----------
 
 function DuesSection({
-  monthlyDues, unitCount, unitNumber,
-}: { monthlyDues: number; unitCount: number; unitNumber: string | null }) {
+  monthlyDues, unitCount, unitNumber, demo, cats,
+}: { monthlyDues: number; unitCount: number; unitNumber: string | null; demo: boolean; cats: any[] }) {
+  // Real community: derive the allocation from its own budget categories.
+  // Demo (logged-out preview): the illustrative vendor sample.
+  const catTotal = cats.reduce((s, x) => s + num(x.budget), 0)
+  const breakdown = demo
+    ? VENDOR_BREAKDOWN
+    : (catTotal > 0
+        ? cats.filter(x => num(x.budget) > 0).map((x, i) => ({
+            id: x.id ?? `c${i}`, name: x.name, share: num(x.budget) / catTotal, trend: 0,
+          }))
+        : [])
   const [tab, setTab] = useState<'community' | 'personal'>('community')
   const isCommunity = tab === 'community'
   const multiplier = isCommunity ? monthlyDues * unitCount : monthlyDues
@@ -280,14 +295,18 @@ function DuesSection({
             Last updated: {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
           </div>
         </div>
-        <RatingRing
-          value={isCommunity ? 92 : 100}
-          label={isCommunity ? 'Community rating' : 'Your rating'}
-        />
+        {demo && (
+          <RatingRing
+            value={isCommunity ? 92 : 100}
+            label={isCommunity ? 'Community rating' : 'Your rating'}
+          />
+        )}
       </div>
 
       <div className="dues-breakdown">
-        {VENDOR_BREAKDOWN.map((v) => (
+        {breakdown.length === 0 ? (
+          <div className="activity-empty">Set category budgets in Admin to see how dues are allocated.</div>
+        ) : breakdown.map((v) => (
           <div key={v.id} className="dues-cat">
             <div className="dues-cat-row">
               <span className="dues-cat-name">{v.name}</span>
@@ -586,8 +605,10 @@ function fmtCloses(iso: string) {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-function OpenVotesBand() {
-  const votes = DEMO_OPEN_VOTES
+function OpenVotesBand({ demo }: { demo: boolean }) {
+  // Real open votes aren't wired into this band yet, so a real community shows
+  // none (the band hides). Only the marketing preview shows sample votes.
+  const votes = demo ? DEMO_OPEN_VOTES : []
   if (votes.length === 0) return null
 
   const single = votes.length === 1
@@ -732,10 +753,10 @@ function GlanceCard({ icon, iconTone, value, label, captionText, captionTone }: 
 
 // ---------- Recent Activity ----------
 
-function RecentActivity() {
+function RecentActivity({ demo }: { demo: boolean }) {
   const { decisions, loading } = useBoardDecisions(5) as { decisions: any[] | null; loading: boolean }
-  const list = decisions ?? DEMO_ACTIVITY
-  const empty = decisions !== null && decisions.length === 0 && !loading
+  const list = decisions ?? (demo ? DEMO_ACTIVITY : [])
+  const empty = !demo && decisions !== null && decisions.length === 0 && !loading
 
   return (
     <section className="activity-card">
