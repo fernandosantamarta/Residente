@@ -9,6 +9,7 @@ import {
   type ProvisionInput,
   type PropertyType,
 } from '@/lib/signup'
+import './signup.css'
 
 // Duolingo-style self-serve sign-up. One decision per screen, a progress bar,
 // big tappable tiles, account creation deferred to the end. Two branches:
