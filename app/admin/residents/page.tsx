@@ -275,6 +275,14 @@ export default function Residents() {
                   value={form.phone} onChange={e => setField('phone', e.target.value)} />
               </label>
             </div>
+            <div className="admin-2col">
+              <label className="admin-field">
+                <span className="admin-field-label">Unit number</span>
+                <input name="unit_number" className="admin-input" placeholder="e.g. 11"
+                  value={form.unit_number} onChange={e => setField('unit_number', e.target.value)} />
+              </label>
+              <div />
+            </div>
             <div className="admin-form-actions">
               <button type="submit" className="admin-primary-btn" disabled={saving}>
                 {saving ? 'Adding…' : 'Add resident'}
