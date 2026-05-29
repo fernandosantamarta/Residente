@@ -84,7 +84,9 @@ function DuesCard({ resident, balance, status, payments, monthlyDues, loading, p
       })
       setAmount(''); setNote(''); setProof(null); if (fileRef.current) fileRef.current.value = ''
       setOpen(false)
-      onLogged()
+      // useMyResident has no refetch, so reload to show the new payment +
+      // updated balance right away.
+      window.location.reload()
     } catch (e2) { setError((e2 as Error).message || 'Could not log payment.') }
     finally { setBusy(false) }
   }
