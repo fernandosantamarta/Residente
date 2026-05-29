@@ -45,7 +45,7 @@ export default function Pay() {
   // real authed resident, we wait for the real number and show a
   // skeleton — no flashing of a wrong amount.
   const isLoading = loading || (resident == null && balance == null && !!hasSupabase)
-  const currentBalance = balance == null ? 250.00 : balance
+  const currentBalance = balance == null ? 100.00 : balance
   const dueDate = '2026-12-05'
 
   const breakdown = [

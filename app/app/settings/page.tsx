@@ -324,9 +324,13 @@ function HomeVaultPanel() {
   const communityId = profile?.community_id ?? null
   const [docs, setDocs] = useState<HomeDoc[]>([])
   const [openCat, setOpenCat] = useState<string | null>(null)
-  const [busyCat, setBusyCat] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
-  const fileRefs = useRef<Record<string, HTMLInputElement | null>>({})
+  // Add-document modal state.
+  const [addCat, setAddCat] = useState<string | null>(null)
+  const [mFile, setMFile] = useState<File | null>(null)
+  const [mTitle, setMTitle] = useState('')
+  const [mNote, setMNote] = useState('')
+  const [mBusy, setMBusy] = useState(false)
 
   const reload = async () => {
     if (!profileId) return
@@ -334,14 +338,16 @@ function HomeVaultPanel() {
   }
   useEffect(() => { reload() }, [profileId])
 
-  const addFile = async (cat: string, file: File) => {
-    if (!profileId) return
-    setBusyCat(cat); setErr(null)
+  const openAdd = (cat: string) => { setAddCat(cat); setMFile(null); setMTitle(''); setMNote('') }
+  const submitAdd = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!mFile || !profileId || !addCat) return
+    setMBusy(true); setErr(null)
     try {
-      await uploadHomeDoc({ file, title: file.name.replace(/\.[^.]+$/, ''), category: cat, profileId, communityId, residentId: null })
-      await reload()
-    } catch (e) { setErr((e as Error).message || 'Upload failed.') }
-    finally { setBusyCat(null) }
+      await uploadHomeDoc({ file: mFile, title: mTitle, note: mNote, category: addCat, profileId, communityId, residentId: null })
+      setAddCat(null); await reload()
+    } catch (e2) { setErr((e2 as Error).message || 'Upload failed.') }
+    finally { setMBusy(false) }
   }
   const openDoc = async (d: HomeDoc) => { const u = await homeDocUrl(d.storage_path); if (u) window.open(u, '_blank', 'noopener') }
   const remove = async (d: HomeDoc) => { try { await deleteHomeDoc(d); reload() } catch (e) { setErr((e as Error).message) } }
@@ -375,7 +381,7 @@ function HomeVaultPanel() {
                   <div key={d.id} className="hv-docrow">
                     <button type="button" className="hv-doc-main" onClick={() => openDoc(d)}>
                       <span className="hv-doc-title">{d.title}</span>
-                      <span className="hv-doc-meta">{fmtD(d.uploaded_at)}</span>
+                      <span className="hv-doc-meta">{fmtD(d.uploaded_at)}{d.note ? ` · ${d.note}` : ''}</span>
                     </button>
                     <label className="hv-conveys" title="Transfers to the next owner when you sell">
                       <input type="checkbox" checked={d.conveys} onChange={() => toggle(d)} /><span>Conveys</span>
@@ -383,17 +389,39 @@ function HomeVaultPanel() {
                     <button type="button" className="hv-doc-del" onClick={() => remove(d)} aria-label="Delete">×</button>
                   </div>
                 ))}
-                <input type="file" style={{ display: 'none' }}
-                  ref={el => { fileRefs.current[cat] = el }}
-                  onChange={e => { const f = e.target.files?.[0]; if (f) addFile(cat, f); e.target.value = '' }} />
-                <button type="button" className="hv-cat-add" disabled={busyCat === cat} onClick={() => fileRefs.current[cat]?.click()}>
-                  {busyCat === cat ? 'Uploading…' : '+ Add a file'}
-                </button>
+                <button type="button" className="hv-cat-add" onClick={() => openAdd(cat)}>+ Add a document</button>
               </div>
             )}
           </div>
         )
       })}
+
+      {addCat && (
+        <div className="hv-modal-overlay" onClick={() => !mBusy && setAddCat(null)}>
+          <form className="hv-modal" onClick={e => e.stopPropagation()} onSubmit={submitAdd}>
+            <div className="hv-modal-title">Add to {addCat}</div>
+            <label className="hv-field">
+              <span className="hv-label">File</span>
+              <input className="hv-input" type="file" required
+                onChange={e => { const f = e.target.files?.[0] ?? null; setMFile(f); if (f && !mTitle) setMTitle(f.name.replace(/\.[^.]+$/, '')) }} />
+            </label>
+            <label className="hv-field">
+              <span className="hv-label">Title</span>
+              <input className="hv-input" value={mTitle} onChange={e => setMTitle(e.target.value)} placeholder="e.g. Roof warranty" autoFocus />
+            </label>
+            <label className="hv-field">
+              <span className="hv-label">Note</span>
+              <textarea className="hv-input hv-textarea" rows={3} value={mNote} onChange={e => setMNote(e.target.value)}
+                placeholder="Optional — anything worth remembering about this document." />
+            </label>
+            {err && <div className="hv-err">{err}</div>}
+            <div className="hv-modal-actions">
+              <button type="button" className="hv-btn-ghost" onClick={() => setAddCat(null)} disabled={mBusy}>Cancel</button>
+              <button type="submit" className="hv-btn" disabled={mBusy || !mFile}>{mBusy ? 'Adding…' : 'Add'}</button>
+            </div>
+          </form>
+        </div>
+      )}
     </>
   )
 }

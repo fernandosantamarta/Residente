@@ -21,6 +21,8 @@ create table if not exists public.home_documents (
   conveys       boolean not null default false,
   uploaded_at   timestamptz not null default now()
 );
+-- Optional note per document (added after initial release; safe to re-run).
+alter table public.home_documents add column if not exists note text;
 alter table public.home_documents enable row level security;
 grant select, insert, update, delete on public.home_documents to authenticated;
 create index if not exists home_documents_profile_idx on public.home_documents (profile_id);

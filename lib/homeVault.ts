@@ -8,6 +8,7 @@ import { supabase, hasSupabase } from './supabase'
 export interface HomeDoc {
   id: string
   title: string
+  note: string | null
   category: string | null
   storage_path: string
   file_size: number | null
@@ -33,7 +34,7 @@ export async function listHomeDocs(profileId: string): Promise<HomeDoc[]> {
 }
 
 export async function uploadHomeDoc(opts: {
-  file: File; title: string; category: string
+  file: File; title: string; note?: string; category: string
   profileId: string; communityId: string | null; residentId: string | null
 }): Promise<HomeDoc> {
   if (!hasSupabase || !supabase) throw new Error('Supabase is not configured')
@@ -46,6 +47,7 @@ export async function uploadHomeDoc(opts: {
     community_id: opts.communityId,
     resident_id: opts.residentId,
     title: opts.title.trim() || opts.file.name,
+    note: opts.note?.trim() || null,
     category: opts.category,
     storage_path: path,
     file_size: opts.file.size,
