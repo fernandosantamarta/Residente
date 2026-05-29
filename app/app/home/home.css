@@ -93,3 +93,18 @@
 
 .hv-err { margin: 10px 0; padding: 10px 13px; border-radius: 10px; background: rgba(214, 40, 40, 0.08); color: #C0341D; font-size: 13px; border: 1px solid rgba(214, 40, 40, 0.25); }
 .hv-link { background: none; border: none; color: var(--hv-accent); font: inherit; font-weight: 600; cursor: pointer; text-decoration: underline; }
+
+/* Inline panel used inside Settings: documents on the left, add-form right. */
+.hv-panel {
+  --hv-ink: #0A2440; --hv-accent: #E14909;
+  --hv-muted: rgba(10, 36, 64, 0.6); --hv-border: rgba(10, 36, 64, 0.12); --hv-cream: #FBF7F1;
+  display: grid; grid-template-columns: 1fr 300px; gap: 22px; align-items: start;
+}
+@media (max-width: 720px) { .hv-panel { grid-template-columns: 1fr; } }
+.hv-panel-list { min-width: 0; }
+.hv-panel-add {
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 16px; border: 1px solid var(--hv-border); border-radius: 14px; background: #FBF7F1;
+}
+.hv-panel-add-title { font-size: 14px; font-weight: 700; color: var(--hv-ink); }
+.hv-panel-add .hv-input { background: #fff; }

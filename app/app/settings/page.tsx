@@ -2,7 +2,6 @@
 
 import { ChangeEvent, ReactNode, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/providers'
 import { signOut, supabase, hasSupabase } from '@/lib/supabase'
 import { useCommunityData } from '@/hooks/useCommunityData'
@@ -27,6 +26,11 @@ import {
   type TimezoneCode,
   type WeekStart,
 } from '@/lib/preferences'
+import {
+  listHomeDocs, uploadHomeDoc, setConveys, deleteHomeDoc, homeDocUrl,
+  HOME_DOC_CATEGORIES, type HomeDoc,
+} from '@/lib/homeVault'
+import '../home/home.css'
 
 // Every row + sidebar CTA opens a dialog (keyed below). One generic
 // SettingsDialog component switches on the key. State writes through
@@ -45,7 +49,6 @@ export default function Settings() {
   const { community } = useCommunityData()
   const [prefs, patch] = usePreferences()
   const [dialog, setDialog] = useState<DialogKey | null>(null)
-  const router = useRouter()
 
   // Two-way sync with the board's roster. The signed-in resident is matched
   // to their public.residents row by email (same match as useMyResident).
@@ -181,9 +184,7 @@ export default function Settings() {
           </SectionCard>
 
           <SectionCard title="Home Vault">
-            <Row icon={<IconKey />} title="Home documents"
-              desc="Your home's records — deed, insurance, warranties, permits. Mark the ones that pass to the next owner."
-              onClick={() => router.push('/app/home')} right="Open →" />
+            <HomeVaultPanel />
           </SectionCard>
 
           <button className="set-logout" onClick={() => signOut()}>
@@ -302,6 +303,94 @@ function accessibilitySummary(p: Preferences): string {
     p.high_contrast && 'High contrast',
   ].filter(Boolean) as string[]
   return flags.length ? flags.join(' · ') : 'Default'
+}
+
+// Inline Home Vault: documents on the left, "add a document" (with categories)
+// on the right. Sits inside the Settings "Home Vault" SectionCard.
+function HomeVaultPanel() {
+  const { profile } = useAuth() || {}
+  const profileId = profile?.id
+  const communityId = profile?.community_id ?? null
+  const [docs, setDocs] = useState<HomeDoc[]>([])
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState<string | null>(null)
+  const [file, setFile] = useState<File | null>(null)
+  const [title, setTitle] = useState('')
+  const [category, setCategory] = useState<string>(HOME_DOC_CATEGORIES[0])
+  const [busy, setBusy] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const reload = async () => {
+    if (!profileId) { setLoading(false); return }
+    setLoading(true)
+    try { setDocs(await listHomeDocs(profileId)) }
+    catch (e) { setErr((e as Error).message) }
+    finally { setLoading(false) }
+  }
+  useEffect(() => { reload() }, [profileId])
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!file || !profileId) return
+    setBusy(true); setErr(null)
+    try {
+      await uploadHomeDoc({ file, title, category, profileId, communityId, residentId: null })
+      setFile(null); setTitle(''); if (fileRef.current) fileRef.current.value = ''
+      reload()
+    } catch (e2) { setErr((e2 as Error).message || 'Upload failed.') }
+    finally { setBusy(false) }
+  }
+  const openDoc = async (d: HomeDoc) => { const u = await homeDocUrl(d.storage_path); if (u) window.open(u, '_blank', 'noopener') }
+  const remove = async (d: HomeDoc) => { try { await deleteHomeDoc(d); reload() } catch (e) { setErr((e as Error).message) } }
+  const toggle = async (d: HomeDoc) => { try { await setConveys(d.id, !d.conveys); reload() } catch (e) { setErr((e as Error).message) } }
+  const fmtD = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+
+  return (
+    <div className="hv-panel">
+      <div className="hv-panel-list">
+        {err && <div className="hv-err">{err}</div>}
+        {loading ? (
+          <div className="hv-muted">Loading…</div>
+        ) : docs.length === 0 ? (
+          <div className="hv-muted">No documents yet. Add your deed, insurance, warranties, and permits on the right — they&apos;ll live here whenever you need them.</div>
+        ) : (
+          <div className="hv-doclist">
+            {docs.map(d => (
+              <div key={d.id} className="hv-docrow">
+                <button type="button" className="hv-doc-main" onClick={() => openDoc(d)}>
+                  <span className="hv-doc-title">{d.title}</span>
+                  <span className="hv-doc-meta">{d.category || 'Document'} · {fmtD(d.uploaded_at)}</span>
+                </button>
+                <label className="hv-conveys" title="Transfers to the next owner when you sell">
+                  <input type="checkbox" checked={d.conveys} onChange={() => toggle(d)} /><span>Conveys</span>
+                </label>
+                <button type="button" className="hv-doc-del" onClick={() => remove(d)} aria-label="Delete">×</button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <form className="hv-panel-add" onSubmit={submit}>
+        <div className="hv-panel-add-title">Add a document</div>
+        <label className="hv-field">
+          <span className="hv-label">File</span>
+          <input className="hv-input" ref={fileRef} type="file" onChange={e => setFile(e.target.files?.[0] ?? null)} required />
+        </label>
+        <label className="hv-field">
+          <span className="hv-label">Title</span>
+          <input className="hv-input" value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Roof warranty" />
+        </label>
+        <label className="hv-field">
+          <span className="hv-label">Category</span>
+          <select className="hv-input" value={category} onChange={e => setCategory(e.target.value)}>
+            {HOME_DOC_CATEGORIES.map(c => <option key={c}>{c}</option>)}
+          </select>
+        </label>
+        <button type="submit" className="hv-btn" disabled={busy || !file}>{busy ? 'Uploading…' : 'Add document'}</button>
+      </form>
+    </div>
+  )
 }
 
 function SectionCard({ title, children }: { title: string; children: ReactNode }) {

@@ -917,6 +917,12 @@ button { font-family: inherit; }
 .login-foot { display: flex; justify-content: center; align-items: center; gap: 6px; }
 .login-foot-link { color: #FFFFFF; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
 .login-foot-link:hover { opacity: 0.85; }
+
+/* Preview cockpit: brand area becomes a back-to-landing link. */
+.brand-back { text-decoration: none; cursor: pointer; }
+.brand-back:hover { opacity: 0.8; }
+.brand-back-arrow { font-size: 20px; font-weight: 700; line-height: 1; }
+
 .login-back {
   display: block;
   margin-top: 12px;

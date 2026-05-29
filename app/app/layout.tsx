@@ -110,10 +110,17 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
       <CockpitIntro />
     <div className="cockpit" style={!showRightRail ? { gridTemplateColumns: '220px 1fr' } : undefined}>
       <aside className={`rail-left${navOpen ? ' open' : ''}`}>
-        <div className="brand">
-          <img src="/residente-logo.png" alt="" className="brand-logo" />
-          <div className="brand-word">Residente</div>
-        </div>
+        {isPreview ? (
+          <Link href="/" className="brand brand-back" aria-label="Back to home">
+            <span aria-hidden="true" className="brand-back-arrow">←</span>
+            <div className="brand-word">Back to home</div>
+          </Link>
+        ) : (
+          <div className="brand">
+            <img src="/residente-logo.png" alt="" className="brand-logo" />
+            <div className="brand-word">Residente</div>
+          </div>
+        )}
 
         <CommunitySwitcher />
 
@@ -163,29 +170,41 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
               82° Sunny
             </span>
           </div>
-          <Link href="/app/settings" className="user-block">
-            <div
-              className={`user-avatar${prefs.profile_image ? ' has-image' : ''}`}
-              style={prefs.profile_image ? { backgroundImage: `url(${prefs.profile_image})` } : undefined}
-            >
-              {!prefs.profile_image && userInitials}
+          {isPreview ? (
+            <div className="user-block" style={{ cursor: 'default' }}>
+              <div className="user-avatar">D</div>
+              <div className="user-meta">
+                <span className="label">Viewing</span>
+                <span className="val">Demo</span>
+              </div>
             </div>
-            <div className="user-meta">
-              <span className="label">Signed in as</span>
-              <span className="val">{userUnit}</span>
-            </div>
-            <svg className="user-block-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
-          </Link>
-          <button className="logout-btn" onClick={() => signOut()} aria-label="Sign out">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
-              <polyline points="16 17 21 12 16 7"/>
-              <line x1="21" y1="12" x2="9" y2="12"/>
-            </svg>
-            <span>Sign out</span>
-          </button>
+          ) : (
+            <>
+              <Link href="/app/settings" className="user-block">
+                <div
+                  className={`user-avatar${prefs.profile_image ? ' has-image' : ''}`}
+                  style={prefs.profile_image ? { backgroundImage: `url(${prefs.profile_image})` } : undefined}
+                >
+                  {!prefs.profile_image && userInitials}
+                </div>
+                <div className="user-meta">
+                  <span className="label">Signed in as</span>
+                  <span className="val">{userUnit}</span>
+                </div>
+                <svg className="user-block-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6"/>
+                </svg>
+              </Link>
+              <button className="logout-btn" onClick={() => signOut()} aria-label="Sign out">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                  <polyline points="16 17 21 12 16 7"/>
+                  <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+                <span>Sign out</span>
+              </button>
+            </>
+          )}
         </div>
       </aside>
 
