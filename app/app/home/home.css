@@ -148,12 +148,11 @@
 
 /* ---- Sell / transfer home (its own Settings section, cream theme) ---- */
 
-/* The danger row mirrors .set-row layout (icon · body · action). */
+/* Danger row mirrors .set-row layout: icon - body - action. */
 .hv-xfer-row { display: flex; align-items: center; gap: 12px; padding: 4px 0; }
 .hv-xfer-icon { color: var(--hv-accent); flex-shrink: 0; }
 
-/* Red "Transfer home" action — a pill button, clearly distinct from the
-   neutral hv-btn so it reads as a consequential action. */
+/* Red "Transfer home" pill — clearly distinct from the neutral hv-btn. */
 .hv-danger-btn {
   flex-shrink: 0; border: none; cursor: pointer;
   background: var(--hv-accent); color: #fff;
@@ -162,10 +161,15 @@
   box-shadow: 0 2px 10px rgba(225, 73, 9, 0.28);
   transition: transform .12s, box-shadow .12s, opacity .12s;
 }
-.hv-danger-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(225, 73, 9, 0.36); }
-.hv-danger-btn:disabled { opacity: .45; cursor: default; box-shadow: none; transform: none; }
+.hv-danger-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(225, 73, 9, 0.36); }
+/* Disabled: a legible muted grey, NOT a faded-red-with-white-text (which read
+   as an empty pill). */
+.hv-danger-btn:disabled {
+  background: rgba(10, 36, 64, 0.08); color: var(--hv-muted);
+  cursor: default; box-shadow: none; transform: none;
+}
 
-/* Confirm modal: warning + success banners, tuned for the cream theme. */
+/* Confirm modal banners, tuned for the cream theme. */
 .hv-xfer-warn {
   font-size: 13px; line-height: 1.55;
   background: rgba(225, 73, 9, 0.07); border: 1px solid rgba(225, 73, 9, 0.28);
