@@ -857,6 +857,46 @@ export const CommunitySvg = forwardRef<SVGSVGElement, { viewBox?: string; mode?:
       <g className="ln-walk-b">
         <Person x={DX + 1000} y={DY + 400} scale={0.9} hairColor="#7C4D2A" />
       </g>
+
+      {/* === UFO ABDUCTION (foreground) — three neighbours bolt out of the
+          right-hand house, gather in the cul-de-sac under the saucer, then get
+          tractor-beamed up just as the UFO parks overhead. Drawn last so the
+          beam cone + figures sit on top of the houses. Synced to the same 24s
+          UFO cycle: run 11-30%, gather 30-41%, beam on 38-55%, rise 44-56%,
+          UFO departs with them 55-70%. The figures are authored at their
+          gather spot (x~1200); the CSS translate offsets them to the house at
+          the start of the loop. */}
+      <g className="ln-ufo-beam2" aria-hidden="true">
+        <path d={`M${DX - 30} 175 L${DX + 30} 175 L${DX + 166} 1150 L${DX - 166} 1150 Z`} fill="url(#ufo-beam)" />
+      </g>
+      <g className="ln-abduct" aria-hidden="true">
+        <Person x={DX - 38} y={1086} scale={1.0}  hairColor="#7C4D2A" />
+        <Person x={DX + 4}  y={1096} scale={1.05} hairColor="#D4A56A" />
+        <Person x={DX + 42} y={1080} scale={0.9}  hairColor="#3A2A1A" />
+      </g>
+
+      {/* Left neighbour (x=840) door swings open and two more residents sprint
+          out toward the cul-de-sac to be taken. Dark doorway gap behind, the
+          door leaf foreshortens open on its left hinge. */}
+      <g aria-hidden="true">
+        <rect x={927} y={1067} width={26} height={58} rx="2" fill="#0F1019" />
+        <rect className="ln-door-l" x={927} y={1067} width={26} height={58} rx="2" fill={DOOR} {...thinInk} />
+      </g>
+      <g className="ln-run-l" aria-hidden="true">
+        <Person x={922} y={1082} scale={0.95} hairColor="#5A3A22" />
+        <Person x={946} y={1092} scale={0.85} hairColor="#E8C285" />
+      </g>
+
+      {/* Right neighbour (x=1400) door swings open on its right hinge and two
+          residents bolt out the other way into the cul-de-sac. */}
+      <g aria-hidden="true">
+        <rect x={1487} y={1067} width={26} height={58} rx="2" fill="#0F1019" />
+        <rect className="ln-door-r" x={1487} y={1067} width={26} height={58} rx="2" fill={DOOR} {...thinInk} />
+      </g>
+      <g className="ln-run-r" aria-hidden="true">
+        <Person x={1480} y={1084} scale={0.95} hairColor="#3A2A1A" />
+        <Person x={1504} y={1094} scale={0.85} hairColor="#C98A52" />
+      </g>
       </g>
     </svg>
   )
