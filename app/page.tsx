@@ -790,19 +790,26 @@ export const CommunitySvg = forwardRef<SVGSVGElement, { viewBox?: string; mode?:
       <rect x={DX + 78} y={DY + 11} width="14" height="2" fill={WALL_LITE} opacity="0.6" />
 
       {/* === CHARACTERS — give the neighbourhood life === */}
-      {/* family walking up the path toward the focal door — bobbing at
-          slightly different phases so they don't look in lock-step */}
-      <g className="ln-walk">
-        <Person x={DX - 30} y={DY + 130} scale={1.0} hairColor="#7C4D2A" />
+      {/* The family in front of the focal door (three people) plus the dog are
+          the group the UFO abducts. Each keeps its own idle bob/bounce; the
+          parent .ln-abduct holds them on the ground for most of the loop, then
+          lifts the whole group straight up into the saucer when the beam fires,
+          and fades them back in on the ground once the UFO has left (24s loop,
+          no pop). */}
+      <g className="ln-abduct">
+        <g className="ln-walk">
+          <Person x={DX - 30} y={DY + 130} scale={1.0} hairColor="#7C4D2A" />
+        </g>
+        <g className="ln-walk-a">
+          <Person x={DX + 10} y={DY + 140} scale={1.0} hairColor="#D4A56A" />
+        </g>
+        <g className="ln-walk-b">
+          <Person x={DX + 38} y={DY + 155} scale={0.6} hairColor="#E8C285" />
+        </g>
+        <g className="ln-dog-bounce">
+          <Dog x={DX - 90} y={DY + 145} scale={1.4} />
+        </g>
       </g>
-      <g className="ln-walk-a">
-        <Person x={DX + 10} y={DY + 140} scale={1.0} hairColor="#D4A56A" />
-      </g>
-      <g className="ln-walk-b">
-        <Person x={DX + 38} y={DY + 155} scale={0.6} hairColor="#E8C285" />
-      </g>
-      {/* (the family dog now appears in the abduction group below, getting
-          beamed up with the three residents) */}
       {/* neighbour pushing a stroller on the grass in front of the
           x=320 house (between foreground trees at x=290 and x=550 so
           nothing overlaps) */}
