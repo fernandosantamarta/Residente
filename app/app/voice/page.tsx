@@ -1,14 +1,24 @@
 'use client'
 
+import { useState } from 'react'
 import { MeetingsSection } from './_sections/MeetingsSection'
 import { BoardSection } from './_sections/BoardSection'
 import { ContactSection } from './_sections/ContactSection'
+import { SegTabs, SegTab } from '../SectionTabs'
 
 // Easy Voice — the resident hub that merges the former Voice (Meetings &
-// Votes), Board, and Contact tabs into one single-scroll surface. The
-// quick-jump strip anchors to each section; /app/board and /app/contact
-// redirect here for backward compatibility.
+// Votes), Board, and Contact tabs. The segmented control switches between
+// them; only the active section renders. /app/board and /app/contact
+// redirect here (with #board / #contact) for backward compatibility.
+const TABS: SegTab[] = [
+  { id: 'board',    label: 'Board' },
+  { id: 'meetings', label: 'Meetings & Votes' },
+  { id: 'contact',  label: 'Contact' },
+]
+
 export default function EasyVoice() {
+  const [tab, setTab] = useState('board')
+
   return (
     <div className="ev-wrap">
       <div className="voice-page-head ev-hub-head">
@@ -18,15 +28,11 @@ export default function EasyVoice() {
         </p>
       </div>
 
-      <div className="voice-tabs ev-jump">
-        <a className="voice-tab" href="#meetings">Meetings &amp; Votes</a>
-        <a className="voice-tab" href="#board">Board</a>
-        <a className="voice-tab" href="#contact">Contact</a>
-      </div>
+      <SegTabs tabs={TABS} active={tab} onChange={setTab} ariaLabel="Easy Voice sections" />
 
-      <MeetingsSection />
-      <BoardSection />
-      <ContactSection />
+      {tab === 'meetings' && <MeetingsSection />}
+      {tab === 'board' && <BoardSection />}
+      {tab === 'contact' && <ContactSection />}
     </div>
   )
 }

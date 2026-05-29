@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { EasyDocsTabs } from '../EasyDocsTabs'
+import { SegTabs, SegTab } from '../SectionTabs'
 import { useCategoriesData, useRulesData } from '@/lib/rules'
 import { computeStats, useViolationsData } from '@/lib/violations'
 import { useCommunityData } from '@/hooks/useCommunityData'
@@ -121,9 +121,18 @@ const DEMO_POPULAR = [
 
 // ─── Main page ─────────────────────────────────────────────────────────────
 
+const DOC_TABS: SegTab[] = [
+  { id: 'rules',     label: 'Rules' },
+  { id: 'documents', label: 'Documents' },
+]
+
 export default function EasyDocs() {
   const { community } = useCommunityData()
   const communityName = community?.name || 'Sunset Lakes'
+
+  // Which section is showing. The segmented control switches between them;
+  // only the active section renders (a real switch, not a scroll-spy).
+  const [tab, setTab] = useState('rules')
 
   // ── Rules state ──────────────────────────────────────────────────────────
   const rulesList = useRulesData()
@@ -259,11 +268,12 @@ export default function EasyDocs() {
 
   return (
     <div className="easydocs-combined">
-      <EasyDocsTabs />
+      <SegTabs tabs={DOC_TABS} active={tab} onChange={setTab} ariaLabel="Easy Documents sections" />
 
       {/* ════════════════════════════════════════════════════════════════
           RULES SECTION
       ════════════════════════════════════════════════════════════════ */}
+      {tab === 'rules' && (
       <section id="easydocs-rules" style={{ scrollMarginTop: 56 }}>
         <div className="rb-wrap">
           <section className="rb-hero">
@@ -479,10 +489,12 @@ export default function EasyDocs() {
           )}
         </div>
       </section>
+      )}
 
       {/* ════════════════════════════════════════════════════════════════
           DOCUMENTS SECTION
       ════════════════════════════════════════════════════════════════ */}
+      {tab === 'documents' && (
       <section id="easydocs-documents" style={{ scrollMarginTop: 56 }}>
         <div className="doc-wrap">
           <section className="doc-hero">
@@ -645,6 +657,7 @@ export default function EasyDocs() {
           </div>
         </div>
       </section>
+      )}
     </div>
   )
 }

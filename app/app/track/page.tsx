@@ -1,14 +1,24 @@
 'use client'
 
+import { useState } from 'react'
 import { PaySection } from './_sections/PaySection'
 import { VendorSection } from './_sections/VendorSection'
 import { ReportsSection } from './_sections/ReportsSection'
+import { SegTabs, SegTab } from '../SectionTabs'
 
 // Easy Track — the resident hub that merges the former Pay, Vendor, and
-// Reports tabs into one single-scroll surface. The quick-jump strip
-// anchors to each section; /app/pay, /app/vendor, and /app/reports
-// redirect here for backward compatibility.
+// Reports tabs. The segmented control switches between them; only the active
+// section renders. /app/pay, /app/vendor, and /app/reports redirect here
+// (with #pay / #vendor / #reports) for backward compatibility.
+const TABS: SegTab[] = [
+  { id: 'pay',     label: 'Pay' },
+  { id: 'vendor',  label: 'Vendors' },
+  { id: 'reports', label: 'Reports' },
+]
+
 export default function EasyTrack() {
+  const [tab, setTab] = useState('pay')
+
   return (
     <div className="ev-wrap">
       <div className="voice-page-head ev-hub-head">
@@ -18,15 +28,11 @@ export default function EasyTrack() {
         </p>
       </div>
 
-      <div className="voice-tabs ev-jump">
-        <a className="voice-tab" href="#pay">Pay</a>
-        <a className="voice-tab" href="#vendor">Vendors</a>
-        <a className="voice-tab" href="#reports">Reports</a>
-      </div>
+      <SegTabs tabs={TABS} active={tab} onChange={setTab} ariaLabel="Easy Track sections" />
 
-      <PaySection />
-      <VendorSection />
-      <ReportsSection />
+      {tab === 'pay' && <PaySection />}
+      {tab === 'vendor' && <VendorSection />}
+      {tab === 'reports' && <ReportsSection />}
     </div>
   )
 }

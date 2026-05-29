@@ -1897,6 +1897,37 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 .ev-hub-head .voice-page-title { font-size: 32px; }
 .ev-jump { margin-bottom: 28px; }
 .ev-section { scroll-margin-top: 24px; }
+
+/* Segmented pill tabs — peach track, white active thumb. Shared by the
+   Easy Track / Easy Voice / Easy Documents hubs (see app/app/SectionTabs.tsx).
+   Only one section renders at a time, so this is a real switcher, not a
+   scroll-spy. */
+.seg-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 5px;
+  margin-bottom: 28px;
+  background: var(--accent-soft);
+  border-radius: 999px;
+}
+.seg-tab {
+  padding: 9px 22px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-dim);
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color .18s ease, color .18s ease, box-shadow .18s ease;
+}
+.seg-tab:hover:not(.active) { background: rgba(255,255,255,0.45); }
+.seg-tab.active {
+  background: #fff;
+  color: #E14909;
+  box-shadow: 0 1px 3px rgba(31,34,51,0.18);
+}
 .ev-section + .ev-section {
   margin-top: 44px;
   padding-top: 44px;
@@ -6991,7 +7022,7 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .pay-statement-dl svg { width: 16px; height: 16px; }
 
 /* Support footer — full orange banner. White content; the
-   "Contact Support" CTA flips to white-bg + orange-text so it pops. */
+   "Contact Support" CTA is navy so it pops against the orange. */
 [data-theme="sketch"] .pay-support {
   display: flex; align-items: center; gap: 16px;
   padding: 20px 24px;
@@ -7011,13 +7042,13 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .pay-support-title { font-size: 15px; font-weight: 700; color: #FFFFFF; }
 [data-theme="sketch"] .pay-support-sub { font-size: 13px; color: rgba(255, 255, 255, 0.92); }
 [data-theme="sketch"] .pay-support .pay-cta-secondary {
-  background: #FFFFFF;
-  border-color: #FFFFFF;
-  color: #E14909;
+  background: #0A2440;
+  border-color: #0A2440;
+  color: #FFFFFF;
 }
 [data-theme="sketch"] .pay-support .pay-cta-secondary:hover {
-  background: #FBF7F1;
-  border-color: #FBF7F1;
+  background: #0D2E52;
+  border-color: #0D2E52;
 }
 
 /* ===== Vendor ratings UI ===== */
