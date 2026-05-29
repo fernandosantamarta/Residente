@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { ReactNode, useEffect, useState } from 'react'
 import { useMyResident } from '@/hooks/useMyResident'
-import { hasSupabase, stripeEnabled, supabase } from '@/lib/supabase'
+import { stripeEnabled, supabase } from '@/lib/supabase'
 import { usePreferences } from '@/lib/preferences'
 import { fmtMoney } from '@/lib/dues'
 
@@ -80,11 +80,10 @@ export function PaySection() {
     return () => { cancelled = true }
   }, [resident?.id, stripeLive])
 
-  // Only fall back to a demo number when we're genuinely offline of
-  // a resident record (preview mode for design walkthroughs). For a
-  // real authed resident, we wait for the real number and show a
-  // skeleton — no flashing of a wrong amount.
-  const isLoading = loading || (resident == null && balance == null && !!hasSupabase)
+  // Show the skeleton only while the resident query is genuinely in flight.
+  // Once it settles we render either the real balance or — in preview / no-
+  // roster-match — the demo fallback, instead of a skeleton that never fills.
+  const isLoading = loading
   const currentBalance = balance == null ? 1250.00 : balance
 
   const breakdown = [
@@ -96,72 +95,60 @@ export function PaySection() {
   const breakdownTotal = breakdown.reduce((s, r) => s + r.amount, 0)
 
   // Year-to-date dues math that feeds the three Current Balance rings.
-  // Demo-friendly: derived from the monthly dues and today's date, with the
-  // current month treated as outstanding whenever a balance is owed.
+  // Demo-friendly: derived from the monthly dues and today's date. The
+  // outstanding balance is treated as the upcoming bill (Due {nextDue}), so
+  // the months that have already elapsed this year count as paid.
   const now = new Date()
   const nextDue = nextDueDate(now)
   const dueDate = nextDue
   const monthlyDue = monthlyDues || 1000
   const monthsElapsed = now.getMonth() + 1                       // Jan = 1
-  const paidThisMonth = !isLoading && currentBalance <= 0
-  const monthsPaid = Math.max(0, Math.min(12, monthsElapsed - (paidThisMonth ? 0 : 1)))
+  const monthsPaid = Math.min(12, monthsElapsed)                 // paid through this month
   const annualDue = monthlyDue * 12
   const paidYTD = monthlyDue * monthsPaid
-  const expectedToDate = monthlyDue * monthsElapsed
-  const onTrackPct = expectedToDate ? paidYTD / expectedToDate : 0
 
-  // On-track status — prior months that MUST already be paid vs what's been
-  // paid. Covered through this month → on track (green check); prior months
-  // covered but this one still open → partial (yellow figure); a prior month
-  // unpaid → missed (red ✗).
-  const mustBePaid = monthlyDue * Math.max(0, monthsElapsed - 1)
-  const behind = Math.max(0, mustBePaid - paidYTD)
-  const trackState: 'ok' | 'warn' | 'bad' =
-    paidYTD >= mustBePaid + monthlyDue ? 'ok'
-    : paidYTD >= mustBePaid            ? 'warn'
-    :                                    'bad'
+  // On Track = share of due payments made on time. Demo treats each elapsed
+  // month as on time; real data can refine this from payment dates. Green
+  // check at 75%+ on time, yellow clock below that.
+  const monthsDue = Math.max(1, monthsElapsed)
+  const onTimeRate = Math.min(1, monthsPaid / monthsDue)
+  const onTimePct = Math.round(onTimeRate * 100)
+  const trackState: 'ok' | 'warn' = onTimeRate >= 0.75 ? 'ok' : 'warn'
 
-  // Next-payment cycle — fraction of the current month elapsed, and the
-  // exact days remaining until the 1st-of-next-month due date.
+  // Next-payment cycle — exact days remaining until the 1st-of-next-month due.
   const cycleStart = new Date(nextDue.getFullYear(), nextDue.getMonth() - 1, 1)
   const cycleDays = Math.max(1, Math.round((nextDue.getTime() - cycleStart.getTime()) / DAY_MS))
   const daysLeft = Math.max(0, Math.ceil((nextDue.getTime() - now.getTime()) / DAY_MS))
   const duePct = (cycleDays - daysLeft) / cycleDays
 
-  const thisMonth = now.toLocaleDateString('en-US', { month: 'long' })
-  const pctPaid = Math.round(onTrackPct * 100)
-  const trackFaces: Record<'ok' | 'warn' | 'bad', [RingFace, RingFace]> = {
+  const trackFaces: Record<'ok' | 'warn', [RingFace, RingFace]> = {
     ok: [
-      { value: <RingGlyph kind="check" />, caption: 'On track',            aria: 'on track' },
-      { value: 'Paid up',                  caption: `through ${thisMonth}`, aria: `paid up through ${thisMonth}` },
+      { value: <RingCheck />, sub: '',         aria: `on track, ${onTimePct}% of payments on time` },
+      { value: `${onTimePct}%`, sub: 'on time',  aria: `${onTimePct}% of payments on time` },
     ],
     warn: [
-      { value: `${pctPaid}%`,        caption: 'Partial',                       aria: `partial, ${pctPaid} percent paid` },
-      { value: fmtMoney(paidYTD),    caption: `of ${fmtMoney(expectedToDate)} due`, aria: `${fmtMoney(paidYTD)} of ${fmtMoney(expectedToDate)} due` },
-    ],
-    bad: [
-      { value: <RingGlyph kind="x" />, caption: 'Missed',  aria: 'missed payments' },
-      { value: fmtMoney(behind),       caption: 'past due', aria: `${fmtMoney(behind)} past due` },
+      { value: 'Behind',        sub: '',         aria: `behind, ${onTimePct}% of payments on time` },
+      { value: `${onTimePct}%`, sub: 'on time',  aria: `${onTimePct}% of payments on time` },
     ],
   }
 
-  const rings: { label: string; tone: RingTone; pct: number; faces: [RingFace, RingFace] }[] = [
+  const rings: { tone: RingTone; pct: number; cat: string; faces: [RingFace, RingFace] }[] = [
     {
-      label: 'Annual Dues', tone: 'dues', pct: monthsPaid / 12,
+      tone: 'dues', cat: 'Balance', pct: annualDue ? paidYTD / annualDue : 0,
       faces: [
-        { value: fmtMoney(annualDue),   caption: 'per year',              aria: `${fmtMoney(annualDue)} per year` },
-        { value: `${monthsPaid} of 12`, caption: `${fmtMoney(paidYTD)} paid`, aria: `${monthsPaid} of 12 months, ${fmtMoney(paidYTD)} paid` },
+        { value: `${monthsPaid}/12`, sub: 'months paid',              aria: `${monthsPaid} of 12 months paid` },
+        { value: fmtMoney(paidYTD),  sub: `of ${fmtMoney(annualDue)}`, aria: `${fmtMoney(paidYTD)} of ${fmtMoney(annualDue)} paid this year` },
       ],
     },
     {
-      label: 'On Track', tone: trackState, pct: trackState === 'ok' ? 1 : onTrackPct,
+      tone: trackState, cat: 'Payment status', pct: onTimeRate,
       faces: trackFaces[trackState],
     },
     {
-      label: 'Next Payment', tone: 'due', pct: duePct,
+      tone: 'due', cat: 'Due date', pct: duePct,
       faces: [
-        { value: daysLeft === 0 ? 'Today' : `${daysLeft}d`, caption: daysLeft === 0 ? 'due today' : 'days left', aria: daysLeft === 0 ? 'due today' : `${daysLeft} days left` },
-        { value: fmtShort(nextDue), caption: `${fmtMoney(currentBalance)} due`, aria: `due ${fmtShort(nextDue)}, ${fmtMoney(currentBalance)}` },
+        { value: daysLeft === 0 ? 'Today' : `${daysLeft}`, sub: daysLeft === 0 ? 'due today' : 'days left', aria: daysLeft === 0 ? 'due today' : `${daysLeft} days until due` },
+        { value: fmtShort(nextDue), sub: 'next due', aria: `next payment due ${fmtShort(nextDue)}` },
       ],
     },
   ]
@@ -277,60 +264,67 @@ export function PaySection() {
         </p>
       </div>
 
+      {/* Current Balance hero — full width: balance on the left, a divider,
+          then the three progress rings on the right. */}
+      <section className="pay-card pay-balance-card">
+        <div className="pay-balance-head">
+          <div className="pay-balance-main">
+            <div className="pay-balance-label">Current Balance</div>
+            {isLoading ? (
+              <div className="pay-balance-amt pay-skel pay-skel-amt" aria-label="Loading balance">&nbsp;</div>
+            ) : (
+              <div className="pay-balance-amt">{fmtMoney(currentBalance)}</div>
+            )}
+            {isLoading ? (
+              <div className="pay-balance-due pay-skel pay-skel-due">&nbsp;</div>
+            ) : (
+              <div className="pay-balance-due">Due {fmtDate(dueDate)}</div>
+            )}
+            <div className="pay-balance-actions">
+              <button type="button" className="pay-cta-primary"
+                disabled={checkout.loading || !stripeEnabled || isLoading}
+                onClick={startCheckout}>
+                {checkout.loading ? 'Starting checkout…' : 'Make Payment'}
+              </button>
+              <a href="#history" className="pay-cta-secondary">
+                View Account Details
+              </a>
+            </div>
+            {checkout.error && <div className="pay-err">{checkout.error}</div>}
+          </div>
+
+          <div className="pay-balance-sep" aria-hidden="true" />
+
+          <div className="pay-rings" role="group" aria-label="Dues progress">
+            {rings.map((r, i) => (
+              <BalanceRing key={i} index={i} tone={r.tone} pct={r.pct} cat={r.cat} faces={r.faces} />
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Breakdown — its own card */}
+      <section className="pay-card pay-breakdown-card">
+        <div className="pay-breakdown">
+          <div className="pay-breakdown-head">Breakdown</div>
+          {breakdown.map(b => (
+            <div key={b.label} className="pay-breakdown-row">
+              <span>{b.label}</span>
+              <span className={b.amount < 0 ? 'pay-amt-credit' : ''}>
+                {b.amount < 0 ? `-${fmtMoney(Math.abs(b.amount))}` : fmtMoney(b.amount)}
+              </span>
+            </div>
+          ))}
+          <div className="pay-breakdown-row pay-breakdown-total">
+            <span>Total</span>
+            <span>{fmtMoney(breakdownTotal)}</span>
+          </div>
+        </div>
+      </section>
+
       <div className="pay-grid">
         {/* MAIN COLUMN */}
         <div className="pay-col">
-          {/* Current Balance card with breakdown */}
-          <section className="pay-card pay-balance-card">
-            <div className="pay-balance-head">
-              <div className="pay-balance-main">
-                <div className="pay-balance-label">Current Balance</div>
-                {isLoading ? (
-                  <div className="pay-balance-amt pay-skel pay-skel-amt" aria-label="Loading balance">&nbsp;</div>
-                ) : (
-                  <div className="pay-balance-amt">{fmtMoney(currentBalance)}</div>
-                )}
-                {isLoading ? (
-                  <div className="pay-balance-due pay-skel pay-skel-due">&nbsp;</div>
-                ) : (
-                  <div className="pay-balance-due">Due {fmtDate(dueDate)}</div>
-                )}
-                <div className="pay-balance-actions">
-                  <button type="button" className="pay-cta-primary"
-                    disabled={checkout.loading || !stripeEnabled || isLoading}
-                    onClick={startCheckout}>
-                    {checkout.loading ? 'Starting checkout…' : 'Make Payment'}
-                  </button>
-                  <a href="#history" className="pay-cta-secondary">
-                    View Account Details
-                  </a>
-                </div>
-                {checkout.error && <div className="pay-err">{checkout.error}</div>}
-              </div>
-
-              <div className="pay-rings" role="group" aria-label="Dues progress">
-                {rings.map(r => (
-                  <BalanceRing key={r.label} label={r.label} tone={r.tone} pct={r.pct} faces={r.faces} />
-                ))}
-              </div>
-            </div>
-            <div className="pay-breakdown">
-              <div className="pay-breakdown-head">Breakdown</div>
-              {breakdown.map(b => (
-                <div key={b.label} className="pay-breakdown-row">
-                  <span>{b.label}</span>
-                  <span className={b.amount < 0 ? 'pay-amt-credit' : ''}>
-                    {b.amount < 0 ? `-${fmtMoney(Math.abs(b.amount))}` : fmtMoney(b.amount)}
-                  </span>
-                </div>
-              ))}
-              <div className="pay-breakdown-row pay-breakdown-total">
-                <span>Total</span>
-                <span>{fmtMoney(breakdownTotal)}</span>
-              </div>
-            </div>
-          </section>
-
           {/* Payment History */}
           <section className="pay-card" id="history">
             <div className="pay-card-head">
@@ -556,37 +550,45 @@ function StatusPill({ kind }: { kind: string }) {
 // -- Current Balance rings -----------------------------------------
 
 type RingTone = 'dues' | 'due' | 'ok' | 'warn' | 'bad'
-type RingFace = { value: ReactNode; caption: string; aria: string }
+type RingFace = { value: ReactNode; sub: string; aria: string }
 
-const RING_R = 46
+const RING_R = 51
 const RING_C = 2 * Math.PI * RING_R   // circumference of the progress arc
 
-// Green check / red ✗ drawn inside the On Track ring.
-function RingGlyph({ kind }: { kind: 'check' | 'x' }) {
+// Green checkmark shown inside the Payment Status ring when on track. Sized
+// (via CSS) to sit comfortably inside the ring with room to spare.
+function RingCheck() {
   return (
-    <svg className="pay-ring-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-         strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {kind === 'check'
-        ? <polyline points="20 6 9 17 4 12" />
-        : <><path d="M6 6l12 12" /><path d="M18 6 6 18" /></>}
+    <svg className="pay-ring-check" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="20 6.5 9.5 17.5 4 12" />
     </svg>
   )
 }
 
-// A single progress ring. The arc fills to `pct`. The centre + caption show
-// the primary face by default and hold on the detail face the whole time the
-// ring is hovered or focused, returning to primary only once the pointer
-// leaves. Tapping toggles the two faces too, so it works on touch.
-function BalanceRing({ label, pct, faces, tone }: {
-  label: string
+// A single progress ring. The arc draws itself in on mount (staggered by
+// `index` for a cascade) and fills to `pct`. The centre + caption show the
+// primary face by default and hold on the detail face the whole time the ring
+// is hovered or focused — the two faces cross-fade as they swap. Hovering
+// lifts + glows the ring; tapping toggles the faces for touch.
+function BalanceRing({ pct, faces, tone, cat, index = 0 }: {
   pct: number
   faces: [RingFace, RingFace]
   tone: RingTone
+  cat: string
+  index?: number
 }) {
   const [idx, setIdx] = useState(0)
+  const [armed, setArmed] = useState(false)   // false until the entrance draw fires
   const show = (i: number) => setIdx(i)
 
-  const dash = Math.max(0, Math.min(1, pct || 0)) * RING_C
+  useEffect(() => {
+    const t = setTimeout(() => setArmed(true), 90 + index * 140)
+    return () => clearTimeout(t)
+  }, [index])
+
+  const target = Math.max(0, Math.min(1, pct || 0)) * RING_C
+  const dash = armed ? target : 0   // animate 0 → target via the CSS transition
   const face = faces[idx] ?? faces[0]
 
   return (
@@ -596,23 +598,23 @@ function BalanceRing({ label, pct, faces, tone }: {
       onMouseEnter={() => show(1)} onMouseLeave={() => show(0)}
       onFocus={() => show(1)} onBlur={() => show(0)}
       onClick={() => show(idx === 0 ? 1 : 0)}
-      aria-label={`${label}: ${face.aria}`}
+      aria-label={`${cat}: ${face.aria}`}
     >
       <span className="pay-ring-viz">
-        <svg viewBox="0 0 112 112" aria-hidden="true">
-          <circle className="pay-ring-track" cx="56" cy="56" r={RING_R} />
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle className="pay-ring-track" cx="60" cy="60" r={RING_R} />
           <circle
-            className="pay-ring-fill" cx="56" cy="56" r={RING_R}
+            className="pay-ring-fill" cx="60" cy="60" r={RING_R}
             strokeDasharray={`${dash} ${RING_C}`}
-            transform="rotate(-90 56 56)"
+            transform="rotate(-90 60 60)"
           />
         </svg>
-        <span className="pay-ring-center">
+        <span className="pay-ring-center" key={idx}>
           <span className="pay-ring-value">{face.value}</span>
+          {face.sub && <span className="pay-ring-sub">{face.sub}</span>}
         </span>
       </span>
-      <span className="pay-ring-label">{label}</span>
-      <span className="pay-ring-caption">{face.caption}</span>
+      <span className="pay-ring-cat">{cat}</span>
     </button>
   )
 }
