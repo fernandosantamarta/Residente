@@ -45,7 +45,7 @@ type DialogKey =
   | 'refer' | 'updates'
 
 export default function Settings() {
-  const { profile } = useAuth() || {}
+  const { profile, setProfile } = useAuth() || {}
   const { community } = useCommunityData()
   const [prefs, patch] = usePreferences()
   const [dialog, setDialog] = useState<DialogKey | null>(null)
@@ -108,10 +108,20 @@ export default function Settings() {
   // there's no matched row yet — the board hasn't added this resident.
   const saveContact = async (next: { full_name?: string; phone?: string; address?: string }) => {
     patch(next)  // keep local prefs in sync even with no roster row yet
-    if (!supabase || !roster?.id) return
+    if (!supabase) return
     try {
-      const { error } = await supabase.from('residents').update(next).eq('id', roster.id)
-      if (!error) setRoster((r: any) => ({ ...r, ...next }))
+      // Name is canonical on the profiles table — the home greeting and the rest
+      // of the app read profile.full_name from there, so a name edit MUST write
+      // it back (and refresh the live session) or the greeting never updates.
+      if (next.full_name !== undefined && profile?.id) {
+        await supabase.from('profiles').update({ full_name: next.full_name }).eq('id', profile.id)
+        if (setProfile && profile) setProfile({ ...profile, full_name: next.full_name })
+      }
+      // Roster row mirrors name/phone/address for the board's view.
+      if (roster?.id) {
+        const { error } = await supabase.from('residents').update(next).eq('id', roster.id)
+        if (!error) setRoster((r: any) => ({ ...r, ...next }))
+      }
     } catch { /* keep the local prefs copy */ }
   }
 

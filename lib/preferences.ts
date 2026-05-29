@@ -46,6 +46,7 @@ export type Preferences = {
   full_name: string
   email: string
   phone: string
+  address: string              // street address, synced to the roster row
   profile_image: string        // base64 data URL, '' = no image (fall back to initial)
 
   // Communication
@@ -79,6 +80,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
   full_name: '',
   email: '',
   phone: '',
+  address: '',
   profile_image: '',
 
   email_pref: 'all',
