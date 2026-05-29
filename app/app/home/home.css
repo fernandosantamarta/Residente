@@ -148,24 +148,26 @@
 
 /* ---- Sell / transfer home (its own Settings section, cream theme) ---- */
 
-/* Danger row mirrors .set-row layout: icon - body - action. */
+/* NOTE: this block also renders in the Settings page, OUTSIDE the .hv wrapper
+   where the --hv-* vars live. Use LITERAL colors (with var fallbacks) — a bare
+   --hv-accent there resolves to nothing and the button paints transparent
+   (white text on nothing = an invisible empty pill). */
 .hv-xfer-row { display: flex; align-items: center; gap: 12px; padding: 4px 0; }
-.hv-xfer-icon { color: var(--hv-accent); flex-shrink: 0; }
+.hv-xfer-icon { color: var(--hv-accent, #E14909); flex-shrink: 0; }
 
 /* Red "Transfer home" pill — clearly distinct from the neutral hv-btn. */
 .hv-danger-btn {
   flex-shrink: 0; border: none; cursor: pointer;
-  background: var(--hv-accent); color: #fff;
+  background: var(--hv-accent, #E14909); color: #fff;
   font-weight: 700; font-size: 13.5px;
   padding: 11px 22px; border-radius: 999px;
   box-shadow: 0 2px 10px rgba(225, 73, 9, 0.28);
   transition: transform .12s, box-shadow .12s, opacity .12s;
 }
-.hv-danger-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 16px rgba(225, 73, 9, 0.36); }
-/* Disabled: a legible muted grey, NOT a faded-red-with-white-text (which read
-   as an empty pill). */
+.hv-danger-btn:hover:not(:disabled) { background: #C8410A; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(225, 73, 9, 0.36); }
+/* Disabled: a legible muted grey, NOT faded-red-with-white-text. */
 .hv-danger-btn:disabled {
-  background: rgba(10, 36, 64, 0.08); color: var(--hv-muted);
+  background: rgba(10, 36, 64, 0.08); color: rgba(10, 36, 64, 0.55);
   cursor: default; box-shadow: none; transform: none;
 }
 
@@ -175,8 +177,8 @@
   background: rgba(225, 73, 9, 0.07); border: 1px solid rgba(225, 73, 9, 0.28);
   color: #9A3412; border-radius: 10px; padding: 11px 13px; margin-bottom: 14px;
 }
-.hv-xfer-warn strong { color: var(--hv-accent); }
-.hv-xfer-confirm { margin: 6px 0 2px; color: var(--hv-ink); font-weight: 600; }
+.hv-xfer-warn strong { color: var(--hv-accent, #E14909); }
+.hv-xfer-confirm { margin: 6px 0 2px; color: var(--hv-ink, #0A2440); font-weight: 600; }
 .hv-xfer-success {
   font-size: 13.5px; line-height: 1.55;
   background: rgba(31, 157, 98, 0.08); border: 1px solid rgba(31, 157, 98, 0.30);
