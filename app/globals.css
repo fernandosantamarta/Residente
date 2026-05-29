@@ -1971,7 +1971,20 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 .voice-vote-card-meta  { font-size: 12px; color: var(--text-dim); margin-top: 3px; }
 .voice-vote-card-desc  { font-size: 14px; color: var(--text-dim); line-height: 1.55; margin-bottom: 14px; }
 
-.voice-ballot-btns { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0 4px; }
+.voice-ballot-area { margin-top: 4px; }
+.voice-ballot-notice {
+  font-size: 12px; line-height: 1.6; padding: 10px 14px; border-radius: 8px;
+  margin-bottom: 4px;
+}
+.voice-ballot-notice-open {
+  background: rgba(210,120,50,0.12); border: 1px solid rgba(210,120,50,0.28);
+  color: #c8874a; font-weight: 500;
+}
+.voice-ballot-notice-secret {
+  background: rgba(107,77,160,0.12); border: 1px solid rgba(107,77,160,0.28);
+  color: #9b7bc8;
+}
+.voice-ballot-btns { display: flex; gap: 10px; flex-wrap: wrap; margin: 12px 0 4px; }
 .voice-ballot-btn {
   padding: 11px 22px; border: 2px solid transparent; border-radius: 8px;
   font-family: inherit; font-size: 14px; font-weight: 700; cursor: pointer;

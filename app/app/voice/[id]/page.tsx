@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useVoiceMeeting } from '@/hooks/useVoiceMeetings'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { MEETING_TYPES, DOC_TYPES, VOTE_TYPES } from '@/lib/voice'
+import { MEETING_TYPES, DOC_TYPES, VOTE_TYPES, OPEN_BALLOT_WAIVER_NOTICE } from '@/lib/voice'
 import { logAudit } from '@/lib/audit'
 import { encryptAnswer } from '@/lib/ballotCrypto'
 
@@ -165,17 +165,29 @@ function ResidentVoteCard({ vote: v, onVoted }) {
       {v.description && <p className="voice-vote-card-desc">{v.description}</p>}
 
       {isOpen && !myVote && (
-        <div className="voice-ballot-btns">
-          {['yes', 'no', 'abstain'].map(a => (
-            <button
-              key={a}
-              className={`voice-ballot-btn voice-ballot-${a}`}
-              onClick={() => cast(a)}
-              disabled={casting}
-            >
-              {a === 'yes' ? '✓ Yes' : a === 'no' ? '✗ No' : '— Abstain'}
-            </button>
-          ))}
+        <div className="voice-ballot-area">
+          {isSecret ? (
+            <p className="voice-ballot-notice voice-ballot-notice-secret">
+              Secret ballot — your vote is encrypted on this device before transmission.
+              The association cannot see how you voted.
+            </p>
+          ) : (
+            <p className="voice-ballot-notice voice-ballot-notice-open">
+              {OPEN_BALLOT_WAIVER_NOTICE}
+            </p>
+          )}
+          <div className="voice-ballot-btns">
+            {['yes', 'no', 'abstain'].map(a => (
+              <button
+                key={a}
+                className={`voice-ballot-btn voice-ballot-${a}`}
+                onClick={() => cast(a)}
+                disabled={casting}
+              >
+                {a === 'yes' ? '✓ Yes' : a === 'no' ? '✗ No' : '— Abstain'}
+              </button>
+            ))}
+          </div>
         </div>
       )}
 

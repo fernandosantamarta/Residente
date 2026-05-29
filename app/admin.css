@@ -83,6 +83,7 @@
 }
 .admin-note-warn { border-left: 3px solid var(--grad-warn); }
 .admin-note-err  { border-left: 3px solid #F47174; color: var(--text); }
+.admin-note-info { border-left: 3px solid #6B8EC4; }
 
 .admin-form { margin-top: 28px; max-width: 480px; display: flex; flex-direction: column; gap: 18px; }
 .admin-field { display: flex; flex-direction: column; gap: 7px; }

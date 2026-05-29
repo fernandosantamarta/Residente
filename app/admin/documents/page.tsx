@@ -53,8 +53,37 @@ const fmtDate = (d) => (d
   : '')
 
 const RULE_EMPTY = { section: '', title: '', body: '', fine: '' }
-const DOC_CATEGORIES = ['Minutes', 'Financials', 'Insurance', 'Contracts', 'Notices', 'Other']
-const DOC_EMPTY = { title: '', category: 'Minutes' }
+// Categories aligned with FL 718.111(12)(g) (condos) and FL 720.303(4)(b) (HOAs)
+// and the resident-facing CATEGORY_GRID in app/documents/page.tsx.
+const DOC_CATEGORIES = [
+  'Governing Documents',       // Declaration, bylaws, articles of incorporation, amendments
+  'Financial Documents',       // Annual budget, monthly statements, audits, reserve studies
+  'Rules & Policies',          // Current rules, CC&Rs, enforcement policies
+  'Reports & Meeting Minutes', // Board + member meeting minutes (FL: post within 7 days, retain 7 yrs)
+  'Notices & Announcements',   // Meeting notices and agendas (FL: post ≥14 days before member meetings)
+  'Insurance',                 // Master policy, certificates of insurance
+  'Vendor & Contracts',        // Service contracts >$500, bid summaries, conflict-of-interest contracts
+  'Director Records',          // Director certifications, conflict-of-interest disclosures
+  'Inspection Reports',        // Structural, life-safety, reserve studies (FL 718.111(12)(g))
+  'Forms & Applications',      // ARC, pet, lease, move-in/out forms
+  'Maps & Layouts',            // Site plan, parking, common areas
+  'Other',
+] as const
+type DocCategory = typeof DOC_CATEGORIES[number]
+
+// FL-required document types an association must post online.
+// Labels must exactly match a DOC_CATEGORIES entry — TypeScript enforces this.
+const FL_REQUIRED_CATEGORIES: { label: DocCategory; statute: string }[] = [
+  { label: 'Governing Documents',       statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
+  { label: 'Financial Documents',       statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
+  { label: 'Rules & Policies',          statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
+  { label: 'Reports & Meeting Minutes', statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
+  { label: 'Insurance',                 statute: '720.303(4)(b)1' },
+  { label: 'Vendor & Contracts',        statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
+  { label: 'Director Records',          statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
+  { label: 'Inspection Reports',        statute: '718.111(12)(g)2' },
+]
+const DOC_EMPTY: { title: string; category: DocCategory } = { title: '', category: 'Governing Documents' }
 
 export default function AdminEasyDocs() {
   const { profile } = useAuth() || {}
@@ -507,8 +536,46 @@ export default function AdminEasyDocs() {
             </div>
           )}
 
-          {(docStatus === 'ready' || docStatus === 'loading') && (
+          {docStatus === 'loading' && <div className="admin-note">Loading…</div>}
+          {docStatus === 'ready' && (
             <>
+              <div className="admin-note admin-note-info" style={{ marginBottom: 24 }}>
+                <strong>Florida compliance — required document types</strong>
+                <p style={{ margin: '8px 0 10px', fontSize: 13, opacity: 0.85 }}>
+                  FL 718.111(12)(g) (condos, 25+ units) and FL 720.303(4)(b) (HOAs, 100+ parcels)
+                  require associations to post the following document types online within 30 days of
+                  creation or receipt. Types highlighted below are missing from your portal.
+                </p>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                  {FL_REQUIRED_CATEGORIES.map(({ label, statute }) => {
+                    const present = docRows.some(
+                      (d: any) => (d.category || '').toLowerCase() === label.toLowerCase()
+                    )
+                    return (
+                      <span
+                        key={label}
+                        title={`FL §${statute}`}
+                        style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 5,
+                          padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 500,
+                          background: present ? 'rgba(125,140,92,0.18)' : 'rgba(210,80,80,0.13)',
+                          color: present ? 'var(--accent)' : '#c0392b',
+                          border: `1px solid ${present ? 'rgba(125,140,92,0.3)' : 'rgba(210,80,80,0.25)'}`,
+                        }}
+                      >
+                        <span>{present ? '✓' : '!'}</span> {label}
+                      </span>
+                    )
+                  })}
+                </div>
+                <p style={{ margin: '10px 0 0', fontSize: 12, opacity: 0.7 }}>
+                  <strong>Public notices requirement (HOA only):</strong> FL 720.303(4)(b)(1)(l) requires
+                  meeting notices to be posted in plain view on a public homepage or "Notices" subpage —
+                  not just behind login. Contact your management company or attorney to determine how your
+                  association will satisfy this requirement.
+                </p>
+              </div>
+
               <form className="admin-form" onSubmit={uploadDoc}>
                 <label className="admin-field">
                   <span className="admin-field-label">Title</span>
@@ -521,7 +588,7 @@ export default function AdminEasyDocs() {
                     value={docForm.category}
                     onChange={v => setDocField('category', v)}
                     ariaLabel="Document category"
-                    options={DOC_CATEGORIES.map(c => ({ value: c, label: c }))}
+                    options={[...DOC_CATEGORIES].map(c => ({ value: c, label: c }))}
                   />
                 </div>
                 <label className="admin-field">
@@ -544,8 +611,7 @@ export default function AdminEasyDocs() {
                 </span>
               </div>
 
-              {docStatus === 'loading' && <div className="admin-note">Loading…</div>}
-              {docStatus === 'ready' && docRows.length === 0 && (
+              {docRows.length === 0 && (
                 <div className="bc-empty">No documents yet — upload the first one above.</div>
               )}
               <div className="bd-list">

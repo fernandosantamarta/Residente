@@ -90,24 +90,26 @@ function describeSection(name: string, count: number): string {
 
 // ─── Documents section helpers ─────────────────────────────────────────────
 
-type DocCatIcon = 'gov' | 'finance' | 'rules' | 'forms' | 'notice' | 'minutes' | 'insurance' | 'vendor' | 'maps'
+type DocCatIcon = 'gov' | 'finance' | 'rules' | 'forms' | 'notice' | 'minutes' | 'insurance' | 'vendor' | 'maps' | 'director' | 'inspection'
 const CATEGORY_GRID: { key: DocCatIcon; label: string; desc: string }[] = [
-  { key: 'gov',       label: 'Governing Documents',     desc: 'Declaration, bylaws, CC&Rs.' },
-  { key: 'finance',   label: 'Financial Documents',     desc: 'Budgets, audits, reserves.' },
-  { key: 'rules',     label: 'Rules & Policies',        desc: 'House rules and enforcement policy.' },
-  { key: 'forms',     label: 'Forms & Applications',    desc: 'ARC, leases, pet registrations.' },
-  { key: 'notice',    label: 'Notices & Announcements', desc: 'Posted board notices and notifications.' },
-  { key: 'minutes',   label: 'Reports & Meeting Minutes', desc: 'Monthly minutes and committee reports.' },
-  { key: 'insurance', label: 'Insurance',               desc: 'Master policy and certificates.' },
-  { key: 'vendor',    label: 'Vendor & Contracts',      desc: 'Active service contracts on file.' },
-  { key: 'maps',      label: 'Maps & Layouts',          desc: 'Site plan, parking, common areas.' },
+  { key: 'gov',        label: 'Governing Documents',     desc: 'Declaration, bylaws, CC&Rs.' },
+  { key: 'finance',    label: 'Financial Documents',     desc: 'Budgets, audits, reserves.' },
+  { key: 'rules',      label: 'Rules & Policies',        desc: 'House rules and enforcement policy.' },
+  { key: 'forms',      label: 'Forms & Applications',    desc: 'ARC, leases, pet registrations.' },
+  { key: 'notice',     label: 'Notices & Announcements', desc: 'Posted board notices and notifications.' },
+  { key: 'minutes',    label: 'Reports & Meeting Minutes', desc: 'Monthly minutes and committee reports.' },
+  { key: 'insurance',  label: 'Insurance',               desc: 'Master policy and certificates.' },
+  { key: 'vendor',     label: 'Vendor & Contracts',      desc: 'Active service contracts on file.' },
+  { key: 'director',   label: 'Director Records',        desc: 'Certifications and conflict-of-interest disclosures.' },
+  { key: 'inspection', label: 'Inspection Reports',      desc: 'Structural, life-safety, and reserve studies.' },
+  { key: 'maps',       label: 'Maps & Layouts',          desc: 'Site plan, parking, common areas.' },
 ]
 
 const DEMO_PINNED = [
-  { id: 'p1', title: 'Declaration of Condominium', category: 'Governing',  date: '2024-07-01' },
-  { id: 'p2', title: 'Bylaws',                      category: 'Governing',  date: '2024-08-30' },
-  { id: 'p3', title: 'Rules & Regulations',         category: 'Rules',      date: '2024-04-25' },
-  { id: 'p4', title: '2024 Budget',                 category: 'Financial',  date: '2024-04-30' },
+  { id: 'p1', title: 'Declaration of Condominium', category: 'Governing Documents',  date: '2024-07-01' },
+  { id: 'p2', title: 'Bylaws',                      category: 'Governing Documents',  date: '2024-08-30' },
+  { id: 'p3', title: 'Rules & Regulations',         category: 'Rules & Policies',     date: '2024-04-25' },
+  { id: 'p4', title: '2024 Budget',                 category: 'Financial Documents',  date: '2024-04-30' },
 ]
 
 const DEMO_POPULAR = [
@@ -658,8 +660,10 @@ function DocCatIcon({ name }: { name: DocCatIcon }) {
     notice:    <><path d="M3 11l16-6v14L3 13z"/><path d="M7 13v5a2 2 0 0 0 4 0v-3"/></>,
     minutes:   <><path d="M8 4h8a2 2 0 0 1 2 2v14l-3-2-3 2-3-2-3 2V6a2 2 0 0 1 2-2z"/><path d="M9 8h6M9 12h6M9 16h4"/></>,
     insurance: <><path d="M12 3 4 6v6c0 4.5 3.2 8.5 8 9 4.8-.5 8-4.5 8-9V6z"/><path d="m9 12 2 2 4-4"/></>,
-    vendor:    <><path d="M3 7h18l-1.4 11.2A2 2 0 0 1 17.6 20H6.4a2 2 0 0 1-2-1.8z"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></>,
-    maps:      <><path d="m3 7 6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></>,
+    vendor:     <><path d="M3 7h18l-1.4 11.2A2 2 0 0 1 17.6 20H6.4a2 2 0 0 1-2-1.8z"/><path d="M8 7V5a4 4 0 0 1 8 0v2"/></>,
+    director:   <><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/><path d="M16 3l1.5 1.5L20 2"/></>,
+    inspection: <><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M9 7h6M9 11h6M9 15h4"/><path d="m14 14 2 2 4-4"/></>,
+    maps:       <><path d="m3 7 6-3 6 3 6-3v13l-6 3-6-3-6 3z"/><path d="M9 4v13M15 7v13"/></>,
   }
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"

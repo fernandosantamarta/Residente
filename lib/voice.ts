@@ -120,16 +120,29 @@ export function noticeHref(n: { meeting_id?: string | null; vote_id?: string | n
 }
 
 // ---------- ELECTRONIC VOTING CONSENT ----------
-// Plain-English disclosures shown on /onboard's consent step before the
-// owner clicks "I consent". The four-bullet structure satisfies the
-// "informed consent" requirement under FL 718.128 / 720.317.
-// PLACEHOLDER COPY — Andres should review/replace before pilot launch.
+// Disclosures shown on /onboard's consent step before the owner clicks
+// "I consent". Structured to satisfy the informed-consent requirement under
+// FL 718.128(1) (condominiums) and FL 720.317(1) (HOAs).
+// ⚠ REQUIRES ATTORNEY REVIEW before any real owner sees /onboard.
+//   The substance is FL-statute-aligned but final language must be approved
+//   by a Florida-licensed attorney before pilot launch.
 export const CONSENT_DISCLOSURES: string[] = [
-  'You are agreeing to receive official association notices and to cast votes electronically through Residente.',
-  'Electronic ballots have the same legal effect as paper ballots. Once cast, a ballot cannot be changed.',
-  'For board elections, your individual ballot is encrypted and the association cannot see how you voted. Vote totals are public.',
-  'You can withdraw consent at any time by emailing your board — paper ballots will then be provided for future votes.',
+  'By consenting, you authorize your association to deliver all official notices and to collect your votes through the Residente platform. This satisfies the written or electronic consent required by Florida Statutes §718.128 (condominiums) and §720.317 (homeowners associations) before a unit owner or member may participate in online voting.',
+  'Electronic notices and ballots carry the same legal force and effect as paper notices and mailed or hand-delivered ballots.',
+  'Board elections and any vote designated as a secret ballot use end-to-end encryption: your individual vote is encrypted on your device before it is transmitted. The association, management company, and Residente cannot determine how you personally voted. Only aggregate totals are disclosed after the vote closes.',
+  'This consent remains in effect for all future votes and notices at this community. You may withdraw it at any time by submitting a written request to your board. Upon withdrawal, the association will provide paper ballots and postal notices for future votes and elections.',
 ]
+
+// Disclosure shown immediately above the ballot buttons when an owner is
+// about to cast an open (non-secret) ballot electronically.
+// Required by FL 718.128(7)(c)(3) / 720.317 when an electronic ballot is
+// not a secret ballot — the owner must be informed that voting electronically
+// on an open ballot associates their identity with their vote choice.
+export const OPEN_BALLOT_WAIVER_NOTICE =
+  'OPEN BALLOT: By voting here, your vote choice (Yes / No / Abstain) will be ' +
+  'visible to your board and association administrator — this is not a secret ballot. ' +
+  'IF YOU PREFER TO VOTE ANONYMOUSLY, YOU MAY ATTEND THE MEETING IN PERSON INSTEAD. ' +
+  '(FL §718.128 / §720.317)'
 
 export function defaultNoticeCopy(
   kind: NoticeKind,
