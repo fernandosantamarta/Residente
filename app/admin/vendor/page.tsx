@@ -51,7 +51,8 @@ type Vendor = {
 }
 
 // Admin → Vendors. Board curates the trusted-provider list; every vendor
-// shows on each resident's Vendors page (/app/vendor), grouped by category.
+// shows in the Vendors section of each resident's Easy Track hub
+// (/app/track#vendor), grouped by category.
 export default function VendorAdmin() {
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id

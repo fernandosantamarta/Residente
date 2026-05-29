@@ -647,7 +647,7 @@ function OpenVotesBand() {
 // ---------- Quick Actions card ----------
 
 const QUICK_ACTIONS: { href: string; icon: 'pay' | 'note' | 'cal' | 'mail'; title: string; sub: string }[] = [
-  { href: '/app/pay',       icon: 'pay',  title: 'Make a payment',         sub: 'Dues, fees, special assessments' },
+  { href: '/app/track#pay', icon: 'pay',  title: 'Make a payment',         sub: 'Dues, fees, special assessments' },
   { href: '/app/voice#contact', icon: 'note', title: 'Submit a request',       sub: 'Maintenance, complaints, ideas' },
   { href: '/app/community', icon: 'cal',  title: 'View community calendar', sub: 'Meetings, events, deadlines' },
   { href: '/app/voice#contact', icon: 'mail', title: 'Contact management',     sub: 'Reach the board or your manager' },
