@@ -437,16 +437,26 @@ function HomeTransferPanel() {
   const { profile } = useAuth() || {}
   const profileId = profile?.id
   const communityId = profile?.community_id ?? null
+  // The owner types their own name to confirm — the type-to-confirm pattern,
+  // harder to do by accident than a checkbox. Fall back to "your full name"
+  // when we don't have one on file yet (rare; they can still type something).
+  const ownerName = (profile?.full_name || '').trim()
 
   const [residentId, setResidentId] = useState<string | null>(null)
   const [conveyCount, setConveyCount] = useState(0)
   const [open, setOpen] = useState(false)
   const [email, setEmail] = useState('')
   const [name, setName] = useState('')
-  const [confirm, setConfirm] = useState(false)
+  const [typedName, setTypedName] = useState('')
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
+
+  // Confirmed when the typed name matches the owner's name (case/space
+  // insensitive). If we have no name on file, accept any non-empty entry.
+  const nameMatches = ownerName
+    ? typedName.trim().toLowerCase() === ownerName.toLowerCase()
+    : typedName.trim().length > 1
 
   // Resolve this owner's roster row id + how many of their docs convey. Match
   // by account id first, then email (pre-claim), mirroring the home page.
@@ -472,10 +482,10 @@ function HomeTransferPanel() {
     })()
   }, [profileId, communityId])
 
-  const openModal = () => { setEmail(''); setName(''); setConfirm(false); setDone(null); setErr(null); setOpen(true) }
+  const openModal = () => { setEmail(''); setName(''); setTypedName(''); setDone(null); setErr(null); setOpen(true) }
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!residentId || !email.trim() || !confirm) return
+    if (!residentId || !email.trim() || !nameMatches) return
     setBusy(true); setErr(null)
     try {
       const res = await transferHome({ residentId, buyerEmail: email.trim(), buyerName: name.trim() || undefined })
@@ -532,14 +542,17 @@ function HomeTransferPanel() {
                   <span className="hv-label">Buyer’s name (optional)</span>
                   <input className="hv-input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Jordan Lee" />
                 </label>
-                <label className="hv-conveys hv-xfer-confirm">
-                  <input type="checkbox" checked={confirm} onChange={e => setConfirm(e.target.checked)} />
-                  <span>The sale has closed and I’m ready to transfer ownership of my home.</span>
+                <label className="hv-field">
+                  <span className="hv-label">
+                    Type your name to confirm{ownerName ? <> — <strong>{ownerName}</strong></> : ''}
+                  </span>
+                  <input className="hv-input" value={typedName} onChange={e => setTypedName(e.target.value)}
+                    placeholder={ownerName || 'Your full name'} autoComplete="off" />
                 </label>
                 {err && <div className="hv-err">{err}</div>}
                 <div className="hv-modal-actions">
                   <button type="button" className="hv-btn-ghost" onClick={() => setOpen(false)} disabled={busy}>Cancel</button>
-                  <button type="submit" className="hv-danger-btn" disabled={busy || !email.trim() || !confirm}>
+                  <button type="submit" className="hv-danger-btn" disabled={busy || !email.trim() || !nameMatches}>
                     {busy ? 'Transferring…' : 'Transfer home'}
                   </button>
                 </div>
