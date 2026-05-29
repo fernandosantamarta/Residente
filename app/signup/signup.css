@@ -98,14 +98,24 @@
 }
 @keyframes su-bob {
   0%, 100% { transform: translateY(0) rotate(0deg); }
-  50%      { transform: translateY(-12px) rotate(-1.5deg); }
+  20%      { transform: translateY(-8px) rotate(-3deg); }
+  50%      { transform: translateY(-13px) rotate(0deg); }
+  80%      { transform: translateY(-8px) rotate(3deg); }
 }
 @keyframes su-pop {
   0%   { opacity: 0; transform: scale(0.86) translateY(8px); }
   100% { opacity: 1; transform: scale(1) translateY(0); }
 }
+
+/* Eyes: the left winks, the right blinks, on an offset loop. */
+.su-eye { transform-box: fill-box; transform-origin: center; }
+.su-eye-l { animation: su-wink 5s ease-in-out infinite; }
+.su-eye-r { animation: su-blink 5s ease-in-out infinite; }
+@keyframes su-wink  { 0%, 40%, 52%, 100% { transform: scaleY(1); } 46% { transform: scaleY(0.1); } }
+@keyframes su-blink { 0%, 86%, 100% { transform: scaleY(1); } 91% { transform: scaleY(0.1); } }
+
 @media (prefers-reduced-motion: reduce) {
-  .su-house, .su-house svg { animation: none; }
+  .su-house, .su-house svg, .su-eye-l, .su-eye-r { animation: none; }
 }
 
 .su-content { display: flex; flex-direction: column; }

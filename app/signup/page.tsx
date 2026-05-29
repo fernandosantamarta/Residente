@@ -529,8 +529,8 @@ function HouseArt() {
         <rect x="112" y="110" width="30" height="20" rx="6" fill="none" stroke="#E5732A" strokeWidth="2.5" />
 
         {/* face */}
-        <path d="M102 146 Q108 138 114 146" stroke="#5A2A14" strokeWidth="4.5" fill="none" strokeLinecap="round" />
-        <path d="M138 146 Q144 138 150 146" stroke="#5A2A14" strokeWidth="4.5" fill="none" strokeLinecap="round" />
+        <g className="su-eye su-eye-l"><ellipse cx="108" cy="143" rx="4.6" ry="6.4" fill="#5A2A14" /></g>
+        <g className="su-eye su-eye-r"><ellipse cx="144" cy="143" rx="4.6" ry="6.4" fill="#5A2A14" /></g>
         <ellipse cx="98" cy="158" rx="8" ry="5" fill="#FFAE9A" />
         <ellipse cx="154" cy="158" rx="8" ry="5" fill="#FFAE9A" />
         <path d="M114 154 Q126 172 138 154 Z" fill="#8A2E1E" />
