@@ -86,8 +86,27 @@
 }
 
 /* ---- the house, on every slide ---- */
-.su-house { display: flex; justify-content: center; margin: 12px 0 22px; }
-.su-house svg { width: 210px; height: auto; filter: drop-shadow(0 12px 20px rgba(120, 35, 0, 0.26)); }
+.su-house {
+  display: flex; justify-content: center; margin: 10px 0 24px;
+  animation: su-pop 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.su-house svg {
+  width: 270px; height: auto;
+  filter: drop-shadow(0 14px 24px rgba(120, 35, 0, 0.28));
+  transform-origin: center bottom;
+  animation: su-bob 3.4s ease-in-out infinite;
+}
+@keyframes su-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  50%      { transform: translateY(-12px) rotate(-1.5deg); }
+}
+@keyframes su-pop {
+  0%   { opacity: 0; transform: scale(0.86) translateY(8px); }
+  100% { opacity: 1; transform: scale(1) translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .su-house, .su-house svg { animation: none; }
+}
 
 .su-content { display: flex; flex-direction: column; }
 
