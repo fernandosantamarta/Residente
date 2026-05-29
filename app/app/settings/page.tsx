@@ -450,8 +450,9 @@ function HomeVaultPanel() {
         <div className="hv-xfer-copy">
           <div className="hv-xfer-title">Sell or transfer this home</div>
           <div className="hv-xfer-desc">
-            Hand your unit to the next owner. The {conveyCount} document{conveyCount === 1 ? '' : 's'} marked
-            “Conveys” move to them, and they get an invite to set up their account.
+            Once the sale has closed, hand your unit to the next owner. The {conveyCount} document
+            {conveyCount === 1 ? '' : 's'} marked “Conveys” move to them, and they get an invite to set
+            up their account.
           </div>
         </div>
         <button type="button" className="hv-btn-ghost" onClick={openXfer} disabled={!residentId}
@@ -474,8 +475,10 @@ function HomeVaultPanel() {
             ) : (
               <>
                 <div className="hv-xfer-warn">
-                  This moves your unit and its {conveyCount} conveying document{conveyCount === 1 ? '' : 's'} to
-                  the new owner. You’ll no longer own this home on Residente. This can’t be undone from here.
+                  <strong>Only do this after closing.</strong> Wait until the sale is final and the
+                  contract is signed — this immediately moves your unit and its {conveyCount} conveying
+                  document{conveyCount === 1 ? '' : 's'} to the new owner. You’ll no longer own this home
+                  on Residente, and this can’t be undone from here.
                 </div>
                 <label className="hv-field">
                   <span className="hv-label">Buyer’s email</span>
@@ -488,7 +491,7 @@ function HomeVaultPanel() {
                 </label>
                 <label className="hv-conveys hv-xfer-confirm">
                   <input type="checkbox" checked={xConfirm} onChange={e => setXConfirm(e.target.checked)} />
-                  <span>I understand this transfers ownership of my home.</span>
+                  <span>The sale has closed and I’m ready to transfer ownership of my home.</span>
                 </label>
                 {err && <div className="hv-err">{err}</div>}
                 <div className="hv-modal-actions">
