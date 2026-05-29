@@ -31,7 +31,6 @@ type NavItem = { href: string; label: string; icon: ReactNode; pulse?: boolean; 
 // contact requests (maintenance issues, appeals, questions) into one tab.
 const NAV: NavItem[] = [
   { href: '/app',           label: 'Home',      exact: true, icon: <><path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/></> },
-  { href: '/app/home',      label: 'My Home',   icon: <><rect x="3" y="4" width="18" height="5" rx="1"/><path d="M5 9v10h14V9"/><path d="M9 13h6"/></> },
   { href: '/app/pay',       label: 'Pay',       icon: <><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/></> },
   { href: '/app/voice',     label: 'Easy Voice', pulse: true, icon: <><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="22"/></> },
   { href: '/app/documents', label: 'Easy Documents', match: ['/app/rules'], icon: <><path d="M4 4h12l4 4v12H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></> },

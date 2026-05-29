@@ -2,6 +2,7 @@
 
 import { ChangeEvent, ReactNode, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/providers'
 import { signOut, supabase, hasSupabase } from '@/lib/supabase'
 import { useCommunityData } from '@/hooks/useCommunityData'
@@ -44,6 +45,7 @@ export default function Settings() {
   const { community } = useCommunityData()
   const [prefs, patch] = usePreferences()
   const [dialog, setDialog] = useState<DialogKey | null>(null)
+  const router = useRouter()
 
   // Two-way sync with the board's roster. The signed-in resident is matched
   // to their public.residents row by email (same match as useMyResident).
@@ -176,6 +178,12 @@ export default function Settings() {
               onClick={() => setDialog('vehicles')} right={`${prefs.vehicles.length} registered`} />
             <Row icon={<IconPaw />}   title="Pet Information"    desc="Pets registered with the community."
               onClick={() => setDialog('pets')} right={`${prefs.pets.length} registered`} />
+          </SectionCard>
+
+          <SectionCard title="Home Vault">
+            <Row icon={<IconKey />} title="Home documents"
+              desc="Your home's records — deed, insurance, warranties, permits. Mark the ones that pass to the next owner."
+              onClick={() => router.push('/app/home')} right="Open →" />
           </SectionCard>
 
           <button className="set-logout" onClick={() => signOut()}>
