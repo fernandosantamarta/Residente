@@ -632,18 +632,6 @@ body:has(.landing-screen) { min-width: 0; }
   animation: ln-ufo-fly 24s ease-in-out infinite;
 }
 
-@keyframes ln-ufo-beam {
-  0%, 33%  { opacity: 0; }
-  38%      { opacity: 0.9; }
-  55%      { opacity: 0.9; }
-  62%      { opacity: 0; }
-  100%     { opacity: 0; }
-}
-.ln-ufo-beam-wrap {
-  animation: ln-ufo-beam 24s ease-in-out infinite;
-  opacity: 0;
-}
-
 /* Foreground abduction beam — a tall cone from the saucer underside down to
    the cul-de-sac, drawn on top of the focal house so the tractor beam reads
    all the way to the ground (the background beam above only reaches the roof
@@ -660,7 +648,7 @@ body:has(.landing-screen) { min-width: 0; }
   opacity: 0;
 }
 
-/* Three neighbours: run out of the right-hand house (start offset +520px),
+/* The three residents + the family dog: drift in from the right (+520px),
    gather under the saucer (translate 0), then rise straight up into the UFO
    and fade. Invisible at the loop seam (opacity 0 at both 100% and the reset),
    so the restart never pops. */
@@ -680,66 +668,12 @@ body:has(.landing-screen) { min-width: 0; }
   opacity: 0;
 }
 
-/* Neighbour doors: foreshorten open (scaleX from the hinge edge) just before
-   the runners spill out, then swing shut after they've gone. transform-box:
-   fill-box makes transform-origin relative to the leaf's own box, so
-   "left center" / "right center" pins the hinge to the correct edge. */
-@keyframes ln-door-open {
-  0%, 6% { transform: scaleX(1); }
-  11%    { transform: scaleX(0.16); }
-  33%    { transform: scaleX(0.16); }
-  39%    { transform: scaleX(1); }
-  100%   { transform: scaleX(1); }
-}
-.ln-door-l, .ln-door-r {
-  transform-box: fill-box;
-  animation: ln-door-open 24s ease-in-out infinite;
-}
-.ln-door-l { transform-origin: left center; }
-.ln-door-r { transform-origin: right center; }
-
-/* Left-door runners: hidden in the doorway, step out as it opens, run right
-   into the cul-de-sac (+255px ≈ x840 door → focal x1200), gather, then rise
-   straight up into the saucer and fade. */
-@keyframes ln-run-l {
-  0%   { transform: translate(0, 0);          opacity: 0; }
-  7%   { transform: translate(0, 0);          opacity: 0; }
-  11%  { transform: translate(18px, 0);       opacity: 1; }
-  31%  { transform: translate(255px, 0);      opacity: 1; }
-  42%  { transform: translate(255px, 0);      opacity: 1; }
-  45%  { transform: translate(255px, -40px);  opacity: 1; }
-  55%  { transform: translate(255px, -930px); opacity: 0.12; }
-  58%  { transform: translate(255px, -985px); opacity: 0; }
-  100% { transform: translate(255px, -985px); opacity: 0; }
-}
-.ln-run-l {
-  animation: ln-run-l 24s ease-in-out infinite;
-  opacity: 0;
-}
-
-/* Right-door runners: mirror image — run left (-255px ≈ x1500 door → focal
-   x1200) into the same gather spot, then up. */
-@keyframes ln-run-r {
-  0%   { transform: translate(0, 0);           opacity: 0; }
-  7%   { transform: translate(0, 0);           opacity: 0; }
-  11%  { transform: translate(-18px, 0);       opacity: 1; }
-  31%  { transform: translate(-255px, 0);      opacity: 1; }
-  42%  { transform: translate(-255px, 0);      opacity: 1; }
-  45%  { transform: translate(-255px, -40px);  opacity: 1; }
-  55%  { transform: translate(-255px, -930px); opacity: 0.12; }
-  58%  { transform: translate(-255px, -985px); opacity: 0; }
-  100% { transform: translate(-255px, -985px); opacity: 0; }
-}
-.ln-run-r {
-  animation: ln-run-r 24s ease-in-out infinite;
-  opacity: 0;
-}
 
 @media (prefers-reduced-motion: reduce) {
   .ln-walk, .ln-walk-a, .ln-walk-b, .ln-walk-c,
   .ln-dog-bounce, .ln-wheel-spin, .ln-flag-wave, .ln-sun-spin,
   .ln-interior-breathe, .ln-interior-breathe-a, .ln-interior-bounce,
-  .ln-hero-plane-inner, .ln-ufo-fly, .ln-ufo-beam-wrap, .ln-ufo-beam2, .ln-abduct, .ln-run-l, .ln-run-r, .ln-door-l, .ln-door-r, .ln-smoke-rise, .ln-smoke-rise-a, .ln-smoke-rise-b, .ln-smoke-rise-c {
+  .ln-hero-plane-inner, .ln-ufo-fly, .ln-ufo-beam2, .ln-abduct, .ln-smoke-rise, .ln-smoke-rise-a, .ln-smoke-rise-b, .ln-smoke-rise-c {
     animation: none;
   }
 }
