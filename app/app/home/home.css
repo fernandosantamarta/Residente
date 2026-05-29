@@ -108,3 +108,18 @@
 }
 .hv-panel-add-title { font-size: 14px; font-weight: 700; color: var(--hv-ink); }
 .hv-panel-add .hv-input { background: #fff; }
+
+/* Category rows + dropdown (Settings Home Vault). */
+.hv-cat .set-row-chev { flex-shrink: 0; }
+.hv-cat-drop {
+  --hv-ink: #0A2440; --hv-accent: #E14909;
+  --hv-muted: rgba(10, 36, 64, 0.6); --hv-border: rgba(10, 36, 64, 0.12);
+  padding: 2px 16px 14px 58px;
+}
+.hv-cat-add {
+  margin-top: 10px; background: none; cursor: pointer;
+  border: 1.5px dashed var(--hv-border); border-radius: 10px;
+  padding: 9px 14px; font: inherit; font-size: 13px; font-weight: 700; color: var(--hv-accent);
+}
+.hv-cat-add:hover { background: rgba(225, 73, 9, 0.06); border-color: rgba(225, 73, 9, 0.45); }
+.hv-cat-add:disabled { opacity: 0.6; cursor: default; }
