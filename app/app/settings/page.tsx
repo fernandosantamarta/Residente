@@ -489,7 +489,8 @@ function HomeTransferPanel() {
 
   return (
     <>
-      <div className="hv-xfer-row">
+      <button type="button" className="set-row" onClick={openModal} disabled={!residentId}
+        title={residentId ? 'Transfer this home to the next owner' : 'No home on file for your account yet'}>
         <span className="set-row-icon hv-xfer-icon"><IconHome /></span>
         <span className="set-row-body">
           <span className="set-row-title">Sell or transfer this home</span>
@@ -498,11 +499,10 @@ function HomeTransferPanel() {
             {conveyCount === 1 ? '' : 's'} marked “Conveys” move to them, plus an invite to set up their account.
           </span>
         </span>
-        <button type="button" className="hv-danger-btn" onClick={openModal} disabled={!residentId}
-          title={residentId ? 'Transfer this home to the next owner' : 'No home on file for your account yet'}>
-          Transfer home
-        </button>
-      </div>
+        <svg className="set-row-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </button>
 
       {open && (
         <div className="hv-modal-overlay" onClick={() => !busy && setOpen(false)}>
