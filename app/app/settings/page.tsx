@@ -106,7 +106,8 @@ export default function Settings() {
 
   // Write a name/phone edit back to the roster row. No-op (local-only) when
   // there's no matched row yet — the board hasn't added this resident.
-  const saveContact = async (next: { full_name?: string; phone?: string }) => {
+  const saveContact = async (next: { full_name?: string; phone?: string; address?: string }) => {
+    patch(next)  // keep local prefs in sync even with no roster row yet
     if (!supabase || !roster?.id) return
     try {
       const { error } = await supabase.from('residents').update(next).eq('id', roster.id)
@@ -621,7 +622,7 @@ function SettingsDialog({
   unitLabel: string
   community: string
   roster: any | null
-  onSaveContact: (next: { full_name?: string; phone?: string }) => void
+  onSaveContact: (next: { full_name?: string; phone?: string; address?: string }) => void
   onClose: () => void
 }) {
   // Esc closes the dialog.
@@ -683,7 +684,7 @@ function DialogBody({
   unitLabel: string
   community: string
   roster: any | null
-  onSaveContact: (next: { full_name?: string; phone?: string }) => void
+  onSaveContact: (next: { full_name?: string; phone?: string; address?: string }) => void
 }) {
   switch (k) {
     case 'profile':
@@ -723,6 +724,12 @@ function DialogBody({
               onChange={e => patch({ phone: e.target.value })}
               onBlur={e => onSaveContact({ phone: e.target.value.trim() })}
               placeholder="(305) 555-0142" />
+          </Field>
+          <Field label="Address">
+            <input name="street-address" autoComplete="street-address" className="set-input" value={prefs.address}
+              onChange={e => patch({ address: e.target.value })}
+              onBlur={e => onSaveContact({ address: e.target.value.trim() })}
+              placeholder="1247 Oak Street" />
           </Field>
           {roster ? (
             <span className="set-dialog-note set-dialog-note-tight">

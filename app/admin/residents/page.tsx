@@ -341,12 +341,16 @@ export default function Residents() {
 function ResidentRow({ r, monthlyDues, interestRate, payments, onLocal, onCommit, onRemove }) {
   const balance = residentBalance(r, monthlyDues, payments, interestRate)
   const st = duesStatus(balance, monthlyDues)
-  const contact = [r.address, r.email, r.phone].filter(Boolean).join('  ·  ')
+  const emailPhone = [r.email, r.phone].filter(Boolean).join('  ·  ')
   return (
     <div className="res-row">
       <div className="res-info">
         <div className="res-name">{r.full_name}</div>
-        <div className="res-contact">{contact || 'No contact info'}</div>
+        <input name={`address-${r.id}`} className="res-addr-input" placeholder="Add an address"
+          value={r.address ?? ''}
+          onChange={e => onLocal(r.id, 'address', e.target.value)}
+          onBlur={e => onCommit(r.id, { address: e.target.value.trim() || null })} />
+        {emailPhone && <div className="res-contact">{emailPhone}</div>}
       </div>
       <div className={`res-owes res-${st}`}>
         <span className="res-owes-amt">{fmtMoney(balance)}</span>
