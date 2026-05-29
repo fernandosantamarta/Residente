@@ -114,7 +114,12 @@ export default function Settings() {
       // of the app read profile.full_name from there, so a name edit MUST write
       // it back (and refresh the live session) or the greeting never updates.
       if (next.full_name !== undefined && profile?.id) {
-        await supabase.from('profiles').update({ full_name: next.full_name }).eq('id', profile.id)
+        const { error } = await supabase
+          .from('profiles').update({ full_name: next.full_name }).eq('id', profile.id)
+        // Surface a failed write instead of swallowing it — a silent 403 here
+        // (missing UPDATE grant on profiles) is what made name edits never
+        // reach the home greeting. See supabase/profile-self-update.sql.
+        if (error) console.warn('Could not save name to profiles:', error.message)
         if (setProfile && profile) setProfile({ ...profile, full_name: next.full_name })
       }
       // Roster row mirrors name/phone/address for the board's view.
@@ -685,6 +690,44 @@ const DIALOG_TITLE: Record<DialogKey, string> = {
   updates:        'Reload latest',
 }
 
+// First / Last name editor. First and Last are independent local state so
+// clearing one never reshuffles the other (the old version re-split a single
+// full_name string on every render, so emptying First slid Last into its
+// place and you kept erasing the wrong field). full_name stays the saved
+// source of truth — we push the recombined value on every edit, and a
+// guaranteed space lets the home greeting pick out the real first name.
+function ProfileNameFields({
+  prefs, patch, onSaveContact,
+}: {
+  prefs: Preferences
+  patch: (p: Partial<Preferences>) => void
+  onSaveContact: (next: { full_name?: string; phone?: string; address?: string }) => void
+}) {
+  const seed = (prefs.full_name || '').trim()
+  const seedSp = seed.indexOf(' ')
+  const [first, setFirst] = useState(seedSp === -1 ? seed : seed.slice(0, seedSp))
+  const [last, setLast]   = useState(seedSp === -1 ? '' : seed.slice(seedSp + 1).trim())
+
+  const recombine = (f: string, l: string) => `${f.trim()} ${l.trim()}`.trim()
+
+  return (
+    <div className="set-name-row">
+      <Field label="First name">
+        <input name="given-name" autoComplete="given-name" className="set-input" value={first}
+          onChange={e => { setFirst(e.target.value); patch({ full_name: recombine(e.target.value, last) }) }}
+          onBlur={() => onSaveContact({ full_name: recombine(first, last) })}
+          placeholder="Maria" />
+      </Field>
+      <Field label="Last name">
+        <input name="family-name" autoComplete="family-name" className="set-input" value={last}
+          onChange={e => { setLast(e.target.value); patch({ full_name: recombine(first, e.target.value) }) }}
+          onBlur={() => onSaveContact({ full_name: recombine(first, last) })}
+          placeholder="Santos" />
+      </Field>
+    </div>
+  )
+}
+
 function DialogBody({
   k, prefs, patch, unitLabel, community, roster, onSaveContact,
 }: {
@@ -701,33 +744,7 @@ function DialogBody({
       return (
         <>
           <ProfilePhotoEditor prefs={prefs} patch={patch} />
-          {(() => {
-            // Split the single full_name into First / Last so the data is clean
-            // (a guaranteed space lets the home greeting pick the real first
-            // name — without it, "andresvega" can't be parsed). full_name stays
-            // the source of truth; we recombine on every edit.
-            const full = (prefs.full_name || '').trim()
-            const sp = full.indexOf(' ')
-            const first = sp === -1 ? full : full.slice(0, sp)
-            const last  = sp === -1 ? ''   : full.slice(sp + 1).trim()
-            const recombine = (f: string, l: string) => `${f.trim()} ${l.trim()}`.trim()
-            return (
-              <div className="set-name-row">
-                <Field label="First name">
-                  <input name="given-name" autoComplete="given-name" className="set-input" value={first}
-                    onChange={e => patch({ full_name: recombine(e.target.value, last) })}
-                    onBlur={() => onSaveContact({ full_name: recombine(first, last) })}
-                    placeholder="Maria" />
-                </Field>
-                <Field label="Last name">
-                  <input name="family-name" autoComplete="family-name" className="set-input" value={last}
-                    onChange={e => patch({ full_name: recombine(first, e.target.value) })}
-                    onBlur={() => onSaveContact({ full_name: recombine(first, last) })}
-                    placeholder="Santos" />
-                </Field>
-              </div>
-            )
-          })()}
+          <ProfileNameFields prefs={prefs} patch={patch} onSaveContact={onSaveContact} />
           <EmailChanger />
           <Field label="Phone">
             <input name="phone" autoComplete="tel" className="set-input" type="tel" value={prefs.phone}
