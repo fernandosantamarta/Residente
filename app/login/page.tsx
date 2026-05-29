@@ -100,7 +100,7 @@ export default function Login() {
         </form>
 
         <div className="login-foot">
-          New to Residente? <Link href="/signup" className="login-foot-link">Get started</Link>
+          New to Residente? <Link href="/signup" className="login-foot-link">Sign up</Link>
         </div>
         <Link href="/" className="login-back">&larr; Back to home</Link>
       </div>
