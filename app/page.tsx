@@ -3,11 +3,7 @@
 import { useState, useEffect, useRef, forwardRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { supabase, hasSupabase } from '@/lib/supabase'
 import { useAuth } from './providers'
-
-const withTimeout = (p, ms = 10000) =>
-  Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
 
 // Adds `.in-view` to any element tagged data-anim once it scrolls into the
 // viewport. One-shot per element — animations don't re-run when scrolling back.
@@ -93,7 +89,7 @@ function LandingNav() {
           <a href="#residents">For residents</a>
           <Link href="/login" className="ln-nav-signin">Sign in</Link>
         </nav>
-        <a href="#waitlist" className="ln-cta-pill">Join waitlist</a>
+        <Link href="/signup" className="ln-cta-pill">Get started</Link>
       </div>
     </header>
   )
@@ -463,7 +459,7 @@ function Hero() {
                 board is up to, and how to pay. All in one place.
               </p>
               <div className="ln-hero-ctas">
-                <a href="#waitlist" className="ln-hero-btn">Get early access</a>
+                <Link href="/signup" className="ln-hero-btn">Get started free</Link>
                 <a href="#what" className="ln-hero-ghost">
                   See how it works
                   <span aria-hidden="true">↓</span>
@@ -1117,7 +1113,7 @@ function WhatIs() {
         <h2 className="ln-what-title">
           The HOA cockpit your community has been quietly hoping for.
         </h2>
-        <a href="#waitlist" className="ln-pill-btn">Join the waitlist</a>
+        <Link href="/signup" className="ln-pill-btn">Get started free</Link>
       </div>
       <p className="ln-what-body">
         Most small HOAs still run on email chains, paper notices, and a
@@ -1251,7 +1247,7 @@ function BuiltForBoth() {
           editor, document vault. Imports your existing CSV. Replaces the
           spreadsheet, the WhatsApp group, and the manila folder.
         </p>
-        <a href="#waitlist" className="ln-use-link">Get on the list <span aria-hidden="true">→</span></a>
+        <Link href="/signup" className="ln-use-link">Set up your community <span aria-hidden="true">→</span></Link>
       </div>
 
       <div className="ln-use-card ln-use-card-soft" id="residents" data-stagger="2">
@@ -1262,7 +1258,7 @@ function BuiltForBoth() {
           you moved in — visible the second you log in. No more chasing the
           treasurer for a PDF.
         </p>
-        <a href="#waitlist" className="ln-use-link">Get on the list <span aria-hidden="true">→</span></a>
+        <Link href="/signup" className="ln-use-link">Join your community <span aria-hidden="true">→</span></Link>
       </div>
     </section>
   )
@@ -1341,87 +1337,23 @@ function DashboardPreview() {
 }
 
 function CtaBlock() {
-  const [email, setEmail] = useState('')
-  const [community, setCommunity] = useState('')
-  const [state, setState] = useState({ status: 'idle', msg: null })
-
-  const submit = async (e) => {
-    e.preventDefault()
-    const trimmed = email.trim().toLowerCase()
-    if (!trimmed || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) {
-      setState({ status: 'error', msg: "That doesn't look like a valid email." })
-      return
-    }
-    if (!hasSupabase) {
-      setState({ status: 'error', msg: 'Supabase is not configured locally.' })
-      return
-    }
-    setState({ status: 'submitting', msg: null })
-    try {
-      const { error } = await withTimeout(
-        supabase.from('waitlist').insert({
-          email: trimmed,
-          community: community.trim() || null,
-          source: 'landing',
-        })
-      )
-      if (error) {
-        if (error.code === '23505') {
-          setState({ status: 'success', msg: "You're already on the list — we'll be in touch." })
-        } else {
-          setState({ status: 'error', msg: error.message || 'Something went wrong. Try again?' })
-        }
-        return
-      }
-      setState({ status: 'success', msg: "You're on the list. We'll be in touch soon." })
-      setEmail('')
-      setCommunity('')
-    } catch (err) {
-      setState({ status: 'error', msg: err?.message || "Couldn't reach the server. Try again?" })
-    }
-  }
-
   return (
     <section className="ln-waitlist" id="waitlist" data-anim>
       <div className="ln-waitlist-card">
         <div className="ln-waitlist-glow" aria-hidden="true" />
         <div className="ln-waitlist-inner">
-          <div className="ln-waitlist-kicker">Early access</div>
+          <div className="ln-waitlist-kicker">Get started</div>
           <h2 className="ln-waitlist-title">
-            We're rolling out one community at a time.
+            Bring your community online today.
           </h2>
           <p className="ln-waitlist-sub">
-            Drop your email and where you live. We'll get back to you when
-            we're ready for your community. No spam, no upsell.
+            Set up your association in a few minutes. Free to start for boards and
+            managers, always free for residents. No spam, no upsell.
           </p>
-          <form className="ln-waitlist-form" onSubmit={submit}>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@example.com"
-              autoComplete="email"
-              required
-              disabled={state.status === 'submitting' || state.status === 'success'}
-            />
-            <input
-              type="text"
-              value={community}
-              onChange={(e) => setCommunity(e.target.value)}
-              placeholder="Community or city (optional)"
-              disabled={state.status === 'submitting' || state.status === 'success'}
-            />
-            <button
-              type="submit"
-              className="ln-waitlist-btn"
-              disabled={state.status === 'submitting' || state.status === 'success'}
-            >
-              {state.status === 'submitting' ? 'Adding you...' : state.status === 'success' ? 'You’re in ✓' : 'Get early access'}
-            </button>
-          </form>
-          {state.msg && (
-            <div className={`ln-waitlist-msg ${state.status}`}>{state.msg}</div>
-          )}
+          <div className="ln-waitlist-cta">
+            <Link href="/signup" className="ln-waitlist-btn">Get started free</Link>
+            <Link href="/login" className="ln-waitlist-signin">I already have an account</Link>
+          </div>
         </div>
       </div>
     </section>

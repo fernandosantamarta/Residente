@@ -52,6 +52,14 @@ export const signIn = async ({ email, password }: { email: string; password: str
   return { data, error }
 }
 
+// Self-serve account creation (the /signup flow). With email confirmation
+// turned OFF in Supabase Auth, this returns a live session immediately so the
+// flow can call signup-provision without an inbox round-trip.
+export const signUp = async ({ email, password }: { email: string; password: string }) => {
+  const { data, error } = await supabase!.auth.signUp({ email, password })
+  return { data, error }
+}
+
 export const signOut = () => supabase!.auth.signOut()
 
 export const getProfile = async (userId: string) => {

@@ -1249,6 +1249,18 @@ body:has(.landing-screen) { min-width: 0; }
 }
 .ln-waitlist-btn:disabled { opacity: 0.7; cursor: not-allowed; }
 
+/* Standalone "Get started" CTA (replaced the email waitlist form). */
+.ln-waitlist-cta {
+  display: flex; flex-direction: column; align-items: center; gap: 14px; margin-top: 8px;
+}
+.ln-waitlist-cta .ln-waitlist-btn {
+  display: inline-block; margin-top: 0; text-decoration: none;
+}
+.ln-waitlist-signin {
+  color: rgba(244, 239, 232, 0.72); font-size: 14px; font-weight: 600; text-decoration: none;
+}
+.ln-waitlist-signin:hover { color: #FFFFFF; text-decoration: underline; }
+
 .ln-waitlist-msg {
   max-width: 620px;
   margin: 18px auto 0;

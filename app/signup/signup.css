@@ -1,0 +1,148 @@
+/* Self-serve sign-up — the bright, friendly continuation of the landing page.
+   Duolingo-style: one decision per screen, a progress bar, big tappable choice
+   tiles, encouraging copy. Cream + navy + orange to match the brand. */
+
+.su-screen {
+  --su-bg:     #F4EFE8;
+  --su-ink:    #0A2440;
+  --su-accent: #E14909;
+  --su-accent-2: #B83B07;
+  --su-muted:  rgba(10, 36, 64, 0.60);
+  --su-border: rgba(10, 36, 64, 0.12);
+
+  min-height: 100vh;
+  display: flex; align-items: center; justify-content: center;
+  background:
+    radial-gradient(ellipse at top, #FBF7F1 0%, var(--su-bg) 60%);
+  padding: 40px 16px;
+  position: relative; overflow: hidden;
+}
+.su-glow {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(circle at 18% 12%, rgba(225, 73, 9, 0.10), transparent 45%),
+    radial-gradient(circle at 85% 85%, rgba(225, 73, 9, 0.06), transparent 45%);
+}
+
+.su-card {
+  position: relative; z-index: 1;
+  width: 100%; max-width: 460px;
+  padding: 28px 30px 32px;
+  background: #FFFFFF;
+  border: 1px solid var(--su-border);
+  border-radius: 20px;
+  box-shadow: 0 18px 48px rgba(10, 36, 64, 0.10);
+}
+
+/* ---- progress bar ---- */
+.su-progress {
+  height: 6px; border-radius: 999px;
+  background: rgba(10, 36, 64, 0.08);
+  overflow: hidden; margin-bottom: 22px;
+}
+.su-progress-fill {
+  height: 100%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--su-accent), var(--su-accent-2));
+  transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ---- header ---- */
+.su-brand {
+  display: inline-flex; align-items: center; gap: 8px;
+  text-decoration: none; margin-bottom: 18px;
+}
+.su-brand-logo { width: 26px; height: 26px; border-radius: 6px; }
+.su-brand-word {
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-weight: 700; color: var(--su-ink); font-size: 17px; letter-spacing: -0.4px;
+}
+.su-kicker {
+  font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; color: var(--su-accent); margin-bottom: 8px;
+}
+.su-h1 {
+  font-size: 25px; font-weight: 700; letter-spacing: -0.5px;
+  color: var(--su-ink); margin: 0 0 8px; line-height: 1.2;
+}
+.su-sub {
+  font-size: 14.5px; line-height: 1.55; color: var(--su-muted);
+  margin: 0 0 20px;
+}
+
+/* ---- big choice tiles ---- */
+.su-choices { display: flex; flex-direction: column; gap: 12px; }
+.su-tile {
+  display: flex; align-items: center; gap: 14px; text-align: left;
+  padding: 16px 18px; width: 100%;
+  background: #FFFFFF;
+  border: 1.5px solid var(--su-border); border-radius: 14px;
+  cursor: pointer; transition: border-color 0.14s, background 0.14s, transform 0.08s;
+}
+.su-tile:hover { border-color: rgba(225, 73, 9, 0.55); background: rgba(225, 73, 9, 0.04); }
+.su-tile:active { transform: translateY(1px); }
+.su-tile.selected { border-color: var(--su-accent); background: rgba(225, 73, 9, 0.06); }
+.su-tile-emoji {
+  font-size: 26px; line-height: 1; flex-shrink: 0;
+  width: 44px; height: 44px; display: grid; place-items: center;
+  background: rgba(225, 73, 9, 0.08); border-radius: 12px;
+}
+.su-tile-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.su-tile-title { font-size: 15.5px; font-weight: 700; color: var(--su-ink); }
+.su-tile-desc { font-size: 13px; color: var(--su-muted); line-height: 1.4; }
+
+/* ---- form fields ---- */
+.su-form { display: flex; flex-direction: column; gap: 15px; }
+.su-field { display: flex; flex-direction: column; gap: 6px; }
+.su-label {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.3px;
+  color: var(--su-muted); text-transform: uppercase;
+}
+.su-field input {
+  padding: 12px 14px; border-radius: 11px;
+  background: #FBF7F1;
+  border: 1.5px solid var(--su-border);
+  color: var(--su-ink); font-size: 15px; font-family: inherit;
+  outline: none; transition: border-color 0.14s, background 0.14s;
+}
+.su-field input:focus { border-color: var(--su-accent); background: #fff; }
+.su-field input::placeholder { color: rgba(10, 36, 64, 0.34); }
+.su-hint { font-size: 12.5px; line-height: 1.5; color: var(--su-muted); }
+
+/* ---- actions ---- */
+.su-actions {
+  display: flex; align-items: center; gap: 10px; margin-top: 22px;
+}
+.su-btn {
+  flex: 1;
+  padding: 13px 22px;
+  background: linear-gradient(135deg, var(--su-accent), var(--su-accent-2));
+  border: none; border-radius: 12px;
+  color: #fff; font-size: 15px; font-weight: 700; font-family: inherit;
+  cursor: pointer; transition: opacity 0.14s, transform 0.08s;
+}
+.su-btn:hover { opacity: 0.93; }
+.su-btn:active { transform: translateY(1px); }
+.su-btn:disabled { opacity: 0.5; cursor: default; }
+.su-back {
+  padding: 13px 16px;
+  background: transparent; border: 1.5px solid var(--su-border); border-radius: 12px;
+  color: var(--su-muted); font-size: 14px; font-weight: 600; font-family: inherit;
+  cursor: pointer; transition: color 0.14s, border-color 0.14s;
+}
+.su-back:hover { color: var(--su-ink); border-color: rgba(10, 36, 64, 0.3); }
+
+.su-err {
+  margin-top: 14px;
+  padding: 11px 13px; border-radius: 11px;
+  background: rgba(214, 40, 40, 0.08); color: #C0341D;
+  font-size: 13px; line-height: 1.5; border: 1px solid rgba(214, 40, 40, 0.25);
+}
+
+.su-foot {
+  margin-top: 20px; font-size: 13px; color: var(--su-muted); text-align: center;
+}
+.su-foot a { color: var(--su-accent); font-weight: 600; text-decoration: none; }
+.su-foot a:hover { text-decoration: underline; }
+
+.su-done-emoji { font-size: 44px; text-align: center; margin-bottom: 10px; }
+.su-msg { font-size: 14px; color: var(--su-muted); text-align: center; padding: 8px 0; }
