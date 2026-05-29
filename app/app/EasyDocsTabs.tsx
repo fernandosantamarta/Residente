@@ -29,12 +29,12 @@ export function EasyDocsTabs() {
   }
 
   return (
-    <div className="voice-tabs">
+    <div className="easydocs-tabs">
       {TABS.map(t => (
         <button
           key={t.key}
           type="button"
-          className={`voice-tab${active === t.key ? ' active' : ''}`}
+          className={`easydocs-tab${active === t.key ? ' active' : ''}`}
           onClick={() => scrollTo(t.key, t.sectionId)}
         >
           {t.label}

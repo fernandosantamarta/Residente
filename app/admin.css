@@ -395,6 +395,17 @@
 .voice-tab:hover { color: var(--text); }
 .voice-tab.active { color: var(--text); border-bottom-color: var(--pink); }
 
+/* EasyDocs (Rules + Documents) tabs */
+.easydocs-tabs { display: flex; gap: 6px; margin-bottom: 24px; }
+.easydocs-tab {
+  padding: 8px 20px; font-size: 14px; font-weight: 600;
+  color: var(--text-dim); background: transparent;
+  border: none; border-radius: 20px; cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+.easydocs-tab:hover { background-color: var(--pink); color: #fff; }
+.easydocs-tab.active { background-color: var(--pink); color: #fff; }
+
 /* Panels */
 .voice-panel { display: flex; flex-direction: column; gap: 12px; }
 .voice-panel-head {
