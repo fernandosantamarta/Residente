@@ -128,7 +128,7 @@ export default function SignupPage() {
   return (
     <div className="su-screen">
       <Sparkles />
-      <div className="su-phone">
+      <div className="su-top">
         <div className="su-topbar">
           {canBack ? (
             <button className="su-back-circle" onClick={goBack} aria-label="Back" type="button">
@@ -145,7 +145,10 @@ export default function SignupPage() {
         <div className="su-progress">
           <div className="su-progress-fill" style={{ width: `${progress}%` }} />
         </div>
+      </div>
 
+      <div className="su-stage">
+        <div className="su-stage-inner">
         {step === 'property' && (
           <Property
             value={propertyType}
@@ -214,6 +217,7 @@ export default function SignupPage() {
             </div>
           </>
         )}
+        </div>
       </div>
     </div>
   )
@@ -482,27 +486,55 @@ function Tile({
 
 /* ----------------------------- art ----------------------------- */
 
-// Friendly house illustration — shown on every slide. No hearts, no mascot.
+// Friendly smiling-house mascot — shown on every slide. Glossy orange roof,
+// cream walls with a happy face, rosy cheeks, a little window, and green
+// bushes at the base. No hearts, no bird.
 function HouseArt() {
   return (
     <div className="su-house">
-      <svg viewBox="0 0 220 188" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="House">
-        <ellipse cx="110" cy="172" rx="80" ry="12" fill="rgba(90,28,0,0.22)" />
-        {/* walls */}
-        <rect x="50" y="86" width="120" height="82" rx="12" fill="#FFF3E2" />
+      <svg viewBox="0 0 240 206" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="House">
+        {/* ground shadow */}
+        <ellipse cx="124" cy="190" rx="78" ry="10" fill="rgba(90,28,0,0.18)" />
+
+        {/* bushes */}
+        <ellipse cx="58" cy="180" rx="26" ry="18" fill="#4E9E33" />
+        <ellipse cx="188" cy="182" rx="30" ry="19" fill="#4E9E33" />
+        <ellipse cx="150" cy="188" rx="22" ry="14" fill="#5BB23E" />
+        <circle cx="46" cy="171" r="11" fill="#6BC24C" />
+        <circle cx="200" cy="172" r="12" fill="#6BC24C" />
+        <circle cx="74" cy="174" r="9" fill="#6BC24C" />
+
+        {/* picket fence (left) */}
+        <g fill="#FFF7EC" stroke="#E7C9A8" strokeWidth="1.4">
+          <path d="M24 152 h7 v32 h-7 z" />
+          <path d="M36 147 h7 v37 h-7 z" />
+          <path d="M48 152 h7 v32 h-7 z" />
+          <rect x="20" y="160" width="40" height="6" rx="2" />
+        </g>
+
+        {/* house body */}
+        <rect x="76" y="98" width="104" height="84" rx="14" fill="#FFF4E4" />
+        <path d="M152 98 h14 a14 14 0 0 1 14 14 v56 a14 14 0 0 1 -14 14 h-14 z" fill="#F1DFC6" opacity="0.55" />
+
         {/* roof */}
-        <path d="M38 92 L110 34 L182 92 Z" fill="#C0341D" />
-        <path d="M38 92 L110 34 L182 92" stroke="#9E2A12" strokeWidth="6" strokeLinejoin="round" strokeLinecap="round" />
+        <path d="M66 106 L128 52 L190 106 a7 7 0 0 1 -5 3 H71 a7 7 0 0 1 -5 -3 Z" fill="#E5732A" />
+        <path d="M128 52 L190 106 a7 7 0 0 1 -5 3 H128 Z" fill="#CF541A" opacity="0.5" />
+        <path d="M66 106 L128 52 L134 56 L75 108 Z" fill="#FB9A4E" opacity="0.7" />
+
         {/* chimney */}
-        <rect x="150" y="50" width="15" height="26" rx="3" fill="#9E2A12" />
-        {/* door */}
-        <rect x="96" y="120" width="30" height="48" rx="8" fill="#2E6E68" />
-        <circle cx="119" cy="146" r="2.6" fill="#FFE6B8" />
-        {/* windows */}
-        <rect x="63" y="104" width="27" height="27" rx="6" fill="#FFD489" />
-        <rect x="130" y="104" width="27" height="27" rx="6" fill="#FFD489" />
-        <path d="M76.5 104 V131 M63 117.5 H90" stroke="#C0341D" strokeWidth="3" strokeLinecap="round" />
-        <path d="M143.5 104 V131 M130 117.5 H157" stroke="#C0341D" strokeWidth="3" strokeLinecap="round" />
+        <rect x="160" y="62" width="14" height="26" rx="3" fill="#CF541A" />
+
+        {/* window (forehead) */}
+        <rect x="112" y="110" width="30" height="20" rx="6" fill="#F4A23E" />
+        <rect x="112" y="110" width="30" height="20" rx="6" fill="none" stroke="#E5732A" strokeWidth="2.5" />
+
+        {/* face */}
+        <path d="M102 146 Q108 138 114 146" stroke="#5A2A14" strokeWidth="4.5" fill="none" strokeLinecap="round" />
+        <path d="M138 146 Q144 138 150 146" stroke="#5A2A14" strokeWidth="4.5" fill="none" strokeLinecap="round" />
+        <ellipse cx="98" cy="158" rx="8" ry="5" fill="#FFAE9A" />
+        <ellipse cx="154" cy="158" rx="8" ry="5" fill="#FFAE9A" />
+        <path d="M114 154 Q126 172 138 154 Z" fill="#8A2E1E" />
+        <path d="M120 160 Q126 168 132 160 Z" fill="#FF7B6B" />
       </svg>
     </div>
   )
