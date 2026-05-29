@@ -89,19 +89,14 @@ export default function AdminEasyDocs() {
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
 
-  // Which section shows: 'rules' or 'documents'. Driven by the URL hash so the
-  // Easy Documents sub-nav (Rules / Documents / Violations) can switch Rules
-  // and Documents in-page while Violations is its own route. Only the active
-  // section renders.
+  // Which section shows: 'rules' or 'documents'. Switched in-page (instant) by
+  // the Easy Documents sub-nav; only the active section renders. Read the hash
+  // once on mount so arriving from the Violations tab (#documents) lands on the
+  // right section.
   const [tab, setTab] = useState<'rules' | 'documents'>('rules')
   useEffect(() => {
-    const sync = () => {
-      const h = window.location.hash.replace(/^#/, '')
-      if (h === 'rules' || h === 'documents') setTab(h)
-    }
-    sync()
-    window.addEventListener('hashchange', sync)
-    return () => window.removeEventListener('hashchange', sync)
+    const h = window.location.hash.replace(/^#/, '')
+    if (h === 'rules' || h === 'documents') setTab(h)
   }, [])
 
   // ── Rules state ──────────────────────────────────────────────────────────
@@ -273,7 +268,7 @@ export default function AdminEasyDocs() {
 
   return (
     <div className="easydocs-combined">
-      <EasyDocsTabs active={tab} />
+      <EasyDocsTabs active={tab} onSelect={setTab} />
 
       {/* ════════════════════════════════════════════════════════════════
           RULES SECTION

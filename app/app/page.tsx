@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import { useMyResident } from '@/hooks/useMyResident'
 import { useBoardDecisions } from '@/hooks/useBoardDecisions'
+import { useVoiceMeetings } from '@/hooks/useVoiceMeetings'
 import { useAuth } from '@/app/providers'
 
 // Demo fallback — shown only when the user has no community linked yet (or
@@ -587,9 +588,9 @@ type OpenVote = {
   meetingId: string
   voteId: string
   motion: string
-  closesAt: string  // ISO date
+  closesAt: string         // ISO date ('' when unknown)
   votedCount: number
-  totalCount: number
+  totalCount: number | null // null for real votes — no fixed electorate total
 }
 
 const DEMO_OPEN_VOTES: OpenVote[] = [
@@ -608,10 +609,38 @@ function fmtCloses(iso: string) {
   return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
+// Meta line under each motion: meeting date when known, plus the live tally.
+// Real votes have no fixed electorate total, so we show "N votes cast" rather
+// than the demo's "N of M board members".
+function voteMeta(v: OpenVote): string {
+  const parts: string[] = []
+  if (v.closesAt) parts.push(`Closes ${fmtCloses(v.closesAt)}`)
+  if (v.totalCount != null) {
+    parts.push(`${v.votedCount} of ${v.totalCount} board members have voted`)
+  } else if (v.votedCount > 0) {
+    parts.push(`${v.votedCount} ${v.votedCount === 1 ? 'vote' : 'votes'} cast so far`)
+  }
+  return parts.join(' · ')
+}
+
 function OpenVotesBand({ demo }: { demo: boolean }) {
-  // Real open votes aren't wired into this band yet, so a real community shows
-  // none (the band hides). Only the marketing preview shows sample votes.
-  const votes = demo ? DEMO_OPEN_VOTES : []
+  // Demo shows sample votes for the marketing preview; a real community pulls
+  // its actual open votes (status === 'open') from its meetings.
+  const { meetings } = useVoiceMeetings()
+  const votes: OpenVote[] = demo
+    ? DEMO_OPEN_VOTES
+    : (meetings as any[]).flatMap(m =>
+        (m.ev_votes || [])
+          .filter((v: any) => v.status === 'open')
+          .map((v: any) => ({
+            meetingId: m.id,
+            voteId: v.id,
+            motion: v.title || 'Open vote',
+            closesAt: m.scheduled_at ? String(m.scheduled_at).slice(0, 10) : '',
+            votedCount: (v.yes_count || 0) + (v.no_count || 0) + (v.abstain_count || 0),
+            totalCount: null,
+          }))
+      )
   if (votes.length === 0) return null
 
   const single = votes.length === 1
@@ -628,9 +657,7 @@ function OpenVotesBand({ demo }: { demo: boolean }) {
             </div>
             <div className="ovb-body">
               <div className="ovb-motion">{v0.motion}</div>
-              <div className="ovb-meta">
-                Closes {fmtCloses(v0.closesAt)} · {v0.votedCount} of {v0.totalCount} board members have voted
-              </div>
+              <div className="ovb-meta">{voteMeta(v0)}</div>
             </div>
           </div>
           <Link href={`/app/voice/${v0.meetingId}`} className="ovb-cta">
@@ -651,9 +678,7 @@ function OpenVotesBand({ demo }: { demo: boolean }) {
               <Link key={v.voteId} href={`/app/voice/${v.meetingId}`} className="ovb-list-row">
                 <div className="ovb-body">
                   <div className="ovb-motion">{v.motion}</div>
-                  <div className="ovb-meta">
-                    Closes {fmtCloses(v.closesAt)} · {v.votedCount} of {v.totalCount} board members have voted
-                  </div>
+                  <div className="ovb-meta">{voteMeta(v)}</div>
                 </div>
                 <svg className="ovb-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <polyline points="9 18 15 12 9 6"/>

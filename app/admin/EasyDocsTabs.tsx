@@ -2,28 +2,46 @@
 
 import Link from 'next/link'
 
-// Admin Easy Documents sub-nav. Rules and Documents live on /admin/documents
-// (switched in-page via the #rules / #documents hash); Violations is its own
-// route folded in here so it reads as part of Easy Documents, not a separate
-// top-level section. Pill styling matches the resident sub-tabs and admin
-// Easy Voice (components/SegTabs.tsx + .seg-tabs in globals.css).
+// Admin Easy Documents sub-nav: Rules · Documents · Violations.
+//
+// Rules and Documents are two sections of /admin/documents. When this bar is
+// rendered there (onSelect provided), they're instant in-page buttons — no
+// navigation, no lag. When rendered on the Violations route (no onSelect),
+// they're links back to /admin/documents (the #hash picks the section on
+// arrival). Violations is always its own route.
 export type AdminDocsTab = 'rules' | 'documents' | 'violations'
 
-const TABS: { key: AdminDocsTab; href: string; label: string }[] = [
-  { key: 'rules',      href: '/admin/documents#rules',     label: 'Rules' },
-  { key: 'documents',  href: '/admin/documents#documents', label: 'Documents' },
-  { key: 'violations', href: '/admin/violations',          label: 'Violations' },
-]
-
-export function EasyDocsTabs({ active }: { active: AdminDocsTab }) {
+export function EasyDocsTabs({
+  active,
+  onSelect,
+}: {
+  active: AdminDocsTab
+  onSelect?: (t: 'rules' | 'documents') => void
+}) {
+  const pageTabs: { key: 'rules' | 'documents'; label: string }[] = [
+    { key: 'rules',     label: 'Rules' },
+    { key: 'documents', label: 'Documents' },
+  ]
   return (
     <div className="seg-tabs" role="tablist">
-      {TABS.map(t => (
-        <Link key={t.key} href={t.href} role="tab" aria-selected={active === t.key}
-              className={`seg-tab${active === t.key ? ' active' : ''}`}>
-          {t.label}
-        </Link>
-      ))}
+      {pageTabs.map(t => {
+        const cls = `seg-tab${active === t.key ? ' active' : ''}`
+        return onSelect ? (
+          <button key={t.key} type="button" role="tab" aria-selected={active === t.key}
+                  className={cls} onClick={() => onSelect(t.key)}>
+            {t.label}
+          </button>
+        ) : (
+          <Link key={t.key} href={`/admin/documents#${t.key}`} role="tab"
+                aria-selected={active === t.key} className={cls}>
+            {t.label}
+          </Link>
+        )
+      })}
+      <Link href="/admin/violations" role="tab" aria-selected={active === 'violations'}
+            className={`seg-tab${active === 'violations' ? ' active' : ''}`}>
+        Violations
+      </Link>
     </div>
   )
 }
