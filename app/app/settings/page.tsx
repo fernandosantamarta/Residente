@@ -187,6 +187,10 @@ export default function Settings() {
             <HomeVaultPanel />
           </SectionCard>
 
+          <SectionCard title="Sell or transfer home">
+            <HomeTransferPanel />
+          </SectionCard>
+
           <button className="set-logout" onClick={() => signOut()}>
             <span className="set-logout-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -331,61 +335,12 @@ function HomeVaultPanel() {
   const [mTitle, setMTitle] = useState('')
   const [mNote, setMNote] = useState('')
   const [mBusy, setMBusy] = useState(false)
-  // Transfer (sell home) modal state.
-  const [residentId, setResidentId] = useState<string | null>(null)
-  const [xferOpen, setXferOpen] = useState(false)
-  const [xEmail, setXEmail] = useState('')
-  const [xName, setXName] = useState('')
-  const [xConfirm, setXConfirm] = useState(false)
-  const [xBusy, setXBusy] = useState(false)
-  const [xDone, setXDone] = useState<string | null>(null)
 
   const reload = async () => {
     if (!profileId) return
     try { setDocs(await listHomeDocs(profileId)) } catch (e) { setErr((e as Error).message) }
   }
   useEffect(() => { reload() }, [profileId])
-
-  // Resolve this owner's roster row id (residents) so the transfer can target
-  // their unit. Match by account id first, then email (pre-claim), mirroring
-  // the home page + useMyResident.
-  useEffect(() => {
-    if (!profileId || !supabase) return
-    ;(async () => {
-      try {
-        const byId = await supabase.from('residents').select('id').eq('profile_id', profileId).limit(1)
-        let id = byId.data?.[0]?.id ?? null
-        if (!id && communityId) {
-          const { data: prof } = await supabase.from('profiles').select('email').eq('id', profileId).single()
-          const email = prof?.email
-          if (email) {
-            const byEmail = await supabase.from('residents').select('id')
-              .eq('community_id', communityId).ilike('email', email).limit(1)
-            id = byEmail.data?.[0]?.id ?? null
-          }
-        }
-        setResidentId(id)
-      } catch { /* leave null — the transfer button stays disabled */ }
-    })()
-  }, [profileId, communityId])
-
-  const conveyCount = docs.filter(d => d.conveys).length
-
-  const openXfer = () => { setXEmail(''); setXName(''); setXConfirm(false); setXDone(null); setErr(null); setXferOpen(true) }
-  const submitXfer = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!residentId || !xEmail.trim() || !xConfirm) return
-    setXBusy(true); setErr(null)
-    try {
-      const res = await transferHome({ residentId, buyerEmail: xEmail.trim(), buyerName: xName.trim() || undefined })
-      setXDone(
-        `Home transferred. ${res.docs_conveyed} document${res.docs_conveyed === 1 ? '' : 's'} moved to the new owner` +
-        (res.email_sent ? ', and they were emailed a set-up link.' : '. (We could not send the email — share their invite link manually.)')
-      )
-      await reload()
-    } catch (e2) { setErr((e2 as Error).message || 'Transfer failed.') }
-    finally { setXBusy(false) }
-  }
 
   const openAdd = (cat: string) => { setAddCat(cat); setMFile(null); setMTitle(''); setMNote('') }
   const submitAdd = async (e: React.FormEvent) => {
@@ -445,67 +400,6 @@ function HomeVaultPanel() {
         )
       })}
 
-      {/* Sell / transfer home — hands this unit + its conveying docs to the buyer. */}
-      <div className="hv-xfer-row">
-        <div className="hv-xfer-copy">
-          <div className="hv-xfer-title">Sell or transfer this home</div>
-          <div className="hv-xfer-desc">
-            Once the sale has closed, hand your unit to the next owner. The {conveyCount} document
-            {conveyCount === 1 ? '' : 's'} marked “Conveys” move to them, and they get an invite to set
-            up their account.
-          </div>
-        </div>
-        <button type="button" className="hv-btn-ghost" onClick={openXfer} disabled={!residentId}
-          title={residentId ? 'Transfer this home to the next owner' : 'No home on file for your account yet'}>
-          Transfer home
-        </button>
-      </div>
-
-      {xferOpen && (
-        <div className="hv-modal-overlay" onClick={() => !xBusy && setXferOpen(false)}>
-          <form className="hv-modal" onClick={e => e.stopPropagation()} onSubmit={submitXfer}>
-            <div className="hv-modal-title">Transfer this home</div>
-            {xDone ? (
-              <>
-                <div className="hv-xfer-success">{xDone}</div>
-                <div className="hv-modal-actions">
-                  <button type="button" className="hv-btn" onClick={() => setXferOpen(false)}>Done</button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="hv-xfer-warn">
-                  <strong>Only do this after closing.</strong> Wait until the sale is final and the
-                  contract is signed — this immediately moves your unit and its {conveyCount} conveying
-                  document{conveyCount === 1 ? '' : 's'} to the new owner. You’ll no longer own this home
-                  on Residente, and this can’t be undone from here.
-                </div>
-                <label className="hv-field">
-                  <span className="hv-label">Buyer’s email</span>
-                  <input className="hv-input" type="email" required value={xEmail}
-                    onChange={e => setXEmail(e.target.value)} placeholder="newowner@email.com" autoFocus />
-                </label>
-                <label className="hv-field">
-                  <span className="hv-label">Buyer’s name (optional)</span>
-                  <input className="hv-input" value={xName} onChange={e => setXName(e.target.value)} placeholder="e.g. Jordan Lee" />
-                </label>
-                <label className="hv-conveys hv-xfer-confirm">
-                  <input type="checkbox" checked={xConfirm} onChange={e => setXConfirm(e.target.checked)} />
-                  <span>The sale has closed and I’m ready to transfer ownership of my home.</span>
-                </label>
-                {err && <div className="hv-err">{err}</div>}
-                <div className="hv-modal-actions">
-                  <button type="button" className="hv-btn-ghost" onClick={() => setXferOpen(false)} disabled={xBusy}>Cancel</button>
-                  <button type="submit" className="hv-btn" disabled={xBusy || !xEmail.trim() || !xConfirm}>
-                    {xBusy ? 'Transferring…' : 'Transfer home'}
-                  </button>
-                </div>
-              </>
-            )}
-          </form>
-        </div>
-      )}
-
       {addCat && (
         <div className="hv-modal-overlay" onClick={() => !mBusy && setAddCat(null)}>
           <form className="hv-modal" onClick={e => e.stopPropagation()} onSubmit={submitAdd}>
@@ -529,6 +423,128 @@ function HomeVaultPanel() {
               <button type="button" className="hv-btn-ghost" onClick={() => setAddCat(null)} disabled={mBusy}>Cancel</button>
               <button type="submit" className="hv-btn" disabled={mBusy || !mFile}>{mBusy ? 'Adding…' : 'Add'}</button>
             </div>
+          </form>
+        </div>
+      )}
+    </>
+  )
+}
+
+// Sell / transfer this home — its own section, styled like Home Vault. One
+// danger row with a red action that opens a confirm modal; the modal calls the
+// home-transfer edge function to hand the unit + its conveying docs to the buyer.
+function HomeTransferPanel() {
+  const { profile } = useAuth() || {}
+  const profileId = profile?.id
+  const communityId = profile?.community_id ?? null
+
+  const [residentId, setResidentId] = useState<string | null>(null)
+  const [conveyCount, setConveyCount] = useState(0)
+  const [open, setOpen] = useState(false)
+  const [email, setEmail] = useState('')
+  const [name, setName] = useState('')
+  const [confirm, setConfirm] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState<string | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+
+  // Resolve this owner's roster row id + how many of their docs convey. Match
+  // by account id first, then email (pre-claim), mirroring the home page.
+  useEffect(() => {
+    if (!profileId || !supabase) return
+    ;(async () => {
+      try {
+        const byId = await supabase.from('residents').select('id').eq('profile_id', profileId).limit(1)
+        let id = byId.data?.[0]?.id ?? null
+        if (!id && communityId) {
+          const { data: prof } = await supabase.from('profiles').select('email').eq('id', profileId).single()
+          const email2 = prof?.email
+          if (email2) {
+            const byEmail = await supabase.from('residents').select('id')
+              .eq('community_id', communityId).ilike('email', email2).limit(1)
+            id = byEmail.data?.[0]?.id ?? null
+          }
+        }
+        setResidentId(id)
+        const docs = await listHomeDocs(profileId)
+        setConveyCount(docs.filter(d => d.conveys).length)
+      } catch { /* leave defaults — button stays disabled */ }
+    })()
+  }, [profileId, communityId])
+
+  const openModal = () => { setEmail(''); setName(''); setConfirm(false); setDone(null); setErr(null); setOpen(true) }
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!residentId || !email.trim() || !confirm) return
+    setBusy(true); setErr(null)
+    try {
+      const res = await transferHome({ residentId, buyerEmail: email.trim(), buyerName: name.trim() || undefined })
+      setDone(
+        `Home transferred. ${res.docs_conveyed} document${res.docs_conveyed === 1 ? '' : 's'} moved to the new owner` +
+        (res.email_sent ? ', and they were emailed a set-up link.' : '. (We could not send the email — share their invite link manually.)')
+      )
+    } catch (e2) { setErr((e2 as Error).message || 'Transfer failed.') }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <>
+      <div className="hv-xfer-row">
+        <span className="set-row-icon hv-xfer-icon"><IconHome /></span>
+        <span className="set-row-body">
+          <span className="set-row-title">Sell or transfer this home</span>
+          <span className="set-row-desc">
+            Once the sale has closed, hand your unit to the next owner. The {conveyCount} document
+            {conveyCount === 1 ? '' : 's'} marked “Conveys” move to them, plus an invite to set up their account.
+          </span>
+        </span>
+        <button type="button" className="hv-danger-btn" onClick={openModal} disabled={!residentId}
+          title={residentId ? 'Transfer this home to the next owner' : 'No home on file for your account yet'}>
+          Transfer home
+        </button>
+      </div>
+
+      {open && (
+        <div className="hv-modal-overlay" onClick={() => !busy && setOpen(false)}>
+          <form className="hv-modal" onClick={e => e.stopPropagation()} onSubmit={submit}>
+            <div className="hv-modal-title">Transfer this home</div>
+            {done ? (
+              <>
+                <div className="hv-xfer-success">{done}</div>
+                <div className="hv-modal-actions">
+                  <button type="button" className="hv-btn" onClick={() => setOpen(false)}>Done</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="hv-xfer-warn">
+                  <strong>Only do this after closing.</strong> Wait until the sale is final and the
+                  contract is signed — this immediately moves your unit and its {conveyCount} conveying
+                  document{conveyCount === 1 ? '' : 's'} to the new owner. You’ll no longer own this home
+                  on Residente, and this can’t be undone from here.
+                </div>
+                <label className="hv-field">
+                  <span className="hv-label">Buyer’s email</span>
+                  <input className="hv-input" type="email" required value={email}
+                    onChange={e => setEmail(e.target.value)} placeholder="newowner@email.com" autoFocus />
+                </label>
+                <label className="hv-field">
+                  <span className="hv-label">Buyer’s name (optional)</span>
+                  <input className="hv-input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Jordan Lee" />
+                </label>
+                <label className="hv-conveys hv-xfer-confirm">
+                  <input type="checkbox" checked={confirm} onChange={e => setConfirm(e.target.checked)} />
+                  <span>The sale has closed and I’m ready to transfer ownership of my home.</span>
+                </label>
+                {err && <div className="hv-err">{err}</div>}
+                <div className="hv-modal-actions">
+                  <button type="button" className="hv-btn-ghost" onClick={() => setOpen(false)} disabled={busy}>Cancel</button>
+                  <button type="submit" className="hv-danger-btn" disabled={busy || !email.trim() || !confirm}>
+                    {busy ? 'Transferring…' : 'Transfer home'}
+                  </button>
+                </div>
+              </>
+            )}
           </form>
         </div>
       )}
