@@ -3944,6 +3944,94 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
   gap: 3px;
 }
 
+/* Hover tooltip — full description of a day's events. The cell only has room
+   for 3 pills; this shows them all (with times). Follows the cursor (fixed
+   coords from JS, flipped near the edges) so it never clips. */
+[data-theme="sketch"] .sched-cell-tip {
+  position: fixed;
+  z-index: 60;
+  min-width: 190px; max-width: 280px;
+  width: max-content;
+  background: #0A2440;
+  color: #fff;
+  border-radius: 10px;
+  padding: 10px 12px;
+  box-shadow: 0 14px 34px -12px rgba(10, 28, 46, 0.55);
+  pointer-events: none;
+  text-align: left;
+}
+
+/* Day modal (click) — the hover tooltip, expanded. Same navy card so it reads
+   as the same thing, just bigger and dismissable. */
+[data-theme="sketch"] .sched-modal-backdrop {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(10, 36, 64, 0.45);
+  backdrop-filter: blur(2px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  animation: setDialogFade 0.14s ease;
+}
+[data-theme="sketch"] .sched-modal {
+  width: 100%; max-width: 460px;
+  max-height: calc(100vh - 40px);
+  display: flex; flex-direction: column;
+  background: #0A2440;
+  color: #fff;
+  border-radius: 16px;
+  box-shadow: 0 30px 80px -20px rgba(10, 28, 46, 0.6);
+  overflow: hidden;
+  animation: setDialogPop 0.18s cubic-bezier(.2,.9,.3,1);
+}
+[data-theme="sketch"] .sched-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+[data-theme="sketch"] .sched-modal-title {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 18px; font-weight: 600; color: #fff;
+}
+[data-theme="sketch"] .sched-modal-close {
+  width: 30px; height: 30px; background: transparent; border: none;
+  border-radius: 8px; font-size: 24px; line-height: 1;
+  color: rgba(255, 255, 255, 0.6); cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+[data-theme="sketch"] .sched-modal-close:hover { background: rgba(255, 255, 255, 0.1); color: #fff; }
+[data-theme="sketch"] .sched-modal-list {
+  padding: 14px 18px 18px;
+  display: flex; flex-direction: column; gap: 12px;
+  overflow-y: auto;
+}
+[data-theme="sketch"] .sched-modal-row {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 14.5px; line-height: 1.4;
+}
+[data-theme="sketch"] .sched-modal-kind {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+[data-theme="sketch"] .sched-modal-row-title { flex: 1; min-width: 0; }
+[data-theme="sketch"] .sched-modal-row-time {
+  color: rgba(255, 255, 255, 0.6); font-size: 13px; white-space: nowrap;
+}
+[data-theme="sketch"] .sched-modal-empty { color: rgba(255, 255, 255, 0.6); font-size: 14px; }
+[data-theme="sketch"] .sched-cell-tip-head {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.3px;
+  color: rgba(255, 255, 255, 0.65);
+  margin-bottom: 6px;
+}
+[data-theme="sketch"] .sched-cell-tip-row {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 12.5px; line-height: 1.5;
+}
+[data-theme="sketch"] .sched-cell-tip-title {
+  flex: 1; min-width: 0;
+}
+[data-theme="sketch"] .sched-cell-tip-time {
+  color: rgba(255, 255, 255, 0.6); font-size: 11.5px; white-space: nowrap;
+}
+
 /* Event pills inside calendar cells */
 [data-theme="sketch"] .sched-pill {
   display: flex; align-items: center; gap: 5px;

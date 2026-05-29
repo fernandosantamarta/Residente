@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import {
   ALL_KINDS,
@@ -49,6 +49,41 @@ export default function Schedule() {
   const [cursor, setCursor] = useState({ y: today.getFullYear(), m: today.getMonth() })
   const [selected, setSelected] = useState<string>(toISO(today.getFullYear(), today.getMonth(), today.getDate()))
   const [enabledKinds, setEnabledKinds] = useState<Set<EventKind>>(new Set(ALL_KINDS))
+
+  // Hover tooltip — shows everything happening on a day (the cell only fits 3
+  // pills). Follows the cursor; flips to the other side of the pointer when it
+  // would run off the right/bottom edge so it always stays on-screen.
+  const [tip, setTip] = useState<
+    { x: number; y: number; date: string; events: ScheduleEvent[] } | null
+  >(null)
+  // Single grid-level tracker: find the day cell under the cursor and keep the
+  // tooltip pinned next to the pointer as it moves (standard cursor-tooltip
+  // behavior), continuous across cells. Hides over empty days/gaps.
+  const gridMove = (e: React.MouseEvent) => {
+    const cellEl = (e.target as HTMLElement).closest('.sched-cell') as HTMLElement | null
+    const date = cellEl?.dataset.iso
+    const events = date ? byDate[date] : undefined
+    if (!date || !events || events.length === 0) { setTip(null); return }
+    const vw = window.innerWidth, vh = window.innerHeight
+    const tw = 280, th = 44 + events.length * 22   // approx tooltip size
+    const gap = 14
+    let x = e.clientX + gap
+    let y = e.clientY + gap
+    if (x + tw + 8 > vw) x = e.clientX - tw - gap   // flip to the left of the cursor
+    if (y + th + 8 > vh) y = e.clientY - th - gap    // flip above the cursor
+    setTip({ x: Math.max(8, x), y: Math.max(8, y), date, events })
+  }
+  const hideTip = () => setTip(null)
+
+  // Clicking a day opens its events as a modal — the hover tooltip's content,
+  // expanded. Dismiss by clicking the backdrop or pressing Esc.
+  const [modal, setModal] = useState<{ date: string; events: ScheduleEvent[] } | null>(null)
+  useEffect(() => {
+    if (!modal) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setModal(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [modal])
 
   const allEvents = useScheduleEvents()
   const [prefs] = usePreferences()
@@ -167,7 +202,7 @@ export default function Schedule() {
           <div className="sched-weekdays">
             {WEEKDAYS.map(w => <div key={w} className="sched-weekday">{w}</div>)}
           </div>
-          <div className="sched-grid">
+          <div className="sched-grid" onMouseMove={gridMove} onMouseLeave={hideTip}>
             {cells.map((cell, i) => {
               if (!cell) return <div key={i} className="sched-cell empty" />
               const dayEvents = byDate[cell.iso] || []
@@ -178,8 +213,13 @@ export default function Schedule() {
               return (
                 <button
                   key={i}
+                  data-iso={cell.iso}
                   className={`sched-cell${isToday ? ' today' : ''}${isSelected ? ' selected' : ''}${dayEvents.length ? ' has-events' : ''}`}
-                  onClick={() => setSelected(cell.iso)}
+                  onClick={() => {
+                    setSelected(cell.iso)
+                    setTip(null)
+                    if (dayEvents.length) setModal({ date: cell.iso, events: dayEvents })
+                  }}
                 >
                   <div className="sched-cell-day">{cell.day}</div>
                   <div className="sched-cell-events">
@@ -274,6 +314,55 @@ export default function Schedule() {
           </div>
         </aside>
       </div>
+
+      {tip && (
+        <div
+          className="sched-cell-tip"
+          role="tooltip"
+          style={{ left: tip.x, top: tip.y }}
+        >
+          <div className="sched-cell-tip-head">{fmtFullDate(tip.date)}</div>
+          {tip.events.map(e => (
+            <div key={e.id} className="sched-cell-tip-row">
+              <span className={`sched-dot kind-${e.kind}`} />
+              <span className="sched-cell-tip-title">{e.title}</span>
+              {e.time && <span className="sched-cell-tip-time">{e.time}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {modal && (
+        <div className="sched-modal-backdrop" onClick={() => setModal(null)}>
+          <div
+            className="sched-modal"
+            role="dialog"
+            aria-modal="true"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="sched-modal-head">
+              <div className="sched-modal-title">
+                {fmtWeekday(modal.date)} · {fmtFullDate(modal.date)}
+              </div>
+              <button className="sched-modal-close" aria-label="Close" onClick={() => setModal(null)}>×</button>
+            </div>
+            <div className="sched-modal-list">
+              {modal.events.length === 0 ? (
+                <div className="sched-modal-empty">Nothing scheduled.</div>
+              ) : (
+                modal.events.map(e => (
+                  <div key={e.id} className="sched-modal-row">
+                    <span className={`sched-dot kind-${e.kind}`} />
+                    <span className="sched-modal-kind">{KIND_LABEL[e.kind]}</span>
+                    <span className="sched-modal-row-title">{e.title}</span>
+                    {e.time && <span className="sched-modal-row-time">{e.time}</span>}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
