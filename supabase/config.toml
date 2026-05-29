@@ -5,6 +5,24 @@ project_id = "residente"
 [functions.create-checkout]
 verify_jwt = true
 
+# create-setup-checkout / list-payment-methods / set-autopay are also called by
+# signed-in residents (saved cards + autopay) — keep JWT verification on so RLS
+# scopes each call to the caller's own roster row.
+[functions.create-setup-checkout]
+verify_jwt = true
+
+[functions.list-payment-methods]
+verify_jwt = true
+
+[functions.set-autopay]
+verify_jwt = true
+
+# charge-autopay is the recurring-charge engine, called on a schedule (cron /
+# scheduled function), not by a browser. JWT verification MUST stay off —
+# authenticity is the CRON_SECRET header check inside the function.
+[functions.charge-autopay]
+verify_jwt = false
+
 # stripe-webhook is called by Stripe, which has no Supabase JWT. JWT
 # verification MUST stay off — authenticity is the Stripe signature check
 # inside the function. Equivalent deploy flag: --no-verify-jwt

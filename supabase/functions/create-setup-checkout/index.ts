@@ -1,10 +1,12 @@
-// create-checkout — starts a Stripe Checkout session for a resident's dues.
+// create-setup-checkout — starts a Stripe Checkout session in `setup` mode so a
+// resident can save a card on file (no charge). On completion Stripe attaches
+// the payment method to the resident's Customer; we set it as the default so
+// autopay and one-click payments can use it.
 //
-// Called from the Pay page (browser, authenticated). Returns { url } pointing
-// at Stripe's hosted checkout page. The Stripe SECRET key lives only here, as
-// a Supabase function secret — it never reaches the frontend.
+// Mirrors create-checkout: called from the browser with the resident's JWT,
+// returns { url } to Stripe's hosted page. The Stripe SECRET key lives only here.
 //
-// Deploy:  supabase functions deploy create-checkout
+// Deploy:  supabase functions deploy create-setup-checkout
 // Secrets: STRIPE_SECRET_KEY, APP_URL   (see supabase/README.md)
 
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=denonext'
@@ -16,7 +18,6 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
   httpClient: Stripe.createFetchHttpClient(),
 })
 
-// Where Stripe returns the resident after checkout.
 const APP_URL = Deno.env.get('APP_URL') ?? 'https://residente.io'
 
 const json = (body: unknown, status = 200) =>
@@ -30,19 +31,12 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
   try {
-    const { resident_id, amount } = await req.json()
-
-    // Validate inputs before touching Stripe.
+    const { resident_id } = await req.json()
     if (!resident_id || typeof resident_id !== 'string') {
       return json({ error: 'resident_id is required' }, 400)
     }
-    const cents = Math.round(Number(amount) * 100)
-    if (!Number.isFinite(cents) || cents <= 0 || cents > 1_000_000) {
-      return json({ error: 'amount must be between $0 and $10,000' }, 400)
-    }
 
-    // Run under the caller's JWT so RLS decides what they can see — an
-    // anonymous or cross-community caller simply won't find the resident.
+    // Caller's JWT → RLS scopes the resident lookup + the customer-id write.
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -51,37 +45,37 @@ Deno.serve(async (req) => {
 
     const { data: resident, error } = await supabase
       .from('residents')
-      .select('id, community_id, full_name, address')
+      .select('id, community_id, full_name, email, stripe_customer_id')
       .eq('id', resident_id)
       .single()
     if (error || !resident) return json({ error: 'Resident not found' }, 404)
 
+    // Lazily create the Stripe Customer and pin it to the roster row.
+    let customerId = resident.stripe_customer_id as string | null
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: resident.email || undefined,
+        name: resident.full_name || undefined,
+        metadata: { resident_id: resident.id, community_id: resident.community_id },
+      })
+      customerId = customer.id
+      await supabase.from('residents')
+        .update({ stripe_customer_id: customerId })
+        .eq('id', resident.id)
+    }
+
     const session = await stripe.checkout.sessions.create({
-      mode: 'payment',
-      line_items: [{
-        quantity: 1,
-        price_data: {
-          currency: 'usd',
-          unit_amount: cents,
-          product_data: {
-            name: 'HOA dues',
-            description: resident.address || resident.full_name,
-          },
-        },
-      }],
-      success_url: `${APP_URL}/app/track?paid=1#pay`,
+      mode: 'setup',
+      customer: customerId,
+      payment_method_types: ['card'],
+      success_url: `${APP_URL}/app/track?card=saved#pay`,
       cancel_url: `${APP_URL}/app/track#pay`,
-      // stripe-webhook reads these back to record the payment against the
-      // right household. The charged amount comes from Stripe itself.
-      metadata: {
-        resident_id: resident.id,
-        community_id: resident.community_id,
-      },
+      metadata: { resident_id: resident.id, community_id: resident.community_id },
     })
 
     return json({ url: session.url })
   } catch (err) {
-    console.error('create-checkout failed:', err)
+    console.error('create-setup-checkout failed:', err)
     return json({ error: (err as Error).message }, 400)
   }
 })

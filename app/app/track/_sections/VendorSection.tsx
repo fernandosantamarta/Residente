@@ -3,13 +3,12 @@
 import Link from 'next/link'
 import { ReactNode, useEffect, useMemo, useState } from 'react'
 import {
-  removeMyRating,
-  submitRating,
   useVendorRatings,
   type Rating,
   type Stars,
 } from '@/lib/vendor-ratings'
 import { supabase } from '@/lib/supabase'
+import { RequestDialog } from './RequestDialog'
 
 // Vendor — board-curated list of trusted service providers, now a section
 // of the Easy Track hub. The data lives in code for now (demo seed); when
@@ -68,6 +67,7 @@ export function VendorSection() {
   const [search, setSearch] = useState('')
   const [active, setActive] = useState<'all' | VendorCat>('all')
   const [rateOpen, setRateOpen] = useState<string | null>(null)   // vendor_id being rated
+  const [request, setRequest] = useState<null | 'request' | 'recommend'>(null)
   const ratings = useVendorRatings()
 
   // Board-curated vendors from Supabase. Falls back to the in-code demo
@@ -242,11 +242,11 @@ export function VendorSection() {
               <QuickRow icon={<IconPlus />}
                 title="Request a Vendor"
                 desc="Open a service request the board will route."
-                onClick={() => alert('Service-request form will open here.')} />
+                onClick={() => setRequest('request')} />
               <QuickRow icon={<IconStar />}
                 title="Recommend a Vendor"
                 desc="Suggest a service provider you trust."
-                onClick={() => alert('Recommendation form will open here.')} />
+                onClick={() => setRequest('recommend')} />
               <QuickRow icon={<IconList />}
                 title="View Service Requests"
                 desc="See the status of your open requests."
@@ -264,7 +264,7 @@ export function VendorSection() {
               </div>
             </div>
             <button type="button" className="ven-cta-primary"
-              onClick={() => alert('Recommendation request sent.')}>
+              onClick={() => setRequest('request')}>
               Request Recommendations
             </button>
           </section>
@@ -311,7 +311,21 @@ export function VendorSection() {
         <RatingDialog
           vendor={vendors.find(v => v.id === rateOpen)!}
           current={ratings.myRating(rateOpen)}
+          onSave={ratings.submit}
+          onRemove={ratings.remove}
           onClose={() => setRateOpen(null)}
+        />
+      )}
+
+      {request && (
+        <RequestDialog
+          eyebrow="Vendors"
+          title={request === 'recommend' ? 'Recommend a vendor' : 'Request a vendor'}
+          defaultSubject={request === 'recommend' ? 'Vendor recommendation: ' : 'Vendor request: '}
+          bodyPlaceholder={request === 'recommend'
+            ? 'Who do you recommend, and what have they done well?'
+            : 'What service do you need? Any preferred timing?'}
+          onClose={() => setRequest(null)}
         />
       )}
     </section>
@@ -422,10 +436,12 @@ function StarSvg() {
 // Rating dialog — star picker (1-5) + optional text review. Save
 // upserts the resident's rating; Remove deletes it.
 function RatingDialog({
-  vendor, current, onClose,
+  vendor, current, onSave, onRemove, onClose,
 }: {
   vendor: Vendor
   current: Rating | undefined
+  onSave: (vendor_id: string, stars: Stars, review: string) => void | Promise<void>
+  onRemove: (vendor_id: string) => void | Promise<void>
   onClose: () => void
 }) {
   const [stars, setStars] = useState<Stars>((current?.stars as Stars) || 5)
@@ -439,11 +455,11 @@ function RatingDialog({
   }, [onClose])
 
   const save = () => {
-    submitRating(vendor.id, stars, review)
+    void onSave(vendor.id, stars, review)
     onClose()
   }
   const remove = () => {
-    removeMyRating(vendor.id)
+    void onRemove(vendor.id)
     onClose()
   }
 

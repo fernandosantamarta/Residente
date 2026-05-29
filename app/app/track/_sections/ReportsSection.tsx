@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { ReactNode, useMemo, useState } from 'react'
 import { useGeneratedReports } from '@/hooks/useGeneratedReports'
+import { usePublishedReports } from '@/hooks/usePublishedReports'
+import { RequestDialog } from './RequestDialog'
 
 // Reports — board-published reports the resident can browse, now a section
 // of the Easy Track hub. Featured row, recent log, scheduled queue, plus
@@ -36,6 +38,7 @@ type Report = {
   size?: string
   blurb?: string
   featured?: boolean
+  storagePath?: string   // present on board-published reports with a PDF file
 }
 
 const REPORTS: Report[] = [
@@ -80,12 +83,24 @@ const fmtDate = (iso: string) => {
 export function ReportsSection() {
   const [search, setSearch] = useState('')
   const [active, setActive] = useState<'all' | Category>('all')
+  const [request, setRequest] = useState<null | 'request' | 'schedule'>(null)
 
-  // Auto-generated from the community's own data (Community budget,
-  // Residents, Payments, Board decisions) — nothing is hand-published.
-  // Falls back to the in-code demo seed when no community is loaded.
+  // Two real sources, merged:
+  //   - pub: board-published reports from the `reports` table (downloadable PDFs).
+  //   - gen: auto-generated summaries from the community's own data (budget,
+  //     residents, payments, board decisions) — nothing hand-published.
+  // Falls back to the in-code demo seed only when neither has any data
+  // (no community linked / Supabase off).
   const gen = useGeneratedReports()
-  const reports: Report[] = gen.hasData ? (gen.reports as Report[]) : REPORTS
+  const pub = usePublishedReports()
+  const hasReal = pub.reports.length > 0 || gen.hasData
+  const reports: Report[] = hasReal
+    ? [...(pub.reports as Report[]), ...(gen.hasData ? (gen.reports as Report[]) : [])]
+    : REPORTS
+
+  // Open a report — published reports stream their PDF via a signed URL;
+  // generated/demo summaries have no file, so the click is a no-op.
+  const openReport = (r: Report) => { if (r.storagePath) void pub.download(r.storagePath) }
 
   const counts = useMemo(() => {
     const map: Partial<Record<Category, number>> = {}
@@ -163,7 +178,8 @@ export function ReportsSection() {
             </div>
             <div className="rep-featured">
               {featured.map(r => (
-                <a key={r.id} href="#" className="rep-fcard">
+                <a key={r.id} href="#" className="rep-fcard"
+                  onClick={e => { e.preventDefault(); openReport(r) }}>
                   <span className={`rep-fcard-icon rep-fc-${r.category}`}>
                     {categoryIcon(r.category)}
                   </span>
@@ -202,7 +218,10 @@ export function ReportsSection() {
                     <span><span className={`rep-tag rep-tag-${r.category}`}>{CATEGORY_LABEL[r.category]}</span></span>
                     <span className="rep-row-date">{fmtDate(r.date)}</span>
                     <span><StatusPill kind={r.status} /></span>
-                    <a href="#" className="rep-row-action">View</a>
+                    <a href="#" className="rep-row-action"
+                      onClick={e => { e.preventDefault(); openReport(r) }}>
+                      {r.storagePath ? 'Download' : 'View'}
+                    </a>
                   </div>
                 ))
               )}
@@ -256,7 +275,7 @@ export function ReportsSection() {
 
           {/* Scheduled Reports — demo only. Live reports refresh automatically
               from the community's data, so there's nothing to schedule. */}
-          {!gen.hasData ? (
+          {!hasReal ? (
             <section className="rep-card">
               <div className="rep-card-head">
                 <h2 className="rep-card-title">Scheduled Reports</h2>
@@ -303,11 +322,11 @@ export function ReportsSection() {
               <QuickRow icon={<IconPlus />}
                 title="Request a Report"
                 desc="Ask the board for a custom one-off."
-                onClick={() => alert('Report-request form will open here.')} />
+                onClick={() => setRequest('request')} />
               <QuickRow icon={<IconCalendar />}
                 title="Schedule a Report"
                 desc="Set up recurring reports on a cadence."
-                onClick={() => alert('Scheduling editor will open here.')} />
+                onClick={() => setRequest('schedule')} />
               <QuickRow icon={<IconCog />}
                 title="Reports Settings"
                 desc="Who receives what, and when."
@@ -344,6 +363,18 @@ export function ReportsSection() {
           </section>
         </aside>
       </div>
+
+      {request && (
+        <RequestDialog
+          eyebrow="Reports"
+          title={request === 'schedule' ? 'Schedule a report' : 'Request a report'}
+          defaultSubject={request === 'schedule' ? 'Recurring report request: ' : 'Report request: '}
+          bodyPlaceholder={request === 'schedule'
+            ? 'Which report, and on what cadence (e.g. monthly on the 1st)?'
+            : 'What would you like the report to cover?'}
+          onClose={() => setRequest(null)}
+        />
+      )}
     </section>
   )
 }

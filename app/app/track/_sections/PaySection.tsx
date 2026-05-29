@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { ReactNode, useState } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
 import { useMyResident } from '@/hooks/useMyResident'
 import { hasSupabase, stripeEnabled, supabase } from '@/lib/supabase'
 import { usePreferences } from '@/lib/preferences'
@@ -12,6 +12,17 @@ const fmtDate = (d: string | Date | null | undefined) => {
   try {
     return new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   } catch { return '—' }
+}
+const fmtShort = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+
+const DAY_MS = 86_400_000
+
+// HOA convention: dues for month N are due on the 1st of month N. Once we're
+// past the 1st, the next bill is for next month. Mirrors the rail's
+// nextDueDate in app/app/layout.tsx so the figures agree.
+function nextDueDate(now: Date): Date {
+  if (now.getDate() === 1) return new Date(now.getFullYear(), now.getMonth(), 1)
+  return new Date(now.getFullYear(), now.getMonth() + 1, 1)
 }
 
 // Demo payment history — mirrors the mockup so the table reads as
@@ -37,9 +48,37 @@ const DEMO_STATEMENTS = [
 // Statements list, and the saved payment methods (read from /app/settings
 // preferences).
 export function PaySection() {
-  const { resident, balance, monthlyDues, loading } = useMyResident() as any
+  const { resident, balance, monthlyDues, payments, loading } = useMyResident() as any
   const [prefs] = usePreferences()
   const [checkout, setCheckout] = useState({ loading: false, error: '' })
+
+  // Real Stripe state (test mode in the demo). `cards` are the customer's saved
+  // payment methods from list-payment-methods; `autopayOn` mirrors the roster
+  // row's autopay_enabled. Both stay null/unused until we have an authed
+  // resident + Stripe turned on, so preview mode keeps its localStorage demo.
+  const [cards, setCards] = useState<any[] | null>(null)
+  const [autopayOn, setAutopayOn] = useState<boolean | null>(null)
+  const [autopayBusy, setAutopayBusy] = useState(false)
+  const [autopayErr, setAutopayErr] = useState('')
+  const stripeLive = stripeEnabled && !!supabase && !!resident
+
+  useEffect(() => {
+    if (resident) setAutopayOn(!!resident.autopay_enabled)
+  }, [resident?.id, resident?.autopay_enabled])
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (!stripeLive) return
+      try {
+        const { data } = await supabase.functions.invoke('list-payment-methods', {
+          body: { resident_id: resident.id },
+        })
+        if (!cancelled && data?.methods) setCards(data.methods)
+      } catch { /* keep the localStorage/demo fallback */ }
+    })()
+    return () => { cancelled = true }
+  }, [resident?.id, stripeLive])
 
   // Only fall back to a demo number when we're genuinely offline of
   // a resident record (preview mode for design walkthroughs). For a
@@ -47,7 +86,6 @@ export function PaySection() {
   // skeleton — no flashing of a wrong amount.
   const isLoading = loading || (resident == null && balance == null && !!hasSupabase)
   const currentBalance = balance == null ? 1250.00 : balance
-  const dueDate = '2026-12-05'
 
   const breakdown = [
     { label: 'Monthly Dues',     amount: monthlyDues || 1000 },
@@ -57,14 +95,170 @@ export function PaySection() {
   ]
   const breakdownTotal = breakdown.reduce((s, r) => s + r.amount, 0)
 
-  const defaultMethod = prefs.payment_methods[0]
-  const autopayActive = !!defaultMethod
+  // Year-to-date dues math that feeds the three Current Balance rings.
+  // Demo-friendly: derived from the monthly dues and today's date, with the
+  // current month treated as outstanding whenever a balance is owed.
+  const now = new Date()
+  const nextDue = nextDueDate(now)
+  const dueDate = nextDue
+  const monthlyDue = monthlyDues || 1000
+  const monthsElapsed = now.getMonth() + 1                       // Jan = 1
+  const paidThisMonth = !isLoading && currentBalance <= 0
+  const monthsPaid = Math.max(0, Math.min(12, monthsElapsed - (paidThisMonth ? 0 : 1)))
+  const annualDue = monthlyDue * 12
+  const paidYTD = monthlyDue * monthsPaid
+  const expectedToDate = monthlyDue * monthsElapsed
+  const onTrackPct = expectedToDate ? paidYTD / expectedToDate : 0
+
+  // On-track status — prior months that MUST already be paid vs what's been
+  // paid. Covered through this month → on track (green check); prior months
+  // covered but this one still open → partial (yellow figure); a prior month
+  // unpaid → missed (red ✗).
+  const mustBePaid = monthlyDue * Math.max(0, monthsElapsed - 1)
+  const behind = Math.max(0, mustBePaid - paidYTD)
+  const trackState: 'ok' | 'warn' | 'bad' =
+    paidYTD >= mustBePaid + monthlyDue ? 'ok'
+    : paidYTD >= mustBePaid            ? 'warn'
+    :                                    'bad'
+
+  // Next-payment cycle — fraction of the current month elapsed, and the
+  // exact days remaining until the 1st-of-next-month due date.
+  const cycleStart = new Date(nextDue.getFullYear(), nextDue.getMonth() - 1, 1)
+  const cycleDays = Math.max(1, Math.round((nextDue.getTime() - cycleStart.getTime()) / DAY_MS))
+  const daysLeft = Math.max(0, Math.ceil((nextDue.getTime() - now.getTime()) / DAY_MS))
+  const duePct = (cycleDays - daysLeft) / cycleDays
+
+  const thisMonth = now.toLocaleDateString('en-US', { month: 'long' })
+  const pctPaid = Math.round(onTrackPct * 100)
+  const trackFaces: Record<'ok' | 'warn' | 'bad', [RingFace, RingFace]> = {
+    ok: [
+      { value: <RingGlyph kind="check" />, caption: 'On track',            aria: 'on track' },
+      { value: 'Paid up',                  caption: `through ${thisMonth}`, aria: `paid up through ${thisMonth}` },
+    ],
+    warn: [
+      { value: `${pctPaid}%`,        caption: 'Partial',                       aria: `partial, ${pctPaid} percent paid` },
+      { value: fmtMoney(paidYTD),    caption: `of ${fmtMoney(expectedToDate)} due`, aria: `${fmtMoney(paidYTD)} of ${fmtMoney(expectedToDate)} due` },
+    ],
+    bad: [
+      { value: <RingGlyph kind="x" />, caption: 'Missed',  aria: 'missed payments' },
+      { value: fmtMoney(behind),       caption: 'past due', aria: `${fmtMoney(behind)} past due` },
+    ],
+  }
+
+  const rings: { label: string; tone: RingTone; pct: number; faces: [RingFace, RingFace] }[] = [
+    {
+      label: 'Annual Dues', tone: 'dues', pct: monthsPaid / 12,
+      faces: [
+        { value: fmtMoney(annualDue),   caption: 'per year',              aria: `${fmtMoney(annualDue)} per year` },
+        { value: `${monthsPaid} of 12`, caption: `${fmtMoney(paidYTD)} paid`, aria: `${monthsPaid} of 12 months, ${fmtMoney(paidYTD)} paid` },
+      ],
+    },
+    {
+      label: 'On Track', tone: trackState, pct: trackState === 'ok' ? 1 : onTrackPct,
+      faces: trackFaces[trackState],
+    },
+    {
+      label: 'Next Payment', tone: 'due', pct: duePct,
+      faces: [
+        { value: daysLeft === 0 ? 'Today' : `${daysLeft}d`, caption: daysLeft === 0 ? 'due today' : 'days left', aria: daysLeft === 0 ? 'due today' : `${daysLeft} days left` },
+        { value: fmtShort(nextDue), caption: `${fmtMoney(currentBalance)} due`, aria: `due ${fmtShort(nextDue)}, ${fmtMoney(currentBalance)}` },
+      ],
+    },
+  ]
+
+  // Unified payment-method list: real Stripe cards when we have them, else the
+  // localStorage/demo methods so preview mode still renders cards.
+  const liveCards = cards && cards.length > 0
+    ? cards.map((c: any) => ({
+        id: c.id,
+        brand: c.brand ? c.brand.charAt(0).toUpperCase() + c.brand.slice(1) : 'Card',
+        last4: c.last4,
+        kind: 'card' as const,
+        is_default: !!c.is_default,
+      }))
+    : null
+  const methods: any[] = liveCards
+    ?? prefs.payment_methods.map((pm, i) => ({ ...pm, is_default: i === 0 }))
+  const defaultMethod = methods.find(m => m.is_default) || methods[0]
+  const autopayActive = autopayOn != null ? autopayOn : !!defaultMethod
+
+  // Save a card on file via Stripe hosted Checkout (setup mode) — redirects to
+  // Stripe and back to #pay. Used by "+ Add New" and the autopay setup CTA.
+  const addCard = async () => {
+    if (!stripeLive) return
+    setAutopayErr('')
+    try {
+      const { data, error } = await supabase.functions.invoke('create-setup-checkout', {
+        body: { resident_id: resident.id },
+      })
+      if (error) throw error
+      if (data?.url) window.location.href = data.url
+    } catch (err: any) {
+      setAutopayErr(err?.message || 'Could not start card setup.')
+    }
+  }
+
+  // Turn autopay on/off against the resident's default saved card.
+  const toggleAutopay = async (enabled: boolean) => {
+    if (!stripeLive) return
+    if (enabled && !defaultMethod) { void addCard(); return }
+    setAutopayBusy(true); setAutopayErr('')
+    try {
+      const { data, error } = await supabase.functions.invoke('set-autopay', {
+        body: { resident_id: resident.id, enabled, payment_method_id: defaultMethod?.id },
+      })
+      if (error) throw error
+      setAutopayOn(!!data?.autopay_enabled)
+    } catch (err: any) {
+      setAutopayErr(err?.message || 'Could not update autopay.')
+    } finally {
+      setAutopayBusy(false)
+    }
+  }
+
+  // Make a saved card the default (used by autopay + one-click pay).
+  const makeDefault = async (pmId: string) => {
+    if (!stripeLive) return
+    setAutopayErr('')
+    try {
+      const { error } = await supabase.functions.invoke('set-autopay', {
+        body: { resident_id: resident.id, enabled: autopayActive, payment_method_id: pmId },
+      })
+      if (error) throw error
+      setCards(cs => cs ? cs.map((c: any) => ({ ...c, is_default: c.id === pmId })) : cs)
+    } catch (err: any) {
+      setAutopayErr(err?.message || 'Could not set default card.')
+    }
+  }
+
+  // Payment history — real rows from the `payments` table (already fetched and
+  // sorted newest-first by useMyResident) when we have a resident, falling back
+  // to the demo ledger only in preview mode where there's no roster match.
+  const methodLabel = defaultMethod
+    ? `${defaultMethod.brand} ···· ${defaultMethod.last4}`
+    : 'Card'
+  const history = resident == null
+    ? DEMO_HISTORY
+    : (payments || []).map((p: any) => {
+        const when = p.paid_on || p.created_at
+        const period = when
+          ? new Date(when).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+          : ''
+        return {
+          id: p.id,
+          date: when,
+          desc: `Regular Dues${period ? ` — ${period}` : ''}`,
+          amount: Number(p.amount) || 0,
+          status: 'paid',
+          method: methodLabel,
+        }
+      })
 
   const startCheckout = async () => {
     if (!stripeEnabled || !resident) return
     setCheckout({ loading: true, error: '' })
     try {
-      const { data, error } = await supabase.functions.invoke('stripe-checkout', {
+      const { data, error } = await supabase.functions.invoke('create-checkout', {
         body: { resident_id: resident.id, amount: currentBalance },
       })
       if (error) throw error
@@ -89,28 +283,36 @@ export function PaySection() {
           {/* Current Balance card with breakdown */}
           <section className="pay-card pay-balance-card">
             <div className="pay-balance-head">
-              <div className="pay-balance-label">Current Balance</div>
-              {isLoading ? (
-                <div className="pay-balance-amt pay-skel pay-skel-amt" aria-label="Loading balance">&nbsp;</div>
-              ) : (
-                <div className="pay-balance-amt">{fmtMoney(currentBalance)}</div>
-              )}
-              {isLoading ? (
-                <div className="pay-balance-due pay-skel pay-skel-due">&nbsp;</div>
-              ) : (
-                <div className="pay-balance-due">Due {fmtDate(dueDate)}</div>
-              )}
-              <div className="pay-balance-actions">
-                <button type="button" className="pay-cta-primary"
-                  disabled={checkout.loading || !stripeEnabled || isLoading}
-                  onClick={startCheckout}>
-                  {checkout.loading ? 'Starting checkout…' : 'Make Payment'}
-                </button>
-                <button type="button" className="pay-cta-secondary">
-                  View Account Details
-                </button>
+              <div className="pay-balance-main">
+                <div className="pay-balance-label">Current Balance</div>
+                {isLoading ? (
+                  <div className="pay-balance-amt pay-skel pay-skel-amt" aria-label="Loading balance">&nbsp;</div>
+                ) : (
+                  <div className="pay-balance-amt">{fmtMoney(currentBalance)}</div>
+                )}
+                {isLoading ? (
+                  <div className="pay-balance-due pay-skel pay-skel-due">&nbsp;</div>
+                ) : (
+                  <div className="pay-balance-due">Due {fmtDate(dueDate)}</div>
+                )}
+                <div className="pay-balance-actions">
+                  <button type="button" className="pay-cta-primary"
+                    disabled={checkout.loading || !stripeEnabled || isLoading}
+                    onClick={startCheckout}>
+                    {checkout.loading ? 'Starting checkout…' : 'Make Payment'}
+                  </button>
+                  <a href="#history" className="pay-cta-secondary">
+                    View Account Details
+                  </a>
+                </div>
+                {checkout.error && <div className="pay-err">{checkout.error}</div>}
               </div>
-              {checkout.error && <div className="pay-err">{checkout.error}</div>}
+
+              <div className="pay-rings" role="group" aria-label="Dues progress">
+                {rings.map(r => (
+                  <BalanceRing key={r.label} label={r.label} tone={r.tone} pct={r.pct} faces={r.faces} />
+                ))}
+              </div>
             </div>
             <div className="pay-breakdown">
               <div className="pay-breakdown-head">Breakdown</div>
@@ -130,10 +332,10 @@ export function PaySection() {
           </section>
 
           {/* Payment History */}
-          <section className="pay-card">
+          <section className="pay-card" id="history">
             <div className="pay-card-head">
               <h2 className="pay-card-title">Payment History</h2>
-              <Link href="#" className="pay-card-link">View all</Link>
+              <Link href="#history" className="pay-card-link">View all</Link>
             </div>
             <div className="pay-history-table">
               <div className="pay-history-row pay-history-header">
@@ -143,7 +345,9 @@ export function PaySection() {
                 <span>Status</span>
                 <span>Payment Method</span>
               </div>
-              {DEMO_HISTORY.map(h => (
+              {history.length === 0 ? (
+                <div className="pay-empty">No payments yet — your first dues payment will show up here.</div>
+              ) : history.map((h: any) => (
                 <div key={h.id} className="pay-history-row">
                   <span className="pay-hist-date">{fmtDate(h.date)}</span>
                   <span className="pay-hist-desc">{h.desc}</span>
@@ -161,17 +365,25 @@ export function PaySection() {
           <section className="pay-card">
             <div className="pay-card-head">
               <h2 className="pay-card-title">Payment Methods</h2>
-              <Link href="/app/settings" className="pay-card-link">+ Add New</Link>
+              {stripeLive ? (
+                <button type="button" className="pay-card-link" onClick={addCard}>+ Add New</button>
+              ) : (
+                <Link href="/app/settings" className="pay-card-link">+ Add New</Link>
+              )}
             </div>
-            {prefs.payment_methods.length === 0 ? (
+            {methods.length === 0 ? (
               <div className="pay-empty">
                 No payment methods saved &mdash;
-                <Link href="/app/settings" className="pay-empty-link"> add one in Settings</Link>.
+                {stripeLive ? (
+                  <button type="button" className="pay-empty-link" onClick={addCard}> add a card</button>
+                ) : (
+                  <Link href="/app/settings" className="pay-empty-link"> add one in Settings</Link>
+                )}.
               </div>
             ) : (
               <div className="pay-methods-grid">
-                {prefs.payment_methods.map((pm, i) => (
-                  <div key={pm.id} className={`pay-method-card${i === 0 ? ' is-default' : ''}`}>
+                {methods.map(pm => (
+                  <div key={pm.id} className={`pay-method-card${pm.is_default ? ' is-default' : ''}`}>
                     <div className="pay-method-icon">
                       {pm.kind === 'card' ? <CardIcon /> : <BankIcon />}
                     </div>
@@ -181,15 +393,18 @@ export function PaySection() {
                         {pm.kind === 'card' ? 'Credit / debit card' : 'Bank account'}
                       </div>
                     </div>
-                    {i === 0 ? (
+                    {pm.is_default ? (
                       <span className="pay-method-badge">Default</span>
                     ) : (
-                      <button type="button" className="pay-method-action">Set as default</button>
+                      <button type="button" className="pay-method-action"
+                        disabled={!stripeLive}
+                        onClick={() => makeDefault(pm.id)}>Set as default</button>
                     )}
                   </div>
                 ))}
               </div>
             )}
+            {autopayErr && <div className="pay-err">{autopayErr}</div>}
             <p className="pay-card-note">
               Your payment information is secure and encrypted. Stripe handles
               the card details &mdash; we only see the brand and last 4.
@@ -207,9 +422,11 @@ export function PaySection() {
                 desc="Make a custom payment outside of recurring dues."
                 onClick={startCheckout} />
               <QuickRow icon={<IconRepeat />}
-                title="Set Up Autopay"
+                title={autopayActive ? 'Manage Autopay' : 'Set Up Autopay'}
                 desc="Pay your dues automatically each month."
-                onClick={() => alert('Autopay setup will open the Stripe customer portal.')} />
+                {...(stripeLive
+                  ? { onClick: () => toggleAutopay(!autopayActive) }
+                  : { href: '#autopay' })} />
               <QuickRow icon={<IconReceipt />}
                 title="View Statements"
                 desc="Download monthly statements as PDFs."
@@ -221,7 +438,7 @@ export function PaySection() {
             </div>
           </section>
 
-          <section className="pay-card pay-autopay">
+          <section className="pay-card pay-autopay" id="autopay">
             <div className="pay-autopay-head">
               <div className="pay-autopay-title">Autopay</div>
               {autopayActive ? (
@@ -245,32 +462,49 @@ export function PaySection() {
                     <span>Amount</span>
                     <span>{fmtMoney(currentBalance)}</span>
                   </div>
-                  <div className="pay-autopay-row">
-                    <span>Payment method</span>
-                    <span>{defaultMethod!.brand} ···· {defaultMethod!.last4}</span>
-                  </div>
+                  {defaultMethod && (
+                    <div className="pay-autopay-row">
+                      <span>Payment method</span>
+                      <span>{defaultMethod.brand} ···· {defaultMethod.last4}</span>
+                    </div>
+                  )}
                 </div>
-                <button type="button" className="pay-cta-secondary pay-cta-block">
-                  Pause Autopay
-                </button>
+                {stripeLive ? (
+                  <button type="button" className="pay-cta-secondary pay-cta-block"
+                    disabled={autopayBusy} onClick={() => toggleAutopay(false)}>
+                    {autopayBusy ? 'Updating…' : 'Pause Autopay'}
+                  </button>
+                ) : (
+                  <button type="button" className="pay-cta-secondary pay-cta-block">
+                    Pause Autopay
+                  </button>
+                )}
               </>
             ) : (
               <>
                 <div className="pay-autopay-note">
-                  Save yourself a click each month. Pick a payment method
-                  in Settings, then turn Autopay on here.
+                  Save yourself a click each month. Turn on Autopay and we&rsquo;ll
+                  charge your default card on the 1st.
                 </div>
-                <Link href="/app/settings" className="pay-cta-primary pay-cta-block">
-                  Set up autopay
-                </Link>
+                {stripeLive ? (
+                  <button type="button" className="pay-cta-primary pay-cta-block"
+                    disabled={autopayBusy} onClick={() => toggleAutopay(true)}>
+                    {autopayBusy ? 'Updating…' : defaultMethod ? 'Turn on autopay' : 'Add a card to enable'}
+                  </button>
+                ) : (
+                  <Link href="/app/settings" className="pay-cta-primary pay-cta-block">
+                    Set up autopay
+                  </Link>
+                )}
               </>
             )}
+            {autopayErr && <div className="pay-err">{autopayErr}</div>}
           </section>
 
           <section className="pay-card" id="statements">
             <div className="pay-card-head">
               <h3 className="pay-tile-title">Statements</h3>
-              <Link href="#" className="pay-card-link">View all</Link>
+              <Link href="#statements" className="pay-card-link">View all</Link>
             </div>
             <div className="pay-statements">
               {DEMO_STATEMENTS.map(s => (
@@ -317,6 +551,70 @@ function StatusPill({ kind }: { kind: string }) {
             : 'pay-pill-off'
   const label = kind === 'paid' ? 'Paid' : kind === 'pending' ? 'Pending' : 'Failed'
   return <span className={`pay-pill ${cls}`}>{label}</span>
+}
+
+// -- Current Balance rings -----------------------------------------
+
+type RingTone = 'dues' | 'due' | 'ok' | 'warn' | 'bad'
+type RingFace = { value: ReactNode; caption: string; aria: string }
+
+const RING_R = 46
+const RING_C = 2 * Math.PI * RING_R   // circumference of the progress arc
+
+// Green check / red ✗ drawn inside the On Track ring.
+function RingGlyph({ kind }: { kind: 'check' | 'x' }) {
+  return (
+    <svg className="pay-ring-glyph" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {kind === 'check'
+        ? <polyline points="20 6 9 17 4 12" />
+        : <><path d="M6 6l12 12" /><path d="M18 6 6 18" /></>}
+    </svg>
+  )
+}
+
+// A single progress ring. The arc fills to `pct`. The centre + caption show
+// the primary face by default and hold on the detail face the whole time the
+// ring is hovered or focused, returning to primary only once the pointer
+// leaves. Tapping toggles the two faces too, so it works on touch.
+function BalanceRing({ label, pct, faces, tone }: {
+  label: string
+  pct: number
+  faces: [RingFace, RingFace]
+  tone: RingTone
+}) {
+  const [idx, setIdx] = useState(0)
+  const show = (i: number) => setIdx(i)
+
+  const dash = Math.max(0, Math.min(1, pct || 0)) * RING_C
+  const face = faces[idx] ?? faces[0]
+
+  return (
+    <button
+      type="button"
+      className={`pay-ring pay-ring-${tone}${idx > 0 ? ' is-hot' : ''}`}
+      onMouseEnter={() => show(1)} onMouseLeave={() => show(0)}
+      onFocus={() => show(1)} onBlur={() => show(0)}
+      onClick={() => show(idx === 0 ? 1 : 0)}
+      aria-label={`${label}: ${face.aria}`}
+    >
+      <span className="pay-ring-viz">
+        <svg viewBox="0 0 112 112" aria-hidden="true">
+          <circle className="pay-ring-track" cx="56" cy="56" r={RING_R} />
+          <circle
+            className="pay-ring-fill" cx="56" cy="56" r={RING_R}
+            strokeDasharray={`${dash} ${RING_C}`}
+            transform="rotate(-90 56 56)"
+          />
+        </svg>
+        <span className="pay-ring-center">
+          <span className="pay-ring-value">{face.value}</span>
+        </span>
+      </span>
+      <span className="pay-ring-label">{label}</span>
+      <span className="pay-ring-caption">{face.caption}</span>
+    </button>
+  )
 }
 
 function QuickRow({

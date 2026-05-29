@@ -6712,6 +6712,68 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .pay-breakdown-total { font-weight: 700; }
 [data-theme="sketch"] .pay-amt-credit { color: #4A7A2D; }
 
+/* Current Balance rings — three progress rings that fill the head's right
+   side. Default face shows the headline number/symbol; hovering or focusing
+   holds on the detail face until the pointer leaves (no auto-cycling). */
+[data-theme="sketch"] .pay-balance-head {
+  flex-direction: row; justify-content: space-between; align-items: center;
+  gap: 24px; flex-wrap: wrap;
+}
+[data-theme="sketch"] .pay-balance-main {
+  display: flex; flex-direction: column; gap: 6px; flex: 0 1 240px; min-width: 210px;
+}
+[data-theme="sketch"] .pay-rings {
+  display: flex; flex: 1 1 380px; gap: 10px;
+  justify-content: space-evenly; align-items: flex-start; flex-wrap: wrap;
+}
+[data-theme="sketch"] .pay-ring {
+  display: flex; flex-direction: column; align-items: center; gap: 9px;
+  flex: 1 1 0; min-width: 112px; max-width: 156px; padding: 6px 2px;
+  background: none; border: none; cursor: pointer; font-family: inherit; text-align: center;
+  border-radius: 16px; transition: transform 0.12s ease;
+}
+[data-theme="sketch"] .pay-ring:hover,
+[data-theme="sketch"] .pay-ring:focus-visible { transform: translateY(-2px); outline: none; }
+[data-theme="sketch"] .pay-ring-viz { position: relative; width: 112px; height: 112px; }
+/* Opt out of the global .pay-card svg hand-ink wobble filter — the rings are
+   precise progress arcs, not sketch icons, so they must render clean. */
+[data-theme="sketch"] .pay-ring-viz svg { width: 112px; height: 112px; display: block; filter: none; }
+[data-theme="sketch"] .pay-ring-track { fill: none; stroke: rgba(15, 28, 46, 0.10); stroke-width: 9; }
+[data-theme="sketch"] .pay-ring-fill {
+  fill: none; stroke-width: 9; stroke-linecap: round;
+  transition: stroke-dasharray 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+[data-theme="sketch"] .pay-ring-dues .pay-ring-fill { stroke: #E14909; }
+[data-theme="sketch"] .pay-ring-due  .pay-ring-fill { stroke: #C2762B; }
+[data-theme="sketch"] .pay-ring-ok   .pay-ring-fill { stroke: #3E9B4F; }
+[data-theme="sketch"] .pay-ring-warn .pay-ring-fill { stroke: #E0A106; }
+[data-theme="sketch"] .pay-ring-bad  .pay-ring-fill { stroke: #C8372D; }
+[data-theme="sketch"] .pay-ring-center {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 0 12px;
+}
+[data-theme="sketch"] .pay-ring-value {
+  font-family: 'Fraunces', Georgia, serif;
+  font-size: 21px; font-weight: 600; line-height: 1.05; letter-spacing: -0.02em;
+  color: #0A2440; font-variant-numeric: tabular-nums;
+}
+/* On Track ring: tint the figure/symbol to match its status. */
+[data-theme="sketch"] .pay-ring-ok   .pay-ring-value { color: #3E9B4F; }
+[data-theme="sketch"] .pay-ring-warn .pay-ring-value { color: #C77F00; }
+[data-theme="sketch"] .pay-ring-bad  .pay-ring-value { color: #C8372D; }
+[data-theme="sketch"] .pay-ring-glyph { width: 44px; height: 44px; }
+[data-theme="sketch"] .pay-ring-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.8px; text-transform: uppercase; color: #0A2440;
+}
+[data-theme="sketch"] .pay-ring-caption {
+  font-size: 11.5px; line-height: 1.3; color: rgba(10, 36, 64, 0.62); min-height: 30px; max-width: 136px;
+}
+@media (max-width: 600px) {
+  [data-theme="sketch"] .pay-rings { flex-basis: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="sketch"] .pay-ring, [data-theme="sketch"] .pay-ring-fill { transition: none; }
+}
+
 /* Shimmer skeleton — replaces the balance + due-date strings while
    useMyResident() is loading so the real number never has to flash a
    fallback. */
