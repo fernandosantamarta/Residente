@@ -41,7 +41,7 @@ const sortRows = (rs) => [...rs].sort((a, b) => {
   return ad !== 0 ? ad : String(a.full_name || '').localeCompare(String(b.full_name || ''))
 })
 
-const EMPTY = { full_name: '', subdivision: '', address: '', email: '', phone: '' }
+const EMPTY = { full_name: '', subdivision: '', address: '', email: '', phone: '', unit_number: '' }
 
 // Residents page — the community roster, grouped by subdivision. Each
 // household's balance accrues monthly_dues automatically; the board sets the
@@ -128,6 +128,7 @@ export default function Residents() {
         address: form.address.trim() || null,
         email: form.email.trim() || null,
         phone: form.phone.trim() || null,
+        unit_number: form.unit_number.trim() || null,
       }
       const { data, error } = await withTimeout(
         supabase.from('residents').insert(row).select().single()
