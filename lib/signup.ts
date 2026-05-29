@@ -66,7 +66,17 @@ async function readFnError(error: unknown): Promise<ProvisionError> {
 
 export async function provisionAccount(input: ProvisionInput): Promise<ProvisionResult> {
   if (!hasSupabase || !supabase) throw new ProvisionError('Supabase is not configured')
-  const { data, error } = await supabase.functions.invoke('signup-provision', { body: input })
+  // Pass the user's access token explicitly. supabase-js updates the Functions
+  // client's auth header via an async onAuthStateChange listener, so invoking
+  // right after signUp can otherwise still send the anon key → the edge
+  // function sees no user and returns 401 Unauthorized.
+  const { data: { session } } = await supabase.auth.getSession()
+  const { data, error } = await supabase.functions.invoke('signup-provision', {
+    body: input,
+    headers: session?.access_token
+      ? { Authorization: `Bearer ${session.access_token}` }
+      : undefined,
+  })
   if (error) throw await readFnError(error)
   if (data?.error) throw new ProvisionError(data.error, data.code)
   return data as ProvisionResult

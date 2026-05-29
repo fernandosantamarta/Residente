@@ -77,10 +77,15 @@ Deno.serve(async (req) => {
     const mode = body?.mode
 
     // 1. Authenticate the caller — must be the freshly-signed-up user.
+    //    Pass the JWT explicitly: getUser() with no argument reads from a
+    //    stored session, which a server-side client doesn't have, so it
+    //    returns null even with the global Authorization header.
+    const authHeader = req.headers.get('Authorization') ?? ''
+    const token = authHeader.replace(/^Bearer\s+/i, '')
     const callerClient = createClient(SUPABASE_URL, ANON_KEY, {
-      global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
+      global: { headers: { Authorization: authHeader } },
     })
-    const { data: { user: caller } } = await callerClient.auth.getUser()
+    const { data: { user: caller } } = await callerClient.auth.getUser(token)
     if (!caller) return json({ error: 'Unauthorized' }, 401)
     const email = (caller.email ?? '').toLowerCase()
     if (!email) return json({ error: 'Account has no email' }, 400)
@@ -149,6 +154,23 @@ Deno.serve(async (req) => {
         { profile_id: caller.id, community_id, role, last_active_at: now },
         { onConflict: 'profile_id,community_id' },
       )
+
+      // Seed a starter budget so the dashboard renders real numbers (not the
+      // demo fallback) the moment they finish signup. Keyed to the association
+      // type. They edit these on /admin/community. Best-effort: a failure here
+      // shouldn't fail the whole signup.
+      const SHARED_CATS = [
+        'Landscaping', 'Insurance', 'Reserves', 'Utilities',
+        'Repairs & Maintenance', 'Management',
+      ]
+      const EXTRA_CATS = association_type === 'condo'
+        ? ['Building Reserve', 'Roof & Structural']
+        : ['Common Areas', 'Roads & Sidewalks']
+      const seededCats = [...SHARED_CATS, ...EXTRA_CATS].map((name, i) => ({
+        community_id, name, budget: 0, spent: 0, sort_order: i,
+      }))
+      const { error: seedErr } = await admin.from('budget_categories').insert(seededCats)
+      if (seedErr) console.error('budget seed failed (non-fatal):', seedErr)
 
       // A board member is an owner (voting). A pure manager (admin) only gets a
       // roster row if they gave a unit — otherwise they're staff, not an owner.
