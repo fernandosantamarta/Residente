@@ -89,6 +89,18 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => { setNavOpen(false) }, [pathname])
 
+  // Apply Accessibility prefs at the document root so CSS can target
+  // [data-text-size="large"] / [data-contrast="high"] globally. MUST run
+  // before the auth-guard early-return below — otherwise logout (session→null)
+  // renders fewer hooks than the logged-in pass and React crashes the page
+  // ("Rendered fewer hooks than expected").
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const root = document.documentElement
+    if (prefs.large_text)  root.setAttribute('data-text-size', 'large'); else root.removeAttribute('data-text-size')
+    if (prefs.high_contrast) root.setAttribute('data-contrast', 'high'); else root.removeAttribute('data-contrast')
+  }, [prefs.large_text, prefs.high_contrast])
+
   if (hasSupabase && !session && !isPreview) return null  // don't flash cockpit during redirect
 
   // Self-typed profile name (from /app/settings → Profile Information)
@@ -96,15 +108,6 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
   const effectiveFullName = prefs.full_name || profile?.full_name || ''
   const userInitials = initialsFrom(effectiveFullName) || 'FM'
   const userUnit = profile?.unit_number ? `Unit ${profile.unit_number}` : 'Unit —'
-
-  // Apply Accessibility prefs at the document root so CSS can target
-  // [data-text-size="large"] / [data-contrast="high"] globally.
-  useEffect(() => {
-    if (typeof document === 'undefined') return
-    const root = document.documentElement
-    if (prefs.large_text)  root.setAttribute('data-text-size', 'large'); else root.removeAttribute('data-text-size')
-    if (prefs.high_contrast) root.setAttribute('data-contrast', 'high'); else root.removeAttribute('data-contrast')
-  }, [prefs.large_text, prefs.high_contrast])
 
   return (
     <>
