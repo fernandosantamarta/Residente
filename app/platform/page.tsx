@@ -73,6 +73,81 @@ export default function PlatformConsole() {
     </div>
   )
 
+  const statsGrid = (
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14, marginBottom: 18 }}>
+      {stat('Communities', communities.length)}
+      {stat('On trial', trials)}
+      {stat('Total residents', totalResidents)}
+      {stat('Open tickets', openCount, openCount > 0)}
+    </div>
+  )
+
+  const communitiesSection = (
+    <section style={{ ...card, marginBottom: 18 }}>
+      <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Communities</h2>
+      <p style={{ color: C.muted, fontSize: 12.5, marginBottom: 14 }}>Click <strong style={{ color: C.accent }}>Manage</strong> to drop into a community and run it as an operator.</p>
+      {communities.length === 0 ? (
+        <div style={{ color: C.muted, fontSize: 13.5 }}>No communities yet.</div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
+            <thead><tr>
+              {['Community', 'Location', 'Plan', 'Residents', 'Board', 'Join code', 'Created', ''].map(h => <th key={h} style={th}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {communities.map(c => (
+                <tr key={c.id}>
+                  <td style={{ ...td, fontWeight: 700 }}>{c.name || '—'}</td>
+                  <td style={{ ...td, color: C.muted }}>{c.location || '—'}</td>
+                  <td style={td}>
+                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, textTransform: 'capitalize',
+                      background: c.subscription_status === 'trial' ? C.accentSoft : 'rgba(74,201,155,0.15)',
+                      color: c.subscription_status === 'trial' ? C.accent : '#4AC99B' }}>{c.subscription_status || 'active'}</span>
+                  </td>
+                  <td style={td}>{c.resident_count}</td>
+                  <td style={td}>{c.board_count}</td>
+                  <td style={{ ...td, fontFamily: 'ui-monospace, monospace', letterSpacing: 1, color: C.muted }}>{c.join_code || '—'}</td>
+                  <td style={{ ...td, color: C.muted }}>{fmtDate(c.created_at)}</td>
+                  <td style={td}>
+                    <button onClick={() => onEnter(c.id)} disabled={entering === c.id}
+                      style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 700, padding: '7px 14px', borderRadius: 8,
+                        border: `1px solid ${C.accent}`, background: C.accentSoft, color: C.accent, whiteSpace: 'nowrap' }}>
+                      {entering === c.id ? 'Entering…' : 'Manage →'}
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+
+  const supportSection = (
+    <section style={card}>
+      <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
+        Support inbox {openCount > 0 && <span style={{ color: C.accent }}>· {openCount} open</span>}
+      </h2>
+      {requests.length === 0 ? (
+        <div style={{ color: C.muted, fontSize: 13.5, marginTop: 12 }}>No support requests yet.</div>
+      ) : requests.map(r => (
+        <div key={r.id} style={{ borderTop: `1px solid ${C.border}`, padding: '14px 0', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+          <button onClick={() => setRequestStatus(r.id, STATUS_NEXT[r.status])} title="Click to advance status" style={statusStyle(r.status)}>
+            {r.status === 'in_progress' ? 'in progress' : r.status}
+          </button>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontWeight: 700, fontSize: 14.5 }}>{r.subject}</div>
+            {r.body && <div style={{ color: '#c2c7d0', fontSize: 13.5, marginTop: 3 }}>{r.body}</div>}
+            <div style={{ color: C.muted, fontSize: 12.5, marginTop: 6 }}>
+              {r.from_name || 'A board member'}{r.from_email ? ` · ${r.from_email}` : ''} · {fmtDate(r.created_at)}
+            </div>
+          </div>
+        </div>
+      ))}
+    </section>
+  )
+
   return shell(
     <>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
@@ -101,83 +176,14 @@ export default function PlatformConsole() {
         })}
       </div>
 
-      {/* OVERVIEW */}
-      {tab === 'overview' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14 }}>
-          {stat('Communities', communities.length)}
-          {stat('On trial', trials)}
-          {stat('Total residents', totalResidents)}
-          {stat('Open tickets', openCount, openCount > 0)}
-        </div>
-      )}
+      {/* OVERVIEW — everything on one page */}
+      {tab === 'overview' && (<>{statsGrid}{communitiesSection}{supportSection}</>)}
 
       {/* COMMUNITIES */}
-      {tab === 'communities' && (
-        <section style={card}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Communities</h2>
-          <p style={{ color: C.muted, fontSize: 12.5, marginBottom: 14 }}>Click <strong style={{ color: C.accent }}>Manage</strong> to drop into a community and run it as an operator.</p>
-          {communities.length === 0 ? (
-            <div style={{ color: C.muted, fontSize: 13.5 }}>No communities yet.</div>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
-                <thead><tr>
-                  {['Community', 'Location', 'Plan', 'Residents', 'Board', 'Join code', 'Created', ''].map(h => <th key={h} style={th}>{h}</th>)}
-                </tr></thead>
-                <tbody>
-                  {communities.map(c => (
-                    <tr key={c.id}>
-                      <td style={{ ...td, fontWeight: 700 }}>{c.name || '—'}</td>
-                      <td style={{ ...td, color: C.muted }}>{c.location || '—'}</td>
-                      <td style={td}>
-                        <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, textTransform: 'capitalize',
-                          background: c.subscription_status === 'trial' ? C.accentSoft : 'rgba(74,201,155,0.15)',
-                          color: c.subscription_status === 'trial' ? C.accent : '#4AC99B' }}>{c.subscription_status || 'active'}</span>
-                      </td>
-                      <td style={td}>{c.resident_count}</td>
-                      <td style={td}>{c.board_count}</td>
-                      <td style={{ ...td, fontFamily: 'ui-monospace, monospace', letterSpacing: 1, color: C.muted }}>{c.join_code || '—'}</td>
-                      <td style={{ ...td, color: C.muted }}>{fmtDate(c.created_at)}</td>
-                      <td style={td}>
-                        <button onClick={() => onEnter(c.id)} disabled={entering === c.id}
-                          style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 700, padding: '7px 14px', borderRadius: 8,
-                            border: `1px solid ${C.accent}`, background: C.accentSoft, color: C.accent, whiteSpace: 'nowrap' }}>
-                          {entering === c.id ? 'Entering…' : 'Manage →'}
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </section>
-      )}
+      {tab === 'communities' && communitiesSection}
 
       {/* SUPPORT */}
-      {tab === 'support' && (
-        <section style={card}>
-          <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
-            Support inbox {openCount > 0 && <span style={{ color: C.accent }}>· {openCount} open</span>}
-          </h2>
-          {requests.length === 0 ? (
-            <div style={{ color: C.muted, fontSize: 13.5, marginTop: 12 }}>No support requests yet.</div>
-          ) : requests.map(r => (
-            <div key={r.id} style={{ borderTop: `1px solid ${C.border}`, padding: '14px 0', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-              <button onClick={() => setRequestStatus(r.id, STATUS_NEXT[r.status])} title="Click to advance status" style={statusStyle(r.status)}>
-                {r.status === 'in_progress' ? 'in progress' : r.status}
-              </button>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontWeight: 700, fontSize: 14.5 }}>{r.subject}</div>
-                {r.body && <div style={{ color: '#c2c7d0', fontSize: 13.5, marginTop: 3 }}>{r.body}</div>}
-                <div style={{ color: C.muted, fontSize: 12.5, marginTop: 6 }}>
-                  {r.from_name || 'A board member'}{r.from_email ? ` · ${r.from_email}` : ''} · {fmtDate(r.created_at)}
-                </div>
-              </div>
-            </div>
-          ))}
-        </section>
-      )}
+      {tab === 'support' && supportSection}
 
       {/* OPERATORS */}
       {tab === 'operators' && (

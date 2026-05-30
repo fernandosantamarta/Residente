@@ -60,9 +60,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <CommunitySwitcher />
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 16 }}>
-          {isPlatformAdmin && (
-            <Link href="/platform" className="admin-back" style={{ color: '#FF6B3D', fontWeight: 700 }}>Platform Console</Link>
-          )}
           <Link href="/admin/support" className="admin-back">Contact Residente</Link>
           <Link href="/app" className="admin-back">&larr; Back to app</Link>
         </div>
@@ -78,6 +75,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             {item.label}
           </Link>
         ))}
+        {isPlatformAdmin && (
+          <Link href="/platform" className="admin-nav-item" style={{ color: '#FF6B3D', fontWeight: 700 }}>
+            Platform Console
+          </Link>
+        )}
       </nav>
 
       <main className="admin-main">
