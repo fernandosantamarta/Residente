@@ -11,6 +11,7 @@ import { useUnreadNoticeCount, useMyNotices } from '@/hooks/useNotices'
 import { NOTICE_KIND_LABELS, noticeHref, NoticeKind } from '@/lib/voice'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import { useWeather } from '@/hooks/useWeather'
+import { usePlatformAdmin } from '@/hooks/usePlatform'
 import { usePreferences } from '@/lib/preferences'
 import { DUES_LABEL } from '@/lib/dues'
 import { CommunitySwitcher } from '../CommunitySwitcher'
@@ -58,6 +59,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
   const { session, profile } = useAuth()
   const { community } = useCommunityData()
   const { weather } = useWeather(community?.location)
+  const isPlatformAdmin = usePlatformAdmin()
   const [prefs] = usePreferences()
   const pathname = usePathname() || '/app'
   const router = useRouter()
@@ -156,6 +158,15 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
                 <span>Admin</span>
               </Link>
             </>
+          )}
+          {isPlatformAdmin && (
+            <Link href="/platform" className="nav-item" style={{ color: '#FF6B3D' }}>
+              <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+              </svg>
+              <span>Platform Console</span>
+            </Link>
           )}
         </nav>
 
