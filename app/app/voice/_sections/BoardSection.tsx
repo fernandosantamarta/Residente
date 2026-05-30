@@ -42,7 +42,7 @@ const fmtLongDate = (iso: string) => {
 }
 
 export function BoardSection() {
-  const { members, upcoming, minutes } = useBoardData()
+  const { members, upcoming, minutes, committees } = useBoardData()
   const { decisions } = useBoardDecisions(6) as { decisions: any[] | null }
   const updates = (decisions ?? []).map(decisionToUpdate)
 
@@ -177,8 +177,28 @@ export function BoardSection() {
             </div>
           </section>
 
-          {/* Committees: no data model yet — hidden until a committees table
-              exists. The block + committeeIcon() stay in code for when it is. */}
+          {committees.length > 0 && (
+            <section className="brd-card brd-tile-tight">
+              <div className="brd-card-head">
+                <h3 className="brd-tile-title">Committees</h3>
+              </div>
+              <ul className="brd-committees">
+                {committees.map(c => (
+                  <li key={c.id}>
+                    <span className="brd-committee">
+                      <span className="brd-committee-icon">{committeeIcon(c.icon)}</span>
+                      <span className="brd-committee-body">
+                        <span className="brd-committee-name">{c.name}</span>
+                        <span className="brd-committee-meta">
+                          {c.chair ? `${c.chair} · ` : ''}{c.member_count} {c.member_count === 1 ? 'member' : 'members'}
+                        </span>
+                      </span>
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
         </aside>
       </div>
     </section>
@@ -208,6 +228,16 @@ function updateIcon(k: UpdateKind): ReactNode {
     case 'contract': return <Svg><><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h8M8 11h8M8 15h5"/></></Svg>
     case 'budget':   return <Svg><><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h3"/></></Svg>
     case 'announce': return <Svg><><path d="M3 11l16-6v14L3 13z"/><path d="M7 13v5a2 2 0 0 0 4 0v-3"/></></Svg>
+  }
+}
+
+function committeeIcon(k: 'finance' | 'leaf' | 'home' | 'shield' | 'megaphone'): ReactNode {
+  switch (k) {
+    case 'finance':   return <Svg><><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h3M14 15h3"/></></Svg>
+    case 'leaf':      return <Svg><><path d="M5 19c0-8 6-14 14-14 0 8-6 14-14 14z"/><path d="M5 19l7-7"/></></Svg>
+    case 'home':      return <Svg><><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></></Svg>
+    case 'shield':    return <Svg><><path d="M12 3 4 6v6c0 4.5 3.2 8.5 8 9 4.8-.5 8-4.5 8-9V6z"/></></Svg>
+    case 'megaphone': return <Svg><><path d="M3 11l16-6v14L3 13z"/><path d="M7 13v5a2 2 0 0 0 4 0v-3"/></></Svg>
   }
 }
 

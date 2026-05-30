@@ -46,6 +46,9 @@ export default function Board() {
   const [saving, setSaving] = useState(false)
   const [memberQuery, setMemberQuery] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+  const [committees, setCommittees] = useState([])
+  const [comForm, setComForm] = useState({ name: '', chair: '', member_count: '', icon: 'home' })
+  const [comSaving, setComSaving] = useState(false)
 
   // Auto-dismiss the green confirmation banner after 4 seconds.
   useEffect(() => {
@@ -58,15 +61,19 @@ export default function Board() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const [decR, resR] = await Promise.all([
+      const [decR, resR, comR] = await Promise.all([
         withTimeout(supabase.from('board_decisions').select('*')
           .eq('community_id', communityId).order('decided_on', { ascending: false })),
         withTimeout(supabase.from('residents').select('*').eq('community_id', communityId)),
+        withTimeout(supabase.from('committees').select('*')
+          .eq('community_id', communityId).order('sort_order', { ascending: true })),
       ])
       if (decR.error) throw decR.error
       if (resR.error) throw resR.error
+      // committees table may not be migrated yet — don't fail the whole page.
       setRows(decR.data || [])
       setResidents(resR.data || [])
+      setCommittees(comR.error ? [] : (comR.data || []))
       setStatus('ready')
     } catch (err) {
       setError(err?.message || 'Could not load the board'); setStatus('error')
@@ -164,6 +171,45 @@ export default function Board() {
     }
   }
 
+  const addCommittee = async (e) => {
+    e.preventDefault()
+    if (!comForm.name.trim()) { setError('Give the committee a name'); return }
+    setComSaving(true); setError('')
+    try {
+      const row = {
+        community_id: communityId,
+        name: comForm.name.trim(),
+        chair: comForm.chair.trim() || null,
+        member_count: comForm.member_count === '' ? 0 : Number(comForm.member_count),
+        icon: comForm.icon,
+        sort_order: committees.length,
+      }
+      const { data, error } = await withTimeout(
+        supabase.from('committees').insert(row).select().single()
+      )
+      if (error) throw error
+      setCommittees(cs => [...cs, data])
+      setComForm({ name: '', chair: '', member_count: '', icon: 'home' })
+      setSuccessMsg(`Added the ${row.name}.`)
+    } catch (err) {
+      setError(err?.message || 'Could not add the committee')
+    } finally {
+      setComSaving(false)
+    }
+  }
+
+  const removeCommittee = async (id) => {
+    const prev = committees
+    setCommittees(cs => cs.filter(c => c.id !== id)) // optimistic
+    try {
+      const { error } = await withTimeout(supabase.from('committees').delete().eq('id', id))
+      if (error) throw error
+    } catch (err) {
+      setCommittees(prev) // roll back
+      setError(err?.message || 'Could not remove that committee')
+    }
+  }
+
   return (
     <div className="admin-page">
       <EasyVoiceTabs active="board" />
@@ -250,6 +296,68 @@ export default function Board() {
               </div>
             )}
           </div>
+
+          <div className="bc-head" style={{ marginTop: 44, marginBottom: 14 }}>
+            <h2 className="bc-title">Committees</h2>
+            <span className="bc-sub">Show your committees on every resident's Board page.</span>
+          </div>
+
+          <form className="admin-form" onSubmit={addCommittee} style={{ marginBottom: 16 }}>
+            <label className="admin-field">
+              <span className="admin-field-label">Committee name</span>
+              <input name="com-name" className="admin-input" placeholder="Finance Committee"
+                value={comForm.name} onChange={e => setComForm(f => ({ ...f, name: e.target.value }))} />
+            </label>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              <label className="admin-field" style={{ flex: '1 1 180px' }}>
+                <span className="admin-field-label">Chair (optional)</span>
+                <input name="com-chair" className="admin-input" placeholder="Michael Chen"
+                  value={comForm.chair} onChange={e => setComForm(f => ({ ...f, chair: e.target.value }))} />
+              </label>
+              <label className="admin-field" style={{ width: 130 }}>
+                <span className="admin-field-label"># members</span>
+                <input name="com-count" type="number" className="admin-input" placeholder="4"
+                  value={comForm.member_count} onChange={e => setComForm(f => ({ ...f, member_count: e.target.value }))} />
+              </label>
+              <div className="admin-field" style={{ width: 160 }}>
+                <span className="admin-field-label">Icon</span>
+                <Dropdown<string>
+                  value={comForm.icon}
+                  onChange={v => setComForm(f => ({ ...f, icon: v }))}
+                  ariaLabel="Committee icon"
+                  options={[
+                    { value: 'finance', label: 'Finance' },
+                    { value: 'leaf', label: 'Landscape' },
+                    { value: 'home', label: 'Architectural' },
+                    { value: 'shield', label: 'Security' },
+                    { value: 'megaphone', label: 'Communications' },
+                  ]}
+                />
+              </div>
+            </div>
+            <div className="admin-form-actions">
+              <button type="submit" className="admin-btn" disabled={comSaving}>
+                {comSaving ? 'Adding…' : 'Add committee'}
+              </button>
+            </div>
+          </form>
+
+          {committees.length > 0 && (
+            <div className="bm-list">
+              {committees.map(c => (
+                <div className="bm-row" key={c.id}>
+                  <div className="bm-row-main">
+                    <div className="bm-row-name">{c.name}</div>
+                    <div className="bm-row-sub">
+                      {c.chair ? `${c.chair} · ` : ''}{c.member_count || 0} {Number(c.member_count) === 1 ? 'member' : 'members'}
+                    </div>
+                  </div>
+                  <button type="button" className="bc-del" onClick={() => removeCommittee(c.id)}
+                    aria-label={`Remove ${c.name}`}>&times;</button>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div className="bc-head" style={{ marginTop: 44, marginBottom: 14 }}>
             <h2 className="bc-title">Log a decision</h2>
