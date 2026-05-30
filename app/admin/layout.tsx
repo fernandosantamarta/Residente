@@ -7,6 +7,7 @@ import { hasSupabase } from '@/lib/supabase'
 import { AdminErrorBoundary } from '@/components/AdminErrorBoundary'
 import { useAuth } from '../providers'
 import { CommunitySwitcher } from '../CommunitySwitcher'
+import { usePlatformAdmin } from '@/hooks/usePlatform'
 
 // Board-only admin section. Gated by role check — only board_member/admin
 // (or local dev without Supabase) reach here.
@@ -35,6 +36,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const { session, profile } = useAuth()
   const router = useRouter()
   const pathname = usePathname() || '/admin'
+  const isPlatformAdmin = usePlatformAdmin()
 
   // Auth + role gate
   useEffect(() => {
@@ -56,7 +58,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <span className="admin-tag">Admin</span>
           <CommunitySwitcher />
         </div>
-        <Link href="/app" className="admin-back">&larr; Back to app</Link>
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 16 }}>
+          {isPlatformAdmin && (
+            <Link href="/platform" className="admin-back" style={{ color: 'var(--pink)' }}>Platform Console</Link>
+          )}
+          <Link href="/admin/support" className="admin-back">Contact Residente</Link>
+          <Link href="/app" className="admin-back">&larr; Back to app</Link>
+        </div>
       </header>
 
       <nav className="admin-nav">
