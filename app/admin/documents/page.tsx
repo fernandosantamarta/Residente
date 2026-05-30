@@ -5,16 +5,11 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import {
   addStoredCategory,
-  addStoredRule,
-  deleteAllRules,
-  getHideDemo,
   hideBuiltInCategory,
   removeStoredCategory,
-  removeStoredRule,
-  restoreDemoRules,
   RULE_CATEGORIES,
   useCategoriesData,
-  useRulesData,
+  useRulesAdmin,
 } from '@/lib/rules'
 import { Dropdown } from '@/components/Dropdown'
 import { Pagination, paginate } from '@/components/Pagination'
@@ -114,7 +109,7 @@ export default function AdminEasyDocs() {
   const [rulePage, setRulePage] = useState(1)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [ruleSuccessMsg, setRuleSuccessMsg] = useState('')
-  const rows = useRulesData() as any[]
+  const { rules: rows, addRule: insertRule, removeRule: deleteRule, deleteAll, restoreDemo } = useRulesAdmin()
   const ruleStatus = 'ready' as const
 
   useEffect(() => {
@@ -125,16 +120,18 @@ export default function AdminEasyDocs() {
 
   const setRuleField = (k, v) => setRuleForm(f => ({ ...f, [k]: v }))
 
-  const addRule = (e) => {
+  const addRule = async (e) => {
     e.preventDefault()
     if (!ruleForm.title.trim()) { setRuleError('Give the rule a title'); return }
     setRuleSaving(true); setRuleError('')
     try {
-      const section = ruleForm.section.trim() || null
+      // Default to "General" so a rule with no section still slots into a
+      // visible category on the resident rule book (never orphaned).
+      const section = ruleForm.section.trim() || 'General'
       const title = ruleForm.title.trim()
       const newCategoryCreated = section && !categories.includes(section)
       if (newCategoryCreated) addStoredCategory(section!)
-      addStoredRule({
+      await insertRule({
         section, title,
         body: ruleForm.body.trim() || null,
         fine: ruleForm.fine === '' ? null : Number(ruleForm.fine),
@@ -162,12 +159,12 @@ export default function AdminEasyDocs() {
     setPdfStatus(`Received ${pdfFile.name} — PDF parsing isn't wired yet, but the file is ready.`)
   }
 
-  const removeRule = (id) => {
-    if (typeof id === 'string' && id.startsWith('r-')) {
-      setRuleError("That's a seeded sample rule — can't be removed from here.")
-      return
+  const removeRule = async (id) => {
+    try {
+      await deleteRule(id)
+    } catch (err) {
+      setRuleError((err as any)?.message || 'Could not remove the rule')
     }
-    removeStoredRule(id)
   }
 
   // ── Documents state ──────────────────────────────────────────────────────
@@ -382,15 +379,18 @@ export default function AdminEasyDocs() {
               <span className="bc-sub">{rows.length} {rows.length === 1 ? 'rule' : 'rules'} published.</span>
             </div>
             <div style={{ display: 'inline-flex', gap: 8 }}>
-              {getHideDemo() && (
-                <button type="button" className="admin-btn-ghost" onClick={() => restoreDemoRules()}>
-                  Restore samples
-                </button>
-              )}
+              <button type="button" className="admin-btn-ghost"
+                onClick={async () => {
+                  try { await restoreDemo(); setRuleSuccessMsg('Starter rules added.') }
+                  catch (err) { setRuleError((err as any)?.message || 'Could not restore samples') }
+                }}>
+                Restore samples
+              </button>
               <button type="button" className="admin-rules-danger"
-                onClick={() => {
-                  if (window.confirm('Delete every rule (including the seeded samples)? You can restore the samples afterward.')) {
-                    deleteAllRules()
+                onClick={async () => {
+                  if (window.confirm('Delete every rule? You can restore the samples afterward.')) {
+                    try { await deleteAll(); setRuleSuccessMsg('All rules deleted.') }
+                    catch (err) { setRuleError((err as any)?.message || 'Could not delete rules') }
                   }
                 }}>
                 Delete all
