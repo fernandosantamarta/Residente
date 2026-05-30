@@ -12,6 +12,7 @@ export type PlatformRequest = {
   from_community_id: string | null; subject: string; body: string | null
   status: 'open' | 'in_progress' | 'resolved'; created_at: string
 }
+export type PlatformOperator = { name: string; email: string | null; added_at: string }
 
 // Lightweight boolean — is the signed-in user a Residente platform operator?
 // Used to conditionally show the Platform Console link. Returns null while loading.
@@ -38,6 +39,7 @@ export function usePlatformConsole() {
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
   const [communities, setCommunities] = useState<PlatformCommunity[]>([])
   const [requests, setRequests] = useState<PlatformRequest[]>([])
+  const [operators, setOperators] = useState<PlatformOperator[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
@@ -48,7 +50,7 @@ export function usePlatformConsole() {
     setLoading(true)
     try {
       const { data, error } = await supabase.rpc('platform_overview')
-      if (error) { setIsAdmin(false); setCommunities([]); setRequests([]); return }
+      if (error) { setIsAdmin(false); setCommunities([]); setRequests([]); setOperators([]); return }
       setIsAdmin(true)
       setCommunities((data ?? []) as PlatformCommunity[])
       const { data: reqs } = await supabase
@@ -56,6 +58,12 @@ export function usePlatformConsole() {
         .select('id, from_name, from_email, from_community_id, subject, body, status, created_at')
         .order('created_at', { ascending: false })
       setRequests((reqs ?? []) as PlatformRequest[])
+      // Operators: the founders, via a guarded definer fn so every operator's
+      // name/email resolves regardless of profiles RLS.
+      const { data: ops } = await supabase.rpc('platform_operators')
+      setOperators((ops ?? []).map((o: any) => ({
+        name: o.name || 'Operator', email: o.email || null, added_at: o.added_at,
+      })))
     } finally {
       setLoading(false)
     }
@@ -69,5 +77,19 @@ export function usePlatformConsole() {
     await supabase.from('platform_requests').update({ status }).eq('id', id)
   }, [])
 
-  return { isAdmin, communities, requests, loading, reload: load, setRequestStatus }
+  // Drop into a community to manage it: repoint the operator's active community
+  // to the target (operator-only, enforced in the DB function), remembering
+  // where to return. The admin area then renders that community.
+  const enterCommunity = useCallback(async (communityId: string): Promise<boolean> => {
+    if (!hasSupabase || !supabase) return false
+    try {
+      if (typeof window !== 'undefined' && profile?.community_id) {
+        window.localStorage.setItem('platform_return_to', profile.community_id)
+      }
+      const { error } = await supabase.rpc('platform_enter_community', { target: communityId })
+      return !error
+    } catch { return false }
+  }, [profile?.community_id])
+
+  return { isAdmin, communities, requests, operators, loading, reload: load, setRequestStatus, enterCommunity }
 }

@@ -1,9 +1,9 @@
 'use client'
 
-import { ReactNode, useEffect } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { hasSupabase } from '@/lib/supabase'
+import { hasSupabase, supabase } from '@/lib/supabase'
 import { AdminErrorBoundary } from '@/components/AdminErrorBoundary'
 import { useAuth } from '../providers'
 import { CommunitySwitcher } from '../CommunitySwitcher'
@@ -49,6 +49,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   return (
     <div className="admin">
+      <OperatorBanner isPlatformAdmin={isPlatformAdmin} currentCommunity={profile?.community_id ?? null} />
       <header className="admin-top">
         <div className="admin-brand">
           <Link href="/admin" className="admin-brand-home">
@@ -60,7 +61,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 16 }}>
           {isPlatformAdmin && (
-            <Link href="/platform" className="admin-back" style={{ color: 'var(--pink)' }}>Platform Console</Link>
+            <Link href="/platform" className="admin-back" style={{ color: '#FF6B3D', fontWeight: 700 }}>Platform Console</Link>
           )}
           <Link href="/admin/support" className="admin-back">Contact Residente</Link>
           <Link href="/app" className="admin-back">&larr; Back to app</Link>
@@ -82,6 +83,34 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <main className="admin-main">
         <AdminErrorBoundary>{children}</AdminErrorBoundary>
       </main>
+    </div>
+  )
+}
+
+// Shown when a Residente operator has dropped into another community to manage
+// it (set via the Platform Console). Lets them restore their own community and
+// return to the console in one click. Hidden once they're back home.
+function OperatorBanner({ isPlatformAdmin, currentCommunity }: { isPlatformAdmin: boolean | null; currentCommunity: string | null }) {
+  const router = useRouter()
+  const [returnTo, setReturnTo] = useState<string | null>(null)
+  useEffect(() => {
+    if (typeof window !== 'undefined') setReturnTo(window.localStorage.getItem('platform_return_to'))
+  }, [currentCommunity])
+
+  if (!isPlatformAdmin || !returnTo || returnTo === currentCommunity) return null
+
+  const exit = async () => {
+    try { if (supabase) await supabase.rpc('platform_enter_community', { target: returnTo }) } catch {}
+    if (typeof window !== 'undefined') window.localStorage.removeItem('platform_return_to')
+    router.push('/platform')
+  }
+
+  return (
+    <div style={{ background: '#FF6B3D', color: '#1a0d07', padding: '9px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, fontSize: 13, fontWeight: 600, flexWrap: 'wrap' }}>
+      <span>⚙ Operator mode — you’re managing this community as Residente.</span>
+      <button onClick={exit} style={{ cursor: 'pointer', background: '#1a0d07', color: '#FF6B3D', border: 'none', padding: '6px 14px', borderRadius: 7, fontWeight: 700, fontSize: 12.5 }}>
+        Exit to Console
+      </button>
     </div>
   )
 }
