@@ -41,27 +41,6 @@ type Report = {
   storagePath?: string   // present on board-published reports with a PDF file
 }
 
-const REPORTS: Report[] = [
-  { id: 'r1', title: 'Monthly Financial Summary',  category: 'financial',   date: '2026-05-01', status: 'published', size: '2.1 MB', blurb: 'Income, expenses, reserves.', featured: true },
-  { id: 'r2', title: 'Board Meeting Minutes',      category: 'board',       date: '2026-05-15', status: 'published', size: '0.8 MB', blurb: 'Decisions, votes, action items.', featured: true },
-  { id: 'r3', title: 'Maintenance Report',         category: 'maintenance', date: '2026-04-28', status: 'published', size: '1.5 MB', blurb: 'Completed jobs and pending tickets.', featured: true },
-  { id: 'r4', title: 'Resident Survey',            category: 'community',   date: '2026-05-25', status: 'updated',   size: '0.6 MB', blurb: 'Quarterly satisfaction pulse.', featured: true },
-
-  { id: 'r5', title: 'Reserve Study Summary',      category: 'financial',   date: '2026-05-12', status: 'published', size: '3.0 MB' },
-  { id: 'r6', title: 'Delinquency Report',         category: 'financial',   date: '2026-05-10', status: 'published', size: '0.5 MB' },
-  { id: 'r7', title: 'Amenity Usage Report',       category: 'operations',  date: '2026-05-05', status: 'published', size: '1.1 MB' },
-  { id: 'r8', title: 'Vendor Performance Report',  category: 'vendor',      date: '2026-05-03', status: 'published', size: '0.9 MB' },
-
-  { id: 'r9',  title: 'Insurance Audit',           category: 'compliance',  date: '2026-04-22', status: 'published', size: '1.7 MB' },
-  { id: 'r10', title: 'Fire Drill Report',         category: 'safety',      date: '2026-04-18', status: 'published', size: '0.4 MB' },
-]
-
-const SCHEDULED = [
-  { id: 's1', title: 'Monthly Financial Summary', category: 'financial' as Category,   cadence: 'Monthly · 1st',  next: '2026-06-01' },
-  { id: 's2', title: 'Maintenance Status Report', category: 'maintenance' as Category, cadence: 'Weekly · Mon',  next: '2026-06-02' },
-  { id: 's3', title: 'Delinquency Roll-Up',       category: 'financial' as Category,   cadence: 'Monthly · 5th',  next: '2026-06-05' },
-  { id: 's4', title: 'Vendor Performance',        category: 'vendor' as Category,      cadence: 'Quarterly',      next: '2026-07-01' },
-]
 
 const CATEGORY_GRID: { key: Category; icon: CatIconName }[] = [
   { key: 'financial',   icon: 'finance' },
@@ -94,9 +73,10 @@ export function ReportsSection() {
   const gen = useGeneratedReports()
   const pub = usePublishedReports()
   const hasReal = pub.reports.length > 0 || gen.hasData
-  const reports: Report[] = hasReal
-    ? [...(pub.reports as Report[]), ...(gen.hasData ? (gen.reports as Report[]) : [])]
-    : REPORTS
+  // No fake fallback: an empty community shows real empty states, not demo
+  // numbers. (Reports are generated from the community's own budget /
+  // payments / decisions, so there's nothing until those exist.)
+  const reports: Report[] = [...(pub.reports as Report[]), ...(gen.hasData ? (gen.reports as Report[]) : [])]
 
   // Open a report — published reports stream their PDF via a signed URL;
   // generated/demo summaries have no file, so the click is a no-op.
@@ -120,21 +100,15 @@ export function ReportsSection() {
   const featured = filtered.filter(r => r.featured).slice(0, 4)
   const recent = filtered.filter(r => !r.featured).slice(0, 5)
 
-  // Financial Overview pie — real budget categories when a community is
-  // loaded, else a demo allocation that reads clean on the chart.
-  const DEMO_FIN_SEGMENTS: { label: string; amount: number; color: string }[] = [
-    { label: 'Operating Expenses', amount: 48000, color: '#E14909' },
-    { label: 'Reserve Funds',      amount: 18000, color: '#0A2440' },
-    { label: 'Marketing',          amount:  6500, color: '#C76F45' },
-    { label: 'Misc',               amount:  3500, color: '#7D8C5C' },
-  ]
+  // Financial Overview pie — real budget categories, or empty (the render
+  // shows an empty state rather than fabricated numbers).
   const useReal = gen.hasData && gen.finance.segments.length > 0
-  const FIN_SEGMENTS = useReal ? gen.finance.segments : DEMO_FIN_SEGMENTS
-  const FIN_TOTAL = useReal ? gen.finance.total : DEMO_FIN_SEGMENTS.reduce((s, x) => s + x.amount, 0)
+  const FIN_SEGMENTS = useReal ? gen.finance.segments : []
+  const FIN_TOTAL = useReal ? gen.finance.total : 0
 
-  // Dues Collection tile — real aggregates from Residents + Payments, demo otherwise.
-  const DEMO_DUES = { collected: 48000, outstanding: 6500, paid: 150, due: 12, late: 4, households: 166, rate: 88 }
-  const dues = gen.hasData ? gen.dues : DEMO_DUES
+  // Dues Collection — real aggregates from Residents + Payments, or zeros.
+  const ZERO_DUES = { collected: 0, outstanding: 0, paid: 0, due: 0, late: 0, households: 0, rate: 0 }
+  const dues = gen.hasData ? gen.dues : ZERO_DUES
 
   return (
     <section id="reports" className="rep-wrap ev-section">
@@ -235,18 +209,22 @@ export function ReportsSection() {
                 <h3 className="rep-tile-title">Financial Overview</h3>
                 <span className="rep-tile-meta">May 2026</span>
               </div>
-              <div className="rep-fin-body">
-                <PieChart segments={FIN_SEGMENTS} total={FIN_TOTAL} />
-                <ul className="rep-fin-legend">
-                  {FIN_SEGMENTS.map(s => (
-                    <li key={s.label}>
-                      <span className="rep-fin-dot" style={{ background: s.color }} aria-hidden="true" />
-                      <span className="rep-fin-label">{s.label}</span>
-                      <span className="rep-fin-amt">${s.amount.toLocaleString('en-US')}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+              {FIN_SEGMENTS.length === 0 ? (
+                <div className="rep-empty">Budget breakdown appears once the board sets up budget categories.</div>
+              ) : (
+                <div className="rep-fin-body">
+                  <PieChart segments={FIN_SEGMENTS} total={FIN_TOTAL} />
+                  <ul className="rep-fin-legend">
+                    {FIN_SEGMENTS.map(s => (
+                      <li key={s.label}>
+                        <span className="rep-fin-dot" style={{ background: s.color }} aria-hidden="true" />
+                        <span className="rep-fin-label">{s.label}</span>
+                        <span className="rep-fin-amt">${s.amount.toLocaleString('en-US')}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
               <Link href="#" className="rep-cta-link">View Detailed Report &rarr;</Link>
             </section>
 
@@ -275,43 +253,16 @@ export function ReportsSection() {
 
           {/* Scheduled Reports — demo only. Live reports refresh automatically
               from the community's data, so there's nothing to schedule. */}
-          {!hasReal ? (
-            <section className="rep-card">
-              <div className="rep-card-head">
-                <h2 className="rep-card-title">Scheduled Reports</h2>
-                <Link href="#" className="rep-card-link">Manage Scheduled Reports</Link>
-              </div>
-              <div className="rep-table">
-                <div className="rep-row rep-row-head rep-row-sched">
-                  <span>Report</span>
-                  <span>Category</span>
-                  <span>Cadence</span>
-                  <span>Next run</span>
-                  <span></span>
-                </div>
-                {SCHEDULED.map(s => (
-                  <div key={s.id} className="rep-row rep-row-sched">
-                    <span className="rep-row-title">{s.title}</span>
-                    <span><span className={`rep-tag rep-tag-${s.category}`}>{CATEGORY_LABEL[s.category]}</span></span>
-                    <span className="rep-row-date">{s.cadence}</span>
-                    <span className="rep-row-date">{fmtDate(s.next)}</span>
-                    <a href="#" className="rep-row-action">Edit</a>
-                  </div>
-                ))}
-              </div>
-            </section>
-          ) : (
-            <section className="rep-card">
-              <div className="rep-card-head">
-                <h2 className="rep-card-title">Always current</h2>
-              </div>
-              <p className="rep-fcard-blurb" style={{ padding: '4px 2px 2px' }}>
-                These reports are generated live from your community&rsquo;s budget,
-                residents, payments, and board activity — they refresh on their own,
-                nothing to schedule or upload.
-              </p>
-            </section>
-          )}
+          <section className="rep-card">
+            <div className="rep-card-head">
+              <h2 className="rep-card-title">Always current</h2>
+            </div>
+            <p className="rep-fcard-blurb" style={{ padding: '4px 2px 2px' }}>
+              These reports are generated live from your community&rsquo;s budget,
+              residents, payments, and board activity — they refresh on their own,
+              nothing to schedule or upload.
+            </p>
+          </section>
         </div>
 
         {/* RIGHT SIDEBAR */}
