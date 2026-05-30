@@ -10,6 +10,7 @@ import { kindToUpTag, upcomingFrom, useScheduleEvents } from '@/lib/schedule'
 import { useUnreadNoticeCount, useMyNotices } from '@/hooks/useNotices'
 import { NOTICE_KIND_LABELS, noticeHref, NoticeKind } from '@/lib/voice'
 import { useCommunityData } from '@/hooks/useCommunityData'
+import { useWeather } from '@/hooks/useWeather'
 import { usePreferences } from '@/lib/preferences'
 import { DUES_LABEL } from '@/lib/dues'
 import { CommunitySwitcher } from '../CommunitySwitcher'
@@ -56,6 +57,7 @@ const fmtTime = () => {
 export default function CockpitLayout({ children }: { children: ReactNode }) {
   const { session, profile } = useAuth()
   const { community } = useCommunityData()
+  const { weather } = useWeather(community?.location)
   const [prefs] = usePreferences()
   const pathname = usePathname() || '/app'
   const router = useRouter()
@@ -166,7 +168,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/>
               </svg>
-              82° Sunny
+              {weather ? `${weather.temp}° ${weather.condition}` : '—'}
             </span>
           </div>
           {isPreview ? (
