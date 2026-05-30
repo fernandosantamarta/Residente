@@ -6,10 +6,8 @@ import {
   EventKind,
   KIND_LABEL,
   ScheduleEvent,
-  addStoredEvent,
-  getStoredEvents,
-  removeStoredEvent,
   useScheduleEvents,
+  useCommunitySchedule,
 } from '@/lib/schedule'
 import { Dropdown } from '@/components/Dropdown'
 import { Pagination, paginate } from '@/components/Pagination'
@@ -101,6 +99,9 @@ function parseScheduleCsv(text: string): ParsedRow[] {
 // page and the dashboard's "Up next" rail.
 export default function AdminSchedule() {
   const allEvents = useScheduleEvents()
+  // Board-managed events (from the DB) + async add/remove. Realtime-synced,
+  // so anything added here shows on every resident's calendar immediately.
+  const { events: stored, addEvent, removeEvent } = useCommunitySchedule()
   const [form, setForm] = useState<EmptyForm>(EMPTY_FORM)
   const [successMsg, setSuccessMsg] = useState<string>('')
   const [error, setError] = useState<string>('')
@@ -118,11 +119,8 @@ export default function AdminSchedule() {
   const [page, setPage] = useState(1)
 
   // Only board-added events can be deleted from this admin view —
-  // the seeded demo/holiday set lives in code and isn't user-editable.
-  const stored = useMemo(() => {
-    if (typeof window === 'undefined') return [] as ScheduleEvent[]
-    return getStoredEvents()
-  }, [allEvents])
+  // the in-code holiday set isn't user-editable. `stored` now comes from
+  // the DB hook above.
   const sortedStored = useMemo(
     () => [...stored].sort((a, b) => a.date.localeCompare(b.date)),
     [stored]
@@ -177,29 +175,39 @@ export default function AdminSchedule() {
     setForm(prev => ({ ...prev, [k]: e.target.value }))
   }
 
-  const onSubmit = (e: FormEvent) => {
+  const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!form.title.trim() || !form.date) {
       setError('Title and date are required.')
       return
     }
-    addStoredEvent({
-      kind: form.kind,
-      title: form.title.trim(),
-      date: form.date,
-      time: form.time.trim() || undefined,
-      vendor: form.vendor.trim() || undefined,
-      location: form.location.trim() || undefined,
-    })
-    setForm(EMPTY_FORM)
-    setError('')
-    setSuccessMsg(`Added "${form.title.trim()}" to the calendar.`)
+    const title = form.title.trim()
+    try {
+      // notify:true (default) fires a bell notice to every resident.
+      await addEvent({
+        kind: form.kind,
+        title,
+        date: form.date,
+        time: form.time.trim() || undefined,
+        vendor: form.vendor.trim() || undefined,
+        location: form.location.trim() || undefined,
+      })
+      setForm(EMPTY_FORM)
+      setError('')
+      setSuccessMsg(`Added "${title}" to the calendar. Residents have been notified.`)
+    } catch (err: any) {
+      setError(err?.message || 'Could not add the event.')
+    }
   }
 
-  const onDelete = (id: string) => {
+  const onDelete = async (id: string) => {
     if (!window.confirm('Remove this event from the calendar?')) return
-    removeStoredEvent(id)
-    setSuccessMsg('Event removed.')
+    try {
+      await removeEvent(id)
+      setSuccessMsg('Event removed.')
+    } catch (err: any) {
+      setError(err?.message || 'Could not remove the event.')
+    }
   }
 
   const onPickPdf = (e: ChangeEvent<HTMLInputElement>) => {
@@ -246,21 +254,29 @@ export default function AdminSchedule() {
     reader.readAsText(xlsFile)
   }
   // Land every valid parsed row on the calendar, then clear the staging area.
-  const confirmImport = () => {
+  const confirmImport = async () => {
     if (!preview) return
     const good = preview.filter(r => r.ok)
-    good.forEach(r => addStoredEvent({
-      kind: r.kind,
-      title: r.title,
-      date: r.date,
-      time: r.time,
-      vendor: r.vendor,
-      location: r.location,
-    }))
-    setPreview(null)
-    setXlsFile(null)
-    setImportError('')
-    setSuccessMsg(`Added ${good.length} event${good.length === 1 ? '' : 's'} from the file.`)
+    try {
+      // notify:false on bulk import — one notice per CSV row would flood the
+      // bell. The events still land live on everyone's calendar.
+      for (const r of good) {
+        await addEvent({
+          kind: r.kind,
+          title: r.title,
+          date: r.date,
+          time: r.time,
+          vendor: r.vendor,
+          location: r.location,
+        }, { notify: false })
+      }
+      setPreview(null)
+      setXlsFile(null)
+      setImportError('')
+      setSuccessMsg(`Added ${good.length} event${good.length === 1 ? '' : 's'} from the file.`)
+    } catch (err: any) {
+      setImportError(err?.message || 'Could not import all rows.')
+    }
   }
   const cancelImport = () => {
     setPreview(null)

@@ -1,8 +1,13 @@
 // Shared schedule events. Used by:
 //   - app/app/schedule/page.tsx — the calendar grid + side panel
 //   - app/app/layout.tsx (RightRail) — the dashboard's "Up Next" list
-// Both surfaces pull from this single source so the dashboard's rail
-// stays in sync with whatever the resident sees on the calendar.
+//   - app/admin/schedule/page.tsx — the board's add / remove management
+// All surfaces pull from one Supabase source (ev_schedule_events), so the
+// board, every resident, and the dashboard rail stay in sync in realtime.
+
+import { useEffect, useState, useCallback } from 'react'
+import { useAuth } from '@/app/providers'
+import { supabase, hasSupabase } from '@/lib/supabase'
 
 export type EventKind = 'meeting' | 'vote' | 'dues' | 'maintenance' | 'event' | 'inspection' | 'holiday'
 
@@ -29,9 +34,8 @@ export const KIND_LABEL: Record<EventKind, string> = {
 
 export const ALL_KINDS: EventKind[] = ['meeting', 'vote', 'dues', 'maintenance', 'event', 'inspection', 'holiday']
 
-// US holidays — federal + popular observances. Pre-populated so the
-// calendar feels lived-in from day one and residents can see the dates
-// the community will be celebrating / closed for.
+// US holidays — federal + popular observances. These live in code (not the
+// DB) so every community gets them for free and they never need seeding.
 export const US_HOLIDAYS_2026: ScheduleEvent[] = [
   { id: 'h26-01', kind: 'holiday', date: '2026-01-01', title: "New Year's Day" },
   { id: 'h26-02', kind: 'holiday', date: '2026-01-19', title: 'Martin Luther King Jr. Day' },
@@ -55,34 +59,8 @@ export const US_HOLIDAYS_2026: ScheduleEvent[] = [
   { id: 'h26-20', kind: 'holiday', date: '2026-12-31', title: "New Year's Eve" },
 ]
 
-// Demo events covering May–June 2026. Replace with a real hook later.
-export const DEMO_EVENTS: ScheduleEvent[] = [
-  { id: 'e1',  kind: 'meeting',     date: '2026-05-01', title: 'Board Meeting',        time: '7:00 PM', location: 'Clubhouse', href: '/app/voice' },
-  { id: 'e2',  kind: 'maintenance', date: '2026-05-02', title: 'Pool Maintenance',     time: '8:00 AM – 12:00 PM', vendor: 'SeaCare Pools' },
-  { id: 'e3',  kind: 'maintenance', date: '2026-05-03', title: 'Pool Maintenance',     time: '8:00 AM – 12:00 PM', vendor: 'SeaCare Pools' },
-  { id: 'e4',  kind: 'event',       date: '2026-05-04', title: 'Landscape Day',        time: '9:00 AM', vendor: 'Oak Ridge Nursery' },
-  { id: 'e5',  kind: 'dues',        date: '2026-05-06', title: 'Dues Due',             time: 'All day' },
-  { id: 'e6',  kind: 'event',       date: '2026-05-07', title: 'Sunset Cup',           time: '5:00 PM', location: 'Pavilion' },
-  { id: 'e7',  kind: 'vote',        date: '2026-05-09', title: 'Vote: Pool vendor',    href: '/app/voice/demo-meeting-1' },
-  { id: 'e8',  kind: 'maintenance', date: '2026-05-10', title: 'Gate Inspection',      time: '10:00 AM', vendor: 'SecureGate Co' },
-  { id: 'e9',  kind: 'event',       date: '2026-05-11', title: 'Fire Drill',           time: '11:00 AM' },
-  { id: 'e10', kind: 'maintenance', date: '2026-05-13', title: 'Landscape Day',        time: '7:00 AM', vendor: 'Oak Ridge Nursery' },
-  { id: 'e11', kind: 'vote',        date: '2026-05-14', title: 'Vote: Holiday lights', href: '/app/voice' },
-  { id: 'e12', kind: 'meeting',     date: '2026-05-15', title: 'Board Meeting',        time: '7:00 PM', location: 'Clubhouse', href: '/app/voice' },
-  { id: 'e13', kind: 'inspection',  date: '2026-05-19', title: 'Elevator Inspection',  time: '10:00 AM' },
-  { id: 'e14', kind: 'maintenance', date: '2026-05-22', title: 'Pool Maintenance',     time: '8:00 AM – 12:00 PM', vendor: 'SeaCare Pools' },
-  { id: 'e15', kind: 'event',       date: '2026-05-24', title: 'Spring Picnic',        time: '12:00 PM', location: 'Pavilion' },
-  // Today's stack — May 28
-  { id: 'e16', kind: 'meeting',     date: '2026-05-28', title: 'Board Meeting',        time: '7:00 PM', location: 'Clubhouse', href: '/app/voice' },
-  { id: 'e17', kind: 'maintenance', date: '2026-05-28', title: 'Pool Maintenance',     time: '8:00 AM – 4:00 PM', vendor: 'SeaCare Pools' },
-  { id: 'e18', kind: 'inspection',  date: '2026-05-28', title: 'Monthly Inspection',   time: '11:00 AM' },
-  { id: 'e19', kind: 'dues',        date: '2026-06-01', title: 'June Dues',            time: 'All day' },
-  { id: 'e20', kind: 'meeting',     date: '2026-06-12', title: 'Monthly Board Meeting',time: '7:00 PM', location: 'Clubhouse', href: '/app/voice' },
-]
-
 // Map a calendar event kind to one of the right-rail tag styles
-// (pending / renewed / hosted) the dashboard already styles. Future:
-// give each kind its own tag.
+// (pending / renewed / hosted) the dashboard already styles.
 export function kindToUpTag(kind: EventKind): 'pending' | 'renewed' | 'hosted' {
   switch (kind) {
     case 'meeting':     return 'hosted'
@@ -104,70 +82,119 @@ export function upcomingFrom(events: ScheduleEvent[], fromISO: string, limit?: n
 }
 
 // ---------------------------------------------------------------
-// Local persistence — events added by the board via /admin/schedule
-// live in localStorage until we wire up a Supabase events table.
-// Storage event ensures sibling tabs (admin + resident view) stay
-// in sync without a refresh.
+// Supabase-backed community events (ev_schedule_events).
 // ---------------------------------------------------------------
 
-const STORAGE_KEY = 'residente-schedule-events'
+type NewEvent = Omit<ScheduleEvent, 'id'>
 
-export function getStoredEvents(): ScheduleEvent[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw)
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
+const rowToEvent = (r: any): ScheduleEvent => ({
+  id:       r.id,
+  kind:     r.kind,
+  title:    r.title,
+  date:     r.event_date,
+  time:     r.time ?? undefined,
+  vendor:   r.vendor ?? undefined,
+  location: r.location ?? undefined,
+  href:     r.href ?? undefined,
+})
 
-export function setStoredEvents(events: ScheduleEvent[]) {
-  if (typeof window === 'undefined') return
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(events))
-  // Notify same-tab listeners (storage events only fire cross-tab natively).
-  window.dispatchEvent(new CustomEvent('residente-schedule-change'))
-}
+// Core fetch + realtime subscription for a community's events. Shared by
+// both the read-only `useScheduleEvents` (calendar + rail) and the
+// management `useCommunitySchedule` (admin add/remove).
+function useCommunityEvents() {
+  const { profile } = useAuth() || {}
+  const communityId = profile?.community_id
+  const [events, setEvents] = useState<ScheduleEvent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  // Unique per hook instance. A page can mount this hook twice (e.g. admin
+  // uses both useScheduleEvents + useCommunitySchedule); supabase-js throws
+  // if two channels share a topic name, so each instance gets its own.
+  const [channelId] = useState(() => Math.random().toString(36).slice(2))
 
-export function addStoredEvent(event: Omit<ScheduleEvent, 'id'> & { id?: string }) {
-  const id = event.id || `u-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`
-  const next = [...getStoredEvents(), { ...event, id } as ScheduleEvent]
-  setStoredEvents(next)
-  return id
-}
-
-export function removeStoredEvent(id: string) {
-  setStoredEvents(getStoredEvents().filter(e => e.id !== id))
-}
-
-export function clearStoredEvents() {
-  setStoredEvents([])
-}
-
-// React hook — combines DEMO_EVENTS with anything in localStorage.
-// SSR returns DEMO only; client merges in stored on mount, then
-// listens for changes from sibling tabs OR sibling components.
-import { useEffect, useState } from 'react'
-
-export function useScheduleEvents() {
-  const [stored, setStored] = useState<ScheduleEvent[]>([])
-
-  useEffect(() => {
-    const refresh = () => setStored(getStoredEvents())
-    refresh()
-    const onStorage = (e: StorageEvent) => { if (e.key === STORAGE_KEY) refresh() }
-    const onLocal = () => refresh()
-    window.addEventListener('storage', onStorage)
-    window.addEventListener('residente-schedule-change', onLocal)
-    return () => {
-      window.removeEventListener('storage', onStorage)
-      window.removeEventListener('residente-schedule-change', onLocal)
+  const load = useCallback(async () => {
+    if (!hasSupabase || !supabase || !communityId) { setLoading(false); return }
+    try {
+      const { data, error } = await supabase
+        .from('ev_schedule_events')
+        .select('id, kind, title, event_date, time, vendor, location, href')
+        .eq('community_id', communityId)
+        .order('event_date', { ascending: true })
+      if (error) throw error
+      setEvents((data ?? []).map(rowToEvent))
+      setError(null)
+    } catch (e: any) {
+      setError(e?.message || 'Could not load the calendar')
+    } finally {
+      setLoading(false)
     }
-  }, [])
+  }, [communityId])
 
-  // Holidays + demo events + admin-added (localStorage) events. Order
-  // is normalized by date wherever events are rendered.
-  return [...US_HOLIDAYS_2026, ...DEMO_EVENTS, ...stored]
+  useEffect(() => { load() }, [load])
+
+  // Realtime: any insert/update/delete in this community's events refreshes
+  // every open surface (board's admin view, residents' calendars, the rail).
+  useEffect(() => {
+    if (!hasSupabase || !supabase || !communityId) return
+    const channel = supabase
+      .channel(`schedule:${communityId}:${channelId}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'ev_schedule_events',
+        filter: `community_id=eq.${communityId}`,
+      }, () => { load() })
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
+  }, [communityId, channelId, load])
+
+  return { events, loading, error, reload: load, communityId, profileId: profile?.id }
+}
+
+// Read surface: holidays (from code) + this community's events (from the DB).
+// Returns a plain array so existing consumers (calendar grid, "Up next" rail)
+// don't change. Empty community list until the fetch resolves.
+export function useScheduleEvents(): ScheduleEvent[] {
+  const { events } = useCommunityEvents()
+  return [...US_HOLIDAYS_2026, ...events]
+}
+
+// Management surface for /admin/schedule: the community's events plus async
+// add / remove. `notify` defaults to true for single adds (fires a bell
+// notice); CSV bulk imports pass notify:false to avoid flooding the bell.
+export function useCommunitySchedule() {
+  const { events, loading, error, reload, communityId, profileId } = useCommunityEvents()
+
+  const addEvent = useCallback(
+    async (e: NewEvent, opts: { notify?: boolean } = {}): Promise<string | null> => {
+      if (!hasSupabase || !supabase || !communityId) return null
+      const { data, error } = await supabase
+        .from('ev_schedule_events')
+        .insert({
+          community_id: communityId,
+          kind:       e.kind,
+          title:      e.title,
+          event_date: e.date,
+          time:       e.time || null,
+          vendor:     e.vendor || null,
+          location:   e.location || null,
+          href:       e.href || null,
+          notify:     opts.notify ?? true,
+          created_by: profileId ?? null,
+        })
+        .select('id')
+        .single()
+      if (error) throw error
+      await reload()
+      return data?.id ?? null
+    },
+    [communityId, profileId, reload]
+  )
+
+  const removeEvent = useCallback(async (id: string) => {
+    if (!hasSupabase || !supabase) return
+    const { error } = await supabase.from('ev_schedule_events').delete().eq('id', id)
+    if (error) throw error
+    await reload()
+  }, [reload])
+
+  return { events, loading, error, reload, addEvent, removeEvent }
 }

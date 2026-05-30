@@ -495,9 +495,14 @@ function NotificationBell() {
     return () => document.removeEventListener('click', onDocClick)
   }, [open])
 
-  const onPick = (recipientId: string, n: { meeting_id?: string | null; vote_id?: string | null }) => {
-    markRead(recipientId)
+  const onPick = async (recipientId: string, n: { meeting_id?: string | null; vote_id?: string | null }) => {
+    // Await the read-write BEFORE navigating. router.push() tears this
+    // component down and aborts any in-flight fetch, so a fire-and-forget
+    // markRead() here was getting cancelled — the notice never persisted as
+    // read. The optimistic update already cleared it visually; this makes it
+    // stick on the server too.
     setOpen(false)
+    await markRead(recipientId)
     router.push(noticeHref(n))
   }
 

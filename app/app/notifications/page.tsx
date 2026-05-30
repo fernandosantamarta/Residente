@@ -30,10 +30,12 @@ export default function NotificationsInboxPage() {
 
   const unreadCount = notices.filter((r: any) => !r.read_at).length
 
-  const onPick = (r: any) => {
+  const onPick = async (r: any) => {
     const n = r.notice
     if (!n) return
-    if (!r.read_at) markRead(r.id)
+    // Await before navigating — router.push() aborts the in-flight markRead
+    // PATCH otherwise, so the row never persists as read (see NotificationBell).
+    if (!r.read_at) await markRead(r.id)
     router.push(noticeHref(n))
   }
 
