@@ -6,30 +6,52 @@ import { usePlatformConsole, PlatformRequest } from '@/hooks/usePlatform'
 const fmtDate = (s: string) =>
   s ? new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
 
-const card: React.CSSProperties = {
-  background: 'var(--surface, #15171c)', border: '1px solid var(--border)',
-  borderRadius: 14, padding: '18px 20px', marginBottom: 18,
+// Self-contained palette — this page lives outside the themed app layout, so
+// it can't rely on CSS theme vars (they'd render dark-on-dark). Explicit
+// colors keep it readable on its own.
+const C = {
+  bg: '#0b0d12', card: '#16191f', cardHover: '#1b1f27', border: '#272c36',
+  text: '#eceef2', muted: '#8b929e', accent: '#FF6B3D', accentSoft: 'rgba(255,107,61,0.14)',
 }
-const th: React.CSSProperties = { textAlign: 'left', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, color: 'var(--text-faint)', padding: '8px 10px', fontWeight: 700 }
-const td: React.CSSProperties = { padding: '10px 10px', borderTop: '1px solid var(--border)', fontSize: 13, verticalAlign: 'top' }
+
+const card: React.CSSProperties = {
+  background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: '20px 22px',
+}
+const th: React.CSSProperties = {
+  textAlign: 'left', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6,
+  color: C.muted, padding: '0 12px 10px', fontWeight: 700,
+}
+const td: React.CSSProperties = {
+  padding: '13px 12px', borderTop: `1px solid ${C.border}`, fontSize: 13.5, color: C.text, verticalAlign: 'middle',
+}
 const STATUS_NEXT: Record<PlatformRequest['status'], PlatformRequest['status']> = {
   open: 'in_progress', in_progress: 'resolved', resolved: 'open',
 }
+const statusStyle = (s: PlatformRequest['status']): React.CSSProperties => ({
+  cursor: 'pointer', fontSize: 11, fontWeight: 700, padding: '4px 11px', borderRadius: 999,
+  border: '1px solid transparent', flexShrink: 0, whiteSpace: 'nowrap', textTransform: 'capitalize',
+  background: s === 'resolved' ? 'rgba(74,201,155,0.15)' : s === 'in_progress' ? 'rgba(78,140,221,0.15)' : C.accentSoft,
+  color: s === 'resolved' ? '#4AC99B' : s === 'in_progress' ? '#6BA6F5' : C.accent,
+})
 
 export default function PlatformConsole() {
   const { isAdmin, communities, requests, loading, setRequestStatus } = usePlatformConsole()
 
+  const shell = (children: React.ReactNode) => (
+    <div style={{ minHeight: '100vh', background: C.bg, color: C.text }}>
+      <div style={{ maxWidth: 1120, margin: '0 auto', padding: '40px 28px 64px' }}>{children}</div>
+    </div>
+  )
+
   if (loading || isAdmin === null) {
-    return <div style={{ padding: 40, color: 'var(--text-faint)' }}>Loading the platform console…</div>
+    return shell(<div style={{ color: C.muted, padding: 40 }}>Loading the platform console…</div>)
   }
   if (!isAdmin) {
-    return (
-      <div style={{ padding: 40, maxWidth: 520 }}>
+    return shell(
+      <div style={{ paddingTop: 24, maxWidth: 520 }}>
         <h1 style={{ fontSize: 22, marginBottom: 8 }}>Not authorized</h1>
-        <p style={{ color: 'var(--text-faint)', marginBottom: 16 }}>
-          The Platform Console is for Residente operators only.
-        </p>
-        <Link href="/app" style={{ color: 'var(--pink)' }}>&larr; Back to your community</Link>
+        <p style={{ color: C.muted, marginBottom: 16 }}>The Platform Console is for Residente operators only.</p>
+        <Link href="/app" style={{ color: C.accent, textDecoration: 'none' }}>&larr; Back to your community</Link>
       </div>
     )
   }
@@ -37,62 +59,72 @@ export default function PlatformConsole() {
   const openCount = requests.filter(r => r.status !== 'resolved').length
   const totalResidents = communities.reduce((s, c) => s + Number(c.resident_count || 0), 0)
   const trials = communities.filter(c => c.subscription_status === 'trial').length
+  const stats: [string, number, boolean][] = [
+    ['Communities', communities.length, false],
+    ['On trial', trials, false],
+    ['Total residents', totalResidents, false],
+    ['Open tickets', openCount, openCount > 0],
+  ]
 
-  return (
-    <div style={{ padding: '32px 28px', maxWidth: 1100, margin: '0 auto' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 6 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700 }}>Residente — Platform Console</h1>
-        <Link href="/app" style={{ color: 'var(--text-faint)', fontSize: 13 }}>&larr; Back to your community</Link>
+  return shell(
+    <>
+      {/* Header */}
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+        <div>
+          <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: -0.3 }}>
+            Residente <span style={{ color: C.accent }}>Platform Console</span>
+          </h1>
+          <p style={{ color: C.muted, fontSize: 13.5, marginTop: 4 }}>
+            Every community on Residente, plus support from their boards. Operators only.
+          </p>
+        </div>
+        <Link href="/app" style={{ color: C.muted, fontSize: 13, textDecoration: 'none', whiteSpace: 'nowrap' }}>
+          &larr; Back to your community
+        </Link>
       </div>
-      <p style={{ color: 'var(--text-faint)', fontSize: 13, marginBottom: 20 }}>
-        Every community on Residente, plus support requests from their boards. Operators only.
-      </p>
 
-      {/* Headline stats */}
-      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginBottom: 20 }}>
-        {[
-          ['Communities', communities.length],
-          ['On trial', trials],
-          ['Total residents', totalResidents],
-          ['Open tickets', openCount],
-        ].map(([label, val]) => (
-          <div key={label as string} style={{ ...card, flex: '1 1 160px', marginBottom: 0 }}>
-            <div style={{ fontSize: 28, fontWeight: 700 }}>{val as number}</div>
-            <div style={{ color: 'var(--text-faint)', fontSize: 12 }}>{label as string}</div>
+      {/* Stat cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14, margin: '26px 0' }}>
+        {stats.map(([label, val, hot]) => (
+          <div key={label} style={{ ...card, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
+            <div style={{ position: 'absolute', top: 0, left: 0, width: 3, height: '100%', background: hot ? C.accent : C.border }} />
+            <div style={{ fontSize: 32, fontWeight: 800, color: hot ? C.accent : C.text, lineHeight: 1 }}>{val}</div>
+            <div style={{ color: C.muted, fontSize: 12.5, marginTop: 7, fontWeight: 500 }}>{label}</div>
           </div>
         ))}
       </div>
 
       {/* Communities */}
-      <section style={card}>
-        <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>Communities</h2>
+      <section style={{ ...card, marginBottom: 18 }}>
+        <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 16, color: C.text }}>Communities</h2>
         {communities.length === 0 ? (
-          <div style={{ color: 'var(--text-faint)', fontSize: 13 }}>No communities yet.</div>
+          <div style={{ color: C.muted, fontSize: 13.5 }}>No communities yet.</div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
               <thead>
                 <tr>
-                  <th style={th}>Community</th><th style={th}>Location</th><th style={th}>Plan</th>
-                  <th style={th}>Residents</th><th style={th}>Board</th><th style={th}>Join code</th><th style={th}>Created</th>
+                  {['Community', 'Location', 'Plan', 'Residents', 'Board', 'Join code', 'Created'].map(h => (
+                    <th key={h} style={th}>{h}</th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
                 {communities.map(c => (
                   <tr key={c.id}>
-                    <td style={{ ...td, fontWeight: 600 }}>{c.name || '—'}</td>
-                    <td style={td}>{c.location || '—'}</td>
+                    <td style={{ ...td, fontWeight: 700 }}>{c.name || '—'}</td>
+                    <td style={{ ...td, color: C.muted }}>{c.location || '—'}</td>
                     <td style={td}>
                       <span style={{
-                        fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
-                        background: c.subscription_status === 'trial' ? 'rgba(224,163,62,0.15)' : 'rgba(92,200,160,0.15)',
-                        color: c.subscription_status === 'trial' ? '#E0A33E' : '#5CC8A0',
+                        fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, textTransform: 'capitalize',
+                        background: c.subscription_status === 'trial' ? C.accentSoft : 'rgba(74,201,155,0.15)',
+                        color: c.subscription_status === 'trial' ? C.accent : '#4AC99B',
                       }}>{c.subscription_status || 'active'}</span>
                     </td>
                     <td style={td}>{c.resident_count}</td>
                     <td style={td}>{c.board_count}</td>
-                    <td style={{ ...td, fontFamily: 'monospace', letterSpacing: 1 }}>{c.join_code || '—'}</td>
-                    <td style={td}>{fmtDate(c.created_at)}</td>
+                    <td style={{ ...td, fontFamily: 'ui-monospace, monospace', letterSpacing: 1, color: C.muted }}>{c.join_code || '—'}</td>
+                    <td style={{ ...td, color: C.muted }}>{fmtDate(c.created_at)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -103,34 +135,27 @@ export default function PlatformConsole() {
 
       {/* Support inbox */}
       <section style={card}>
-        <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 10 }}>
-          Support inbox {openCount > 0 && <span style={{ color: '#E0A33E' }}>· {openCount} open</span>}
+        <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: C.text }}>
+          Support inbox {openCount > 0 && <span style={{ color: C.accent, fontWeight: 700 }}>· {openCount} open</span>}
         </h2>
         {requests.length === 0 ? (
-          <div style={{ color: 'var(--text-faint)', fontSize: 13 }}>No support requests yet.</div>
+          <div style={{ color: C.muted, fontSize: 13.5, marginTop: 12 }}>No support requests yet.</div>
         ) : requests.map(r => (
-          <div key={r.id} style={{ borderTop: '1px solid var(--border)', padding: '12px 0', display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-            <button
-              onClick={() => setRequestStatus(r.id, STATUS_NEXT[r.status])}
-              title="Click to advance status"
-              style={{
-                cursor: 'pointer', fontSize: 11, fontWeight: 700, padding: '3px 9px', borderRadius: 999, border: '1px solid var(--border)',
-                background: r.status === 'resolved' ? 'rgba(92,200,160,0.15)' : r.status === 'in_progress' ? 'rgba(62,124,177,0.15)' : 'rgba(224,163,62,0.15)',
-                color: r.status === 'resolved' ? '#5CC8A0' : r.status === 'in_progress' ? '#3E7CB1' : '#E0A33E',
-                flexShrink: 0, whiteSpace: 'nowrap',
-              }}>
+          <div key={r.id} style={{ borderTop: `1px solid ${C.border}`, padding: '14px 0', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
+            <button onClick={() => setRequestStatus(r.id, STATUS_NEXT[r.status])} title="Click to advance status"
+              style={statusStyle(r.status)}>
               {r.status === 'in_progress' ? 'in progress' : r.status}
             </button>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontWeight: 600, fontSize: 14 }}>{r.subject}</div>
-              {r.body && <div style={{ color: 'var(--text-soft, var(--text-faint))', fontSize: 13, marginTop: 2 }}>{r.body}</div>}
-              <div style={{ color: 'var(--text-faint)', fontSize: 12, marginTop: 4 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: 14.5, color: C.text }}>{r.subject}</div>
+              {r.body && <div style={{ color: '#c2c7d0', fontSize: 13.5, marginTop: 3 }}>{r.body}</div>}
+              <div style={{ color: C.muted, fontSize: 12.5, marginTop: 6 }}>
                 {r.from_name || 'A board member'}{r.from_email ? ` · ${r.from_email}` : ''} · {fmtDate(r.created_at)}
               </div>
             </div>
           </div>
         ))}
       </section>
-    </div>
+    </>
   )
 }
