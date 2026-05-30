@@ -41,7 +41,10 @@ export function usePlatformConsole() {
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
-    if (!hasSupabase || !supabase || !profile?.id) { setLoading(false); return }
+    // No session/profile → resolve to "not authorized" instead of hanging on
+    // the loading state forever (isAdmin must leave null, or the page's
+    // `loading || isAdmin === null` guard never clears).
+    if (!hasSupabase || !supabase || !profile?.id) { setIsAdmin(false); setLoading(false); return }
     setLoading(true)
     try {
       const { data, error } = await supabase.rpc('platform_overview')
