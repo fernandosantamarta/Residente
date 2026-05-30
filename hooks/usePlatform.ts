@@ -12,7 +12,16 @@ export type PlatformRequest = {
   from_community_id: string | null; subject: string; body: string | null
   status: 'open' | 'in_progress' | 'resolved'; created_at: string
 }
-export type PlatformOperator = { name: string; email: string | null; added_at: string }
+export type OperatorRole = 'owner' | 'operator' | 'support'
+export type PlatformOperator = {
+  profile_id: string; name: string; email: string | null
+  role: OperatorRole; added_by_name: string | null; added_at: string
+}
+export type AuditEntry = {
+  id: string; actor_name: string | null; actor_email: string | null
+  action: string; target_type: string | null; target_id: string | null
+  detail: Record<string, any> | null; created_at: string
+}
 
 // Lightweight boolean — is the signed-in user a Residente platform operator?
 // Used to conditionally show the Platform Console link. Returns null while loading.
@@ -40,6 +49,8 @@ export function usePlatformConsole() {
   const [communities, setCommunities] = useState<PlatformCommunity[]>([])
   const [requests, setRequests] = useState<PlatformRequest[]>([])
   const [operators, setOperators] = useState<PlatformOperator[]>([])
+  const [audit, setAudit] = useState<AuditEntry[]>([])
+  const [myRole, setMyRole] = useState<OperatorRole | null>(null)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
@@ -50,7 +61,7 @@ export function usePlatformConsole() {
     setLoading(true)
     try {
       const { data, error } = await supabase.rpc('platform_overview')
-      if (error) { setIsAdmin(false); setCommunities([]); setRequests([]); setOperators([]); return }
+      if (error) { setIsAdmin(false); setCommunities([]); setRequests([]); setOperators([]); setAudit([]); setMyRole(null); return }
       setIsAdmin(true)
       setCommunities((data ?? []) as PlatformCommunity[])
       const { data: reqs } = await supabase
@@ -58,12 +69,19 @@ export function usePlatformConsole() {
         .select('id, from_name, from_email, from_community_id, subject, body, status, created_at')
         .order('created_at', { ascending: false })
       setRequests((reqs ?? []) as PlatformRequest[])
-      // Operators: the founders, via a guarded definer fn so every operator's
-      // name/email resolves regardless of profiles RLS.
+      // Operators (with role + who added them), via a guarded definer fn so
+      // every operator's name/email resolves regardless of profiles RLS.
       const { data: ops } = await supabase.rpc('platform_operators')
-      setOperators((ops ?? []).map((o: any) => ({
-        name: o.name || 'Operator', email: o.email || null, added_at: o.added_at,
-      })))
+      const mapped: PlatformOperator[] = (ops ?? []).map((o: any) => ({
+        profile_id: o.profile_id, name: o.name || 'Operator', email: o.email || null,
+        role: (o.role || 'operator') as OperatorRole,
+        added_by_name: o.added_by_name || null, added_at: o.added_at,
+      }))
+      setOperators(mapped)
+      setMyRole(mapped.find(o => o.profile_id === profile.id)?.role ?? null)
+      // Recent activity (audit log).
+      const { data: log } = await supabase.rpc('platform_audit', { p_limit: 100 })
+      setAudit((log ?? []) as AuditEntry[])
     } finally {
       setLoading(false)
     }
@@ -91,5 +109,34 @@ export function usePlatformConsole() {
     } catch { return false }
   }, [profile?.community_id])
 
-  return { isAdmin, communities, requests, operators, loading, reload: load, setRequestStatus, enterCommunity }
+  // ---- Owner-only operator management. The DB enforces owner + guardrails
+  // (last-owner protection, valid roles); these just surface the error string.
+  const addOperator = useCallback(async (email: string, role: OperatorRole): Promise<string | null> => {
+    if (!hasSupabase || !supabase) return 'Not connected'
+    const { error } = await supabase.rpc('platform_add_operator', { target_email: email, target_role: role })
+    if (error) return error.message
+    await load()
+    return null
+  }, [load])
+
+  const removeOperator = useCallback(async (profileId: string): Promise<string | null> => {
+    if (!hasSupabase || !supabase) return 'Not connected'
+    const { error } = await supabase.rpc('platform_remove_operator', { target: profileId })
+    if (error) return error.message
+    await load()
+    return null
+  }, [load])
+
+  const setOperatorRole = useCallback(async (profileId: string, role: OperatorRole): Promise<string | null> => {
+    if (!hasSupabase || !supabase) return 'Not connected'
+    const { error } = await supabase.rpc('platform_set_operator_role', { target: profileId, new_role: role })
+    if (error) return error.message
+    await load()
+    return null
+  }, [load])
+
+  return {
+    isAdmin, myRole, communities, requests, operators, audit, loading, reload: load,
+    setRequestStatus, enterCommunity, addOperator, removeOperator, setOperatorRole,
+  }
 }
