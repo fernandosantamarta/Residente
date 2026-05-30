@@ -71,6 +71,23 @@ export const signUp = async ({ email, password }: { email: string; password: str
 
 export const signOut = () => supabase!.auth.signOut()
 
+// Email a password-reset link. The link lands on /reset-password, where
+// supabase-js picks up the recovery token from the URL hash and establishes
+// a short-lived session so the user can set a new password.
+export const sendPasswordReset = async (email: string) => {
+  const redirectTo =
+    typeof window !== 'undefined' ? `${window.location.origin}/reset-password` : undefined
+  const { data, error } = await supabase!.auth.resetPasswordForEmail(email, { redirectTo })
+  return { data, error }
+}
+
+// Set a new password for the currently-authenticated user. Used by the
+// /reset-password page once the recovery link has established a session.
+export const updatePassword = async (password: string) => {
+  const { data, error } = await supabase!.auth.updateUser({ password })
+  return { data, error }
+}
+
 export const getProfile = async (userId: string) => {
   try {
     const { data, error } = await supabase!

@@ -92,6 +92,10 @@ export default function Login() {
             />
           </label>
 
+          <div className="login-forgot">
+            <Link href="/forgot-password" className="login-forgot-link">Forgot password?</Link>
+          </div>
+
           {error && <div className="login-error">{error}</div>}
 
           <button type="submit" className="login-btn" disabled={submitting}>
