@@ -2,18 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import {
-  addStoredViolation,
   appeal,
   computeStats,
-  deleteAllViolations,
   dismiss,
-  getHideDemo,
   markManualPaid,
   markStripePaid,
   removeStoredViolation,
   reopen,
-  restoreDemoViolations,
-  useViolationsData,
+  useViolationsAdmin,
+  useCommunityResidents,
   Violation,
   ViolationKind,
   ViolationResolution,
@@ -30,7 +27,8 @@ const VIOLATIONS_PAGE_SIZE = 8
 type FormState = {
   kind: ViolationKind
   rule_id: string
-  resident: string
+  resident: string          // denormalized label of the picked resident
+  profile_id: string | null // the picked resident's account
   amount: string
   notes: string
   opened_at: string
@@ -39,6 +37,7 @@ const EMPTY: FormState = {
   kind: 'warning',
   rule_id: '',
   resident: '',
+  profile_id: null,
   amount: '',
   notes: '',
   opened_at: new Date().toISOString().slice(0, 10),
@@ -76,8 +75,9 @@ function stateLabel(v: Violation): string {
 // money. The board's only routine clicks are: appeal, dismiss
 // (warnings), and the override menu for cash/check/waive.
 export default function AdminViolations() {
-  const list = useViolationsData()
+  const { violations: list, addViolation, deleteAll } = useViolationsAdmin()
   const rules = useRulesData()
+  const residents = useCommunityResidents()
 
   const [form, setForm] = useState<FormState>(EMPTY)
   const [saving, setSaving] = useState(false)
@@ -99,9 +99,9 @@ export default function AdminViolations() {
   const setField = <K extends keyof FormState>(k: K, v: FormState[K]) =>
     setForm(f => ({ ...f, [k]: v }))
 
-  const add = (e: React.FormEvent) => {
+  const add = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.resident.trim()) { setError('Who is the violation against? Enter a resident or unit.'); return }
+    if (!form.resident.trim()) { setError('Pick the resident this is against.'); return }
     if (form.kind === 'fine' && (form.amount === '' || Number(form.amount) <= 0)) {
       setError('A fine needs a dollar amount.')
       return
@@ -109,20 +109,20 @@ export default function AdminViolations() {
     setSaving(true); setError('')
     try {
       const rule = rules.find(r => r.id === form.rule_id) || null
-      addStoredViolation({
+      await addViolation({
+        profile_id: form.profile_id,
+        resident_label: form.resident.trim(),
         kind: form.kind,
         rule_id: rule?.id || null,
         rule_title: rule?.title || null,
-        resident: form.resident.trim(),
         amount: form.kind === 'fine' ? Number(form.amount) : null,
         notes: form.notes.trim() || null,
-        opened_at: form.opened_at,
       })
       setForm({ ...EMPTY, opened_at: new Date().toISOString().slice(0, 10) })
       setSuccessMsg(
         form.kind === 'fine'
-          ? `Logged ${fmtMoney(Number(form.amount))} fine against ${form.resident.trim()} — Stripe invoice sent.`
-          : `Logged warning against ${form.resident.trim()}.`
+          ? `Logged ${fmtMoney(Number(form.amount))} fine against ${form.resident.trim()} — they've been notified.`
+          : `Logged warning against ${form.resident.trim()} — they've been notified.`
       )
     } catch (err: any) {
       setError(err?.message || 'Could not log the violation')
@@ -131,12 +131,9 @@ export default function AdminViolations() {
     }
   }
 
-  const remove = (id: string) => {
-    if (id.startsWith('v-')) {
-      setError("That's a seeded sample — can't be removed from here.")
-      return
-    }
-    removeStoredViolation(id)
+  const remove = async (id: string) => {
+    try { await removeStoredViolation(id) }
+    catch (err: any) { setError(err?.message || 'Could not remove the violation') }
   }
 
   const filtered = useMemo(() => {
@@ -222,11 +219,20 @@ export default function AdminViolations() {
           </span>
         </div>
 
-        <label className="admin-field">
-          <span className="admin-field-label">Resident or unit</span>
-          <input name="resident" className="admin-input" placeholder="Unit 14B"
-            value={form.resident} onChange={e => setField('resident', e.target.value)} />
-        </label>
+        <div className="admin-field">
+          <span className="admin-field-label">Resident</span>
+          <Dropdown<string>
+            value={residents.find(r => r.label === form.resident)?.id || ''}
+            onChange={id => {
+              const r = residents.find(x => x.id === id)
+              setForm(f => ({ ...f, resident: r?.label || '', profile_id: r?.profile_id ?? null }))
+            }}
+            ariaLabel="Resident"
+            placeholder={residents.length ? 'Pick a resident…' : 'No residents on the roster yet'}
+            searchable
+            options={residents.map(r => ({ value: r.id, label: r.label }))}
+          />
+        </div>
 
         {form.kind === 'fine' && (
           <label className="admin-field" style={{ maxWidth: 200 }}>
@@ -268,21 +274,12 @@ export default function AdminViolations() {
           </span>
         </div>
         <div style={{ display: 'inline-flex', gap: 8 }}>
-          {getHideDemo() && (
-            <button
-              type="button"
-              className="admin-btn-ghost"
-              onClick={() => restoreDemoViolations()}
-            >
-              Restore samples
-            </button>
-          )}
           <button
             type="button"
             className="admin-rules-danger"
-            onClick={() => {
-              if (window.confirm('Clear every violation (including the seeded samples)? You can restore the samples afterward.')) {
-                deleteAllViolations()
+            onClick={async () => {
+              if (window.confirm('Clear every violation in the community? This cannot be undone.')) {
+                try { await deleteAll() } catch (err: any) { setError(err?.message || 'Could not clear violations') }
               }
             }}
           >

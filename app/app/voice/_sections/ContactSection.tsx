@@ -3,6 +3,9 @@
 import { Fragment, ReactNode, useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
+import { useMyViolations } from '@/lib/violations'
+import { useMyNotices } from '@/hooks/useNotices'
+import { NOTICE_KIND_LABELS, NoticeKind } from '@/lib/voice'
 
 const withTimeout = <T,>(p: Promise<T>, ms = 10000): Promise<T> =>
   Promise.race([
@@ -302,6 +305,9 @@ export function ContactSection() {
         </section>
       </div>
 
+      {/* What's on YOUR account — personal violations + notices */}
+      <MyAccountPanel />
+
       {/* Emergency banner */}
       <section className="con-emerg">
         <span className="con-emerg-ic"><IconPhone /></span>
@@ -314,6 +320,59 @@ export function ContactSection() {
         </div>
       </section>
     </section>
+  )
+}
+
+// What's on the signed-in resident's own account: the violations issued
+// against them (RLS-scoped to their profile) and their personal notices.
+// Read-only — appeals still go through the request form above.
+function MyAccountPanel() {
+  const { violations } = useMyViolations()
+  const { notices } = useMyNotices()
+  if (!violations.length && !notices.length) return null
+
+  const rowStyle: React.CSSProperties = {
+    padding: '10px 0', borderTop: '1px solid var(--border)', fontSize: 13, lineHeight: 1.5,
+  }
+  const metaStyle: React.CSSProperties = { color: 'var(--text-faint)', fontSize: 12, marginTop: 2 }
+
+  return (
+    <div className="con-grid" style={{ marginTop: 18 }}>
+      <section className="con-card">
+        <h2 className="con-card-title">Your violations</h2>
+        {violations.length === 0 ? (
+          <div style={metaStyle}>Nothing on file — you&apos;re in good standing.</div>
+        ) : violations.map(v => (
+          <div key={v.id} style={rowStyle}>
+            <div>
+              <span style={{
+                fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: 0.4,
+                color: v.kind === 'fine' ? '#F47174' : '#E0A33E', marginRight: 6,
+              }}>{v.kind === 'fine' ? 'Fine' : 'Warning'}</span>
+              <strong>{v.rule_title || 'Community rule'}</strong>
+              {v.amount != null && <span> · ${v.amount}</span>}
+            </div>
+            <div style={metaStyle}>
+              {v.status === 'closed' ? (v.resolution || 'closed') : v.status} · {fmtDate(v.opened_at)}
+            </div>
+            {v.notes && <div style={metaStyle}>{v.notes}</div>}
+          </div>
+        ))}
+      </section>
+
+      <section className="con-card">
+        <h2 className="con-card-title">Your notifications</h2>
+        {notices.length === 0 ? (
+          <div style={metaStyle}>You&apos;re all caught up.</div>
+        ) : notices.slice(0, 8).map((r: any) => r.notice && (
+          <div key={r.id} style={rowStyle}>
+            <div style={metaStyle}>{NOTICE_KIND_LABELS[r.notice.kind as NoticeKind] ?? r.notice.kind}</div>
+            <strong>{r.notice.subject || '(no subject)'}</strong>
+            {r.notice.body && <div style={metaStyle}>{r.notice.body}</div>}
+          </div>
+        ))}
+      </section>
+    </div>
   )
 }
 
