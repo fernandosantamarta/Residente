@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { residentBalance, duesStatus } from '@/lib/dues'
 
 const withTimeout = <T,>(p: Promise<T>, ms = 10000): Promise<T> =>
   Promise.race([
@@ -62,11 +61,15 @@ export function useGeneratedReports(): GeneratedReports {
         return
       }
       try {
-        const [cRes, catRes, resRes, payRes, decRes] = await Promise.all([
+        const [cRes, catRes, resRes, duesRes, decRes] = await Promise.all([
           withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
           withTimeout(supabase.from('budget_categories').select('*').eq('community_id', communityId).order('sort_order')),
           withTimeout(supabase.from('residents').select('*').eq('community_id', communityId)),
-          withTimeout(supabase.from('payments').select('*').eq('community_id', communityId)),
+          // Dues totals come from a SECURITY DEFINER aggregate, NOT the payments
+          // rows: residents may not read other households' payments (RLS), but
+          // everyone may see the community collection %. See
+          // supabase/migrations/0002_community_dues_summary.sql.
+          withTimeout(supabase.rpc('community_dues_summary', { p_community: communityId })),
           withTimeout(supabase.from('board_decisions').select('*').eq('community_id', communityId).order('decided_on', { ascending: false })),
         ])
         if (cancelled) return
@@ -75,11 +78,7 @@ export function useGeneratedReports(): GeneratedReports {
         if (!community) { setState(EMPTY); return }
         const categories: any[] = (catRes as any).data || []
         const residents: any[] = (resRes as any).data || []
-        const payments: any[]  = (payRes as any).data || []
         const decisions: any[] = (decRes as any).data || []
-
-        const monthlyDues = Number(community.monthly_dues) || 0
-        const interestRate = Number(community.late_interest_rate) || 0
 
         // --- Finance: pie of budget per category ---
         const segments = categories
@@ -89,26 +88,18 @@ export function useGeneratedReports(): GeneratedReports {
         const totalSpent = categories.reduce((s, c) => s + (Number(c.spent) || 0), 0)
         const spentPct = totalBudget > 0 ? Math.round((totalSpent / totalBudget) * 100) : 0
 
-        // --- Dues: aggregate every household's balance/status ---
-        const byResident = new Map<string, any[]>()
-        for (const p of payments) {
-          const k = p.resident_id
-          if (!byResident.has(k)) byResident.set(k, [])
-          byResident.get(k)!.push(p)
-        }
-        let outstanding = 0, paid = 0, due = 0, late = 0
-        for (const r of residents) {
-          const bal = residentBalance(r, monthlyDues, byResident.get(r.id) || [], interestRate)
-          const st = duesStatus(bal, monthlyDues)
-          if (bal > 0) outstanding += bal
-          if (st === 'paid') paid++
-          else if (st === 'due') due++
-          else late++
-        }
-        const collected = payments.reduce((s, p) => s + (Number(p.amount) || 0), 0)
-        const collRate = (collected + outstanding) > 0
-          ? Math.round((collected / (collected + outstanding)) * 100)
-          : 100
+        // --- Dues: community aggregate from the SECURITY DEFINER function.
+        // Returns totals + status counts only; no per-payer amounts cross the
+        // wire, so a resident sees the collection % but never who paid.
+        const duesRow: any = Array.isArray((duesRes as any).data)
+          ? (duesRes as any).data[0]
+          : (duesRes as any).data
+        const collected   = Number(duesRow?.collected) || 0
+        const outstanding = Number(duesRow?.outstanding) || 0
+        const paid        = Number(duesRow?.paid) || 0
+        const due         = Number(duesRow?.due) || 0
+        const late        = Number(duesRow?.late) || 0
+        const collRate    = duesRow ? (Number(duesRow.rate) || 0) : 100
 
         // --- Generated report entries ---
         const today = new Date().toISOString().slice(0, 10)
