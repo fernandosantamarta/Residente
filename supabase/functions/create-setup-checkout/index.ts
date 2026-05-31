@@ -37,18 +37,28 @@ Deno.serve(async (req) => {
     }
 
     // Caller's JWT → RLS scopes the resident lookup + the customer-id write.
+    const authHeader = req.headers.get('Authorization') ?? ''
+    const token = authHeader.replace(/^Bearer\s+/i, '')
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
+      { global: { headers: { Authorization: authHeader } } },
     )
+
+    // Authorize: a resident may only save a card against a roster row they own.
+    // The `residents` SELECT policy is community-wide, so without this check a
+    // neighbor could pass another resident_id and create a Stripe customer /
+    // setup session bound to that household.
+    const { data: { user: caller } } = await supabase.auth.getUser(token)
+    if (!caller) return json({ error: 'Unauthorized' }, 401)
 
     const { data: resident, error } = await supabase
       .from('residents')
-      .select('id, community_id, full_name, email, stripe_customer_id')
+      .select('id, profile_id, community_id, full_name, email, stripe_customer_id')
       .eq('id', resident_id)
       .single()
     if (error || !resident) return json({ error: 'Resident not found' }, 404)
+    if (resident.profile_id !== caller.id) return json({ error: 'Forbidden' }, 403)
 
     // Lazily create the Stripe Customer and pin it to the roster row.
     let customerId = resident.stripe_customer_id as string | null

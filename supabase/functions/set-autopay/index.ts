@@ -38,18 +38,28 @@ Deno.serve(async (req) => {
       return json({ error: 'enabled must be a boolean' }, 400)
     }
 
+    const authHeader = req.headers.get('Authorization') ?? ''
+    const token = authHeader.replace(/^Bearer\s+/i, '')
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
+      { global: { headers: { Authorization: authHeader } } },
     )
+
+    // Authorize: a resident may only change autopay for a roster row they own.
+    // The `residents` SELECT policy is community-wide, so without this check a
+    // neighbor could pass another resident_id and repoint their default card /
+    // toggle their autopay via the Stripe + roster writes below.
+    const { data: { user: caller } } = await supabase.auth.getUser(token)
+    if (!caller) return json({ error: 'Unauthorized' }, 401)
 
     const { data: resident, error } = await supabase
       .from('residents')
-      .select('id, stripe_customer_id, autopay_pm_id')
+      .select('id, profile_id, stripe_customer_id, autopay_pm_id')
       .eq('id', resident_id)
       .single()
     if (error || !resident) return json({ error: 'Resident not found' }, 404)
+    if (resident.profile_id !== caller.id) return json({ error: 'Forbidden' }, 403)
 
     const pmId: string | null = payment_method_id || resident.autopay_pm_id || null
 

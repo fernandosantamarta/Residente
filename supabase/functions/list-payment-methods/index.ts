@@ -31,18 +31,28 @@ Deno.serve(async (req) => {
       return json({ error: 'resident_id is required' }, 400)
     }
 
+    const authHeader = req.headers.get('Authorization') ?? ''
+    const token = authHeader.replace(/^Bearer\s+/i, '')
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } } },
+      { global: { headers: { Authorization: authHeader } } },
     )
+
+    // Authorize: a resident may only list payment methods for a roster row they
+    // own. The `residents` SELECT policy (members read residents) is
+    // community-wide, so without this check any neighbor could pass another
+    // resident_id and read their saved-card brand/last4/expiry below.
+    const { data: { user: caller } } = await supabase.auth.getUser(token)
+    if (!caller) return json({ error: 'Unauthorized' }, 401)
 
     const { data: resident, error } = await supabase
       .from('residents')
-      .select('id, stripe_customer_id, autopay_pm_id')
+      .select('id, profile_id, stripe_customer_id, autopay_pm_id')
       .eq('id', resident_id)
       .single()
     if (error || !resident) return json({ error: 'Resident not found' }, 404)
+    if (resident.profile_id !== caller.id) return json({ error: 'Forbidden' }, 403)
     if (!resident.stripe_customer_id) return json({ methods: [] })
 
     const customer = await stripe.customers.retrieve(resident.stripe_customer_id) as Stripe.Customer

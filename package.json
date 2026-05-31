@@ -20,6 +20,10 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "db:login": "npx --yes supabase@latest login",
+    "db:link": "npx --yes supabase@latest link --project-ref nozzfcxijdnllkiydhfi",
+    "db:dump": "npx --yes supabase@latest db dump --linked --schema public -f supabase/migrations/0000_baseline_public.sql",
+    "db:dump:storage": "npx --yes supabase@latest db dump --linked --schema storage -f supabase/migrations/0001_baseline_storage.sql"
   }
 }
