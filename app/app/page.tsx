@@ -151,6 +151,7 @@ export default function Home() {
           deltaPp={deltaPp}
           overPace={overPace}
           monthIdx={monthIdx}
+          cats={cats}
         />
         <QuickActions />
       </section>
@@ -381,11 +382,13 @@ function TrendChip({ trend }: { trend: number }) {
 }
 
 function FinancialOverview({
-  totalSpent, annualBudget, actualPctNum, expectedPctNum, deltaPp, monthIdx,
+  totalSpent, annualBudget, actualPctNum, expectedPctNum, deltaPp, monthIdx, cats,
 }: {
   totalSpent: number; annualBudget: number; actualPctNum: number; expectedPctNum: number;
-  deltaPp: number; overPace: boolean; monthIdx: number
+  deltaPp: number; overPace: boolean; monthIdx: number; cats: any[]
 }) {
+  // "View budget" opens the full category breakdown in a popup (in-place, no nav).
+  const [budgetOpen, setBudgetOpen] = useState(false)
   // Chart geometry — wider than tall, leaves room for y-axis labels on the left
   // and one row of month labels at the bottom.
   const w = 560, h = 200, pad = { l: 48, r: 16, t: 16, b: 32 }
@@ -559,7 +562,7 @@ function FinancialOverview({
       </div>
 
       <div className="fin-foot">
-        <button className="fin-view-btn" type="button">
+        <button className="fin-view-btn" type="button" onClick={() => setBudgetOpen(true)}>
           View budget
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="9 18 15 12 9 6"/>
@@ -571,6 +574,46 @@ function FinancialOverview({
           <FinStat label="Delta"         value={`${deltaPp >= 0 ? '+' : ''}${deltaPp}pp`} warn={deltaPp > 0} />
         </div>
       </div>
+
+      {/* View budget — full category breakdown in a popup. */}
+      {budgetOpen && (
+        <DetailDialog
+          eyebrow="Financial Overview"
+          title="Annual budget"
+          period={`${fmtMoney(totalSpent)} spent of ${fmtMoney(annualBudget)} · ${actualPctNum}% used`}
+          size="wide"
+          onClose={() => setBudgetOpen(false)}
+        >
+          {cats.length === 0 ? (
+            <p className="rd-detail-foot-note" style={{ marginTop: 0 }}>
+              No budget categories yet. Once the board sets category budgets in
+              Admin, the breakdown shows up here.
+            </p>
+          ) : (
+            <div className="rd-bd-table">
+              <div className="rd-bd-row rd-bd-head">
+                <span>Category</span><span>Spent / Budget</span><span>Used</span>
+              </div>
+              {cats.map((x: any, i: number) => {
+                const b = num(x.budget), s = num(x.spent)
+                const pct = b > 0 ? Math.round((s / b) * 100) : 0
+                return (
+                  <div className="rd-bd-row" key={x.id ?? i}>
+                    <span className="rd-bd-cat">{x.name}</span>
+                    <span className="rd-bd-amt">{fmtMoney(s)} / {fmtMoney(b)}</span>
+                    <span className="rd-bd-amt">{pct}%</span>
+                  </div>
+                )
+              })}
+              <div className="rd-bd-row rd-bd-total">
+                <span>Total</span>
+                <span className="rd-bd-amt">{fmtMoney(totalSpent)} / {fmtMoney(annualBudget)}</span>
+                <span className="rd-bd-amt">{actualPctNum}%</span>
+              </div>
+            </div>
+          )}
+        </DetailDialog>
+      )}
     </div>
   )
 }
