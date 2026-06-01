@@ -5,11 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useMyNoticesPaged } from '@/hooks/useNotices'
 import { NOTICE_KIND_LABELS, noticeHref, NoticeKind } from '@/lib/voice'
-
-const KIND_OPTIONS: { value: string; label: string }[] = [
-  { value: '', label: 'All notifications' },
-  ...Object.entries(NOTICE_KIND_LABELS).map(([value, label]) => ({ value, label })),
-]
+import { useT } from '@/lib/i18n'
 
 const fmtTs = (iso?: string | null) => {
   if (!iso) return ''
@@ -21,8 +17,13 @@ const fmtTs = (iso?: string | null) => {
 }
 
 export default function NotificationsInboxPage() {
+  const t = useT()
   const router = useRouter()
   const [kind, setKind] = useState('')
+  const KIND_OPTIONS: { value: string; label: string }[] = [
+    { value: '', label: t('community.notifications.allKinds') },
+    ...Object.entries(NOTICE_KIND_LABELS).map(([value, label]) => ({ value, label })),
+  ]
   const {
     notices, loading, loadingMore, hasMore, error,
     loadMore, markRead, markAllRead,
@@ -43,10 +44,10 @@ export default function NotificationsInboxPage() {
     <div className="inbox-wrap">
       <div className="inbox-head">
         <div>
-          <h1 className="inbox-title">Notifications</h1>
-          <p className="inbox-sub">Everything your board has sent. Newest first.</p>
+          <h1 className="inbox-title">{t('community.notifications.title')}</h1>
+          <p className="inbox-sub">{t('community.notifications.sub')}</p>
         </div>
-        <Link href="/app" className="inbox-back">← Back to home</Link>
+        <Link href="/app" className="inbox-back">{t('community.notifications.backHome')}</Link>
       </div>
 
       <div className="inbox-toolbar">
@@ -58,14 +59,14 @@ export default function NotificationsInboxPage() {
           onClick={markAllRead}
           disabled={unreadCount === 0}
         >
-          {unreadCount === 0 ? 'All read' : `Mark all ${unreadCount} read`}
+          {unreadCount === 0 ? t('community.notifications.allRead') : t('community.notifications.markAllRead', { count: unreadCount })}
         </button>
       </div>
 
-      {loading && <div className="inbox-empty">Loading…</div>}
+      {loading && <div className="inbox-empty">{t('community.notifications.loading')}</div>}
       {error && <div className="voice-err">{error}</div>}
       {!loading && !error && notices.length === 0 && (
-        <div className="inbox-empty">No notifications {kind ? 'of this kind' : 'yet'}.</div>
+        <div className="inbox-empty">{kind ? t('community.notifications.emptyKind') : t('community.notifications.emptyAll')}</div>
       )}
 
       <div className="inbox-list">
@@ -83,9 +84,9 @@ export default function NotificationsInboxPage() {
                 <span className="inbox-row-kind">{NOTICE_KIND_LABELS[n.kind as NoticeKind] ?? n.kind}</span>
                 <span className="inbox-row-ts">{fmtTs(r.delivered_at)}</span>
               </div>
-              <div className="inbox-row-subject">{n.subject || '(no subject)'}</div>
+              <div className="inbox-row-subject">{n.subject || t('community.notifications.noSubject')}</div>
               {n.body && <div className="inbox-row-body">{n.body}</div>}
-              {unread && <span className="inbox-row-dot" aria-label="Unread" />}
+              {unread && <span className="inbox-row-dot" aria-label={t('community.notifications.unread')} />}
             </button>
           )
         })}
@@ -93,7 +94,7 @@ export default function NotificationsInboxPage() {
 
       {hasMore && (
         <button className="inbox-load-more" onClick={loadMore} disabled={loadingMore}>
-          {loadingMore ? 'Loading…' : 'Load more'}
+          {loadingMore ? t('community.notifications.loading') : t('community.notifications.loadMore')}
         </button>
       )}
     </div>

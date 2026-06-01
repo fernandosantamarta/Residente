@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ReactNode, useMemo, useState } from 'react'
 import { useGeneratedReports } from '@/hooks/useGeneratedReports'
 import { usePublishedReports } from '@/hooks/usePublishedReports'
+import { useT } from '@/lib/i18n'
 import { RequestDialog } from './RequestDialog'
 import { DetailDialog } from './DetailDialog'
 
@@ -18,17 +19,6 @@ import { DetailDialog } from './DetailDialog'
 type Category =
   | 'financial' | 'maintenance' | 'operations' | 'community'
   | 'safety' | 'vendor' | 'compliance' | 'board'
-
-const CATEGORY_LABEL: Record<Category, string> = {
-  financial:   'Financial',
-  maintenance: 'Maintenance',
-  operations:  'Operations',
-  community:   'Community',
-  safety:      'Safety',
-  vendor:      'Vendor',
-  compliance:  'Compliance',
-  board:       'Board',
-}
 
 type Report = {
   id: string
@@ -84,6 +74,8 @@ const DEMO_FIN_SEGMENTS = [
 const DEMO_DUES = { collected: 48000, outstanding: 6500, paid: 150, due: 12, late: 4, households: 166, rate: 88 }
 
 export function ReportsSection() {
+  const t = useT()
+  const catLabel = (k: Category) => t(`vendors.repCat.${k}`)
   const [search, setSearch] = useState('')
   const [active, setActive] = useState<'all' | Category>('all')
   const [request, setRequest] = useState<null | 'request' | 'schedule'>(null)
@@ -124,9 +116,9 @@ export function ReportsSection() {
     return reports.filter(r => {
       if (active !== 'all' && r.category !== active) return false
       if (!q) return true
-      return (r.title + ' ' + (r.blurb || '') + ' ' + CATEGORY_LABEL[r.category]).toLowerCase().includes(q)
+      return (r.title + ' ' + (r.blurb || '') + ' ' + catLabel(r.category)).toLowerCase().includes(q)
     }).sort((a, b) => b.date.localeCompare(a.date))
-  }, [search, active, reports])
+  }, [search, active, reports, t])
 
   const featured = filtered.filter(r => r.featured).slice(0, 4)
   const recent = filtered.filter(r => !r.featured).slice(0, 5)
@@ -143,9 +135,9 @@ export function ReportsSection() {
   return (
     <section id="reports" className="rep-wrap ev-section">
       <div className="voice-page-head">
-        <h2 className="voice-page-title">Reports</h2>
+        <h2 className="voice-page-title">{t('vendors.reportsTitle')}</h2>
         <p className="voice-page-sub">
-          Stay informed with community updates, financials, and operational reports.
+          {t('vendors.reportsSubtitle')}
         </p>
       </div>
 
@@ -159,14 +151,14 @@ export function ReportsSection() {
             type="search"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search reports…"
+            placeholder={t('vendors.reportsSearchPlaceholder')}
           />
         </div>
         <select name="report-category" className="rep-select" value={active}
           onChange={e => setActive(e.target.value as any)}>
-          <option value="all">All Categories</option>
+          <option value="all">{t('vendors.allCategories')}</option>
           {CATEGORY_GRID.map(c => (
-            <option key={c.key} value={c.key}>{CATEGORY_LABEL[c.key]}</option>
+            <option key={c.key} value={c.key}>{catLabel(c.key)}</option>
           ))}
         </select>
       </div>
@@ -177,9 +169,9 @@ export function ReportsSection() {
           {/* Featured Reports */}
           <section className="rep-card">
             <div className="rep-card-head">
-              <h2 className="rep-card-title">Featured Reports</h2>
+              <h2 className="rep-card-title">{t('vendors.featuredReports')}</h2>
               <button type="button" className="rep-card-link rep-cta-btn"
-                onClick={() => setAllOpen(true)}>View all</button>
+                onClick={() => setAllOpen(true)}>{t('vendors.viewAll')}</button>
             </div>
             <div className="rep-featured">
               {featured.map(r => (
@@ -188,12 +180,12 @@ export function ReportsSection() {
                   <span className={`rep-fcard-icon rep-fc-${r.category}`}>
                     {categoryIcon(r.category)}
                   </span>
-                  <span className={`rep-fcard-tag rep-tag-${r.category}`}>{CATEGORY_LABEL[r.category]}</span>
+                  <span className={`rep-fcard-tag rep-tag-${r.category}`}>{catLabel(r.category)}</span>
                   <span className="rep-fcard-title">{r.title}</span>
                   {r.blurb && <span className="rep-fcard-blurb">{r.blurb}</span>}
                   <span className="rep-fcard-meta">
-                    {r.status === 'updated' ? `Updated ${fmtDate(r.date)}` : fmtDate(r.date)}
-                    {r.size && <> &middot; PDF · {r.size}</>}
+                    {r.status === 'updated' ? t('vendors.updatedDate', { date: fmtDate(r.date) }) : fmtDate(r.date)}
+                    {r.size && <> &middot; {t('vendors.pdfSize', { size: r.size })}</>}
                   </span>
                 </a>
               ))}
@@ -203,30 +195,30 @@ export function ReportsSection() {
           {/* Recent Reports table */}
           <section className="rep-card">
             <div className="rep-card-head">
-              <h2 className="rep-card-title">Recent Reports</h2>
+              <h2 className="rep-card-title">{t('vendors.recentReports')}</h2>
               <button type="button" className="rep-card-link rep-cta-btn"
-                onClick={() => setAllOpen(true)}>View all</button>
+                onClick={() => setAllOpen(true)}>{t('vendors.viewAll')}</button>
             </div>
             <div className="rep-table">
               <div className="rep-row rep-row-head">
-                <span>Report</span>
-                <span>Category</span>
-                <span>Date</span>
-                <span>Status</span>
+                <span>{t('vendors.colReport')}</span>
+                <span>{t('vendors.colCategory')}</span>
+                <span>{t('vendors.colDate')}</span>
+                <span>{t('vendors.colStatus')}</span>
                 <span></span>
               </div>
               {recent.length === 0 ? (
-                <div className="rep-empty">No reports match these filters.</div>
+                <div className="rep-empty">{t('vendors.noReportsMatch')}</div>
               ) : (
                 recent.map(r => (
                   <div key={r.id} className="rep-row">
                     <span className="rep-row-title">{r.title}</span>
-                    <span><span className={`rep-tag rep-tag-${r.category}`}>{CATEGORY_LABEL[r.category]}</span></span>
+                    <span><span className={`rep-tag rep-tag-${r.category}`}>{catLabel(r.category)}</span></span>
                     <span className="rep-row-date">{fmtDate(r.date)}</span>
                     <span><StatusPill kind={r.status} /></span>
                     <a href="#" className="rep-row-action"
                       onClick={e => { e.preventDefault(); openReport(r) }}>
-                      {r.storagePath ? 'Download' : 'View'}
+                      {r.storagePath ? t('vendors.download') : t('vendors.view')}
                     </a>
                   </div>
                 ))
@@ -238,11 +230,11 @@ export function ReportsSection() {
           <div className="rep-overview-row">
             <section className="rep-card rep-overview">
               <div className="rep-card-head">
-                <h3 className="rep-tile-title">Financial Overview</h3>
+                <h3 className="rep-tile-title">{t('vendors.financialOverview')}</h3>
                 <span className="rep-tile-meta">May 2026</span>
               </div>
               {FIN_SEGMENTS.length === 0 ? (
-                <div className="rep-empty">Budget breakdown appears once the board sets up budget categories.</div>
+                <div className="rep-empty">{t('vendors.budgetEmpty')}</div>
               ) : (
                 <div className="rep-fin-body">
                   <PieChart segments={FIN_SEGMENTS} total={FIN_TOTAL} />
@@ -259,31 +251,31 @@ export function ReportsSection() {
               )}
               <button type="button" className="rep-cta-link rep-cta-btn"
                 onClick={() => setDetail('financial')} disabled={FIN_SEGMENTS.length === 0}>
-                View Detailed Report &rarr;
+                {t('vendors.viewDetailedReport')} &rarr;
               </button>
             </section>
 
             <section className="rep-card rep-overview">
               <div className="rep-card-head">
-                <h3 className="rep-tile-title">Dues Collection</h3>
-                <span className="rep-tile-meta">{dues.rate}% collected</span>
+                <h3 className="rep-tile-title">{t('vendors.duesCollection')}</h3>
+                <span className="rep-tile-meta">{t('vendors.pctCollected', { rate: dues.rate })}</span>
               </div>
               <div className="rep-maint">
                 <div className="rep-maint-stat rep-maint-done">
                   <div className="rep-maint-n">{dues.paid}</div>
-                  <div className="rep-maint-l">Paid</div>
+                  <div className="rep-maint-l">{t('vendors.paid')}</div>
                 </div>
                 <div className="rep-maint-stat rep-maint-pend">
                   <div className="rep-maint-n">{dues.due}</div>
-                  <div className="rep-maint-l">Due</div>
+                  <div className="rep-maint-l">{t('vendors.due')}</div>
                 </div>
                 <div className="rep-maint-stat rep-maint-total">
                   <div className="rep-maint-n">{dues.late}</div>
-                  <div className="rep-maint-l">Late</div>
+                  <div className="rep-maint-l">{t('vendors.late')}</div>
                 </div>
               </div>
               <button type="button" className="rep-cta-link rep-cta-btn"
-                onClick={() => setDetail('dues')}>View Detailed Report &rarr;</button>
+                onClick={() => setDetail('dues')}>{t('vendors.viewDetailedReport')} &rarr;</button>
             </section>
           </div>
 
@@ -291,12 +283,10 @@ export function ReportsSection() {
               from the community's data, so there's nothing to schedule. */}
           <section className="rep-card">
             <div className="rep-card-head">
-              <h2 className="rep-card-title">Always current</h2>
+              <h2 className="rep-card-title">{t('vendors.alwaysCurrent')}</h2>
             </div>
             <p className="rep-fcard-blurb" style={{ padding: '4px 2px 2px' }}>
-              These reports are generated live from your community&rsquo;s budget,
-              residents, payments, and board activity — they refresh on their own,
-              nothing to schedule or upload.
+              {t('vendors.alwaysCurrentBody')}
             </p>
           </section>
         </div>
@@ -304,35 +294,35 @@ export function ReportsSection() {
         {/* RIGHT SIDEBAR */}
         <aside className="rep-aside">
           <section className="rep-card rep-tile-tight">
-            <h3 className="rep-tile-title">Quick Actions</h3>
+            <h3 className="rep-tile-title">{t('vendors.quickActions')}</h3>
             <div className="rep-quick">
               <QuickRow icon={<IconPlus />}
-                title="Request a Report"
-                desc="Ask the board for a custom one-off."
+                title={t('vendors.requestReport')}
+                desc={t('vendors.requestReportDesc')}
                 onClick={() => setRequest('request')} />
               <QuickRow icon={<IconCalendar />}
-                title="Schedule a Report"
-                desc="Set up recurring reports on a cadence."
+                title={t('vendors.scheduleReport')}
+                desc={t('vendors.scheduleReportDesc')}
                 onClick={() => setRequest('schedule')} />
               <QuickRow icon={<IconCog />}
-                title="Reports Settings"
-                desc="Who receives what, and when."
+                title={t('vendors.reportsSettings')}
+                desc={t('vendors.reportsSettingsDesc')}
                 href="/app/settings" />
               <QuickRow icon={<IconBell />}
-                title="Notifications"
-                desc="Get pinged when a new report drops."
+                title={t('vendors.notifications')}
+                desc={t('vendors.notificationsDesc')}
                 href="/app/settings" />
             </div>
           </section>
 
           <section className="rep-card rep-tile-tight">
-            <h3 className="rep-tile-title">Report Categories</h3>
+            <h3 className="rep-tile-title">{t('vendors.reportCategories')}</h3>
             <ul className="rep-cats">
               <li>
                 <button type="button" className={`rep-cat-row${active === 'all' ? ' on' : ''}`}
                   onClick={() => setActive('all')}>
                   <span className="rep-cat-icon">{categoryIcon('all' as any)}</span>
-                  <span className="rep-cat-label">All Reports</span>
+                  <span className="rep-cat-label">{t('vendors.allReports')}</span>
                   <span className="rep-cat-count">{reports.length}</span>
                 </button>
               </li>
@@ -341,7 +331,7 @@ export function ReportsSection() {
                   <button type="button" className={`rep-cat-row${active === c.key ? ' on' : ''}`}
                     onClick={() => setActive(c.key)}>
                     <span className={`rep-cat-icon rep-cat-icon-${c.key}`}>{categoryIcon(c.key)}</span>
-                    <span className="rep-cat-label">{CATEGORY_LABEL[c.key]}</span>
+                    <span className="rep-cat-label">{catLabel(c.key)}</span>
                     <span className="rep-cat-count">{counts[c.key] || 0}</span>
                   </button>
                 </li>
@@ -353,37 +343,39 @@ export function ReportsSection() {
 
       {request && (
         <RequestDialog
-          eyebrow="Reports"
-          title={request === 'schedule' ? 'Schedule a report' : 'Request a report'}
-          defaultSubject={request === 'schedule' ? 'Recurring report request: ' : 'Report request: '}
+          eyebrow={t('vendors.reportsTitle')}
+          title={request === 'schedule' ? t('vendors.scheduleDialogTitle') : t('vendors.requestReportDialogTitle')}
+          defaultSubject={request === 'schedule' ? t('vendors.scheduleSubject') : t('vendors.reportRequestSubject')}
           bodyPlaceholder={request === 'schedule'
-            ? 'Which report, and on what cadence (e.g. monthly on the 1st)?'
-            : 'What would you like the report to cover?'}
+            ? t('vendors.scheduleBodyPlaceholder')
+            : t('vendors.reportRequestBodyPlaceholder')}
           onClose={() => setRequest(null)}
         />
       )}
 
       {detail === 'financial' && (
         <DetailDialog
-          eyebrow="Financial"
-          title="Financial Overview"
+          eyebrow={t('vendors.repCat.financial')}
+          title={t('vendors.financialOverview')}
           period="May 2026"
           onClose={() => setDetail(null)}
         >
           <div className="rd-detail-top">
             <PieChart segments={FIN_SEGMENTS} total={FIN_TOTAL} />
             <div className="rd-detail-headline">
-              <span className="rd-detail-h-label">Annual budget</span>
+              <span className="rd-detail-h-label">{t('vendors.annualBudget')}</span>
               <span className="rd-detail-h-amt">${FIN_TOTAL.toLocaleString('en-US')}</span>
-              <span className="rd-detail-h-sub">across {FIN_SEGMENTS.length} categor{FIN_SEGMENTS.length === 1 ? 'y' : 'ies'}</span>
+              <span className="rd-detail-h-sub">{FIN_SEGMENTS.length === 1
+                ? t('vendors.acrossCategoriesOne', { count: FIN_SEGMENTS.length })
+                : t('vendors.acrossCategoriesOther', { count: FIN_SEGMENTS.length })}</span>
             </div>
           </div>
 
           <div className="rd-bd-table">
             <div className="rd-bd-row rd-bd-head">
-              <span>Category</span>
-              <span>Amount</span>
-              <span>Share</span>
+              <span>{t('vendors.colCategory')}</span>
+              <span>{t('vendors.colAmount')}</span>
+              <span>{t('vendors.colShare')}</span>
             </div>
             {FIN_SEGMENTS.map(s => (
               <div className="rd-bd-row" key={s.label}>
@@ -398,87 +390,84 @@ export function ReportsSection() {
               </div>
             ))}
             <div className="rd-bd-row rd-bd-total">
-              <span>Total</span>
+              <span>{t('vendors.total')}</span>
               <span className="rd-bd-amt">${FIN_TOTAL.toLocaleString('en-US')}</span>
               <span className="rd-bd-share">100%</span>
             </div>
           </div>
 
           <p className="rd-detail-foot-note">
-            Generated live from your community&rsquo;s budget categories — it refreshes
-            on its own as the board updates the budget.
+            {t('vendors.financialFootNote')}
           </p>
         </DetailDialog>
       )}
 
       {detail === 'dues' && (
         <DetailDialog
-          eyebrow="Financial"
-          title="Dues Collection"
+          eyebrow={t('vendors.repCat.financial')}
+          title={t('vendors.duesCollection')}
           period="May 2026"
           onClose={() => setDetail(null)}
           settingsHref="#pay"
-          settingsLabel="Go to dues & payments"
+          settingsLabel={t('vendors.goToDuesPayments')}
         >
           <div className="rd-detail-top">
             <div className="rd-detail-headline">
-              <span className="rd-detail-h-label">Collected this period</span>
+              <span className="rd-detail-h-label">{t('vendors.collectedThisPeriod')}</span>
               <span className="rd-detail-h-amt">${dues.collected.toLocaleString('en-US')}</span>
-              <span className="rd-detail-h-sub">{dues.rate}% of dues collected · ${dues.outstanding.toLocaleString('en-US')} outstanding</span>
+              <span className="rd-detail-h-sub">{t('vendors.duesCollectedOutstanding', { rate: dues.rate, outstanding: '$' + dues.outstanding.toLocaleString('en-US') })}</span>
             </div>
           </div>
 
           <div className="rep-maint" style={{ marginBottom: 4 }}>
             <div className="rep-maint-stat rep-maint-done">
               <div className="rep-maint-n">{dues.paid}</div>
-              <div className="rep-maint-l">Paid</div>
+              <div className="rep-maint-l">{t('vendors.paid')}</div>
             </div>
             <div className="rep-maint-stat rep-maint-pend">
               <div className="rep-maint-n">{dues.due}</div>
-              <div className="rep-maint-l">Due</div>
+              <div className="rep-maint-l">{t('vendors.due')}</div>
             </div>
             <div className="rep-maint-stat rep-maint-total">
               <div className="rep-maint-n">{dues.late}</div>
-              <div className="rep-maint-l">Late</div>
+              <div className="rep-maint-l">{t('vendors.late')}</div>
             </div>
           </div>
 
           <div className="rd-bd-table">
-            <div className="rd-bd-row"><span className="rd-bd-cat">Households</span><span className="rd-bd-amt">{dues.households}</span><span /></div>
-            <div className="rd-bd-row"><span className="rd-bd-cat">Collection rate</span><span className="rd-bd-amt">{dues.rate}%</span><span /></div>
-            <div className="rd-bd-row"><span className="rd-bd-cat">Collected</span><span className="rd-bd-amt">${dues.collected.toLocaleString('en-US')}</span><span /></div>
-            <div className="rd-bd-row rd-bd-total"><span>Outstanding</span><span className="rd-bd-amt">${dues.outstanding.toLocaleString('en-US')}</span><span /></div>
+            <div className="rd-bd-row"><span className="rd-bd-cat">{t('vendors.households')}</span><span className="rd-bd-amt">{dues.households}</span><span /></div>
+            <div className="rd-bd-row"><span className="rd-bd-cat">{t('vendors.collectionRate')}</span><span className="rd-bd-amt">{dues.rate}%</span><span /></div>
+            <div className="rd-bd-row"><span className="rd-bd-cat">{t('vendors.collected')}</span><span className="rd-bd-amt">${dues.collected.toLocaleString('en-US')}</span><span /></div>
+            <div className="rd-bd-row rd-bd-total"><span>{t('vendors.outstanding')}</span><span className="rd-bd-amt">${dues.outstanding.toLocaleString('en-US')}</span><span /></div>
           </div>
 
           <p className="rd-detail-foot-note">
-            Aggregated from residents and payments — no individual household&rsquo;s
-            payment detail is shown here.
+            {t('vendors.duesFootNote')}
           </p>
         </DetailDialog>
       )}
 
       {openR && (
         <DetailDialog
-          eyebrow={CATEGORY_LABEL[openR.category]}
+          eyebrow={catLabel(openR.category)}
           title={openR.title}
-          period={openR.status === 'updated' ? `Updated ${fmtDate(openR.date)}` : fmtDate(openR.date)}
+          period={openR.status === 'updated' ? t('vendors.updatedDate', { date: fmtDate(openR.date) }) : fmtDate(openR.date)}
           onClose={() => setOpenR(null)}
         >
           <div className="rd-report-meta">
-            <span className={`rep-tag rep-tag-${openR.category}`}>{CATEGORY_LABEL[openR.category]}</span>
+            <span className={`rep-tag rep-tag-${openR.category}`}>{catLabel(openR.category)}</span>
             <StatusPill kind={openR.status} />
-            {openR.size && <span className="rd-report-size">PDF · {openR.size}</span>}
+            {openR.size && <span className="rd-report-size">{t('vendors.pdfSize', { size: openR.size })}</span>}
           </div>
           {openR.blurb && <p className="rd-report-blurb">{openR.blurb}</p>}
           {openR.storagePath ? (
             <button type="button" className="ven-cta-primary rd-report-dl"
               onClick={() => openR.storagePath && pub.download(openR.storagePath)}>
-              Download PDF
+              {t('vendors.downloadPdf')}
             </button>
           ) : (
             <p className="rd-detail-foot-note">
-              This report is generated live from your community&rsquo;s own data —
-              it stays current on its own, with no file to download.
+              {t('vendors.reportLiveFootNote')}
             </p>
           )}
         </DetailDialog>
@@ -486,15 +475,17 @@ export function ReportsSection() {
 
       {allOpen && (
         <DetailDialog
-          eyebrow="Reports"
-          title="All Reports"
-          period={`${filtered.length} report${filtered.length === 1 ? '' : 's'}`}
+          eyebrow={t('vendors.reportsTitle')}
+          title={t('vendors.allReports')}
+          period={filtered.length === 1
+            ? t('vendors.countReportOne', { count: filtered.length })
+            : t('vendors.countReportOther', { count: filtered.length })}
           size="wide"
           onClose={() => setAllOpen(false)}
         >
           <div className="rd-list">
             {filtered.length === 0 ? (
-              <p className="rd-detail-foot-note" style={{ marginTop: 0 }}>No reports match these filters.</p>
+              <p className="rd-detail-foot-note" style={{ marginTop: 0 }}>{t('vendors.noReportsMatch')}</p>
             ) : filtered.map(r => (
               <button type="button" className="rd-list-row" key={r.id}
                 onClick={() => { setAllOpen(false); setOpenR(r) }}>
@@ -502,7 +493,7 @@ export function ReportsSection() {
                 <span className="rd-list-body">
                   <span className="rd-list-title">{r.title}</span>
                   <span className="rd-list-meta">
-                    {CATEGORY_LABEL[r.category]} · {r.status === 'updated' ? `Updated ${fmtDate(r.date)}` : fmtDate(r.date)}
+                    {catLabel(r.category)} · {r.status === 'updated' ? t('vendors.updatedDate', { date: fmtDate(r.date) }) : fmtDate(r.date)}
                     {r.size && <> · {r.size}</>}
                   </span>
                 </span>
@@ -519,10 +510,11 @@ export function ReportsSection() {
 // -- sub-components ------------------------------------------------
 
 function StatusPill({ kind }: { kind: Report['status'] }) {
+  const t = useT()
   const cls = kind === 'published' ? 'rep-pill-pub'
             : kind === 'updated' ? 'rep-pill-upd'
             : 'rep-pill-draft'
-  const label = kind === 'published' ? 'Published' : kind === 'updated' ? 'Updated' : 'Draft'
+  const label = kind === 'published' ? t('vendors.statusPublished') : kind === 'updated' ? t('vendors.statusUpdated') : t('vendors.statusDraft')
   return <span className={`rep-pill ${cls}`}>{label}</span>
 }
 

@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase } from '@/lib/supabase'
+import { useT } from '@/lib/i18n'
 
 // Shared request modal for the Easy Track hub. Used by the Vendors and Reports
 // Quick Actions to file a real request the board triages at /admin/requests.
@@ -19,6 +20,7 @@ export function RequestDialog({
   bodyPlaceholder?: string
   onClose: () => void
 }) {
+  const t = useT()
   const { profile } = useAuth() || {}
   const [subject, setSubject] = useState(defaultSubject || '')
   const [body, setBody] = useState('')
@@ -33,7 +35,7 @@ export function RequestDialog({
   }, [onClose])
 
   const submit = async () => {
-    if (!subject.trim()) { setError('Add a short subject.'); return }
+    if (!subject.trim()) { setError(t('dialogs.errSubjectRequired')); return }
     // Demo / preview mode — no session to attribute the request to. Show the
     // confirmation so the flow still demonstrates end-to-end.
     if (!supabase || !profile?.id || !profile?.community_id) {
@@ -55,7 +57,7 @@ export function RequestDialog({
       if (insErr) throw insErr
       setDone(true)
     } catch (err: any) {
-      setError(err?.message || 'Could not submit your request.')
+      setError(err?.message || t('dialogs.errSubmitFailed'))
     } finally {
       setSaving(false)
     }
@@ -69,20 +71,19 @@ export function RequestDialog({
             <div className="ven-rd-eyebrow">{eyebrow}</div>
             <h2 className="ven-rd-title">{title}</h2>
           </div>
-          <button type="button" className="ven-rd-close" aria-label="Close" onClick={onClose}>×</button>
+          <button type="button" className="ven-rd-close" aria-label={t('dialogs.close')} onClick={onClose}>×</button>
         </header>
 
         {done ? (
           <>
             <div className="ven-rd-body">
               <p className="ven-rd-note">
-                Request submitted — the board will follow up. You can track it
-                under Easy Voice → Contact the board.
+                {t('dialogs.requestSubmittedNote')}
               </p>
             </div>
             <footer className="ven-rd-foot">
               <div className="ven-rd-foot-right">
-                <button type="button" className="ven-cta-primary" onClick={onClose}>Done</button>
+                <button type="button" className="ven-cta-primary" onClick={onClose}>{t('dialogs.done')}</button>
               </div>
             </footer>
           </>
@@ -90,18 +91,18 @@ export function RequestDialog({
           <>
             <div className="ven-rd-body">
               <label className="ven-rd-field">
-                <span className="ven-rd-field-label">Subject</span>
+                <span className="ven-rd-field-label">{t('dialogs.subjectLabel')}</span>
                 <input
                   name="request-subject"
                   className="ven-rd-textarea"
                   value={subject}
                   onChange={e => setSubject(e.target.value)}
-                  placeholder="A one-line summary"
+                  placeholder={t('dialogs.subjectPlaceholder')}
                 />
               </label>
               <label className="ven-rd-field">
                 <span className="ven-rd-field-label">
-                  Details <span className="ven-rd-optional">(optional)</span>
+                  {t('dialogs.detailsLabel')} <span className="ven-rd-optional">{t('dialogs.optional')}</span>
                 </span>
                 <textarea
                   name="request-body"
@@ -109,16 +110,16 @@ export function RequestDialog({
                   rows={4}
                   value={body}
                   onChange={e => setBody(e.target.value)}
-                  placeholder={bodyPlaceholder || 'Anything that helps the board act on this.'}
+                  placeholder={bodyPlaceholder || t('dialogs.detailsPlaceholder')}
                 />
               </label>
               {error && <p className="ven-rd-note" style={{ color: '#b42318' }}>{error}</p>}
             </div>
             <footer className="ven-rd-foot">
               <div className="ven-rd-foot-right">
-                <button type="button" className="ven-cta-secondary" onClick={onClose}>Cancel</button>
+                <button type="button" className="ven-cta-secondary" onClick={onClose}>{t('dialogs.cancel')}</button>
                 <button type="button" className="ven-cta-primary" onClick={submit} disabled={saving}>
-                  {saving ? 'Submitting…' : 'Submit request'}
+                  {saving ? t('dialogs.submitting') : t('dialogs.submitRequest')}
                 </button>
               </div>
             </footer>

@@ -9,6 +9,7 @@ import { useCommunityData } from '@/hooks/useCommunityData'
 import { useDocuments } from '@/hooks/useDocuments'
 import { supabase } from '@/lib/supabase'
 import { DetailDialog } from '../track/_sections/DetailDialog'
+import { useT } from '@/lib/i18n'
 
 // ─── shared helpers ────────────────────────────────────────────────────────
 
@@ -86,18 +87,18 @@ function withAmp(text: string): ReactNode {
   ))
 }
 
-function describeSection(name: string, count: number): string {
+function describeSection(name: string, count: number, t: (k: string, v?: Record<string, any>) => string): string {
   const base = name.toLowerCase()
-  if (base.includes('noise'))       return 'Quiet hours, music, and respectful living.'
-  if (base.includes('pet'))         return 'Approved pets, leashes, and clean-up.'
-  if (base.includes('parking') || base.includes('vehicle')) return 'Resident, guest, and overflow parking.'
-  if (base.includes('pool') || base.includes('amenit'))     return 'Pool, gym, clubhouse, and shared spaces.'
-  if (base.includes('architect') || base.includes('aesth')) return 'Exterior changes, paint, and approvals.'
-  if (base.includes('safety') || base.includes('security')) return 'Gate access, cameras, and emergency rules.'
-  if (base.includes('landscape'))   return 'Lawn, planters, and shared green areas.'
-  if (base.includes('fire'))        return 'Grills, fire pits, and burn safety.'
-  if (base.includes('trash') || base.includes('recycl'))    return 'Bin storage, pickup days, and recycling.'
-  return `${count} ${count === 1 ? 'rule' : 'rules'} in this section.`
+  if (base.includes('noise'))       return t('documents.sectionDescNoise')
+  if (base.includes('pet'))         return t('documents.sectionDescPets')
+  if (base.includes('parking') || base.includes('vehicle')) return t('documents.sectionDescParking')
+  if (base.includes('pool') || base.includes('amenit'))     return t('documents.sectionDescPool')
+  if (base.includes('architect') || base.includes('aesth')) return t('documents.sectionDescArchitectural')
+  if (base.includes('safety') || base.includes('security')) return t('documents.sectionDescSafety')
+  if (base.includes('landscape'))   return t('documents.sectionDescLandscape')
+  if (base.includes('fire'))        return t('documents.sectionDescFire')
+  if (base.includes('trash') || base.includes('recycl'))    return t('documents.sectionDescTrash')
+  return t('documents.sectionDescCount', { count, rules: count === 1 ? t('documents.ruleSingular') : t('documents.rulePlural') })
 }
 
 // ─── Documents section helpers ─────────────────────────────────────────────
@@ -140,14 +141,15 @@ const DEMO_POPULAR = [
 
 // ─── Main page ─────────────────────────────────────────────────────────────
 
-const DOC_TABS: SegTab[] = [
-  { id: 'rules',     label: 'Rules' },
-  { id: 'documents', label: 'Documents' },
-]
-
 export default function EasyDocs() {
+  const t = useT()
   const { community } = useCommunityData()
   const communityName = community?.name || 'Sunset Lakes'
+
+  const DOC_TABS: SegTab[] = [
+    { id: 'rules',     label: t('documents.tabRules') },
+    { id: 'documents', label: t('documents.tabDocuments') },
+  ]
 
   // Which section is showing. The segmented control switches between them;
   // only the active section renders (a real switch, not a scroll-spy).
@@ -233,7 +235,7 @@ export default function EasyDocs() {
       if (error || !data?.signedUrl) throw error || new Error('No link')
       window.open(data.signedUrl, '_blank', 'noopener')
     } catch {
-      setDocError('Could not open that document. Please try again.')
+      setDocError(t('documents.openError'))
     } finally {
       setBusy(null)
     }
@@ -270,7 +272,7 @@ export default function EasyDocs() {
 
   return (
     <div className="easydocs-combined">
-      <SegTabs tabs={DOC_TABS} active={tab} onChange={setTab} ariaLabel="Easy Documents sections" />
+      <SegTabs tabs={DOC_TABS} active={tab} onChange={setTab} ariaLabel={t('documents.sectionsAria')} />
 
       {/* ════════════════════════════════════════════════════════════════
           RULES SECTION
@@ -280,10 +282,9 @@ export default function EasyDocs() {
         <div className="rb-wrap">
           <section className="rb-hero">
             <div className="rb-hero-content">
-              <h1 className="rb-hero-title">Rules <span className="rb-amp">&amp;</span> Guidelines</h1>
+              <h1 className="rb-hero-title">{t('documents.rulesHeroTitlePre')} <span className="rb-amp">&amp;</span> {t('documents.rulesHeroTitlePost')}</h1>
               <div className="rb-hero-sub">
-                Community standards that help keep {communityName} safe,
-                beautiful, and enjoyable for everyone.
+                {t('documents.rulesHeroSub', { community: communityName })}
               </div>
             </div>
           </section>
@@ -297,36 +298,36 @@ export default function EasyDocs() {
               type="search"
               value={ruleSearch}
               onChange={e => setRuleSearch(e.target.value)}
-              placeholder="Search rules and policies…"
+              placeholder={t('documents.rulesSearchPlaceholder')}
             />
           </div>
 
           {rulesList.length > 0 && (
             <section className="rb-vi">
               <div className="rb-vi-head">
-                <h2>Violations <span className="rb-amp">&amp;</span> Enforcement</h2>
-                <span className="rb-vi-sub">How the board keeps the rule book real.</span>
+                <h2>{t('documents.violationsTitlePre')} <span className="rb-amp">&amp;</span> {t('documents.violationsTitlePost')}</h2>
+                <span className="rb-vi-sub">{t('documents.violationsSub')}</span>
               </div>
               <div className="rb-vi-stats">
                 <div className="rb-vi-stat">
                   <div className="rb-vi-stat-n">{fmtNum(violations.warnings)}</div>
-                  <div className="rb-vi-stat-l">Warnings issued</div>
-                  <div className="rb-vi-stat-d">First touch — no fine attached.</div>
+                  <div className="rb-vi-stat-l">{t('documents.statWarningsLabel')}</div>
+                  <div className="rb-vi-stat-d">{t('documents.statWarningsDesc')}</div>
                 </div>
                 <div className="rb-vi-stat">
                   <div className="rb-vi-stat-n">{fmtMoney(violations.fines)}</div>
-                  <div className="rb-vi-stat-l">Fines collected</div>
-                  <div className="rb-vi-stat-d">Returned to the community reserve.</div>
+                  <div className="rb-vi-stat-l">{t('documents.statFinesLabel')}</div>
+                  <div className="rb-vi-stat-d">{t('documents.statFinesDesc')}</div>
                 </div>
                 <div className="rb-vi-stat">
                   <div className="rb-vi-stat-n">{fmtNum(violations.resolved)}</div>
-                  <div className="rb-vi-stat-l">Resolved</div>
-                  <div className="rb-vi-stat-d">Closed within 30 days.</div>
+                  <div className="rb-vi-stat-l">{t('documents.statResolvedLabel')}</div>
+                  <div className="rb-vi-stat-d">{t('documents.statResolvedDesc')}</div>
                 </div>
                 <div className="rb-vi-stat">
                   <div className="rb-vi-stat-n">{fmtNum(violations.appeals)}</div>
-                  <div className="rb-vi-stat-l">Appeals</div>
-                  <div className="rb-vi-stat-d">Reviewed at the next board meeting.</div>
+                  <div className="rb-vi-stat-l">{t('documents.statAppealsLabel')}</div>
+                  <div className="rb-vi-stat-d">{t('documents.statAppealsDesc')}</div>
                 </div>
               </div>
             </section>
@@ -334,9 +335,9 @@ export default function EasyDocs() {
 
           {rulesList.length === 0 && (
             <div className="rb-empty">
-              <div className="rb-empty-title">No rules published yet</div>
+              <div className="rb-empty-title">{t('documents.noRulesTitle')}</div>
               <div className="rb-empty-sub">
-                When your board adds covenants and house rules, they appear here for everyone.
+                {t('documents.noRulesSub')}
               </div>
             </div>
           )}
@@ -345,7 +346,7 @@ export default function EasyDocs() {
             <>
               <div className="rb-grid">
                 <section className="rb-col">
-                  <div className="rb-col-head">Browse rules by category</div>
+                  <div className="rb-col-head">{t('documents.browseByCategory')}</div>
 
                   {/* Category chips — always on top, so picking one keeps the
                       selector visible. The active chip stays highlighted. */}
@@ -356,7 +357,7 @@ export default function EasyDocs() {
                     }
                     const chips: Chip[] = [
                       {
-                        key: '__all__', label: 'All Rules', count: rulesList.length,
+                        key: '__all__', label: t('documents.allRules'), count: rulesList.length,
                         icon: 'shield', onClick: () => setActiveCategory('all'), isActive: activeCategory === 'all',
                       },
                       ...sections.map(name => ({
@@ -380,20 +381,20 @@ export default function EasyDocs() {
                             <button key={c.key} className={`rb-chip${c.isActive ? ' active' : ''}`} onClick={c.onClick}>
                               <span className="rb-chip-icon"><CatIconRules name={c.icon} /></span>
                               <span className="rb-chip-label">{c.label}</span>
-                              <span className="rb-chip-count">{c.count} {c.count === 1 ? 'rule' : 'rules'}</span>
+                              <span className="rb-chip-count">{c.count} {c.count === 1 ? t('documents.ruleSingular') : t('documents.rulePlural')}</span>
                             </button>
                           ))}
                         </div>
                         {pageCount > 1 && (
                           <div className="rb-chip-pager">
-                            <button type="button" className="rb-chip-arrow" aria-label="Previous categories"
+                            <button type="button" className="rb-chip-arrow" aria-label={t('documents.prevCategories')}
                               onClick={() => setChipPage(p => Math.max(0, p - 1))} disabled={page === 0}>&lsaquo;</button>
                             <span className="rb-chip-dots">
                               {Array.from({ length: pageCount }).map((_, i) => (
                                 <span key={i} className={`rb-chip-dot${i === page ? ' on' : ''}`} />
                               ))}
                             </span>
-                            <button type="button" className="rb-chip-arrow" aria-label="More categories"
+                            <button type="button" className="rb-chip-arrow" aria-label={t('documents.moreCategories')}
                               onClick={() => setChipPage(p => Math.min(pageCount - 1, p + 1))} disabled={page >= pageCount - 1}>&rsaquo;</button>
                           </div>
                         )}
@@ -413,8 +414,8 @@ export default function EasyDocs() {
                     if (cardCategories.length === 0) {
                       return (
                         <div className="rb-empty rb-empty-card">
-                          <div className="rb-empty-title">No categories match your search.</div>
-                          <div className="rb-empty-sub">Try a different keyword or clear your search.</div>
+                          <div className="rb-empty-title">{t('documents.noCategoriesMatch')}</div>
+                          <div className="rb-empty-sub">{t('documents.noCategoriesMatchSub')}</div>
                         </div>
                       )
                     }
@@ -427,9 +428,9 @@ export default function EasyDocs() {
                               <span className="rb-cat-card-icon"><CatIconRules name={iconFor(name)} /></span>
                               <span className="rb-cat-card-body">
                                 <span className="rb-cat-card-title">{name}</span>
-                                <span className="rb-cat-card-desc">{describeSection(name, count)}</span>
+                                <span className="rb-cat-card-desc">{describeSection(name, count, t)}</span>
                               </span>
-                              <span className="rb-cat-card-count">{count} {count === 1 ? 'rule' : 'rules'}</span>
+                              <span className="rb-cat-card-count">{count} {count === 1 ? t('documents.ruleSingular') : t('documents.rulePlural')}</span>
                             </button>
                           )
                         })}
@@ -439,13 +440,13 @@ export default function EasyDocs() {
                     <div className="rb-active-section">
                       <div className="rb-active-head">
                         <h2>{withAmp(activeCategory)}</h2>
-                        <button className="rb-active-clear" onClick={() => setActiveCategory('all')}>Show all categories</button>
+                        <button className="rb-active-clear" onClick={() => setActiveCategory('all')}>{t('documents.showAllCategories')}</button>
                       </div>
                       {(!filteredBySection[activeCategory] || filteredBySection[activeCategory].length === 0) ? (
                         <div className="rb-empty rb-empty-card">
-                          <div className="rb-empty-title">No rules in {activeCategory} yet</div>
+                          <div className="rb-empty-title">{t('documents.noRulesInCategory', { category: activeCategory })}</div>
                           <div className="rb-empty-sub">
-                            When your board adds {activeCategory.toLowerCase()} rules, they appear here.
+                            {t('documents.noRulesInCategorySub', { category: activeCategory.toLowerCase() })}
                           </div>
                         </div>
                       ) : (
@@ -455,7 +456,7 @@ export default function EasyDocs() {
                               <div className="rb-rule-head">
                                 <div className="rb-rule-title">{r.title}</div>
                                 {r.fine != null && Number(r.fine) > 0 && (
-                                  <span className="rb-rule-fine">{fmtMoney(r.fine)} fine</span>
+                                  <span className="rb-rule-fine">{t('documents.fineLabel', { amount: fmtMoney(r.fine) })}</span>
                                 )}
                               </div>
                               {r.body && <div className="rb-rule-body">{r.body}</div>}
@@ -468,7 +469,7 @@ export default function EasyDocs() {
                 </section>
 
                 <aside className="rb-aside">
-                  <div className="rb-col-head">Most viewed rules</div>
+                  <div className="rb-col-head">{t('documents.mostViewedRules')}</div>
                   <ol className="rb-most-list">
                     {mostViewed.map((r: any, i: number) => {
                       const views = MOST_VIEWED_DEMO_COUNTS[i] ?? Math.max(20, 60 - i * 8)
@@ -477,7 +478,7 @@ export default function EasyDocs() {
                           <span className="rb-most-rank">{i + 1}</span>
                           <div className="rb-most-body">
                             <div className="rb-most-title">{r.title}</div>
-                            <div className="rb-most-meta">{r.section || 'General'}</div>
+                            <div className="rb-most-meta">{r.section || t('documents.generalCategory')}</div>
                           </div>
                           <div className="rb-most-views">
                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -495,14 +496,14 @@ export default function EasyDocs() {
 
               <div className="rb-suggest">
                 <div className="rb-suggest-body">
-                  <div className="rb-suggest-eyebrow">Know a rule that could be clearer?</div>
-                  <div className="rb-suggest-title">Suggest a rule change</div>
+                  <div className="rb-suggest-eyebrow">{t('documents.suggestEyebrow')}</div>
+                  <div className="rb-suggest-title">{t('documents.suggestTitle')}</div>
                   <div className="rb-suggest-sub">
-                    Send the board a proposal — they review every suggestion at the next meeting.
+                    {t('documents.suggestSub')}
                   </div>
                 </div>
                 <Link href="/app/voice#contact" className="rb-suggest-cta">
-                  Suggest a change
+                  {t('documents.suggestCta')}
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>
                   </svg>
@@ -522,9 +523,9 @@ export default function EasyDocs() {
         <div className="doc-wrap">
           <section className="doc-hero">
             <div className="doc-hero-content">
-              <h1 className="doc-hero-title">Documents</h1>
+              <h1 className="doc-hero-title">{t('documents.docsHeroTitle')}</h1>
               <div className="doc-hero-sub">
-                Important community documents, resources, and forms &mdash; all in one place.
+                {t('documents.docsHeroSub')}
               </div>
             </div>
           </section>
@@ -539,27 +540,27 @@ export default function EasyDocs() {
                 type="search"
                 value={docSearch}
                 onChange={e => setDocSearch(e.target.value)}
-                placeholder="Search documents…"
+                placeholder={t('documents.docsSearchPlaceholder')}
               />
             </div>
             <select name="doc-category" className="doc-select" value={docFilterCategory}
               onChange={e => setDocFilterCategory(e.target.value)}>
-              <option value="all">All Categories</option>
+              <option value="all">{t('documents.allCategories')}</option>
               {CATEGORY_GRID.map(c => (
-                <option key={c.key} value={c.label}>{c.label}</option>
+                <option key={c.key} value={c.label}>{t(`documents.cat_${c.key}_label`)}</option>
               ))}
             </select>
             <select name="doc-period" className="doc-select" value={docFilterPeriod}
               onChange={e => setDocFilterPeriod(e.target.value as any)}>
-              <option value="recent">Recently Updated</option>
-              <option value="oldest">Oldest First</option>
+              <option value="recent">{t('documents.recentlyUpdated')}</option>
+              <option value="oldest">{t('documents.oldestFirst')}</option>
             </select>
           </div>
 
           <div className="doc-rows">
             <div className="doc-row">
               <section className="doc-card">
-                <h2 className="doc-card-title">Document Categories</h2>
+                <h2 className="doc-card-title">{t('documents.documentCategories')}</h2>
                 <div className="doc-cat-grid">
                   {CATEGORY_GRID.map(c => {
                     const count = categoryCounts[c.label.toLowerCase()] || 0
@@ -568,9 +569,9 @@ export default function EasyDocs() {
                         onClick={() => setDocFilterCategory(c.label)}>
                         <span className="doc-cat-icon"><DocCatIcon name={c.key} /></span>
                         <span className="doc-cat-body">
-                          <span className="doc-cat-label">{c.label}</span>
-                          <span className="doc-cat-desc">{c.desc}</span>
-                          {count > 0 && <span className="doc-cat-count">{count} {count === 1 ? 'doc' : 'docs'}</span>}
+                          <span className="doc-cat-label">{t(`documents.cat_${c.key}_label`)}</span>
+                          <span className="doc-cat-desc">{t(`documents.cat_${c.key}_desc`)}</span>
+                          {count > 0 && <span className="doc-cat-count">{count} {count === 1 ? t('documents.docSingular') : t('documents.docPlural')}</span>}
                         </span>
                       </button>
                     )
@@ -580,8 +581,8 @@ export default function EasyDocs() {
 
               <section className="doc-card">
                 <div className="doc-card-head">
-                  <h2 className="doc-card-title">Pinned &amp; Important</h2>
-                  <button type="button" className="doc-card-link" onClick={() => setListOpen('pinned')}>View all</button>
+                  <h2 className="doc-card-title">{t('documents.pinnedImportant')}</h2>
+                  <button type="button" className="doc-card-link" onClick={() => setListOpen('pinned')}>{t('documents.viewAll')}</button>
                 </div>
                 <div className="doc-pinned-grid">
                   {DEMO_PINNED.map(p => (
@@ -601,13 +602,12 @@ export default function EasyDocs() {
               <section className="doc-card doc-need">
                 <div className="doc-need-icon" aria-hidden="true"><IconHelp /></div>
                 <div className="doc-need-body">
-                  <div className="doc-need-title">Need a document?</div>
+                  <div className="doc-need-title">{t('documents.needDocTitle')}</div>
                   <div className="doc-need-sub">
-                    Can&rsquo;t find what you&rsquo;re looking for? Request it from
-                    the board and they&rsquo;ll surface it here.
+                    {t('documents.needDocSub')}
                   </div>
                 </div>
-                <Link href="/app/voice#contact" className="doc-cta-primary">Request a Document</Link>
+                <Link href="/app/voice#contact" className="doc-cta-primary">{t('documents.requestDocument')}</Link>
               </section>
 
               <section className="doc-card doc-stay">
@@ -617,25 +617,25 @@ export default function EasyDocs() {
                   </svg>
                 </div>
                 <div className="doc-stay-body">
-                  <div className="doc-stay-title">Stay Informed</div>
+                  <div className="doc-stay-title">{t('documents.stayInformedTitle')}</div>
                   <div className="doc-stay-sub">
-                    Get notified when new documents are uploaded or updated.
+                    {t('documents.stayInformedSub')}
                   </div>
                 </div>
-                <Link href="/app/settings" className="doc-cta-secondary">Manage Notifications</Link>
+                <Link href="/app/settings" className="doc-cta-secondary">{t('documents.manageNotifications')}</Link>
               </section>
             </div>
 
             <div className="doc-row">
               <section className="doc-card">
                 <div className="doc-card-head">
-                  <h2 className="doc-card-title">Recent Documents</h2>
-                  <button type="button" className="doc-card-link" onClick={() => setListOpen('recent')}>View all</button>
+                  <h2 className="doc-card-title">{t('documents.recentDocuments')}</h2>
+                  <button type="button" className="doc-card-link" onClick={() => setListOpen('recent')}>{t('documents.viewAll')}</button>
                 </div>
                 {docError && <div className="doc-err">{docError}</div>}
-                {docLoading && <div className="doc-empty">Loading…</div>}
+                {docLoading && <div className="doc-empty">{t('documents.loading')}</div>}
                 {!docLoading && recent.length === 0 && (
-                  <div className="doc-empty">No documents yet. Check back as the board adds them.</div>
+                  <div className="doc-empty">{t('documents.noDocumentsYet')}</div>
                 )}
                 {!docLoading && recent.length > 0 && (
                   <div className="doc-recent">
@@ -646,12 +646,12 @@ export default function EasyDocs() {
                         <span className="doc-recent-body">
                           <span className="doc-recent-title">{d.title}</span>
                           <span className="doc-recent-meta">
-                            {d.category || 'Other'}
+                            {d.category || t('documents.otherCategory')}
                             {d.size_bytes ? <> &middot; {fmtSize(d.size_bytes)}</> : null}
                           </span>
                         </span>
                         <span className="doc-recent-date">{fmtDate(d.uploaded_at)}</span>
-                        <span className="doc-recent-action">{busy === d.id ? 'Opening…' : 'Open'}</span>
+                        <span className="doc-recent-action">{busy === d.id ? t('documents.opening') : t('documents.open')}</span>
                       </button>
                     ))}
                   </div>
@@ -660,8 +660,8 @@ export default function EasyDocs() {
 
               <section className="doc-card">
                 <div className="doc-card-head">
-                  <h2 className="doc-card-title">Popular Downloads</h2>
-                  <button type="button" className="doc-card-link" onClick={() => setListOpen('popular')}>View all</button>
+                  <h2 className="doc-card-title">{t('documents.popularDownloads')}</h2>
+                  <button type="button" className="doc-card-link" onClick={() => setListOpen('popular')}>{t('documents.viewAll')}</button>
                 </div>
                 <div className="doc-popular">
                   {DEMO_POPULAR.map(p => (
@@ -669,7 +669,7 @@ export default function EasyDocs() {
                       onClick={() => setDocDetail({ title: p.label })}>
                       <span className="doc-popular-icon"><PdfIcon /></span>
                       <span className="doc-popular-title">{p.label}</span>
-                      <span className="doc-popular-dl" aria-label="Open">
+                      <span className="doc-popular-dl" aria-label={t('documents.open')}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M12 4v12"/><path d="m6 10 6 6 6-6"/><path d="M5 20h14"/>
                         </svg>
@@ -691,22 +691,22 @@ export default function EasyDocs() {
       {/* A single document — detail in place. */}
       {docDetail && (
         <DetailDialog
-          eyebrow={docDetail.category || 'Document'}
+          eyebrow={docDetail.category || t('documents.documentEyebrow')}
           title={docDetail.title}
           period={docDetail.date ? `PDF · ${fmtDate(docDetail.date)}` : undefined}
           onClose={() => setDocDetail(null)}
           footer={docDetail.doc ? (
-            <button type="button" className="ven-cta-primary" onClick={() => { const d = docDetail.doc; setDocDetail(null); openDoc(d) }}>Open document</button>
+            <button type="button" className="ven-cta-primary" onClick={() => { const d = docDetail.doc; setDocDetail(null); openDoc(d) }}>{t('documents.openDocument')}</button>
           ) : undefined}
         >
           <div className="rd-bd-table">
-            {docDetail.category && <div className="rd-bd-row"><span className="rd-bd-cat">Category</span><span className="rd-bd-amt">{docDetail.category}</span><span /></div>}
-            {docDetail.date && <div className="rd-bd-row"><span className="rd-bd-cat">Updated</span><span className="rd-bd-amt">{fmtDate(docDetail.date)}</span><span /></div>}
-            {docDetail.size && <div className="rd-bd-row"><span className="rd-bd-cat">Size</span><span className="rd-bd-amt">{docDetail.size}</span><span /></div>}
+            {docDetail.category && <div className="rd-bd-row"><span className="rd-bd-cat">{t('documents.detailCategory')}</span><span className="rd-bd-amt">{docDetail.category}</span><span /></div>}
+            {docDetail.date && <div className="rd-bd-row"><span className="rd-bd-cat">{t('documents.detailUpdated')}</span><span className="rd-bd-amt">{fmtDate(docDetail.date)}</span><span /></div>}
+            {docDetail.size && <div className="rd-bd-row"><span className="rd-bd-cat">{t('documents.detailSize')}</span><span className="rd-bd-amt">{docDetail.size}</span><span /></div>}
           </div>
           {!docDetail.doc && (
             <p className="rd-detail-foot-note">
-              This is a board-published document. The PDF opens here once it&rsquo;s uploaded to your community.
+              {t('documents.boardPublishedNote')}
             </p>
           )}
         </DetailDialog>
@@ -715,8 +715,8 @@ export default function EasyDocs() {
       {/* "View all" lists — pinned / recent / popular. */}
       {listOpen && (
         <DetailDialog
-          eyebrow="Documents"
-          title={listOpen === 'pinned' ? 'Pinned & Important' : listOpen === 'recent' ? 'Recent Documents' : 'Popular Downloads'}
+          eyebrow={t('documents.documentsEyebrow')}
+          title={listOpen === 'pinned' ? t('documents.pinnedImportant') : listOpen === 'recent' ? t('documents.recentDocuments') : t('documents.popularDownloads')}
           size="wide"
           onClose={() => setListOpen(null)}
         >
@@ -730,12 +730,12 @@ export default function EasyDocs() {
               </button>
             ))}
             {listOpen === 'recent' && (docFiltered.length === 0 ? (
-              <p className="rd-detail-foot-note" style={{ marginTop: 0 }}>No documents yet.</p>
+              <p className="rd-detail-foot-note" style={{ marginTop: 0 }}>{t('documents.noDocumentsShort')}</p>
             ) : docFiltered.map(d => (
               <button type="button" className="rd-list-row" key={d.id}
                 onClick={() => { setListOpen(null); openDoc(d) }}>
                 <span className="doc-pinned-icon"><PdfIcon /></span>
-                <span className="rd-list-body"><span className="rd-list-title">{d.title}</span><span className="rd-list-meta">{d.category || 'Other'}{d.size_bytes ? ` · ${fmtSize(d.size_bytes)}` : ''} · {fmtDate(d.uploaded_at)}</span></span>
+                <span className="rd-list-body"><span className="rd-list-title">{d.title}</span><span className="rd-list-meta">{d.category || t('documents.otherCategory')}{d.size_bytes ? ` · ${fmtSize(d.size_bytes)}` : ''} · {fmtDate(d.uploaded_at)}</span></span>
                 <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
             )))}
@@ -770,6 +770,7 @@ const DEMO_VIOLATIONS = [
 // appeals are filed through Contact the board. 5 per page with pagination.
 // Demo fallback so it renders in preview.
 function MyViolationsPanel() {
+  const t = useT()
   const { violations } = useMyViolations()
   const data: any[] = violations.length ? violations : DEMO_VIOLATIONS
   const [page, setPage] = useState(0)
@@ -779,31 +780,31 @@ function MyViolationsPanel() {
   return (
     <section className="doc-card" style={{ gridColumn: '1 / -1' }}>
       <div className="doc-card-head">
-        <h2 className="doc-card-title">Your violations</h2>
-        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(10,36,64,0.55)' }}>Appeals go through Contact the board</span>
+        <h2 className="doc-card-title">{t('documents.yourViolations')}</h2>
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(10,36,64,0.55)' }}>{t('documents.appealsNote')}</span>
       </div>
       {data.length === 0 ? (
-        <div className="doc-empty">Nothing on file — you&rsquo;re in good standing.</div>
+        <div className="doc-empty">{t('documents.noViolations')}</div>
       ) : (
         <div className="myv-list">
           {shown.map(v => (
             <div className="myv-row" key={v.id}>
-              <span className={`myv-tag myv-tag-${v.kind}`}>{v.kind === 'fine' ? 'Fine' : 'Warning'}</span>
+              <span className={`myv-tag myv-tag-${v.kind}`}>{v.kind === 'fine' ? t('documents.tagFine') : t('documents.tagWarning')}</span>
               <div className="myv-body">
                 <div className="myv-title">
-                  {v.rule_title || 'Community rule'}
+                  {v.rule_title || t('documents.communityRule')}
                   {v.amount != null && <span className="myv-amt"> · ${v.amount}</span>}
                 </div>
-                <div className="myv-meta">{v.status === 'closed' ? (v.resolution || 'Closed') : v.status} · {fmtDate(v.opened_at)}</div>
+                <div className="myv-meta">{v.status === 'closed' ? (v.resolution || t('documents.statusClosed')) : v.status} · {fmtDate(v.opened_at)}</div>
                 {v.notes && <div className="myv-meta">{v.notes}</div>}
               </div>
             </div>
           ))}
           {pages > 1 && (
             <div className="con-pager">
-              <button type="button" className="con-pager-btn" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}>&lsaquo; Prev</button>
-              <span className="con-pager-info">Page {page + 1} of {pages}</span>
-              <button type="button" className="con-pager-btn" onClick={() => setPage(p => Math.min(pages - 1, p + 1))} disabled={page >= pages - 1}>Next &rsaquo;</button>
+              <button type="button" className="con-pager-btn" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}>&lsaquo; {t('documents.prev')}</button>
+              <span className="con-pager-info">{t('documents.pageOf', { page: page + 1, pages })}</span>
+              <button type="button" className="con-pager-btn" onClick={() => setPage(p => Math.min(pages - 1, p + 1))} disabled={page >= pages - 1}>{t('documents.next')} &rsaquo;</button>
             </div>
           )}
         </div>

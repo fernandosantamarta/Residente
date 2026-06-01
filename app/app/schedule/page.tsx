@@ -10,13 +10,9 @@ import {
   useScheduleEvents,
 } from '@/lib/schedule'
 import { usePreferences } from '@/lib/preferences'
+import { useT } from '@/lib/i18n'
 import { SegTabs, SegTab } from '@/components/SegTabs'
 import { AmenitiesSection } from './_sections/AmenitiesSection'
-
-const TABS: SegTab[] = [
-  { id: 'calendar', label: 'Calendar' },
-  { id: 'amenities', label: 'Amenities' },
-]
 
 const WEEKDAYS_SUN = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 const WEEKDAYS_MON = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
@@ -39,13 +35,13 @@ function fmtWeekday(iso: string) {
   return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long' })
 }
 // "Today", "Yesterday", "Tomorrow", or the weekday name for anything else.
-function relativeDayLabel(selectedISO: string, todayISO: string) {
+function relativeDayLabel(selectedISO: string, todayISO: string, t: (k: string) => string) {
   const sel = new Date(selectedISO + 'T00:00:00').getTime()
   const today = new Date(todayISO + 'T00:00:00').getTime()
   const diff = Math.round((sel - today) / (24 * 60 * 60 * 1000))
-  if (diff === 0)  return 'Today'
-  if (diff === -1) return 'Yesterday'
-  if (diff === 1)  return 'Tomorrow'
+  if (diff === 0)  return t('schedule.today')
+  if (diff === -1) return t('schedule.yesterday')
+  if (diff === 1)  return t('schedule.tomorrow')
   return fmtWeekday(selectedISO)
 }
 
@@ -53,7 +49,12 @@ function relativeDayLabel(selectedISO: string, todayISO: string) {
 // Amenities catalog. The hero + segmented control live in the wrapper so they
 // persist across both; each tab renders its own body below.
 export default function Schedule() {
+  const t = useT()
   const [tab, setTab] = useState('calendar')
+  const TABS: SegTab[] = [
+    { id: 'calendar', label: t('schedule.tabCalendar') },
+    { id: 'amenities', label: t('schedule.tabAmenities') },
+  ]
   return (
     <div className="sched-wrap">
       <section className="sched-hero">
@@ -61,14 +62,14 @@ export default function Schedule() {
           <h1 className="sched-hero-title">Easy Schedule</h1>
           <div className="sched-hero-sub">
             {tab === 'amenities'
-              ? 'Reserve the clubhouse, pool, gym, and more.'
-              : 'Everything happening in your community.'}
+              ? t('schedule.heroSubAmenities')
+              : t('schedule.heroSubCalendar')}
           </div>
         </div>
       </section>
 
       <div className="sched-tabs">
-        <SegTabs tabs={TABS} active={tab} onChange={setTab} ariaLabel="Easy Schedule sections" />
+        <SegTabs tabs={TABS} active={tab} onChange={setTab} ariaLabel={t('schedule.sectionsAria')} />
       </div>
 
       {tab === 'amenities' ? <AmenitiesSection /> : <CalendarView />}
@@ -77,6 +78,7 @@ export default function Schedule() {
 }
 
 function CalendarView() {
+  const t = useT()
   // Demo "today" pinned to May 28, 2026 so the mockup matches. Swap to
   // `new Date()` once real data is wired.
   const today = new Date(2026, 4, 28)
@@ -175,21 +177,21 @@ function CalendarView() {
       {/* Toolbar */}
       <div className="sched-toolbar">
         <button className="sched-today-btn" onClick={goToday}>
-          {relativeDayLabel(selected, todayISO)} · {fmtFullDate(selected)}
+          {relativeDayLabel(selected, todayISO, t)} · {fmtFullDate(selected)}
         </button>
         <div className="sched-monthnav">
-          <button className="sched-nav-btn" onClick={() => go(-1)} aria-label="Previous month">
+          <button className="sched-nav-btn" onClick={() => go(-1)} aria-label={t('schedule.prevMonth')}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="15 18 9 12 15 6" />
             </svg>
           </button>
-          <button className="sched-monthnav-title" aria-label="Pick a month">
+          <button className="sched-monthnav-title" aria-label={t('schedule.pickMonth')}>
             {fmtMonth(cursor.y, cursor.m)}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <polyline points="6 9 12 15 18 9" />
             </svg>
           </button>
-          <button className="sched-nav-btn" onClick={() => go(1)} aria-label="Next month">
+          <button className="sched-nav-btn" onClick={() => go(1)} aria-label={t('schedule.nextMonth')}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="9 18 15 12 9 6" />
             </svg>
@@ -197,28 +199,32 @@ function CalendarView() {
         </div>
 
         <div className="sched-views">
-          {['Month', 'Week', 'Day'].map(v => (
+          {[
+            { id: 'Month', label: t('schedule.viewMonth') },
+            { id: 'Week', label: t('schedule.viewWeek') },
+            { id: 'Day', label: t('schedule.viewDay') },
+          ].map(v => (
             <button
-              key={v}
-              className={`sched-view-btn${v === 'Month' ? ' active' : ''}`}
-              disabled={v !== 'Month'}
-              title={v !== 'Month' ? 'Coming soon' : undefined}
+              key={v.id}
+              className={`sched-view-btn${v.id === 'Month' ? ' active' : ''}`}
+              disabled={v.id !== 'Month'}
+              title={v.id !== 'Month' ? t('schedule.comingSoon') : undefined}
             >
-              {v}
+              {v.label}
             </button>
           ))}
         </div>
 
-        <button className="sched-filter-btn" aria-label="Filter events">
+        <button className="sched-filter-btn" aria-label={t('schedule.filterEvents')}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 5h18l-7 9v6l-4-2v-4z" />
           </svg>
-          Filter
+          {t('schedule.filter')}
         </button>
 
         <div className="sched-toolbar-today">
-          <div className="sched-toolbar-today-label">Today · {fmtFullDate(todayISO)}</div>
-          <div className="sched-toolbar-today-count">{todayCount} events</div>
+          <div className="sched-toolbar-today-label">{t('schedule.today')} · {fmtFullDate(todayISO)}</div>
+          <div className="sched-toolbar-today-count">{t('schedule.eventsCount', { count: todayCount })}</div>
         </div>
       </div>
 
@@ -280,18 +286,18 @@ function CalendarView() {
             <div className="sched-side-head">
               <div>
                 <div className="sched-side-eyebrow">
-                  {relativeDayLabel(selected, todayISO)} · {fmtFullDate(selected)}
+                  {relativeDayLabel(selected, todayISO, t)} · {fmtFullDate(selected)}
                 </div>
                 <div className="sched-side-count">
                   <span className="sched-side-check" aria-hidden="true">✓</span>
-                  {selectedEvents.length} event{selectedEvents.length === 1 ? '' : 's'}
+                  {t('schedule.eventsCount', { count: selectedEvents.length })}
                 </div>
               </div>
             </div>
 
             <div className="sched-side-list">
               {selectedEvents.length === 0 && (
-                <div className="sched-side-empty">Nothing scheduled.</div>
+                <div className="sched-side-empty">{t('schedule.nothingScheduled')}</div>
               )}
               {selectedEvents.map(e => (
                 <EventRow key={e.id} e={e} />
@@ -301,12 +307,12 @@ function CalendarView() {
 
           <div className="sched-side-card">
             <div className="sched-filters-head">
-              <span>Filters</span>
+              <span>{t('schedule.filters')}</span>
               <button
                 className="sched-filters-clear"
                 onClick={() => setEnabledKinds(new Set(ALL_KINDS))}
               >
-                Reset
+                {t('schedule.reset')}
               </button>
             </div>
             <div className="sched-filters-list">
@@ -329,9 +335,9 @@ function CalendarView() {
           </div>
 
           <div className="sched-subscribe">
-            <div className="sched-subscribe-title">Subscribe to calendar</div>
+            <div className="sched-subscribe-title">{t('schedule.subscribeTitle')}</div>
             <div className="sched-subscribe-sub">
-              Sync this calendar to your phone or computer.
+              {t('schedule.subscribeSub')}
             </div>
             <div className="sched-subscribe-row">
               <button className="sched-subscribe-btn">Apple / .ics</button>
@@ -370,11 +376,11 @@ function CalendarView() {
               <div className="sched-modal-title">
                 {fmtWeekday(modal.date)} · {fmtFullDate(modal.date)}
               </div>
-              <button className="sched-modal-close" aria-label="Close" onClick={() => setModal(null)}>×</button>
+              <button className="sched-modal-close" aria-label={t('schedule.close')} onClick={() => setModal(null)}>×</button>
             </div>
             <div className="sched-modal-list">
               {modal.events.length === 0 ? (
-                <div className="sched-modal-empty">Nothing scheduled.</div>
+                <div className="sched-modal-empty">{t('schedule.nothingScheduled')}</div>
               ) : (
                 modal.events.map(e => (
                   <div key={e.id} className="sched-modal-row">

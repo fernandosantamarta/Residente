@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useState } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase } from '@/lib/supabase'
+import { useT } from '@/lib/i18n'
 
 // The "Submit a request" form — category cards + subject + description +
 // attachment + submit. Shared by the Contact page (inline) and the Home quick
@@ -24,6 +25,21 @@ export const CATS: { value: Category; label: string }[] = [
 ]
 export const CAT_LABEL: Record<string, string> = Object.fromEntries(CATS.map(c => [c.value, c.label]))
 
+// i18n key per category — used to render translated category labels while the
+// CATS array keeps the stable English values for data + icons.
+const CAT_LABEL_KEY: Record<string, string> = {
+  maintenance: 'board.catMaintenance',
+  appeal:      'board.catAppeal',
+  account:     'board.catAccount',
+  other:       'board.catOther',
+}
+
+// Translated category label, defaulting to the raw value for unknown categories.
+export function useCatLabel() {
+  const t = useT()
+  return (value: string) => (CAT_LABEL_KEY[value] ? t(CAT_LABEL_KEY[value]) : value)
+}
+
 const MAX_BODY = 500
 const MAX_FILE = 10 * 1024 * 1024  // 10MB
 const EMPTY = { category: 'maintenance' as Category, subject: '', body: '' }
@@ -34,6 +50,8 @@ export function RequestForm({
   initialCategory?: Category
   onSubmitted?: (row: any) => void
 }) {
+  const t = useT()
+  const catLabel = useCatLabel()
   const { profile } = useAuth() || {}
   const [form, setForm] = useState({ ...EMPTY, category: initialCategory })
   const [file, setFile] = useState<File | null>(null)
@@ -45,14 +63,14 @@ export function RequestForm({
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.subject.trim()) { setError('Give your request a subject'); return }
+    if (!form.subject.trim()) { setError(t('board.errSubjectRequired')); return }
     // Demo / preview (no session) — confirm so the flow reads end to end.
     if (!supabase || !profile?.id || !profile?.community_id) {
-      setOk('Request submitted — the board will follow up.')
+      setOk(t('board.requestSubmitted'))
       setForm({ ...EMPTY, category: form.category }); setFile(null)
       return
     }
-    if (file && file.size > MAX_FILE) { setError('Attachment must be 10MB or smaller.'); return }
+    if (file && file.size > MAX_FILE) { setError(t('board.errFileTooLarge')); return }
     setSaving(true); setError('')
     let uploadedPath: string | null = null
     try {
@@ -90,9 +108,9 @@ export function RequestForm({
       }
       onSubmitted?.(data)
       setForm({ ...EMPTY, category: form.category }); setFile(null)
-      setOk('Request submitted — the board will follow up.')
+      setOk(t('board.requestSubmitted'))
     } catch (err: any) {
-      setError(err?.message || 'Could not send your request')
+      setError(err?.message || t('board.errCouldNotSend'))
     } finally {
       setSaving(false)
     }
@@ -101,7 +119,7 @@ export function RequestForm({
   return (
     <form onSubmit={submit}>
       <div className="con-field">
-        <span className="con-label">Category</span>
+        <span className="con-label">{t('board.categoryLabel')}</span>
         <div className="con-cats">
           {CATS.map(c => (
             <button
@@ -112,7 +130,7 @@ export function RequestForm({
               aria-pressed={form.category === c.value}
             >
               <span className="con-cat-ic">{catIcon(c.value)}</span>
-              <span className="con-cat-label">{c.label}</span>
+              <span className="con-cat-label">{catLabel(c.value)}</span>
               <span className="con-cat-radio" aria-hidden="true" />
             </button>
           ))}
@@ -120,19 +138,19 @@ export function RequestForm({
       </div>
 
       <div className="con-field">
-        <label className="con-label" htmlFor="con-subject">Subject</label>
+        <label className="con-label" htmlFor="con-subject">{t('board.subjectLabel')}</label>
         <input id="con-subject" name="subject" className="con-input"
           value={form.subject} onChange={e => setField('subject', e.target.value)}
-          placeholder="e.g. Broken gate at the east entrance" />
+          placeholder={t('board.subjectPlaceholder')} />
       </div>
 
       <div className="con-field">
-        <label className="con-label" htmlFor="con-body">Description</label>
+        <label className="con-label" htmlFor="con-body">{t('board.descriptionLabel')}</label>
         <textarea id="con-body" name="body" className="con-input con-textarea" rows={4}
           maxLength={MAX_BODY}
           value={form.body} onChange={e => setField('body', e.target.value)}
-          placeholder="What's going on, where, and since when?" />
-        <div className="con-count">{form.body.length}/{MAX_BODY} characters</div>
+          placeholder={t('board.descriptionPlaceholder')} />
+        <div className="con-count">{t('board.charCount', { count: form.body.length, max: MAX_BODY })}</div>
       </div>
 
       <div className="con-attach">
@@ -142,14 +160,14 @@ export function RequestForm({
             onChange={e => setFile(e.target.files?.[0] || null)} />
           <span className="con-attach-ic"><IconClip /></span>
           <span>
-            <span className="con-attach-title">{file ? file.name : 'Attach a file'}</span>
-            <span className="con-attach-sub">Photo or PDF — JPG, PNG up to 10MB</span>
+            <span className="con-attach-title">{file ? file.name : t('board.attachFile')}</span>
+            <span className="con-attach-sub">{t('board.attachSub')}</span>
           </span>
         </label>
       </div>
 
       <button type="submit" className="con-submit" disabled={saving}>
-        {saving ? 'Submitting…' : 'Submit request'}
+        {saving ? t('board.submitting') : t('board.submitRequestBtn')}
       </button>
       {error && <div className="con-error">{error}</div>}
       {ok && <div className="con-ok">✓ {ok}</div>}
@@ -160,12 +178,14 @@ export function RequestForm({
 // Popup wrapper — the request form inside the shared ven-rd modal shell. No
 // footer; the form's own "Submit request" button is the action.
 export function RequestFormDialog({
-  title = 'Submit a request', initialCategory = 'maintenance', onClose,
+  title, initialCategory = 'maintenance', onClose,
 }: {
   title?: string
   initialCategory?: Category
   onClose: () => void
 }) {
+  const t = useT()
+  const heading = title ?? t('board.submitRequest')
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -177,9 +197,9 @@ export function RequestFormDialog({
         <header className="ven-rd-head">
           <div>
             <div className="ven-rd-eyebrow">Easy Voice</div>
-            <h2 className="ven-rd-title">{title}</h2>
+            <h2 className="ven-rd-title">{heading}</h2>
           </div>
-          <button type="button" className="ven-rd-close" aria-label="Close" onClick={onClose}>×</button>
+          <button type="button" className="ven-rd-close" aria-label={t('board.close')} onClick={onClose}>×</button>
         </header>
         <div className="ven-rd-body">
           <RequestForm initialCategory={initialCategory} />

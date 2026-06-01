@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { DetailDialog } from '../track/_sections/DetailDialog'
+import { useT } from '@/lib/i18n'
 
 // Editorial magazine layout for /community. Renders inside Layout's center
 // column — the cockpit chrome (left rail, topbar) comes from Layout.jsx.
@@ -93,6 +94,7 @@ const CATEGORIES = [
 ]
 
 export default function Community() {
+  const t = useT()
   const [openArticle, setOpenArticle] = useState<(typeof ARTICLES)[number] | null>(null)
   return (
     <div className="community-page">
@@ -112,19 +114,19 @@ export default function Community() {
 
       <section className="comm-feature">
         <div className="comm-feature-left">
-          <div className="kicker-ed">The 2026 Budget</div>
+          <div className="kicker-ed">{t('community.feature.kicker')}</div>
           <h1 className="comm-feature-headline"><span className="gradient-text">Sunset Lakes</span></h1>
           <p className="comm-feature-dek">
-            Four months into the fiscal year, the community has spent 76 cents of every dollar it planned to. The amenities fund is the story.
+            {t('community.feature.dek')}
           </p>
           <div className="comm-byline">
-            <span>By the Board</span>
+            <span>{t('community.byline.byBoard')}</span>
             <span className="comm-byline-dot" />
-            <span>Reported Apr 24, 2026</span>
+            <span>{t('community.byline.reported')}</span>
             <span className="comm-byline-dot" />
-            <span>Reading time 3 min</span>
+            <span>{t('community.byline.readingTime')}</span>
             <span className="comm-byline-dot" />
-            <span>166 Homes · Miramar, FL</span>
+            <span>{t('community.byline.homes')}</span>
           </div>
         </div>
 
@@ -146,14 +148,14 @@ export default function Community() {
             </svg>
             <div className="comm-ring-center">
               <div className="comm-ring-pct gradient-text">76%</div>
-              <div className="comm-ring-lbl">Of Year's Budget</div>
+              <div className="comm-ring-lbl">{t('community.ring.ofYearsBudget')}</div>
             </div>
           </div>
 
           <div className="comm-money">
             <div className="comm-money-amt gradient-text">$47,200</div>
-            <div className="comm-money-sub">of $62,000 · 76% spent · 47% through the year</div>
-            <span className="comm-warn-chip">Over Pace ⚠</span>
+            <div className="comm-money-sub">{t('community.money.sub')}</div>
+            <span className="comm-warn-chip">{t('community.money.overPace')}</span>
           </div>
         </div>
       </section>
@@ -162,8 +164,8 @@ export default function Community() {
 
       <section className="comm-categories">
         <div className="comm-section-head">
-          <div className="kicker-ed">The Categories</div>
-          <h2 className="comm-section-title">Where the money went.</h2>
+          <div className="kicker-ed">{t('community.categories.kicker')}</div>
+          <h2 className="comm-section-title">{t('community.categories.title')}</h2>
         </div>
 
         <div className="comm-cat-grid">
@@ -189,8 +191,8 @@ export default function Community() {
 
       <section className="comm-board">
         <div className="comm-section-head">
-          <div className="kicker-ed">Decisions &amp; Discussions</div>
-          <h2 className="comm-section-title">The board, this week.</h2>
+          <div className="kicker-ed">{t('community.board.kicker')}</div>
+          <h2 className="comm-section-title">{t('community.board.title')}</h2>
         </div>
 
         <div className="comm-articles-grid">
@@ -222,13 +224,13 @@ export default function Community() {
 
       <footer className="comm-footer">
         <div className="comm-footer-masthead">Residente · Sunset Lakes · Q2 2026 · Issue 07</div>
-        <div className="comm-footer-note">A newsletter from your board. Read by 166 households.</div>
+        <div className="comm-footer-note">{t('community.footer.note')}</div>
         <div className="comm-footer-links">
-          <a href="#unsubscribe">Unsubscribe</a>
+          <a href="#unsubscribe">{t('community.footer.unsubscribe')}</a>
           <span className="comm-footer-divider">·</span>
-          <a href="#past-issues">Past issues</a>
+          <a href="#past-issues">{t('community.footer.pastIssues')}</a>
           <span className="comm-footer-divider">·</span>
-          <a href="/app/voice#contact">Contact the board</a>
+          <a href="/app/voice#contact">{t('community.footer.contactBoard')}</a>
         </div>
       </footer>
 
@@ -244,9 +246,9 @@ export default function Community() {
           </div>
           <p className="rd-report-blurb">{openArticle.dek}</p>
           <div className="rd-bd-table">
-            <div className="rd-bd-row"><span className="rd-bd-cat">Vendor</span><span className="rd-bd-amt">{openArticle.vendor}</span><span /></div>
-            <div className="rd-bd-row"><span className="rd-bd-cat">Status</span><span className="rd-bd-amt">{openArticle.votes}</span><span /></div>
-            <div className="rd-bd-row rd-bd-total"><span>Amount</span><span className="rd-bd-amt">{openArticle.amount}</span><span /></div>
+            <div className="rd-bd-row"><span className="rd-bd-cat">{t('community.dialog.vendor')}</span><span className="rd-bd-amt">{openArticle.vendor}</span><span /></div>
+            <div className="rd-bd-row"><span className="rd-bd-cat">{t('community.dialog.status')}</span><span className="rd-bd-amt">{openArticle.votes}</span><span /></div>
+            <div className="rd-bd-row rd-bd-total"><span>{t('community.dialog.amount')}</span><span className="rd-bd-amt">{openArticle.amount}</span><span /></div>
           </div>
         </DetailDialog>
       )}

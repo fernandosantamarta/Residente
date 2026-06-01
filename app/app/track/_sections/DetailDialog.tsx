@@ -1,6 +1,7 @@
 'use client'
 
 import { ReactNode, useEffect } from 'react'
+import { useT } from '@/lib/i18n'
 
 // The site-wide popup primitive. Anything that used to route to a separate page
 // to show detail — or to a settings page to perform an action — opens this in
@@ -14,7 +15,7 @@ import { ReactNode, useEffect } from 'react'
 //                   here in a popup, OR jump to Settings — never forced to leave.)
 export function DetailDialog({
   eyebrow, title, period, children, onClose,
-  footer, settingsHref, settingsLabel = 'Manage in Settings', size = 'default',
+  footer, settingsHref, settingsLabel, size = 'default',
 }: {
   eyebrow: string
   title: string
@@ -26,6 +27,7 @@ export function DetailDialog({
   settingsLabel?: string
   size?: 'default' | 'wide'
 }) {
+  const t = useT()
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
@@ -41,7 +43,7 @@ export function DetailDialog({
             <div className="ven-rd-eyebrow">{eyebrow}</div>
             <h2 className="ven-rd-title">{title}</h2>
           </div>
-          <button type="button" className="ven-rd-close" aria-label="Close" onClick={onClose}>×</button>
+          <button type="button" className="ven-rd-close" aria-label={t('dialogs.close')} onClick={onClose}>×</button>
         </header>
 
         <div className="ven-rd-body">
@@ -51,11 +53,11 @@ export function DetailDialog({
 
         <footer className="ven-rd-foot">
           {settingsHref ? (
-            <a className="rd-settings-link" href={settingsHref}>{settingsLabel} &rarr;</a>
+            <a className="rd-settings-link" href={settingsHref}>{settingsLabel ?? t('dialogs.manageInSettings')} &rarr;</a>
           ) : <span />}
           <div className="ven-rd-foot-right">
             {footer ?? (
-              <button type="button" className="ven-cta-primary" onClick={onClose}>Close</button>
+              <button type="button" className="ven-cta-primary" onClick={onClose}>{t('dialogs.close')}</button>
             )}
           </div>
         </footer>

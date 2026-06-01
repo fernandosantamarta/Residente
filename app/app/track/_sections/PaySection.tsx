@@ -6,6 +6,7 @@ import { useMyResident } from '@/hooks/useMyResident'
 import { stripeEnabled, supabase } from '@/lib/supabase'
 import { usePreferences, newId, PaymentMethod } from '@/lib/preferences'
 import { fmtMoney } from '@/lib/dues'
+import { useT } from '@/lib/i18n'
 import { DetailDialog } from './DetailDialog'
 
 const fmtDate = (d: string | Date | null | undefined) => {
@@ -49,6 +50,7 @@ const DEMO_STATEMENTS = [
 // Statements list, and the saved payment methods (read from /app/settings
 // preferences).
 export function PaySection() {
+  const t = useT()
   const { resident, balance, monthlyDues, payments, loading } = useMyResident() as any
   const [prefs, patchPrefs] = usePreferences()
   const [checkout, setCheckout] = useState({ loading: false, error: '' })
@@ -102,10 +104,10 @@ export function PaySection() {
   const currentBalance = balance == null ? 1250.00 : balance
 
   const breakdown = [
-    { label: 'Monthly Dues',     amount: monthlyDues || 1000 },
-    { label: 'Capital Reserve',  amount: 200 },
-    { label: 'Pet Fees',         amount: 75 },
-    { label: 'Late Fee Credit',  amount: -25 },
+    { label: t('pay.chargeMonthlyDues'),    amount: monthlyDues || 1000 },
+    { label: t('pay.chargeCapitalReserve'), amount: 200 },
+    { label: t('pay.chargePetFees'),        amount: 75 },
+    { label: t('pay.chargeLateFeeCredit'),  amount: -25 },
   ]
   const breakdownTotal = breakdown.reduce((s, r) => s + r.amount, 0)
 
@@ -138,32 +140,32 @@ export function PaySection() {
 
   const trackFaces: Record<'ok' | 'warn', [RingFace, RingFace]> = {
     ok: [
-      { value: <RingCheck />, sub: '',         aria: `on track, ${onTimePct}% of payments on time` },
-      { value: `${onTimePct}%`, sub: 'on time',  aria: `${onTimePct}% of payments on time` },
+      { value: <RingCheck />, sub: '',         aria: t('pay.ringOnTrackAria', { pct: onTimePct }) },
+      { value: `${onTimePct}%`, sub: t('pay.ringOnTimeSub'),  aria: t('pay.ringOnTimeAria', { pct: onTimePct }) },
     ],
     warn: [
-      { value: 'Behind',        sub: '',         aria: `behind, ${onTimePct}% of payments on time` },
-      { value: `${onTimePct}%`, sub: 'on time',  aria: `${onTimePct}% of payments on time` },
+      { value: t('pay.ringBehind'), sub: '',         aria: t('pay.ringBehindAria', { pct: onTimePct }) },
+      { value: `${onTimePct}%`, sub: t('pay.ringOnTimeSub'),  aria: t('pay.ringOnTimeAria', { pct: onTimePct }) },
     ],
   }
 
   const rings: { tone: RingTone; pct: number; cat: string; faces: [RingFace, RingFace] }[] = [
     {
-      tone: 'dues', cat: 'Balance', pct: annualDue ? paidYTD / annualDue : 0,
+      tone: 'dues', cat: t('pay.ringCatBalance'), pct: annualDue ? paidYTD / annualDue : 0,
       faces: [
-        { value: `${monthsPaid}/12`, sub: 'months paid',              aria: `${monthsPaid} of 12 months paid` },
-        { value: fmtMoney(paidYTD),  sub: `of ${fmtMoney(annualDue)}`, aria: `${fmtMoney(paidYTD)} of ${fmtMoney(annualDue)} paid this year` },
+        { value: `${monthsPaid}/12`, sub: t('pay.ringMonthsPaidSub'),              aria: t('pay.ringMonthsPaidAria', { count: monthsPaid }) },
+        { value: fmtMoney(paidYTD),  sub: t('pay.ringOfAmount', { amount: fmtMoney(annualDue) }), aria: t('pay.ringPaidYtdAria', { paid: fmtMoney(paidYTD), total: fmtMoney(annualDue) }) },
       ],
     },
     {
-      tone: trackState, cat: 'Payment status', pct: onTimeRate,
+      tone: trackState, cat: t('pay.ringCatPaymentStatus'), pct: onTimeRate,
       faces: trackFaces[trackState],
     },
     {
-      tone: 'due', cat: 'Due date', pct: duePct,
+      tone: 'due', cat: t('pay.ringCatDueDate'), pct: duePct,
       faces: [
-        { value: daysLeft === 0 ? 'Today' : `${daysLeft}`, sub: daysLeft === 0 ? 'due today' : 'days left', aria: daysLeft === 0 ? 'due today' : `${daysLeft} days until due` },
-        { value: fmtShort(nextDue), sub: 'next due', aria: `next payment due ${fmtShort(nextDue)}` },
+        { value: daysLeft === 0 ? t('pay.ringToday') : `${daysLeft}`, sub: daysLeft === 0 ? t('pay.ringDueTodaySub') : t('pay.ringDaysLeftSub'), aria: daysLeft === 0 ? t('pay.ringDueTodayAria') : t('pay.ringDaysUntilAria', { count: daysLeft }) },
+        { value: fmtShort(nextDue), sub: t('pay.ringNextDueSub'), aria: t('pay.ringNextDueAria', { date: fmtShort(nextDue) }) },
       ],
     },
   ]
@@ -200,7 +202,7 @@ export function PaySection() {
       if (error) throw error
       if (data?.url) window.location.href = data.url
     } catch (err: any) {
-      setAutopayErr(err?.message || 'Could not start card setup.')
+      setAutopayErr(err?.message || t('pay.errStartCardSetup'))
     }
   }
 
@@ -216,7 +218,7 @@ export function PaySection() {
       if (error) throw error
       setAutopayOn(!!data?.autopay_enabled)
     } catch (err: any) {
-      setAutopayErr(err?.message || 'Could not update autopay.')
+      setAutopayErr(err?.message || t('pay.errUpdateAutopay'))
     } finally {
       setAutopayBusy(false)
     }
@@ -234,7 +236,7 @@ export function PaySection() {
       if (error) throw error
       setCards(cs => cs ? cs.map((c: any) => ({ ...c, is_default: c.id === pmId })) : cs)
     } catch (err: any) {
-      setAutopayErr(err?.message || 'Could not set default card.')
+      setAutopayErr(err?.message || t('pay.errSetDefaultCard'))
     }
   }
 
@@ -243,7 +245,7 @@ export function PaySection() {
   // to the demo ledger only in preview mode where there's no roster match.
   const methodLabel = defaultMethod
     ? `${defaultMethod.brand} ···· ${defaultMethod.last4}`
-    : 'Card'
+    : t('pay.cardFallback')
   const history = resident == null
     ? DEMO_HISTORY
     : (payments || []).map((p: any) => {
@@ -254,7 +256,7 @@ export function PaySection() {
         return {
           id: p.id,
           date: when,
-          desc: `Regular Dues${period ? ` — ${period}` : ''}`,
+          desc: period ? t('pay.histRegularDuesPeriod', { period }) : t('pay.histRegularDues'),
           amount: Number(p.amount) || 0,
           status: 'paid',
           method: methodLabel,
@@ -273,16 +275,16 @@ export function PaySection() {
       if (error) throw error
       if (data?.url) window.location.href = data.url
     } catch (err: any) {
-      setCheckout({ loading: false, error: err?.message || 'Checkout failed' })
+      setCheckout({ loading: false, error: err?.message || t('pay.errCheckoutFailed') })
     }
   }
 
   return (
     <section id="pay" className="pay-wrap ev-section">
       <div className="voice-page-head">
-        <h2 className="voice-page-title">Pay</h2>
+        <h2 className="voice-page-title">{t('pay.heading')}</h2>
         <p className="voice-page-sub">
-          View your balance, make payments, and manage your payment methods.
+          {t('pay.subheading')}
         </p>
       </div>
 
@@ -291,26 +293,26 @@ export function PaySection() {
       <section className="pay-card pay-balance-card">
         <div className="pay-balance-head">
           <div className="pay-balance-main">
-            <div className="pay-balance-label">Current Balance</div>
+            <div className="pay-balance-label">{t('pay.currentBalance')}</div>
             {isLoading ? (
-              <div className="pay-balance-amt pay-skel pay-skel-amt" aria-label="Loading balance">&nbsp;</div>
+              <div className="pay-balance-amt pay-skel pay-skel-amt" aria-label={t('pay.loadingBalance')}>&nbsp;</div>
             ) : (
               <div className="pay-balance-amt">{fmtMoney(currentBalance)}</div>
             )}
             {isLoading ? (
               <div className="pay-balance-due pay-skel pay-skel-due">&nbsp;</div>
             ) : (
-              <div className="pay-balance-due">Due {fmtDate(dueDate)}</div>
+              <div className="pay-balance-due">{t('pay.dueOn', { date: fmtDate(dueDate) })}</div>
             )}
             <div className="pay-balance-actions">
               <button type="button" className="pay-cta-primary"
                 disabled={checkout.loading || isLoading}
                 onClick={startCheckout}>
-                {checkout.loading ? 'Starting checkout…' : 'Make Payment'}
+                {checkout.loading ? t('pay.startingCheckout') : t('pay.makePayment')}
               </button>
               <button type="button" className="pay-cta-secondary"
                 onClick={() => setAccountOpen(true)}>
-                View Account Details
+                {t('pay.viewAccountDetails')}
               </button>
             </div>
             {checkout.error && <div className="pay-err">{checkout.error}</div>}
@@ -318,7 +320,7 @@ export function PaySection() {
 
           <div className="pay-balance-sep" aria-hidden="true" />
 
-          <div className="pay-rings" role="group" aria-label="Dues progress">
+          <div className="pay-rings" role="group" aria-label={t('pay.duesProgressAria')}>
             {rings.map((r, i) => (
               <BalanceRing key={i} index={i} tone={r.tone} pct={r.pct} cat={r.cat} faces={r.faces} />
             ))}
@@ -329,7 +331,7 @@ export function PaySection() {
       {/* Breakdown — its own card */}
       <section className="pay-card pay-breakdown-card">
         <div className="pay-breakdown">
-          <div className="pay-breakdown-head">Breakdown</div>
+          <div className="pay-breakdown-head">{t('pay.breakdown')}</div>
           {breakdown.map(b => (
             <div key={b.label} className="pay-breakdown-row">
               <span>{b.label}</span>
@@ -339,7 +341,7 @@ export function PaySection() {
             </div>
           ))}
           <div className="pay-breakdown-row pay-breakdown-total">
-            <span>Total</span>
+            <span>{t('pay.total')}</span>
             <span>{fmtMoney(breakdownTotal)}</span>
           </div>
         </div>
@@ -351,19 +353,19 @@ export function PaySection() {
           {/* Payment History */}
           <section className="pay-card" id="history">
             <div className="pay-card-head">
-              <h2 className="pay-card-title">Payment History</h2>
-              <button type="button" className="pay-card-link" onClick={() => setListOpen('history')}>View all</button>
+              <h2 className="pay-card-title">{t('pay.paymentHistory')}</h2>
+              <button type="button" className="pay-card-link" onClick={() => setListOpen('history')}>{t('pay.viewAll')}</button>
             </div>
             <div className="pay-history-table">
               <div className="pay-history-row pay-history-header">
-                <span>Date</span>
-                <span>Description</span>
-                <span>Amount</span>
-                <span>Status</span>
-                <span>Payment Method</span>
+                <span>{t('pay.colDate')}</span>
+                <span>{t('pay.colDescription')}</span>
+                <span>{t('pay.colAmount')}</span>
+                <span>{t('pay.colStatus')}</span>
+                <span>{t('pay.colPaymentMethod')}</span>
               </div>
               {history.length === 0 ? (
-                <div className="pay-empty">No payments yet — your first dues payment will show up here.</div>
+                <div className="pay-empty">{t('pay.historyEmpty')}</div>
               ) : history.map((h: any) => (
                 <div key={h.id} className="pay-history-row">
                   <span className="pay-hist-date">{fmtDate(h.date)}</span>
@@ -381,8 +383,8 @@ export function PaySection() {
           {/* Statements — above Payment Methods */}
           <section className="pay-card" id="statements">
             <div className="pay-card-head">
-              <h3 className="pay-tile-title">Statements</h3>
-              <button type="button" className="pay-card-link" onClick={() => setListOpen('statements')}>View all</button>
+              <h3 className="pay-tile-title">{t('pay.statements')}</h3>
+              <button type="button" className="pay-card-link" onClick={() => setListOpen('statements')}>{t('pay.viewAll')}</button>
             </div>
             <div className="pay-statements">
               {DEMO_STATEMENTS.map(s => (
@@ -392,7 +394,7 @@ export function PaySection() {
                     <span className="pay-statement-title">{s.label}</span>
                     <span className="pay-statement-meta">{fmtDate(s.date)} &middot; {s.size}</span>
                   </span>
-                  <span className="pay-statement-dl" aria-label="Open">
+                  <span className="pay-statement-dl" aria-label={t('pay.open')}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M12 4v12"/><path d="m6 10 6 6 6-6"/><path d="M5 20h14"/>
                     </svg>
@@ -405,13 +407,13 @@ export function PaySection() {
           {/* Payment Methods */}
           <section className="pay-card">
             <div className="pay-card-head">
-              <h2 className="pay-card-title">Payment Methods</h2>
-              <button type="button" className="pay-card-link" onClick={() => setAddOpen(true)}>+ Add New</button>
+              <h2 className="pay-card-title">{t('pay.paymentMethods')}</h2>
+              <button type="button" className="pay-card-link" onClick={() => setAddOpen(true)}>{t('pay.addNew')}</button>
             </div>
             {methods.length === 0 ? (
               <div className="pay-empty">
-                No payment methods saved &mdash;
-                <button type="button" className="pay-empty-link" onClick={() => setAddOpen(true)}> add a card</button>.
+                {t('pay.noMethodsSaved')}{' '}
+                <button type="button" className="pay-empty-link" onClick={() => setAddOpen(true)}>{t('pay.addACard')}</button>.
               </div>
             ) : (
               <div className="pay-methods-grid">
@@ -421,16 +423,16 @@ export function PaySection() {
                       {pm.kind === 'card' ? <CardIcon /> : <BankIcon />}
                     </div>
                     <div className="pay-method-info">
-                      <div className="pay-method-title">{pm.brand} ending in {pm.last4}</div>
+                      <div className="pay-method-title">{t('pay.methodEndingIn', { brand: pm.brand, last4: pm.last4 })}</div>
                       <div className="pay-method-meta">
-                        {pm.kind === 'card' ? 'Credit / debit card' : 'Bank account'}
+                        {pm.kind === 'card' ? t('pay.creditDebitCard') : t('pay.bankAccount')}
                       </div>
                     </div>
                     {pm.is_default ? (
-                      <span className="pay-method-badge">Default</span>
+                      <span className="pay-method-badge">{t('pay.default')}</span>
                     ) : (
                       <button type="button" className="pay-method-action"
-                        onClick={() => makeDefault(pm.id)}>Set as default</button>
+                        onClick={() => makeDefault(pm.id)}>{t('pay.setAsDefault')}</button>
                     )}
                   </div>
                 ))}
@@ -438,8 +440,7 @@ export function PaySection() {
             )}
             {autopayErr && <div className="pay-err">{autopayErr}</div>}
             <p className="pay-card-note">
-              Your payment information is secure and encrypted. Stripe handles
-              the card details &mdash; we only see the brand and last 4.
+              {t('pay.secureNote')}
             </p>
           </section>
         </div>
@@ -447,54 +448,53 @@ export function PaySection() {
         {/* RIGHT COLUMN */}
         <aside className="pay-aside">
           <section className="pay-card pay-tile-tight">
-            <h3 className="pay-tile-title">Quick Actions</h3>
+            <h3 className="pay-tile-title">{t('pay.quickActions')}</h3>
             <div className="pay-quick">
               <QuickRow icon={<IconLightning />}
-                title="Pay a One-Time Amount"
-                desc="Make a custom payment outside of recurring dues."
+                title={t('pay.qaOneTimeTitle')}
+                desc={t('pay.qaOneTimeDesc')}
                 onClick={startCheckout} />
               <QuickRow icon={<IconRepeat />}
-                title={autopayActive ? 'Manage Autopay' : 'Set Up Autopay'}
-                desc="Pay your dues automatically each month."
+                title={autopayActive ? t('pay.manageAutopay') : t('pay.setUpAutopay')}
+                desc={t('pay.qaAutopayDesc')}
                 onClick={() => setAutopayOpen(true)} />
               <QuickRow icon={<IconReceipt />}
-                title="View Statements"
-                desc="Download monthly statements as PDFs."
+                title={t('pay.qaViewStatementsTitle')}
+                desc={t('pay.qaViewStatementsDesc')}
                 onClick={() => setListOpen('statements')} />
               <QuickRow icon={<IconClock />}
-                title="Payment History"
-                desc="See every transaction on your account."
+                title={t('pay.paymentHistory')}
+                desc={t('pay.qaHistoryDesc')}
                 onClick={() => setListOpen('history')} />
             </div>
           </section>
 
           <section className="pay-card pay-autopay" id="autopay">
             <div className="pay-autopay-head">
-              <div className="pay-autopay-title">Autopay</div>
+              <div className="pay-autopay-title">{t('pay.autopay')}</div>
               {autopayActive ? (
-                <span className="pay-pill pay-pill-on">Active</span>
+                <span className="pay-pill pay-pill-on">{t('pay.active')}</span>
               ) : (
-                <span className="pay-pill pay-pill-off">Off</span>
+                <span className="pay-pill pay-pill-off">{t('pay.off')}</span>
               )}
             </div>
             {autopayActive ? (
               <>
                 <div className="pay-autopay-note">
-                  Your payments will be deducted automatically on the
-                  1st of each month.
+                  {t('pay.autopayActiveNote')}
                 </div>
                 <div className="pay-autopay-meta">
                   <div className="pay-autopay-row">
-                    <span>Next payment</span>
+                    <span>{t('pay.nextPayment')}</span>
                     <span>{fmtDate(dueDate)}</span>
                   </div>
                   <div className="pay-autopay-row">
-                    <span>Amount</span>
+                    <span>{t('pay.amount')}</span>
                     <span>{fmtMoney(currentBalance)}</span>
                   </div>
                   {defaultMethod && (
                     <div className="pay-autopay-row">
-                      <span>Payment method</span>
+                      <span>{t('pay.paymentMethod')}</span>
                       <span>{defaultMethod.brand} ···· {defaultMethod.last4}</span>
                     </div>
                   )}
@@ -502,30 +502,29 @@ export function PaySection() {
                 {stripeLive ? (
                   <button type="button" className="pay-cta-secondary pay-cta-block"
                     disabled={autopayBusy} onClick={() => toggleAutopay(false)}>
-                    {autopayBusy ? 'Updating…' : 'Pause Autopay'}
+                    {autopayBusy ? t('pay.updating') : t('pay.pauseAutopay')}
                   </button>
                 ) : (
                   <button type="button" className="pay-cta-secondary pay-cta-block"
                     onClick={() => setAutopayDemo(false)}>
-                    Pause Autopay
+                    {t('pay.pauseAutopay')}
                   </button>
                 )}
               </>
             ) : (
               <>
                 <div className="pay-autopay-note">
-                  Save yourself a click each month. Turn on Autopay and we&rsquo;ll
-                  charge your default card on the 1st.
+                  {t('pay.autopayOffNote')}
                 </div>
                 {stripeLive ? (
                   <button type="button" className="pay-cta-primary pay-cta-block"
                     disabled={autopayBusy} onClick={() => toggleAutopay(true)}>
-                    {autopayBusy ? 'Updating…' : defaultMethod ? 'Turn on autopay' : 'Add a card to enable'}
+                    {autopayBusy ? t('pay.updating') : defaultMethod ? t('pay.turnOnAutopay') : t('pay.addCardToEnable')}
                   </button>
                 ) : (
                   <button type="button" className="pay-cta-primary pay-cta-block"
                     onClick={() => setAutopayDemo(true)}>
-                    Turn on autopay
+                    {t('pay.turnOnAutopay')}
                   </button>
                 )}
               </>
@@ -541,32 +540,32 @@ export function PaySection() {
           <IconHelp />
         </div>
         <div className="pay-support-body">
-          <div className="pay-support-title">Need help with a payment?</div>
+          <div className="pay-support-title">{t('pay.supportTitle')}</div>
           <div className="pay-support-sub">
-            If you have any questions or need assistance, our support team is here to help.
+            {t('pay.supportSub')}
           </div>
         </div>
-        <Link href="/app/voice#contact" className="pay-cta-secondary">Contact Support</Link>
+        <Link href="/app/voice#contact" className="pay-cta-secondary">{t('pay.contactSupport')}</Link>
       </section>
 
       {/* Account Details — view popup, opened in place from the balance card. */}
       {accountOpen && (
         <DetailDialog
-          eyebrow="Account"
-          title="Account Details"
-          period={`Due ${fmtDate(dueDate)}`}
+          eyebrow={t('pay.eyebrowAccount')}
+          title={t('pay.accountDetails')}
+          period={t('pay.dueOn', { date: fmtDate(dueDate) })}
           onClose={() => setAccountOpen(false)}
         >
           <div className="rd-detail-top">
             <div className="rd-detail-headline">
-              <span className="rd-detail-h-label">Current balance</span>
+              <span className="rd-detail-h-label">{t('pay.currentBalanceLower')}</span>
               <span className="rd-detail-h-amt">{fmtMoney(currentBalance)}</span>
-              <span className="rd-detail-h-sub">{monthsPaid}/12 months paid · {onTimePct}% on time</span>
+              <span className="rd-detail-h-sub">{t('pay.accountStatusSub', { paid: monthsPaid, pct: onTimePct })}</span>
             </div>
           </div>
 
           <div className="rd-bd-table">
-            <div className="rd-bd-row rd-bd-head"><span>Charge</span><span>Amount</span><span /></div>
+            <div className="rd-bd-row rd-bd-head"><span>{t('pay.charge')}</span><span>{t('pay.colAmount')}</span><span /></div>
             {breakdown.map(b => (
               <div className="rd-bd-row" key={b.label}>
                 <span className="rd-bd-cat">{b.label}</span>
@@ -577,15 +576,15 @@ export function PaySection() {
               </div>
             ))}
             <div className="rd-bd-row rd-bd-total">
-              <span>Total due</span><span className="rd-bd-amt">{fmtMoney(breakdownTotal)}</span><span />
+              <span>{t('pay.totalDue')}</span><span className="rd-bd-amt">{fmtMoney(breakdownTotal)}</span><span />
             </div>
           </div>
 
           <div className="rd-bd-table">
-            <div className="rd-bd-row"><span className="rd-bd-cat">Next payment</span><span className="rd-bd-amt">{fmtDate(dueDate)}</span><span /></div>
-            <div className="rd-bd-row"><span className="rd-bd-cat">Autopay</span><span className="rd-bd-amt">{autopayActive ? 'On' : 'Off'}</span><span /></div>
+            <div className="rd-bd-row"><span className="rd-bd-cat">{t('pay.nextPayment')}</span><span className="rd-bd-amt">{fmtDate(dueDate)}</span><span /></div>
+            <div className="rd-bd-row"><span className="rd-bd-cat">{t('pay.autopay')}</span><span className="rd-bd-amt">{autopayActive ? t('pay.on') : t('pay.off')}</span><span /></div>
             {defaultMethod && (
-              <div className="rd-bd-row"><span className="rd-bd-cat">Default method</span><span className="rd-bd-amt">{defaultMethod.brand} ···· {defaultMethod.last4}</span><span /></div>
+              <div className="rd-bd-row"><span className="rd-bd-cat">{t('pay.defaultMethod')}</span><span className="rd-bd-amt">{defaultMethod.brand} ···· {defaultMethod.last4}</span><span /></div>
             )}
           </div>
         </DetailDialog>
@@ -608,41 +607,40 @@ export function PaySection() {
       {/* Manage Autopay — popup version of the #autopay tile, opened from Quick Actions. */}
       {autopayOpen && (
         <DetailDialog
-          eyebrow="Autopay"
-          title={autopayActive ? 'Manage Autopay' : 'Set Up Autopay'}
-          period={autopayActive ? 'Active' : 'Off'}
+          eyebrow={t('pay.autopay')}
+          title={autopayActive ? t('pay.manageAutopay') : t('pay.setUpAutopay')}
+          period={autopayActive ? t('pay.active') : t('pay.off')}
           onClose={() => setAutopayOpen(false)}
           footer={autopayActive ? (
             <button type="button" className="ven-cta-secondary"
               disabled={autopayBusy}
               onClick={() => (stripeLive ? toggleAutopay(false) : setAutopayDemo(false))}>
-              {autopayBusy ? 'Updating…' : 'Pause Autopay'}
+              {autopayBusy ? t('pay.updating') : t('pay.pauseAutopay')}
             </button>
           ) : (
             <button type="button" className="ven-cta-primary"
               disabled={autopayBusy}
               onClick={() => (stripeLive ? toggleAutopay(true) : setAutopayDemo(true))}>
-              {autopayBusy ? 'Updating…' : defaultMethod ? 'Turn on autopay' : 'Add a card to enable'}
+              {autopayBusy ? t('pay.updating') : defaultMethod ? t('pay.turnOnAutopay') : t('pay.addCardToEnable')}
             </button>
           )}
         >
           {autopayActive ? (
             <>
               <p className="rd-report-blurb">
-                Your dues are charged automatically on the 1st of each month.
+                {t('pay.autopayChargedNote')}
               </p>
               <div className="rd-bd-table">
-                <div className="rd-bd-row"><span className="rd-bd-cat">Next payment</span><span className="rd-bd-amt">{fmtDate(dueDate)}</span><span /></div>
-                <div className="rd-bd-row"><span className="rd-bd-cat">Amount</span><span className="rd-bd-amt">{fmtMoney(currentBalance)}</span><span /></div>
+                <div className="rd-bd-row"><span className="rd-bd-cat">{t('pay.nextPayment')}</span><span className="rd-bd-amt">{fmtDate(dueDate)}</span><span /></div>
+                <div className="rd-bd-row"><span className="rd-bd-cat">{t('pay.amount')}</span><span className="rd-bd-amt">{fmtMoney(currentBalance)}</span><span /></div>
                 {defaultMethod && (
-                  <div className="rd-bd-row"><span className="rd-bd-cat">Payment method</span><span className="rd-bd-amt">{defaultMethod.brand} ···· {defaultMethod.last4}</span><span /></div>
+                  <div className="rd-bd-row"><span className="rd-bd-cat">{t('pay.paymentMethod')}</span><span className="rd-bd-amt">{defaultMethod.brand} ···· {defaultMethod.last4}</span><span /></div>
                 )}
               </div>
             </>
           ) : (
             <p className="rd-report-blurb">
-              Save yourself a click each month. Turn on Autopay and we&rsquo;ll
-              charge your default card on the 1st.
+              {t('pay.autopayOffNote')}
             </p>
           )}
           {autopayErr && <div className="pay-err">{autopayErr}</div>}
@@ -652,13 +650,12 @@ export function PaySection() {
       {/* Demo payment confirmation — shown when Stripe isn't wired up. */}
       {demoPaid != null && (
         <DetailDialog
-          eyebrow="Pay"
-          title="Payment submitted"
+          eyebrow={t('pay.heading')}
+          title={t('pay.paymentSubmitted')}
           onClose={() => setDemoPaid(null)}
         >
           <p className="rd-report-blurb">
-            ✓ Payment of {fmtMoney(demoPaid)} submitted. It&rsquo;ll show under
-            Payment History once Stripe is connected.
+            {t('pay.demoPaidNote', { amount: fmtMoney(demoPaid) })}
           </p>
         </DetailDialog>
       )}
@@ -666,18 +663,18 @@ export function PaySection() {
       {/* View all — Payment History */}
       {listOpen === 'history' && (
         <DetailDialog
-          eyebrow="Payments"
-          title="Payment History"
-          period={`${history.length} payment${history.length === 1 ? '' : 's'}`}
+          eyebrow={t('pay.eyebrowPayments')}
+          title={t('pay.paymentHistory')}
+          period={history.length === 1 ? t('pay.paymentCountOne', { count: history.length }) : t('pay.paymentCountOther', { count: history.length })}
           size="wide"
           onClose={() => setListOpen(null)}
         >
           <div className="pay-history-table">
             <div className="pay-history-row pay-history-header">
-              <span>Date</span><span>Description</span><span>Amount</span><span>Status</span><span>Payment Method</span>
+              <span>{t('pay.colDate')}</span><span>{t('pay.colDescription')}</span><span>{t('pay.colAmount')}</span><span>{t('pay.colStatus')}</span><span>{t('pay.colPaymentMethod')}</span>
             </div>
             {history.length === 0 ? (
-              <div className="pay-empty">No payments yet.</div>
+              <div className="pay-empty">{t('pay.noPaymentsYet')}</div>
             ) : history.map((h: any) => (
               <div key={h.id} className="pay-history-row">
                 <span className="pay-hist-date">{fmtDate(h.date)}</span>
@@ -696,9 +693,9 @@ export function PaySection() {
       {/* View all — Statements */}
       {listOpen === 'statements' && (
         <DetailDialog
-          eyebrow="Statements"
-          title="All Statements"
-          period={`${DEMO_STATEMENTS.length} statements`}
+          eyebrow={t('pay.statements')}
+          title={t('pay.allStatements')}
+          period={t('pay.statementCount', { count: DEMO_STATEMENTS.length })}
           onClose={() => setListOpen(null)}
         >
           <div className="pay-statements">
@@ -720,19 +717,18 @@ export function PaySection() {
       {/* A single statement, opened in place */}
       {stmtOpen && (
         <DetailDialog
-          eyebrow="Statement"
+          eyebrow={t('pay.eyebrowStatement')}
           title={stmtOpen.label}
           period={`${fmtDate(stmtOpen.date)} · PDF · ${stmtOpen.size}`}
           onClose={() => setStmtOpen(null)}
         >
           <div className="rd-bd-table">
-            <div className="rd-bd-row"><span className="rd-bd-cat">Statement period</span><span className="rd-bd-amt">{fmtDate(stmtOpen.date)}</span><span /></div>
-            <div className="rd-bd-row"><span className="rd-bd-cat">Format</span><span className="rd-bd-amt">PDF</span><span /></div>
-            <div className="rd-bd-row rd-bd-total"><span>Size</span><span className="rd-bd-amt">{stmtOpen.size}</span><span /></div>
+            <div className="rd-bd-row"><span className="rd-bd-cat">{t('pay.statementPeriod')}</span><span className="rd-bd-amt">{fmtDate(stmtOpen.date)}</span><span /></div>
+            <div className="rd-bd-row"><span className="rd-bd-cat">{t('pay.format')}</span><span className="rd-bd-amt">PDF</span><span /></div>
+            <div className="rd-bd-row rd-bd-total"><span>{t('pay.size')}</span><span className="rd-bd-amt">{stmtOpen.size}</span><span /></div>
           </div>
           <p className="rd-detail-foot-note">
-            Monthly statements are generated from your payment activity. The PDF
-            download will be available here once statements are wired to Stripe.
+            {t('pay.statementFootNote')}
           </p>
         </DetailDialog>
       )}
@@ -752,56 +748,55 @@ function AddPaymentDialog({
   onAddDemo: (m: { brand: string; last4: string; kind: 'card' | 'bank' }) => void
   onClose: () => void
 }) {
+  const t = useT()
   const [kind, setKind] = useState<'card' | 'bank'>('card')
   const [brand, setBrand] = useState('')
   const [last4, setLast4] = useState('')
   const [error, setError] = useState('')
 
   const submit = () => {
-    if (!brand.trim()) { setError(kind === 'card' ? 'Add the card brand (e.g. Visa).' : 'Add the bank name.'); return }
-    if (!/^\d{4}$/.test(last4)) { setError('Enter the last 4 digits.'); return }
+    if (!brand.trim()) { setError(kind === 'card' ? t('pay.errAddCardBrand') : t('pay.errAddBankName')); return }
+    if (!/^\d{4}$/.test(last4)) { setError(t('pay.errEnterLast4')); return }
     onAddDemo({ brand: brand.trim(), last4, kind })
   }
 
   const footer = stripeLive ? (
     <>
-      <button type="button" className="ven-cta-secondary" onClick={onClose}>Cancel</button>
-      <button type="button" className="ven-cta-primary" onClick={onStripe}>Continue to secure form</button>
+      <button type="button" className="ven-cta-secondary" onClick={onClose}>{t('pay.cancel')}</button>
+      <button type="button" className="ven-cta-primary" onClick={onStripe}>{t('pay.continueToSecureForm')}</button>
     </>
   ) : (
     <>
-      <button type="button" className="ven-cta-secondary" onClick={onClose}>Cancel</button>
-      <button type="button" className="ven-cta-primary" onClick={submit}>Add {kind === 'card' ? 'card' : 'account'}</button>
+      <button type="button" className="ven-cta-secondary" onClick={onClose}>{t('pay.cancel')}</button>
+      <button type="button" className="ven-cta-primary" onClick={submit}>{kind === 'card' ? t('pay.addCard') : t('pay.addAccount')}</button>
     </>
   )
 
   return (
     <DetailDialog
-      eyebrow="Payment method"
-      title="Add a form of payment"
+      eyebrow={t('pay.eyebrowPaymentMethod')}
+      title={t('pay.addFormOfPayment')}
       onClose={onClose}
       footer={footer}
       settingsHref="/app/settings"
     >
       {stripeLive ? (
         <p className="rd-detail-foot-note" style={{ marginTop: 0 }}>
-          We&rsquo;ll open Stripe&rsquo;s secure form to capture your card — we never
-          touch the full number, only the brand and last 4. You can also manage
-          saved methods in Settings.
+          {t('pay.stripeSecureNote')}
         </p>
       ) : (
         <div className="rd-form">
           <div className="rd-form-seg">
-            <button type="button" className={`rd-seg-btn${kind === 'card' ? ' on' : ''}`} onClick={() => setKind('card')}>Card</button>
-            <button type="button" className={`rd-seg-btn${kind === 'bank' ? ' on' : ''}`} onClick={() => setKind('bank')}>Bank account</button>
+            <button type="button" className={`rd-seg-btn${kind === 'card' ? ' on' : ''}`} onClick={() => setKind('card')}>{t('pay.segCard')}</button>
+            <button type="button" className={`rd-seg-btn${kind === 'bank' ? ' on' : ''}`} onClick={() => setKind('bank')}>{t('pay.segBankAccount')}</button>
           </div>
           <label className="rd-form-field">
-            <span className="rd-form-label">{kind === 'card' ? 'Card brand' : 'Bank name'}</span>
+            <span className="rd-form-label">{kind === 'card' ? t('pay.cardBrandLabel') : t('pay.bankNameLabel')}</span>
             <input className="rd-form-input" value={brand} onChange={e => setBrand(e.target.value)}
-              placeholder={kind === 'card' ? 'Visa, Mastercard…' : 'Bank of America…'} />
+              placeholder={kind === 'card' ? t('pay.cardBrandPlaceholder') : t('pay.bankNamePlaceholder')} />
           </label>
           <label className="rd-form-field">
-            <span className="rd-form-label">Last 4 digits</span>
+            <span className="rd-form-label">{t('pay.last4Label')}</span>
             <input className="rd-form-input" value={last4} inputMode="numeric" maxLength={4}
               onChange={e => setLast4(e.target.value.replace(/\D/g, '').slice(0, 4))}
               placeholder="4242" />
@@ -816,10 +811,11 @@ function AddPaymentDialog({
 // -- small components ----------------------------------------------
 
 function StatusPill({ kind }: { kind: string }) {
+  const t = useT()
   const cls = kind === 'paid' ? 'pay-pill-on'
             : kind === 'pending' ? 'pay-pill-pending'
             : 'pay-pill-off'
-  const label = kind === 'paid' ? 'Paid' : kind === 'pending' ? 'Pending' : 'Failed'
+  const label = kind === 'paid' ? t('pay.statusPaid') : kind === 'pending' ? t('pay.statusPending') : t('pay.statusFailed')
   return <span className={`pay-pill ${cls}`}>{label}</span>
 }
 

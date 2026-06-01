@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import { DetailDialog } from '@/app/app/track/_sections/DetailDialog'
+import { useT } from '@/lib/i18n'
 import {
   Amenity,
   AmenityKind,
@@ -41,6 +42,7 @@ function KindIcon({ kind }: { kind: AmenityKind }) {
 }
 
 export function AmenitiesSection() {
+  const t = useT()
   const { amenities, reservations, byAmenity, live, book, cancel, takenSlots } = useAmenityHub()
 
   const [query, setQuery] = useState('')
@@ -89,12 +91,12 @@ export function AmenitiesSection() {
     <div className="amen-wrap">
       {justPaid && (
         <div className="amen-paid-note" role="status">
-          Payment received — your reservation is confirmed.
+          {t('schedule.amenPaidNote')}
         </div>
       )}
       {!live && (
         <div className="amen-demo-note">
-          Showing a sample amenity set. Once your board adds amenities, they appear here automatically.
+          {t('schedule.amenDemoNote')}
         </div>
       )}
 
@@ -105,15 +107,15 @@ export function AmenitiesSection() {
             <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
           </svg>
           <input
-            placeholder="Search amenities"
+            placeholder={t('schedule.searchAmenities')}
             value={query}
             onChange={e => setQuery(e.target.value)}
-            aria-label="Search amenities"
+            aria-label={t('schedule.searchAmenities')}
           />
         </div>
         <div className="amen-chips">
           <button className={`amen-chip${kindFilter === 'all' ? ' on' : ''}`} onClick={() => setKindFilter('all')}>
-            All
+            {t('schedule.all')}
           </button>
           {kinds.map(k => (
             <button key={k} className={`amen-chip${kindFilter === k ? ' on' : ''}`} onClick={() => setKindFilter(k)}>
@@ -126,9 +128,9 @@ export function AmenitiesSection() {
       <div className="amen-layout">
         {/* Cards */}
         <div className="amen-main">
-          <div className="amen-section-head">Explore amenities</div>
+          <div className="amen-section-head">{t('schedule.exploreAmenities')}</div>
           {filtered.length === 0 ? (
-            <div className="amen-empty">No amenities match that search.</div>
+            <div className="amen-empty">{t('schedule.noAmenitiesMatch')}</div>
           ) : (
             <div className="amen-grid">
               {filtered.map(a => {
@@ -143,13 +145,13 @@ export function AmenitiesSection() {
                       <div className="amen-card-top">
                         <span className="amen-card-name">{a.name}</span>
                         <span className={`amen-badge${a.bookable ? '' : ' info'}`}>
-                          {a.bookable ? `${open} slots today` : 'Info only'}
+                          {a.bookable ? t('schedule.slotsToday', { count: open }) : t('schedule.infoOnly')}
                         </span>
                       </div>
                       {a.location && <div className="amen-card-loc">{a.location}</div>}
                       <div className="amen-card-foot">
                         <span className="amen-card-price">{priceLabel(a.priceCents)}</span>
-                        <span className="amen-card-cta">{a.bookable ? 'Reserve' : 'Details'} →</span>
+                        <span className="amen-card-cta">{a.bookable ? t('schedule.reserve') : t('schedule.details')} →</span>
                       </div>
                     </div>
                   </button>
@@ -162,10 +164,10 @@ export function AmenitiesSection() {
         {/* My Reservations */}
         <aside className="amen-side">
           <div className="amen-side-card">
-            <div className="amen-side-head">My reservations</div>
+            <div className="amen-side-head">{t('schedule.myReservations')}</div>
             {upcoming.length === 0 ? (
               <div className="amen-side-empty">
-                No reservations yet. Pick an amenity to book your first slot.
+                {t('schedule.noReservationsYet')}
               </div>
             ) : (
               <ul className="amen-res-list">
@@ -176,17 +178,17 @@ export function AmenitiesSection() {
                       <span className={`amen-res-dot kind-${a?.kind ?? 'other'}`} />
                       <div className="amen-res-body">
                         <div className="amen-res-name">
-                          {a?.name ?? 'Amenity'}
-                          {r.paymentStatus === 'paid' && <span className="amen-pay-tag paid">Paid</span>}
-                          {r.paymentStatus === 'pending' && <span className="amen-pay-tag pending">Payment pending</span>}
+                          {a?.name ?? t('schedule.amenity')}
+                          {r.paymentStatus === 'paid' && <span className="amen-pay-tag paid">{t('schedule.paid')}</span>}
+                          {r.paymentStatus === 'pending' && <span className="amen-pay-tag pending">{t('schedule.paymentPending')}</span>}
                         </div>
                         <div className="amen-res-meta">
                           {fmtDate(r.reservedDate)} · {fmtSlot(r.startTime)}
-                          {r.partySize > 1 && <> · {r.partySize} people</>}
+                          {r.partySize > 1 && <> · {t('schedule.peopleCount', { count: r.partySize })}</>}
                         </div>
                       </div>
-                      <button className="amen-res-cancel" onClick={() => cancel(r.id)} aria-label="Cancel reservation">
-                        Cancel
+                      <button className="amen-res-cancel" onClick={() => cancel(r.id)} aria-label={t('schedule.cancelReservation')}>
+                        {t('schedule.cancel')}
                       </button>
                     </li>
                   )
@@ -196,10 +198,9 @@ export function AmenitiesSection() {
           </div>
 
           <div className="amen-side-card amen-help">
-            <div className="amen-help-title">How booking works</div>
+            <div className="amen-help-title">{t('schedule.howBookingWorks')}</div>
             <p className="amen-help-text">
-              Free amenities confirm instantly; paid ones take you to secure
-              checkout. Cancel any time from this list.
+              {t('schedule.howBookingWorksBody')}
             </p>
           </div>
         </aside>
@@ -230,6 +231,7 @@ function BookDialog({
     endTime?: string; partySize: number; note?: string; priceCents: number
   }) => Promise<void>
 }) {
+  const t = useT()
   const [date, setDate] = useState(todayISO())
   const [slot, setSlot] = useState<string>('')
   const [party, setParty] = useState(1)
@@ -259,7 +261,7 @@ function BookDialog({
       })
     } catch (e: any) {
       const dup = e?.code === '23505' || /duplicate|unique/i.test(e?.message || '')
-      setErr(dup ? 'That slot was just booked by someone else. Pick another time.' : 'Could not book that slot. Please try again.')
+      setErr(dup ? t('schedule.slotJustBooked') : t('schedule.bookFailed'))
       setSlot('')
     } finally {
       setBusy(false)
@@ -268,9 +270,9 @@ function BookDialog({
 
   const footer = amenity.bookable ? (
     <>
-      <button type="button" className="ven-cta-secondary" onClick={onClose}>Cancel</button>
+      <button type="button" className="ven-cta-secondary" onClick={onClose}>{t('schedule.cancel')}</button>
       <button type="button" className="ven-cta-primary" onClick={submit} disabled={!slot || busy}>
-        {busy ? 'Booking…' : amenity.priceCents > 0 ? `Reserve · ${priceLabel(amenity.priceCents)}` : 'Reserve'}
+        {busy ? t('schedule.booking') : amenity.priceCents > 0 ? `${t('schedule.reserve')} · ${priceLabel(amenity.priceCents)}` : t('schedule.reserve')}
       </button>
     </>
   ) : undefined
@@ -285,48 +287,48 @@ function BookDialog({
       {amenity.description && <p className="amen-dlg-desc">{amenity.description}</p>}
 
       <div className="amen-dlg-facts">
-        {amenity.location && <div><span>Location</span><strong>{amenity.location}</strong></div>}
-        {amenity.hours && <div><span>Hours</span><strong>{amenity.hours}</strong></div>}
-        {amenity.capacity && <div><span>Capacity</span><strong>{amenity.capacity} people</strong></div>}
-        <div><span>Cost</span><strong>{priceLabel(amenity.priceCents)}</strong></div>
+        {amenity.location && <div><span>{t('schedule.location')}</span><strong>{amenity.location}</strong></div>}
+        {amenity.hours && <div><span>{t('schedule.hours')}</span><strong>{amenity.hours}</strong></div>}
+        {amenity.capacity && <div><span>{t('schedule.capacity')}</span><strong>{t('schedule.peopleCount', { count: amenity.capacity })}</strong></div>}
+        <div><span>{t('schedule.cost')}</span><strong>{priceLabel(amenity.priceCents)}</strong></div>
       </div>
 
       {amenity.rules.length > 0 && (
         <div className="amen-dlg-rules">
-          <div className="amen-dlg-subhead">Rules</div>
+          <div className="amen-dlg-subhead">{t('schedule.rules')}</div>
           <ul>{amenity.rules.map((r, i) => <li key={i}>{r}</li>)}</ul>
         </div>
       )}
 
       {amenity.bookable ? (
         <div className="amen-book">
-          <div className="amen-dlg-subhead">Book a slot</div>
+          <div className="amen-dlg-subhead">{t('schedule.bookASlot')}</div>
           <div className="amen-book-row">
             <label className="amen-field">
-              <span>Date</span>
+              <span>{t('schedule.date')}</span>
               <input type="date" min={todayISO()} value={date} onChange={e => { setDate(e.target.value); setSlot('') }} />
             </label>
             <label className="amen-field">
-              <span>Party size</span>
+              <span>{t('schedule.partySize')}</span>
               <input type="number" min={1} max={cap} value={party} onChange={e => setParty(Number(e.target.value))} />
             </label>
           </div>
 
           <div className="amen-field">
-            <span>Time</span>
+            <span>{t('schedule.time')}</span>
             <div className="amen-slots">
-              {TIME_SLOTS.map(t => {
-                const isTaken = taken.has(t)
+              {TIME_SLOTS.map(slotTime => {
+                const isTaken = taken.has(slotTime)
                 return (
                   <button
-                    key={t}
+                    key={slotTime}
                     type="button"
-                    className={`amen-slot${slot === t ? ' on' : ''}${isTaken ? ' taken' : ''}`}
+                    className={`amen-slot${slot === slotTime ? ' on' : ''}${isTaken ? ' taken' : ''}`}
                     disabled={isTaken}
-                    onClick={() => setSlot(t)}
-                    title={isTaken ? 'Already booked' : undefined}
+                    onClick={() => setSlot(slotTime)}
+                    title={isTaken ? t('schedule.alreadyBooked') : undefined}
                   >
-                    {fmtSlot(t)}
+                    {fmtSlot(slotTime)}
                   </button>
                 )
               })}
@@ -334,14 +336,14 @@ function BookDialog({
           </div>
 
           <label className="amen-field">
-            <span>Note <small>(optional)</small></span>
-            <input type="text" placeholder="e.g. Birthday party" value={note} onChange={e => setNote(e.target.value)} />
+            <span>{t('schedule.note')} <small>{t('schedule.optional')}</small></span>
+            <input type="text" placeholder={t('schedule.notePlaceholder')} value={note} onChange={e => setNote(e.target.value)} />
           </label>
 
           {err && <div className="amen-book-err" role="alert">{err}</div>}
         </div>
       ) : (
-        <div className="amen-dlg-note">This amenity is open access — no reservation needed.</div>
+        <div className="amen-dlg-note">{t('schedule.openAccessNote')}</div>
       )}
     </DetailDialog>
   )

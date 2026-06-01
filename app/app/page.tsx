@@ -10,6 +10,7 @@ import { useAuth } from '@/app/providers'
 import { stripeEnabled, supabase } from '@/lib/supabase'
 import { usePreferences } from '@/lib/preferences'
 import { useScheduleEvents } from '@/lib/schedule'
+import { useT } from '@/lib/i18n'
 import { DetailDialog } from './track/_sections/DetailDialog'
 import { RequestFormDialog } from './voice/_sections/RequestForm'
 
@@ -63,6 +64,7 @@ function extractFirstName(raw: string | null | undefined): string {
 }
 
 export default function Home() {
+  const t = useT()
   const { community, categories } = useCommunityData()
   const { profile } = useAuth() || {}
   const { balance: myBalance, status: myDues } = useMyResident()
@@ -97,7 +99,7 @@ export default function Home() {
 
   // Greeting that adapts to the hour — keeps the hero photo card feeling alive
   const hour = now.getHours()
-  const greeting = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening'
+  const greeting = hour < 12 ? t('home.greetingMorning') : hour < 18 ? t('home.greetingAfternoon') : t('home.greetingEvening')
   const firstName = extractFirstName(profile?.full_name)
 
   // Health % for At-a-Glance — 100 = on pace, lower = over pace
@@ -116,11 +118,11 @@ export default function Home() {
             {greeting},<br/>
             <span className="hero-title-em">{firstName}</span>
           </h1>
-          <div className="hero-sub">Here&apos;s what&apos;s happening in your community.</div>
+          <div className="hero-sub">{t('home.heroSub')}</div>
           <div className="hero-chips">
             <span className="hero-chip">
               <ChipIcon name="home" />
-              {unitCount || 0} homes
+              {t('home.heroHomes', { count: unitCount || 0 })}
             </span>
             <span className="hero-chip">
               <ChipIcon name="pin" />
@@ -128,7 +130,7 @@ export default function Home() {
             </span>
             <span className="hero-chip hero-chip-accent">
               <ChipIcon name="clock" />
-              {expectedPctNum}% through the year
+              {t('home.heroThroughYear', { count: expectedPctNum })}
             </span>
           </div>
         </div>
@@ -159,32 +161,32 @@ export default function Home() {
       {/* ROW 2 — At a Glance + Recent Activity side-by-side */}
       <section className="dash-row2">
         <section className="glance-row">
-          <div className="glance-head">At a glance</div>
+          <div className="glance-head">{t('home.atAGlance')}</div>
           <div className="glance-cards">
             <GlanceCard
               icon="home" iconTone="orange"
-              label="Your balance"
+              label={t('home.glanceYourBalance')}
               value={myBalance != null ? fmtMoney(myBalance) : fmtMoney(monthlyDues)}
-              captionText={myBalance != null && myBalance > 0 ? 'Due now' : 'Paid'}
+              captionText={myBalance != null && myBalance > 0 ? t('home.glanceDueNow') : t('home.glancePaid')}
               captionTone={myBalance != null && myBalance > 0 ? 'red' : 'green'}
             />
             <GlanceCard
               icon="shield" iconTone="green"
-              label="Reserve balance"
+              label={t('home.glanceReserveBalance')}
               value={fmtMoney(128600)}
-              captionText="Healthy" captionTone="green"
+              captionText={t('home.glanceHealthy')} captionTone="green"
             />
             <GlanceCard
               icon="docs" iconTone="purple"
-              label="Total assessments"
+              label={t('home.glanceTotalAssessments')}
               value={fmtMoney(annualBudget)}
-              captionText={`FY ${now.getFullYear()} Budget`} captionTone="muted"
+              captionText={t('home.glanceFyBudget', { year: now.getFullYear() })} captionTone="muted"
             />
             <GlanceCard
               icon="pie" iconTone="blue"
-              label="Collection rate"
+              label={t('home.glanceCollectionRate')}
               value={`${healthPct}%`}
-              captionText="On track" captionTone="green"
+              captionText={t('home.glanceOnTrack')} captionTone="green"
             />
           </div>
         </section>
@@ -251,6 +253,7 @@ function weatherIcon(condition: string): ChipIconName {
 function DuesSection({
   monthlyDues, unitCount, unitNumber, demo, cats,
 }: { monthlyDues: number; unitCount: number; unitNumber: string | null; demo: boolean; cats: any[] }) {
+  const t = useT()
   // Real community: derive the allocation from its own budget categories.
   // Demo (logged-out preview): the illustrative vendor sample.
   const catTotal = cats.reduce((s, x) => s + num(x.budget), 0)
@@ -265,15 +268,15 @@ function DuesSection({
   const isCommunity = tab === 'community'
   const multiplier = isCommunity ? monthlyDues * unitCount : monthlyDues
   const annualMultiplier = multiplier * 12
-  const statLabel = isCommunity ? 'Total monthly income' : 'Your monthly dues'
+  const statLabel = isCommunity ? t('home.duesTotalMonthlyIncome') : t('home.duesYourMonthlyDues')
   const sub = isCommunity
-    ? `All ${unitCount || 0} homes combined`
-    : `Your share, Unit ${unitNumber ?? '—'}`
+    ? t('home.duesAllHomesCombined', { count: unitCount || 0 })
+    : t('home.duesYourShareUnit', { unit: unitNumber ?? '—' })
 
   return (
     <section className="dues-section">
       <div className="dues-head">
-        <h2 className="dues-title">Where your dues go</h2>
+        <h2 className="dues-title">{t('home.duesTitle')}</h2>
         <div className="dues-tabs" role="tablist">
           <button
             role="tab"
@@ -281,7 +284,7 @@ function DuesSection({
             className={`dues-tab${isCommunity ? ' active' : ''}`}
             onClick={() => setTab('community')}
           >
-            Community
+            {t('home.duesTabCommunity')}
           </button>
           <button
             role="tab"
@@ -289,7 +292,7 @@ function DuesSection({
             className={`dues-tab${!isCommunity ? ' active' : ''}`}
             onClick={() => setTab('personal')}
           >
-            Personal
+            {t('home.duesTabPersonal')}
           </button>
         </div>
       </div>
@@ -299,23 +302,23 @@ function DuesSection({
           <div className="dues-stat-label">{statLabel}</div>
           <div className="dues-stat-value">{fmtMoney(multiplier)}</div>
           <div className="dues-stat-meta">
-            {fmtMoney(annualMultiplier)} annual · {sub}
+            {t('home.duesAnnualMeta', { amount: fmtMoney(annualMultiplier), sub })}
           </div>
           <div className="dues-updated">
-            Last updated: {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            {t('home.duesLastUpdated', { date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) })}
           </div>
         </div>
         {demo && (
           <RatingRing
             value={isCommunity ? 92 : 100}
-            label={isCommunity ? 'Community rating' : 'Your rating'}
+            label={isCommunity ? t('home.duesCommunityRating') : t('home.duesYourRating')}
           />
         )}
       </div>
 
       <div className="dues-breakdown">
         {breakdown.length === 0 ? (
-          <div className="activity-empty">Set category budgets in Admin to see how dues are allocated.</div>
+          <div className="activity-empty">{t('home.duesEmpty')}</div>
         ) : breakdown.map((v) => (
           <div key={v.id} className="dues-cat">
             <div className="dues-cat-row">
@@ -387,6 +390,7 @@ function FinancialOverview({
   totalSpent: number; annualBudget: number; actualPctNum: number; expectedPctNum: number;
   deltaPp: number; overPace: boolean; monthIdx: number; cats: any[]
 }) {
+  const t = useT()
   // "View budget" opens the full category breakdown in a popup (in-place, no nav).
   const [budgetOpen, setBudgetOpen] = useState(false)
   // Chart geometry — wider than tall, leaves room for y-axis labels on the left
@@ -434,9 +438,9 @@ function FinancialOverview({
   return (
     <div className="fin-card">
       <div className="fin-head">
-        <div className="fin-eyebrow">Financial Overview</div>
+        <div className="fin-eyebrow">{t('home.finOverview')}</div>
         <button className="fin-period" type="button">
-          Year to date
+          {t('home.finYearToDate')}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="6 9 12 15 18 9"/>
           </svg>
@@ -445,9 +449,9 @@ function FinancialOverview({
 
       <div className="fin-main">
         <div className="fin-left">
-          <div className="fin-label">Spent this year</div>
+          <div className="fin-label">{t('home.finSpentThisYear')}</div>
           <div className="fin-amount">{fmtMoney(totalSpent)}</div>
-          <div className="fin-of">of {fmtMoney(annualBudget)} budget</div>
+          <div className="fin-of">{t('home.finOfBudget', { amount: fmtMoney(annualBudget) })}</div>
           <div className="fin-progress">
             <div className="fin-progress-track">
               <div
@@ -563,36 +567,35 @@ function FinancialOverview({
 
       <div className="fin-foot">
         <button className="fin-view-btn" type="button" onClick={() => setBudgetOpen(true)}>
-          View budget
+          {t('home.finViewBudget')}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="9 18 15 12 9 6"/>
           </svg>
         </button>
         <div className="fin-stats">
-          <FinStat label="Expected pace" value={`${expectedPctNum}%`} />
-          <FinStat label="Actual pace"   value={`${actualPctNum}%`} accent />
-          <FinStat label="Delta"         value={`${deltaPp >= 0 ? '+' : ''}${deltaPp}pp`} warn={deltaPp > 0} />
+          <FinStat label={t('home.finExpectedPace')} value={`${expectedPctNum}%`} />
+          <FinStat label={t('home.finActualPace')}   value={`${actualPctNum}%`} accent />
+          <FinStat label={t('home.finDelta')}         value={`${deltaPp >= 0 ? '+' : ''}${deltaPp}pp`} warn={deltaPp > 0} />
         </div>
       </div>
 
       {/* View budget — full category breakdown in a popup. */}
       {budgetOpen && (
         <DetailDialog
-          eyebrow="Financial Overview"
-          title="Annual budget"
-          period={`${fmtMoney(totalSpent)} spent of ${fmtMoney(annualBudget)} · ${actualPctNum}% used`}
+          eyebrow={t('home.finOverview')}
+          title={t('home.budgetDialogTitle')}
+          period={t('home.budgetDialogPeriod', { spent: fmtMoney(totalSpent), budget: fmtMoney(annualBudget), pct: actualPctNum })}
           size="wide"
           onClose={() => setBudgetOpen(false)}
         >
           {cats.length === 0 ? (
             <p className="rd-detail-foot-note" style={{ marginTop: 0 }}>
-              No budget categories yet. Once the board sets category budgets in
-              Admin, the breakdown shows up here.
+              {t('home.budgetDialogEmpty')}
             </p>
           ) : (
             <div className="rd-bd-table">
               <div className="rd-bd-row rd-bd-head">
-                <span>Category</span><span>Spent / Budget</span><span>Used</span>
+                <span>{t('home.budgetColCategory')}</span><span>{t('home.budgetColSpentBudget')}</span><span>{t('home.budgetColUsed')}</span>
               </div>
               {cats.map((x: any, i: number) => {
                 const b = num(x.budget), s = num(x.spent)
@@ -606,7 +609,7 @@ function FinancialOverview({
                 )
               })}
               <div className="rd-bd-row rd-bd-total">
-                <span>Total</span>
+                <span>{t('home.budgetTotal')}</span>
                 <span className="rd-bd-amt">{fmtMoney(totalSpent)} / {fmtMoney(annualBudget)}</span>
                 <span className="rd-bd-amt">{actualPctNum}%</span>
               </div>
@@ -660,18 +663,23 @@ function fmtCloses(iso: string) {
 // Meta line under each motion: meeting date when known, plus the live tally.
 // Real votes have no fixed electorate total, so we show "N votes cast" rather
 // than the demo's "N of M board members".
-function voteMeta(v: OpenVote): string {
+function voteMeta(v: OpenVote, t: (key: string, vars?: Record<string, string | number>) => string): string {
   const parts: string[] = []
-  if (v.closesAt) parts.push(`Closes ${fmtCloses(v.closesAt)}`)
+  if (v.closesAt) parts.push(t('home.voteCloses', { date: fmtCloses(v.closesAt) }))
   if (v.totalCount != null) {
-    parts.push(`${v.votedCount} of ${v.totalCount} board members have voted`)
+    parts.push(t('home.voteBoardTally', { voted: v.votedCount, total: v.totalCount }))
   } else if (v.votedCount > 0) {
-    parts.push(`${v.votedCount} ${v.votedCount === 1 ? 'vote' : 'votes'} cast so far`)
+    parts.push(
+      v.votedCount === 1
+        ? t('home.voteCastOne', { count: v.votedCount })
+        : t('home.voteCastMany', { count: v.votedCount })
+    )
   }
   return parts.join(' · ')
 }
 
 function OpenVotesBand({ demo }: { demo: boolean }) {
+  const t = useT()
   // Demo shows sample votes for the marketing preview; a real community pulls
   // its actual open votes (status === 'open') from its meetings.
   const { meetings } = useVoiceMeetings()
@@ -683,7 +691,7 @@ function OpenVotesBand({ demo }: { demo: boolean }) {
           .map((v: any) => ({
             meetingId: m.id,
             voteId: v.id,
-            motion: v.title || 'Open vote',
+            motion: v.title || t('home.voteUntitled'),
             closesAt: m.scheduled_at ? String(m.scheduled_at).slice(0, 10) : '',
             votedCount: (v.yes_count || 0) + (v.no_count || 0) + (v.abstain_count || 0),
             totalCount: null,
@@ -701,15 +709,15 @@ function OpenVotesBand({ demo }: { demo: boolean }) {
           <div className="ovb-left">
             <div className="ovb-eyebrow">
               <span className="ovb-dot" aria-hidden="true" />
-              Your vote is needed
+              {t('home.voteNeeded')}
             </div>
             <div className="ovb-body">
               <div className="ovb-motion">{v0.motion}</div>
-              <div className="ovb-meta">{voteMeta(v0)}</div>
+              <div className="ovb-meta">{voteMeta(v0, t)}</div>
             </div>
           </div>
           <Link href={`/app/voice/${v0.meetingId}`} className="ovb-cta">
-            Cast your vote
+            {t('home.voteCastCta')}
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               <path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>
             </svg>
@@ -719,14 +727,14 @@ function OpenVotesBand({ demo }: { demo: boolean }) {
         <>
           <div className="ovb-eyebrow">
             <span className="ovb-dot" aria-hidden="true" />
-            {votes.length} votes need you
+            {t('home.voteNeedYouMany', { count: votes.length })}
           </div>
           <div className="ovb-list">
             {votes.map(v => (
               <Link key={v.voteId} href={`/app/voice/${v.meetingId}`} className="ovb-list-row">
                 <div className="ovb-body">
                   <div className="ovb-motion">{v.motion}</div>
-                  <div className="ovb-meta">{voteMeta(v)}</div>
+                  <div className="ovb-meta">{voteMeta(v, t)}</div>
                 </div>
                 <svg className="ovb-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                   <polyline points="9 18 15 12 9 6"/>
@@ -734,7 +742,7 @@ function OpenVotesBand({ demo }: { demo: boolean }) {
               </Link>
             ))}
           </div>
-          <Link href="/app/voice" className="ovb-see-all">View all {votes.length} open votes →</Link>
+          <Link href="/app/voice" className="ovb-see-all">{t('home.voteSeeAll', { count: votes.length })}</Link>
         </>
       )}
     </section>
@@ -746,6 +754,7 @@ function OpenVotesBand({ demo }: { demo: boolean }) {
 type QaItem = { icon: 'pay' | 'note' | 'cal' | 'mail'; title: string; sub: string; href?: string; onClick?: () => void }
 
 function QuickActions() {
+  const t = useT()
   // Pay happens in a popup right here; the rest navigate. Submit a request and
   // Contact management both land on Contact but pre-select a different category
   // (?cat=), so they're not the same destination.
@@ -754,10 +763,10 @@ function QuickActions() {
   const [contactOpen, setContactOpen] = useState(false)
   const [calOpen, setCalOpen] = useState(false)
   const items: QaItem[] = [
-    { icon: 'pay',  title: 'Make a payment',          sub: 'Dues, fees, special assessments', onClick: () => setPayOpen(true) },
-    { icon: 'note', title: 'Submit a request',        sub: 'Maintenance, complaints, ideas',  onClick: () => setRequestOpen(true) },
-    { icon: 'mail', title: 'Contact management',      sub: 'Reach the board or your manager', onClick: () => setContactOpen(true) },
-    { icon: 'cal',  title: 'View community calendar', sub: 'Meetings, events, deadlines',     onClick: () => setCalOpen(true) },
+    { icon: 'pay',  title: t('home.qaMakePayment'),    sub: t('home.qaMakePaymentSub'), onClick: () => setPayOpen(true) },
+    { icon: 'note', title: t('home.qaSubmitRequest'),  sub: t('home.qaSubmitRequestSub'),  onClick: () => setRequestOpen(true) },
+    { icon: 'mail', title: t('home.qaContact'),        sub: t('home.qaContactSub'), onClick: () => setContactOpen(true) },
+    { icon: 'cal',  title: t('home.qaViewCalendar'),   sub: t('home.qaViewCalendarSub'),     onClick: () => setCalOpen(true) },
   ]
   const inner = (a: QaItem) => (
     <>
@@ -774,7 +783,7 @@ function QuickActions() {
   )
   return (
     <div className="qa-card">
-      <div className="qa-eyebrow">Quick Actions</div>
+      <div className="qa-eyebrow">{t('home.qaTitle')}</div>
       <div className="qa-list">
         {items.map(a => a.href
           ? <Link key={a.title} href={a.href} className="qa-row">{inner(a)}</Link>
@@ -782,8 +791,8 @@ function QuickActions() {
         )}
       </div>
       {payOpen && <QuickPayDialog onClose={() => setPayOpen(false)} />}
-      {requestOpen && <RequestFormDialog title="Submit a request" initialCategory="maintenance" onClose={() => setRequestOpen(false)} />}
-      {contactOpen && <RequestFormDialog title="Contact management" initialCategory="account" onClose={() => setContactOpen(false)} />}
+      {requestOpen && <RequestFormDialog title={t('home.qaSubmitRequest')} initialCategory="maintenance" onClose={() => setRequestOpen(false)} />}
+      {contactOpen && <RequestFormDialog title={t('home.qaContact')} initialCategory="account" onClose={() => setContactOpen(false)} />}
       {calOpen && <CommunityCalendarDialog onClose={() => setCalOpen(false)} />}
     </div>
   )
@@ -792,6 +801,7 @@ function QuickActions() {
 // Compact month calendar in a popup — community events + holidays, click a day
 // to see what's on it. Full calendar (filters, month nav depth) is one click away.
 function CommunityCalendarDialog({ onClose }: { onClose: () => void }) {
+  const t = useT()
   const events = useScheduleEvents()
   // Pinned to May 2026 to match the demo data; arrows move the month.
   const [cur, setCur] = useState({ y: 2026, m: 4 })
@@ -823,20 +833,20 @@ function CommunityCalendarDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <DetailDialog
-      eyebrow="Community"
-      title="Calendar"
+      eyebrow={t('home.calEyebrow')}
+      title={t('home.calTitle')}
       size="wide"
       onClose={onClose}
       settingsHref="/app/schedule"
-      settingsLabel="Open full calendar"
+      settingsLabel={t('home.calOpenFull')}
     >
       <div className="mc-head">
-        <button type="button" className="mc-nav" aria-label="Previous month" onClick={() => go(-1)}>&lsaquo;</button>
+        <button type="button" className="mc-nav" aria-label={t('home.calPrevMonth')} onClick={() => go(-1)}>&lsaquo;</button>
         <span className="mc-month">{monthLabel}</span>
-        <button type="button" className="mc-nav" aria-label="Next month" onClick={() => go(1)}>&rsaquo;</button>
+        <button type="button" className="mc-nav" aria-label={t('home.calNextMonth')} onClick={() => go(1)}>&rsaquo;</button>
       </div>
       <div className="mc-grid mc-dow">
-        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <span key={i} className="mc-dow-cell">{d}</span>)}
+        {t('home.calDowLetters').split(',').map((d, i) => <span key={i} className="mc-dow-cell">{d}</span>)}
       </div>
       <div className="mc-grid">
         {cells.map((d, i) => {
@@ -889,6 +899,7 @@ function CommunityCalendarDialog({ onClose }: { onClose: () => void }) {
 // Checkout when configured, demo confirmation otherwise. The full Pay page stays
 // one click away.
 function QuickPayDialog({ onClose }: { onClose: () => void }) {
+  const t = useT()
   const { resident, balance } = useMyResident() as any
   const [prefs] = usePreferences()
   const methods = prefs.payment_methods.map((pm, i) => ({ ...pm, is_default: i === 0 }))
@@ -901,8 +912,8 @@ function QuickPayDialog({ onClose }: { onClose: () => void }) {
 
   const pay = async () => {
     const amt = Number(amount)
-    if (!amt || amt <= 0) { setError('Enter an amount.'); return }
-    if (methods.length && !cardId) { setError('Choose a payment method.'); return }
+    if (!amt || amt <= 0) { setError(t('home.payErrAmount')); return }
+    if (methods.length && !cardId) { setError(t('home.payErrMethod')); return }
     if (stripeEnabled && supabase && resident) {
       setBusy(true); setError('')
       try {
@@ -913,7 +924,7 @@ function QuickPayDialog({ onClose }: { onClose: () => void }) {
         if (data?.url) { window.location.href = data.url; return }
         setDone(true)
       } catch (e: any) {
-        setError(e?.message || 'Could not start checkout.')
+        setError(e?.message || t('home.payErrCheckout'))
       } finally { setBusy(false) }
     } else {
       setDone(true)
@@ -922,44 +933,44 @@ function QuickPayDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <DetailDialog
-      eyebrow="Pay"
-      title="Make a payment"
+      eyebrow={t('home.payEyebrow')}
+      title={t('home.qaMakePayment')}
       onClose={onClose}
       settingsHref="/app/track#pay"
-      settingsLabel="Open full Pay page"
+      settingsLabel={t('home.payOpenFull')}
       footer={done ? (
-        <button type="button" className="qp-pay-btn" onClick={onClose}>Done</button>
+        <button type="button" className="qp-pay-btn" onClick={onClose}>{t('home.payDone')}</button>
       ) : (
         <>
-          <button type="button" className="ven-cta-secondary" onClick={onClose}>Cancel</button>
+          <button type="button" className="ven-cta-secondary" onClick={onClose}>{t('home.payCancel')}</button>
           <button type="button" className="qp-pay-btn" onClick={pay} disabled={busy}>
-            {busy ? 'Starting…' : `Pay $${Number(amount || 0).toLocaleString('en-US')}`}
+            {busy ? t('home.payStarting') : t('home.payPayAmount', { amount: Number(amount || 0).toLocaleString('en-US') })}
           </button>
         </>
       )}
     >
       {done ? (
-        <p className="rd-report-blurb">✓ Payment of ${Number(amount).toLocaleString('en-US')} submitted. It&rsquo;ll show under Pay → Payment History.</p>
+        <p className="rd-report-blurb">{t('home.paySubmitted', { amount: Number(amount).toLocaleString('en-US') })}</p>
       ) : (
         <>
           <div className="rd-detail-top">
             <div className="rd-detail-headline">
-              <span className="rd-detail-h-label">Current balance</span>
+              <span className="rd-detail-h-label">{t('home.payCurrentBalance')}</span>
               <span className="rd-detail-h-amt">{fmtMoney(due)}</span>
             </div>
           </div>
 
           <div className="rd-form">
             <label className="rd-form-field">
-              <span className="rd-form-label">Amount to pay</span>
+              <span className="rd-form-label">{t('home.payAmountToPay')}</span>
               <input className="rd-form-input" inputMode="decimal" value={amount}
                 onChange={e => setAmount(e.target.value.replace(/[^\d.]/g, ''))} placeholder="0" />
             </label>
 
             <div className="rd-form-field">
-              <span className="rd-form-label">Payment method</span>
+              <span className="rd-form-label">{t('home.payPaymentMethod')}</span>
               {methods.length === 0 ? (
-                <a className="rd-settings-link" href="/app/track#pay">Add a card on the Pay page &rarr;</a>
+                <a className="rd-settings-link" href="/app/track#pay">{t('home.payAddCard')}</a>
               ) : (
                 <div className="qp-cards">
                   {methods.map(pm => (
@@ -968,7 +979,7 @@ function QuickPayDialog({ onClose }: { onClose: () => void }) {
                       onClick={() => setCardId(pm.id)}>
                       <span className="qp-card-radio" aria-hidden="true" />
                       <span className="qp-card-label">{pm.brand} ···· {pm.last4}</span>
-                      <span className="qp-card-kind">{pm.kind === 'card' ? 'Card' : 'Bank'}</span>
+                      <span className="qp-card-kind">{pm.kind === 'card' ? t('home.payKindCard') : t('home.payKindBank')}</span>
                     </button>
                   ))}
                 </div>
@@ -1037,6 +1048,7 @@ function GlanceCard({ icon, iconTone, value, label, captionText, captionTone }: 
 // ---------- Recent Activity ----------
 
 function RecentActivity({ demo }: { demo: boolean }) {
+  const t = useT()
   const { decisions, loading } = useBoardDecisions(5) as { decisions: any[] | null; loading: boolean }
   const list = decisions ?? (demo ? DEMO_ACTIVITY : [])
   const empty = !demo && decisions !== null && decisions.length === 0 && !loading
@@ -1044,11 +1056,11 @@ function RecentActivity({ demo }: { demo: boolean }) {
   return (
     <section className="activity-card">
       <div className="activity-head">
-        <div className="activity-title">Recent activity</div>
-        <Link href="/app/voice#board" className="activity-see-all">View all</Link>
+        <div className="activity-title">{t('home.activityTitle')}</div>
+        <Link href="/app/voice#board" className="activity-see-all">{t('home.activityViewAll')}</Link>
       </div>
       {empty ? (
-        <div className="activity-empty">No recent activity in your community.</div>
+        <div className="activity-empty">{t('home.activityEmpty')}</div>
       ) : (
         <div className="activity-list">
           {list.slice(0, 4).map((a: any, i: number) => {

@@ -9,6 +9,7 @@ import {
 } from '@/lib/vendor-ratings'
 import { useAuth } from '@/app/providers'
 import { supabase } from '@/lib/supabase'
+import { useT } from '@/lib/i18n'
 import { RequestDialog } from './RequestDialog'
 import { DetailDialog } from './DetailDialog'
 
@@ -18,15 +19,6 @@ import { DetailDialog } from './DetailDialog'
 
 type VendorCat =
   | 'property' | 'cleaning' | 'security' | 'plumbing' | 'electrical' | 'hvac'
-
-const CATEGORY_LABEL: Record<VendorCat, string> = {
-  property:   'Property Maintenance',
-  cleaning:   'Cleaning',
-  security:   'Security',
-  plumbing:   'Plumbing',
-  electrical: 'Electrical',
-  hvac:       'HVAC',
-}
 
 type Vendor = {
   id: string
@@ -66,6 +58,8 @@ const CATEGORY_GRID: { key: VendorCat; label: string }[] = [
 ]
 
 export function VendorSection() {
+  const t = useT()
+  const catLabel = (k: VendorCat) => t(`vendors.cat.${k}`)
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const [search, setSearch] = useState('')
@@ -112,7 +106,7 @@ export function VendorSection() {
       if (error || !data?.signedUrl) throw error || new Error('No link')
       window.open(data.signedUrl, '_blank', 'noopener')
     } catch {
-      setGuideErr('Could not open the guidelines. Please try again.')
+      setGuideErr(t('vendors.guidelines.openError'))
       setGuideOpen(true)
     } finally {
       setGuideBusy(false)
@@ -160,19 +154,18 @@ export function VendorSection() {
     return vendors.filter(v => {
       if (active !== 'all' && v.category !== active) return false
       if (!q) return true
-      const hay = `${v.name} ${CATEGORY_LABEL[v.category]} ${v.blurb || ''}`.toLowerCase()
+      const hay = `${v.name} ${catLabel(v.category)} ${v.blurb || ''}`.toLowerCase()
       return hay.includes(q)
     })
-  }, [search, active, vendors])
+  }, [search, active, vendors, t])
   const featured = filtered.filter(v => v.featured)
 
   return (
     <section id="vendor" className="ven-wrap ev-section">
       <div className="voice-page-head">
-        <h2 className="voice-page-title">Vendors</h2>
+        <h2 className="voice-page-title">{t('vendors.title')}</h2>
         <p className="voice-page-sub">
-          Trusted service providers who help keep our community safe,
-          beautiful, and well-maintained.
+          {t('vendors.subtitle')}
         </p>
       </div>
 
@@ -186,14 +179,14 @@ export function VendorSection() {
             type="search"
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search vendors by name, service, or location…"
+            placeholder={t('vendors.searchPlaceholder')}
           />
         </div>
         <select name="vendor-category" className="ven-select" value={active}
           onChange={e => setActive(e.target.value as any)}>
-          <option value="all">All Categories</option>
+          <option value="all">{t('vendors.allCategories')}</option>
           {CATEGORY_GRID.map(c => (
-            <option key={c.key} value={c.key}>{c.label}</option>
+            <option key={c.key} value={c.key}>{catLabel(c.key)}</option>
           ))}
         </select>
       </div>
@@ -203,13 +196,13 @@ export function VendorSection() {
         <div className="ven-col">
           {/* Vendor categories — icon grid */}
           <section className="ven-card">
-            <h2 className="ven-card-title">Vendor Categories</h2>
+            <h2 className="ven-card-title">{t('vendors.categories')}</h2>
             <div className="ven-cat-grid">
-              <CategoryTile k="all" label="All" count={vendors.length}
+              <CategoryTile k="all" label={t('vendors.all')} count={vendors.length}
                 active={active === 'all'} onClick={() => setActive('all')} />
               {CATEGORY_GRID.map(c => (
                 <CategoryTile
-                  key={c.key} k={c.key} label={c.label} count={counts[c.key]}
+                  key={c.key} k={c.key} label={catLabel(c.key)} count={counts[c.key]}
                   active={active === c.key}
                   onClick={() => setActive(c.key)}
                 />
@@ -221,14 +214,15 @@ export function VendorSection() {
           {featured.length > 0 && (
             <section className="ven-card">
               <div className="ven-card-head">
-                <h2 className="ven-card-title">Featured Vendors</h2>
-                <span className="ven-card-meta">Board-preferred</span>
+                <h2 className="ven-card-title">{t('vendors.featured')}</h2>
+                <span className="ven-card-meta">{t('vendors.boardPreferred')}</span>
               </div>
               <div className="ven-featured">
                 {featured.map(v => (
                   <FeaturedCard
                     key={v.id}
                     v={v}
+                    catLabel={catLabel(v.category)}
                     avg={ratings.averageFor(v.id)}
                     count={ratings.countFor(v.id)}
                     myRating={ratings.myRating(v.id)}
@@ -242,28 +236,28 @@ export function VendorSection() {
           {/* All vendors table */}
           <section className="ven-card">
             <div className="ven-card-head">
-              <h2 className="ven-card-title">All Vendors</h2>
-              <button type="button" className="ven-card-link" onClick={() => setAllOpen(true)}>View all</button>
+              <h2 className="ven-card-title">{t('vendors.allVendors')}</h2>
+              <button type="button" className="ven-card-link" onClick={() => setAllOpen(true)}>{t('vendors.viewAll')}</button>
             </div>
             <div className="ven-table">
               <div className="ven-row ven-row-head">
-                <span>Vendor</span>
-                <span>Category</span>
-                <span>Rating</span>
-                <span>Contact</span>
+                <span>{t('vendors.colVendor')}</span>
+                <span>{t('vendors.colCategory')}</span>
+                <span>{t('vendors.colRating')}</span>
+                <span>{t('vendors.colContact')}</span>
               </div>
               {filtered.length === 0 ? (
-                <div className="ven-empty">No vendors match these filters.</div>
+                <div className="ven-empty">{t('vendors.noMatch')}</div>
               ) : (
                 filtered.map(v => (
                   <div key={v.id} className="ven-row">
                     <button type="button" className="ven-row-name ven-row-name-btn"
                       onClick={() => setVendorOpen(v)}>{v.name}</button>
-                    <span className="ven-row-cat">{CATEGORY_LABEL[v.category]}</span>
+                    <span className="ven-row-cat">{catLabel(v.category)}</span>
                     <span className="ven-row-rating">
                       <button type="button" className="ven-rate-btn"
                         onClick={() => setRateOpen(v.id)}
-                        title={ratings.myRating(v.id) ? 'Edit your rating' : 'Rate this vendor'}>
+                        title={ratings.myRating(v.id) ? t('vendors.editYourRating') : t('vendors.rateThisVendor')}>
                         <RatingDisplay
                           avg={ratings.averageFor(v.id)}
                           count={ratings.countFor(v.id)}
@@ -287,19 +281,19 @@ export function VendorSection() {
         {/* RIGHT COLUMN */}
         <aside className="ven-aside">
           <section className="ven-card ven-tile-tight">
-            <h3 className="ven-tile-title">Quick Actions</h3>
+            <h3 className="ven-tile-title">{t('vendors.quickActions')}</h3>
             <div className="ven-quick">
               <QuickRow icon={<IconPlus />}
-                title="Request a Vendor"
-                desc="Open a service request the board will route."
+                title={t('vendors.requestVendor')}
+                desc={t('vendors.requestVendorDesc')}
                 onClick={() => setRequest('request')} />
               <QuickRow icon={<IconStar />}
-                title="Recommend a Vendor"
-                desc="Suggest a service provider you trust."
+                title={t('vendors.recommendVendor')}
+                desc={t('vendors.recommendVendorDesc')}
                 onClick={() => setRequest('recommend')} />
               <QuickRow icon={<IconList />}
-                title="View Service Requests"
-                desc="See the status of your open requests."
+                title={t('vendors.viewServiceRequests')}
+                desc={t('vendors.viewServiceRequestsDesc')}
                 href="/app/voice#contact" />
             </div>
           </section>
@@ -307,15 +301,14 @@ export function VendorSection() {
           <section className="ven-card ven-need">
             <div className="ven-need-icon" aria-hidden="true"><IconHelp /></div>
             <div className="ven-need-body">
-              <div className="ven-need-title">Need a recommendation?</div>
+              <div className="ven-need-title">{t('vendors.needRecommendation')}</div>
               <div className="ven-need-sub">
-                Not sure who to choose? Let our management team help match
-                you with the right vendor.
+                {t('vendors.needRecommendationSub')}
               </div>
             </div>
             <button type="button" className="ven-cta-primary"
               onClick={() => setRequest('request')}>
-              Request Recommendations
+              {t('vendors.requestRecommendations')}
             </button>
           </section>
 
@@ -327,19 +320,19 @@ export function VendorSection() {
               </svg>
             </div>
             <div className="ven-guide-body">
-              <div className="ven-guide-title">Vendor Guidelines</div>
+              <div className="ven-guide-title">{t('vendors.guidelines')}</div>
               <div className="ven-guide-sub">
-                All vendors must be approved by management before performing work.
+                {t('vendors.guidelinesSub')}
               </div>
             </div>
             <button type="button" className="ven-cta-secondary"
               disabled={guideBusy} onClick={openGuidelines}>
-              {guideBusy ? 'Opening…' : 'View Guidelines'}
+              {guideBusy ? t('vendors.opening') : t('vendors.viewGuidelines')}
             </button>
           </section>
 
           <section className="ven-card ven-emerg">
-            <h3 className="ven-tile-title">Emergency Contacts</h3>
+            <h3 className="ven-tile-title">{t('vendors.emergencyContacts')}</h3>
             <div className="ven-emerg-list">
               {EMERGENCY_CONTACTS.map(c => (
                 <a key={c.id} href={`tel:${c.phone}`} className="ven-emerg-row">
@@ -372,12 +365,12 @@ export function VendorSection() {
 
       {request && (
         <RequestDialog
-          eyebrow="Vendors"
-          title={request === 'recommend' ? 'Recommend a vendor' : 'Request a vendor'}
-          defaultSubject={request === 'recommend' ? 'Vendor recommendation: ' : 'Vendor request: '}
+          eyebrow={t('vendors.title')}
+          title={request === 'recommend' ? t('vendors.recommendDialogTitle') : t('vendors.requestDialogTitle')}
+          defaultSubject={request === 'recommend' ? t('vendors.recommendSubject') : t('vendors.requestSubject')}
           bodyPlaceholder={request === 'recommend'
-            ? 'Who do you recommend, and what have they done well?'
-            : 'What service do you need? Any preferred timing?'}
+            ? t('vendors.recommendBodyPlaceholder')
+            : t('vendors.requestBodyPlaceholder')}
           onClose={() => setRequest(null)}
         />
       )}
@@ -385,22 +378,24 @@ export function VendorSection() {
       {/* View all vendors — full list in a popup, each row opens its detail. */}
       {allOpen && (
         <DetailDialog
-          eyebrow="Vendors"
-          title="All Vendors"
-          period={`${filtered.length} vendor${filtered.length === 1 ? '' : 's'}`}
+          eyebrow={t('vendors.title')}
+          title={t('vendors.allVendors')}
+          period={filtered.length === 1
+            ? t('vendors.countVendorOne', { count: filtered.length })
+            : t('vendors.countVendorOther', { count: filtered.length })}
           size="wide"
           onClose={() => setAllOpen(false)}
         >
           <div className="rd-list">
             {filtered.length === 0 ? (
-              <p className="rd-detail-foot-note" style={{ marginTop: 0 }}>No vendors match these filters.</p>
+              <p className="rd-detail-foot-note" style={{ marginTop: 0 }}>{t('vendors.noMatch')}</p>
             ) : filtered.map(v => (
               <button type="button" className="rd-list-row" key={v.id}
                 onClick={() => { setAllOpen(false); setVendorOpen(v) }}>
                 <span className="ven-fcard-icon">{categoryIcon(v.category)}</span>
                 <span className="rd-list-body">
                   <span className="rd-list-title">{v.name}</span>
-                  <span className="rd-list-meta">{CATEGORY_LABEL[v.category]}</span>
+                  <span className="rd-list-meta">{catLabel(v.category)}</span>
                 </span>
                 <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
@@ -412,13 +407,13 @@ export function VendorSection() {
       {/* A single vendor, opened in place. */}
       {vendorOpen && (
         <DetailDialog
-          eyebrow={CATEGORY_LABEL[vendorOpen.category]}
+          eyebrow={catLabel(vendorOpen.category)}
           title={vendorOpen.name}
           onClose={() => setVendorOpen(null)}
           footer={
             <button type="button" className="ven-cta-primary"
               onClick={() => { const id = vendorOpen.id; setVendorOpen(null); setRateOpen(id) }}>
-              {ratings.myRating(vendorOpen.id) ? 'Edit my rating' : 'Rate this vendor'}
+              {ratings.myRating(vendorOpen.id) ? t('vendors.editMyRating') : t('vendors.rateThisVendor')}
             </button>
           }
         >
@@ -433,11 +428,11 @@ export function VendorSection() {
           {vendorOpen.blurb && <p className="rd-report-blurb">{vendorOpen.blurb}</p>}
           <div className="rd-bd-table">
             {vendorOpen.contact.phone && (
-              <div className="rd-bd-row"><span className="rd-bd-cat">Phone</span>
+              <div className="rd-bd-row"><span className="rd-bd-cat">{t('vendors.phone')}</span>
                 <span className="rd-bd-amt"><a href={`tel:${vendorOpen.contact.phone}`}>{vendorOpen.contact.phone}</a></span><span /></div>
             )}
             {vendorOpen.contact.email && (
-              <div className="rd-bd-row"><span className="rd-bd-cat">Email</span>
+              <div className="rd-bd-row"><span className="rd-bd-cat">{t('vendors.email')}</span>
                 <span className="rd-bd-amt"><a href={`mailto:${vendorOpen.contact.email}`}>{vendorOpen.contact.email}</a></span><span /></div>
             )}
           </div>
@@ -448,22 +443,21 @@ export function VendorSection() {
           an open error. When a doc exists, "View Guidelines" opens it directly. */}
       {guideOpen && (
         <DetailDialog
-          eyebrow="Vendors"
-          title="Vendor Guidelines"
+          eyebrow={t('vendors.title')}
+          title={t('vendors.guidelines')}
           onClose={() => setGuideOpen(false)}
           footer={guidelinesDoc ? (
             <button type="button" className="ven-cta-primary" disabled={guideBusy}
-              onClick={openGuidelines}>{guideBusy ? 'Opening…' : 'Open guidelines PDF'}</button>
+              onClick={openGuidelines}>{guideBusy ? t('vendors.opening') : t('vendors.openGuidelinesPdf')}</button>
           ) : undefined}
         >
           <p className="rd-report-blurb">
-            All vendors must be approved by management before performing work.
+            {t('vendors.guidelinesSub')}
           </p>
           {guideErr && <p className="rd-detail-foot-note" style={{ color: '#c0392b' }}>{guideErr}</p>}
           {!guidelinesDoc && (
             <p className="rd-detail-foot-note">
-              The full vendor guidelines document will appear here once your board
-              uploads it. In the meantime, contact management with any questions.
+              {t('vendors.guidelinesEmpty')}
             </p>
           )}
         </DetailDialog>
@@ -493,14 +487,16 @@ function CategoryTile({
 }
 
 function FeaturedCard({
-  v, avg, count, myRating, onRate,
+  v, catLabel, avg, count, myRating, onRate,
 }: {
   v: Vendor
+  catLabel: string
   avg: number | null
   count: number
   myRating: Rating | undefined
   onRate: () => void
 }) {
+  const t = useT()
   return (
     <div className="ven-fcard">
       <div className="ven-fcard-head">
@@ -508,12 +504,12 @@ function FeaturedCard({
         {v.badge && <span className="ven-fcard-badge">{v.badge}</span>}
       </div>
       <div className="ven-fcard-name">{v.name}</div>
-      <div className="ven-fcard-cat">{CATEGORY_LABEL[v.category]}</div>
+      <div className="ven-fcard-cat">{catLabel}</div>
       {v.blurb && <div className="ven-fcard-blurb">{v.blurb}</div>}
       <div className="ven-fcard-rating">
         <RatingDisplay avg={avg} count={count} mine={!!myRating} />
         <button type="button" className="ven-rate-cta" onClick={onRate}>
-          {myRating ? 'Edit my rating' : 'Rate this vendor'}
+          {myRating ? t('vendors.editMyRating') : t('vendors.rateThisVendor')}
         </button>
       </div>
       <div className="ven-fcard-contact">
@@ -547,11 +543,12 @@ function RatingDisplay({
   count: number
   mine: boolean
 }) {
+  const t = useT()
   if (avg == null) {
     return (
       <span className="ven-rating ven-rating-empty">
         <StarSvg />
-        <span>No ratings yet</span>
+        <span>{t('vendors.noRatingsYet')}</span>
       </span>
     )
   }
@@ -560,7 +557,7 @@ function RatingDisplay({
       <StarSvg />
       <span className="ven-rating-avg">{avg.toFixed(1)}</span>
       <span className="ven-rating-count">({count})</span>
-      {mine && <span className="ven-rating-mine">Yours</span>}
+      {mine && <span className="ven-rating-mine">{t('vendors.yours')}</span>}
     </span>
   )
 }
@@ -584,6 +581,7 @@ function RatingDialog({
   onRemove: (vendor_id: string) => void | Promise<void>
   onClose: () => void
 }) {
+  const t = useT()
   const [stars, setStars] = useState<Stars>((current?.stars as Stars) || 5)
   const [hover, setHover] = useState<number>(0)
   const [review, setReview] = useState<string>(current?.review || '')
@@ -608,10 +606,10 @@ function RatingDialog({
       <div className="ven-rd-card" role="dialog" aria-modal="true" onClick={e => e.stopPropagation()}>
         <header className="ven-rd-head">
           <div>
-            <div className="ven-rd-eyebrow">{CATEGORY_LABEL[vendor.category]}</div>
-            <h2 className="ven-rd-title">Rate {vendor.name}</h2>
+            <div className="ven-rd-eyebrow">{t(`vendors.cat.${vendor.category}`)}</div>
+            <h2 className="ven-rd-title">{t('vendors.rateName', { name: vendor.name })}</h2>
           </div>
-          <button type="button" className="ven-rd-close" aria-label="Close" onClick={onClose}>×</button>
+          <button type="button" className="ven-rd-close" aria-label={t('vendors.close')} onClick={onClose}>×</button>
         </header>
         <div className="ven-rd-body">
           <div className="ven-rd-stars" onMouseLeave={() => setHover(0)}>
@@ -624,43 +622,43 @@ function RatingDialog({
                   className={`ven-rd-star${filled ? ' on' : ''}`}
                   onClick={() => setStars(n as Stars)}
                   onMouseEnter={() => setHover(n)}
-                  aria-label={`${n} star${n === 1 ? '' : 's'}`}
+                  aria-label={n === 1 ? t('vendors.starAriaOne', { n }) : t('vendors.starAriaOther', { n })}
                 >
                   <StarSvg />
                 </button>
               )
             })}
             <span className="ven-rd-stars-label">
-              {stars} of 5 {stars === 1 ? 'star' : 'stars'}
+              {stars === 1 ? t('vendors.starsOfFiveOne', { stars }) : t('vendors.starsOfFiveOther', { stars })}
             </span>
           </div>
           <label className="ven-rd-field">
-            <span className="ven-rd-field-label">Review <span className="ven-rd-optional">(optional)</span></span>
+            <span className="ven-rd-field-label">{t('vendors.review')} <span className="ven-rd-optional">{t('vendors.optional')}</span></span>
             <textarea
               name="review"
               className="ven-rd-textarea"
               rows={4}
               value={review}
               onChange={e => setReview(e.target.value)}
-              placeholder="What did the vendor do well? Anything for neighbors to know?"
+              placeholder={t('vendors.reviewPlaceholder')}
             />
           </label>
           {current && (
             <p className="ven-rd-note">
-              You rated this vendor on {current.created_at}. Submitting again will update your review.
+              {t('vendors.ratedOn', { date: current.created_at })}
             </p>
           )}
         </div>
         <footer className="ven-rd-foot">
           {current && (
             <button type="button" className="ven-rd-danger" onClick={remove}>
-              Remove my rating
+              {t('vendors.removeMyRating')}
             </button>
           )}
           <div className="ven-rd-foot-right">
-            <button type="button" className="ven-cta-secondary" onClick={onClose}>Cancel</button>
+            <button type="button" className="ven-cta-secondary" onClick={onClose}>{t('vendors.cancel')}</button>
             <button type="button" className="ven-cta-primary" onClick={save}>
-              {current ? 'Update rating' : 'Submit rating'}
+              {current ? t('vendors.updateRating') : t('vendors.submitRating')}
             </button>
           </div>
         </footer>

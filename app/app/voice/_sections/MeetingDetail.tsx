@@ -7,6 +7,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { MEETING_TYPES, DOC_TYPES, VOTE_TYPES, OPEN_BALLOT_WAIVER_NOTICE } from '@/lib/voice'
 import { logAudit } from '@/lib/audit'
 import { encryptAnswer } from '@/lib/ballotCrypto'
+import { useT } from '@/lib/i18n'
 
 // Shared meeting-detail body. Rendered both by the standalone page
 // (/app/voice/[id], so shared/deep links still resolve) AND by the in-place
@@ -30,7 +31,8 @@ const fmtDt = (iso) => {
 // `compact` drops the big title block when the popup header already shows the
 // title, but keeps the meta row, votes and documents.
 export function MeetingDetailBody({ meeting, reload, compact = false }) {
-  const typeLabel = MEETING_TYPES.find(t => t.value === meeting.type)?.label ?? meeting.type
+  const t = useT()
+  const typeLabel = MEETING_TYPES.find(mt => mt.value === meeting.type)?.label ?? meeting.type
   const docs = (meeting.ev_meeting_docs ?? []).sort((a, b) => {
     const order = ['agenda', 'minutes', 'supporting', 'notice_record']
     return order.indexOf(a.type) - order.indexOf(b.type)
@@ -52,17 +54,17 @@ export function MeetingDetailBody({ meeting, reload, compact = false }) {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/>
             </svg>
-            Join virtual meeting
+            {t('voice.joinVirtual')}
           </a>
         )}
         {meeting.quorum_confirmed && (
-          <span className="voice-badge-quorum">Quorum confirmed</span>
+          <span className="voice-badge-quorum">{t('voice.quorumConfirmed')}</span>
         )}
       </div>
 
       {votes.length > 0 && (
         <section className="voice-section">
-          <div className="voice-section-label">Votes</div>
+          <div className="voice-section-label">{t('voice.votes')}</div>
           {votes.map(v => (
             <ResidentVoteCard key={v.id} vote={v} onVoted={reload} />
           ))}
@@ -71,25 +73,26 @@ export function MeetingDetailBody({ meeting, reload, compact = false }) {
 
       {docs.length > 0 && (
         <section className="voice-section">
-          <div className="voice-section-label">Documents</div>
+          <div className="voice-section-label">{t('voice.documents')}</div>
           {docs.map(d => <ResidentDocRow key={d.id} doc={d} />)}
         </section>
       )}
 
       {votes.length === 0 && docs.length === 0 && (
-        <div className="voice-placeholder">No votes or documents posted yet for this meeting.</div>
+        <div className="voice-placeholder">{t('voice.noVotesOrDocs')}</div>
       )}
     </>
   )
 }
 
 function ResidentVoteCard({ vote: v, onVoted }) {
+  const t = useT()
   const { profile } = useAuth() || {}
   const [casting, setCasting] = useState(false)
   const [castErr, setCastErr] = useState(null)
   const [myVote, setMyVote] = useState(null)
   const isOpen = v.status === 'open'
-  const typeLabel = VOTE_TYPES.find(t => t.value === v.type)?.label ?? v.type
+  const typeLabel = VOTE_TYPES.find(vt => vt.value === v.type)?.label ?? v.type
   const isSecret = v.ballot_type === 'secret'
   const total = (v.yes_count ?? 0) + (v.no_count ?? 0) + (v.abstain_count ?? 0)
 
@@ -106,7 +109,7 @@ function ResidentVoteCard({ vote: v, onVoted }) {
       }
       if (isSecret) {
         if (!v.public_key) {
-          setCastErr('This secret vote is missing its encryption key. Ask your board to recreate the vote.')
+          setCastErr(t('voice.errMissingKey'))
           return
         }
         row = {
@@ -123,7 +126,7 @@ function ResidentVoteCard({ vote: v, onVoted }) {
       )
       if (error) {
         if (error.code === '23505') {
-          setCastErr('Your unit has already cast a ballot for this vote.')
+          setCastErr(t('voice.errAlreadyVoted'))
         } else if (/consent required/i.test(error.message ?? '')) {
           // ev_ballot_consent_guard fired — the user hasn't consented yet.
           setCastErr('CONSENT_REQUIRED')
@@ -142,7 +145,7 @@ function ResidentVoteCard({ vote: v, onVoted }) {
       setMyVote(answer)
       onVoted()
     } catch (e) {
-      setCastErr(e?.message ?? 'Could not cast your ballot. Try again.')
+      setCastErr(e?.message ?? t('voice.errCastFailed'))
     } finally {
       setCasting(false)
     }
@@ -153,10 +156,10 @@ function ResidentVoteCard({ vote: v, onVoted }) {
       <div className="voice-vote-card-head">
         <div>
           <div className="voice-vote-card-title">{v.title}</div>
-          <div className="voice-vote-card-meta">{typeLabel} · {isSecret ? '🔒 Secret ballot' : 'Open ballot'}</div>
+          <div className="voice-vote-card-meta">{typeLabel} · {isSecret ? t('voice.secretBallot') : t('voice.openBallot')}</div>
         </div>
         <span className={`voice-status voice-status-${v.status}`}>
-          {v.status === 'open' ? 'Vote open' : v.status === 'published' ? 'Results' : v.status}
+          {v.status === 'open' ? t('voice.voteOpen') : v.status === 'published' ? t('voice.results') : v.status}
         </span>
       </div>
 
@@ -166,8 +169,7 @@ function ResidentVoteCard({ vote: v, onVoted }) {
         <div className="voice-ballot-area">
           {isSecret ? (
             <p className="voice-ballot-notice voice-ballot-notice-secret">
-              Secret ballot — your vote is encrypted on this device before transmission.
-              The association cannot see how you voted.
+              {t('voice.secretBallotNotice')}
             </p>
           ) : (
             <p className="voice-ballot-notice voice-ballot-notice-open">
@@ -182,7 +184,7 @@ function ResidentVoteCard({ vote: v, onVoted }) {
                 onClick={() => cast(a)}
                 disabled={casting}
               >
-                {a === 'yes' ? '✓ Yes' : a === 'no' ? '✗ No' : '— Abstain'}
+                {a === 'yes' ? t('voice.ballotYes') : a === 'no' ? t('voice.ballotNo') : t('voice.ballotAbstain')}
               </button>
             ))}
           </div>
@@ -192,25 +194,25 @@ function ResidentVoteCard({ vote: v, onVoted }) {
       {(myVote || (!isOpen && v.status !== 'draft')) && (
         <div>
           {myVote && (
-            <div className="voice-my-vote">Your vote: <strong>{myVote}</strong> — recorded</div>
+            <div className="voice-my-vote">{t('voice.yourVotePrefix')} <strong>{t(`voice.answer_${myVote}`)}</strong> {t('voice.yourVoteRecorded')}</div>
           )}
           {(v.status === 'tallied' || v.status === 'published') && (
             <div className="voice-results">
               {!isSecret || v.status === 'published' ? (
                 <>
-                  <TallyBar label="Yes" count={v.yes_count ?? 0} total={total} cls="yes" />
-                  <TallyBar label="No"  count={v.no_count  ?? 0} total={total} cls="no" />
+                  <TallyBar label={t('voice.answer_yes')} count={v.yes_count ?? 0} total={total} cls="yes" />
+                  <TallyBar label={t('voice.answer_no')}  count={v.no_count  ?? 0} total={total} cls="no" />
                   {(v.abstain_count ?? 0) > 0 && (
-                    <TallyBar label="Abstain" count={v.abstain_count ?? 0} total={total} cls="abs" />
+                    <TallyBar label={t('voice.answer_abstain')} count={v.abstain_count ?? 0} total={total} cls="abs" />
                   )}
                   {v.result && (
                     <div className={`voice-result voice-result-${v.result}`}>
-                      {v.result === 'pass' ? 'Motion passed' : 'Motion failed'}
+                      {v.result === 'pass' ? t('voice.motionPassed') : t('voice.motionFailed')}
                     </div>
                   )}
                 </>
               ) : (
-                <div className="voice-secret-pending">Results will be published after the vote closes.</div>
+                <div className="voice-secret-pending">{t('voice.secretPending')}</div>
               )}
             </div>
           )}
@@ -219,10 +221,9 @@ function ResidentVoteCard({ vote: v, onVoted }) {
 
       {castErr === 'CONSENT_REQUIRED' ? (
         <div className="voice-consent-cta">
-          You haven&apos;t consented to electronic voting yet. Florida law requires
-          a one-time consent before any electronic ballot is valid.
+          {t('voice.consentRequired')}
           <Link href="/onboard" className="voice-consent-cta-btn">
-            Consent now &rarr;
+            {t('voice.consentNow')} &rarr;
           </Link>
         </div>
       ) : castErr ? (

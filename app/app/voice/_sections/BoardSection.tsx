@@ -4,6 +4,7 @@ import { ReactNode, useState } from 'react'
 import { useBoardData, type BoardMember, type BoardMeeting, type Committee } from '@/hooks/useBoardData'
 import { useBoardDecisions } from '@/hooks/useBoardDecisions'
 import { DetailDialog } from '../../track/_sections/DetailDialog'
+import { useT } from '@/lib/i18n'
 
 type Update = { id: string; kind: UpdateKind; title: string; date: string; sub: string }
 
@@ -46,7 +47,7 @@ type UpdateKind = 'approval' | 'contract' | 'budget' | 'announce'
 
 // Map a board_decisions row to the update-card shape. board_decisions
 // columns vary, so read defensively.
-function decisionToUpdate(d: any): { id: string; kind: UpdateKind; title: string; date: string; sub: string } {
+function decisionToUpdate(d: any, fallbackTitle: string): { id: string; kind: UpdateKind; title: string; date: string; sub: string } {
   const status = String(d.status || '').toLowerCase()
   const kind: UpdateKind =
     status.includes('contract') ? 'contract'
@@ -55,7 +56,7 @@ function decisionToUpdate(d: any): { id: string; kind: UpdateKind; title: string
     : 'approval'
   const amount = d.amount != null ? '$' + Math.round(Number(d.amount)).toLocaleString('en-US') : ''
   const sub = d.summary || d.note || [d.vendor, amount].filter(Boolean).join(' · ') || ''
-  return { id: d.id, kind, title: d.title || 'Board decision', date: d.decided_on || d.created_at || '', sub }
+  return { id: d.id, kind, title: d.title || fallbackTitle, date: d.decided_on || d.created_at || '', sub }
 }
 
 const isoTime = (ts: string) => {
@@ -74,9 +75,10 @@ const fmtLongDate = (iso: string) => {
 }
 
 export function BoardSection() {
+  const t = useT()
   const board = useBoardData()
   const { decisions } = useBoardDecisions(6) as { decisions: any[] | null }
-  const realUpdates = (decisions ?? []).map(decisionToUpdate)
+  const realUpdates = (decisions ?? []).map(d => decisionToUpdate(d, t('board.decisionFallbackTitle')))
 
   // Real community data, or the demo fallback so the tab is never empty.
   const members  = board.members.length  ? board.members  : DEMO_MEMBERS
@@ -93,16 +95,18 @@ export function BoardSection() {
   const [updatesOpen, setUpdatesOpen] = useState(false)
   const [committeeOpen, setCommitteeOpen] = useState<Committee | null>(null)
 
-  const meetingTypeLabel = (t: string) =>
-    t === 'annual' ? 'Annual meeting' : t === 'special' ? 'Special meeting' : t === 'committee' ? 'Committee meeting' : 'Board meeting'
+  const meetingTypeLabel = (type: string) =>
+    type === 'annual' ? t('board.meetingTypeAnnual')
+    : type === 'special' ? t('board.meetingTypeSpecial')
+    : type === 'committee' ? t('board.meetingTypeCommittee')
+    : t('board.meetingTypeBoard')
 
   return (
     <section id="board" className="brd-wrap ev-section">
       <div className="voice-page-head">
-        <h2 className="voice-page-title">Your Board</h2>
+        <h2 className="voice-page-title">{t('board.pageTitle')}</h2>
         <p className="voice-page-sub">
-          Meet your board, view updates, and stay informed about decisions
-          that shape our community.
+          {t('board.pageSub')}
         </p>
       </div>
 
@@ -112,43 +116,43 @@ export function BoardSection() {
           {/* Upcoming Meeting hero card */}
           <section className="brd-card brd-upcoming">
             <div className="brd-up-head">
-              <span className="brd-up-eyebrow">Upcoming Board Meeting</span>
+              <span className="brd-up-eyebrow">{t('board.upcomingEyebrow')}</span>
             </div>
             {upcoming ? (
               <>
                 <div className="brd-up-when">
                   {fmtLongDate(isoDay(upcoming.scheduled_at))} &middot; {isoTime(upcoming.scheduled_at)}
                 </div>
-                <div className="brd-up-where">{upcoming.location || upcoming.virtual_link || 'Location TBD'}</div>
+                <div className="brd-up-where">{upcoming.location || upcoming.virtual_link || t('board.locationTbd')}</div>
                 <div className="brd-up-actions">
-                  <button type="button" className="brd-cta-secondary" onClick={() => setMeetingOpen(upcoming)}>View meeting</button>
+                  <button type="button" className="brd-cta-secondary" onClick={() => setMeetingOpen(upcoming)}>{t('board.viewMeeting')}</button>
                   {upcoming.virtual_link && (
-                    <a href={upcoming.virtual_link} target="_blank" rel="noreferrer" className="brd-cta-primary">Join Meeting</a>
+                    <a href={upcoming.virtual_link} target="_blank" rel="noreferrer" className="brd-cta-primary">{t('board.joinMeeting')}</a>
                   )}
                 </div>
               </>
             ) : (
-              <div className="brd-up-where">No upcoming board meeting scheduled yet.</div>
+              <div className="brd-up-where">{t('board.noUpcomingMeeting')}</div>
             )}
-            <button type="button" className="brd-up-all" onClick={() => setMinutesOpen(true)}>View all meetings &rarr;</button>
+            <button type="button" className="brd-up-all" onClick={() => setMinutesOpen(true)}>{t('board.viewAllMeetings')} &rarr;</button>
           </section>
 
           {/* Board Members */}
           <section className="brd-card">
             <div className="brd-card-head">
-              <h2 className="brd-card-title">Board Members</h2>
-              <button type="button" className="brd-card-link" onClick={() => setMembersOpen(true)}>View all members</button>
+              <h2 className="brd-card-title">{t('board.boardMembers')}</h2>
+              <button type="button" className="brd-card-link" onClick={() => setMembersOpen(true)}>{t('board.viewAllMembers')}</button>
             </div>
             <div className="brd-members">
               {members.length === 0 ? (
-                <div className="brd-member-role">No board members listed yet.</div>
+                <div className="brd-member-role">{t('board.noMembers')}</div>
               ) : members.map(m => (
                 <div key={m.id} className="brd-member">
                   <div className="brd-member-avatar" aria-hidden="true">{m.initials}</div>
                   <div className="brd-member-name">{m.name}</div>
                   <div className="brd-member-role">{m.role}</div>
                   {m.email && (
-                    <a href={`mailto:${m.email}`} className="brd-member-mail" aria-label={`Email ${m.name}`}>
+                    <a href={`mailto:${m.email}`} className="brd-member-mail" aria-label={t('board.emailMember', { name: m.name })}>
                       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                         <rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 7 9-7"/>
                       </svg>
@@ -162,12 +166,12 @@ export function BoardSection() {
           {/* Recent Meeting Minutes */}
           <section className="brd-card" id="minutes">
             <div className="brd-card-head">
-              <h2 className="brd-card-title">Recent Board Meeting Minutes</h2>
-              <button type="button" className="brd-card-link" onClick={() => setMinutesOpen(true)}>View all</button>
+              <h2 className="brd-card-title">{t('board.recentMinutes')}</h2>
+              <button type="button" className="brd-card-link" onClick={() => setMinutesOpen(true)}>{t('board.viewAll')}</button>
             </div>
             <div className="brd-minutes">
               {minutes.length === 0 ? (
-                <div className="brd-member-role">No published minutes yet.</div>
+                <div className="brd-member-role">{t('board.noMinutes')}</div>
               ) : minutes.map(m => (
                 <button key={m.id} type="button" className="brd-min-row" onClick={() => setMeetingOpen(m)}>
                   <span className="brd-min-date">
@@ -179,9 +183,9 @@ export function BoardSection() {
                     <span className="brd-min-sum">{meetingTypeLabel(m.type)}</span>
                   </span>
                   <span className={`brd-pill ${m.minutes_status === 'approved' ? 'brd-pill-on' : 'brd-pill-off'}`}>
-                    {m.minutes_status === 'approved' ? 'Approved' : 'Published'}
+                    {m.minutes_status === 'approved' ? t('board.statusApproved') : t('board.statusPublished')}
                   </span>
-                  <span className="brd-min-action">View &rarr;</span>
+                  <span className="brd-min-action">{t('board.view')} &rarr;</span>
                 </button>
               ))}
             </div>
@@ -190,14 +194,14 @@ export function BoardSection() {
           {/* How Decisions Are Made */}
           <section className="brd-card brd-how">
             <div className="brd-card-head">
-              <h2 className="brd-card-title">How Decisions Are Made</h2>
-              <span className="brd-card-meta">Four steps, always public</span>
+              <h2 className="brd-card-title">{t('board.howTitle')}</h2>
+              <span className="brd-card-meta">{t('board.howMeta')}</span>
             </div>
             <div className="brd-how-grid">
-              <HowStep n={1} title="Proposal"      desc="A resident or board member raises an idea — anyone can submit one through Voice." icon={<IconLightbulb />} />
-              <HowStep n={2} title="Discussion"    desc="The board debates at the next public meeting. Residents are welcome to speak." icon={<IconChat />} />
-              <HowStep n={3} title="Vote"          desc="Board votes by quorum. Outcome is recorded in the minutes within 48 hours." icon={<IconGavel />} />
-              <HowStep n={4} title="Communication" desc="Every resident gets a notice. The decision lands here and in Documents." icon={<IconMegaphone />} />
+              <HowStep n={1} title={t('board.howProposalTitle')}      desc={t('board.howProposalDesc')} icon={<IconLightbulb />} />
+              <HowStep n={2} title={t('board.howDiscussionTitle')}    desc={t('board.howDiscussionDesc')} icon={<IconChat />} />
+              <HowStep n={3} title={t('board.howVoteTitle')}          desc={t('board.howVoteDesc')} icon={<IconGavel />} />
+              <HowStep n={4} title={t('board.howCommunicationTitle')} desc={t('board.howCommunicationDesc')} icon={<IconMegaphone />} />
             </div>
           </section>
         </div>
@@ -206,12 +210,12 @@ export function BoardSection() {
         <aside className="brd-aside">
           <section className="brd-card brd-tile-tight">
             <div className="brd-card-head">
-              <h3 className="brd-tile-title">Board Updates</h3>
-              <button type="button" className="brd-card-link" onClick={() => setUpdatesOpen(true)}>View all</button>
+              <h3 className="brd-tile-title">{t('board.boardUpdates')}</h3>
+              <button type="button" className="brd-card-link" onClick={() => setUpdatesOpen(true)}>{t('board.viewAll')}</button>
             </div>
             <div className="brd-updates">
               {updates.length === 0 ? (
-                <div className="brd-member-role">No board updates yet.</div>
+                <div className="brd-member-role">{t('board.noUpdates')}</div>
               ) : updates.map(u => (
                 <button key={u.id} type="button" className="brd-update" onClick={() => setUpdateOpen(u)}>
                   <span className={`brd-update-dot brd-update-${u.kind}`} aria-hidden="true">
@@ -230,7 +234,7 @@ export function BoardSection() {
           {committees.length > 0 && (
             <section className="brd-card brd-tile-tight">
               <div className="brd-card-head">
-                <h3 className="brd-tile-title">Committees</h3>
+                <h3 className="brd-tile-title">{t('board.committees')}</h3>
               </div>
               <ul className="brd-committees">
                 {committees.map(c => (
@@ -240,7 +244,7 @@ export function BoardSection() {
                       <span className="brd-committee-body">
                         <span className="brd-committee-name">{c.name}</span>
                         <span className="brd-committee-meta">
-                          {c.chair ? `${c.chair} · ` : ''}{c.member_count} {c.member_count === 1 ? 'member' : 'members'}
+                          {c.chair ? `${c.chair} · ` : ''}{c.member_count === 1 ? t('board.memberCountOne', { count: c.member_count }) : t('board.memberCountOther', { count: c.member_count })}
                         </span>
                       </span>
                       <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
@@ -263,13 +267,13 @@ export function BoardSection() {
         >
           <div className="rd-bd-table">
             {meetingOpen.location && (
-              <div className="rd-bd-row"><span className="rd-bd-cat">Location</span><span className="rd-bd-amt">{meetingOpen.location}</span><span /></div>
+              <div className="rd-bd-row"><span className="rd-bd-cat">{t('board.location')}</span><span className="rd-bd-amt">{meetingOpen.location}</span><span /></div>
             )}
-            <div className="rd-bd-row"><span className="rd-bd-cat">Status</span><span className="rd-bd-amt">{meetingOpen.status === 'completed' ? 'Completed' : 'Scheduled'}</span><span /></div>
-            <div className="rd-bd-row rd-bd-total"><span>Minutes</span><span className="rd-bd-amt">{meetingOpen.minutes_status === 'approved' ? 'Approved' : meetingOpen.minutes_status === 'published' ? 'Published' : 'Pending'}</span><span /></div>
+            <div className="rd-bd-row"><span className="rd-bd-cat">{t('board.status')}</span><span className="rd-bd-amt">{meetingOpen.status === 'completed' ? t('board.statusCompleted') : t('board.statusScheduled')}</span><span /></div>
+            <div className="rd-bd-row rd-bd-total"><span>{t('board.minutes')}</span><span className="rd-bd-amt">{meetingOpen.minutes_status === 'approved' ? t('board.statusApproved') : meetingOpen.minutes_status === 'published' ? t('board.statusPublished') : t('board.statusPending')}</span><span /></div>
           </div>
           {meetingOpen.virtual_link && (
-            <a className="ven-cta-primary rd-report-dl" href={meetingOpen.virtual_link} target="_blank" rel="noreferrer">Join meeting</a>
+            <a className="ven-cta-primary rd-report-dl" href={meetingOpen.virtual_link} target="_blank" rel="noreferrer">{t('board.joinMeetingLower')}</a>
           )}
         </DetailDialog>
       )}
@@ -277,22 +281,22 @@ export function BoardSection() {
       {/* A single board update / decision. */}
       {updateOpen && (
         <DetailDialog
-          eyebrow="Board update"
+          eyebrow={t('board.updateEyebrow')}
           title={updateOpen.title}
           period={updateOpen.date ? fmtDate(isoDay(updateOpen.date)) : undefined}
           onClose={() => setUpdateOpen(null)}
         >
           {updateOpen.sub && <p className="rd-report-blurb">{updateOpen.sub}</p>}
           <p className="rd-detail-foot-note">
-            Board decisions are recorded in the meeting minutes and posted to Documents.
+            {t('board.updateFootNote')}
           </p>
         </DetailDialog>
       )}
 
       {/* View all board members. */}
       {membersOpen && (
-        <DetailDialog eyebrow="Your Board" title="Board Members"
-          period={`${members.length} member${members.length === 1 ? '' : 's'}`}
+        <DetailDialog eyebrow={t('board.eyebrowYourBoard')} title={t('board.boardMembers')}
+          period={members.length === 1 ? t('board.memberCountOne', { count: members.length }) : t('board.memberCountOther', { count: members.length })}
           onClose={() => setMembersOpen(false)}>
           <div className="rd-list">
             {members.map(m => (
@@ -302,7 +306,7 @@ export function BoardSection() {
                   <span className="rd-list-title">{m.name}</span>
                   <span className="rd-list-meta">{m.role}</span>
                 </span>
-                {m.email && <a className="rd-settings-link" href={`mailto:${m.email}`}>Email</a>}
+                {m.email && <a className="rd-settings-link" href={`mailto:${m.email}`}>{t('board.email')}</a>}
               </div>
             ))}
           </div>
@@ -311,8 +315,8 @@ export function BoardSection() {
 
       {/* View all meeting minutes — each opens its meeting. */}
       {minutesOpen && (
-        <DetailDialog eyebrow="Your Board" title="Board Meetings"
-          period={`${minutes.length} meeting${minutes.length === 1 ? '' : 's'}`}
+        <DetailDialog eyebrow={t('board.eyebrowYourBoard')} title={t('board.boardMeetings')}
+          period={minutes.length === 1 ? t('board.meetingCountOne', { count: minutes.length }) : t('board.meetingCountOther', { count: minutes.length })}
           onClose={() => setMinutesOpen(false)}>
           <div className="rd-list">
             {minutes.map(m => (
@@ -331,8 +335,8 @@ export function BoardSection() {
 
       {/* View all board updates — each opens its detail. */}
       {updatesOpen && (
-        <DetailDialog eyebrow="Your Board" title="Board Updates"
-          period={`${updates.length} update${updates.length === 1 ? '' : 's'}`}
+        <DetailDialog eyebrow={t('board.eyebrowYourBoard')} title={t('board.boardUpdates')}
+          period={updates.length === 1 ? t('board.updateCountOne', { count: updates.length }) : t('board.updateCountOther', { count: updates.length })}
           onClose={() => setUpdatesOpen(false)}>
           <div className="rd-list">
             {updates.map(u => (
@@ -352,17 +356,16 @@ export function BoardSection() {
 
       {/* A single committee. */}
       {committeeOpen && (
-        <DetailDialog eyebrow="Committee" title={committeeOpen.name}
+        <DetailDialog eyebrow={t('board.committeeEyebrow')} title={committeeOpen.name}
           onClose={() => setCommitteeOpen(null)}>
           <div className="rd-bd-table">
             {committeeOpen.chair && (
-              <div className="rd-bd-row"><span className="rd-bd-cat">Chair</span><span className="rd-bd-amt">{committeeOpen.chair}</span><span /></div>
+              <div className="rd-bd-row"><span className="rd-bd-cat">{t('board.chair')}</span><span className="rd-bd-amt">{committeeOpen.chair}</span><span /></div>
             )}
-            <div className="rd-bd-row rd-bd-total"><span>Members</span><span className="rd-bd-amt">{committeeOpen.member_count}</span><span /></div>
+            <div className="rd-bd-row rd-bd-total"><span>{t('board.members')}</span><span className="rd-bd-amt">{committeeOpen.member_count}</span><span /></div>
           </div>
           <p className="rd-detail-foot-note">
-            Committees do the legwork between board meetings and report back. To join,
-            reach out through Contact the board.
+            {t('board.committeeFootNote')}
           </p>
         </DetailDialog>
       )}

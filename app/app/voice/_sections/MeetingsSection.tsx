@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useVoiceMeetings } from '@/hooks/useVoiceMeetings'
 import { MEETING_TYPES } from '@/lib/voice'
 import { MeetingDetailDialog } from './MeetingDetailDialog'
+import { useT } from '@/lib/i18n'
 
 const fmtDt = (iso) => {
   if (!iso) return '—'
@@ -16,6 +17,7 @@ const fmtDt = (iso) => {
 // Meetings & Votes — the spine of Easy Voice. Lives as a section of the
 // merged /app/voice hub alongside Board and Contact.
 export function MeetingsSection() {
+  const t = useT()
   const { meetings, loading, error } = useVoiceMeetings()
   // Which meeting is open in the detail popup. null = closed.
   const [openId, setOpenId] = useState<string | null>(null)
@@ -26,20 +28,20 @@ export function MeetingsSection() {
   return (
     <section id="meetings" className="voice-wrap ev-section">
       <div className="voice-page-head">
-        <h2 className="voice-page-title">Meetings &amp; Votes</h2>
-        <p className="voice-page-sub">View upcoming meetings, cast your vote, and access all meeting documents.</p>
+        <h2 className="voice-page-title">{t('voice.meetingsTitle')}</h2>
+        <p className="voice-page-sub">{t('voice.meetingsSub')}</p>
       </div>
 
-      {loading && <div className="voice-placeholder">Loading meetings…</div>}
+      {loading && <div className="voice-placeholder">{t('voice.loadingMeetings')}</div>}
       {error && <div className="voice-err">{error}</div>}
 
       {!loading && !error && meetings.length === 0 && (
-        <div className="voice-placeholder">No meetings scheduled yet.</div>
+        <div className="voice-placeholder">{t('voice.noMeetings')}</div>
       )}
 
       {upcoming.length > 0 && (
         <section className="voice-section">
-          <div className="voice-section-label">Upcoming</div>
+          <div className="voice-section-label">{t('voice.upcoming')}</div>
           {upcoming.map(m => (
             <ResidentMeetingRow key={m.id} meeting={m} onOpen={() => setOpenId(m.id)} />
           ))}
@@ -48,7 +50,7 @@ export function MeetingsSection() {
 
       {past.length > 0 && (
         <section className="voice-section">
-          <div className="voice-section-label">Past meetings</div>
+          <div className="voice-section-label">{t('voice.pastMeetings')}</div>
           {past.map(m => (
             <ResidentMeetingRow key={m.id} meeting={m} onOpen={() => setOpenId(m.id)} />
           ))}
@@ -63,7 +65,8 @@ export function MeetingsSection() {
 }
 
 function ResidentMeetingRow({ meeting: m, onOpen }) {
-  const typeLabel = MEETING_TYPES.find(t => t.value === m.type)?.label ?? m.type
+  const t = useT()
+  const typeLabel = MEETING_TYPES.find(mt => mt.value === m.type)?.label ?? m.type
   const votes = m.ev_votes ?? []
   const openVotes = votes.filter(v => v.status === 'open').length
   const isPast = m.status === 'completed'
@@ -86,7 +89,7 @@ function ResidentMeetingRow({ meeting: m, onOpen }) {
       </div>
       <div className="voice-res-right">
         {openVotes > 0 && (
-          <span className="voice-badge-vote">Vote open</span>
+          <span className="voice-badge-vote">{t('voice.voteOpen')}</span>
         )}
         <svg className="voice-res-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <polyline points="9 18 15 12 9 6"/>

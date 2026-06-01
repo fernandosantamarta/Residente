@@ -4,17 +4,14 @@ import { Fragment, ReactNode, useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { RequestForm, CAT_LABEL, IconClip, type Category } from './RequestForm'
+import { RequestForm, useCatLabel, IconClip, type Category } from './RequestForm'
+import { useT } from '@/lib/i18n'
 
 const withTimeout = <T,>(p: Promise<T>, ms = 10000): Promise<T> =>
   Promise.race([
     p,
     new Promise<T>((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms)),
   ])
-
-const STATUS_LABEL: Record<string, string> = {
-  new: 'New', in_progress: 'In progress', resolved: 'Resolved',
-}
 
 const fmtDate = (d: string | null | undefined) =>
   d ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
@@ -44,6 +41,13 @@ type Request = {
 // board triages it at /admin/requests. Two-column layout: request form +
 // the resident's submission history. A section of the Easy Voice hub.
 export function ContactSection() {
+  const t = useT()
+  const catLabel = useCatLabel()
+  const statusLabel = (s: string) =>
+    s === 'new' ? t('board.statusNew')
+    : s === 'in_progress' ? t('board.statusInProgress')
+    : s === 'resolved' ? t('board.statusResolvedReq')
+    : s
   const { profile } = useAuth() || {}
   // Quick actions on Home link here with ?cat= so the right category is already
   // selected when the resident arrives.
@@ -82,28 +86,28 @@ export function ContactSection() {
   return (
     <section id="contact" className="con-wrap ev-section">
       <div className="voice-page-head">
-        <h2 className="voice-page-title">Contact the board</h2>
-        <p className="voice-page-sub">Submit a maintenance issue, appeal, or question — and track the board's reply.</p>
+        <h2 className="voice-page-title">{t('board.contactTitle')}</h2>
+        <p className="voice-page-sub">{t('board.contactSub')}</p>
       </div>
 
       <div className="con-grid">
         {/* LEFT — submit a request */}
         <section className="con-card con-form-card">
-          <h2 className="con-card-title">Submit a request</h2>
+          <h2 className="con-card-title">{t('board.submitRequest')}</h2>
           <RequestForm initialCategory={initialCat} onSubmitted={row => setRows(rs => [row as Request, ...rs])} />
         </section>
 
         {/* RIGHT — submission history */}
         <section className="con-card con-list-card">
-          <h2 className="con-card-title">Your past submissions</h2>
+          <h2 className="con-card-title">{t('board.pastSubmissions')}</h2>
           <div className="con-table">
             <div className="con-thead">
-              <span>ID</span><span>Subject</span><span>Category</span>
-              <span>Status</span><span>Submitted</span><span></span>
+              <span>{t('board.colId')}</span><span>{t('board.colSubject')}</span><span>{t('board.colCategory')}</span>
+              <span>{t('board.colStatus')}</span><span>{t('board.colSubmitted')}</span><span></span>
             </div>
-            {loading && <div className="con-empty">Loading…</div>}
+            {loading && <div className="con-empty">{t('board.loading')}</div>}
             {!loading && rows.length === 0 && (
-              <div className="con-empty">No requests yet — submit one on the left and track it here.</div>
+              <div className="con-empty">{t('board.noRequests')}</div>
             )}
             {!loading && rows.map(r => {
               const open = expandedId === r.id
@@ -119,11 +123,11 @@ export function ContactSection() {
                 >
                   <span className="con-id">{shortId(r.id)}</span>
                   <span className="con-subj" title={r.subject}>{r.subject}</span>
-                  <span className="con-cat-cell">{CAT_LABEL[r.category] || r.category}</span>
-                  <span><span className={`con-badge con-badge-${r.status}`}>{STATUS_LABEL[r.status] || r.status}</span></span>
+                  <span className="con-cat-cell">{catLabel(r.category)}</span>
+                  <span><span className={`con-badge con-badge-${r.status}`}>{statusLabel(r.status)}</span></span>
                   <span className="con-date">{fmtDate(r.created_at)}</span>
                   <span className="con-chev">
-                    {hasReply && !open && <span className="con-reply-dot" title="The board replied" />}
+                    {hasReply && !open && <span className="con-reply-dot" title={t('board.boardReplied')} />}
                     <svg className={`con-chev-ic${open ? ' open' : ''}`} viewBox="0 0 24 24" width="16" height="16"
                       fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="m6 9 6 6 6-6" />
@@ -133,27 +137,27 @@ export function ContactSection() {
                 {open && (
                   <div className="con-detail">
                     <div className="con-detail-row">
-                      <span className="con-detail-label">Description</span>
-                      <span className="con-detail-val">{r.body || <em>No description provided.</em>}</span>
+                      <span className="con-detail-label">{t('board.descriptionLabel')}</span>
+                      <span className="con-detail-val">{r.body || <em>{t('board.noDescription')}</em>}</span>
                     </div>
                     {r.attachment_path && (
                       <div className="con-detail-row">
-                        <span className="con-detail-label">Your attachment</span>
+                        <span className="con-detail-label">{t('board.yourAttachment')}</span>
                         <button type="button" className="con-note-photo" style={{ marginLeft: 0 }}
                           onClick={() => openAttachment(r.attachment_path!)}>
-                          <IconClip /> {r.attachment_name || 'View attachment'}
+                          <IconClip /> {r.attachment_name || t('board.viewAttachment')}
                         </button>
                       </div>
                     )}
                     {hasReply && (
                       <div className="con-note" style={{ margin: '2px 0 0' }}>
-                        <span className="con-note-tag">Board</span>
+                        <span className="con-note-tag">{t('board.boardTag')}</span>
                         <span className="con-note-body">
                           {r.board_note}
                           {r.board_note_attachment_path && (
                             <button type="button" className="con-note-photo"
                               onClick={() => openAttachment(r.board_note_attachment_path!)}>
-                              <IconClip /> {r.board_note_attachment_name || 'View photo'}
+                              <IconClip /> {r.board_note_attachment_name || t('board.viewPhoto')}
                             </button>
                           )}
                         </span>
@@ -167,7 +171,7 @@ export function ContactSection() {
             })}
           </div>
           {!loading && rows.length > 0 && (
-            <button type="button" className="con-viewall">View all submissions</button>
+            <button type="button" className="con-viewall">{t('board.viewAllSubmissions')}</button>
           )}
         </section>
       </div>
@@ -176,9 +180,9 @@ export function ContactSection() {
       <section className="con-emerg">
         <span className="con-emerg-ic"><IconPhone /></span>
         <div className="con-emerg-body">
-          <div className="con-emerg-title">Need immediate assistance?</div>
+          <div className="con-emerg-title">{t('board.emergTitle')}</div>
           <div className="con-emerg-sub">
-            For emergencies, please contact our management office directly at{' '}
+            {t('board.emergSub')}{' '}
             <a href="tel:3055554567">(305) 555-4567</a>.
           </div>
         </div>
