@@ -11,7 +11,6 @@ import {
   LANGUAGE_LABEL,
   PUSH_PREF_LABEL,
   SMS_PREF_LABEL,
-  TIMEZONE_LABEL,
   WEEK_START_LABEL,
   fileToProfileImage,
   formatTime12,
@@ -23,7 +22,6 @@ import {
   type Preferences,
   type PushPref,
   type SmsPref,
-  type TimezoneCode,
   type WeekStart,
 } from '@/lib/preferences'
 import {
@@ -157,9 +155,9 @@ export default function Settings() {
               onClick={() => setDialog('security')} />
             <Row icon={<IconBell />}  title="Notification Preferences" desc="Choose what reaches you and how."
               onClick={() => setDialog('notifications')} />
-            <Row icon={<IconGlobe />} title="Language &amp; Region"    desc="Display language, timezone, and date format."
+            <Row icon={<IconGlobe />} title="Language"    desc="Choose your display language."
               onClick={() => setDialog('language')}
-              right={`${LANGUAGE_LABEL[prefs.language]} · ${prefs.timezone}`} />
+              right={LANGUAGE_LABEL[prefs.language]} />
             <Row icon={<IconEye />}   title="Accessibility"            desc="Larger text, reduced motion, high contrast."
               onClick={() => setDialog('accessibility')}
               right={accessibilitySummary(prefs)} />
@@ -277,7 +275,6 @@ export default function Settings() {
               <div className="set-pref-row"><span>Push</span><span>{PUSH_PREF_LABEL[prefs.push_pref]}</span></div>
               <div className="set-pref-row"><span>Quiet hours</span><span>{formatTime12(prefs.quiet_hours_start)} – {formatTime12(prefs.quiet_hours_end)}</span></div>
               <div className="set-pref-row"><span>Language</span><span>{LANGUAGE_LABEL[prefs.language]}</span></div>
-              <div className="set-pref-row"><span>Timezone</span><span>{prefs.timezone}</span></div>
             </div>
             <button className="set-tile-cta" type="button" onClick={() => setDialog('notifications')}>
               Edit preferences
@@ -672,7 +669,7 @@ const DIALOG_TITLE: Record<DialogKey, string> = {
   profile:        'Profile information',
   security:       'Login & security',
   notifications:  'Notification preferences',
-  language:       'Language & region',
+  language:       'Language',
   accessibility:  'Accessibility',
   email:          'Email preferences',
   sms:            'SMS preferences',
@@ -840,26 +837,16 @@ function DialogBody({
 
     case 'language':
       return (
-        <>
-          <RadioGroup<LanguageCode>
-            label="Display language"
-            value={prefs.language}
-            onChange={v => patch({ language: v })}
-            options={[
-              { value: 'en', label: 'English',     desc: 'Default for the cockpit.' },
-              { value: 'es', label: 'Español',     desc: 'Para residentes hispanohablantes.' },
-              { value: 'pt', label: 'Português',   desc: 'Para residentes que falam português.' },
-            ]}
-          />
-          <RadioGroup<TimezoneCode>
-            label="Timezone"
-            value={prefs.timezone}
-            onChange={v => patch({ timezone: v })}
-            options={(Object.keys(TIMEZONE_LABEL) as TimezoneCode[]).map(tz => ({
-              value: tz, label: TIMEZONE_LABEL[tz],
-            }))}
-          />
-        </>
+        <RadioGroup<LanguageCode>
+          label="Display language"
+          value={prefs.language}
+          onChange={v => patch({ language: v })}
+          options={[
+            { value: 'en', label: 'English',     desc: 'Default for the cockpit.' },
+            { value: 'es', label: 'Español',     desc: 'Para residentes hispanohablantes.' },
+            { value: 'pt', label: 'Português',   desc: 'Para residentes que falam português.' },
+          ]}
+        />
       )
 
     case 'accessibility':
