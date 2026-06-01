@@ -74,6 +74,10 @@ export type Preferences = {
   vehicles: Vehicle[]
   pets: Pet[]
   payment_methods: PaymentMethod[]
+  // Which saved method is the default, by id. '' falls back to the first
+  // method. Only used in the demo / no-Stripe path; live mode reads the
+  // default from Stripe.
+  default_payment_method_id: string
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
@@ -113,6 +117,7 @@ export const DEFAULT_PREFERENCES: Preferences = {
     { id: 'pm-demo-1', brand: 'Visa',              last4: '4242', kind: 'card' },
     { id: 'pm-demo-2', brand: 'Bank of America',   last4: '8821', kind: 'bank' },
   ],
+  default_payment_method_id: '',
 }
 
 const STORAGE_KEY = 'residente-preferences'

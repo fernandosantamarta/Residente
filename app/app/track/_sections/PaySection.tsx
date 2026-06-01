@@ -52,10 +52,14 @@ export function PaySection() {
   const { resident, balance, monthlyDues, payments, loading } = useMyResident() as any
   const [prefs, patchPrefs] = usePreferences()
   const [checkout, setCheckout] = useState({ loading: false, error: '' })
+  // Demo-mode payment confirmation (no real Stripe): holds the amount "paid".
+  const [demoPaid, setDemoPaid] = useState<number | null>(null)
   // In-place popups (no page navigation): account details (view) and
   // add-payment-method (action — also offers the Settings route).
   const [accountOpen, setAccountOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
+  // Manage Autopay opens in a popup from Quick Actions (mirrors the #autopay tile).
+  const [autopayOpen, setAutopayOpen] = useState(false)
   // "View all" list popups + a single statement opened in place.
   const [listOpen, setListOpen] = useState<null | 'history' | 'statements'>(null)
   const [stmtOpen, setStmtOpen] = useState<typeof DEMO_STATEMENTS[number] | null>(null)
@@ -175,8 +179,10 @@ export function PaySection() {
         is_default: !!c.is_default,
       }))
     : null
+  // Demo default: the stored id, falling back to the first saved method.
+  const demoDefaultId = prefs.default_payment_method_id || prefs.payment_methods[0]?.id
   const methods: any[] = liveCards
-    ?? prefs.payment_methods.map((pm, i) => ({ ...pm, is_default: i === 0 }))
+    ?? prefs.payment_methods.map((pm) => ({ ...pm, is_default: pm.id === demoDefaultId }))
   const defaultMethod = methods.find(m => m.is_default) || methods[0]
   const autopayActive = stripeLive
     ? (autopayOn != null ? autopayOn : !!defaultMethod)
@@ -218,7 +224,8 @@ export function PaySection() {
 
   // Make a saved card the default (used by autopay + one-click pay).
   const makeDefault = async (pmId: string) => {
-    if (!stripeLive) return
+    // Demo / no-Stripe: persist the choice locally so the list updates.
+    if (!stripeLive) { patchPrefs({ default_payment_method_id: pmId }); return }
     setAutopayErr('')
     try {
       const { error } = await supabase.functions.invoke('set-autopay', {
@@ -255,7 +262,9 @@ export function PaySection() {
       })
 
   const startCheckout = async () => {
-    if (!stripeEnabled || !resident) return
+    // Demo / no-Stripe: simulate a successful payment instead of dead-clicking,
+    // mirroring the Home Quick-Pay popup.
+    if (!stripeEnabled || !resident) { setDemoPaid(currentBalance); return }
     setCheckout({ loading: true, error: '' })
     try {
       const { data, error } = await supabase.functions.invoke('create-checkout', {
@@ -295,7 +304,7 @@ export function PaySection() {
             )}
             <div className="pay-balance-actions">
               <button type="button" className="pay-cta-primary"
-                disabled={checkout.loading || !stripeEnabled || isLoading}
+                disabled={checkout.loading || isLoading}
                 onClick={startCheckout}>
                 {checkout.loading ? 'Starting checkout…' : 'Make Payment'}
               </button>
@@ -421,7 +430,6 @@ export function PaySection() {
                       <span className="pay-method-badge">Default</span>
                     ) : (
                       <button type="button" className="pay-method-action"
-                        disabled={!stripeLive}
                         onClick={() => makeDefault(pm.id)}>Set as default</button>
                     )}
                   </div>
@@ -448,17 +456,15 @@ export function PaySection() {
               <QuickRow icon={<IconRepeat />}
                 title={autopayActive ? 'Manage Autopay' : 'Set Up Autopay'}
                 desc="Pay your dues automatically each month."
-                {...(stripeLive
-                  ? { onClick: () => toggleAutopay(!autopayActive) }
-                  : { href: '#autopay' })} />
+                onClick={() => setAutopayOpen(true)} />
               <QuickRow icon={<IconReceipt />}
                 title="View Statements"
                 desc="Download monthly statements as PDFs."
-                href="#statements" />
+                onClick={() => setListOpen('statements')} />
               <QuickRow icon={<IconClock />}
                 title="Payment History"
                 desc="See every transaction on your account."
-                href="#history" />
+                onClick={() => setListOpen('history')} />
             </div>
           </section>
 
@@ -597,6 +603,64 @@ export function PaySection() {
           }}
           onClose={() => setAddOpen(false)}
         />
+      )}
+
+      {/* Manage Autopay — popup version of the #autopay tile, opened from Quick Actions. */}
+      {autopayOpen && (
+        <DetailDialog
+          eyebrow="Autopay"
+          title={autopayActive ? 'Manage Autopay' : 'Set Up Autopay'}
+          period={autopayActive ? 'Active' : 'Off'}
+          onClose={() => setAutopayOpen(false)}
+          footer={autopayActive ? (
+            <button type="button" className="ven-cta-secondary"
+              disabled={autopayBusy}
+              onClick={() => (stripeLive ? toggleAutopay(false) : setAutopayDemo(false))}>
+              {autopayBusy ? 'Updating…' : 'Pause Autopay'}
+            </button>
+          ) : (
+            <button type="button" className="ven-cta-primary"
+              disabled={autopayBusy}
+              onClick={() => (stripeLive ? toggleAutopay(true) : setAutopayDemo(true))}>
+              {autopayBusy ? 'Updating…' : defaultMethod ? 'Turn on autopay' : 'Add a card to enable'}
+            </button>
+          )}
+        >
+          {autopayActive ? (
+            <>
+              <p className="rd-report-blurb">
+                Your dues are charged automatically on the 1st of each month.
+              </p>
+              <div className="rd-bd-table">
+                <div className="rd-bd-row"><span className="rd-bd-cat">Next payment</span><span className="rd-bd-amt">{fmtDate(dueDate)}</span><span /></div>
+                <div className="rd-bd-row"><span className="rd-bd-cat">Amount</span><span className="rd-bd-amt">{fmtMoney(currentBalance)}</span><span /></div>
+                {defaultMethod && (
+                  <div className="rd-bd-row"><span className="rd-bd-cat">Payment method</span><span className="rd-bd-amt">{defaultMethod.brand} ···· {defaultMethod.last4}</span><span /></div>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="rd-report-blurb">
+              Save yourself a click each month. Turn on Autopay and we&rsquo;ll
+              charge your default card on the 1st.
+            </p>
+          )}
+          {autopayErr && <div className="pay-err">{autopayErr}</div>}
+        </DetailDialog>
+      )}
+
+      {/* Demo payment confirmation — shown when Stripe isn't wired up. */}
+      {demoPaid != null && (
+        <DetailDialog
+          eyebrow="Pay"
+          title="Payment submitted"
+          onClose={() => setDemoPaid(null)}
+        >
+          <p className="rd-report-blurb">
+            ✓ Payment of {fmtMoney(demoPaid)} submitted. It&rsquo;ll show under
+            Payment History once Stripe is connected.
+          </p>
+        </DetailDialog>
       )}
 
       {/* View all — Payment History */}
