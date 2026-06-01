@@ -1,8 +1,9 @@
 'use client'
 
-import Link from 'next/link'
+import { useState } from 'react'
 import { useVoiceMeetings } from '@/hooks/useVoiceMeetings'
 import { MEETING_TYPES } from '@/lib/voice'
+import { MeetingDetailDialog } from './MeetingDetailDialog'
 
 const fmtDt = (iso) => {
   if (!iso) return '—'
@@ -16,6 +17,8 @@ const fmtDt = (iso) => {
 // merged /app/voice hub alongside Board and Contact.
 export function MeetingsSection() {
   const { meetings, loading, error } = useVoiceMeetings()
+  // Which meeting is open in the detail popup. null = closed.
+  const [openId, setOpenId] = useState<string | null>(null)
 
   const upcoming = meetings.filter(m => m.status !== 'completed')
   const past     = meetings.filter(m => m.status === 'completed')
@@ -38,7 +41,7 @@ export function MeetingsSection() {
         <section className="voice-section">
           <div className="voice-section-label">Upcoming</div>
           {upcoming.map(m => (
-            <ResidentMeetingRow key={m.id} meeting={m} />
+            <ResidentMeetingRow key={m.id} meeting={m} onOpen={() => setOpenId(m.id)} />
           ))}
         </section>
       )}
@@ -47,22 +50,26 @@ export function MeetingsSection() {
         <section className="voice-section">
           <div className="voice-section-label">Past meetings</div>
           {past.map(m => (
-            <ResidentMeetingRow key={m.id} meeting={m} />
+            <ResidentMeetingRow key={m.id} meeting={m} onOpen={() => setOpenId(m.id)} />
           ))}
         </section>
+      )}
+
+      {openId && (
+        <MeetingDetailDialog meetingId={openId} onClose={() => setOpenId(null)} />
       )}
     </section>
   )
 }
 
-function ResidentMeetingRow({ meeting: m }) {
+function ResidentMeetingRow({ meeting: m, onOpen }) {
   const typeLabel = MEETING_TYPES.find(t => t.value === m.type)?.label ?? m.type
   const votes = m.ev_votes ?? []
   const openVotes = votes.filter(v => v.status === 'open').length
   const isPast = m.status === 'completed'
 
   return (
-    <Link href={`/app/voice/${m.id}`} className={`voice-res-row${isPast ? ' past' : ''}`}>
+    <button type="button" onClick={onOpen} className={`voice-res-row${isPast ? ' past' : ''}`}>
       <div className="voice-res-date">
         <span className="voice-res-month">
           {new Date(m.scheduled_at).toLocaleDateString('en-US', { month: 'short' })}
@@ -85,6 +92,6 @@ function ResidentMeetingRow({ meeting: m }) {
           <polyline points="9 18 15 12 9 6"/>
         </svg>
       </div>
-    </Link>
+    </button>
   )
 }

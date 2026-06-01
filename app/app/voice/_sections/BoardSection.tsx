@@ -1,9 +1,41 @@
 'use client'
 
-import Link from 'next/link'
-import { ReactNode } from 'react'
-import { useBoardData } from '@/hooks/useBoardData'
+import { ReactNode, useState } from 'react'
+import { useBoardData, type BoardMember, type BoardMeeting, type Committee } from '@/hooks/useBoardData'
 import { useBoardDecisions } from '@/hooks/useBoardDecisions'
+import { DetailDialog } from '../../track/_sections/DetailDialog'
+
+type Update = { id: string; kind: UpdateKind; title: string; date: string; sub: string }
+
+// Demo fallback — shown only when there's no real community data (e.g. the
+// logged-out preview). A real community renders its own board/meetings/updates.
+const DEMO_MEMBERS: BoardMember[] = [
+  { id: 'bm1', name: 'Maria Santos',  role: 'President',      initials: 'MS', email: 'maria@example.com' },
+  { id: 'bm2', name: 'David Chen',    role: 'Vice President', initials: 'DC', email: 'david@example.com' },
+  { id: 'bm3', name: 'Aisha Patel',   role: 'Treasurer',      initials: 'AP', email: 'aisha@example.com' },
+  { id: 'bm4', name: 'Tom Rivera',    role: 'Secretary',      initials: 'TR', email: 'tom@example.com' },
+]
+const DEMO_UPCOMING: BoardMeeting = {
+  id: 'bmtg-up', title: 'Monthly Board Meeting', type: 'board',
+  scheduled_at: '2026-06-15T18:00:00', location: 'Clubhouse Meeting Room',
+  virtual_link: null, status: 'scheduled', minutes_status: 'none',
+}
+const DEMO_MINUTES: BoardMeeting[] = [
+  { id: 'bmtg-1', title: 'May Board Meeting',    type: 'board',   scheduled_at: '2026-05-15T18:00:00', location: 'Clubhouse', virtual_link: null, status: 'completed', minutes_status: 'approved' },
+  { id: 'bmtg-2', title: 'Annual Meeting 2026',  type: 'annual',  scheduled_at: '2026-04-20T18:00:00', location: 'Clubhouse', virtual_link: null, status: 'completed', minutes_status: 'approved' },
+  { id: 'bmtg-3', title: 'Special: Pool Project', type: 'special', scheduled_at: '2026-04-02T18:00:00', location: 'Clubhouse', virtual_link: null, status: 'completed', minutes_status: 'published' },
+]
+const DEMO_COMMITTEES: Committee[] = [
+  { id: 'cm1', name: 'Finance Committee',      chair: 'Aisha Patel',  member_count: 4, icon: 'finance' },
+  { id: 'cm2', name: 'Landscaping Committee',  chair: 'Tom Rivera',   member_count: 3, icon: 'leaf' },
+  { id: 'cm3', name: 'Architectural Review',   chair: 'David Chen',   member_count: 5, icon: 'home' },
+  { id: 'cm4', name: 'Safety & Security',      chair: 'Maria Santos', member_count: 3, icon: 'shield' },
+]
+const DEMO_UPDATES: Update[] = [
+  { id: 'bu1', kind: 'approval', title: 'Landscaping contract approved', date: '2026-05-15', sub: 'GreenScape · $48,000/yr' },
+  { id: 'bu2', kind: 'budget',   title: '2026 budget ratified',          date: '2026-04-20', sub: '$1.2M annual operating budget' },
+  { id: 'bu3', kind: 'announce', title: 'Pool reopening June 1',          date: '2026-04-02', sub: 'Resurfacing complete' },
+]
 
 // Board — meet-your-board surface, a section of the Easy Voice hub.
 // Real data (no new migration): members from board/admin profiles, upcoming
@@ -42,9 +74,27 @@ const fmtLongDate = (iso: string) => {
 }
 
 export function BoardSection() {
-  const { members, upcoming, minutes, committees } = useBoardData()
+  const board = useBoardData()
   const { decisions } = useBoardDecisions(6) as { decisions: any[] | null }
-  const updates = (decisions ?? []).map(decisionToUpdate)
+  const realUpdates = (decisions ?? []).map(decisionToUpdate)
+
+  // Real community data, or the demo fallback so the tab is never empty.
+  const members  = board.members.length  ? board.members  : DEMO_MEMBERS
+  const minutes  = board.minutes.length  ? board.minutes  : DEMO_MINUTES
+  const upcoming = board.upcoming ?? (board.members.length ? null : DEMO_UPCOMING)
+  const updates  = realUpdates.length ? realUpdates : DEMO_UPDATES
+  const committees = board.committees.length ? board.committees : DEMO_COMMITTEES
+
+  // In-place popups — every row/link opens detail here instead of navigating.
+  const [meetingOpen, setMeetingOpen] = useState<BoardMeeting | null>(null)
+  const [updateOpen, setUpdateOpen]   = useState<Update | null>(null)
+  const [membersOpen, setMembersOpen] = useState(false)
+  const [minutesOpen, setMinutesOpen] = useState(false)
+  const [updatesOpen, setUpdatesOpen] = useState(false)
+  const [committeeOpen, setCommitteeOpen] = useState<Committee | null>(null)
+
+  const meetingTypeLabel = (t: string) =>
+    t === 'annual' ? 'Annual meeting' : t === 'special' ? 'Special meeting' : t === 'committee' ? 'Committee meeting' : 'Board meeting'
 
   return (
     <section id="board" className="brd-wrap ev-section">
@@ -71,7 +121,7 @@ export function BoardSection() {
                 </div>
                 <div className="brd-up-where">{upcoming.location || upcoming.virtual_link || 'Location TBD'}</div>
                 <div className="brd-up-actions">
-                  <Link href="/app/voice" className="brd-cta-secondary">View meeting</Link>
+                  <button type="button" className="brd-cta-secondary" onClick={() => setMeetingOpen(upcoming)}>View meeting</button>
                   {upcoming.virtual_link && (
                     <a href={upcoming.virtual_link} target="_blank" rel="noreferrer" className="brd-cta-primary">Join Meeting</a>
                   )}
@@ -80,14 +130,14 @@ export function BoardSection() {
             ) : (
               <div className="brd-up-where">No upcoming board meeting scheduled yet.</div>
             )}
-            <Link href="#minutes" className="brd-up-all">View all meetings &rarr;</Link>
+            <button type="button" className="brd-up-all" onClick={() => setMinutesOpen(true)}>View all meetings &rarr;</button>
           </section>
 
           {/* Board Members */}
           <section className="brd-card">
             <div className="brd-card-head">
               <h2 className="brd-card-title">Board Members</h2>
-              <Link href="#" className="brd-card-link">View all members</Link>
+              <button type="button" className="brd-card-link" onClick={() => setMembersOpen(true)}>View all members</button>
             </div>
             <div className="brd-members">
               {members.length === 0 ? (
@@ -113,26 +163,26 @@ export function BoardSection() {
           <section className="brd-card" id="minutes">
             <div className="brd-card-head">
               <h2 className="brd-card-title">Recent Board Meeting Minutes</h2>
-              <Link href="/app/documents" className="brd-card-link">View all</Link>
+              <button type="button" className="brd-card-link" onClick={() => setMinutesOpen(true)}>View all</button>
             </div>
             <div className="brd-minutes">
               {minutes.length === 0 ? (
                 <div className="brd-member-role">No published minutes yet.</div>
               ) : minutes.map(m => (
-                <Link key={m.id} href="/app/voice" className="brd-min-row">
+                <button key={m.id} type="button" className="brd-min-row" onClick={() => setMeetingOpen(m)}>
                   <span className="brd-min-date">
                     <span className="brd-min-mo">{new Date(m.scheduled_at).toLocaleDateString('en-US', { month: 'short' }).toUpperCase()}</span>
                     <span className="brd-min-day">{new Date(m.scheduled_at).getDate()}</span>
                   </span>
                   <span className="brd-min-body">
                     <span className="brd-min-title">{m.title}</span>
-                    <span className="brd-min-sum">{m.type === 'annual' ? 'Annual meeting' : m.type === 'special' ? 'Special meeting' : m.type === 'committee' ? 'Committee meeting' : 'Board meeting'}</span>
+                    <span className="brd-min-sum">{meetingTypeLabel(m.type)}</span>
                   </span>
                   <span className={`brd-pill ${m.minutes_status === 'approved' ? 'brd-pill-on' : 'brd-pill-off'}`}>
                     {m.minutes_status === 'approved' ? 'Approved' : 'Published'}
                   </span>
                   <span className="brd-min-action">View &rarr;</span>
-                </Link>
+                </button>
               ))}
             </div>
           </section>
@@ -157,13 +207,13 @@ export function BoardSection() {
           <section className="brd-card brd-tile-tight">
             <div className="brd-card-head">
               <h3 className="brd-tile-title">Board Updates</h3>
-              <Link href="#" className="brd-card-link">View all</Link>
+              <button type="button" className="brd-card-link" onClick={() => setUpdatesOpen(true)}>View all</button>
             </div>
             <div className="brd-updates">
               {updates.length === 0 ? (
                 <div className="brd-member-role">No board updates yet.</div>
               ) : updates.map(u => (
-                <Link key={u.id} href="/app/voice" className="brd-update">
+                <button key={u.id} type="button" className="brd-update" onClick={() => setUpdateOpen(u)}>
                   <span className={`brd-update-dot brd-update-${u.kind}`} aria-hidden="true">
                     {updateIcon(u.kind)}
                   </span>
@@ -172,7 +222,7 @@ export function BoardSection() {
                     {u.sub && <span className="brd-update-sub">{u.sub}</span>}
                     {u.date && <span className="brd-update-date">{fmtDate(isoDay(u.date))}</span>}
                   </span>
-                </Link>
+                </button>
               ))}
             </div>
           </section>
@@ -185,7 +235,7 @@ export function BoardSection() {
               <ul className="brd-committees">
                 {committees.map(c => (
                   <li key={c.id}>
-                    <span className="brd-committee">
+                    <button type="button" className="brd-committee" onClick={() => setCommitteeOpen(c)}>
                       <span className="brd-committee-icon">{committeeIcon(c.icon)}</span>
                       <span className="brd-committee-body">
                         <span className="brd-committee-name">{c.name}</span>
@@ -193,7 +243,8 @@ export function BoardSection() {
                           {c.chair ? `${c.chair} · ` : ''}{c.member_count} {c.member_count === 1 ? 'member' : 'members'}
                         </span>
                       </span>
-                    </span>
+                      <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                    </button>
                   </li>
                 ))}
               </ul>
@@ -201,6 +252,120 @@ export function BoardSection() {
           )}
         </aside>
       </div>
+
+      {/* A single meeting (from upcoming or minutes) — detail in place. */}
+      {meetingOpen && (
+        <DetailDialog
+          eyebrow={meetingTypeLabel(meetingOpen.type)}
+          title={meetingOpen.title}
+          period={`${fmtLongDate(isoDay(meetingOpen.scheduled_at))} · ${isoTime(meetingOpen.scheduled_at)}`}
+          onClose={() => setMeetingOpen(null)}
+        >
+          <div className="rd-bd-table">
+            {meetingOpen.location && (
+              <div className="rd-bd-row"><span className="rd-bd-cat">Location</span><span className="rd-bd-amt">{meetingOpen.location}</span><span /></div>
+            )}
+            <div className="rd-bd-row"><span className="rd-bd-cat">Status</span><span className="rd-bd-amt">{meetingOpen.status === 'completed' ? 'Completed' : 'Scheduled'}</span><span /></div>
+            <div className="rd-bd-row rd-bd-total"><span>Minutes</span><span className="rd-bd-amt">{meetingOpen.minutes_status === 'approved' ? 'Approved' : meetingOpen.minutes_status === 'published' ? 'Published' : 'Pending'}</span><span /></div>
+          </div>
+          {meetingOpen.virtual_link && (
+            <a className="ven-cta-primary rd-report-dl" href={meetingOpen.virtual_link} target="_blank" rel="noreferrer">Join meeting</a>
+          )}
+        </DetailDialog>
+      )}
+
+      {/* A single board update / decision. */}
+      {updateOpen && (
+        <DetailDialog
+          eyebrow="Board update"
+          title={updateOpen.title}
+          period={updateOpen.date ? fmtDate(isoDay(updateOpen.date)) : undefined}
+          onClose={() => setUpdateOpen(null)}
+        >
+          {updateOpen.sub && <p className="rd-report-blurb">{updateOpen.sub}</p>}
+          <p className="rd-detail-foot-note">
+            Board decisions are recorded in the meeting minutes and posted to Documents.
+          </p>
+        </DetailDialog>
+      )}
+
+      {/* View all board members. */}
+      {membersOpen && (
+        <DetailDialog eyebrow="Your Board" title="Board Members"
+          period={`${members.length} member${members.length === 1 ? '' : 's'}`}
+          onClose={() => setMembersOpen(false)}>
+          <div className="rd-list">
+            {members.map(m => (
+              <div className="rd-list-row" key={m.id} style={{ cursor: 'default' }}>
+                <span className="brd-member-avatar" aria-hidden="true">{m.initials}</span>
+                <span className="rd-list-body">
+                  <span className="rd-list-title">{m.name}</span>
+                  <span className="rd-list-meta">{m.role}</span>
+                </span>
+                {m.email && <a className="rd-settings-link" href={`mailto:${m.email}`}>Email</a>}
+              </div>
+            ))}
+          </div>
+        </DetailDialog>
+      )}
+
+      {/* View all meeting minutes — each opens its meeting. */}
+      {minutesOpen && (
+        <DetailDialog eyebrow="Your Board" title="Board Meetings"
+          period={`${minutes.length} meeting${minutes.length === 1 ? '' : 's'}`}
+          onClose={() => setMinutesOpen(false)}>
+          <div className="rd-list">
+            {minutes.map(m => (
+              <button type="button" className="rd-list-row" key={m.id}
+                onClick={() => { setMinutesOpen(false); setMeetingOpen(m) }}>
+                <span className="rd-list-body">
+                  <span className="rd-list-title">{m.title}</span>
+                  <span className="rd-list-meta">{meetingTypeLabel(m.type)} · {fmtDate(isoDay(m.scheduled_at))}</span>
+                </span>
+                <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            ))}
+          </div>
+        </DetailDialog>
+      )}
+
+      {/* View all board updates — each opens its detail. */}
+      {updatesOpen && (
+        <DetailDialog eyebrow="Your Board" title="Board Updates"
+          period={`${updates.length} update${updates.length === 1 ? '' : 's'}`}
+          onClose={() => setUpdatesOpen(false)}>
+          <div className="rd-list">
+            {updates.map(u => (
+              <button type="button" className="rd-list-row" key={u.id}
+                onClick={() => { setUpdatesOpen(false); setUpdateOpen(u) }}>
+                <span className={`brd-update-dot brd-update-${u.kind}`} aria-hidden="true">{updateIcon(u.kind)}</span>
+                <span className="rd-list-body">
+                  <span className="rd-list-title">{u.title}</span>
+                  {u.sub && <span className="rd-list-meta">{u.sub}</span>}
+                </span>
+                <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            ))}
+          </div>
+        </DetailDialog>
+      )}
+
+      {/* A single committee. */}
+      {committeeOpen && (
+        <DetailDialog eyebrow="Committee" title={committeeOpen.name}
+          onClose={() => setCommitteeOpen(null)}>
+          <div className="rd-bd-table">
+            {committeeOpen.chair && (
+              <div className="rd-bd-row"><span className="rd-bd-cat">Chair</span><span className="rd-bd-amt">{committeeOpen.chair}</span><span /></div>
+            )}
+            <div className="rd-bd-row rd-bd-total"><span>Members</span><span className="rd-bd-amt">{committeeOpen.member_count}</span><span /></div>
+          </div>
+          <p className="rd-detail-foot-note">
+            Committees do the legwork between board meetings and report back. To join,
+            reach out through Contact the board.
+          </p>
+        </DetailDialog>
+      )}
     </section>
   )
 }

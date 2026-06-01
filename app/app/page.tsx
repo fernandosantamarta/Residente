@@ -7,6 +7,11 @@ import { useMyResident } from '@/hooks/useMyResident'
 import { useBoardDecisions } from '@/hooks/useBoardDecisions'
 import { useVoiceMeetings } from '@/hooks/useVoiceMeetings'
 import { useAuth } from '@/app/providers'
+import { stripeEnabled, supabase } from '@/lib/supabase'
+import { usePreferences } from '@/lib/preferences'
+import { useScheduleEvents } from '@/lib/schedule'
+import { DetailDialog } from './track/_sections/DetailDialog'
+import { RequestFormDialog } from './voice/_sections/RequestForm'
 
 // Demo fallback — shown only when the user has no community linked yet (or
 // local dev without Supabase), so the dashboard never renders blank.
@@ -695,35 +700,242 @@ function OpenVotesBand({ demo }: { demo: boolean }) {
 
 // ---------- Quick Actions card ----------
 
-const QUICK_ACTIONS: { href: string; icon: 'pay' | 'note' | 'cal' | 'mail'; title: string; sub: string }[] = [
-  { href: '/app/track#pay', icon: 'pay',  title: 'Make a payment',         sub: 'Dues, fees, special assessments' },
-  { href: '/app/voice#contact', icon: 'note', title: 'Submit a request',       sub: 'Maintenance, complaints, ideas' },
-  { href: '/app/community', icon: 'cal',  title: 'View community calendar', sub: 'Meetings, events, deadlines' },
-  { href: '/app/voice#contact', icon: 'mail', title: 'Contact management',     sub: 'Reach the board or your manager' },
-]
+type QaItem = { icon: 'pay' | 'note' | 'cal' | 'mail'; title: string; sub: string; href?: string; onClick?: () => void }
 
 function QuickActions() {
+  // Pay happens in a popup right here; the rest navigate. Submit a request and
+  // Contact management both land on Contact but pre-select a different category
+  // (?cat=), so they're not the same destination.
+  const [payOpen, setPayOpen] = useState(false)
+  const [requestOpen, setRequestOpen] = useState(false)
+  const [contactOpen, setContactOpen] = useState(false)
+  const [calOpen, setCalOpen] = useState(false)
+  const items: QaItem[] = [
+    { icon: 'pay',  title: 'Make a payment',          sub: 'Dues, fees, special assessments', onClick: () => setPayOpen(true) },
+    { icon: 'note', title: 'Submit a request',        sub: 'Maintenance, complaints, ideas',  onClick: () => setRequestOpen(true) },
+    { icon: 'mail', title: 'Contact management',      sub: 'Reach the board or your manager', onClick: () => setContactOpen(true) },
+    { icon: 'cal',  title: 'View community calendar', sub: 'Meetings, events, deadlines',     onClick: () => setCalOpen(true) },
+  ]
+  const inner = (a: QaItem) => (
+    <>
+      <div className="qa-icon"><QaIcon name={a.icon} /></div>
+      <div className="qa-body">
+        <div className="qa-title">{a.title}</div>
+        <div className="qa-sub">{a.sub}</div>
+      </div>
+      <svg className="qa-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+    </>
+  )
   return (
     <div className="qa-card">
       <div className="qa-eyebrow">Quick Actions</div>
       <div className="qa-list">
-        {QUICK_ACTIONS.map(a => (
-          <Link key={a.title} href={a.href} className="qa-row">
-            <div className="qa-icon">
-              <QaIcon name={a.icon} />
-            </div>
-            <div className="qa-body">
-              <div className="qa-title">{a.title}</div>
-              <div className="qa-sub">{a.sub}</div>
-            </div>
-            <svg className="qa-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-              strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <polyline points="9 18 15 12 9 6"/>
-            </svg>
-          </Link>
-        ))}
+        {items.map(a => a.href
+          ? <Link key={a.title} href={a.href} className="qa-row">{inner(a)}</Link>
+          : <button key={a.title} type="button" className="qa-row" onClick={a.onClick}>{inner(a)}</button>
+        )}
       </div>
+      {payOpen && <QuickPayDialog onClose={() => setPayOpen(false)} />}
+      {requestOpen && <RequestFormDialog title="Submit a request" initialCategory="maintenance" onClose={() => setRequestOpen(false)} />}
+      {contactOpen && <RequestFormDialog title="Contact management" initialCategory="account" onClose={() => setContactOpen(false)} />}
+      {calOpen && <CommunityCalendarDialog onClose={() => setCalOpen(false)} />}
     </div>
+  )
+}
+
+// Compact month calendar in a popup — community events + holidays, click a day
+// to see what's on it. Full calendar (filters, month nav depth) is one click away.
+function CommunityCalendarDialog({ onClose }: { onClose: () => void }) {
+  const events = useScheduleEvents()
+  // Pinned to May 2026 to match the demo data; arrows move the month.
+  const [cur, setCur] = useState({ y: 2026, m: 4 })
+  const [selected, setSelected] = useState<string | null>(null)
+  const [tip, setTip] = useState<{ x: number; y: number; date: string; events: any[] } | null>(null)
+
+  const showTip = (e: React.MouseEvent, date: string, evs: any[]) => {
+    if (!evs.length) { setTip(null); return }
+    const vw = typeof window !== 'undefined' ? window.innerWidth : 1200
+    const tw = 240, gap = 14
+    let x = e.clientX + gap
+    if (x + tw + 8 > vw) x = e.clientX - tw - gap
+    setTip({ x: Math.max(8, x), y: e.clientY + gap, date, events: evs })
+  }
+
+  const iso = (y: number, m: number, d: number) =>
+    `${y}-${String(m + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  const byDate: Record<string, any[]> = {}
+  for (const e of events) (byDate[e.date] ||= []).push(e)
+
+  const monthLabel = new Date(cur.y, cur.m, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  const firstDow = new Date(cur.y, cur.m, 1).getDay()
+  const days = new Date(cur.y, cur.m + 1, 0).getDate()
+  const cells: (number | null)[] = [...Array(firstDow).fill(null), ...Array.from({ length: days }, (_, i) => i + 1)]
+  while (cells.length % 7 !== 0) cells.push(null)
+  const go = (d: number) => { let m = cur.m + d, y = cur.y; if (m < 0) { m = 11; y-- } if (m > 11) { m = 0; y++ } setCur({ y, m }); setSelected(null) }
+
+  const selectedEvents = selected ? (byDate[selected] || []) : []
+
+  return (
+    <DetailDialog
+      eyebrow="Community"
+      title="Calendar"
+      size="wide"
+      onClose={onClose}
+      settingsHref="/app/schedule"
+      settingsLabel="Open full calendar"
+    >
+      <div className="mc-head">
+        <button type="button" className="mc-nav" aria-label="Previous month" onClick={() => go(-1)}>&lsaquo;</button>
+        <span className="mc-month">{monthLabel}</span>
+        <button type="button" className="mc-nav" aria-label="Next month" onClick={() => go(1)}>&rsaquo;</button>
+      </div>
+      <div className="mc-grid mc-dow">
+        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => <span key={i} className="mc-dow-cell">{d}</span>)}
+      </div>
+      <div className="mc-grid">
+        {cells.map((d, i) => {
+          if (!d) return <span key={i} className="mc-cell mc-empty" />
+          const key = iso(cur.y, cur.m, d)
+          const evs = byDate[key] || []
+          return (
+            <button type="button" key={i}
+              className={`mc-cell${evs.length ? ' has' : ''}${selected === key ? ' on' : ''}`}
+              onClick={() => setSelected(evs.length ? key : null)}
+              onMouseEnter={e => showTip(e, key, evs)}
+              onMouseMove={e => showTip(e, key, evs)}
+              onMouseLeave={() => setTip(null)}>
+              <span className="mc-day">{d}</span>
+              {evs.length > 0 && <span className="mc-dots">{evs.slice(0, 3).map((e, j) => <span key={j} className={`mc-dot sched-dot kind-${e.kind}`} />)}</span>}
+            </button>
+          )
+        })}
+      </div>
+      {selected && (
+        <div className="mc-events">
+          <div className="mc-events-head">{new Date(selected + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}</div>
+          {selectedEvents.map(e => (
+            <div key={e.id} className="mc-event">
+              <span className={`mc-dot sched-dot kind-${e.kind}`} />
+              <span className="mc-event-title">{e.title}</span>
+              {e.time && <span className="mc-event-time">{e.time}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tip && (
+        <div className="mc-tip" role="tooltip" style={{ left: tip.x, top: tip.y }}>
+          <div className="mc-tip-head">{new Date(tip.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</div>
+          {tip.events.map(e => (
+            <div key={e.id} className="mc-tip-row">
+              <span className={`mc-dot sched-dot kind-${e.kind}`} />
+              <span className="mc-tip-title">{e.title}</span>
+              {e.time && <span className="mc-tip-time">{e.time}</span>}
+            </div>
+          ))}
+        </div>
+      )}
+    </DetailDialog>
+  )
+}
+
+// Pay from Home in a popup. Pick a saved card, set the amount, pay — real Stripe
+// Checkout when configured, demo confirmation otherwise. The full Pay page stays
+// one click away.
+function QuickPayDialog({ onClose }: { onClose: () => void }) {
+  const { resident, balance } = useMyResident() as any
+  const [prefs] = usePreferences()
+  const methods = prefs.payment_methods.map((pm, i) => ({ ...pm, is_default: i === 0 }))
+  const due = balance == null ? 1250 : balance
+  const [amount, setAmount] = useState(String(Math.round(due)))
+  const [cardId, setCardId] = useState(methods[0]?.id || '')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [done, setDone] = useState(false)
+
+  const pay = async () => {
+    const amt = Number(amount)
+    if (!amt || amt <= 0) { setError('Enter an amount.'); return }
+    if (methods.length && !cardId) { setError('Choose a payment method.'); return }
+    if (stripeEnabled && supabase && resident) {
+      setBusy(true); setError('')
+      try {
+        const { data, error } = await supabase.functions.invoke('create-checkout', {
+          body: { resident_id: resident.id, amount: amt },
+        })
+        if (error) throw error
+        if (data?.url) { window.location.href = data.url; return }
+        setDone(true)
+      } catch (e: any) {
+        setError(e?.message || 'Could not start checkout.')
+      } finally { setBusy(false) }
+    } else {
+      setDone(true)
+    }
+  }
+
+  return (
+    <DetailDialog
+      eyebrow="Pay"
+      title="Make a payment"
+      onClose={onClose}
+      settingsHref="/app/track#pay"
+      settingsLabel="Open full Pay page"
+      footer={done ? (
+        <button type="button" className="qp-pay-btn" onClick={onClose}>Done</button>
+      ) : (
+        <>
+          <button type="button" className="ven-cta-secondary" onClick={onClose}>Cancel</button>
+          <button type="button" className="qp-pay-btn" onClick={pay} disabled={busy}>
+            {busy ? 'Starting…' : `Pay $${Number(amount || 0).toLocaleString('en-US')}`}
+          </button>
+        </>
+      )}
+    >
+      {done ? (
+        <p className="rd-report-blurb">✓ Payment of ${Number(amount).toLocaleString('en-US')} submitted. It&rsquo;ll show under Pay → Payment History.</p>
+      ) : (
+        <>
+          <div className="rd-detail-top">
+            <div className="rd-detail-headline">
+              <span className="rd-detail-h-label">Current balance</span>
+              <span className="rd-detail-h-amt">{fmtMoney(due)}</span>
+            </div>
+          </div>
+
+          <div className="rd-form">
+            <label className="rd-form-field">
+              <span className="rd-form-label">Amount to pay</span>
+              <input className="rd-form-input" inputMode="decimal" value={amount}
+                onChange={e => setAmount(e.target.value.replace(/[^\d.]/g, ''))} placeholder="0" />
+            </label>
+
+            <div className="rd-form-field">
+              <span className="rd-form-label">Payment method</span>
+              {methods.length === 0 ? (
+                <a className="rd-settings-link" href="/app/track#pay">Add a card on the Pay page &rarr;</a>
+              ) : (
+                <div className="qp-cards">
+                  {methods.map(pm => (
+                    <button type="button" key={pm.id}
+                      className={`qp-card${cardId === pm.id ? ' on' : ''}`}
+                      onClick={() => setCardId(pm.id)}>
+                      <span className="qp-card-radio" aria-hidden="true" />
+                      <span className="qp-card-label">{pm.brand} ···· {pm.last4}</span>
+                      <span className="qp-card-kind">{pm.kind === 'card' ? 'Card' : 'Bank'}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {error && <p className="rd-form-err">{error}</p>}
+          </div>
+        </>
+      )}
+    </DetailDialog>
   )
 }
 

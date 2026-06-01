@@ -1,13 +1,14 @@
 'use client'
 
 import Link from 'next/link'
-import { ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, ReactNode, useMemo, useState } from 'react'
 import { SegTabs, SegTab } from '@/components/SegTabs'
-import { useCategoriesData, useRulesData } from '@/lib/rules'
-import { computeStats, useViolationsData } from '@/lib/violations'
+import { useCategoriesData, useRulesData, DEMO_RULES } from '@/lib/rules'
+import { computeStats, useViolationsData, useMyViolations } from '@/lib/violations'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import { useDocuments } from '@/hooks/useDocuments'
 import { supabase } from '@/lib/supabase'
+import { DetailDialog } from '../track/_sections/DetailDialog'
 
 // ─── shared helpers ────────────────────────────────────────────────────────
 
@@ -74,6 +75,17 @@ function CatIconRules({ name }: { name: CatIconName }) {
   )
 }
 
+// Render a heading string with the clean "&" (rb-amp) instead of the ornate
+// Fraunces serif ampersand — matches the "Rules & Guidelines" hero.
+function withAmp(text: string): ReactNode {
+  return text.split(' & ').map((part, i) => (
+    <Fragment key={i}>
+      {i > 0 && <span className="rb-amp"> &amp; </span>}
+      {part}
+    </Fragment>
+  ))
+}
+
 function describeSection(name: string, count: number): string {
   const base = name.toLowerCase()
   if (base.includes('noise'))       return 'Quiet hours, music, and respectful living.'
@@ -112,6 +124,13 @@ const DEMO_PINNED = [
   { id: 'p4', title: '2024 Budget',                 category: 'Financial Documents',  date: '2024-04-30' },
 ]
 
+// Rules fallback for preview / no-auth — the lib ships DEMO_RULES (no ids);
+// give them stable keys + a demo enforcement summary so the Rules tab shows its
+// full layout instead of the empty state.
+const DEMO_RULES_SEEDED = DEMO_RULES.map((r, i) => ({ ...r, id: `demo-rule-${i}`, created_at: '' }))
+const DEMO_RULE_SECTIONS = Array.from(new Set(DEMO_RULES.map(r => r.section || 'General')))
+const DEMO_VIOLATION_STATS = { warnings: 12, fines: 1850, resolved: 9, appeals: 2 }
+
 const DEMO_POPULAR = [
   { id: 'pop1', label: 'Community Map' },
   { id: 'pop2', label: 'Amenity Reservation Form' },
@@ -135,41 +154,18 @@ export default function EasyDocs() {
   const [tab, setTab] = useState('rules')
 
   // ── Rules state ──────────────────────────────────────────────────────────
-  const rulesList = useRulesData()
-  const allCategories = useCategoriesData()
+  // Real community rules, or the demo seed (preview/no-auth) so the Rules tab
+  // shows its full layout instead of the empty state.
+  const rawRules = useRulesData()
+  const usingDemoRules = rawRules.length === 0
+  const rulesList = usingDemoRules ? (DEMO_RULES_SEEDED as any[]) : rawRules
+  const rawCategories = useCategoriesData()
+  const allCategories = usingDemoRules ? DEMO_RULE_SECTIONS : rawCategories
   const [ruleSearch, setRuleSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<string>('all')
-  const activeSectionRef = useRef<HTMLDivElement>(null)
-  const chipStripRef = useRef<HTMLDivElement>(null)
-  const [firstRowCount, setFirstRowCount] = useState<number | null>(null)
-
-  useEffect(() => {
-    if (activeCategory === 'all') return
-    const id = requestAnimationFrame(() => {
-      activeSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-    })
-    return () => cancelAnimationFrame(id)
-  }, [activeCategory])
-
-  useLayoutEffect(() => {
-    const strip = chipStripRef.current
-    if (!strip) return
-    const measure = () => {
-      const chips = Array.from(strip.children) as HTMLElement[]
-      if (chips.length === 0) { setFirstRowCount(null); return }
-      const top = chips[0].offsetTop
-      let count = 0
-      for (const c of chips) {
-        if (c.offsetTop > top) break
-        count++
-      }
-      setFirstRowCount(prev => prev === count ? prev : count)
-    }
-    const raf = requestAnimationFrame(measure)
-    const ro = new ResizeObserver(() => requestAnimationFrame(measure))
-    ro.observe(strip)
-    return () => { cancelAnimationFrame(raf); ro.disconnect() }
-  }, [rulesList.length, allCategories.length])
+  const [chipPage, setChipPage] = useState(0)   // category-chip carousel page
+  // No auto-scroll: the rules now render right under the category carousel
+  // (replacing the cards), so scrolling into view just caused a jarring jump.
 
   const bySection = useMemo(() => {
     const map: Record<string, any[]> = {}
@@ -212,7 +208,10 @@ export default function EasyDocs() {
   [rulesList])
 
   const violationsList = useViolationsData()
-  const violations = useMemo(() => computeStats(violationsList), [violationsList])
+  const violations = useMemo(
+    () => (violationsList.length === 0 && usingDemoRules ? DEMO_VIOLATION_STATS : computeStats(violationsList)),
+    [violationsList, usingDemoRules],
+  )
 
   // ── Documents state ──────────────────────────────────────────────────────
   const { documents, loading: docLoading } = useDocuments() as { documents: any[]; loading: boolean }
@@ -222,6 +221,9 @@ export default function EasyDocs() {
   const [docFilterPeriod, setDocFilterPeriod] = useState<'recent' | 'oldest'>('recent')
   const [busy, setBusy] = useState<string | null>(null)
   const [docError, setDocError] = useState('')
+  // In-place popups: a single document detail + the "View all" lists.
+  const [docDetail, setDocDetail] = useState<{ title: string; category?: string; date?: string; size?: string; doc?: any } | null>(null)
+  const [listOpen, setListOpen] = useState<null | 'pinned' | 'recent' | 'popular'>(null)
 
   async function openDoc(doc: any) {
     setBusy(doc.id); setDocError('')
@@ -345,6 +347,8 @@ export default function EasyDocs() {
                 <section className="rb-col">
                   <div className="rb-col-head">Browse rules by category</div>
 
+                  {/* Category chips — always on top, so picking one keeps the
+                      selector visible. The active chip stays highlighted. */}
                   {(() => {
                     type Chip = {
                       key: string; label: string; count: number
@@ -362,23 +366,44 @@ export default function EasyDocs() {
                         isActive: activeCategory === name,
                       })),
                     ]
-                    const renderChip = (c: Chip) => (
-                      <button key={c.key} className={`rb-chip${c.isActive ? ' active' : ''}`} onClick={c.onClick}>
-                        <span className="rb-chip-icon"><CatIconRules name={c.icon} /></span>
-                        <span className="rb-chip-label">{c.label}</span>
-                        <span className="rb-chip-count">{c.count} {c.count === 1 ? 'rule' : 'rules'}</span>
-                      </button>
-                    )
-                    const splitAt = firstRowCount ?? chips.length
-                    const visible = chips.slice(0, splitAt)
+                    // Carousel: show one row of boxes; orange arrows below page
+                    // through the rest. Keeps the boxes a comfortable size — no
+                    // second row, no scrollbar.
+                    const PER_PAGE = 5
+                    const pageCount = Math.ceil(chips.length / PER_PAGE)
+                    const page = Math.min(chipPage, pageCount - 1)
+                    const pageChips = chips.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE)
                     return (
-                      <div className="rb-chips rb-chips-inline" ref={chipStripRef}>
-                        {(firstRowCount === null ? chips : visible).map(renderChip)}
-                      </div>
+                      <>
+                        <div className="rb-chips rb-chips-inline" style={{ gridTemplateColumns: `repeat(${PER_PAGE}, 1fr)` }}>
+                          {pageChips.map(c => (
+                            <button key={c.key} className={`rb-chip${c.isActive ? ' active' : ''}`} onClick={c.onClick}>
+                              <span className="rb-chip-icon"><CatIconRules name={c.icon} /></span>
+                              <span className="rb-chip-label">{c.label}</span>
+                              <span className="rb-chip-count">{c.count} {c.count === 1 ? 'rule' : 'rules'}</span>
+                            </button>
+                          ))}
+                        </div>
+                        {pageCount > 1 && (
+                          <div className="rb-chip-pager">
+                            <button type="button" className="rb-chip-arrow" aria-label="Previous categories"
+                              onClick={() => setChipPage(p => Math.max(0, p - 1))} disabled={page === 0}>&lsaquo;</button>
+                            <span className="rb-chip-dots">
+                              {Array.from({ length: pageCount }).map((_, i) => (
+                                <span key={i} className={`rb-chip-dot${i === page ? ' on' : ''}`} />
+                              ))}
+                            </span>
+                            <button type="button" className="rb-chip-arrow" aria-label="More categories"
+                              onClick={() => setChipPage(p => Math.min(pageCount - 1, p + 1))} disabled={page >= pageCount - 1}>&rsaquo;</button>
+                          </div>
+                        )}
+                      </>
                     )
                   })()}
 
-                  {(() => {
+                  {/* Below the chips: the category cards when nothing is picked,
+                      or just the chosen category's rules once one is. */}
+                  {activeCategory === 'all' ? (() => {
                     const q = ruleSearch.trim().toLowerCase()
                     const cardCategories = sections.filter(name => {
                       if (!q) return true
@@ -410,12 +435,10 @@ export default function EasyDocs() {
                         })}
                       </div>
                     )
-                  })()}
-
-                  {activeCategory !== 'all' && (
-                    <div className="rb-active-section" ref={activeSectionRef}>
+                  })() : (
+                    <div className="rb-active-section">
                       <div className="rb-active-head">
-                        <h2>{activeCategory}</h2>
+                        <h2>{withAmp(activeCategory)}</h2>
                         <button className="rb-active-clear" onClick={() => setActiveCategory('all')}>Show all categories</button>
                       </div>
                       {(!filteredBySection[activeCategory] || filteredBySection[activeCategory].length === 0) ? (
@@ -558,16 +581,17 @@ export default function EasyDocs() {
               <section className="doc-card">
                 <div className="doc-card-head">
                   <h2 className="doc-card-title">Pinned &amp; Important</h2>
-                  <Link href="#" className="doc-card-link">View all</Link>
+                  <button type="button" className="doc-card-link" onClick={() => setListOpen('pinned')}>View all</button>
                 </div>
                 <div className="doc-pinned-grid">
                   {DEMO_PINNED.map(p => (
-                    <a key={p.id} href="#" className="doc-pinned">
+                    <button key={p.id} type="button" className="doc-pinned"
+                      onClick={() => setDocDetail({ title: p.title, category: p.category, date: p.date })}>
                       <span className="doc-pinned-icon"><PdfIcon /></span>
                       <span className="doc-pinned-tag">{p.category}</span>
                       <span className="doc-pinned-title">{p.title}</span>
                       <span className="doc-pinned-meta">PDF &middot; {fmtDate(p.date)}</span>
-                    </a>
+                    </button>
                   ))}
                 </div>
               </section>
@@ -606,7 +630,7 @@ export default function EasyDocs() {
               <section className="doc-card">
                 <div className="doc-card-head">
                   <h2 className="doc-card-title">Recent Documents</h2>
-                  <Link href="#" className="doc-card-link">View all</Link>
+                  <button type="button" className="doc-card-link" onClick={() => setListOpen('recent')}>View all</button>
                 </div>
                 {docError && <div className="doc-err">{docError}</div>}
                 {docLoading && <div className="doc-empty">Loading…</div>}
@@ -637,28 +661,154 @@ export default function EasyDocs() {
               <section className="doc-card">
                 <div className="doc-card-head">
                   <h2 className="doc-card-title">Popular Downloads</h2>
-                  <Link href="#" className="doc-card-link">View all</Link>
+                  <button type="button" className="doc-card-link" onClick={() => setListOpen('popular')}>View all</button>
                 </div>
                 <div className="doc-popular">
                   {DEMO_POPULAR.map(p => (
-                    <a key={p.id} href="#" className="doc-popular-row">
+                    <button key={p.id} type="button" className="doc-popular-row"
+                      onClick={() => setDocDetail({ title: p.label })}>
                       <span className="doc-popular-icon"><PdfIcon /></span>
                       <span className="doc-popular-title">{p.label}</span>
-                      <span className="doc-popular-dl" aria-label="Download">
+                      <span className="doc-popular-dl" aria-label="Open">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M12 4v12"/><path d="m6 10 6 6 6-6"/><path d="M5 20h14"/>
                         </svg>
                       </span>
-                    </a>
+                    </button>
                   ))}
                 </div>
               </section>
+            </div>
+
+            <div className="doc-row">
+              <MyViolationsPanel />
             </div>
           </div>
         </div>
       </section>
       )}
+
+      {/* A single document — detail in place. */}
+      {docDetail && (
+        <DetailDialog
+          eyebrow={docDetail.category || 'Document'}
+          title={docDetail.title}
+          period={docDetail.date ? `PDF · ${fmtDate(docDetail.date)}` : undefined}
+          onClose={() => setDocDetail(null)}
+          footer={docDetail.doc ? (
+            <button type="button" className="ven-cta-primary" onClick={() => { const d = docDetail.doc; setDocDetail(null); openDoc(d) }}>Open document</button>
+          ) : undefined}
+        >
+          <div className="rd-bd-table">
+            {docDetail.category && <div className="rd-bd-row"><span className="rd-bd-cat">Category</span><span className="rd-bd-amt">{docDetail.category}</span><span /></div>}
+            {docDetail.date && <div className="rd-bd-row"><span className="rd-bd-cat">Updated</span><span className="rd-bd-amt">{fmtDate(docDetail.date)}</span><span /></div>}
+            {docDetail.size && <div className="rd-bd-row"><span className="rd-bd-cat">Size</span><span className="rd-bd-amt">{docDetail.size}</span><span /></div>}
+          </div>
+          {!docDetail.doc && (
+            <p className="rd-detail-foot-note">
+              This is a board-published document. The PDF opens here once it&rsquo;s uploaded to your community.
+            </p>
+          )}
+        </DetailDialog>
+      )}
+
+      {/* "View all" lists — pinned / recent / popular. */}
+      {listOpen && (
+        <DetailDialog
+          eyebrow="Documents"
+          title={listOpen === 'pinned' ? 'Pinned & Important' : listOpen === 'recent' ? 'Recent Documents' : 'Popular Downloads'}
+          size="wide"
+          onClose={() => setListOpen(null)}
+        >
+          <div className="rd-list">
+            {listOpen === 'pinned' && DEMO_PINNED.map(p => (
+              <button type="button" className="rd-list-row" key={p.id}
+                onClick={() => { setListOpen(null); setDocDetail({ title: p.title, category: p.category, date: p.date }) }}>
+                <span className="doc-pinned-icon"><PdfIcon /></span>
+                <span className="rd-list-body"><span className="rd-list-title">{p.title}</span><span className="rd-list-meta">{p.category} · {fmtDate(p.date)}</span></span>
+                <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            ))}
+            {listOpen === 'recent' && (docFiltered.length === 0 ? (
+              <p className="rd-detail-foot-note" style={{ marginTop: 0 }}>No documents yet.</p>
+            ) : docFiltered.map(d => (
+              <button type="button" className="rd-list-row" key={d.id}
+                onClick={() => { setListOpen(null); openDoc(d) }}>
+                <span className="doc-pinned-icon"><PdfIcon /></span>
+                <span className="rd-list-body"><span className="rd-list-title">{d.title}</span><span className="rd-list-meta">{d.category || 'Other'}{d.size_bytes ? ` · ${fmtSize(d.size_bytes)}` : ''} · {fmtDate(d.uploaded_at)}</span></span>
+                <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            )))}
+            {listOpen === 'popular' && DEMO_POPULAR.map(p => (
+              <button type="button" className="rd-list-row" key={p.id}
+                onClick={() => { setListOpen(null); setDocDetail({ title: p.label }) }}>
+                <span className="doc-pinned-icon"><PdfIcon /></span>
+                <span className="rd-list-body"><span className="rd-list-title">{p.label}</span></span>
+                <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            ))}
+          </div>
+        </DetailDialog>
+      )}
     </div>
+  )
+}
+
+// ─── Your violations (moved here from Contact) ──────────────────────────────
+
+const VIOL_PAGE = 5
+const DEMO_VIOLATIONS = [
+  { id: 'dv1', kind: 'warning', rule_title: 'Trash bins left out', amount: null, status: 'open',   resolution: null, opened_at: '2026-05-20', notes: 'Bins must be stored by 8 PM on collection day.' },
+  { id: 'dv2', kind: 'fine',    rule_title: 'Unauthorized parking', amount: 50,  status: 'open',   resolution: null, opened_at: '2026-05-10', notes: null },
+  { id: 'dv3', kind: 'warning', rule_title: 'Noise after quiet hours', amount: null, status: 'closed', resolution: 'Resolved', opened_at: '2026-04-28', notes: null },
+  { id: 'dv4', kind: 'warning', rule_title: 'Holiday decor past Jan 15', amount: null, status: 'closed', resolution: 'Resolved', opened_at: '2026-02-01', notes: null },
+  { id: 'dv5', kind: 'fine',    rule_title: 'Pet off-leash', amount: 25, status: 'closed', resolution: 'Paid', opened_at: '2026-01-12', notes: null },
+  { id: 'dv6', kind: 'warning', rule_title: 'Balcony storage', amount: null, status: 'open', resolution: null, opened_at: '2026-05-30', notes: 'Items must be removed from the balcony railing.' },
+]
+
+// The resident's own violations (RLS-scoped to their profile). Read-only here;
+// appeals are filed through Contact the board. 5 per page with pagination.
+// Demo fallback so it renders in preview.
+function MyViolationsPanel() {
+  const { violations } = useMyViolations()
+  const data: any[] = violations.length ? violations : DEMO_VIOLATIONS
+  const [page, setPage] = useState(0)
+  const pages = Math.max(1, Math.ceil(data.length / VIOL_PAGE))
+  const shown = data.slice(page * VIOL_PAGE, page * VIOL_PAGE + VIOL_PAGE)
+
+  return (
+    <section className="doc-card" style={{ gridColumn: '1 / -1' }}>
+      <div className="doc-card-head">
+        <h2 className="doc-card-title">Your violations</h2>
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(10,36,64,0.55)' }}>Appeals go through Contact the board</span>
+      </div>
+      {data.length === 0 ? (
+        <div className="doc-empty">Nothing on file — you&rsquo;re in good standing.</div>
+      ) : (
+        <div className="myv-list">
+          {shown.map(v => (
+            <div className="myv-row" key={v.id}>
+              <span className={`myv-tag myv-tag-${v.kind}`}>{v.kind === 'fine' ? 'Fine' : 'Warning'}</span>
+              <div className="myv-body">
+                <div className="myv-title">
+                  {v.rule_title || 'Community rule'}
+                  {v.amount != null && <span className="myv-amt"> · ${v.amount}</span>}
+                </div>
+                <div className="myv-meta">{v.status === 'closed' ? (v.resolution || 'Closed') : v.status} · {fmtDate(v.opened_at)}</div>
+                {v.notes && <div className="myv-meta">{v.notes}</div>}
+              </div>
+            </div>
+          ))}
+          {pages > 1 && (
+            <div className="con-pager">
+              <button type="button" className="con-pager-btn" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}>&lsaquo; Prev</button>
+              <span className="con-pager-info">Page {page + 1} of {pages}</span>
+              <button type="button" className="con-pager-btn" onClick={() => setPage(p => Math.min(pages - 1, p + 1))} disabled={page >= pages - 1}>Next &rsaquo;</button>
+            </div>
+          )}
+        </div>
+      )}
+    </section>
   )
 }
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { MeetingsSection } from './_sections/MeetingsSection'
 import { BoardSection } from './_sections/BoardSection'
 import { ContactSection } from './_sections/ContactSection'
@@ -18,6 +18,18 @@ const TABS: SegTab[] = [
 
 export default function EasyVoice() {
   const [tab, setTab] = useState('board')
+
+  // Honor the URL hash so links like /app/voice#contact (and #meetings) open
+  // the right tab instead of always landing on Board.
+  useEffect(() => {
+    const fromHash = () => {
+      const h = window.location.hash.replace('#', '')
+      if (TABS.some(t => t.id === h)) setTab(h)
+    }
+    fromHash()
+    window.addEventListener('hashchange', fromHash)
+    return () => window.removeEventListener('hashchange', fromHash)
+  }, [])
 
   return (
     <div className="ev-wrap">

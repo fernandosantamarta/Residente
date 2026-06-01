@@ -9,6 +9,7 @@ import {
 } from '@/lib/vendor-ratings'
 import { supabase } from '@/lib/supabase'
 import { RequestDialog } from './RequestDialog'
+import { DetailDialog } from './DetailDialog'
 
 // Vendor — board-curated list of trusted service providers, now a section
 // of the Easy Track hub. The data lives in code for now (demo seed); when
@@ -68,6 +69,8 @@ export function VendorSection() {
   const [active, setActive] = useState<'all' | VendorCat>('all')
   const [rateOpen, setRateOpen] = useState<string | null>(null)   // vendor_id being rated
   const [request, setRequest] = useState<null | 'request' | 'recommend'>(null)
+  const [allOpen, setAllOpen] = useState(false)            // "View all" vendors popup
+  const [vendorOpen, setVendorOpen] = useState<Vendor | null>(null)  // single vendor detail
   const ratings = useVendorRatings()
 
   // Board-curated vendors from Supabase. Falls back to the in-code demo
@@ -194,7 +197,7 @@ export function VendorSection() {
           <section className="ven-card">
             <div className="ven-card-head">
               <h2 className="ven-card-title">All Vendors</h2>
-              <Link href="#" className="ven-card-link">View all</Link>
+              <button type="button" className="ven-card-link" onClick={() => setAllOpen(true)}>View all</button>
             </div>
             <div className="ven-table">
               <div className="ven-row ven-row-head">
@@ -208,7 +211,8 @@ export function VendorSection() {
               ) : (
                 filtered.map(v => (
                   <div key={v.id} className="ven-row">
-                    <span className="ven-row-name">{v.name}</span>
+                    <button type="button" className="ven-row-name ven-row-name-btn"
+                      onClick={() => setVendorOpen(v)}>{v.name}</button>
                     <span className="ven-row-cat">{CATEGORY_LABEL[v.category]}</span>
                     <span className="ven-row-rating">
                       <button type="button" className="ven-rate-btn"
@@ -327,6 +331,68 @@ export function VendorSection() {
             : 'What service do you need? Any preferred timing?'}
           onClose={() => setRequest(null)}
         />
+      )}
+
+      {/* View all vendors — full list in a popup, each row opens its detail. */}
+      {allOpen && (
+        <DetailDialog
+          eyebrow="Vendors"
+          title="All Vendors"
+          period={`${filtered.length} vendor${filtered.length === 1 ? '' : 's'}`}
+          size="wide"
+          onClose={() => setAllOpen(false)}
+        >
+          <div className="rd-list">
+            {filtered.length === 0 ? (
+              <p className="rd-detail-foot-note" style={{ marginTop: 0 }}>No vendors match these filters.</p>
+            ) : filtered.map(v => (
+              <button type="button" className="rd-list-row" key={v.id}
+                onClick={() => { setAllOpen(false); setVendorOpen(v) }}>
+                <span className="ven-fcard-icon">{categoryIcon(v.category)}</span>
+                <span className="rd-list-body">
+                  <span className="rd-list-title">{v.name}</span>
+                  <span className="rd-list-meta">{CATEGORY_LABEL[v.category]}</span>
+                </span>
+                <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            ))}
+          </div>
+        </DetailDialog>
+      )}
+
+      {/* A single vendor, opened in place. */}
+      {vendorOpen && (
+        <DetailDialog
+          eyebrow={CATEGORY_LABEL[vendorOpen.category]}
+          title={vendorOpen.name}
+          onClose={() => setVendorOpen(null)}
+          footer={
+            <button type="button" className="ven-cta-primary"
+              onClick={() => { const id = vendorOpen.id; setVendorOpen(null); setRateOpen(id) }}>
+              {ratings.myRating(vendorOpen.id) ? 'Edit my rating' : 'Rate this vendor'}
+            </button>
+          }
+        >
+          <div className="rd-report-meta">
+            {vendorOpen.badge && <span className="ven-fcard-badge">{vendorOpen.badge}</span>}
+            <RatingDisplay
+              avg={ratings.averageFor(vendorOpen.id)}
+              count={ratings.countFor(vendorOpen.id)}
+              mine={!!ratings.myRating(vendorOpen.id)}
+            />
+          </div>
+          {vendorOpen.blurb && <p className="rd-report-blurb">{vendorOpen.blurb}</p>}
+          <div className="rd-bd-table">
+            {vendorOpen.contact.phone && (
+              <div className="rd-bd-row"><span className="rd-bd-cat">Phone</span>
+                <span className="rd-bd-amt"><a href={`tel:${vendorOpen.contact.phone}`}>{vendorOpen.contact.phone}</a></span><span /></div>
+            )}
+            {vendorOpen.contact.email && (
+              <div className="rd-bd-row"><span className="rd-bd-cat">Email</span>
+                <span className="rd-bd-amt"><a href={`mailto:${vendorOpen.contact.email}`}>{vendorOpen.contact.email}</a></span><span /></div>
+            )}
+          </div>
+        </DetailDialog>
       )}
     </section>
   )

@@ -4,8 +4,9 @@ import Link from 'next/link'
 import { ReactNode, useEffect, useState } from 'react'
 import { useMyResident } from '@/hooks/useMyResident'
 import { stripeEnabled, supabase } from '@/lib/supabase'
-import { usePreferences } from '@/lib/preferences'
+import { usePreferences, newId, PaymentMethod } from '@/lib/preferences'
 import { fmtMoney } from '@/lib/dues'
+import { DetailDialog } from './DetailDialog'
 
 const fmtDate = (d: string | Date | null | undefined) => {
   if (!d) return '—'
@@ -49,8 +50,18 @@ const DEMO_STATEMENTS = [
 // preferences).
 export function PaySection() {
   const { resident, balance, monthlyDues, payments, loading } = useMyResident() as any
-  const [prefs] = usePreferences()
+  const [prefs, patchPrefs] = usePreferences()
   const [checkout, setCheckout] = useState({ loading: false, error: '' })
+  // In-place popups (no page navigation): account details (view) and
+  // add-payment-method (action — also offers the Settings route).
+  const [accountOpen, setAccountOpen] = useState(false)
+  const [addOpen, setAddOpen] = useState(false)
+  // "View all" list popups + a single statement opened in place.
+  const [listOpen, setListOpen] = useState<null | 'history' | 'statements'>(null)
+  const [stmtOpen, setStmtOpen] = useState<typeof DEMO_STATEMENTS[number] | null>(null)
+  // Demo autopay toggle — lets preview mode flip autopay on/off in place
+  // (real autopay goes through Stripe via toggleAutopay).
+  const [autopayDemo, setAutopayDemo] = useState<boolean | null>(null)
 
   // Real Stripe state (test mode in the demo). `cards` are the customer's saved
   // payment methods from list-payment-methods; `autopayOn` mirrors the roster
@@ -167,7 +178,9 @@ export function PaySection() {
   const methods: any[] = liveCards
     ?? prefs.payment_methods.map((pm, i) => ({ ...pm, is_default: i === 0 }))
   const defaultMethod = methods.find(m => m.is_default) || methods[0]
-  const autopayActive = autopayOn != null ? autopayOn : !!defaultMethod
+  const autopayActive = stripeLive
+    ? (autopayOn != null ? autopayOn : !!defaultMethod)
+    : (autopayDemo != null ? autopayDemo : !!defaultMethod)
 
   // Save a card on file via Stripe hosted Checkout (setup mode) — redirects to
   // Stripe and back to #pay. Used by "+ Add New" and the autopay setup CTA.
@@ -286,9 +299,10 @@ export function PaySection() {
                 onClick={startCheckout}>
                 {checkout.loading ? 'Starting checkout…' : 'Make Payment'}
               </button>
-              <a href="#history" className="pay-cta-secondary">
+              <button type="button" className="pay-cta-secondary"
+                onClick={() => setAccountOpen(true)}>
                 View Account Details
-              </a>
+              </button>
             </div>
             {checkout.error && <div className="pay-err">{checkout.error}</div>}
           </div>
@@ -329,7 +343,7 @@ export function PaySection() {
           <section className="pay-card" id="history">
             <div className="pay-card-head">
               <h2 className="pay-card-title">Payment History</h2>
-              <Link href="#history" className="pay-card-link">View all</Link>
+              <button type="button" className="pay-card-link" onClick={() => setListOpen('history')}>View all</button>
             </div>
             <div className="pay-history-table">
               <div className="pay-history-row pay-history-header">
@@ -355,24 +369,40 @@ export function PaySection() {
             </div>
           </section>
 
+          {/* Statements — above Payment Methods */}
+          <section className="pay-card" id="statements">
+            <div className="pay-card-head">
+              <h3 className="pay-tile-title">Statements</h3>
+              <button type="button" className="pay-card-link" onClick={() => setListOpen('statements')}>View all</button>
+            </div>
+            <div className="pay-statements">
+              {DEMO_STATEMENTS.map(s => (
+                <button key={s.id} type="button" className="pay-statement" onClick={() => setStmtOpen(s)}>
+                  <span className="pay-statement-icon"><PdfIcon /></span>
+                  <span className="pay-statement-body">
+                    <span className="pay-statement-title">{s.label}</span>
+                    <span className="pay-statement-meta">{fmtDate(s.date)} &middot; {s.size}</span>
+                  </span>
+                  <span className="pay-statement-dl" aria-label="Open">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 4v12"/><path d="m6 10 6 6 6-6"/><path d="M5 20h14"/>
+                    </svg>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+
           {/* Payment Methods */}
           <section className="pay-card">
             <div className="pay-card-head">
               <h2 className="pay-card-title">Payment Methods</h2>
-              {stripeLive ? (
-                <button type="button" className="pay-card-link" onClick={addCard}>+ Add New</button>
-              ) : (
-                <Link href="/app/settings" className="pay-card-link">+ Add New</Link>
-              )}
+              <button type="button" className="pay-card-link" onClick={() => setAddOpen(true)}>+ Add New</button>
             </div>
             {methods.length === 0 ? (
               <div className="pay-empty">
                 No payment methods saved &mdash;
-                {stripeLive ? (
-                  <button type="button" className="pay-empty-link" onClick={addCard}> add a card</button>
-                ) : (
-                  <Link href="/app/settings" className="pay-empty-link"> add one in Settings</Link>
-                )}.
+                <button type="button" className="pay-empty-link" onClick={() => setAddOpen(true)}> add a card</button>.
               </div>
             ) : (
               <div className="pay-methods-grid">
@@ -469,7 +499,8 @@ export function PaySection() {
                     {autopayBusy ? 'Updating…' : 'Pause Autopay'}
                   </button>
                 ) : (
-                  <button type="button" className="pay-cta-secondary pay-cta-block">
+                  <button type="button" className="pay-cta-secondary pay-cta-block"
+                    onClick={() => setAutopayDemo(false)}>
                     Pause Autopay
                   </button>
                 )}
@@ -486,36 +517,14 @@ export function PaySection() {
                     {autopayBusy ? 'Updating…' : defaultMethod ? 'Turn on autopay' : 'Add a card to enable'}
                   </button>
                 ) : (
-                  <Link href="/app/settings" className="pay-cta-primary pay-cta-block">
-                    Set up autopay
-                  </Link>
+                  <button type="button" className="pay-cta-primary pay-cta-block"
+                    onClick={() => setAutopayDemo(true)}>
+                    Turn on autopay
+                  </button>
                 )}
               </>
             )}
             {autopayErr && <div className="pay-err">{autopayErr}</div>}
-          </section>
-
-          <section className="pay-card" id="statements">
-            <div className="pay-card-head">
-              <h3 className="pay-tile-title">Statements</h3>
-              <Link href="#statements" className="pay-card-link">View all</Link>
-            </div>
-            <div className="pay-statements">
-              {DEMO_STATEMENTS.map(s => (
-                <a key={s.id} href="#" className="pay-statement">
-                  <span className="pay-statement-icon"><PdfIcon /></span>
-                  <span className="pay-statement-body">
-                    <span className="pay-statement-title">{s.label}</span>
-                    <span className="pay-statement-meta">{fmtDate(s.date)} &middot; {s.size}</span>
-                  </span>
-                  <span className="pay-statement-dl" aria-label="Download">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 4v12"/><path d="m6 10 6 6 6-6"/><path d="M5 20h14"/>
-                    </svg>
-                  </span>
-                </a>
-              ))}
-            </div>
           </section>
         </aside>
       </div>
@@ -533,7 +542,210 @@ export function PaySection() {
         </div>
         <Link href="/app/voice#contact" className="pay-cta-secondary">Contact Support</Link>
       </section>
+
+      {/* Account Details — view popup, opened in place from the balance card. */}
+      {accountOpen && (
+        <DetailDialog
+          eyebrow="Account"
+          title="Account Details"
+          period={`Due ${fmtDate(dueDate)}`}
+          onClose={() => setAccountOpen(false)}
+        >
+          <div className="rd-detail-top">
+            <div className="rd-detail-headline">
+              <span className="rd-detail-h-label">Current balance</span>
+              <span className="rd-detail-h-amt">{fmtMoney(currentBalance)}</span>
+              <span className="rd-detail-h-sub">{monthsPaid}/12 months paid · {onTimePct}% on time</span>
+            </div>
+          </div>
+
+          <div className="rd-bd-table">
+            <div className="rd-bd-row rd-bd-head"><span>Charge</span><span>Amount</span><span /></div>
+            {breakdown.map(b => (
+              <div className="rd-bd-row" key={b.label}>
+                <span className="rd-bd-cat">{b.label}</span>
+                <span className={`rd-bd-amt${b.amount < 0 ? ' pay-amt-credit' : ''}`}>
+                  {b.amount < 0 ? `-${fmtMoney(Math.abs(b.amount))}` : fmtMoney(b.amount)}
+                </span>
+                <span />
+              </div>
+            ))}
+            <div className="rd-bd-row rd-bd-total">
+              <span>Total due</span><span className="rd-bd-amt">{fmtMoney(breakdownTotal)}</span><span />
+            </div>
+          </div>
+
+          <div className="rd-bd-table">
+            <div className="rd-bd-row"><span className="rd-bd-cat">Next payment</span><span className="rd-bd-amt">{fmtDate(dueDate)}</span><span /></div>
+            <div className="rd-bd-row"><span className="rd-bd-cat">Autopay</span><span className="rd-bd-amt">{autopayActive ? 'On' : 'Off'}</span><span /></div>
+            {defaultMethod && (
+              <div className="rd-bd-row"><span className="rd-bd-cat">Default method</span><span className="rd-bd-amt">{defaultMethod.brand} ···· {defaultMethod.last4}</span><span /></div>
+            )}
+          </div>
+        </DetailDialog>
+      )}
+
+      {/* Add a payment method — action popup. Add it here, OR jump to Settings. */}
+      {addOpen && (
+        <AddPaymentDialog
+          stripeLive={stripeLive}
+          onStripe={() => { setAddOpen(false); void addCard() }}
+          onAddDemo={(m) => {
+            const method: PaymentMethod = { id: newId('pm'), brand: m.brand, last4: m.last4, kind: m.kind }
+            patchPrefs({ payment_methods: [...prefs.payment_methods, method] })
+            setAddOpen(false)
+          }}
+          onClose={() => setAddOpen(false)}
+        />
+      )}
+
+      {/* View all — Payment History */}
+      {listOpen === 'history' && (
+        <DetailDialog
+          eyebrow="Payments"
+          title="Payment History"
+          period={`${history.length} payment${history.length === 1 ? '' : 's'}`}
+          size="wide"
+          onClose={() => setListOpen(null)}
+        >
+          <div className="pay-history-table">
+            <div className="pay-history-row pay-history-header">
+              <span>Date</span><span>Description</span><span>Amount</span><span>Status</span><span>Payment Method</span>
+            </div>
+            {history.length === 0 ? (
+              <div className="pay-empty">No payments yet.</div>
+            ) : history.map((h: any) => (
+              <div key={h.id} className="pay-history-row">
+                <span className="pay-hist-date">{fmtDate(h.date)}</span>
+                <span className="pay-hist-desc">{h.desc}</span>
+                <span className={`pay-hist-amt${h.amount < 0 ? ' pay-amt-credit' : ''}`}>
+                  {h.amount < 0 ? `-${fmtMoney(Math.abs(h.amount))}` : fmtMoney(h.amount)}
+                </span>
+                <span><StatusPill kind={h.status} /></span>
+                <span className="pay-hist-method">{h.method}</span>
+              </div>
+            ))}
+          </div>
+        </DetailDialog>
+      )}
+
+      {/* View all — Statements */}
+      {listOpen === 'statements' && (
+        <DetailDialog
+          eyebrow="Statements"
+          title="All Statements"
+          period={`${DEMO_STATEMENTS.length} statements`}
+          onClose={() => setListOpen(null)}
+        >
+          <div className="pay-statements">
+            {DEMO_STATEMENTS.map(s => (
+              <button key={s.id} type="button" className="pay-statement"
+                onClick={() => { setListOpen(null); setStmtOpen(s) }}>
+                <span className="pay-statement-icon"><PdfIcon /></span>
+                <span className="pay-statement-body">
+                  <span className="pay-statement-title">{s.label}</span>
+                  <span className="pay-statement-meta">{fmtDate(s.date)} &middot; {s.size}</span>
+                </span>
+                <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            ))}
+          </div>
+        </DetailDialog>
+      )}
+
+      {/* A single statement, opened in place */}
+      {stmtOpen && (
+        <DetailDialog
+          eyebrow="Statement"
+          title={stmtOpen.label}
+          period={`${fmtDate(stmtOpen.date)} · PDF · ${stmtOpen.size}`}
+          onClose={() => setStmtOpen(null)}
+        >
+          <div className="rd-bd-table">
+            <div className="rd-bd-row"><span className="rd-bd-cat">Statement period</span><span className="rd-bd-amt">{fmtDate(stmtOpen.date)}</span><span /></div>
+            <div className="rd-bd-row"><span className="rd-bd-cat">Format</span><span className="rd-bd-amt">PDF</span><span /></div>
+            <div className="rd-bd-row rd-bd-total"><span>Size</span><span className="rd-bd-amt">{stmtOpen.size}</span><span /></div>
+          </div>
+          <p className="rd-detail-foot-note">
+            Monthly statements are generated from your payment activity. The PDF
+            download will be available here once statements are wired to Stripe.
+          </p>
+        </DetailDialog>
+      )}
     </section>
+  )
+}
+
+// Add-payment-method popup. In live Stripe mode it hands off to Stripe's secure
+// hosted form; in demo mode it captures brand / last 4 / type inline and saves
+// to local preferences. Either way the footer keeps a "Manage in Settings" link
+// so the resident is never forced down a single path.
+function AddPaymentDialog({
+  stripeLive, onStripe, onAddDemo, onClose,
+}: {
+  stripeLive: boolean
+  onStripe: () => void
+  onAddDemo: (m: { brand: string; last4: string; kind: 'card' | 'bank' }) => void
+  onClose: () => void
+}) {
+  const [kind, setKind] = useState<'card' | 'bank'>('card')
+  const [brand, setBrand] = useState('')
+  const [last4, setLast4] = useState('')
+  const [error, setError] = useState('')
+
+  const submit = () => {
+    if (!brand.trim()) { setError(kind === 'card' ? 'Add the card brand (e.g. Visa).' : 'Add the bank name.'); return }
+    if (!/^\d{4}$/.test(last4)) { setError('Enter the last 4 digits.'); return }
+    onAddDemo({ brand: brand.trim(), last4, kind })
+  }
+
+  const footer = stripeLive ? (
+    <>
+      <button type="button" className="ven-cta-secondary" onClick={onClose}>Cancel</button>
+      <button type="button" className="ven-cta-primary" onClick={onStripe}>Continue to secure form</button>
+    </>
+  ) : (
+    <>
+      <button type="button" className="ven-cta-secondary" onClick={onClose}>Cancel</button>
+      <button type="button" className="ven-cta-primary" onClick={submit}>Add {kind === 'card' ? 'card' : 'account'}</button>
+    </>
+  )
+
+  return (
+    <DetailDialog
+      eyebrow="Payment method"
+      title="Add a form of payment"
+      onClose={onClose}
+      footer={footer}
+      settingsHref="/app/settings"
+    >
+      {stripeLive ? (
+        <p className="rd-detail-foot-note" style={{ marginTop: 0 }}>
+          We&rsquo;ll open Stripe&rsquo;s secure form to capture your card — we never
+          touch the full number, only the brand and last 4. You can also manage
+          saved methods in Settings.
+        </p>
+      ) : (
+        <div className="rd-form">
+          <div className="rd-form-seg">
+            <button type="button" className={`rd-seg-btn${kind === 'card' ? ' on' : ''}`} onClick={() => setKind('card')}>Card</button>
+            <button type="button" className={`rd-seg-btn${kind === 'bank' ? ' on' : ''}`} onClick={() => setKind('bank')}>Bank account</button>
+          </div>
+          <label className="rd-form-field">
+            <span className="rd-form-label">{kind === 'card' ? 'Card brand' : 'Bank name'}</span>
+            <input className="rd-form-input" value={brand} onChange={e => setBrand(e.target.value)}
+              placeholder={kind === 'card' ? 'Visa, Mastercard…' : 'Bank of America…'} />
+          </label>
+          <label className="rd-form-field">
+            <span className="rd-form-label">Last 4 digits</span>
+            <input className="rd-form-input" value={last4} inputMode="numeric" maxLength={4}
+              onChange={e => setLast4(e.target.value.replace(/\D/g, '').slice(0, 4))}
+              placeholder="4242" />
+          </label>
+          {error && <p className="rd-form-err">{error}</p>}
+        </div>
+      )}
+    </DetailDialog>
   )
 }
 

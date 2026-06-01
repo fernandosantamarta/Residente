@@ -5,6 +5,7 @@ import { ReactNode, useMemo, useState } from 'react'
 import { useGeneratedReports } from '@/hooks/useGeneratedReports'
 import { usePublishedReports } from '@/hooks/usePublishedReports'
 import { RequestDialog } from './RequestDialog'
+import { DetailDialog } from './DetailDialog'
 
 // Reports — board-published reports the resident can browse, now a section
 // of the Easy Track hub. Featured row, recent log, scheduled queue, plus
@@ -59,10 +60,39 @@ const fmtDate = (iso: string) => {
   catch { return iso }
 }
 
+// Demo fallback — shown ONLY when there's no real community data (e.g. the
+// logged-out /app/track?preview=1 demo). A real community always renders its
+// own reports/budget/dues; this just lets the page be seen and clicked through.
+const DEMO_REPORTS: Report[] = [
+  { id: 'r1', title: 'Monthly Financial Summary', category: 'financial',   date: '2026-05-01', status: 'published', size: '2.1 MB', blurb: 'Income, expenses, reserves.', featured: true },
+  { id: 'r2', title: 'Board Meeting Minutes',     category: 'board',       date: '2026-05-15', status: 'published', size: '0.8 MB', blurb: 'Decisions, votes, action items.', featured: true },
+  { id: 'r3', title: 'Maintenance Report',        category: 'maintenance', date: '2026-04-28', status: 'published', size: '1.5 MB', blurb: 'Completed jobs and pending tickets.', featured: true },
+  { id: 'r4', title: 'Resident Survey',           category: 'community',   date: '2026-05-25', status: 'updated',   size: '0.6 MB', blurb: 'Quarterly satisfaction pulse.', featured: true },
+  { id: 'r5', title: 'Reserve Study Summary',     category: 'financial',   date: '2026-05-12', status: 'published', size: '3.0 MB' },
+  { id: 'r6', title: 'Delinquency Report',        category: 'financial',   date: '2026-05-10', status: 'published', size: '0.5 MB' },
+  { id: 'r7', title: 'Amenity Usage Report',      category: 'operations',  date: '2026-05-05', status: 'published', size: '1.1 MB' },
+  { id: 'r8', title: 'Vendor Performance Report', category: 'vendor',      date: '2026-05-03', status: 'published', size: '0.9 MB' },
+  { id: 'r9', title: 'Insurance Audit',           category: 'compliance',  date: '2026-04-22', status: 'published', size: '1.7 MB' },
+  { id: 'r10', title: 'Fire Drill Report',        category: 'safety',      date: '2026-04-18', status: 'published', size: '0.4 MB' },
+]
+const DEMO_FIN_SEGMENTS = [
+  { label: 'Operating Expenses', amount: 48000, color: '#E14909' },
+  { label: 'Reserve Funds',      amount: 18000, color: '#0A2440' },
+  { label: 'Marketing',          amount:  6500, color: '#C76F45' },
+  { label: 'Misc',               amount:  3500, color: '#7D8C5C' },
+]
+const DEMO_DUES = { collected: 48000, outstanding: 6500, paid: 150, due: 12, late: 4, households: 166, rate: 88 }
+
 export function ReportsSection() {
   const [search, setSearch] = useState('')
   const [active, setActive] = useState<'all' | Category>('all')
   const [request, setRequest] = useState<null | 'request' | 'schedule'>(null)
+  // Which overview detail (if any) is open in a popup. null = closed.
+  const [detail, setDetail] = useState<null | 'financial' | 'dues'>(null)
+  // A specific report opened in a popup (click a card/row). null = closed.
+  const [openR, setOpenR] = useState<Report | null>(null)
+  // "View all" — the full report list in a popup. false = closed.
+  const [allOpen, setAllOpen] = useState(false)
 
   // Two real sources, merged:
   //   - pub: board-published reports from the `reports` table (downloadable PDFs).
@@ -73,14 +103,15 @@ export function ReportsSection() {
   const gen = useGeneratedReports()
   const pub = usePublishedReports()
   const hasReal = pub.reports.length > 0 || gen.hasData
-  // No fake fallback: an empty community shows real empty states, not demo
-  // numbers. (Reports are generated from the community's own budget /
-  // payments / decisions, so there's nothing until those exist.)
-  const reports: Report[] = [...(pub.reports as Report[]), ...(gen.hasData ? (gen.reports as Report[]) : [])]
+  // Real community → real reports. No data (preview/demo) → demo seed so the
+  // page is populated and every popup can be opened and seen.
+  const reports: Report[] = hasReal
+    ? [...(pub.reports as Report[]), ...(gen.hasData ? (gen.reports as Report[]) : [])]
+    : DEMO_REPORTS
 
-  // Open a report — published reports stream their PDF via a signed URL;
-  // generated/demo summaries have no file, so the click is a no-op.
-  const openReport = (r: Report) => { if (r.storagePath) void pub.download(r.storagePath) }
+  // Open a report — show its detail in a popup, in place. No page navigation.
+  // (Published reports also expose a "Download PDF" action inside the popup.)
+  const openReport = (r: Report) => setOpenR(r)
 
   const counts = useMemo(() => {
     const map: Partial<Record<Category, number>> = {}
@@ -103,12 +134,11 @@ export function ReportsSection() {
   // Financial Overview pie — real budget categories, or empty (the render
   // shows an empty state rather than fabricated numbers).
   const useReal = gen.hasData && gen.finance.segments.length > 0
-  const FIN_SEGMENTS = useReal ? gen.finance.segments : []
-  const FIN_TOTAL = useReal ? gen.finance.total : 0
+  const FIN_SEGMENTS = useReal ? gen.finance.segments : DEMO_FIN_SEGMENTS
+  const FIN_TOTAL = useReal ? gen.finance.total : DEMO_FIN_SEGMENTS.reduce((s, x) => s + x.amount, 0)
 
-  // Dues Collection — real aggregates from Residents + Payments, or zeros.
-  const ZERO_DUES = { collected: 0, outstanding: 0, paid: 0, due: 0, late: 0, households: 0, rate: 0 }
-  const dues = gen.hasData ? gen.dues : ZERO_DUES
+  // Dues Collection — real aggregates from Residents + Payments, demo otherwise.
+  const dues = gen.hasData ? gen.dues : DEMO_DUES
 
   return (
     <section id="reports" className="rep-wrap ev-section">
@@ -148,7 +178,8 @@ export function ReportsSection() {
           <section className="rep-card">
             <div className="rep-card-head">
               <h2 className="rep-card-title">Featured Reports</h2>
-              <Link href="#" className="rep-card-link">View all</Link>
+              <button type="button" className="rep-card-link rep-cta-btn"
+                onClick={() => setAllOpen(true)}>View all</button>
             </div>
             <div className="rep-featured">
               {featured.map(r => (
@@ -173,7 +204,8 @@ export function ReportsSection() {
           <section className="rep-card">
             <div className="rep-card-head">
               <h2 className="rep-card-title">Recent Reports</h2>
-              <Link href="#" className="rep-card-link">View all</Link>
+              <button type="button" className="rep-card-link rep-cta-btn"
+                onClick={() => setAllOpen(true)}>View all</button>
             </div>
             <div className="rep-table">
               <div className="rep-row rep-row-head">
@@ -225,7 +257,10 @@ export function ReportsSection() {
                   </ul>
                 </div>
               )}
-              <Link href="#" className="rep-cta-link">View Detailed Report &rarr;</Link>
+              <button type="button" className="rep-cta-link rep-cta-btn"
+                onClick={() => setDetail('financial')} disabled={FIN_SEGMENTS.length === 0}>
+                View Detailed Report &rarr;
+              </button>
             </section>
 
             <section className="rep-card rep-overview">
@@ -247,7 +282,8 @@ export function ReportsSection() {
                   <div className="rep-maint-l">Late</div>
                 </div>
               </div>
-              <Link href="#pay" className="rep-cta-link">Go to dues &amp; payments &rarr;</Link>
+              <button type="button" className="rep-cta-link rep-cta-btn"
+                onClick={() => setDetail('dues')}>View Detailed Report &rarr;</button>
             </section>
           </div>
 
@@ -325,6 +361,156 @@ export function ReportsSection() {
             : 'What would you like the report to cover?'}
           onClose={() => setRequest(null)}
         />
+      )}
+
+      {detail === 'financial' && (
+        <DetailDialog
+          eyebrow="Financial"
+          title="Financial Overview"
+          period="May 2026"
+          onClose={() => setDetail(null)}
+        >
+          <div className="rd-detail-top">
+            <PieChart segments={FIN_SEGMENTS} total={FIN_TOTAL} />
+            <div className="rd-detail-headline">
+              <span className="rd-detail-h-label">Annual budget</span>
+              <span className="rd-detail-h-amt">${FIN_TOTAL.toLocaleString('en-US')}</span>
+              <span className="rd-detail-h-sub">across {FIN_SEGMENTS.length} categor{FIN_SEGMENTS.length === 1 ? 'y' : 'ies'}</span>
+            </div>
+          </div>
+
+          <div className="rd-bd-table">
+            <div className="rd-bd-row rd-bd-head">
+              <span>Category</span>
+              <span>Amount</span>
+              <span>Share</span>
+            </div>
+            {FIN_SEGMENTS.map(s => (
+              <div className="rd-bd-row" key={s.label}>
+                <span className="rd-bd-cat">
+                  <span className="rep-fin-dot" style={{ background: s.color }} aria-hidden="true" />
+                  {s.label}
+                </span>
+                <span className="rd-bd-amt">${s.amount.toLocaleString('en-US')}</span>
+                <span className="rd-bd-share">
+                  {FIN_TOTAL > 0 ? Math.round((s.amount / FIN_TOTAL) * 100) : 0}%
+                </span>
+              </div>
+            ))}
+            <div className="rd-bd-row rd-bd-total">
+              <span>Total</span>
+              <span className="rd-bd-amt">${FIN_TOTAL.toLocaleString('en-US')}</span>
+              <span className="rd-bd-share">100%</span>
+            </div>
+          </div>
+
+          <p className="rd-detail-foot-note">
+            Generated live from your community&rsquo;s budget categories — it refreshes
+            on its own as the board updates the budget.
+          </p>
+        </DetailDialog>
+      )}
+
+      {detail === 'dues' && (
+        <DetailDialog
+          eyebrow="Financial"
+          title="Dues Collection"
+          period="May 2026"
+          onClose={() => setDetail(null)}
+          settingsHref="#pay"
+          settingsLabel="Go to dues & payments"
+        >
+          <div className="rd-detail-top">
+            <div className="rd-detail-headline">
+              <span className="rd-detail-h-label">Collected this period</span>
+              <span className="rd-detail-h-amt">${dues.collected.toLocaleString('en-US')}</span>
+              <span className="rd-detail-h-sub">{dues.rate}% of dues collected · ${dues.outstanding.toLocaleString('en-US')} outstanding</span>
+            </div>
+          </div>
+
+          <div className="rep-maint" style={{ marginBottom: 4 }}>
+            <div className="rep-maint-stat rep-maint-done">
+              <div className="rep-maint-n">{dues.paid}</div>
+              <div className="rep-maint-l">Paid</div>
+            </div>
+            <div className="rep-maint-stat rep-maint-pend">
+              <div className="rep-maint-n">{dues.due}</div>
+              <div className="rep-maint-l">Due</div>
+            </div>
+            <div className="rep-maint-stat rep-maint-total">
+              <div className="rep-maint-n">{dues.late}</div>
+              <div className="rep-maint-l">Late</div>
+            </div>
+          </div>
+
+          <div className="rd-bd-table">
+            <div className="rd-bd-row"><span className="rd-bd-cat">Households</span><span className="rd-bd-amt">{dues.households}</span><span /></div>
+            <div className="rd-bd-row"><span className="rd-bd-cat">Collection rate</span><span className="rd-bd-amt">{dues.rate}%</span><span /></div>
+            <div className="rd-bd-row"><span className="rd-bd-cat">Collected</span><span className="rd-bd-amt">${dues.collected.toLocaleString('en-US')}</span><span /></div>
+            <div className="rd-bd-row rd-bd-total"><span>Outstanding</span><span className="rd-bd-amt">${dues.outstanding.toLocaleString('en-US')}</span><span /></div>
+          </div>
+
+          <p className="rd-detail-foot-note">
+            Aggregated from residents and payments — no individual household&rsquo;s
+            payment detail is shown here.
+          </p>
+        </DetailDialog>
+      )}
+
+      {openR && (
+        <DetailDialog
+          eyebrow={CATEGORY_LABEL[openR.category]}
+          title={openR.title}
+          period={openR.status === 'updated' ? `Updated ${fmtDate(openR.date)}` : fmtDate(openR.date)}
+          onClose={() => setOpenR(null)}
+        >
+          <div className="rd-report-meta">
+            <span className={`rep-tag rep-tag-${openR.category}`}>{CATEGORY_LABEL[openR.category]}</span>
+            <StatusPill kind={openR.status} />
+            {openR.size && <span className="rd-report-size">PDF · {openR.size}</span>}
+          </div>
+          {openR.blurb && <p className="rd-report-blurb">{openR.blurb}</p>}
+          {openR.storagePath ? (
+            <button type="button" className="ven-cta-primary rd-report-dl"
+              onClick={() => openR.storagePath && pub.download(openR.storagePath)}>
+              Download PDF
+            </button>
+          ) : (
+            <p className="rd-detail-foot-note">
+              This report is generated live from your community&rsquo;s own data —
+              it stays current on its own, with no file to download.
+            </p>
+          )}
+        </DetailDialog>
+      )}
+
+      {allOpen && (
+        <DetailDialog
+          eyebrow="Reports"
+          title="All Reports"
+          period={`${filtered.length} report${filtered.length === 1 ? '' : 's'}`}
+          size="wide"
+          onClose={() => setAllOpen(false)}
+        >
+          <div className="rd-list">
+            {filtered.length === 0 ? (
+              <p className="rd-detail-foot-note" style={{ marginTop: 0 }}>No reports match these filters.</p>
+            ) : filtered.map(r => (
+              <button type="button" className="rd-list-row" key={r.id}
+                onClick={() => { setAllOpen(false); setOpenR(r) }}>
+                <span className={`rep-fcard-icon rep-fc-${r.category}`}>{categoryIcon(r.category)}</span>
+                <span className="rd-list-body">
+                  <span className="rd-list-title">{r.title}</span>
+                  <span className="rd-list-meta">
+                    {CATEGORY_LABEL[r.category]} · {r.status === 'updated' ? `Updated ${fmtDate(r.date)}` : fmtDate(r.date)}
+                    {r.size && <> · {r.size}</>}
+                  </span>
+                </span>
+                <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+              </button>
+            ))}
+          </div>
+        </DetailDialog>
       )}
     </section>
   )

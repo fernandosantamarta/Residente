@@ -1,5 +1,8 @@
 'use client'
 
+import { useState } from 'react'
+import { DetailDialog } from '../track/_sections/DetailDialog'
+
 // Editorial magazine layout for /community. Renders inside Layout's center
 // column — the cockpit chrome (left rail, topbar) comes from Layout.jsx.
 // All styles namespaced under .community-page in index.css so the generic
@@ -90,6 +93,7 @@ const CATEGORIES = [
 ]
 
 export default function Community() {
+  const [openArticle, setOpenArticle] = useState<(typeof ARTICLES)[number] | null>(null)
   return (
     <div className="community-page">
       <svg width="0" height="0" style={{ position: 'absolute' }}>
@@ -191,7 +195,10 @@ export default function Community() {
 
         <div className="comm-articles-grid">
           {ARTICLES.map((a, i) => (
-            <article key={i} className={`comm-article${a.feature ? ' feature' : ''}`}>
+            <article key={i} className={`comm-article${a.feature ? ' feature' : ''} comm-article-btn`}
+              role="button" tabIndex={0}
+              onClick={() => setOpenArticle(a)}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenArticle(a) } }}>
               <div className="comm-article-top">
                 <span className="comm-article-section">{a.section}</span>
                 <span className={`comm-chip chip-${a.status.kind}`}>{a.status.label}</span>
@@ -221,9 +228,28 @@ export default function Community() {
           <span className="comm-footer-divider">·</span>
           <a href="#past-issues">Past issues</a>
           <span className="comm-footer-divider">·</span>
-          <a href="#contact">Contact the board</a>
+          <a href="/app/voice#contact">Contact the board</a>
         </div>
       </footer>
+
+      {openArticle && (
+        <DetailDialog
+          eyebrow={openArticle.section}
+          title={openArticle.headline}
+          period={openArticle.when}
+          onClose={() => setOpenArticle(null)}
+        >
+          <div className="rd-report-meta">
+            <span className={`comm-chip chip-${openArticle.status.kind}`}>{openArticle.status.label}</span>
+          </div>
+          <p className="rd-report-blurb">{openArticle.dek}</p>
+          <div className="rd-bd-table">
+            <div className="rd-bd-row"><span className="rd-bd-cat">Vendor</span><span className="rd-bd-amt">{openArticle.vendor}</span><span /></div>
+            <div className="rd-bd-row"><span className="rd-bd-cat">Status</span><span className="rd-bd-amt">{openArticle.votes}</span><span /></div>
+            <div className="rd-bd-row rd-bd-total"><span>Amount</span><span className="rd-bd-amt">{openArticle.amount}</span><span /></div>
+          </div>
+        </DetailDialog>
+      )}
     </div>
   )
 }
