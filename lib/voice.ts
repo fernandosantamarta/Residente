@@ -96,6 +96,7 @@ export type NoticeKind =
   | 'proxy_submitted'
   | 'custom_broadcast'
   | 'amenity_booked'
+  | 'dues_due'
 
 export type NoticeChannel = 'in_app' | 'email' | 'sms'
 
@@ -114,11 +115,14 @@ export const NOTICE_KIND_LABELS: Record<NoticeKind, string> = {
   proxy_submitted:   'Proxy submitted',
   custom_broadcast:  'Announcement',
   amenity_booked:    'Amenity reserved',
+  dues_due:          'Dues due',
 }
 
 export function noticeHref(n: { kind?: string | null; meeting_id?: string | null; vote_id?: string | null }): string {
   // Amenity bookings notify the board — send them to the admin reservations view.
   if (n.kind === 'amenity_booked') return '/admin/schedule#amenities'
+  // Dues reminders send the resident to the Pay hub.
+  if (n.kind === 'dues_due') return '/app/track#pay'
   if (n.meeting_id) return `/app/voice/${n.meeting_id}`
   return '/app/voice'
 }
