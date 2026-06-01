@@ -11,7 +11,6 @@ import {
   LANGUAGE_LABEL,
   PUSH_PREF_LABEL,
   SMS_PREF_LABEL,
-  TIMEZONE_LABEL,
   WEEK_START_LABEL,
   fileToProfileImage,
   formatTime12,
@@ -23,7 +22,6 @@ import {
   type Preferences,
   type PushPref,
   type SmsPref,
-  type TimezoneCode,
   type WeekStart,
 } from '@/lib/preferences'
 import {
@@ -159,7 +157,7 @@ export default function Settings() {
               onClick={() => setDialog('notifications')} />
             <Row icon={<IconGlobe />} title="Language &amp; Region"    desc="Display language, timezone, and date format."
               onClick={() => setDialog('language')}
-              right={`${LANGUAGE_LABEL[prefs.language]} · ${prefs.timezone}`} />
+              right={LANGUAGE_LABEL[prefs.language]} />
             <Row icon={<IconEye />}   title="Accessibility"            desc="Larger text, reduced motion, high contrast."
               onClick={() => setDialog('accessibility')}
               right={accessibilitySummary(prefs)} />
@@ -277,7 +275,6 @@ export default function Settings() {
               <div className="set-pref-row"><span>Push</span><span>{PUSH_PREF_LABEL[prefs.push_pref]}</span></div>
               <div className="set-pref-row"><span>Quiet hours</span><span>{formatTime12(prefs.quiet_hours_start)} – {formatTime12(prefs.quiet_hours_end)}</span></div>
               <div className="set-pref-row"><span>Language</span><span>{LANGUAGE_LABEL[prefs.language]}</span></div>
-              <div className="set-pref-row"><span>Timezone</span><span>{prefs.timezone}</span></div>
             </div>
             <button className="set-tile-cta" type="button" onClick={() => setDialog('notifications')}>
               Edit preferences
@@ -851,14 +848,13 @@ function DialogBody({
               { value: 'pt', label: 'Português',   desc: 'Para residentes que falam português.' },
             ]}
           />
-          <RadioGroup<TimezoneCode>
-            label="Timezone"
-            value={prefs.timezone}
-            onChange={v => patch({ timezone: v })}
-            options={(Object.keys(TIMEZONE_LABEL) as TimezoneCode[]).map(tz => ({
-              value: tz, label: TIMEZONE_LABEL[tz],
-            }))}
-          />
+          <div className="set-dialog-field">
+            <span className="set-dialog-field-label">Timezone</span>
+            <p className="set-dialog-note set-dialog-note-tight">
+              Coming soon &mdash; dates and times currently display in your
+              device&rsquo;s local timezone.
+            </p>
+          </div>
         </>
       )
 
@@ -973,12 +969,13 @@ function DialogBody({
       return (
         <>
           <p className="set-dialog-note">
-            Demo privacy toggles &mdash; production will surface the real
-            data-sharing controls from the community settings table.
+            Coming soon &mdash; these data-sharing controls aren&rsquo;t live yet,
+            so they&rsquo;re shown disabled until the community privacy settings
+            are wired up.
           </p>
-          <ToggleRow label="Show my unit in the resident directory" desc="Other residents can see your name + unit." checked={true}  onChange={() => {}} />
-          <ToggleRow label="Share vehicle info with the gate"        desc="Speeds up plate-based gate access."         checked={true}  onChange={() => {}} />
-          <ToggleRow label="Include me in community-wide polls"      desc="Anonymous tallies, no individual votes."    checked={true}  onChange={() => {}} />
+          <ToggleRow label="Show my unit in the resident directory" desc="Other residents can see your name + unit." checked={true} disabled onChange={() => {}} />
+          <ToggleRow label="Share vehicle info with the gate"        desc="Speeds up plate-based gate access."         checked={true} disabled onChange={() => {}} />
+          <ToggleRow label="Include me in community-wide polls"      desc="Anonymous tallies, no individual votes."    checked={true} disabled onChange={() => {}} />
         </>
       )
 
@@ -1070,12 +1067,12 @@ function RadioGroup<T extends string>({
 }
 
 function ToggleRow({
-  label, desc, checked, onChange,
+  label, desc, checked, onChange, disabled,
 }: {
-  label: string; desc: string; checked: boolean; onChange: (v: boolean) => void
+  label: string; desc: string; checked: boolean; onChange: (v: boolean) => void; disabled?: boolean
 }) {
   return (
-    <div className="set-toggle-row">
+    <div className="set-toggle-row" style={disabled ? { opacity: 0.55 } : undefined}>
       <div className="set-toggle-body">
         <div className="set-toggle-label">{label}</div>
         <div className="set-toggle-desc">{desc}</div>
@@ -1084,8 +1081,10 @@ function ToggleRow({
         type="button"
         role="switch"
         aria-checked={checked}
+        disabled={disabled}
         className={`set-toggle${checked ? ' on' : ''}`}
-        onClick={() => onChange(!checked)}
+        onClick={() => { if (!disabled) onChange(!checked) }}
+        style={disabled ? { cursor: 'not-allowed' } : undefined}
       >
         <span className="set-toggle-knob" />
       </button>
