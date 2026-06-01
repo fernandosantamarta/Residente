@@ -10,6 +10,13 @@ import {
   useScheduleEvents,
 } from '@/lib/schedule'
 import { usePreferences } from '@/lib/preferences'
+import { SegTabs, SegTab } from '@/components/SegTabs'
+import { AmenitiesSection } from './_sections/AmenitiesSection'
+
+const TABS: SegTab[] = [
+  { id: 'calendar', label: 'Calendar' },
+  { id: 'amenities', label: 'Amenities' },
+]
 
 const WEEKDAYS_SUN = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 const WEEKDAYS_MON = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN']
@@ -42,7 +49,34 @@ function relativeDayLabel(selectedISO: string, todayISO: string) {
   return fmtWeekday(selectedISO)
 }
 
+// Easy Schedule is two tabs: the community Calendar and the bookable
+// Amenities catalog. The hero + segmented control live in the wrapper so they
+// persist across both; each tab renders its own body below.
 export default function Schedule() {
+  const [tab, setTab] = useState('calendar')
+  return (
+    <div className="sched-wrap">
+      <section className="sched-hero">
+        <div className="sched-hero-content">
+          <h1 className="sched-hero-title">Easy Schedule</h1>
+          <div className="sched-hero-sub">
+            {tab === 'amenities'
+              ? 'Reserve the clubhouse, pool, gym, and more.'
+              : 'Everything happening in your community.'}
+          </div>
+        </div>
+      </section>
+
+      <div className="sched-tabs">
+        <SegTabs tabs={TABS} active={tab} onChange={setTab} ariaLabel="Easy Schedule sections" />
+      </div>
+
+      {tab === 'amenities' ? <AmenitiesSection /> : <CalendarView />}
+    </div>
+  )
+}
+
+function CalendarView() {
   // Demo "today" pinned to May 28, 2026 so the mockup matches. Swap to
   // `new Date()` once real data is wired.
   const today = new Date(2026, 4, 28)
@@ -137,15 +171,7 @@ export default function Schedule() {
   const todayCount = (byDate[todayISO] || []).length
 
   return (
-    <div className="sched-wrap">
-      {/* Page title — bare on the page background, no banner */}
-      <section className="sched-hero">
-        <div className="sched-hero-content">
-          <h1 className="sched-hero-title">Easy Schedule</h1>
-          <div className="sched-hero-sub">Everything happening in your community.</div>
-        </div>
-      </section>
-
+    <>
       {/* Toolbar */}
       <div className="sched-toolbar">
         <button className="sched-today-btn" onClick={goToday}>
@@ -363,7 +389,7 @@ export default function Schedule() {
           </div>
         </div>
       )}
-    </div>
+    </>
   )
 }
 

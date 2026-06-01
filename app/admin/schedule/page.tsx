@@ -11,8 +11,27 @@ import {
 } from '@/lib/schedule'
 import { Dropdown } from '@/components/Dropdown'
 import { Pagination, paginate } from '@/components/Pagination'
+import { SegTabs, SegTab } from '@/components/SegTabs'
+import { AmenitiesAdmin } from './_sections/AmenitiesAdmin'
 
 const EVENTS_PAGE_SIZE = 8
+
+const ADMIN_TABS: SegTab[] = [
+  { id: 'calendar', label: 'Calendar' },
+  { id: 'amenities', label: 'Amenities' },
+]
+
+// Admin → Schedule mirrors the resident Easy Schedule: a Calendar tab (board
+// adds events) and an Amenities tab (board defines bookable amenities).
+export default function AdminSchedule() {
+  const [tab, setTab] = useState('calendar')
+  return (
+    <div className="admin-schedule-tabs">
+      <SegTabs tabs={ADMIN_TABS} active={tab} onChange={setTab} ariaLabel="Schedule admin sections" />
+      {tab === 'amenities' ? <AmenitiesAdmin /> : <CalendarAdmin />}
+    </div>
+  )
+}
 
 type EmptyForm = {
   kind: EventKind
@@ -94,10 +113,10 @@ function parseScheduleCsv(text: string): ParsedRow[] {
   return out
 }
 
-// Admin → Schedule. Board can add events one-off (form) or in bulk via a CSV
+// Calendar tab. Board can add events one-off (form) or in bulk via a CSV
 // upload. Everything they add shows up on the resident-facing /app/schedule
 // page and the dashboard's "Up next" rail.
-export default function AdminSchedule() {
+function CalendarAdmin() {
   const allEvents = useScheduleEvents()
   // Board-managed events (from the DB) + async add/remove. Realtime-synced,
   // so anything added here shows on every resident's calendar immediately.

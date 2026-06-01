@@ -4311,6 +4311,207 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 [data-theme="sketch"] .sched-subscribe-btn:hover { background: rgba(255, 255, 255, 0.28); }
 
 /* ============================================================
+   AMENITIES — the second tab of Easy Schedule (/app/schedule).
+   Searchable amenity cards (left) + "My reservations" (right);
+   each card opens a DetailDialog with a slot-booking form. Sketch
+   palette: cream cards, navy ink, terracotta action color.
+   ============================================================ */
+
+/* Segmented control sits between the hero and the tab body. */
+[data-theme="sketch"] .sched-tabs { margin-bottom: 22px; }
+
+[data-theme="sketch"] .amen-wrap { display: flex; flex-direction: column; gap: 18px; }
+
+[data-theme="sketch"] .amen-demo-note {
+  padding: 10px 14px;
+  background: rgba(225, 73, 9, 0.07);
+  border: 1px solid rgba(199, 111, 69, 0.28);
+  border-radius: 12px;
+  color: #6B4A2C;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* Search + kind chips */
+[data-theme="sketch"] .amen-controls {
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+}
+[data-theme="sketch"] .amen-search {
+  display: inline-flex; align-items: center; gap: 8px;
+  flex: 1; min-width: 220px;
+  padding: 9px 14px;
+  background: var(--bg-card);
+  border: 1px solid rgba(15, 28, 46, 0.14);
+  border-radius: 999px;
+  box-shadow: 0 10px 30px -24px rgba(31, 42, 58, 0.4);
+}
+[data-theme="sketch"] .amen-search svg { width: 16px; height: 16px; color: rgba(10, 36, 64, 0.5); flex-shrink: 0; }
+[data-theme="sketch"] .amen-search input {
+  flex: 1; border: none; background: transparent; outline: none;
+  font-family: inherit; font-size: 14px; color: #0A2440;
+}
+[data-theme="sketch"] .amen-search input::placeholder { color: rgba(10, 36, 64, 0.45); }
+[data-theme="sketch"] .amen-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+[data-theme="sketch"] .amen-chip {
+  padding: 7px 14px;
+  background: transparent;
+  border: 1.5px solid rgba(15, 28, 46, 0.16);
+  border-radius: 999px;
+  color: rgba(10, 36, 64, 0.75);
+  font-family: inherit; font-size: 12.5px; font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease, color 0.12s ease;
+}
+[data-theme="sketch"] .amen-chip:hover { border-color: #0A2440; }
+[data-theme="sketch"] .amen-chip.on { background: #0A2440; border-color: #0A2440; color: #fff; }
+
+/* Two-column body */
+[data-theme="sketch"] .amen-layout {
+  display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 22px; align-items: start;
+}
+[data-theme="sketch"] .amen-section-head {
+  font-size: 13px; letter-spacing: 0.4px; text-transform: uppercase;
+  font-weight: 700; color: rgba(10, 36, 64, 0.6); margin-bottom: 12px;
+}
+[data-theme="sketch"] .amen-empty {
+  padding: 28px; text-align: center; color: rgba(10, 36, 64, 0.55);
+  font-size: 14px; border: 1px dashed rgba(15, 28, 46, 0.2); border-radius: 14px;
+}
+
+/* Card grid */
+[data-theme="sketch"] .amen-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 16px;
+}
+[data-theme="sketch"] .amen-card {
+  display: flex; flex-direction: column; text-align: left;
+  background: var(--bg-card);
+  border: 1px solid rgba(15, 28, 46, 0.12);
+  border-radius: 16px;
+  overflow: hidden;
+  cursor: pointer;
+  padding: 0;
+  box-shadow: 0 10px 30px -24px rgba(31, 42, 58, 0.4);
+  transition: transform 0.14s ease, box-shadow 0.14s ease, border-color 0.14s ease;
+}
+[data-theme="sketch"] .amen-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(199, 111, 69, 0.45);
+  box-shadow: 0 18px 40px -26px rgba(31, 42, 58, 0.55);
+}
+[data-theme="sketch"] .amen-card-art {
+  height: 96px; display: flex; align-items: center; justify-content: center;
+  border-bottom: 1px solid rgba(15, 28, 46, 0.08);
+}
+[data-theme="sketch"] .amen-card-art svg { width: 38px; height: 38px; opacity: 0.85; }
+[data-theme="sketch"] .amen-card-body { padding: 13px 14px 14px; display: flex; flex-direction: column; gap: 6px; }
+[data-theme="sketch"] .amen-card-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+[data-theme="sketch"] .amen-card-name { font-size: 15px; font-weight: 700; color: #0A2440; line-height: 1.2; }
+[data-theme="sketch"] .amen-badge {
+  flex-shrink: 0;
+  padding: 3px 8px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.2px;
+  background: rgba(78, 113, 68, 0.14); color: #3E6E48;
+  white-space: nowrap;
+}
+[data-theme="sketch"] .amen-badge.info { background: rgba(15, 28, 46, 0.08); color: rgba(10, 36, 64, 0.6); }
+[data-theme="sketch"] .amen-card-loc { font-size: 12.5px; color: rgba(10, 36, 64, 0.6); }
+[data-theme="sketch"] .amen-card-foot {
+  display: flex; align-items: center; justify-content: space-between; margin-top: 4px;
+}
+[data-theme="sketch"] .amen-card-price { font-size: 13px; font-weight: 700; color: #0A2440; }
+[data-theme="sketch"] .amen-card-cta { font-size: 12.5px; font-weight: 700; color: #C45F2A; }
+
+/* Kind tints — soft hand-drawn washes behind the line-art glyphs + dots */
+[data-theme="sketch"] .amen-card-art.kind-pool      { background: #DCEBF0; color: #3E6E85; }
+[data-theme="sketch"] .amen-card-art.kind-clubhouse { background: #F1E4D3; color: #A8552F; }
+[data-theme="sketch"] .amen-card-art.kind-gym       { background: #E9E4D2; color: #6B6233; }
+[data-theme="sketch"] .amen-card-art.kind-court     { background: #DFEAD9; color: #4E7144; }
+[data-theme="sketch"] .amen-card-art.kind-marina    { background: #D9E6E6; color: #3E6E6E; }
+[data-theme="sketch"] .amen-card-art.kind-other     { background: #EDE6DC; color: #7C6A55; }
+[data-theme="sketch"] .amen-res-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 4px; }
+[data-theme="sketch"] .amen-res-dot.kind-pool      { background: #3E6E85; }
+[data-theme="sketch"] .amen-res-dot.kind-clubhouse { background: #A8552F; }
+[data-theme="sketch"] .amen-res-dot.kind-gym       { background: #6B6233; }
+[data-theme="sketch"] .amen-res-dot.kind-court     { background: #4E7144; }
+[data-theme="sketch"] .amen-res-dot.kind-marina    { background: #3E6E6E; }
+[data-theme="sketch"] .amen-res-dot.kind-other     { background: #7C6A55; }
+
+/* Right column */
+[data-theme="sketch"] .amen-side { display: flex; flex-direction: column; gap: 16px; }
+[data-theme="sketch"] .amen-side-card {
+  background: var(--bg-card);
+  border: 1px solid rgba(15, 28, 46, 0.12);
+  border-radius: 16px;
+  padding: 16px;
+  box-shadow: 0 10px 30px -24px rgba(31, 42, 58, 0.4);
+}
+[data-theme="sketch"] .amen-side-head {
+  font-size: 13px; letter-spacing: 0.4px; text-transform: uppercase;
+  font-weight: 700; color: rgba(10, 36, 64, 0.6); margin-bottom: 12px;
+}
+[data-theme="sketch"] .amen-side-empty { font-size: 13px; color: rgba(10, 36, 64, 0.55); line-height: 1.5; }
+[data-theme="sketch"] .amen-res-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+[data-theme="sketch"] .amen-res { display: flex; align-items: flex-start; gap: 10px; }
+[data-theme="sketch"] .amen-res-body { flex: 1; min-width: 0; }
+[data-theme="sketch"] .amen-res-name { font-size: 14px; font-weight: 700; color: #0A2440; }
+[data-theme="sketch"] .amen-res-meta { font-size: 12px; color: rgba(10, 36, 64, 0.6); margin-top: 1px; }
+[data-theme="sketch"] .amen-res-cancel {
+  background: transparent; border: none; padding: 2px 4px;
+  color: rgba(10, 36, 64, 0.5); font-family: inherit; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: color 0.12s ease;
+}
+[data-theme="sketch"] .amen-res-cancel:hover { color: #C73E07; }
+[data-theme="sketch"] .amen-help { background: rgba(225, 73, 9, 0.05); }
+[data-theme="sketch"] .amen-help-title { font-size: 13px; font-weight: 700; color: #0A2440; margin-bottom: 6px; }
+[data-theme="sketch"] .amen-help-text { font-size: 12.5px; color: rgba(10, 36, 64, 0.7); line-height: 1.5; margin: 0; }
+
+/* Booking dialog (inside DetailDialog's ven-rd shell) */
+[data-theme="sketch"] .amen-dlg-desc { font-size: 14px; color: rgba(10, 36, 64, 0.8); line-height: 1.55; margin: 0 0 14px; }
+[data-theme="sketch"] .amen-dlg-facts {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px 18px; margin-bottom: 16px;
+}
+[data-theme="sketch"] .amen-dlg-facts > div { display: flex; flex-direction: column; gap: 1px; }
+[data-theme="sketch"] .amen-dlg-facts span { font-size: 11px; text-transform: uppercase; letter-spacing: 0.4px; color: rgba(10, 36, 64, 0.5); font-weight: 700; }
+[data-theme="sketch"] .amen-dlg-facts strong { font-size: 13.5px; color: #0A2440; font-weight: 600; }
+[data-theme="sketch"] .amen-dlg-subhead { font-size: 12px; text-transform: uppercase; letter-spacing: 0.4px; color: rgba(10, 36, 64, 0.55); font-weight: 700; margin-bottom: 8px; }
+[data-theme="sketch"] .amen-dlg-rules { margin-bottom: 18px; }
+[data-theme="sketch"] .amen-dlg-rules ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 5px; }
+[data-theme="sketch"] .amen-dlg-rules li { font-size: 13px; color: rgba(10, 36, 64, 0.78); line-height: 1.45; }
+[data-theme="sketch"] .amen-dlg-note { font-size: 13.5px; color: rgba(10, 36, 64, 0.7); padding: 12px 14px; background: rgba(15,28,46,0.04); border-radius: 12px; }
+
+[data-theme="sketch"] .amen-book { border-top: 1px solid rgba(15, 28, 46, 0.1); padding-top: 16px; }
+[data-theme="sketch"] .amen-book-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 14px; }
+[data-theme="sketch"] .amen-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+[data-theme="sketch"] .amen-field > span { font-size: 12px; font-weight: 700; color: rgba(10, 36, 64, 0.7); }
+[data-theme="sketch"] .amen-field > span small { font-weight: 500; color: rgba(10, 36, 64, 0.45); }
+[data-theme="sketch"] .amen-field input {
+  padding: 9px 12px; border: 1px solid rgba(15, 28, 46, 0.18); border-radius: 10px;
+  font-family: inherit; font-size: 14px; color: #0A2440; background: #fff; outline: none;
+  transition: border-color 0.12s ease;
+}
+[data-theme="sketch"] .amen-field input:focus { border-color: #C76F45; }
+[data-theme="sketch"] .amen-slots { display: flex; flex-wrap: wrap; gap: 7px; }
+[data-theme="sketch"] .amen-slot {
+  padding: 6px 11px; border: 1.5px solid rgba(15, 28, 46, 0.16); border-radius: 999px;
+  background: transparent; color: #0A2440; font-family: inherit; font-size: 12.5px; font-weight: 600;
+  cursor: pointer; transition: all 0.12s ease;
+}
+[data-theme="sketch"] .amen-slot:hover:not(.taken):not(.on) { border-color: #0A2440; }
+[data-theme="sketch"] .amen-slot.on { background: #E14909; border-color: #E14909; color: #fff; }
+[data-theme="sketch"] .amen-slot.taken { opacity: 0.4; cursor: not-allowed; text-decoration: line-through; }
+[data-theme="sketch"] .amen-book-err {
+  margin-top: 12px; padding: 9px 12px;
+  background: rgba(176, 58, 46, 0.10); border: 1px solid rgba(176, 58, 46, 0.3);
+  border-radius: 10px; color: #9B2C22; font-size: 12.5px; font-weight: 600;
+}
+
+@media (max-width: 880px) {
+  [data-theme="sketch"] .amen-layout { grid-template-columns: 1fr; }
+  [data-theme="sketch"] .amen-dlg-facts { grid-template-columns: 1fr; }
+  [data-theme="sketch"] .amen-book-row { grid-template-columns: 1fr; }
+}
+
+/* ============================================================
    RULES — resident-facing rule book page (/app/rules).
    Hero banner → search + chip strip → 2-col main (Browse + Most
    Viewed) → Violations & Enforcement stats → Suggest a change CTA.
@@ -4964,6 +5165,32 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
   display: flex; justify-content: flex-end;
   margin-top: 4px;
 }
+
+/* Amenities admin extras: textareas, a full-width field, a checkbox row,
+   side-by-side row actions, and spacing under the Calendar|Amenities tabs. */
+[data-theme="sketch"] .admin-field-wide { grid-column: 1 / -1; }
+[data-theme="sketch"] .admin-field textarea {
+  padding: 10px 16px;
+  background-color: #FBF7F1;
+  border: 1.5px solid rgba(199, 111, 69, 0.30);
+  border-radius: 14px;
+  font-family: inherit; font-size: 13px; font-weight: 600; color: #0A2440;
+  outline: none; resize: vertical; line-height: 1.5;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease, background-color 0.12s ease;
+}
+[data-theme="sketch"] .admin-field textarea::placeholder { color: rgba(10, 36, 64, 0.40); font-weight: 500; }
+[data-theme="sketch"] .admin-field textarea:hover { border-color: rgba(225, 73, 9, 0.55); background-color: rgba(225, 73, 9, 0.06); }
+[data-theme="sketch"] .admin-field textarea:focus { border-color: #E14909; background-color: #FFFFFF; box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.14); }
+[data-theme="sketch"] .admin-field-check {
+  grid-column: 1 / -1;
+  flex-direction: row; align-items: center; gap: 10px;
+}
+[data-theme="sketch"] .admin-field-check input { width: 18px; height: 18px; flex: none; accent-color: #E14909; cursor: pointer; }
+[data-theme="sketch"] .admin-field-check span {
+  font-size: 13px; letter-spacing: 0; text-transform: none; font-weight: 600; color: #0A2440;
+}
+[data-theme="sketch"] .admin-amen-row-actions { display: flex; gap: 4px; flex-shrink: 0; }
+[data-theme="sketch"] .admin-schedule-tabs .seg-tabs { margin-bottom: 22px; }
 [data-theme="sketch"] .admin-primary-btn {
   padding: 10px 22px;
   background: #0A2440;
