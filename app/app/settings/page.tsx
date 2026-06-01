@@ -991,10 +991,16 @@ function DialogBody({
           <div className="set-readonly-rows">
             <div className="set-readonly-row"><span>Unit</span><span>{unitLabel}</span></div>
             <div className="set-readonly-row"><span>Community</span><span>{community}</span></div>
-            <div className="set-readonly-row"><span>Square footage</span><span>1,420 sq ft</span></div>
-            <div className="set-readonly-row"><span>Ownership</span><span>Owner-occupied</span></div>
-            <div className="set-readonly-row"><span>Move-in date</span><span>Jan 15, 2023</span></div>
+            {roster?.address && (
+              <div className="set-readonly-row"><span>Address</span><span>{roster.address}</span></div>
+            )}
           </div>
+          {!roster && (
+            <p className="set-dialog-note set-dialog-note-tight">
+              Once the board adds you to the roster (matched by your email), your
+              unit details will show here.
+            </p>
+          )}
         </>
       )
 

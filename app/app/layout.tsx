@@ -112,7 +112,8 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
     const root = document.documentElement
     if (prefs.large_text)  root.setAttribute('data-text-size', 'large'); else root.removeAttribute('data-text-size')
     if (prefs.high_contrast) root.setAttribute('data-contrast', 'high'); else root.removeAttribute('data-contrast')
-  }, [prefs.large_text, prefs.high_contrast])
+    if (prefs.reduced_motion) root.setAttribute('data-reduced-motion', 'reduce'); else root.removeAttribute('data-reduced-motion')
+  }, [prefs.large_text, prefs.high_contrast, prefs.reduced_motion])
 
   if (hasSupabase && !session && !isPreview) return null  // don't flash cockpit during redirect
 

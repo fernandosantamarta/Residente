@@ -6964,7 +6964,16 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 /* ===== Accessibility preferences (set on <html> from Settings) =====
    Larger text bumps the document root font-size; relative units
    throughout the cockpit scale with it. High contrast strengthens
-   borders + darkens muted text site-wide. */
+   borders + darkens muted text site-wide. Reduce motion neutralizes
+   animations + transitions app-wide (not just the sign-in intro). */
+html[data-reduced-motion="reduce"] *,
+html[data-reduced-motion="reduce"] *::before,
+html[data-reduced-motion="reduce"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
 html[data-text-size="large"] {
   font-size: 18px;             /* default is 16px → ~12.5% bump */
 }
