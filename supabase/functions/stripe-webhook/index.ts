@@ -54,6 +54,25 @@ Deno.serve(async (req) => {
         status: 200, headers: { 'Content-Type': 'application/json' },
       })
     }
+
+    // Amenity reservation checkout (create-amenity-checkout) carries a
+    // reservation_id instead of a resident_id. Flip that reservation to paid.
+    // Idempotent: a Stripe retry re-runs the same UPDATE harmlessly.
+    const reservation_id = session.metadata?.reservation_id
+    if (reservation_id) {
+      const { error } = await admin
+        .from('ev_amenity_reservations')
+        .update({ payment_status: 'paid', stripe_session_id: session.id })
+        .eq('id', reservation_id)
+      if (error) {
+        console.error('Failed to mark reservation paid:', error)
+        return new Response('Update failed', { status: 500 })
+      }
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200, headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
     const resident_id = session.metadata?.resident_id
     const community_id = session.metadata?.community_id
     // Trust Stripe's own figure for what was actually charged.

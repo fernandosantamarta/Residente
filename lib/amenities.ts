@@ -10,7 +10,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/app/providers'
-import { supabase, hasSupabase } from '@/lib/supabase'
+import { supabase, hasSupabase, stripeEnabled } from '@/lib/supabase'
 
 export type AmenityKind = 'pool' | 'clubhouse' | 'gym' | 'court' | 'marina' | 'other'
 
@@ -39,6 +39,7 @@ export type Reservation = {
   status: 'confirmed' | 'cancelled'
   note?: string
   priceCents: number
+  paymentStatus: 'none' | 'pending' | 'paid'
 }
 
 export const KIND_LABEL: Record<AmenityKind, string> = {
@@ -76,7 +77,7 @@ export const DEMO_AMENITIES: Amenity[] = [
     description: 'Event space with a full kitchen and lounge — great for parties and meetings.',
     location: 'Main building', capacity: 40, hours: 'Daily 8am–10pm',
     rules: ['Reserve at least 48 hours ahead', 'Leave it clean for the next neighbor', 'No open flames indoors'],
-    priceCents: 0, bookable: true, slotMinutes: 120,
+    priceCents: 7500, bookable: true, slotMinutes: 120,
   },
   {
     id: 'demo-pool', kind: 'pool', name: 'Resort Pool',
@@ -133,6 +134,7 @@ const rowToReservation = (r: any): Reservation => ({
   status:       r.status,
   note:         r.note ?? undefined,
   priceCents:   r.price_cents ?? 0,
+  paymentStatus: r.payment_status ?? 'none',
 })
 
 export type BookInput = {
@@ -174,7 +176,7 @@ export function useAmenityHub() {
           .order('name', { ascending: true }),
         supabase!
           .from('ev_amenity_reservations')
-          .select('id, amenity_id, reserved_date, start_time, end_time, party_size, status, note, price_cents')
+          .select('id, amenity_id, reserved_date, start_time, end_time, party_size, status, note, price_cents, payment_status')
           .eq('community_id', communityId)
           .eq('profile_id', profileId)
           .neq('status', 'cancelled')
@@ -219,6 +221,10 @@ export function useAmenityHub() {
 
   const book = useCallback(async (input: BookInput): Promise<string | null> => {
     if (live && canUseDb) {
+      // Priced amenity + Stripe configured → hold the slot as 'pending' and
+      // send the resident to Stripe; the webhook flips it to 'paid'. Free (or
+      // no Stripe) → confirm immediately.
+      const paid = input.priceCents > 0 && stripeEnabled
       const { data, error } = await supabase!
         .from('ev_amenity_reservations')
         .insert({
@@ -232,19 +238,37 @@ export function useAmenityHub() {
           note:         input.note || null,
           price_cents:  input.priceCents,
           status:       'confirmed',
+          payment_status: paid ? 'pending' : 'none',
         })
         .select('id')
         .single()
       if (error) throw error
+      const id = data?.id ?? null
+
+      if (paid && id) {
+        const { data: co, error: coErr } = await supabase!.functions.invoke(
+          'create-amenity-checkout',
+          { body: { reservation_id: id } },
+        )
+        if (coErr || !co?.url) {
+          // Couldn't start checkout — release the just-held slot so it isn't
+          // stuck pending, then surface the error.
+          await supabase!.from('ev_amenity_reservations').delete().eq('id', id)
+          throw new Error(co?.error || coErr?.message || 'Could not start checkout')
+        }
+        if (typeof window !== 'undefined') window.location.href = co.url as string
+        return id
+      }
+
       await load()
-      return data?.id ?? null
+      return id
     }
     // Demo / preview: keep the booking in local state so the flow is real to click.
     const id = `local-${input.amenityId}-${input.reservedDate}-${input.startTime}`
     setLocalReservations(prev =>
       prev.some(r => r.id === id)
         ? prev
-        : [...prev, { ...input, id, status: 'confirmed' }],
+        : [...prev, { ...input, id, status: 'confirmed', paymentStatus: 'none' }],
     )
     return id
   }, [live, canUseDb, communityId, profileId, load])
@@ -416,6 +440,7 @@ export type AdminReservation = {
   status: 'confirmed' | 'cancelled'
   note?: string
   residentName: string
+  paymentStatus: 'none' | 'pending' | 'paid'
 }
 
 export type CommunityResident = { id: string; name: string }
@@ -439,7 +464,7 @@ export function useAmenityBookings() {
       const [rRes, pRes] = await Promise.all([
         supabase!
           .from('ev_amenity_reservations')
-          .select('id, amenity_id, reserved_date, start_time, party_size, status, note, profiles(full_name)')
+          .select('id, amenity_id, reserved_date, start_time, party_size, status, note, payment_status, profiles(full_name)')
           .eq('community_id', communityId)
           .neq('status', 'cancelled')
           .order('reserved_date', { ascending: true })
@@ -461,6 +486,7 @@ export function useAmenityBookings() {
         status:       r.status,
         note:         r.note ?? undefined,
         residentName: r.profiles?.full_name || 'Resident',
+        paymentStatus: r.payment_status ?? 'none',
       })))
       setResidents((pRes.data ?? []).map((p: any) => ({ id: p.id, name: p.full_name || 'Resident' })))
       setError(null)

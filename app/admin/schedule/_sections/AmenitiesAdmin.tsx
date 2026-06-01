@@ -404,6 +404,8 @@ export function AmenitiesAdmin() {
                   <div className="admin-sched-row-body">
                     <div className="admin-sched-row-title">
                       {r.residentName} · {amenityName[r.amenityId] || 'Amenity'}
+                      {r.paymentStatus === 'paid' && <span className="amen-pay-tag paid">Paid</span>}
+                      {r.paymentStatus === 'pending' && <span className="amen-pay-tag pending">Payment pending</span>}
                     </div>
                     <div className="admin-sched-row-meta">
                       {fmtResDate(r.reservedDate)} · {fmtSlot(r.startTime)}

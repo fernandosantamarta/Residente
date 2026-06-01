@@ -4508,6 +4508,18 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
   background: rgba(176, 58, 46, 0.10); border: 1px solid rgba(176, 58, 46, 0.3);
   border-radius: 10px; color: #9B2C22; font-size: 12.5px; font-weight: 600;
 }
+/* Payment-status pills on reservations (resident + admin) */
+[data-theme="sketch"] .amen-pay-tag {
+  display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.2px; vertical-align: middle;
+}
+[data-theme="sketch"] .amen-pay-tag.paid { background: rgba(78, 113, 68, 0.16); color: #3E6E48; }
+[data-theme="sketch"] .amen-pay-tag.pending { background: rgba(225, 73, 9, 0.12); color: #C45F2A; }
+[data-theme="sketch"] .amen-paid-note {
+  padding: 10px 14px; background: rgba(78, 113, 68, 0.12);
+  border: 1px solid rgba(78, 113, 68, 0.32); border-radius: 12px;
+  color: #2F5A38; font-size: 13px; font-weight: 600;
+}
 
 @media (max-width: 880px) {
   [data-theme="sketch"] .amen-layout { grid-template-columns: 1fr; }

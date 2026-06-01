@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { DetailDialog } from '@/app/app/track/_sections/DetailDialog'
 import {
   Amenity,
@@ -46,6 +46,19 @@ export function AmenitiesSection() {
   const [query, setQuery] = useState('')
   const [kindFilter, setKindFilter] = useState<AmenityKind | 'all'>('all')
   const [active, setActive] = useState<Amenity | null>(null)
+  // Returned from Stripe checkout — confirm, then strip the query param so a
+  // refresh doesn't re-show it. The 'paid' badge arrives via realtime.
+  const [justPaid, setJustPaid] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('amenity_paid') === '1') {
+      setJustPaid(true)
+      params.delete('amenity_paid')
+      const qs = params.toString()
+      window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}${window.location.hash}`)
+    }
+  }, [])
 
   // Kinds present in the catalog, in catalog order, for the filter chips.
   const kinds = useMemo(() => {
@@ -74,6 +87,11 @@ export function AmenitiesSection() {
 
   return (
     <div className="amen-wrap">
+      {justPaid && (
+        <div className="amen-paid-note" role="status">
+          Payment received — your reservation is confirmed.
+        </div>
+      )}
       {!live && (
         <div className="amen-demo-note">
           Showing a sample amenity set. Once your board adds amenities, they appear here automatically.
@@ -157,7 +175,11 @@ export function AmenitiesSection() {
                     <li key={r.id} className="amen-res">
                       <span className={`amen-res-dot kind-${a?.kind ?? 'other'}`} />
                       <div className="amen-res-body">
-                        <div className="amen-res-name">{a?.name ?? 'Amenity'}</div>
+                        <div className="amen-res-name">
+                          {a?.name ?? 'Amenity'}
+                          {r.paymentStatus === 'paid' && <span className="amen-pay-tag paid">Paid</span>}
+                          {r.paymentStatus === 'pending' && <span className="amen-pay-tag pending">Payment pending</span>}
+                        </div>
                         <div className="amen-res-meta">
                           {fmtDate(r.reservedDate)} · {fmtSlot(r.startTime)}
                           {r.partySize > 1 && <> · {r.partySize} people</>}
@@ -176,8 +198,8 @@ export function AmenitiesSection() {
           <div className="amen-side-card amen-help">
             <div className="amen-help-title">How booking works</div>
             <p className="amen-help-text">
-              Reservations are free and confirm instantly. Book up to one slot at a
-              time, and cancel any time from this list.
+              Free amenities confirm instantly; paid ones take you to secure
+              checkout. Cancel any time from this list.
             </p>
           </div>
         </aside>
@@ -248,7 +270,7 @@ function BookDialog({
     <>
       <button type="button" className="ven-cta-secondary" onClick={onClose}>Cancel</button>
       <button type="button" className="ven-cta-primary" onClick={submit} disabled={!slot || busy}>
-        {busy ? 'Booking…' : 'Reserve'}
+        {busy ? 'Booking…' : amenity.priceCents > 0 ? `Reserve · ${priceLabel(amenity.priceCents)}` : 'Reserve'}
       </button>
     </>
   ) : undefined

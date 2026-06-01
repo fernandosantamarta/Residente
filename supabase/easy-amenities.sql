@@ -96,6 +96,20 @@ create unique index if not exists ev_amenity_res_slot_unique
   on public.ev_amenity_reservations (amenity_id, reserved_date, start_time)
   where status <> 'cancelled';
 
+-- Payment state for priced amenities (Stripe). 'none' = free/no charge,
+-- 'pending' = slot held while the resident is in Stripe checkout, 'paid' =
+-- confirmed by the stripe-webhook. A pending row still holds the slot (the
+-- unique index above), so an abandoned checkout keeps the slot until the
+-- board cancels it.
+alter table public.ev_amenity_reservations
+  add column if not exists payment_status text not null default 'none';
+do $$ begin
+  alter table public.ev_amenity_reservations
+    add constraint ev_amenity_res_payment_chk check (payment_status in ('none','pending','paid'));
+exception when duplicate_object then null; end $$;
+alter table public.ev_amenity_reservations
+  add column if not exists stripe_session_id text;
+
 alter table public.ev_amenity_reservations enable row level security;
 grant select, insert, update, delete on public.ev_amenity_reservations to authenticated;
 grant select, insert, update, delete on public.ev_amenity_reservations to service_role;
