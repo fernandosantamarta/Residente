@@ -28,6 +28,7 @@ import {
   listHomeDocs, uploadHomeDoc, setConveys, deleteHomeDoc, homeDocUrl,
   transferHome, HOME_DOC_CATEGORIES, type HomeDoc,
 } from '@/lib/homeVault'
+import { loadNotificationPrefs, saveNotificationPrefs } from '@/lib/notificationPrefs'
 import '../home/home.css'
 
 // Every row + sidebar CTA opens a dialog (keyed below). One generic
@@ -127,6 +128,33 @@ export default function Settings() {
       }
     } catch { /* keep the local prefs copy */ }
   }
+
+  // Mirror the notification subset of prefs to the DB so the server-side notice
+  // fan-out can honor them (localStorage alone is invisible to the server).
+  // Seed from the DB once on load, then upsert whenever a notification pref
+  // changes. Requires supabase/resident-notification-prefs.sql.
+  const notifSeeded = useRef(false)
+  useEffect(() => {
+    if (!profile?.id) return
+    let cancelled = false
+    ;(async () => {
+      const row = await loadNotificationPrefs(profile.id)
+      if (cancelled) return
+      if (row) patch(row)
+      notifSeeded.current = true
+    })()
+    return () => { cancelled = true }
+  }, [profile?.id])
+  useEffect(() => {
+    if (!notifSeeded.current || !profile?.id) return
+    void saveNotificationPrefs(profile.id, {
+      email_pref: prefs.email_pref,
+      sms_pref: prefs.sms_pref,
+      push_pref: prefs.push_pref,
+      quiet_hours_start: prefs.quiet_hours_start,
+      quiet_hours_end: prefs.quiet_hours_end,
+    })
+  }, [prefs.email_pref, prefs.sms_pref, prefs.push_pref, prefs.quiet_hours_start, prefs.quiet_hours_end, profile?.id])
 
   const fullName    = prefs.full_name || profile?.full_name || 'Resident'
   const email       = prefs.email     || profile?.email     || 'resident@example.com'
