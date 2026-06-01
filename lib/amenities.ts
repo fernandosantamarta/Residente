@@ -399,3 +399,124 @@ export function useManageAmenities() {
 
   return { amenities, loading, error, canUseDb, addAmenity, updateAmenity, removeAmenity }
 }
+
+// ---------------------------------------------------------------
+// Board reservations oversight (/admin/schedule → Amenities tab).
+// Reads EVERY reservation in the community (RLS lets the board do this,
+// residents only see their own), cancels any of them, and books on a
+// resident's behalf. Mirrors the resident hub but community-wide.
+// ---------------------------------------------------------------
+
+export type AdminReservation = {
+  id: string
+  amenityId: string
+  reservedDate: string
+  startTime: string
+  partySize: number
+  status: 'confirmed' | 'cancelled'
+  note?: string
+  residentName: string
+}
+
+export type CommunityResident = { id: string; name: string }
+
+export type BookForInput = BookInput & { profileId: string }
+
+export function useAmenityBookings() {
+  const { profile } = useAuth() || {}
+  const communityId = profile?.community_id
+  const canUseDb = !!(hasSupabase && supabase && communityId)
+
+  const [reservations, setReservations] = useState<AdminReservation[]>([])
+  const [residents, setResidents] = useState<CommunityResident[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [channelId] = useState(() => Math.random().toString(36).slice(2))
+
+  const load = useCallback(async () => {
+    if (!canUseDb) { setLoading(false); return }
+    try {
+      const [rRes, pRes] = await Promise.all([
+        supabase!
+          .from('ev_amenity_reservations')
+          .select('id, amenity_id, reserved_date, start_time, party_size, status, note, profiles(full_name)')
+          .eq('community_id', communityId)
+          .neq('status', 'cancelled')
+          .order('reserved_date', { ascending: true })
+          .order('start_time', { ascending: true }),
+        supabase!
+          .from('profiles')
+          .select('id, full_name')
+          .eq('community_id', communityId)
+          .order('full_name', { ascending: true }),
+      ])
+      if (rRes.error) throw rRes.error
+      if (pRes.error) throw pRes.error
+      setReservations((rRes.data ?? []).map((r: any) => ({
+        id:           r.id,
+        amenityId:    r.amenity_id,
+        reservedDate: r.reserved_date,
+        startTime:    r.start_time,
+        partySize:    r.party_size ?? 1,
+        status:       r.status,
+        note:         r.note ?? undefined,
+        residentName: r.profiles?.full_name || 'Resident',
+      })))
+      setResidents((pRes.data ?? []).map((p: any) => ({ id: p.id, name: p.full_name || 'Resident' })))
+      setError(null)
+    } catch (e: any) {
+      setError(e?.message || 'Could not load reservations')
+    } finally {
+      setLoading(false)
+    }
+  }, [canUseDb, communityId])
+
+  useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    if (!canUseDb) return
+    const channel = supabase!
+      .channel(`amenity-bookings:${communityId}:${channelId}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'ev_amenity_reservations',
+        filter: `community_id=eq.${communityId}`,
+      }, () => { load() })
+      .subscribe()
+    return () => { supabase!.removeChannel(channel) }
+  }, [canUseDb, communityId, channelId, load])
+
+  const cancel = useCallback(async (id: string) => {
+    if (!canUseDb) return
+    const { error } = await supabase!
+      .from('ev_amenity_reservations')
+      .update({ status: 'cancelled' })
+      .eq('id', id)
+    if (error) throw error
+    await load()
+  }, [canUseDb, load])
+
+  const bookFor = useCallback(async (input: BookForInput): Promise<string | null> => {
+    if (!canUseDb) return null
+    const { data, error } = await supabase!
+      .from('ev_amenity_reservations')
+      .insert({
+        community_id: communityId,
+        amenity_id:   input.amenityId,
+        profile_id:   input.profileId,
+        reserved_date: input.reservedDate,
+        start_time:   input.startTime,
+        end_time:     input.endTime || null,
+        party_size:   input.partySize,
+        note:         input.note || null,
+        price_cents:  input.priceCents,
+        status:       'confirmed',
+      })
+      .select('id')
+      .single()
+    if (error) throw error
+    await load()
+    return data?.id ?? null
+  }, [canUseDb, communityId, load])
+
+  return { reservations, residents, loading, error, canUseDb, cancel, bookFor }
+}

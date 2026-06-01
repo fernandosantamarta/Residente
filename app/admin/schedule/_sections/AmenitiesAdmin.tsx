@@ -5,13 +5,24 @@ import {
   AmenityInput,
   AmenityKind,
   KIND_LABEL,
+  TIME_SLOTS,
+  fmtSlot,
   priceLabel,
   useManageAmenities,
+  useAmenityBookings,
 } from '@/lib/amenities'
 import { Dropdown } from '@/components/Dropdown'
 import { Pagination, paginate } from '@/components/Pagination'
 
 const PAGE_SIZE = 8
+
+function todayISO() {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+function fmtResDate(iso: string) {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+}
 
 const KIND_OPTIONS: { value: AmenityKind; label: string }[] = [
   { value: 'clubhouse', label: 'Clubhouse' },
@@ -58,12 +69,62 @@ function formToInput(f: FormState): AmenityInput {
 
 export function AmenitiesAdmin() {
   const { amenities, addAmenity, updateAmenity, removeAmenity, canUseDb } = useManageAmenities()
+  const { reservations, residents, cancel: cancelReservation, bookFor } = useAmenityBookings()
 
   const [form, setForm] = useState<FormState>(EMPTY)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState('')
   const [error, setError] = useState('')
   const [page, setPage] = useState(1)
+  const [resPage, setResPage] = useState(1)
+
+  // "Book for a resident" form.
+  const [bf, setBf] = useState({ residentId: '', amenityId: '', date: todayISO(), slot: '', party: '1', note: '' })
+  const [bfErr, setBfErr] = useState('')
+
+  const amenityName = useMemo(() => {
+    const m: Record<string, string> = {}
+    for (const a of amenities) m[a.id] = a.name
+    return m
+  }, [amenities])
+  const bookableAmenities = useMemo(() => amenities.filter(a => a.bookable), [amenities])
+  const sortedReservations = useMemo(
+    () => [...reservations].sort((a, b) => (a.reservedDate + a.startTime).localeCompare(b.reservedDate + b.startTime)),
+    [reservations],
+  )
+
+  const submitBookFor = async () => {
+    if (!bf.residentId || !bf.amenityId || !bf.slot) { setBfErr('Pick a resident, an amenity, and a time.'); return }
+    const am = amenities.find(a => a.id === bf.amenityId)
+    try {
+      await bookFor({
+        profileId: bf.residentId,
+        amenityId: bf.amenityId,
+        reservedDate: bf.date,
+        startTime: bf.slot,
+        partySize: Math.max(1, Number(bf.party) || 1),
+        note: bf.note.trim() || undefined,
+        priceCents: am?.priceCents ?? 0,
+      })
+      setBf(prev => ({ ...prev, slot: '', note: '' }))
+      setBfErr('')
+      const who = residents.find(r => r.id === bf.residentId)?.name || 'the resident'
+      setSuccessMsg(`Booked ${am?.name || 'amenity'} for ${who}.`)
+    } catch (e: any) {
+      const dup = e?.code === '23505' || /duplicate|unique/i.test(e?.message || '')
+      setBfErr(dup ? 'That slot is already booked. Pick another time.' : (e?.message || 'Could not book that slot.'))
+    }
+  }
+
+  const onCancelRes = async (id: string, who: string) => {
+    if (!window.confirm(`Cancel ${who}'s reservation?`)) return
+    try {
+      await cancelReservation(id)
+      setSuccessMsg('Reservation cancelled.')
+    } catch (e: any) {
+      setError(e?.message || 'Could not cancel the reservation.')
+    }
+  }
 
   useEffect(() => {
     if (!successMsg) return
@@ -266,6 +327,101 @@ export function AmenitiesAdmin() {
               ))}
             </div>
             <Pagination page={page} pageSize={PAGE_SIZE} total={sorted.length} onPageChange={setPage} />
+          </>
+        )}
+      </section>
+
+      {/* ---------- BOOK FOR A RESIDENT ---------- */}
+      <section className="admin-sched-card">
+        <div className="admin-sched-card-head">
+          <h2>Book for a resident</h2>
+          <span className="admin-sched-card-sub">Front-desk or phone request — reserve a slot on their behalf.</span>
+        </div>
+        {bookableAmenities.length === 0 ? (
+          <div className="admin-sched-empty">Add a bookable amenity above first.</div>
+        ) : (
+          <div className="admin-sched-form">
+            <div className="admin-field">
+              <span>Resident</span>
+              <Dropdown<string>
+                value={bf.residentId}
+                onChange={v => setBf(prev => ({ ...prev, residentId: v }))}
+                ariaLabel="Resident"
+                options={[{ value: '', label: 'Select a resident…' }, ...residents.map(r => ({ value: r.id, label: r.name }))]}
+              />
+            </div>
+            <div className="admin-field">
+              <span>Amenity</span>
+              <Dropdown<string>
+                value={bf.amenityId}
+                onChange={v => setBf(prev => ({ ...prev, amenityId: v }))}
+                ariaLabel="Amenity"
+                options={[{ value: '', label: 'Select an amenity…' }, ...bookableAmenities.map(a => ({ value: a.id, label: a.name }))]}
+              />
+            </div>
+            <label className="admin-field">
+              <span>Date</span>
+              <input type="date" min={todayISO()} value={bf.date} onChange={e => setBf(prev => ({ ...prev, date: e.target.value }))} />
+            </label>
+            <div className="admin-field">
+              <span>Time</span>
+              <Dropdown<string>
+                value={bf.slot}
+                onChange={v => setBf(prev => ({ ...prev, slot: v }))}
+                ariaLabel="Time"
+                options={[{ value: '', label: 'Select a time…' }, ...TIME_SLOTS.map(t => ({ value: t, label: fmtSlot(t) }))]}
+              />
+            </div>
+            <label className="admin-field">
+              <span>Party size</span>
+              <input type="number" min={1} value={bf.party} onChange={e => setBf(prev => ({ ...prev, party: e.target.value }))} />
+            </label>
+            <label className="admin-field">
+              <span>Note <em>(optional)</em></span>
+              <input type="text" value={bf.note} onChange={e => setBf(prev => ({ ...prev, note: e.target.value }))} placeholder="e.g. Birthday party" />
+            </label>
+            {bfErr && <div className="admin-field-wide"><div className="admin-note admin-note-err">{bfErr}</div></div>}
+            <div className="admin-sched-form-foot">
+              <button type="button" className="admin-primary-btn" onClick={submitBookFor}>Book reservation</button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      {/* ---------- UPCOMING RESERVATIONS ---------- */}
+      <section className="admin-sched-card">
+        <div className="admin-sched-card-head">
+          <h2>Reservations</h2>
+          <span className="admin-sched-card-sub">{reservations.length} active — who&rsquo;s booked what.</span>
+        </div>
+        {reservations.length === 0 ? (
+          <div className="admin-sched-empty">No reservations yet.</div>
+        ) : (
+          <>
+            <div className="admin-sched-list">
+              {paginate(sortedReservations, resPage, PAGE_SIZE).map(r => (
+                <div key={r.id} className="admin-sched-row">
+                  <div className="admin-sched-row-body">
+                    <div className="admin-sched-row-title">
+                      {r.residentName} · {amenityName[r.amenityId] || 'Amenity'}
+                    </div>
+                    <div className="admin-sched-row-meta">
+                      {fmtResDate(r.reservedDate)} · {fmtSlot(r.startTime)}
+                      {r.partySize > 1 && <> · {r.partySize} people</>}
+                      {r.note && <> · “{r.note}”</>}
+                    </div>
+                  </div>
+                  <button
+                    className="admin-sched-row-del"
+                    onClick={() => onCancelRes(r.id, r.residentName)}
+                    aria-label={`Cancel ${r.residentName}'s reservation`}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ))}
+            </div>
+            <Pagination page={resPage} pageSize={PAGE_SIZE} total={sortedReservations.length} onPageChange={setResPage} />
           </>
         )}
       </section>

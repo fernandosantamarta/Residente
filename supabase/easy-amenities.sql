@@ -125,6 +125,21 @@ create policy "resident inserts own reservation"
     and profile_id = auth.uid()
   );
 
+-- The board can book on a resident's behalf (phone request, front desk).
+-- Distinct from the resident self-insert above: here profile_id is some OTHER
+-- community member, allowed only because the caller is board.
+drop policy if exists "board books for residents" on public.ev_amenity_reservations;
+create policy "board books for residents"
+  on public.ev_amenity_reservations for insert to authenticated
+  with check (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
+    and profile_id in (
+      select id from public.profiles
+      where community_id = (select community_id from public.profiles where id = auth.uid())
+    )
+  );
+
 -- A resident cancels/edits their own reservation; the board can manage any
 -- reservation in their community.
 drop policy if exists "owner or board updates reservation" on public.ev_amenity_reservations;
