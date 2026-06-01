@@ -164,6 +164,60 @@ create policy "owner or board deletes reservation"
     )
   );
 
+-- ---------- INTERCONNECT: new reservation -> board bell notice ----------
+-- When a reservation is created, alert the BOARD (not the whole community).
+-- The notice is inserted with empty channels so the generic ev_notice_fanout
+-- (one recipient per community member) skips it; then we add in_app recipient
+-- rows for board/admin only, minus whoever made the booking. Mirrors the
+-- schedule notify trigger, but board-scoped.
+alter table public.ev_notices drop constraint if exists ev_notices_kind_check;
+alter table public.ev_notices add constraint ev_notices_kind_check
+  check (kind in ('meeting_published','meeting_reminder','document_uploaded',
+                  'vote_opened','vote_reminder','vote_results','minutes_published',
+                  'proxy_submitted','custom_broadcast','amenity_booked'));
+
+create or replace function public.ev_amenity_booking_notice()
+returns trigger language plpgsql security definer as $$
+declare
+  nid uuid;
+  amenity_name text;
+  resident_name text;
+begin
+  if new.status <> 'confirmed' then return new; end if;
+
+  select name into amenity_name from public.ev_amenities where id = new.amenity_id;
+  select coalesce(full_name, 'A resident') into resident_name
+    from public.profiles where id = new.profile_id;
+
+  insert into public.ev_notices (community_id, kind, channels, subject, body, sent_by)
+  values (
+    new.community_id,
+    'amenity_booked',
+    array[]::text[],                      -- empty → generic fanout skips it
+    'New reservation: ' || coalesce(amenity_name, 'amenity'),
+    resident_name || ' reserved ' || coalesce(amenity_name, 'an amenity')
+      || ' · ' || to_char(new.reserved_date, 'Mon FMDD')
+      || coalesce(' at ' || new.start_time, ''),
+    null
+  )
+  returning id into nid;
+
+  insert into public.ev_notice_recipients (notice_id, community_id, profile_id, channel)
+  select nid, new.community_id, p.id, 'in_app'
+    from public.profiles p
+   where p.community_id = new.community_id
+     and p.role in ('board_member','admin')
+     and p.id is distinct from auth.uid()  -- don't ping whoever booked it
+  on conflict (notice_id, profile_id, channel) do nothing;
+
+  return new;
+end $$;
+
+drop trigger if exists ev_amenity_booking_notice_trg on public.ev_amenity_reservations;
+create trigger ev_amenity_booking_notice_trg
+  after insert on public.ev_amenity_reservations
+  for each row execute function public.ev_amenity_booking_notice();
+
 -- ---------- OPTIONAL seed: a starter set of amenities ----------
 -- Uncomment and set :community to a real communities.id to give a community
 -- a default amenity catalog. The resident UI also ships a demo catalog in

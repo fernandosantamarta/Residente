@@ -95,6 +95,7 @@ export type NoticeKind =
   | 'minutes_published'
   | 'proxy_submitted'
   | 'custom_broadcast'
+  | 'amenity_booked'
 
 export type NoticeChannel = 'in_app' | 'email' | 'sms'
 
@@ -112,9 +113,12 @@ export const NOTICE_KIND_LABELS: Record<NoticeKind, string> = {
   minutes_published: 'Minutes published',
   proxy_submitted:   'Proxy submitted',
   custom_broadcast:  'Announcement',
+  amenity_booked:    'Amenity reserved',
 }
 
-export function noticeHref(n: { meeting_id?: string | null; vote_id?: string | null }): string {
+export function noticeHref(n: { kind?: string | null; meeting_id?: string | null; vote_id?: string | null }): string {
+  // Amenity bookings notify the board — send them to the admin reservations view.
+  if (n.kind === 'amenity_booked') return '/admin/schedule#amenities'
   if (n.meeting_id) return `/app/voice/${n.meeting_id}`
   return '/app/voice'
 }
