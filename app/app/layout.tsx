@@ -13,6 +13,7 @@ import { useCommunityData } from '@/hooks/useCommunityData'
 import { useWeather } from '@/hooks/useWeather'
 import { usePlatformAdmin } from '@/hooks/usePlatform'
 import { usePreferences } from '@/lib/preferences'
+import { useT } from '@/lib/i18n'
 import { DUES_LABEL } from '@/lib/dues'
 import { CommunitySwitcher } from '../CommunitySwitcher'
 import { CommunitySvg, InteriorSvg } from '../page'
@@ -61,6 +62,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
   const { weather } = useWeather(community?.location)
   const isPlatformAdmin = usePlatformAdmin()
   const [prefs] = usePreferences()
+  const t = useT()
   const pathname = usePathname() || '/app'
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -164,7 +166,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
                 <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M12 2 4 6v6c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6z"/>
                 </svg>
-                <span>Admin</span>
+                <span>{t('nav.admin')}</span>
               </Link>
             </>
           )}
@@ -212,7 +214,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
                   {!prefs.profile_image && userInitials}
                 </div>
                 <div className="user-meta">
-                  <span className="label">Signed in as</span>
+                  <span className="label">{t('rail.signedInAs')}</span>
                   <span className="val">{userUnit}</span>
                 </div>
                 <svg className="user-block-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -225,7 +227,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
                   <polyline points="16 17 21 12 16 7"/>
                   <line x1="21" y1="12" x2="9" y2="12"/>
                 </svg>
-                <span>Sign out</span>
+                <span>{t('rail.signOut')}</span>
               </button>
             </>
           )}
@@ -386,6 +388,7 @@ function shortDate(s: string) {
 
 function RightRail() {
   const { profile } = useAuth()
+  const t = useT()
   const { resident, balance, status: dues } = useMyResident() as { resident: any; balance: number | null; status: 'paid' | 'due' | 'late' }
   const unitLabel = resident?.address || (profile?.unit_number ? `Unit ${profile.unit_number}` : 'Unit —')
 
@@ -408,8 +411,8 @@ function RightRail() {
   return (
     <aside className="rail-right">
       <div className="up-head">
-        <div className="up-title">Up next</div>
-        <Link href="/app/schedule" className="up-see-all">View all</Link>
+        <div className="up-title">{t('rail.upNext')}</div>
+        <Link href="/app/schedule" className="up-see-all">{t('rail.viewAll')}</Link>
       </div>
 
       <div className="up-list">
@@ -443,34 +446,34 @@ function RightRail() {
       </div>
 
       <div className="household">
-        <div className="household-title">Your residence</div>
+        <div className="household-title">{t('rail.yourResidence')}</div>
         <div className="household-row">
-          <span className="h-label">Unit</span>
+          <span className="h-label">{t('rail.unit')}</span>
           <span className="h-val unit">{unitLabel}</span>
         </div>
         <div className="household-divider"></div>
         <div className="household-row">
-          <span className="h-label">What you owe</span>
+          <span className="h-label">{t('rail.whatYouOwe')}</span>
           <span className={`h-val h-val-amount ${balance ? 'due' : 'ok'}`}>
             {balance === null ? '—' : fmtAmt(balance)}
           </span>
         </div>
         <div className="household-row">
-          <span className="h-label">Due</span>
+          <span className="h-label">{t('rail.due')}</span>
           <span className="h-val">{nextDueLabel()}</span>
         </div>
         <div className="household-row">
-          <span className="h-label">For</span>
+          <span className="h-label">{t('rail.for')}</span>
           <span className="h-val">{nextDueMonth()}</span>
         </div>
         <div className="household-row">
-          <span className="h-label">Dues status</span>
+          <span className="h-label">{t('rail.duesStatus')}</span>
           <span className={`h-val h-val-pill ${dues === 'paid' ? 'ok' : 'due'}`}>
             {resident ? DUES_LABEL[dues] : '—'}
           </span>
         </div>
         <Link href="/app/track#pay" className="household-cta household-cta-dark">
-          Make a payment
+          {t('rail.makePayment')}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>
           </svg>
@@ -506,6 +509,7 @@ function FeedRow({ avatar, v, text, meta }: { avatar: string; v?: string; text: 
 
 function NotificationBell() {
   const router = useRouter()
+  const t = useT()
   const { count } = useUnreadNoticeCount()
   const [open, setOpen] = useState(false)
   const { notices, loading, markRead } = useMyNotices()
@@ -542,10 +546,10 @@ function NotificationBell() {
       </button>
       {open && (
         <div className="bell-panel" role="menu">
-          <div className="bell-panel-head">Notifications</div>
-          {loading && <div className="bell-panel-empty">Loading…</div>}
+          <div className="bell-panel-head">{t('bell.notifications')}</div>
+          {loading && <div className="bell-panel-empty">{t('bell.loading')}</div>}
           {!loading && notices.length === 0 && (
-            <div className="bell-panel-empty">You're all caught up.</div>
+            <div className="bell-panel-empty">{t('bell.caughtUp')}</div>
           )}
           {!loading && notices.map((r: any) => {
             const n = r.notice
@@ -568,7 +572,7 @@ function NotificationBell() {
             className="bell-panel-footer"
             onClick={() => setOpen(false)}
           >
-            See all notifications →
+            {t('bell.seeAll')}
           </Link>
         </div>
       )}
