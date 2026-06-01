@@ -14,6 +14,10 @@ export function useUnreadNoticeCount() {
   const { profile } = useAuth() || {}
   const [count, setCount]     = useState(0)
   const [loading, setLoading] = useState(true)
+  // Unique per hook instance — this hook is now mounted in more than one
+  // place (the bell AND the Home nav dot), and supabase-js throws if two
+  // channels share a topic name. Same fix as lib/schedule + lib/amenities.
+  const [channelId] = useState(() => Math.random().toString(36).slice(2))
 
   const load = useCallback(async () => {
     if (!hasSupabase || !profile?.id) { setLoading(false); return }
@@ -36,7 +40,7 @@ export function useUnreadNoticeCount() {
   useEffect(() => {
     if (!hasSupabase || !profile?.id) return
     const channel = supabase
-      .channel(`notice-recipients:${profile.id}`)
+      .channel(`notice-recipients:${profile.id}:${channelId}`)
       .on('postgres_changes', {
         event: '*',
         schema: 'public',
@@ -49,7 +53,7 @@ export function useUnreadNoticeCount() {
       supabase.removeChannel(channel)
       clearInterval(interval)
     }
-  }, [profile?.id, load])
+  }, [profile?.id, channelId, load])
 
   return { count, loading, reload: load }
 }

@@ -358,6 +358,9 @@ button { font-family: inherit; }
   margin-left: auto;
   animation: pulse 1.8s ease-in-out infinite;
 }
+/* On the active item the row background is the accent color, so a same-color
+   dot vanishes. Render it white there so it always reads. */
+.nav-item.active .pulse-dot { background: #fff; }
 
 @keyframes pulse {
   0%, 100% { opacity: 0.6; transform: scale(1); }
@@ -2312,6 +2315,7 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 }
 [data-theme="sketch"] .rail-left .nav-item.active .ic { opacity: 1; }
 [data-theme="sketch"] .rail-left .pulse-dot { background: var(--cta); }
+[data-theme="sketch"] .rail-left .nav-item.active .pulse-dot { background: #fff; }
 [data-theme="sketch"] .rail-footer {
   border-top: 1px solid var(--sidebar-border);
 }
