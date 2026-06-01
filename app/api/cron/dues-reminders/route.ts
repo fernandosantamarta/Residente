@@ -35,7 +35,11 @@ export async function GET(req: Request) {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !key) {
-    return NextResponse.json({ error: 'Supabase service env not configured' }, { status: 500 })
+    // Diagnostic: which one is missing? (booleans only — never echo secrets)
+    return NextResponse.json(
+      { error: 'Supabase service env not configured', hasUrl: !!url, hasKey: !!key },
+      { status: 500 },
+    )
   }
   const admin = createClient(url, key, { auth: { persistSession: false } })
 
