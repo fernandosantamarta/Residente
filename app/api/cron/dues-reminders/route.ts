@@ -39,6 +39,10 @@ export async function GET(req: Request) {
   }
   const admin = createClient(url, key, { auth: { persistSession: false } })
 
+  // ?dryRun=1 — compute who WOULD be reminded and prove the service-role key
+  // works, without inserting any notices or pinging a single resident.
+  const dryRun = new URL(req.url).searchParams.get('dryRun') === '1'
+
   const { data: comms, error: cErr } = await admin
     .from('communities')
     .select('id, monthly_dues, late_interest_rate')
@@ -74,6 +78,9 @@ export async function GET(req: Request) {
       return duesStatus(bal, monthlyDues) !== 'paid'
     })
     if (!owing.length) { summary.push({ community: c.id, owing: 0 }); continue }
+
+    // Dry run: report the count, touch nothing.
+    if (dryRun) { summary.push({ community: c.id, wouldNotify: owing.length }); continue }
 
     // Idempotency: skip if this community already got a dues reminder recently.
     const { data: recent } = await admin
@@ -112,5 +119,5 @@ export async function GET(req: Request) {
     summary.push({ community: c.id, notified: rows.length })
   }
 
-  return NextResponse.json({ ok: true, totalNotified, communities: summary })
+  return NextResponse.json({ ok: true, dryRun, totalNotified, communities: summary })
 }
