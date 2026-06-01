@@ -32,12 +32,20 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL
+  // Match lib/supabase's URL resolution: prod sets the URL under the legacy
+  // REACT_APP_ name (or relies on the project fallback), not SUPABASE_URL /
+  // NEXT_PUBLIC_. The project URL is public (it ships in the client bundle and
+  // package.json), so a hardcoded fallback is safe — unlike the service-role
+  // KEY, which stays in env only.
+  const url =
+    process.env.SUPABASE_URL ||
+    process.env.NEXT_PUBLIC_SUPABASE_URL ||
+    process.env.REACT_APP_SUPABASE_URL ||
+    'https://nozzfcxijdnllkiydhfi.supabase.co'
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY
-  if (!url || !key) {
-    // Diagnostic: which one is missing? (booleans only — never echo secrets)
+  if (!key) {
     return NextResponse.json(
-      { error: 'Supabase service env not configured', hasUrl: !!url, hasKey: !!key },
+      { error: 'SUPABASE_SERVICE_ROLE_KEY not configured' },
       { status: 500 },
     )
   }
