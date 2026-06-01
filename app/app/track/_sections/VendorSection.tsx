@@ -7,6 +7,7 @@ import {
   type Rating,
   type Stars,
 } from '@/lib/vendor-ratings'
+import { useAuth } from '@/app/providers'
 import { supabase } from '@/lib/supabase'
 import { RequestDialog } from './RequestDialog'
 import { DetailDialog } from './DetailDialog'
@@ -65,6 +66,8 @@ const CATEGORY_GRID: { key: VendorCat; label: string }[] = [
 ]
 
 export function VendorSection() {
+  const { profile } = useAuth() || {}
+  const communityId = profile?.community_id
   const [search, setSearch] = useState('')
   const [active, setActive] = useState<'all' | VendorCat>('all')
   const [rateOpen, setRateOpen] = useState<string | null>(null)   // vendor_id being rated
@@ -72,6 +75,49 @@ export function VendorSection() {
   const [allOpen, setAllOpen] = useState(false)            // "View all" vendors popup
   const [vendorOpen, setVendorOpen] = useState<Vendor | null>(null)  // single vendor detail
   const ratings = useVendorRatings()
+
+  // Vendor guidelines: the board uploads a PDF on the Documents page (category
+  // "Vendor & Contracts", title containing "guideline"). We find that row and
+  // open it via a signed URL. Until one is uploaded, "View Guidelines" opens a
+  // popup with the default policy instead of dead-navigating to /app/documents.
+  const [guidelinesDoc, setGuidelinesDoc] = useState<any | null>(null)
+  const [guideOpen, setGuideOpen] = useState(false)
+  const [guideBusy, setGuideBusy] = useState(false)
+  const [guideErr, setGuideErr] = useState('')
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (!supabase || !communityId) return
+      try {
+        const { data, error } = await supabase
+          .from('documents').select('*')
+          .eq('community_id', communityId)
+          .ilike('title', '%guideline%')
+          .order('uploaded_at', { ascending: false })
+        if (cancelled || error || !data || data.length === 0) return
+        // Prefer a vendor-category guidelines doc; else the newest match.
+        const vendorGuide = data.find((d: any) => (d.category || '').toLowerCase().includes('vendor')) || data[0]
+        setGuidelinesDoc(vendorGuide)
+      } catch { /* no guidelines uploaded yet — fall back to the popup */ }
+    })()
+    return () => { cancelled = true }
+  }, [communityId])
+
+  const openGuidelines = async () => {
+    if (!guidelinesDoc || !supabase) { setGuideOpen(true); return }
+    setGuideBusy(true); setGuideErr('')
+    try {
+      const { data, error } = await supabase.storage
+        .from('documents').createSignedUrl(guidelinesDoc.storage_path, 3600)
+      if (error || !data?.signedUrl) throw error || new Error('No link')
+      window.open(data.signedUrl, '_blank', 'noopener')
+    } catch {
+      setGuideErr('Could not open the guidelines. Please try again.')
+      setGuideOpen(true)
+    } finally {
+      setGuideBusy(false)
+    }
+  }
 
   // Board-curated vendors from Supabase. Falls back to the in-code demo
   // seed when the table is empty or unreachable, so the page never breaks.
@@ -286,7 +332,10 @@ export function VendorSection() {
                 All vendors must be approved by management before performing work.
               </div>
             </div>
-            <Link href="/app/documents" className="ven-cta-secondary">View Guidelines</Link>
+            <button type="button" className="ven-cta-secondary"
+              disabled={guideBusy} onClick={openGuidelines}>
+              {guideBusy ? 'Opening…' : 'View Guidelines'}
+            </button>
           </section>
 
           <section className="ven-card ven-emerg">
@@ -392,6 +441,31 @@ export function VendorSection() {
                 <span className="rd-bd-amt"><a href={`mailto:${vendorOpen.contact.email}`}>{vendorOpen.contact.email}</a></span><span /></div>
             )}
           </div>
+        </DetailDialog>
+      )}
+
+      {/* Vendor guidelines — fallback popup when no PDF is uploaded yet, or on
+          an open error. When a doc exists, "View Guidelines" opens it directly. */}
+      {guideOpen && (
+        <DetailDialog
+          eyebrow="Vendors"
+          title="Vendor Guidelines"
+          onClose={() => setGuideOpen(false)}
+          footer={guidelinesDoc ? (
+            <button type="button" className="ven-cta-primary" disabled={guideBusy}
+              onClick={openGuidelines}>{guideBusy ? 'Opening…' : 'Open guidelines PDF'}</button>
+          ) : undefined}
+        >
+          <p className="rd-report-blurb">
+            All vendors must be approved by management before performing work.
+          </p>
+          {guideErr && <p className="rd-detail-foot-note" style={{ color: '#c0392b' }}>{guideErr}</p>}
+          {!guidelinesDoc && (
+            <p className="rd-detail-foot-note">
+              The full vendor guidelines document will appear here once your board
+              uploads it. In the meantime, contact management with any questions.
+            </p>
+          )}
         </DetailDialog>
       )}
     </section>

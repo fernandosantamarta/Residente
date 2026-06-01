@@ -170,6 +170,18 @@ export default function VendorAdmin() {
         Feature the ones the board recommends.
       </p>
 
+      <div className="admin-note admin-note-info" style={{ marginBottom: 20 }}>
+        <strong>Vendor guidelines</strong>
+        <p style={{ margin: '6px 0 0', fontSize: 13, opacity: 0.85 }}>
+          The “View Guidelines” button on each resident’s Vendors page opens the
+          guidelines PDF you publish. To set or update it, go to{' '}
+          <a href="/admin/documents#documents">Documents</a>, upload a file with
+          “Guidelines” in the title under the <strong>Vendor &amp; Contracts</strong>{' '}
+          category, and it shows up automatically. Until then, residents see the
+          default policy text.
+        </p>
+      </div>
+
       {status === 'none' && (
         <div className="admin-note admin-note-warn">
           No community is linked yet, or the vendors table isn&rsquo;t set up. Run the
