@@ -1,6 +1,7 @@
 'use client'
 
-import { ReactNode, useEffect } from 'react'
+import { ReactNode, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useT } from '@/lib/i18n'
 
 // The site-wide popup primitive. Anything that used to route to a separate page
@@ -28,13 +29,20 @@ export function DetailDialog({
   size?: 'default' | 'wide' | 'large'
 }) {
   const t = useT()
+  // Portal to <body> so the fixed backdrop escapes the main column's
+  // `overflow: hidden` / stacking context — otherwise the page (e.g. the slim
+  // footer) can bleed into the dialog. Mount-gate keeps SSR happy.
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => { setMounted(true) }, [])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  return (
+  if (!mounted) return null
+
+  return createPortal(
     <div className="ven-rd-backdrop" onClick={onClose}>
       <div className={`ven-rd-card rd-detail${size === 'wide' ? ' rd-detail-wide' : size === 'large' ? ' rd-detail-lg' : ''}`}
         role="dialog" aria-modal="true" onClick={e => e.stopPropagation()}>
@@ -62,6 +70,7 @@ export function DetailDialog({
           </div>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
