@@ -8,6 +8,7 @@ import { useAuth } from '../providers'
 import { useMyResident } from '@/hooks/useMyResident'
 import { kindToUpTag, upcomingFrom, useScheduleEvents } from '@/lib/schedule'
 import { useUnreadNoticeCount, useMyNotices } from '@/hooks/useNotices'
+import { SiteFooterSlim } from '@/components/SiteFooter'
 import { NOTICE_KIND_LABELS, noticeHref, NoticeKind } from '@/lib/voice'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import { useWeather } from '@/hooks/useWeather'
@@ -272,6 +273,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
         </div>
 
         {children}
+        <SiteFooterSlim />
       </main>
 
       {showRightRail && <RightRail />}

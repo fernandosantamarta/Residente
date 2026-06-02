@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, forwardRef } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from './providers'
+import { SiteFooter } from '@/components/SiteFooter'
 
 // Adds `.in-view` to any element tagged data-anim once it scrolls into the
 // viewport. One-shot per element — animations don't re-run when scrolling back.
@@ -69,7 +70,7 @@ export default function Landing() {
       <VsEverything />
       <DashboardPreview />
       <CtaBlock />
-      <LandingFoot />
+      <SiteFooter />
     </div>
   )
 }
@@ -1389,19 +1390,3 @@ function CtaBlock() {
   )
 }
 
-function LandingFoot() {
-  return (
-    <footer className="ln-foot">
-      <div className="ln-foot-inner">
-        <div className="ln-foot-brand">
-          <img src="/residente-logo.png" alt="" className="ln-brand-logo" />
-          <span>Residente</span>
-        </div>
-        <div className="ln-foot-meta">
-          <span>© {new Date().getFullYear()} Residente</span>
-          <Link href="/login" className="ln-foot-link">Already a resident? Sign in</Link>
-        </div>
-      </div>
-    </footer>
-  )
-}

@@ -9398,3 +9398,119 @@ textarea[disabled] {
     justify-content: space-between;
   }
 }
+
+/* ============================================================
+   Site footer — real company footer. Self-contained (no --ln-*
+   tokens, which are scoped to .landing-screen) so it renders the
+   same on the landing, auth pages, and the legal pages. Dark ink
+   panel with cream text. The slim variant is a quiet one-line legal
+   strip for the authenticated app + admin.
+   ============================================================ */
+.site-foot {
+  background: #1F2233;
+  color: #F4EFE8;
+  margin-top: clamp(72px, 12vh, 128px);
+  padding: clamp(48px, 7vw, 72px) clamp(20px, 5vw, 80px) 0;
+}
+.site-foot-inner {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 48px 64px;
+  justify-content: space-between;
+}
+.site-foot-brand { max-width: 340px; min-width: 240px; flex: 1 1 280px; }
+.site-foot-brand-mark {
+  display: inline-flex; align-items: center; gap: 10px;
+  color: #F4EFE8; text-decoration: none; font-weight: 700; font-size: 18px;
+  letter-spacing: 0.2px;
+}
+.site-foot-logo { width: 30px; height: 30px; }
+.site-foot-tagline {
+  margin: 16px 0 0;
+  font-size: 14px; line-height: 1.6;
+  color: rgba(244, 239, 232, 0.62);
+}
+.site-foot-cols {
+  display: flex; flex-wrap: wrap; gap: 40px 56px;
+}
+.site-foot-col { min-width: 120px; }
+.site-foot-col-title {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.4px; text-transform: uppercase;
+  color: rgba(244, 239, 232, 0.45);
+  margin-bottom: 14px;
+}
+.site-foot-col-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.site-foot-link {
+  color: rgba(244, 239, 232, 0.82); text-decoration: none; font-size: 14px;
+  transition: color 160ms ease;
+}
+.site-foot-link:hover { color: #FF7A3C; }
+.site-foot-bar {
+  max-width: 1200px;
+  margin: clamp(40px, 6vw, 56px) auto 0;
+  padding: 22px 0 28px;
+  border-top: 1px solid rgba(244, 239, 232, 0.12);
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 8px;
+  font-size: 12.5px; color: rgba(244, 239, 232, 0.5);
+}
+.site-foot-bar-note { color: rgba(244, 239, 232, 0.42); }
+@media (max-width: 640px) {
+  .site-foot-inner { gap: 36px; }
+  .site-foot-cols { gap: 28px 40px; }
+  .site-foot-bar { justify-content: flex-start; }
+}
+
+/* Slim strip for inside the app + admin. Inherits the page text colour
+   and just dims it, so it reads quietly on both the cream resident app
+   and the admin shell. */
+.site-foot-slim {
+  display: flex; align-items: center; justify-content: center;
+  flex-wrap: wrap; gap: 8px;
+  padding: 28px 20px 36px;
+  font-size: 12.5px;
+  color: currentColor; opacity: 0.55;
+}
+.site-foot-slim-sep { opacity: 0.5; }
+.site-foot-slim-link {
+  color: inherit; text-decoration: none;
+  border-bottom: 1px solid transparent; transition: border-color 160ms ease;
+}
+.site-foot-slim-link:hover { border-bottom-color: currentColor; }
+
+/* ============================================================
+   Legal pages (/privacy, /terms) — readable prose on the cream
+   brand background, minimal top bar, real SiteFooter below.
+   ============================================================ */
+.legal-screen { min-height: 100vh; background: #F4EFE8; color: #1F2233; }
+.legal-top {
+  display: flex; align-items: center; justify-content: space-between;
+  max-width: 820px; margin: 0 auto; padding: 24px clamp(20px, 5vw, 40px);
+}
+.legal-brand {
+  display: inline-flex; align-items: center; gap: 10px;
+  color: #1F2233; text-decoration: none; font-weight: 700; font-size: 17px;
+}
+.legal-logo { width: 28px; height: 28px; }
+.legal-back { color: rgba(31, 34, 51, 0.6); text-decoration: none; font-size: 14px; transition: color 160ms ease; }
+.legal-back:hover { color: #1F2233; }
+.legal-main { max-width: 820px; margin: 0 auto; padding: clamp(24px, 5vw, 48px) clamp(20px, 5vw, 40px) 24px; }
+.legal-title { font-family: 'Fraunces', Georgia, serif; font-size: clamp(32px, 5vw, 46px); font-weight: 600; margin: 0 0 8px; }
+.legal-updated { font-size: 13.5px; color: rgba(31, 34, 51, 0.55); margin: 0 0 32px; }
+.legal-prose { font-size: 15.5px; line-height: 1.7; color: rgba(31, 34, 51, 0.86); }
+.legal-prose h2 {
+  font-family: 'Fraunces', Georgia, serif; font-size: 21px; font-weight: 600;
+  color: #1F2233; margin: 34px 0 10px;
+}
+.legal-prose p { margin: 0 0 16px; }
+.legal-prose ul { margin: 0 0 16px; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; }
+.legal-prose li { padding-left: 2px; }
+.legal-prose a { color: #C45F2A; text-decoration: underline; text-underline-offset: 2px; }
+.legal-prose a:hover { color: #E14909; }
+.legal-prose .legal-note {
+  margin-top: 32px; padding: 14px 16px;
+  background: rgba(31, 34, 51, 0.04); border-radius: 10px;
+  font-size: 13px; color: rgba(31, 34, 51, 0.6);
+}

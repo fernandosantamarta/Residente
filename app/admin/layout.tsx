@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { hasSupabase, supabase } from '@/lib/supabase'
 import { AdminErrorBoundary } from '@/components/AdminErrorBoundary'
+import { SiteFooterSlim } from '@/components/SiteFooter'
 import { useAuth } from '../providers'
 import { CommunitySwitcher } from '../CommunitySwitcher'
 import { usePlatformAdmin } from '@/hooks/usePlatform'
@@ -92,6 +93,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       <main className="admin-main">
         <AdminErrorBoundary>{children}</AdminErrorBoundary>
       </main>
+      <SiteFooterSlim />
     </div>
   )
 }
