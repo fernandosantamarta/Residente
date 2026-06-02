@@ -18,6 +18,15 @@ alter table public.ev_notices add constraint ev_notices_kind_check
                   'violation','compliance_alert','estoppel_update',
                   'collections_deadline','collections_update'));
 
+-- Backfill: existing violation notices were inserted as 'custom_broadcast'
+-- with channels=['personal'] (that personal-only channel is unique to the
+-- violation trigger — real broadcasts use in_app/email). Re-tag them so the
+-- bell routes already-sent fine/warning notices to /app/documents too.
+update public.ev_notices
+   set kind = 'violation'
+ where kind = 'custom_broadcast'
+   and channels = array['personal'];
+
 -- Re-create the violation -> personal notice trigger with kind='violation'.
 -- (Body is unchanged from easy-violations.sql except the inserted kind.)
 create or replace function public.ev_violation_notify()
