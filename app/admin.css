@@ -695,3 +695,64 @@
   font-family: ui-monospace, monospace; font-size: 24px; font-weight: 800;
   letter-spacing: 3px; color: var(--text); margin: 2px 0;
 }
+
+/* ============ RESPONSIVE — ADMIN SHELL + PAGES ============ */
+/* The admin chrome assumes a desktop-width header + centered nav. Below the
+   tablet breakpoint the header wraps and the nav becomes a horizontally
+   scrollable tab strip so the 5-6 sections never overflow the viewport. */
+@media (max-width: 1024px) {
+  .admin-top {
+    padding: 13px 16px;
+    flex-wrap: wrap;
+    gap: 8px 12px;
+  }
+  .admin-brand { flex-wrap: wrap; gap: 8px; font-size: 15px; }
+  /* The community switcher claims 220px on desktop; let it shrink and take a
+     full row of its own on narrow screens instead of squeezing the brand. */
+  .admin-brand .comm-switcher { min-width: 0; margin: 0; }
+
+  .admin-nav {
+    justify-content: flex-start;
+    flex-wrap: nowrap;
+    padding: 10px 16px 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .admin-nav::-webkit-scrollbar { display: none; }
+  .admin-nav-item { padding: 10px 13px; white-space: nowrap; flex-shrink: 0; }
+
+  .admin-main { padding: 32px 16px 64px; }
+}
+
+/* Phone: collapse multi-column form grids to a single column, soften the big
+   headings, and let split header rows stack instead of fighting for width. */
+@media (max-width: 640px) {
+  .admin-main { padding: 24px 14px 56px; }
+  .admin-h1 { font-size: 25px; }
+  .admin-section-title { font-size: 19px; }
+
+  .admin-section-head { flex-direction: column; align-items: flex-start; gap: 12px; }
+
+  /* Form layouts that place fields side-by-side on desktop */
+  .bd-form-row,
+  .admin-2col { grid-template-columns: 1fr; }
+  .voice-form-inline { flex-direction: column; gap: 14px; }
+
+  /* Budget category editor: name on its own row, budget/spent share the next,
+     delete tucks to the right — instead of 4 columns crushed into ~330px.
+     min-width:0 lets the 1fr inputs shrink below their intrinsic size so the
+     grid fits the viewport instead of overflowing under body's overflow-hidden. */
+  .bc-row {
+    grid-template-columns: 1fr 1fr 40px;
+  }
+  .bc-row > * { min-width: 0; }
+  .bc-row > input:first-child { grid-column: 1 / -1; }
+  .bc-row-head { display: none; }
+
+  /* Roster preview head (CSV import) and voice meeting rows: let the action
+     buttons drop below the title rather than truncate it. */
+  .voice-roster-preview-head { flex-direction: column; align-items: flex-start; }
+  .voice-meeting-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .voice-meeting-row-right { align-self: flex-start; }
+}
