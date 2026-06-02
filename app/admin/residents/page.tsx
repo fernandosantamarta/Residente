@@ -340,36 +340,80 @@ export default function Residents() {
   )
 }
 
+// Compare the owner's mailing address of record against the unit/parcel address.
+const norm = (s) => String(s ?? '').replace(/[\s,]+/g, ' ').trim().toLowerCase()
+
 function ResidentRow({ r, monthlyDues, duesCfg, payments, onLocal, onCommit, onRemove }) {
+  const [showMore, setShowMore] = useState(false)
   const balance = residentBalance(r, monthlyDues, payments, duesCfg)
   const st = duesStatus(balance, monthlyDues)
   const emailPhone = [r.email, r.phone].filter(Boolean).join('  ·  ')
+  const mailingDiffers = !!(r.last_known_address && r.address && norm(r.last_known_address) !== norm(r.address))
   return (
-    <div className="res-row">
-      <div className="res-info">
-        <div className="res-name">{r.full_name}</div>
-        <input name={`address-${r.id}`} className="res-addr-input" placeholder="Add an address"
-          value={r.address ?? ''}
-          onChange={e => onLocal(r.id, 'address', e.target.value)}
-          onBlur={e => onCommit(r.id, { address: e.target.value.trim() || null })} />
-        {emailPhone && <div className="res-contact">{emailPhone}</div>}
+    <>
+      <div className="res-row">
+        <div className="res-info">
+          <div className="res-name">{r.full_name}</div>
+          <input name={`address-${r.id}`} className="res-addr-input" placeholder="Add an address"
+            value={r.address ?? ''}
+            onChange={e => onLocal(r.id, 'address', e.target.value)}
+            onBlur={e => onCommit(r.id, { address: e.target.value.trim() || null })} />
+          {emailPhone && <div className="res-contact">{emailPhone}</div>}
+          <button type="button" onClick={() => setShowMore(s => !s)}
+            style={{ background: 'none', border: 0, padding: '3px 0 0', fontSize: 11.5, color: '#175CD3', cursor: 'pointer', fontWeight: 600 }}>
+            {showMore ? '– Mailing & tenant' : '+ Mailing & tenant'}
+            {mailingDiffers ? ' · off-site owner' : ''}{r.is_rented ? ' · rented' : ''}
+          </button>
+        </div>
+        <div className={`res-owes res-${st}`}>
+          <span className="res-owes-amt">{fmtMoney(balance)}</span>
+          <span className="res-owes-tag">{DUES_LABEL[st]}</span>
+        </div>
+        <label className="res-open" title="Opening balance — what this household owed when added">
+          <span className="res-open-lbl">Opening</span>
+          <span className="res-open-field">
+            <span className="res-bal-pre">$</span>
+            <input name={`opening-balance-${r.id}`} className="res-bal-input" type="number" placeholder="0"
+              value={r.opening_balance ?? ''}
+              onChange={e => onLocal(r.id, 'opening_balance', e.target.value)}
+              onBlur={e => onCommit(r.id, { opening_balance: Number(e.target.value) || 0 })} />
+          </span>
+        </label>
+        <button type="button" className="bc-del" onClick={() => onRemove(r.id)}
+          aria-label="Remove resident">&times;</button>
       </div>
-      <div className={`res-owes res-${st}`}>
-        <span className="res-owes-amt">{fmtMoney(balance)}</span>
-        <span className="res-owes-tag">{DUES_LABEL[st]}</span>
-      </div>
-      <label className="res-open" title="Opening balance — what this household owed when added">
-        <span className="res-open-lbl">Opening</span>
-        <span className="res-open-field">
-          <span className="res-bal-pre">$</span>
-          <input name={`opening-balance-${r.id}`} className="res-bal-input" type="number" placeholder="0"
-            value={r.opening_balance ?? ''}
-            onChange={e => onLocal(r.id, 'opening_balance', e.target.value)}
-            onBlur={e => onCommit(r.id, { opening_balance: Number(e.target.value) || 0 })} />
-        </span>
-      </label>
-      <button type="button" className="bc-del" onClick={() => onRemove(r.id)}
-        aria-label="Remove resident">&times;</button>
-    </div>
+
+      {showMore && (
+        <div style={{ border: '1px dashed #cbd5e1', borderRadius: 10, padding: 12, margin: '2px 0 10px', background: '#fafafa' }}>
+          <div style={{ fontSize: 11.5, opacity: 0.72, marginBottom: 10, lineHeight: 1.5 }}>
+            Used for the statutory collection notices. The <strong>unit/parcel address</strong> is the “Address” field above.
+            Set the owner’s <strong>mailing address of record</strong> here only when it differs (e.g. an absentee owner) — the
+            Notice of Late Assessment and Notice of Intent to Record a Lien must then be mailed to <em>both</em>.
+          </div>
+          <label className="admin-field">
+            <span className="admin-field-label">Owner mailing address of record (only if different from the unit/parcel)</span>
+            <input className="admin-input" defaultValue={r.last_known_address ?? ''}
+              placeholder="e.g. PO Box 410, Naples FL 34102"
+              onBlur={e => onCommit(r.id, { last_known_address: e.target.value.trim() || null })} />
+          </label>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, margin: '12px 0 8px' }}>
+            <input type="checkbox" defaultChecked={!!r.is_rented}
+              onChange={e => onCommit(r.id, { is_rented: e.target.checked })} />
+            This unit is rented (enables the tenant rent-demand notice when the owner is delinquent)
+          </label>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
+            <label className="admin-field"><span className="admin-field-label">Tenant name</span>
+              <input className="admin-input" defaultValue={r.tenant_name ?? ''}
+                onBlur={e => onCommit(r.id, { tenant_name: e.target.value.trim() || null })} /></label>
+            <label className="admin-field"><span className="admin-field-label">Tenant email</span>
+              <input className="admin-input" type="email" defaultValue={r.tenant_email ?? ''}
+                onBlur={e => onCommit(r.id, { tenant_email: e.target.value.trim() || null })} /></label>
+            <label className="admin-field"><span className="admin-field-label">Tenant phone</span>
+              <input className="admin-input" defaultValue={r.tenant_phone ?? ''}
+                onBlur={e => onCommit(r.id, { tenant_phone: e.target.value.trim() || null })} /></label>
+          </div>
+        </div>
+      )}
+    </>
   )
 }

@@ -13,6 +13,7 @@ import { useParams, useSearchParams } from 'next/navigation'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { fmtMoney, casePayoff, type PayoffResult } from '@/lib/dues'
 import { ymd, addCalendarDays } from '@/lib/compliance/rules-core'
+import { resolveNoticeAddresses, ownerNoticeAddresses, dualAddressRule } from '@/lib/compliance/collections'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -85,8 +86,25 @@ function DocInner() {
   const today = ymd(new Date())
   const amount = payoff ? fmtMoney(payoff.payoff) : null
   const ownerName = resident?.full_name || c.unit_label || 'Owner of record'
-  const ownerAddr = resident?.last_known_address || resident?.address || null
+
+  // Two-address model: the owner's mailing address of record (last_known_address,
+  // defaulting to the unit/parcel address) and the physical unit/parcel address
+  // (the roster `address`). The statutory collection notices go to BOTH when they
+  // differ — FS 718.121(5)/(6) condo, FS 720.3085(3)(d)/(4)(b) HOA.
+  const addr = resolveNoticeAddresses(ownerNoticeAddresses(resident))
+  const recordAddr = addr.recordAddress           // mailing address of record
+  const unitAddr = resident?.address || null        // physical unit/parcel address
   const unit = resident?.unit_number || c.unit_label || ''
+  const creditApplied = payoff
+    ? payoff.gross.principal + payoff.gross.interest + payoff.gross.lateFee + payoff.gross.cost - payoff.payoff
+    : 0
+  // Map the doc type to its notice kind to resolve the dual-address rule + citation.
+  const DOC_TO_KIND: Record<string, string> = {
+    notice_30: 'late_assessment_30', intent_to_lien: 'intent_to_lien_45', intent_to_foreclose: 'intent_to_foreclose_45',
+  }
+  const aRule = DOC_TO_KIND[type] ? dualAddressRule(DOC_TO_KIND[type], isCondo ? 'condo' : 'hoa') : null
+  const ownerDual = addr.dualRequired && !!aRule?.applies   // mail to both addresses
+  const dualStatutory = !!aRule?.statutory                  // the second copy is mandated (vs. advised)
 
   const cite = (condo: string, hoa: string) => (isCondo ? condo : hoa)
   const Em = ({ children }: { children: any }) => <em style={{ color: '#B54708' }}>{children}</em>
@@ -114,8 +132,27 @@ function DocInner() {
       {/* Recipient block (skip for ledger which has its own caption) */}
       {type !== 'ledger' && (
         <div style={{ fontSize: 13.5, marginBottom: 14 }}>
-          <div>{type === 'tenant_demand' ? (resident?.tenant_name || <Em>tenant name</Em>) : ownerName}</div>
-          <div>{type === 'tenant_demand' ? (ownerAddr || <Em>unit address</Em>) : (ownerAddr || <Em>last known address</Em>)}</div>
+          {type === 'tenant_demand' ? (
+            <>
+              <div>{resident?.tenant_name || <Em>tenant name</Em>}</div>
+              <div>{unitAddr || <Em>unit address</Em>}</div>
+            </>
+          ) : (
+            <>
+              <div>{ownerName}</div>
+              <div>{recordAddr || <Em>last known address</Em>}</div>
+              {ownerDual && (
+                <div style={{ marginTop: 6 }}>
+                  <div style={{ fontSize: 11.5, color: '#B54708' }}>
+                    {dualStatutory
+                      ? 'and a copy by first-class U.S. mail to the unit/parcel address (statute requires both):'
+                      : 'and, as a precaution, a copy by first-class U.S. mail to the unit/parcel address:'}
+                  </div>
+                  <div>{unitAddr}</div>
+                </div>
+              )}
+            </>
+          )}
           {unit && <div>Re: Unit / parcel {unit}</div>}
         </div>
       )}
@@ -123,9 +160,20 @@ function DocInner() {
       {/* Body per type */}
       {type === 'notice_30' && (
         <Body>
-          <p>Our records show that the assessments on the above unit/parcel are past due. As of {today}, the total amount required to bring the account current is <strong>{amount || <Em>confirm from ledger</Em>}</strong>.</p>
-          <p>Please remit payment in full within <strong>thirty (30) days</strong> of this notice, on or before <strong>{ymd(addCalendarDays(today, 30))}</strong>. If the amount is not paid, the association may charge late fees, interest, and the costs of collection (including reasonable attorney&apos;s fees) and may proceed to record a claim of lien against the property and pursue all available remedies.</p>
-          <p style={{ fontSize: 12, color: '#555' }}>This notice of late assessment is provided under {cite('Florida Statutes § 718.116(3)', 'Florida Statutes § 720.3085(3)')}.</p>
+          <p>The following amounts are currently due on your account to {community?.name || 'the association'}, and <strong>must be paid within thirty (30) days after the date of this letter</strong> (on or before <strong>{ymd(addCalendarDays(today, 30))}</strong>). This letter shall serve as the association&apos;s notice of its intent to proceed with further collection action against the above {isCondo ? 'unit' : 'parcel'} no sooner than 30 days after the date of this letter, unless you pay in full the amounts set forth below:</p>
+          <table style={tbl}><tbody>
+            <Trow label={isCondo ? 'Maintenance / assessments due' : 'Assessments due'} value={payoff ? fmtMoney(payoff.gross.principal) : <Em>confirm from ledger</Em>} />
+            <Trow label="Late fee, if applicable" value={payoff ? fmtMoney(payoff.gross.lateFee) : <Em>—</Em>} />
+            <Trow label={`Interest through ${payoff?.asOf || today}`} value={payoff ? fmtMoney(payoff.gross.interest) : <Em>—</Em>} />
+            {payoff && payoff.gross.cost > 0 && <Trow label="Other costs" value={fmtMoney(payoff.gross.cost)} />}
+            {creditApplied > 0.005 && <Trow label="Less: payments applied" value={'– ' + fmtMoney(creditApplied)} />}
+            <tr><td style={{ ...td, fontWeight: 800, borderTop: '2px solid #111' }}>Total outstanding</td><td style={{ ...td, fontWeight: 800, borderTop: '2px solid #111' }}>{amount || <Em>confirm from ledger</Em>}</td></tr>
+          </tbody></table>
+          <p>If the total amount due is not paid within 30 days, the association may charge late fees, interest, and the costs of collection — including reasonable attorney&apos;s fees — and may proceed to record a claim of lien against the {isCondo ? 'unit' : 'parcel'} and pursue all available remedies. <strong>The association may not require you to pay attorney&apos;s fees related to this past-due assessment without first delivering this notice and giving you the opportunity to pay the amount owed without the assessment of attorney&apos;s fees.</strong></p>
+          {ownerDual && (
+            <p style={{ fontSize: 12, color: '#B54708' }}>This notice is being sent by first-class U.S. mail to your address of record and, because that address is not the {isCondo ? 'unit' : 'parcel'} address, also by first-class U.S. mail to the {isCondo ? 'unit' : 'parcel'} address. Notice is deemed delivered upon mailing.</p>
+          )}
+          <p style={{ fontSize: 12, color: '#555' }}>This Notice of Late Assessment is provided under {cite('Florida Statutes § 718.121(5)', 'Florida Statutes § 720.3085(3)(d)')}.</p>
         </Body>
       )}
 
@@ -133,7 +181,7 @@ function DocInner() {
         <Body>
           <p>You are hereby notified of the association&apos;s intent to record a <strong>Claim of Lien</strong> against the above unit/parcel for unpaid assessments, interest, late fees, and costs. As of {today}, the amount owed is <strong>{amount || <Em>confirm from ledger</Em>}</strong>.</p>
           <p>If the total amount is not paid within <strong>forty-five (45) days</strong> of this notice, on or before <strong>{ymd(addCalendarDays(today, 45))}</strong>, the association may record a claim of lien and, thereafter, foreclose that lien and recover its costs and reasonable attorney&apos;s fees.</p>
-          <p style={{ fontSize: 12, color: '#555' }}>This notice is given under {cite('Florida Statutes § 718.121(4)', 'Florida Statutes § 720.3085(4)')} and is being sent by certified or registered mail (return receipt requested) and by first-class mail to the address of record.</p>
+          <p style={{ fontSize: 12, color: '#555' }}>This notice is given under {cite('Florida Statutes § 718.121(6)', 'Florida Statutes § 720.3085(4)(b)')} and is being sent by certified or registered mail (return receipt requested) and by first-class U.S. mail to your address of record{ownerDual ? ', and also by first-class U.S. mail to the unit/parcel address because that address differs from your address of record' : ''}.</p>
         </Body>
       )}
 
@@ -156,7 +204,7 @@ function DocInner() {
         <Body>
           <p>A Claim of Lien was recorded against the above unit/parcel{c.lien_recorded_at ? ` on ${c.lien_recorded_at}` : ''}. The amount secured by the lien remains unpaid. As of {today}, the amount owed is <strong>{amount || <Em>confirm from ledger</Em>}</strong>.</p>
           <p>You are hereby notified of the association&apos;s intent to <strong>foreclose</strong> the lien. If the total amount is not paid within <strong>forty-five (45) days</strong> of this notice, on or before <strong>{ymd(addCalendarDays(today, 45))}</strong>, the association may file an action to foreclose its lien and recover its costs and reasonable attorney&apos;s fees.</p>
-          <p style={{ fontSize: 12, color: '#555' }}>This notice is given under {cite('Florida Statutes § 718.116(6)(b)', 'Florida Statutes § 720.3085(5)')}.</p>
+          <p style={{ fontSize: 12, color: '#555' }}>This notice is given under {cite('Florida Statutes § 718.116(6)(b)', 'Florida Statutes § 720.3085(5)')}{ownerDual ? (dualStatutory ? ', and is being sent to your address of record and the parcel address' : ', and is being sent to your address of record (with a precautionary copy to the unit address)') : ''}.</p>
         </Body>
       )}
 
@@ -189,6 +237,7 @@ function DocInner() {
           <p>The owner of the unit/parcel you occupy is delinquent in the payment of assessments to {community?.name || 'the association'}. Under {cite('Florida Statutes § 718.116(11)', 'Florida Statutes § 720.3085(8)')}, the association is entitled to collect rent from the tenant of a delinquent unit until the unpaid amount is paid in full.</p>
           <p>You are hereby directed to pay all subsequent rent due under your lease to the association, at the address above, beginning with the next rental payment, until further written notice. Payment to the association as directed will satisfy your rent obligation to the owner for the amounts paid.</p>
           <p style={{ fontSize: 12, color: '#555' }}>Amount of the owner&apos;s delinquency as of {today}: <strong>{amount || <Em>confirm from ledger</Em>}</strong>.</p>
+          <p style={{ fontSize: 12, color: '#555' }}>A separate written notice of this demand is also being provided to the owner of record, as required by {cite('Florida Statutes § 718.116(11)', 'Florida Statutes § 720.3085(8)')}.</p>
         </Body>
       )}
 

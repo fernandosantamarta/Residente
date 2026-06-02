@@ -98,6 +98,12 @@ create table if not exists public.ev_collection_notices (
   tracking_number    text,            -- certified / registered mail tracking #
   return_receipt_at  date,            -- date the green card / receipt came back
   recipient_name     text,            -- who it was addressed to (owner or tenant)
+  -- dual-address evidence (see collections-addresses.sql for the full rationale):
+  -- the statutory collection notices must be mailed to the owner's record address
+  -- AND, if different, the unit/parcel address ("deemed delivered upon mailing").
+  mailed_to_record_address text,       -- owner's last address per association records
+  mailed_to_unit_address   text,       -- unit/parcel address (set only when it differs)
+  dual_address_required     boolean,    -- the two differed, so a second copy was required
   document_id        uuid references public.documents(id) on delete set null,  -- the generated letter, if stored
   notes              text,
   created_by         uuid references public.profiles(id) on delete set null,
@@ -206,7 +212,11 @@ alter table public.payments
     check (charge_type is null or charge_type in ('assessment','interest','late_fee','cost','fine','other')),
   add column if not exists applied_to_case uuid references public.ev_collection_cases(id) on delete set null;
 
--- ---------- ALTER residents: last-known address + tenant (rent-demand) ----------
+-- ---------- ALTER residents: owner mailing address + tenant (rent-demand) ----------
+-- last_known_address = the OWNER'S MAILING ADDRESS OF RECORD (the off-site address
+-- an absentee owner furnished). The physical UNIT/PARCEL address is the existing
+-- residents.address column. The statutory collection notices go to both when they
+-- differ — see collections-addresses.sql and lib/compliance/collections.ts.
 alter table public.residents
   add column if not exists last_known_address text,
   add column if not exists is_rented   boolean not null default false,

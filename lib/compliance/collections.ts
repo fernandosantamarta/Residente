@@ -34,16 +34,20 @@ import {
 // Statutory constants
 // ----------------------------------------------------------------------------
 
-// Notice of late assessment: 30 days for the owner to pay before the association
-// may charge collection costs / attorney fees and escalate. Strengthened by HB
-// 1203 (eff 2024-07-01).
-export const NOTICE_30_DAY_DAYS = rule(30, 'FS 718.116(3) / 720.3085(3)', {
-  note: 'notice of late assessment — 30 days to pay before collection costs/attorney fees & escalation',
+// Notice of late assessment: the statutory-form courtesy notice that gates
+// attorney fees. The owner gets 30 days from the date of the letter to pay
+// without attorney fees. Delivery is by first-class mail to the owner's address
+// of record AND, if it differs, the unit/parcel address (see dualAddressRule).
+// Condo FS 718.121(5); HOA FS 720.3085(3)(d) (both created by SB 56, 2021).
+export const NOTICE_30_DAY_DAYS = rule(30, 'FS 718.121(5) / 720.3085(3)(d)', {
+  note: 'notice of late assessment — 30 days to pay (without attorney fees) before collection costs & escalation; first-class to the address of record + unit/parcel address if different',
 })
 
 // 45-day written notice of intent to record a claim of lien, by certified or
-// registered mail (return receipt requested) AND by first-class mail.
-export const INTENT_TO_LIEN_DAYS = rule(45, 'FS 718.121(4) / 720.3085(4)', {
+// registered mail (return receipt requested) AND by first-class mail — to the
+// owner's address of record and, if different, the unit/parcel address.
+// Condo FS 718.121(6); HOA FS 720.3085(4)(b).
+export const INTENT_TO_LIEN_DAYS = rule(45, 'FS 718.121(6) / 720.3085(4)(b)', {
   note: '45 days written notice (certified/registered + return receipt AND first-class) before recording a claim of lien',
 })
 
@@ -183,6 +187,11 @@ export interface CollectionNoticeRow {
   method?: NoticeDeliveryMethod | string | null
   tracking_number?: string | null
   return_receipt_at?: string | null
+  recipient_name?: string | null
+  // dual-address evidence (the pair of addresses the notice was mailed to)
+  mailed_to_record_address?: string | null
+  mailed_to_unit_address?: string | null
+  dual_address_required?: boolean | null
 }
 
 export interface PaymentPlanRow {
@@ -255,6 +264,152 @@ export function noticeMethodWarning(kind: string | null | undefined, method: str
   if (kind !== 'intent_to_lien_45') return null
   if (method === 'both') return null
   return 'The 45-day notice of intent to record a lien must be sent by certified or registered mail (return receipt) AND by first-class mail.'
+}
+
+// ----------------------------------------------------------------------------
+// Dual-address rule — the statutory COLLECTION notices must be mailed to the
+// owner at the last address reflected in the association's records AND, if that
+// is not the unit/parcel address, ALSO to the unit/parcel address. "Notice is
+// deemed ... delivered upon mailing," so the compliance evidence is the pair of
+// addresses mailed to — not a delivery confirmation. Routine meeting/general
+// notices do NOT carry this rule (a single address on file controls). Pure.
+//   - Notice of late assessment:       condo FS 718.121(5) / HOA FS 720.3085(3)(d)
+//   - Notice of intent to record lien:  condo FS 718.121(6) / HOA FS 720.3085(4)(b)
+//   - Notice of intent to foreclose:    HOA FS 720.3085(5) (same manner as (4)(b)).
+//       The condo statute (FS 718.116(6)(b)) speaks of a single "last known
+//       address"; mailing to both is the conservative practice — advised, not
+//       mandated.
+// ----------------------------------------------------------------------------
+
+/** Normalize an address for equality testing: collapse whitespace/commas and
+ *  lowercase. Empty → null. */
+export function normalizeAddress(a: string | null | undefined): string | null {
+  const s = String(a ?? '').replace(/[\s,]+/g, ' ').trim().toLowerCase()
+  return s || null
+}
+
+export interface NoticeAddressInput {
+  /** owner's last address as reflected in the association's records (mailing) */
+  recordAddress?: string | null
+  /** the physical unit/parcel address */
+  unitAddress?: string | null
+}
+
+export interface ResolvedAddresses {
+  /** the distinct address(es) the notice must be mailed to, in send order */
+  addresses: string[]
+  /** true when record & unit are both present AND differ → a second copy is required */
+  dualRequired: boolean
+  /** what the dual-address rule still needs but is missing (null when complete) */
+  missing: 'record' | 'unit' | 'both' | null
+  /** the resolved record (mailing) address actually used */
+  recordAddress: string | null
+  /** the unit/parcel second-copy address (only set when dualRequired) */
+  unitAddress: string | null
+}
+
+/**
+ * Resolve which address(es) a mailed collection notice goes to. The owner's
+ * address of record defaults to the unit/parcel address when no separate
+ * address was furnished. When both are present and differ, BOTH are required.
+ * Pure; tolerates partial input.
+ */
+export function resolveNoticeAddresses(input: NoticeAddressInput): ResolvedAddresses {
+  const rawRecord = String(input.recordAddress ?? '').trim() || null
+  const rawUnit = String(input.unitAddress ?? '').trim() || null
+  const nRecord = normalizeAddress(rawRecord)
+  const nUnit = normalizeAddress(rawUnit)
+
+  // The owner's "address of record" defaults to the unit/parcel address.
+  const record = rawRecord ?? rawUnit
+
+  let missing: ResolvedAddresses['missing'] = null
+  if (!nRecord && !nUnit) missing = 'both'
+  else if (nRecord && !nUnit) missing = 'unit' // can't confirm/produce the second copy
+
+  const dualRequired = !!(nRecord && nUnit && nRecord !== nUnit)
+  const addresses = dualRequired
+    ? [rawRecord as string, rawUnit as string]
+    : (record ? [record] : [])
+
+  return {
+    addresses,
+    dualRequired,
+    missing,
+    recordAddress: record,
+    unitAddress: dualRequired ? rawUnit : null,
+  }
+}
+
+export interface DualAddressRule {
+  applies: boolean
+  /** true where the statute MANDATES the second copy; false where it's advised practice */
+  statutory: boolean
+  citation: string
+  note: string
+}
+
+/** Does a notice kind carry the dual-address rule, and under which citation
+ *  (regime-specific)? Side-effect free. */
+export function dualAddressRule(
+  kind: string | null | undefined,
+  type: AssociationType | string | null | undefined = 'condo',
+): DualAddressRule {
+  const regime = asType(type)
+  switch (kind) {
+    case 'late_assessment_30':
+      return {
+        applies: true, statutory: true,
+        citation: regime === 'hoa' ? 'FS 720.3085(3)(d)' : 'FS 718.121(5)',
+        note: 'Mail by first-class to the owner’s address of record and, if it differs, also to the unit/parcel address.',
+      }
+    case 'intent_to_lien_45':
+      return {
+        applies: true, statutory: true,
+        citation: regime === 'hoa' ? 'FS 720.3085(4)(b)' : 'FS 718.121(6)',
+        note: 'Certified/registered (return receipt) + first-class to the address of record and, if it differs, also to the unit/parcel address.',
+      }
+    case 'intent_to_foreclose_45':
+      return regime === 'hoa'
+        ? { applies: true, statutory: true, citation: 'FS 720.3085(5)', note: 'Same manner as the intent-to-lien notice — to the address of record and, if it differs, also to the parcel address.' }
+        : { applies: true, statutory: false, citation: 'FS 718.116(6)(b)', note: 'The condo statute references a single last-known address; mailing to both the record and unit addresses is the conservative practice.' }
+    default:
+      return { applies: false, statutory: false, citation: '', note: '' }
+  }
+}
+
+/**
+ * Advisory when a notice that carries the dual-address rule can't be fully
+ * documented from the addresses on file. Returns null when nothing is wrong —
+ * including the correct dual-mailing case, which the UI surfaces as info, not a
+ * warning. Advisory only.
+ */
+export function noticeAddressWarning(
+  kind: string | null | undefined,
+  type: AssociationType | string | null | undefined,
+  input: NoticeAddressInput,
+): string | null {
+  const r = dualAddressRule(kind, type)
+  if (!r.applies) return null
+  const a = resolveNoticeAddresses(input)
+  if (a.missing === 'both')
+    return `No mailing address is on file for this owner. ${r.note} (${r.citation})`
+  if (a.missing === 'unit')
+    return `The unit/parcel address is missing, so the statutory second copy can’t be confirmed. Add it to the owner’s roster record. ${r.note} (${r.citation})`
+  return null
+}
+
+/** Pull the two statutory addresses from a roster resident row: the record
+ *  (mailing) address is last_known_address; the unit/parcel address is the
+ *  roster `address`. */
+export function ownerNoticeAddresses(resident: {
+  last_known_address?: string | null
+  address?: string | null
+} | null | undefined): NoticeAddressInput {
+  return {
+    recordAddress: resident?.last_known_address ?? null,
+    unitAddress: resident?.address ?? null,
+  }
 }
 
 // ----------------------------------------------------------------------------

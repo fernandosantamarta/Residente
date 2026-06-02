@@ -16,6 +16,7 @@ import { ymd, toDate, addCalendarDays, calendarDaysUntil, ATTORNEY_REVIEW_BANNER
 import { casePayoff, fmtMoney, type PayoffResult } from '@/lib/dues'
 import {
   STAGE_LABELS, NOTICE_KIND_LABELS, nextEscalation, lienEnforceDeadline, noticeMethodWarning, isOpenStage,
+  dualAddressRule, resolveNoticeAddresses, noticeAddressWarning, ownerNoticeAddresses,
   NOTICE_30_DAY_DAYS, INTENT_TO_LIEN_DAYS, INTENT_TO_FORECLOSE_DAYS,
   type CollectionCaseRow, type CollectionStage, type CollectionNoticeKind, type CollectionNoticeRow, type PaymentPlanRow,
 } from '@/lib/compliance/collections'
@@ -183,6 +184,8 @@ export default function CollectionCaseDetail() {
               caseRow={c}
               communityId={c.community_id!}
               profileId={profile?.id ?? null}
+              resident={resident}
+              regime={regime}
               onAdvanced={load}
               onError={setError}
             />
@@ -255,6 +258,14 @@ export default function CollectionCaseDetail() {
                   {n.tracking_number ? ` · #${n.tracking_number}` : ''}
                   {n.return_receipt_at ? ` · receipt ${n.return_receipt_at}` : ''}
                 </div>
+                {(n.mailed_to_record_address || n.mailed_to_unit_address) && (
+                  <div style={{ fontSize: 11.5, opacity: 0.75, marginTop: 4 }}>
+                    Mailed to {n.mailed_to_record_address || '—'}
+                    {n.dual_address_required && n.mailed_to_unit_address
+                      ? <> + unit/parcel copy <span style={{ background: '#175CD314', color: '#175CD3', fontWeight: 700, padding: '1px 6px', borderRadius: 999, marginLeft: 4 }}>both addresses</span></>
+                      : null}
+                  </div>
+                )}
                 {warn && <div className="admin-note admin-note-warn" style={{ fontSize: 11.5, marginTop: 6 }}>{warn}</div>}
               </div>
             )
@@ -325,8 +336,14 @@ function StageBar({ stage }: { stage: CollectionStage }) {
   )
 }
 
-function StageActions({ adv, caseRow, communityId, profileId, onAdvanced, onError }: {
+// First-class for the late-assessment notice (statutory), certified+first-class
+// dual delivery for the lien/foreclosure notices.
+const defaultMethod = (kind?: CollectionNoticeKind | null): string =>
+  kind === 'late_assessment_30' || kind === 'tenant_rent_demand' ? 'first_class' : 'both'
+
+function StageActions({ adv, caseRow, communityId, profileId, resident, regime, onAdvanced, onError }: {
   adv: Advance | null; caseRow: CollectionCaseRow; communityId: string; profileId: string | null
+  resident: any; regime: 'condo' | 'hoa'
   onAdvanced: () => void; onError: (m: string) => void
 }) {
   const [openComposer, setOpenComposer] = useState(false)
@@ -334,10 +351,18 @@ function StageActions({ adv, caseRow, communityId, profileId, onAdvanced, onErro
   const [busy, setBusy] = useState(false)
   if (!adv) return <div className="admin-note" style={{ fontSize: 12.5 }}>Foreclosure filed — no further automated step. Use resolve/cancel when concluded.</div>
 
+  // The statutory dual-address rule for this notice, resolved against the owner's
+  // roster addresses (mailing address of record vs. the unit/parcel address).
+  const rule = adv.notice ? dualAddressRule(adv.notice, regime) : null
+  const addrInput = ownerNoticeAddresses(resident)
+  const resolved = resolveNoticeAddresses(addrInput)
+  const addrWarn = adv.notice ? noticeAddressWarning(adv.notice, regime, addrInput) : null
+
   const run = async () => {
     setBusy(true)
     try {
       if (adv.needsNotice && adv.notice) {
+        const applies = !!rule?.applies
         const { error: nErr } = (await withTimeout(supabase.from('ev_collection_notices').insert({
           community_id: communityId,
           case_id: caseRow.id,
@@ -346,10 +371,14 @@ function StageActions({ adv, caseRow, communityId, profileId, onAdvanced, onErro
           method: form.method || null,
           tracking_number: (form.tracking || '').trim() || null,
           recipient_name: (form.recipient || '').trim() || null,
+          // dual-address evidence — the address(es) this notice was mailed to
+          mailed_to_record_address: applies ? (resolved.recordAddress || null) : null,
+          mailed_to_unit_address: applies ? (resolved.unitAddress || null) : null,
+          dual_address_required: applies ? resolved.dualRequired : null,
           created_by: profileId,
         }))) as any
         if (nErr) throw nErr
-        await logAudit({ community_id: communityId, event_type: 'collection.notice_logged', target_type: 'collection_case', target_id: caseRow.id, metadata: { kind: adv.notice } })
+        await logAudit({ community_id: communityId, event_type: 'collection.notice_logged', target_type: 'collection_case', target_id: caseRow.id, metadata: { kind: adv.notice, dual_address: !!(rule?.applies && resolved.dualRequired) } })
       }
       const patch: any = { stage: adv.nextStage, [adv.stampField]: form.date || todayYmd() }
       const { error: uErr } = (await withTimeout(supabase.from('ev_collection_cases').update(patch).eq('id', caseRow.id))) as any
@@ -362,7 +391,7 @@ function StageActions({ adv, caseRow, communityId, profileId, onAdvanced, onErro
     finally { setBusy(false) }
   }
 
-  if (!openComposer) return <button className="admin-primary-btn" onClick={() => setOpenComposer(true)}>{adv.label}</button>
+  if (!openComposer) return <button className="admin-primary-btn" onClick={() => { setForm({ date: todayYmd(), method: defaultMethod(adv.notice), tracking: '', recipient: '' }); setOpenComposer(true) }}>{adv.label}</button>
 
   return (
     <div style={{ border: '1px dashed #cbd5e1', borderRadius: 10, padding: 12 }}>
@@ -383,6 +412,23 @@ function StageActions({ adv, caseRow, communityId, profileId, onAdvanced, onErro
           </>
         )}
       </div>
+
+      {/* Dual-address advisory for the statutory collection notices */}
+      {adv.needsNotice && rule?.applies && (
+        <div className="admin-note" style={{ fontSize: 12, marginTop: 10, borderColor: addrWarn ? '#B54708' : (resolved.dualRequired ? '#175CD3' : 'rgba(0,0,0,0.1)') }}>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>Mailing address{resolved.dualRequired ? 'es' : ''} ({rule.citation})</div>
+          {resolved.addresses.length > 0 ? (
+            <ul style={{ margin: '0 0 0 16px', padding: 0 }}>
+              <li>Address of record: <strong>{resolved.recordAddress || '—'}</strong></li>
+              {resolved.dualRequired && <li>+ Unit/parcel copy (addresses differ): <strong>{resolved.unitAddress}</strong></li>}
+            </ul>
+          ) : <div>No address on file for this owner.</div>}
+          {resolved.dualRequired && !addrWarn && <div style={{ marginTop: 4 }}>Logged as mailed to <strong>both</strong> addresses.</div>}
+          {addrWarn && <div style={{ marginTop: 4, color: '#B54708' }}>{addrWarn}</div>}
+          <div style={{ marginTop: 4, opacity: 0.7 }}>{rule.note} Update the owner’s addresses on the Residents roster.</div>
+        </div>
+      )}
+
       <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
         <button className="admin-primary-btn" disabled={busy} onClick={run}>{busy ? 'Saving…' : 'Confirm'}</button>
         <button className="admin-btn-ghost" disabled={busy} onClick={() => setOpenComposer(false)}>Cancel</button>
