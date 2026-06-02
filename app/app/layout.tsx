@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState, ReactNode } from 'react'
+import { useCallback, useEffect, useRef, useState, ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { signOut, hasSupabase } from '@/lib/supabase'
@@ -554,34 +554,43 @@ function FeedRow({ avatar, v, text, meta }: { avatar: string; v?: string; text: 
 function NotificationBell() {
   const router = useRouter()
   const t = useT()
-  const { count } = useUnreadNoticeCount()
+  const { count, reload: reloadCount } = useUnreadNoticeCount()
   const [open, setOpen] = useState(false)
-  const { notices, loading, markRead } = useMyNotices()
+  const { notices, loading, markAllRead } = useMyNotices()
+
+  // Closing the panel clears the unread batch — "checked them, now they're
+  // gone." markAllRead is a no-op when nothing is unread, so re-closing an
+  // already-empty panel is free. Reload the badge count right after so the
+  // number disappears immediately instead of waiting on the realtime tick.
+  const closePanel = useCallback(() => {
+    setOpen(false)
+    markAllRead().then(reloadCount)
+  }, [markAllRead, reloadCount])
 
   useEffect(() => {
     if (!open) return
     const onDocClick = (e: MouseEvent) => {
       const target = e.target as HTMLElement
-      if (!target.closest('.bell-wrap')) setOpen(false)
+      if (!target.closest('.bell-wrap')) closePanel()
     }
     document.addEventListener('click', onDocClick)
     return () => document.removeEventListener('click', onDocClick)
-  }, [open])
+  }, [open, closePanel])
 
   const onPick = async (recipientId: string, n: { meeting_id?: string | null; vote_id?: string | null }) => {
     // Await the read-write BEFORE navigating. router.push() tears this
     // component down and aborts any in-flight fetch, so a fire-and-forget
-    // markRead() here was getting cancelled — the notice never persisted as
-    // read. The optimistic update already cleared it visually; this makes it
-    // stick on the server too.
+    // update here was getting cancelled — the notices never persisted as
+    // read. The optimistic update already cleared them visually; this makes
+    // it stick on the server too.
     setOpen(false)
-    await markRead(recipientId)
+    await markAllRead()
     router.push(noticeHref(n))
   }
 
   return (
     <div className="bell-wrap">
-      <button className="bell" onClick={() => setOpen(v => !v)} aria-label={`Notifications${count ? ` (${count} unread)` : ''}`}>
+      <button className="bell" onClick={() => (open ? closePanel() : setOpen(true))} aria-label={`Notifications${count ? ` (${count} unread)` : ''}`}>
         <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
           <path d="M12 2.5a6 6 0 0 0-6 6V12c0 2.4-.9 3.6-2.3 4.7-.7.5-.7 1.5.1 1.9.4.2.8.3 1.2.3h14c.4 0 .8-.1 1.2-.3.8-.4.8-1.4.1-1.9C18.9 15.6 18 14.4 18 12V8.5a6 6 0 0 0-6-6z"/>
           <path d="M10 20.5a2 2 0 0 0 4 0"/>
@@ -614,7 +623,7 @@ function NotificationBell() {
           <Link
             href="/app/notifications"
             className="bell-panel-footer"
-            onClick={() => setOpen(false)}
+            onClick={closePanel}
           >
             {t('bell.seeAll')}
           </Link>

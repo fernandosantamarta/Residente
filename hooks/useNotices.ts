@@ -105,7 +105,25 @@ export function useMyNotices() {
     }
   }, [])
 
-  return { notices, loading, error, reload: load, markRead }
+  // Clear the whole unread batch in one query — used when the bell panel
+  // closes, so checking the dropdown drops the badge to zero. The unread
+  // count hook reconciles via its realtime subscription / poll.
+  const markAllRead = useCallback(async () => {
+    if (!hasSupabase || !profile?.id) return
+    const now = new Date().toISOString()
+    setNotices(rs => rs.map(r => r.read_at ? r : { ...r, read_at: now }))
+    try {
+      await withTimeout(
+        supabase
+          .from('ev_notice_recipients')
+          .update({ read_at: now })
+          .eq('profile_id', profile.id)
+          .is('read_at', null)
+      )
+    } catch { /* keep — local optimistic update reconciles via realtime */ }
+  }, [profile?.id])
+
+  return { notices, loading, error, reload: load, markRead, markAllRead }
 }
 
 // Full-page inbox at /app/notifications. Paginated via .range(); supports
