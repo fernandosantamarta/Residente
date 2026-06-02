@@ -17,6 +17,10 @@ import {
   collectionsSignals, paymentPlanSignals, delinquencySignals, delinquentOwnersWithoutCase,
   type CollectionCaseRow, type PaymentPlanRow,
 } from '@/lib/compliance/collections'
+import {
+  structuralSignals,
+  type BuildingRow, type StructuralAssessmentRow, type SirsComponentRow,
+} from '@/lib/compliance/structural'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -33,6 +37,7 @@ const SEVERITY_META: Record<Severity, { label: string; color: string; bg: string
 const WORKSPACES: { href: string; label: string; desc: string; color: string }[] = [
   { href: '/admin/collections', label: 'Collections & liens', desc: 'Work the statutory ladder — late-assessment notice, intent-to-lien, lien, foreclosure.', color: '#B54708' },
   { href: '/admin/estoppel', label: 'Estoppel certificates', desc: 'Intake requests, track the delivery clock + fee, and issue the certificate.', color: '#175CD3' },
+  { href: '/admin/structural', label: 'Structural integrity', desc: 'Milestone inspections & SIRS — track each building’s deadlines (condominium only).', color: '#067647' },
 ]
 
 // Resilient select: a table that hasn't had its migration run yet returns an
@@ -57,6 +62,9 @@ function gatherSignals(
   plans: PaymentPlanRow[],
   residents: any[],
   payByResident: Record<string, { amount: number }[]>,
+  buildings: BuildingRow[],
+  assessments: StructuralAssessmentRow[],
+  sirsComponents: SirsComponentRow[],
 ): ComplianceSignal[] {
   const candidates = community ? delinquentOwnersWithoutCase({
     residents, paymentsByResident: payByResident, cases,
@@ -72,7 +80,8 @@ function gatherSignals(
     ...collectionsSignals(cases, community?.association_type),
     ...paymentPlanSignals(plans),
     ...delinquencySignals(candidates),
-    // Future domains plug in here: structuralSignals(), financialSignals(), …
+    ...structuralSignals(buildings, assessments, sirsComponents, community), // condo-only (returns [] for HOA)
+    // Future domains plug in here: financialSignals(), …
   ])
 }
 
@@ -85,6 +94,9 @@ export default function CompliancePage() {
   const [plans, setPlans] = useState<PaymentPlanRow[]>([])
   const [residents, setResidents] = useState<any[]>([])
   const [payByResident, setPayByResident] = useState<Record<string, { amount: number }[]>>({})
+  const [buildings, setBuildings] = useState<BuildingRow[]>([])
+  const [assessments, setAssessments] = useState<StructuralAssessmentRow[]>([])
+  const [sirsComponents, setSirsComponents] = useState<SirsComponentRow[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError] = useState('')
 
@@ -105,6 +117,9 @@ export default function CompliancePage() {
       const map: Record<string, { amount: number }[]> = {}
       for (const p of pays) { (map[p.resident_id] ||= []).push({ amount: Number(p.amount) || 0 }) }
       setPayByResident(map)
+      setBuildings(await safeSelect('ev_buildings', communityId))
+      setAssessments(await safeSelect('ev_structural_assessments', communityId))
+      setSirsComponents(await safeSelect('ev_sirs_components', communityId))
       setStatus('ready')
     } catch (err: any) {
       setError(err?.message || 'Could not load compliance data'); setStatus('error')
@@ -112,7 +127,7 @@ export default function CompliancePage() {
   }, [communityId])
   useEffect(() => { load() }, [load])
 
-  const signals = useMemo(() => gatherSignals(community, estoppel, cases, plans, residents, payByResident), [community, estoppel, cases, plans, residents, payByResident])
+  const signals = useMemo(() => gatherSignals(community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents), [community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents])
   const counts = useMemo(() => {
     const c: Record<Severity, number> = { overdue: 0, soon: 0, info: 0 }
     for (const s of signals) c[s.severity]++
@@ -169,7 +184,7 @@ export default function CompliancePage() {
           <section style={{ marginBottom: 22 }}>
             <h2 className="bc-title" style={{ margin: '0 0 10px' }}>Workspaces</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
-              {WORKSPACES.map(w => (
+              {WORKSPACES.filter(w => !(w.href === '/admin/structural' && community?.association_type === 'hoa')).map(w => (
                 <Link key={w.href} href={w.href} style={{ textDecoration: 'none', color: 'inherit' }}>
                   <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${w.color}`, borderRadius: 12, padding: '14px 16px', background: '#fff', height: '100%' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>

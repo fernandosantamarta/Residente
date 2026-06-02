@@ -44,12 +44,18 @@ export type AuditEventType =
   | 'collection.payment_plan_created'
   | 'collection.payment_plan_updated'
   | 'collection.resolved'
+  // structural / SIRS (compliance domain A)
+  | 'structural.building_added'
+  | 'structural.assessment_created'
+  | 'structural.assessment_status_changed'
+  | 'structural.sirs_recorded'
 
 export type AuditTargetType =
   | 'vote' | 'ballot' | 'meeting' | 'document' | 'notice'
   | 'proxy' | 'candidate' | 'attendance' | 'consent'
   | 'roster' | 'resident'
   | 'collection_case' | 'collection_notice' | 'payment_plan'
+  | 'building' | 'structural_assessment' | 'sirs_component'
 
 export interface LogAuditArgs {
   community_id: string

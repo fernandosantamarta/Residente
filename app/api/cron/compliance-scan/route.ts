@@ -17,6 +17,10 @@ import { createClient } from '@supabase/supabase-js'
 import { sortSignals } from '@/lib/compliance/rules-core'
 import { foundationSignals } from '@/lib/compliance/signals'
 import { estoppelSignals, type EstoppelRequestRow } from '@/lib/compliance/estoppel'
+import {
+  structuralSignals,
+  type BuildingRow, type StructuralAssessmentRow, type SirsComponentRow,
+} from '@/lib/compliance/structural'
 
 export const dynamic = 'force-dynamic'
 
@@ -58,7 +62,14 @@ export async function GET(req: Request) {
 
   for (const c of comms ?? []) {
     const estoppel = (await safe('ev_estoppel_requests', c.id)) as EstoppelRequestRow[]
-    const signals = sortSignals([...foundationSignals(c), ...estoppelSignals(estoppel)])
+    const buildings = (await safe('ev_buildings', c.id)) as BuildingRow[]
+    const assessments = (await safe('ev_structural_assessments', c.id)) as StructuralAssessmentRow[]
+    const sirsComponents = (await safe('ev_sirs_components', c.id)) as SirsComponentRow[]
+    const signals = sortSignals([
+      ...foundationSignals(c),
+      ...estoppelSignals(estoppel),
+      ...structuralSignals(buildings, assessments, sirsComponents, c), // condo-only (returns [] for HOA)
+    ])
     const actionable = signals.filter(s => s.severity === 'overdue' || s.severity === 'soon')
     if (!actionable.length) { summary.push({ community: c.id, actionable: 0 }); continue }
 
