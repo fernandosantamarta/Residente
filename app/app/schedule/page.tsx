@@ -79,9 +79,9 @@ export default function Schedule() {
 
 function CalendarView() {
   const t = useT()
-  // Demo "today" pinned to May 28, 2026 so the mockup matches. Swap to
-  // `new Date()` once real data is wired.
-  const today = new Date(2026, 4, 28)
+  // Real wall-clock "today" — drives the highlighted cell, the Today button,
+  // and the relative-day labels.
+  const today = new Date()
   const [cursor, setCursor] = useState({ y: today.getFullYear(), m: today.getMonth() })
   const [selected, setSelected] = useState<string>(toISO(today.getFullYear(), today.getMonth(), today.getDate()))
   const [enabledKinds, setEnabledKinds] = useState<Set<EventKind>>(new Set(ALL_KINDS))
