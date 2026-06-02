@@ -8867,8 +8867,8 @@ textarea[disabled] {
     bottom: 0; left: 0; right: 0;
     z-index: 95;
     background: #FFFFFF;
-    border-top: 1px solid rgba(199, 111, 69, 0.18);
-    box-shadow: 0 -4px 22px -10px rgba(31, 42, 58, 0.22);
+    border-top: 1px solid rgba(10, 36, 64, 0.07);
+    box-shadow: 0 -4px 22px -10px rgba(31, 42, 58, 0.18);
     padding: 8px 4px;
     padding-bottom: calc(8px + env(safe-area-inset-bottom));
   }

@@ -115,6 +115,21 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
     if (prefs.reduced_motion) root.setAttribute('data-reduced-motion', 'reduce'); else root.removeAttribute('data-reduced-motion')
   }, [prefs.large_text, prefs.high_contrast, prefs.reduced_motion])
 
+  // Tint the mobile browser's status bar a warm sunset tone while in the
+  // cockpit so it blends with the hero photo instead of the cream app default.
+  // (In a normal Safari tab the page can't render under the status bar, so the
+  // photo can't cover it — the theme-color tint is what removes the white
+  // strip. In standalone/PWA mode the photo bleeds up via the safe-area CSS.)
+  // Restored on unmount so /admin, /login and the landing keep the cream bar.
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (!meta) return
+    const prev = meta.getAttribute('content')
+    meta.setAttribute('content', '#E2674A')
+    return () => { if (prev) meta.setAttribute('content', prev) }
+  }, [])
+
   if (hasSupabase && !session && !isPreview) return null  // don't flash cockpit during redirect
 
   // Self-typed profile name (from /app/settings → Profile Information)
