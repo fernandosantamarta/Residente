@@ -29,6 +29,7 @@ import {
   transferHome, HOME_DOC_CATEGORIES, type HomeDoc,
 } from '@/lib/homeVault'
 import { loadNotificationPrefs, saveNotificationPrefs } from '@/lib/notificationPrefs'
+import { loadResidentLists, addContact, addVehicle, addPet, removeResidentRow } from '@/lib/residentLists'
 import '../home/home.css'
 
 // Every row + sidebar CTA opens a dialog (keyed below). One generic
@@ -155,6 +156,20 @@ export default function Settings() {
       quiet_hours_end: prefs.quiet_hours_end,
     })
   }, [prefs.email_pref, prefs.sms_pref, prefs.push_pref, prefs.quiet_hours_start, prefs.quiet_hours_end, profile?.id])
+
+  // Hydrate the DB-backed lists (emergency contacts, vehicles, pets) into prefs
+  // so the editors + row counts reflect the server, not stale localStorage.
+  // Authed only; preview keeps its localStorage demo seed.
+  useEffect(() => {
+    if (!profile?.id) return
+    let cancelled = false
+    ;(async () => {
+      const lists = await loadResidentLists(profile.id)
+      if (cancelled || !lists) return
+      patch({ emergency_contacts: lists.contacts, vehicles: lists.vehicles, pets: lists.pets })
+    })()
+    return () => { cancelled = true }
+  }, [profile?.id])
 
   const fullName    = prefs.full_name || profile?.full_name || 'Resident'
   const email       = prefs.email     || profile?.email     || 'resident@example.com'
@@ -331,6 +346,8 @@ export default function Settings() {
           unitLabel={unitLabel}
           community={communityName}
           roster={roster}
+          profileId={profile?.id ?? null}
+          communityId={profile?.community_id ?? null}
           onSaveContact={saveContact}
           onClose={() => setDialog(null)}
         />
@@ -654,7 +671,7 @@ function Row({
 // -- dialog ----------------------------------------------------------
 
 function SettingsDialog({
-  k, prefs, patch, unitLabel, community, roster, onSaveContact, onClose,
+  k, prefs, patch, unitLabel, community, roster, profileId, communityId, onSaveContact, onClose,
 }: {
   k: DialogKey
   prefs: Preferences
@@ -662,6 +679,8 @@ function SettingsDialog({
   unitLabel: string
   community: string
   roster: any | null
+  profileId: string | null
+  communityId: string | null
   onSaveContact: (next: { full_name?: string; phone?: string; address?: string }) => void
   onClose: () => void
 }) {
@@ -683,7 +702,8 @@ function SettingsDialog({
         </header>
         <div className="set-dialog-body">
           <DialogBody k={k} prefs={prefs} patch={patch} unitLabel={unitLabel}
-            community={community} roster={roster} onSaveContact={onSaveContact} />
+            community={community} roster={roster} profileId={profileId} communityId={communityId}
+            onSaveContact={onSaveContact} />
         </div>
         <footer className="set-dialog-foot">
           <button type="button" className="set-btn-primary" onClick={onClose}>Done</button>
@@ -754,7 +774,7 @@ function ProfileNameFields({
 }
 
 function DialogBody({
-  k, prefs, patch, unitLabel, community, roster, onSaveContact,
+  k, prefs, patch, unitLabel, community, roster, profileId, communityId, onSaveContact,
 }: {
   k: DialogKey
   prefs: Preferences
@@ -762,6 +782,8 @@ function DialogBody({
   unitLabel: string
   community: string
   roster: any | null
+  profileId: string | null
+  communityId: string | null
   onSaveContact: (next: { full_name?: string; phone?: string; address?: string }) => void
 }) {
   switch (k) {
@@ -1021,17 +1043,17 @@ function DialogBody({
 
     case 'contacts':
       return (
-        <ContactsEditor prefs={prefs} patch={patch} />
+        <ContactsEditor prefs={prefs} patch={patch} profileId={profileId} communityId={communityId} />
       )
 
     case 'vehicles':
       return (
-        <VehiclesEditor prefs={prefs} patch={patch} />
+        <VehiclesEditor prefs={prefs} patch={patch} profileId={profileId} communityId={communityId} />
       )
 
     case 'pets':
       return (
-        <PetsEditor prefs={prefs} patch={patch} />
+        <PetsEditor prefs={prefs} patch={patch} profileId={profileId} communityId={communityId} />
       )
 
     case 'refer':
@@ -1179,21 +1201,22 @@ function PaymentMethodsEditor({ prefs, patch }: { prefs: Preferences; patch: (p:
 
 // -- list-editor add forms ------------------------------------------
 
-function ContactsEditor({ prefs, patch }: { prefs: Preferences; patch: (p: Partial<Preferences>) => void }) {
+function ContactsEditor({ prefs, patch, profileId, communityId }: { prefs: Preferences; patch: (p: Partial<Preferences>) => void; profileId: string | null; communityId: string | null }) {
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [relation, setRelation] = useState('')
   const [phone, setPhone] = useState('')
   const reset = () => { setName(''); setRelation(''); setPhone(''); setAdding(false) }
-  const submit = () => {
+  const submit = async () => {
     if (!name.trim()) return
-    patch({
-      emergency_contacts: [
-        ...prefs.emergency_contacts,
-        { id: newId('c'), name: name.trim(), relation: relation.trim() || 'Contact', phone: phone.trim() },
-      ],
-    })
+    const entry = { name: name.trim(), relation: relation.trim() || 'Contact', phone: phone.trim() }
+    const row = profileId ? await addContact(profileId, communityId, entry) : null
+    patch({ emergency_contacts: [...prefs.emergency_contacts, row || { id: newId('c'), ...entry }] })
     reset()
+  }
+  const remove = async (id: string) => {
+    if (profileId) await removeResidentRow('resident_emergency_contacts', id)
+    patch({ emergency_contacts: prefs.emergency_contacts.filter(x => x.id !== id) })
   }
   return (
     <div className="set-list">
@@ -1205,7 +1228,7 @@ function ContactsEditor({ prefs, patch }: { prefs: Preferences; patch: (p: Parti
             <span>{c.relation}{c.phone ? ` · ${c.phone}` : ''}</span>
           </div>
           <button type="button" className="set-list-remove" aria-label="Remove"
-            onClick={() => patch({ emergency_contacts: prefs.emergency_contacts.filter(x => x.id !== c.id) })}>×</button>
+            onClick={() => remove(c.id)}>×</button>
         </div>
       ))}
       {adding ? (
@@ -1225,22 +1248,23 @@ function ContactsEditor({ prefs, patch }: { prefs: Preferences; patch: (p: Parti
   )
 }
 
-function VehiclesEditor({ prefs, patch }: { prefs: Preferences; patch: (p: Partial<Preferences>) => void }) {
+function VehiclesEditor({ prefs, patch, profileId, communityId }: { prefs: Preferences; patch: (p: Partial<Preferences>) => void; profileId: string | null; communityId: string | null }) {
   const [adding, setAdding] = useState(false)
   const [make, setMake] = useState('')
   const [model, setModel] = useState('')
   const [plate, setPlate] = useState('')
   const [color, setColor] = useState('')
   const reset = () => { setMake(''); setModel(''); setPlate(''); setColor(''); setAdding(false) }
-  const submit = () => {
+  const submit = async () => {
     if (!make.trim() && !plate.trim()) return
-    patch({
-      vehicles: [
-        ...prefs.vehicles,
-        { id: newId('v'), make: make.trim(), model: model.trim(), plate: plate.trim().toUpperCase(), color: color.trim() },
-      ],
-    })
+    const entry = { make: make.trim(), model: model.trim(), plate: plate.trim().toUpperCase(), color: color.trim() }
+    const row = profileId ? await addVehicle(profileId, communityId, entry) : null
+    patch({ vehicles: [...prefs.vehicles, row || { id: newId('v'), ...entry }] })
     reset()
+  }
+  const remove = async (id: string) => {
+    if (profileId) await removeResidentRow('resident_vehicles', id)
+    patch({ vehicles: prefs.vehicles.filter(x => x.id !== id) })
   }
   return (
     <div className="set-list">
@@ -1252,7 +1276,7 @@ function VehiclesEditor({ prefs, patch }: { prefs: Preferences; patch: (p: Parti
             <span>{[v.plate, v.color].filter(Boolean).join(' · ') || '—'}</span>
           </div>
           <button type="button" className="set-list-remove" aria-label="Remove"
-            onClick={() => patch({ vehicles: prefs.vehicles.filter(x => x.id !== v.id) })}>×</button>
+            onClick={() => remove(v.id)}>×</button>
         </div>
       ))}
       {adding ? (
@@ -1273,21 +1297,22 @@ function VehiclesEditor({ prefs, patch }: { prefs: Preferences; patch: (p: Parti
   )
 }
 
-function PetsEditor({ prefs, patch }: { prefs: Preferences; patch: (p: Partial<Preferences>) => void }) {
+function PetsEditor({ prefs, patch, profileId, communityId }: { prefs: Preferences; patch: (p: Partial<Preferences>) => void; profileId: string | null; communityId: string | null }) {
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [species, setSpecies] = useState('Dog')
   const [breed, setBreed] = useState('')
   const reset = () => { setName(''); setSpecies('Dog'); setBreed(''); setAdding(false) }
-  const submit = () => {
+  const submit = async () => {
     if (!name.trim()) return
-    patch({
-      pets: [
-        ...prefs.pets,
-        { id: newId('p'), name: name.trim(), species: species.trim(), breed: breed.trim() },
-      ],
-    })
+    const entry = { name: name.trim(), species: species.trim(), breed: breed.trim() }
+    const row = profileId ? await addPet(profileId, communityId, entry) : null
+    patch({ pets: [...prefs.pets, row || { id: newId('p'), ...entry }] })
     reset()
+  }
+  const remove = async (id: string) => {
+    if (profileId) await removeResidentRow('resident_pets', id)
+    patch({ pets: prefs.pets.filter(x => x.id !== id) })
   }
   return (
     <div className="set-list">
@@ -1299,7 +1324,7 @@ function PetsEditor({ prefs, patch }: { prefs: Preferences; patch: (p: Partial<P
             <span>{[p.species, p.breed].filter(Boolean).join(' · ')}</span>
           </div>
           <button type="button" className="set-list-remove" aria-label="Remove"
-            onClick={() => patch({ pets: prefs.pets.filter(x => x.id !== p.id) })}>×</button>
+            onClick={() => remove(p.id)}>×</button>
         </div>
       ))}
       {adding ? (
