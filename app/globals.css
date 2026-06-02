@@ -7838,7 +7838,7 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .pay-fine-info { min-width: 0; }
 [data-theme="sketch"] .pay-fine-title { font-size: 14px; font-weight: 700; color: #0A2440; }
 [data-theme="sketch"] .pay-fine-meta { font-size: 12px; color: rgba(10, 36, 64, 0.55); margin-top: 2px; }
-[data-theme="sketch"] .pay-fine-amt { font-size: 15px; font-weight: 800; color: #9a4530; white-space: nowrap; }
+[data-theme="sketch"] .pay-fine-amt { font-size: 15px; font-weight: 800; color: #0A2440; white-space: nowrap; }
 [data-theme="sketch"] .pay-fine-pay { white-space: nowrap; }
 @media (max-width: 560px) {
   [data-theme="sketch"] .pay-fine-row { grid-template-columns: minmax(0, 1fr) auto; }
