@@ -3938,7 +3938,10 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 }
 [data-theme="sketch"] .sched-grid {
   display: grid;
-  grid-template-columns: repeat(7, 1fr);
+  /* minmax(0,1fr) keeps all 7 day columns equal; plain 1fr lets a cell with a
+     long event label floor at its min-content width and blow the week wider
+     than the viewport (two columns ballooned to ~100px on phones). */
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 6px;
 }
 [data-theme="sketch"] .sched-cell {
@@ -5024,7 +5027,7 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 [data-theme="sketch"] .rb-suggest-cta svg { width: 16px; height: 16px; }
 
 @media (max-width: 1099px) {
-  [data-theme="sketch"] .rb-grid { grid-template-columns: 1fr; }
+  [data-theme="sketch"] .rb-grid { grid-template-columns: minmax(0, 1fr); }
   [data-theme="sketch"] .rb-vi-stats { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 599px) {
@@ -5940,7 +5943,9 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 /* Responsive: stack side panel below calendar on narrow screens */
 @media (max-width: 1199px) {
   [data-theme="sketch"] .sched-layout {
-    grid-template-columns: 1fr;
+    /* minmax(0,1fr) not 1fr: a plain 1fr track floors at the content's
+       min-content width (~450px here) and overflows the phone viewport. */
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 @media (max-width: 767px) {
@@ -5957,7 +5962,7 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
     gap: 18px;
   }
   [data-theme="sketch"] .hero-photo { min-height: 200px; }
-  [data-theme="sketch"] .dash-row1 { grid-template-columns: 1fr; }
+  [data-theme="sketch"] .dash-row1 { grid-template-columns: minmax(0, 1fr); }
   [data-theme="sketch"] .glance-cards { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 767px) {
@@ -8836,6 +8841,75 @@ textarea[disabled] {
 /* ---- legacy classes from prior WIP (still rendered as no-ops if unused) ---- */
 /* .hero-row, .ym-cards, .pace-trio, .trend-* now unused — keep their old
    rules in place above; they simply don't match anything in the new JSX. */
+
+/* ============ MOBILE BOTTOM TAB BAR (resident cockpit) ============ */
+/* Native-app style primary nav on phones. Hidden on tablet/desktop, where the
+   left rail (and the 768-1199px hamburger drawer) handle navigation. The More
+   tab opens that same drawer for the secondary destinations. */
+.bottom-nav { display: none; }
+
+@media (max-width: 767px) {
+  [data-theme="sketch"] .bottom-nav {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 95;
+    background: #FFFFFF;
+    border-top: 1px solid rgba(199, 111, 69, 0.18);
+    box-shadow: 0 -4px 22px -10px rgba(31, 42, 58, 0.22);
+    padding: 8px 4px;
+    padding-bottom: calc(8px + env(safe-area-inset-bottom));
+  }
+  [data-theme="sketch"] .bn-item {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    position: relative;
+    padding: 4px 2px;
+    background: none; border: none; cursor: pointer;
+    font-family: inherit; font-size: 10.5px; font-weight: 600; letter-spacing: 0.1px;
+    color: rgba(10, 36, 64, 0.5);
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+  [data-theme="sketch"] .bn-item svg { width: 22px; height: 22px; }
+  [data-theme="sketch"] .bn-item.active { color: #EB5507; }
+  [data-theme="sketch"] .bn-dot {
+    position: absolute; top: 1px; left: 50%; transform: translateX(9px);
+    width: 7px; height: 7px; border-radius: 50%;
+    background: #EB5507; border: 1.5px solid #fff;
+  }
+
+  /* The bottom bar is the phone nav now — retire the hamburger and give the
+     scroll area clearance so the fixed bar never overlaps page content. */
+  [data-theme="sketch"] .hamburger { display: none; }
+  .center { padding-bottom: 92px; }
+  /* The right rail (stacked below content on /app) also needs the clearance. */
+  [data-theme="sketch"] .rail-right { padding-bottom: 80px; }
+}
+
+/* ============ RESPONSIVE — resident cockpit dashboard ============ */
+/* The dashboard hero chips and the financial-overview footer were laid out for
+   a wide center column; on a phone the chips ran nowrap off-screen and the
+   footer's auto/1fr/auto grid (with a 44px stat gap) overflowed the card. */
+@media (max-width: 767px) {
+  [data-theme="sketch"] .hero-chips {
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+
+  /* Stack the "view budget" button above the stats, and pull the two stats in
+     tight so they fit a phone-width card instead of spilling past it. */
+  [data-theme="sketch"] .fin-foot {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  [data-theme="sketch"] .fin-foot .fin-view-btn,
+  [data-theme="sketch"] .fin-foot .fin-stats {
+    grid-column: 1;
+    justify-self: start;
+  }
+  [data-theme="sketch"] .fin-stats { gap: 28px; }
+}
 
 /* ============ RESPONSIVE — admin controls that assume desktop width ============ */
 /* The segmented pill (Easy Voice / Board tabs) and the schedule/docs filter bar

@@ -260,6 +260,34 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
       </main>
 
       {showRightRail && <RightRail />}
+
+      {/* Mobile bottom tab bar — primary navigation on phones, matching the
+          native-app pattern. Replaces the hamburger as the main entry point;
+          the "More" tab opens the existing drawer (Schedule, Settings, Admin,
+          Platform, sign out). Hidden ≥768px via CSS. */}
+      <nav className="bottom-nav" aria-label="Primary">
+        <Link href={isPreview ? '/app?preview=1' : '/app'} className={`bn-item${pathname === '/app' ? ' active' : ''}`}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12 12 3l9 9"/><path d="M5 10v10h14V10"/></svg>
+          <span>Home</span>
+          {homeHasAlert && <span className="bn-dot" aria-hidden="true" />}
+        </Link>
+        <Link href={isPreview ? '/app/track?preview=1' : '/app/track'} className={`bn-item${pathname.startsWith('/app/track') ? ' active' : ''}`}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
+          <span>Pay</span>
+        </Link>
+        <Link href={isPreview ? '/app/voice?preview=1' : '/app/voice'} className={`bn-item${pathname.startsWith('/app/voice') ? ' active' : ''}`}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          <span>Requests</span>
+        </Link>
+        <Link href={isPreview ? '/app/documents?preview=1' : '/app/documents'} className={`bn-item${(pathname.startsWith('/app/documents') || pathname.startsWith('/app/rules')) ? ' active' : ''}`}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h12l4 4v12H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
+          <span>Documents</span>
+        </Link>
+        <button type="button" className={`bn-item${navOpen ? ' active' : ''}`} onClick={() => setNavOpen(true)} aria-label="More">
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
+          <span>More</span>
+        </button>
+      </nav>
     </div>
     </>
   )
