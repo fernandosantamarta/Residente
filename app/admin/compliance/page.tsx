@@ -57,18 +57,22 @@ const wsBase = (href: string) => href.split('#')[0].split('?')[0]
 // Persistent entry points to the compliance workspaces. The signal worklist
 // only links to a workspace when it has an active deadline, so these cards keep
 // every workspace reachable from the dashboard even when nothing is flagged.
-const WORKSPACES: { href: string; label: string; desc: string; color: string }[] = [
-  { href: '/admin/collections', label: 'Collections & liens', desc: 'Work the statutory ladder — late-assessment notice, intent-to-lien, lien, foreclosure.', color: '#B54708' },
-  { href: '/admin/estoppel', label: 'Estoppel certificates', desc: 'Intake requests, track the delivery clock + fee, and issue the certificate.', color: '#175CD3' },
-  { href: '/admin/structural', label: 'Structural integrity', desc: 'Milestone inspections & SIRS — track each building’s deadlines (condominium only).', color: '#067647' },
-  { href: '/admin/documents#documents', label: 'Official records', desc: 'Post required records, track retention, and answer records-inspection requests on the clock.', color: '#7A5AF8' },
-  { href: '/admin/financials', label: 'Financial reporting & reserves', desc: 'Audit tier, the annual financial report & budget clocks, and reserve funding.', color: '#0E7490' },
-  { href: '/admin/governance', label: 'Directors & management', desc: 'Term limits, the director certification clock, conflicts of interest, and CAM licensing.', color: '#9333EA' },
-  { href: '/admin/enforcement', label: 'Violations, fines & hearings', desc: 'Run a fine through the independent committee, the 14-day hearing notice, and voting/use-rights suspensions.', color: '#DC6803' },
-  { href: '/admin/meetings', label: 'Meetings & notice', desc: 'Track the 48-hour / 14-day meeting-notice clock, agendas, and minutes availability.', color: '#0891B2' },
-  { href: '/admin/elections', label: 'Elections & recall', desc: 'The 60 / 40 / 14-day election timeline, the election quorum, and the 5-business-day recall clock.', color: '#7C3AED' },
-  { href: '/admin/arc', label: 'Architectural review', desc: 'Owner ARC requests against the response deadline, written-reason denials, and material-alteration votes.', color: '#65A30D' },
+const WORKSPACES: { href: string; label: string; desc: string; color: string; group: string }[] = [
+  // Money & assessments
+  { href: '/admin/collections', label: 'Collections & liens', desc: 'Work the statutory ladder — late-assessment notice, intent-to-lien, lien, foreclosure.', color: '#B54708', group: 'Money & assessments' },
+  { href: '/admin/estoppel', label: 'Estoppel certificates', desc: 'Intake requests, track the delivery clock + fee, and issue the certificate.', color: '#175CD3', group: 'Money & assessments' },
+  { href: '/admin/financials', label: 'Financial reporting & reserves', desc: 'Audit tier, the annual financial report & budget clocks, and reserve funding.', color: '#0E7490', group: 'Money & assessments' },
+  // Governance
+  { href: '/admin/governance', label: 'Directors & management', desc: 'Term limits, the director certification clock, conflicts of interest, and CAM licensing.', color: '#9333EA', group: 'Governance' },
+  { href: '/admin/meetings', label: 'Meetings & notice', desc: 'Track the 48-hour / 14-day meeting-notice clock, agendas, and minutes availability.', color: '#0891B2', group: 'Governance' },
+  { href: '/admin/elections', label: 'Elections & recall', desc: 'The 60 / 40 / 14-day election timeline, the election quorum, and the 5-business-day recall clock.', color: '#7C3AED', group: 'Governance' },
+  { href: '/admin/enforcement', label: 'Violations, fines & hearings', desc: 'Run a fine through the independent committee, the 14-day hearing notice, and voting/use-rights suspensions.', color: '#DC6803', group: 'Governance' },
+  // Property & records
+  { href: '/admin/structural', label: 'Structural integrity', desc: 'Milestone inspections & SIRS — track each building’s deadlines (condominium only).', color: '#067647', group: 'Property & records' },
+  { href: '/admin/arc', label: 'Architectural review', desc: 'Owner ARC requests against the response deadline, written-reason denials, and material-alteration votes.', color: '#65A30D', group: 'Property & records' },
+  { href: '/admin/documents#documents', label: 'Official records', desc: 'Post required records, track retention, and answer records-inspection requests on the clock.', color: '#7A5AF8', group: 'Property & records' },
 ]
+const WORKSPACE_GROUPS = ['Money & assessments', 'Governance', 'Property & records']
 
 // Resilient select: a table that hasn't had its migration run yet returns an
 // error rather than throwing — treat that as "no rows" so the dashboard still
@@ -287,27 +291,36 @@ export default function CompliancePage() {
                 ))}
               </div>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
-              {WORKSPACES.filter(w => !(w.href === '/admin/structural' && community?.association_type === 'hoa')).map(w => {
-                const c = wsCounts[wsBase(w.href)] || { overdue: 0, soon: 0 }
-                const badge = c.overdue
-                  ? { t: `${c.overdue} overdue`, col: '#B42318' }
-                  : c.soon
-                    ? { t: `${c.soon} due soon`, col: '#B54708' }
-                    : { t: 'Clear', col: '#067647' }
-                return (
-                  <Link key={w.href} href={w.href} style={{ textDecoration: 'none', color: 'inherit' }}>
-                    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${w.color}`, borderRadius: 12, padding: '14px 16px', background: '#fff', height: '100%' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14.5 }}>{w.label}</div>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: badge.col, background: badge.col + '14', padding: '2px 9px', borderRadius: 999, whiteSpace: 'nowrap' }}>{badge.t}</span>
-                      </div>
-                      <div style={{ fontSize: 12.5, opacity: 0.72, marginTop: 4 }}>{w.desc}</div>
-                    </div>
-                  </Link>
-                )
-              })}
-            </div>
+            {WORKSPACE_GROUPS.map(group => {
+              const items = WORKSPACES.filter(w => w.group === group && !(w.href === '/admin/structural' && community?.association_type === 'hoa'))
+              if (!items.length) return null
+              return (
+                <div key={group} style={{ marginTop: 16 }}>
+                  <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'rgba(0,0,0,0.4)', marginBottom: 8 }}>{group}</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
+                    {items.map(w => {
+                      const c = wsCounts[wsBase(w.href)] || { overdue: 0, soon: 0 }
+                      const badge = c.overdue
+                        ? { t: `${c.overdue} overdue`, col: '#B42318' }
+                        : c.soon
+                          ? { t: `${c.soon} due soon`, col: '#B54708' }
+                          : { t: 'Clear', col: '#067647' }
+                      return (
+                        <Link key={w.href} href={w.href} style={{ textDecoration: 'none', color: 'inherit' }}>
+                          <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${w.color}`, borderRadius: 12, padding: '14px 16px', background: '#fff', height: '100%' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                              <div style={{ fontWeight: 700, fontSize: 14.5 }}>{w.label}</div>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: badge.col, background: badge.col + '14', padding: '2px 9px', borderRadius: 999, whiteSpace: 'nowrap' }}>{badge.t}</span>
+                            </div>
+                            <div style={{ fontSize: 12.5, opacity: 0.72, marginTop: 4 }}>{w.desc}</div>
+                          </div>
+                        </Link>
+                      )
+                    })}
+                  </div>
+                </div>
+              )
+            })}
           </section>
 
           {signals.length === 0 ? (
