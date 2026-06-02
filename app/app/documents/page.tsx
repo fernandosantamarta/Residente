@@ -147,8 +147,9 @@ export default function EasyDocs() {
   const communityName = community?.name || 'Sunset Lakes'
 
   const DOC_TABS: SegTab[] = [
-    { id: 'rules',     label: t('documents.tabRules') },
-    { id: 'documents', label: t('documents.tabDocuments') },
+    { id: 'rules',      label: t('documents.tabRules') },
+    { id: 'documents',  label: t('documents.tabDocuments') },
+    { id: 'violations', label: 'My Violations' },
   ]
 
   // Which section is showing. The segmented control switches between them;
@@ -687,10 +688,27 @@ export default function EasyDocs() {
               </section>
             </div>
 
-            <div className="doc-row">
-              <MyViolationsPanel />
-            </div>
           </div>
+        </div>
+      </section>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════
+          MY VIOLATIONS SECTION — the resident's own violations & fines
+          (alongside Rules), with a link to the full enforcement view
+          (hearings + voting/use-rights suspensions) at /app/enforcement.
+      ════════════════════════════════════════════════════════════════ */}
+      {tab === 'violations' && (
+      <section id="easydocs-violations" style={{ scrollMarginTop: 56 }}>
+        <div className="rb-wrap">
+          <MyViolationsPanel />
+          <Link href="/app/enforcement" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginTop: 14, padding: '14px 16px', borderRadius: 12, border: '1px solid rgba(10,36,64,0.1)', background: '#fff', textDecoration: 'none', color: '#0A2440' }}>
+            <span>
+              <span style={{ display: 'block', fontWeight: 700, fontSize: 14 }}>Hearings &amp; suspensions</span>
+              <span style={{ display: 'block', fontSize: 12.5, color: 'rgba(10,36,64,0.6)', marginTop: 2 }}>See any hearing on a proposed fine, and any voting or use-rights suspension on your account.</span>
+            </span>
+            <span style={{ color: '#E14909', fontWeight: 700, whiteSpace: 'nowrap' }}>Open &rarr;</span>
+          </Link>
         </div>
       </section>
       )}
