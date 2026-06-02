@@ -838,7 +838,6 @@ function FinesDueCard() {
 
   if (fines.length === 0) return null
 
-  const total = fines.reduce((s, v) => s + (Number(v.amount) || 0), 0)
   const onPay = async (id: string) => {
     setError(null)
     setPayingId(id)
@@ -850,17 +849,16 @@ function FinesDueCard() {
     <section className="pay-fines-band" id="fines">
       <div className="pay-fines-band-head">
         <span className="pay-fines-eyebrow">⚠ {t('pay.finesDue')}</span>
-        <span className="pay-fines-total">{t('pay.finesTotal', { amount: fmtMoney(total) })}</span>
       </div>
       {error && <div className="pay-err">{error}</div>}
       <div className="pay-fines-list">
         {fines.map(v => (
           <div key={v.id} className="pay-fine-row">
+            <div className="pay-fine-amt">{fmtMoney(v.amount)}</div>
             <div className="pay-fine-info">
               <div className="pay-fine-title">{v.rule_title || t('pay.fineGeneric')}</div>
               <div className="pay-fine-meta">{t('pay.fineIssued', { date: fmtDate(v.opened_at) })}</div>
             </div>
-            <div className="pay-fine-amt">{fmtMoney(v.amount)}</div>
             <button
               type="button"
               className="pay-cta-primary pay-fine-pay"

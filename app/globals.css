@@ -7830,7 +7830,7 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 }
 [data-theme="sketch"] .pay-fines-list { display: flex; flex-direction: column; }
 [data-theme="sketch"] .pay-fine-row {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
+  display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
   gap: 14px; align-items: center;
   padding: 12px 0; border-top: 1px solid rgba(15, 28, 46, 0.08);
 }
