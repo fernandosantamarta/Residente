@@ -7821,9 +7821,9 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 }
 [data-theme="sketch"] .pay-fines-total {
   display: inline-flex; align-items: center;
-  font-size: 14.5px; font-weight: 800; color: #0A2440;
-  background: #FFFFFF;
-  border: 1px solid rgba(10, 36, 64, 0.16);
+  font-size: 14.5px; font-weight: 800; color: #FFFFFF;
+  background: #0A2440;
+  border: 1px solid #0A2440;
   border-radius: 999px;
   padding: 5px 14px;
   box-shadow: 0 2px 6px -3px rgba(31, 42, 58, 0.4);
@@ -7839,7 +7839,11 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .pay-fine-title { font-size: 14px; font-weight: 700; color: #0A2440; }
 [data-theme="sketch"] .pay-fine-meta { font-size: 12px; color: rgba(10, 36, 64, 0.55); margin-top: 2px; }
 [data-theme="sketch"] .pay-fine-amt { font-size: 15px; font-weight: 800; color: #0A2440; white-space: nowrap; }
-[data-theme="sketch"] .pay-fine-pay { white-space: nowrap; }
+[data-theme="sketch"] .pay-fine-pay {
+  white-space: nowrap;
+  background: #0A2440; border-color: #0A2440;
+}
+[data-theme="sketch"] .pay-fine-pay:hover { background: #143456; border-color: #143456; }
 @media (max-width: 560px) {
   [data-theme="sketch"] .pay-fine-row { grid-template-columns: minmax(0, 1fr) auto; }
   [data-theme="sketch"] .pay-fine-pay { grid-column: 1 / -1; justify-self: start; }
