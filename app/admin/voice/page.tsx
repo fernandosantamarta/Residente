@@ -267,8 +267,7 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
 
 function MeetingDetail({ meetingId, onBack }) {
   const { meeting, loading, error, reload } = useVoiceMeeting(meetingId)
-  const [tab, setTab] = useState('votes') // votes | docs | settings
-  const [editMode, setEditMode] = useState(false)
+  const [tab, setTab] = useState('votes') // votes | docs | notify | settings
   const [advancing, setAdvancing] = useState(false)
   const [advErr, setAdvErr] = useState(null)
 
@@ -324,16 +323,6 @@ function MeetingDetail({ meetingId, onBack }) {
   if (error)   return <div className="admin-section"><div className="admin-err">{error}</div></div>
   if (!meeting) return null
 
-  if (editMode) {
-    return (
-      <MeetingForm
-        existing={meeting}
-        onSaved={() => { reload(); setEditMode(false) }}
-        onCancel={() => setEditMode(false)}
-      />
-    )
-  }
-
   const typeLabel = MEETING_TYPES.find(t => t.value === meeting.type)?.label ?? meeting.type
   const nextStatusLabel = { draft: 'Mark Notice Sent', notice_sent: 'Start Meeting', in_progress: 'Complete Meeting' }[meeting.status]
 
@@ -341,7 +330,6 @@ function MeetingDetail({ meetingId, onBack }) {
     <div className="admin-section">
       <div className="admin-section-head">
         <button className="admin-btn-ghost" onClick={onBack}>← All meetings</button>
-        <button className="admin-btn-ghost" onClick={() => setEditMode(true)}>Edit</button>
       </div>
 
       <div className="voice-detail-header">
@@ -377,17 +365,25 @@ function MeetingDetail({ meetingId, onBack }) {
         )}
       </div>
 
-      <div className="voice-tabs">
+      <div className="seg-tabs voice-detail-tabs" role="tablist">
         {['votes', 'docs', 'notify', 'settings'].map(t => (
-          <button key={t} className={`voice-tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>
+          <button key={t} type="button" role="tab" aria-selected={tab === t}
+            className={`seg-tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>
             {t === 'votes' ? 'Votes' : t === 'docs' ? 'Documents' : t === 'notify' ? 'Notify residents' : 'Settings'}
           </button>
         ))}
       </div>
 
-      {tab === 'votes'  && <VotesPanel  meeting={meeting} reload={reload} />}
-      {tab === 'docs'   && <DocsPanel   meeting={meeting} reload={reload} />}
-      {tab === 'notify' && <NotifyPanel meeting={meeting} />}
+      {tab === 'votes'    && <VotesPanel  meeting={meeting} reload={reload} />}
+      {tab === 'docs'     && <DocsPanel   meeting={meeting} reload={reload} />}
+      {tab === 'notify'   && <NotifyPanel meeting={meeting} />}
+      {tab === 'settings' && (
+        <MeetingForm
+          existing={meeting}
+          onSaved={() => { reload(); setTab('votes') }}
+          onCancel={() => setTab('votes')}
+        />
+      )}
     </div>
   )
 }
@@ -569,7 +565,7 @@ function VotesPanel({ meeting, reload }) {
     <div className="voice-panel">
       <div className="voice-panel-head">
         <span>Vote items</span>
-        <button className="admin-btn-sm" onClick={() => setShowForm(v => !v)}>
+        <button className={showForm ? 'admin-btn-sm' : 'admin-btn voice-add-vote-btn'} onClick={() => setShowForm(v => !v)}>
           {showForm ? 'Cancel' : '+ Add vote'}
         </button>
       </div>

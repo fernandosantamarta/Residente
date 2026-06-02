@@ -413,6 +413,13 @@
 .voice-tab:hover { color: var(--text); }
 .voice-tab.active { color: var(--text); border-bottom-color: var(--pink); }
 
+/* Meeting detail now uses the admin seg-tab pills (shared with the Easy Voice
+   sub-nav) instead of the old underline tabs. */
+.voice-detail-tabs { margin-top: 4px; }
+/* "+ Add vote" reuses the orange admin CTA but sized down to sit in the panel
+   head next to the "Vote items" label. */
+.voice-add-vote-btn { padding: 8px 18px; font-size: 13px; }
+
 /* EasyDocs (Rules + Documents) tabs */
 .easydocs-tabs { display: flex; gap: 6px; margin-bottom: 24px; }
 .easydocs-tab {
