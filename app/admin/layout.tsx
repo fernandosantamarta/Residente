@@ -18,8 +18,9 @@ import { usePlatformAdmin } from '@/hooks/usePlatform'
 //   Easy Voice     → Meetings, Roster, Board, Contact (EasyVoiceTabs)
 //   Easy Documents → Rules, Documents, Violations (EasyDocsTabs)
 // The admin-only setup section (Community) leads.
-type AdminNavItem = { href: string; label: string; match?: string[] }
+type AdminNavItem = { href: string; label: string; match?: string[]; exact?: boolean }
 const ADMIN_NAV: AdminNavItem[] = [
+  { href: '/admin',            label: 'Overview', exact: true },
   { href: '/admin/community',  label: 'Community' },
   { href: '/admin/compliance', label: 'Compliance', match: ['/admin/estoppel', '/admin/collections', '/admin/structural', '/admin/financials', '/admin/governance', '/admin/enforcement', '/admin/meetings', '/admin/elections', '/admin/arc'] },
   { href: '/admin/residents',  label: 'Easy Track', match: ['/admin/vendor'] },
@@ -29,6 +30,9 @@ const ADMIN_NAV: AdminNavItem[] = [
 ]
 
 const navActive = (pathname: string, item: AdminNavItem) => {
+  // The Overview tab points at the admin root, which is a prefix of every other
+  // admin route — match it exactly so it isn't perpetually "active".
+  if (item.exact) return pathname === item.href
   const hrefs = [item.href, ...(item.match ?? [])]
   return hrefs.some(h => pathname === h || pathname.startsWith(h + '/'))
 }
@@ -61,12 +65,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <CommunitySwitcher />
         </div>
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 16 }}>
-          <Link href="/admin/support" className="admin-back">Contact Residente</Link>
           <Link href="/app" className="admin-back">&larr; Back to app</Link>
         </div>
       </header>
 
-      <nav className="admin-nav">
+      <nav className="admin-nav" style={{ position: 'relative' }}>
         {ADMIN_NAV.map(item => (
           <Link
             key={item.href}
@@ -81,6 +84,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             Platform Console
           </Link>
         )}
+        <Link href="/admin/support" className="admin-nav-item" style={{ position: 'absolute', right: 32, top: 14 }}>
+          Contact Residente
+        </Link>
       </nav>
 
       <main className="admin-main">

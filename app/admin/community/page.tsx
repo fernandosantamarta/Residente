@@ -145,8 +145,6 @@ export default function CommunitySettings() {
 
       {form && (
         <>
-          {form.join_code && <JoinCodeCard code={form.join_code} />}
-
           <form className="admin-form" onSubmit={save}>
             {FIELDS.map(f => (
               <label key={f.key} className="admin-field">
@@ -179,40 +177,6 @@ export default function CommunitySettings() {
           <BudgetCategories communityId={communityId} onSaved={setSuccessMsg} />
         </>
       )}
-    </div>
-  )
-}
-
-// Read-only card showing the community's resident join code with copy-to-clipboard.
-// Residents type this at /signup to attach to this community.
-function JoinCodeCard({ code }: { code: string }) {
-  const [copied, setCopied] = useState(false)
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(code)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    } catch { /* clipboard may be blocked; the code is visible to type manually */ }
-  }
-  return (
-    <div className="admin-note" style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      gap: 12, marginBottom: 18,
-    }}>
-      <div>
-        <div style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', opacity: 0.7 }}>
-          Resident join code
-        </div>
-        <div style={{ fontSize: 22, fontWeight: 800, letterSpacing: '3px', fontFamily: 'monospace' }}>
-          {code}
-        </div>
-        <div style={{ fontSize: 12.5, opacity: 0.7, marginTop: 2 }}>
-          Share this with residents so they can join at the Get started page.
-        </div>
-      </div>
-      <button type="button" className="admin-secondary-btn" onClick={copy}>
-        {copied ? 'Copied ✓' : 'Copy'}
-      </button>
     </div>
   )
 }
