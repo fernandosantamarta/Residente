@@ -7799,7 +7799,26 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   border: none; background: none; padding: 0; font: inherit; cursor: pointer;
 }
 
-/* Fines due — outstanding violation fines surfaced on the Pay screen. */
+/* Fines due — an orange "action needed" band above Current Balance. Mirrors
+   the open-votes band so unpaid fines read as something to handle now. The
+   whole band is hidden when there's nothing open to pay. */
+[data-theme="sketch"] .pay-fines-band {
+  background: rgba(225, 73, 9, 0.06);
+  border: 2px solid #E14909;
+  border-left: 6px solid #E14909;
+  border-radius: 22px;
+  padding: 16px 22px 14px;
+  margin-bottom: 16px;
+  box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
+}
+[data-theme="sketch"] .pay-fines-band-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 6px;
+}
+[data-theme="sketch"] .pay-fines-eyebrow {
+  font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+  color: #C73E07;
+}
 [data-theme="sketch"] .pay-fines-total {
   font-size: 16px; font-weight: 800; color: #9a4530;
 }

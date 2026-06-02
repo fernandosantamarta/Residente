@@ -296,6 +296,11 @@ export function PaySection() {
         </p>
       </div>
 
+      {/* Outstanding fines — an orange "action needed" band above the balance
+          (matches the open-votes band). Each fine is its own Stripe charge that
+          closes itself on payment, so the band vanishes once everything's paid. */}
+      <FinesDueCard />
+
       {/* Current Balance hero — full width: balance on the left, a divider,
           then the three progress rings on the right. */}
       <section className="pay-card pay-balance-card">
@@ -354,11 +359,6 @@ export function PaySection() {
           </div>
         </div>
       </section>
-
-      {/* Outstanding fines — separate from dues (each fine is its own Stripe
-          charge that closes itself on payment), but surfaced here so the
-          resident pays everything they owe from one screen. */}
-      <FinesDueCard />
 
       <div className="pay-grid">
         {/* MAIN COLUMN */}
@@ -847,9 +847,9 @@ function FinesDueCard() {
   }
 
   return (
-    <section className="pay-card pay-fines-card" id="fines">
-      <div className="pay-card-head">
-        <h2 className="pay-card-title">{t('pay.finesDue')}</h2>
+    <section className="pay-fines-band" id="fines">
+      <div className="pay-fines-band-head">
+        <span className="pay-fines-eyebrow">⚠ {t('pay.finesDue')}</span>
         <span className="pay-fines-total">{t('pay.finesTotal', { amount: fmtMoney(total) })}</span>
       </div>
       {error && <div className="pay-err">{error}</div>}

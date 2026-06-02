@@ -97,6 +97,13 @@ export default function Home() {
   const unitCount = num(c.unit_count)
   const annualCommunity = monthlyDues * 12 * unitCount
 
+  // Reserve balance — remaining (budget − spent) of the categories the board
+  // flagged as reserves; falls back to name-matched "Reserve" categories when
+  // the is_reserve flag hasn't been set. Real, not the old hardcoded figure.
+  const reserveCats = cats.filter((x: any) => x.is_reserve)
+  const reserveSource = reserveCats.length ? reserveCats : cats.filter((x: any) => /reserve/i.test(x.name || ''))
+  const reserveTotal = reserveSource.reduce((s, x) => s + (num(x.budget) - num(x.spent)), 0)
+
   // Greeting that adapts to the hour — keeps the hero photo card feeling alive
   const hour = now.getHours()
   const greeting = hour < 12 ? t('home.greetingMorning') : hour < 18 ? t('home.greetingAfternoon') : t('home.greetingEvening')
@@ -173,8 +180,9 @@ export default function Home() {
             <GlanceCard
               icon="shield" iconTone="green"
               label={t('home.glanceReserveBalance')}
-              value={fmtMoney(128600)}
-              captionText={t('home.glanceHealthy')} captionTone="green"
+              value={fmtMoney(reserveTotal)}
+              captionText={reserveTotal > 0 ? t('home.glanceHealthy') : t('home.glanceReserveNone')}
+              captionTone={reserveTotal > 0 ? 'green' : 'muted'}
             />
             <GlanceCard
               icon="docs" iconTone="purple"
@@ -184,9 +192,10 @@ export default function Home() {
             />
             <GlanceCard
               icon="pie" iconTone="blue"
-              label={t('home.glanceCollectionRate')}
+              label={t('home.glanceBudgetPace')}
               value={`${healthPct}%`}
-              captionText={t('home.glanceOnTrack')} captionTone="green"
+              captionText={overPace ? t('home.glanceOverPace') : t('home.glanceOnTrack')}
+              captionTone={overPace ? 'red' : 'green'}
             />
           </div>
         </section>
