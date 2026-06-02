@@ -76,7 +76,8 @@ begin
     insert into public.ev_notices (community_id, kind, channels, subject, body, sent_by)
     values (
       new.community_id,
-      'custom_broadcast',
+      'violation',         -- routed to /app/documents by noticeHref (widen the
+                           -- ev_notices kind CHECK first — see violation-notices.sql)
       array['personal'],   -- NOT 'in_app' → broadcast fanout skips this notice
       case when new.kind = 'fine'
            then 'New fine: ' || coalesce(new.rule_title, 'rule violation')

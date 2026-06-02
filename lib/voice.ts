@@ -110,6 +110,7 @@ export type NoticeKind =
   | 'custom_broadcast'
   | 'amenity_booked'
   | 'dues_due'
+  | 'violation'           // owner-directed: a fine/warning was issued against them
   // ---- FL compliance layer ----
   | 'compliance_alert'    // board-directed: a statutory deadline/obligation needs attention
   | 'estoppel_update'     // owner-directed: their estoppel request was received / delivered
@@ -134,6 +135,7 @@ export const NOTICE_KIND_LABELS: Record<NoticeKind, string> = {
   custom_broadcast:  'Announcement',
   amenity_booked:    'Amenity reserved',
   dues_due:          'Dues due',
+  violation:         'Violation',
   compliance_alert:  'Compliance alert',
   estoppel_update:   'Estoppel request',
   collections_deadline: 'Collections deadline',
@@ -153,6 +155,8 @@ export function noticeHref(n: { kind?: string | null; meeting_id?: string | null
   if (n.kind === 'collections_deadline') return '/admin/collections'
   // A collection notice on the owner's account sends them to their balance.
   if (n.kind === 'collections_update') return '/app/track#pay'
+  // A fine/warning notice opens the resident's violations in Easy Documents.
+  if (n.kind === 'violation') return '/app/documents'
   if (n.meeting_id) return `/app/voice/${n.meeting_id}`
   // A document notice with no meeting is a library upload — open Easy Documents,
   // not the Voice meetings list. (Meeting-attached docs hit the meeting_id branch

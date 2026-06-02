@@ -73,15 +73,17 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
   // already flows through useCommunityData when no community is linked,
   // so the only change is skipping the auth redirect.
   const isPreview = searchParams?.get('preview') === '1'
-  // Home nav dot: light it only when there's something new to act on — an
-  // unread notice (a new calendar event, an opened vote, an announcement) or
-  // an unpaid balance (dues due/late = "pay"). Both hooks tolerate a null
-  // profile and MUST run before the auth-guard early-return below so the hook
-  // count stays stable across logout. Preview always shows it (the demo
-  // account carries an unpaid balance).
+  // Home nav dot: a notification indicator — light it only when there are
+  // unread notices (a new calendar event, an opened vote, an announcement, a
+  // fine). Reading everything in the bell clears it. We deliberately do NOT
+  // tie it to the dues balance: dues are surfaced on Home already, and folding
+  // them in here left the dot stuck on for anyone who owed money. Both hooks
+  // tolerate a null profile and MUST run before the auth-guard early-return
+  // below so the hook count stays stable across logout. Preview forces it on
+  // for demo screenshots.
   const { count: unreadCount } = useUnreadNoticeCount()
-  const { status: duesStatus } = useMyResident() as { status: 'paid' | 'due' | 'late' }
-  const homeHasAlert = isPreview || unreadCount > 0 || duesStatus !== 'paid'
+  useMyResident() // keep mounted before the auth guard for stable hook order
+  const homeHasAlert = isPreview || unreadCount > 0
   const showRightRail = pathname === '/app'
   const [navOpen, setNavOpen] = useState(false)
   const showAdmin = !hasSupabase || ['board_member', 'admin'].includes(profile?.role || '')

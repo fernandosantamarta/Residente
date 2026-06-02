@@ -6,6 +6,7 @@ import { useMyResident } from '@/hooks/useMyResident'
 import { stripeEnabled, supabase } from '@/lib/supabase'
 import { usePreferences, newId, PaymentMethod } from '@/lib/preferences'
 import { fmtMoney } from '@/lib/dues'
+import { useMyViolations, payFine } from '@/lib/violations'
 import { useT } from '@/lib/i18n'
 import { DetailDialog } from './DetailDialog'
 
@@ -346,6 +347,11 @@ export function PaySection() {
           </div>
         </div>
       </section>
+
+      {/* Outstanding fines — separate from dues (each fine is its own Stripe
+          charge that closes itself on payment), but surfaced here so the
+          resident pays everything they owe from one screen. */}
+      <FinesDueCard />
 
       <div className="pay-grid">
         {/* MAIN COLUMN */}
@@ -809,6 +815,59 @@ function AddPaymentDialog({
 }
 
 // -- small components ----------------------------------------------
+
+// Outstanding fines the resident still owes. Each fine is its own Stripe
+// charge (create-fine-checkout) that the webhook closes on payment — this card
+// just surfaces them on the Pay screen so dues + fines live in one place.
+// Hidden entirely when there's nothing open to pay.
+function FinesDueCard() {
+  const t = useT()
+  const { violations } = useMyViolations()
+  const fines = violations.filter(
+    v => v.kind === 'fine' && v.status === 'open' && Number(v.amount) > 0,
+  )
+  const [payingId, setPayingId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  if (fines.length === 0) return null
+
+  const total = fines.reduce((s, v) => s + (Number(v.amount) || 0), 0)
+  const onPay = async (id: string) => {
+    setError(null)
+    setPayingId(id)
+    const err = await payFine(id)   // redirects to Stripe on success
+    if (err) { setError(err); setPayingId(null) }
+  }
+
+  return (
+    <section className="pay-card pay-fines-card" id="fines">
+      <div className="pay-card-head">
+        <h2 className="pay-card-title">{t('pay.finesDue')}</h2>
+        <span className="pay-fines-total">{fmtMoney(total)}</span>
+      </div>
+      {error && <div className="pay-err">{error}</div>}
+      <div className="pay-fines-list">
+        {fines.map(v => (
+          <div key={v.id} className="pay-fine-row">
+            <div className="pay-fine-info">
+              <div className="pay-fine-title">{v.rule_title || t('pay.fineGeneric')}</div>
+              <div className="pay-fine-meta">{t('pay.fineIssued', { date: fmtDate(v.opened_at) })}</div>
+            </div>
+            <div className="pay-fine-amt">{fmtMoney(v.amount)}</div>
+            <button
+              type="button"
+              className="pay-cta-primary pay-fine-pay"
+              disabled={payingId === v.id}
+              onClick={() => onPay(v.id)}
+            >
+              {payingId === v.id ? t('pay.startingCheckout') : t('pay.payNow')}
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
 
 function StatusPill({ kind }: { kind: string }) {
   const t = useT()

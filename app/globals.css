@@ -7799,6 +7799,27 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   border: none; background: none; padding: 0; font: inherit; cursor: pointer;
 }
 
+/* Fines due — outstanding violation fines surfaced on the Pay screen. */
+[data-theme="sketch"] .pay-fines-total {
+  font-size: 16px; font-weight: 800; color: #9a4530;
+}
+[data-theme="sketch"] .pay-fines-list { display: flex; flex-direction: column; }
+[data-theme="sketch"] .pay-fine-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 14px; align-items: center;
+  padding: 12px 0; border-top: 1px solid rgba(15, 28, 46, 0.08);
+}
+[data-theme="sketch"] .pay-fine-row:first-of-type { border-top: none; }
+[data-theme="sketch"] .pay-fine-info { min-width: 0; }
+[data-theme="sketch"] .pay-fine-title { font-size: 14px; font-weight: 700; color: #0A2440; }
+[data-theme="sketch"] .pay-fine-meta { font-size: 12px; color: rgba(10, 36, 64, 0.55); margin-top: 2px; }
+[data-theme="sketch"] .pay-fine-amt { font-size: 15px; font-weight: 800; color: #9a4530; white-space: nowrap; }
+[data-theme="sketch"] .pay-fine-pay { white-space: nowrap; }
+@media (max-width: 560px) {
+  [data-theme="sketch"] .pay-fine-row { grid-template-columns: minmax(0, 1fr) auto; }
+  [data-theme="sketch"] .pay-fine-pay { grid-column: 1 / -1; justify-self: start; }
+}
+
 /* Quick actions */
 [data-theme="sketch"] .pay-quick { display: flex; flex-direction: column; gap: 4px; }
 [data-theme="sketch"] .pay-quick-row {
