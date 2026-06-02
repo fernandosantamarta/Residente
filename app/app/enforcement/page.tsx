@@ -13,6 +13,7 @@
 // inline rows; copy is local English (no i18n keys).
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import {
@@ -70,6 +71,9 @@ export default function ResidentEnforcementPage() {
 
   return (
     <section className="con-wrap ev-section">
+      <Link href="/app/documents#violations" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#E14909', textDecoration: 'none', marginBottom: 14 }}>
+        &larr; Back to My Violations
+      </Link>
       <div className="voice-page-head">
         <h1 className="voice-page-title">Violations &amp; fines</h1>
         <p className="voice-page-sub">

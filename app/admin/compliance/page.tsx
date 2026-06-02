@@ -50,6 +50,10 @@ const SEVERITY_META: Record<Severity, { label: string; color: string; bg: string
   info:    { label: 'To do',   color: '#175CD3', bg: 'rgba(23,92,211,0.07)' },
 }
 
+// A signal/workspace href reduced to its base path (drop #hash / ?query) so
+// signals can be tallied per workspace card.
+const wsBase = (href: string) => href.split('#')[0].split('?')[0]
+
 // Persistent entry points to the compliance workspaces. The signal worklist
 // only links to a workspace when it has an active deadline, so these cards keep
 // every workspace reachable from the dashboard even when nothing is flagged.
@@ -225,6 +229,19 @@ export default function CompliancePage() {
     for (const s of signals) c[s.severity]++
     return c
   }, [signals])
+  // Per-workspace open-signal counts — match a signal's href to a workspace so
+  // each card can carry its own overdue/soon badge (folds the old count cards in).
+  const wsCounts = useMemo(() => {
+    const m: Record<string, { overdue: number; soon: number }> = {}
+    for (const s of signals) {
+      if (!s.href) continue
+      const b = wsBase(s.href)
+      ;(m[b] ||= { overdue: 0, soon: 0 })
+      if (s.severity === 'overdue') m[b].overdue++
+      else if (s.severity === 'soon') m[b].soon++
+    }
+    return m
+  }, [signals])
 
   return (
     <div className="admin-page">
@@ -256,37 +273,40 @@ export default function CompliancePage() {
 
       {status === 'ready' && (
         <>
-          <div style={{ display: 'flex', gap: 12, margin: '16px 0 22px', flexWrap: 'wrap' }}>
-            {(['overdue', 'soon', 'info'] as Severity[]).map(sev => (
-              <div key={sev} style={{
-                flex: '1 1 140px', padding: '14px 16px', borderRadius: 12,
-                background: SEVERITY_META[sev].bg, border: `1px solid ${SEVERITY_META[sev].color}22`,
-              }}>
-                <div style={{ fontSize: 28, fontWeight: 800, color: SEVERITY_META[sev].color, lineHeight: 1 }}>
-                  {counts[sev]}
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 600, opacity: 0.8, marginTop: 4 }}>
-                  {SEVERITY_META[sev].label}
-                </div>
+          {/* Workspaces — overall status summarised inline in the header, and
+              each card badged with its own overdue/soon count (this combines the
+              former standalone Overdue / Due-soon / To-do count cards). */}
+          <section style={{ margin: '18px 0 22px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+              <h2 className="bc-title" style={{ margin: 0 }}>Workspaces</h2>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {(['overdue', 'soon', 'info'] as Severity[]).map(sev => (
+                  <span key={sev} style={{ fontSize: 12, fontWeight: 700, color: SEVERITY_META[sev].color, background: SEVERITY_META[sev].bg, padding: '4px 11px', borderRadius: 999 }}>
+                    {counts[sev]} {SEVERITY_META[sev].label}
+                  </span>
+                ))}
               </div>
-            ))}
-          </div>
-
-          {/* Always-available links into the domain workspaces */}
-          <section style={{ marginBottom: 22 }}>
-            <h2 className="bc-title" style={{ margin: '0 0 10px' }}>Workspaces</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
-              {WORKSPACES.filter(w => !(w.href === '/admin/structural' && community?.association_type === 'hoa')).map(w => (
-                <Link key={w.href} href={w.href} style={{ textDecoration: 'none', color: 'inherit' }}>
-                  <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${w.color}`, borderRadius: 12, padding: '14px 16px', background: '#fff', height: '100%' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14.5 }}>{w.label}</div>
-                      <span style={{ fontSize: 13, color: w.color, fontWeight: 700, whiteSpace: 'nowrap' }}>Open →</span>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
+              {WORKSPACES.filter(w => !(w.href === '/admin/structural' && community?.association_type === 'hoa')).map(w => {
+                const c = wsCounts[wsBase(w.href)] || { overdue: 0, soon: 0 }
+                const badge = c.overdue
+                  ? { t: `${c.overdue} overdue`, col: '#B42318' }
+                  : c.soon
+                    ? { t: `${c.soon} due soon`, col: '#B54708' }
+                    : { t: 'Clear', col: '#067647' }
+                return (
+                  <Link key={w.href} href={w.href} style={{ textDecoration: 'none', color: 'inherit' }}>
+                    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${w.color}`, borderRadius: 12, padding: '14px 16px', background: '#fff', height: '100%' }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14.5 }}>{w.label}</div>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: badge.col, background: badge.col + '14', padding: '2px 9px', borderRadius: 999, whiteSpace: 'nowrap' }}>{badge.t}</span>
+                      </div>
+                      <div style={{ fontSize: 12.5, opacity: 0.72, marginTop: 4 }}>{w.desc}</div>
                     </div>
-                    <div style={{ fontSize: 12.5, opacity: 0.72, marginTop: 3 }}>{w.desc}</div>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                )
+              })}
             </div>
           </section>
 

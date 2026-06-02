@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Fragment, ReactNode, useMemo, useState } from 'react'
+import { Fragment, ReactNode, useEffect, useMemo, useState } from 'react'
 import { SegTabs, SegTab } from '@/components/SegTabs'
 import { useCategoriesData, useRulesData, DEMO_RULES } from '@/lib/rules'
 import { computeStats, useViolationsData, useMyViolations } from '@/lib/violations'
@@ -156,6 +156,19 @@ export default function EasyDocs() {
   // only the active section renders (a real switch, not a scroll-spy).
   const [tab, setTab] = useState('rules')
 
+  // Honor the URL hash (#rules / #documents / #violations) so deep links and the
+  // "Back to My Violations" link from /app/enforcement open the right tab.
+  useEffect(() => {
+    const ids = ['rules', 'documents', 'violations']
+    const fromHash = () => {
+      const h = window.location.hash.replace('#', '')
+      if (ids.includes(h)) setTab(h)
+    }
+    fromHash()
+    window.addEventListener('hashchange', fromHash)
+    return () => window.removeEventListener('hashchange', fromHash)
+  }, [])
+
   // ── Rules state ──────────────────────────────────────────────────────────
   // Real community rules, or the demo seed (preview/no-auth) so the Rules tab
   // shows its full layout instead of the empty state.
@@ -302,37 +315,6 @@ export default function EasyDocs() {
               placeholder={t('documents.rulesSearchPlaceholder')}
             />
           </div>
-
-          {rulesList.length > 0 && (
-            <section className="rb-vi">
-              <div className="rb-vi-head">
-                <h2>{t('documents.violationsTitlePre')} <span className="rb-amp">&amp;</span> {t('documents.violationsTitlePost')}</h2>
-                <span className="rb-vi-sub">{t('documents.violationsSub')}</span>
-              </div>
-              <div className="rb-vi-stats">
-                <div className="rb-vi-stat">
-                  <div className="rb-vi-stat-n">{fmtNum(violations.warnings)}</div>
-                  <div className="rb-vi-stat-l">{t('documents.statWarningsLabel')}</div>
-                  <div className="rb-vi-stat-d">{t('documents.statWarningsDesc')}</div>
-                </div>
-                <div className="rb-vi-stat">
-                  <div className="rb-vi-stat-n">{fmtMoney(violations.fines)}</div>
-                  <div className="rb-vi-stat-l">{t('documents.statFinesLabel')}</div>
-                  <div className="rb-vi-stat-d">{t('documents.statFinesDesc')}</div>
-                </div>
-                <div className="rb-vi-stat">
-                  <div className="rb-vi-stat-n">{fmtNum(violations.resolved)}</div>
-                  <div className="rb-vi-stat-l">{t('documents.statResolvedLabel')}</div>
-                  <div className="rb-vi-stat-d">{t('documents.statResolvedDesc')}</div>
-                </div>
-                <div className="rb-vi-stat">
-                  <div className="rb-vi-stat-n">{fmtNum(violations.appeals)}</div>
-                  <div className="rb-vi-stat-l">{t('documents.statAppealsLabel')}</div>
-                  <div className="rb-vi-stat-d">{t('documents.statAppealsDesc')}</div>
-                </div>
-              </div>
-            </section>
-          )}
 
           {rulesList.length === 0 && (
             <div className="rb-empty">
@@ -701,6 +683,35 @@ export default function EasyDocs() {
       {tab === 'violations' && (
       <section id="easydocs-violations" style={{ scrollMarginTop: 56 }}>
         <div className="rb-wrap">
+          {/* Enforcement summary — moved here from the Rules tab. */}
+          <section className="rb-vi" style={{ marginBottom: 18 }}>
+            <div className="rb-vi-head">
+              <h2>{t('documents.violationsTitlePre')} <span className="rb-amp">&amp;</span> {t('documents.violationsTitlePost')}</h2>
+              <span className="rb-vi-sub">{t('documents.violationsSub')}</span>
+            </div>
+            <div className="rb-vi-stats">
+              <div className="rb-vi-stat">
+                <div className="rb-vi-stat-n">{fmtNum(violations.warnings)}</div>
+                <div className="rb-vi-stat-l">{t('documents.statWarningsLabel')}</div>
+                <div className="rb-vi-stat-d">{t('documents.statWarningsDesc')}</div>
+              </div>
+              <div className="rb-vi-stat">
+                <div className="rb-vi-stat-n">{fmtMoney(violations.fines)}</div>
+                <div className="rb-vi-stat-l">{t('documents.statFinesLabel')}</div>
+                <div className="rb-vi-stat-d">{t('documents.statFinesDesc')}</div>
+              </div>
+              <div className="rb-vi-stat">
+                <div className="rb-vi-stat-n">{fmtNum(violations.resolved)}</div>
+                <div className="rb-vi-stat-l">{t('documents.statResolvedLabel')}</div>
+                <div className="rb-vi-stat-d">{t('documents.statResolvedDesc')}</div>
+              </div>
+              <div className="rb-vi-stat">
+                <div className="rb-vi-stat-n">{fmtNum(violations.appeals)}</div>
+                <div className="rb-vi-stat-l">{t('documents.statAppealsLabel')}</div>
+                <div className="rb-vi-stat-d">{t('documents.statAppealsDesc')}</div>
+              </div>
+            </div>
+          </section>
           <MyViolationsPanel />
           <Link href="/app/enforcement" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginTop: 14, padding: '14px 16px', borderRadius: 12, border: '1px solid rgba(10,36,64,0.1)', background: '#fff', textDecoration: 'none', color: '#0A2440' }}>
             <span>
