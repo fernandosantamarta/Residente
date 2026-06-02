@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
+import { ExpensesLog } from './ExpensesLog'
 
 // Hardening (carried from Genie): wrap network promises, never .catch on Supabase.
 const withTimeout = (p, ms = 10000) =>
@@ -175,6 +176,8 @@ export default function CommunitySettings() {
           </form>
 
           <BudgetCategories communityId={communityId} onSaved={setSuccessMsg} />
+
+          <ExpensesLog communityId={communityId} />
         </>
       )}
     </div>

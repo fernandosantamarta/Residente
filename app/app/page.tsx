@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import { useMyResident } from '@/hooks/useMyResident'
+import { useExpenses, cumulativeByMonth } from '@/hooks/useExpenses'
 import { useBoardDecisions } from '@/hooks/useBoardDecisions'
 import { useVoiceMeetings } from '@/hooks/useVoiceMeetings'
 import { useAuth } from '@/app/providers'
@@ -68,6 +69,7 @@ export default function Home() {
   const { community, categories } = useCommunityData()
   const { profile } = useAuth() || {}
   const { balance: myBalance, status: myDues } = useMyResident()
+  const { expenses } = useExpenses()
 
   // Real community when one is linked; otherwise the demo (marketing preview
   // for logged-out visitors). A real signed-in community NEVER sees demo
@@ -82,16 +84,24 @@ export default function Home() {
   const yEnd = new Date(now.getFullYear() + 1, 0, 1)
   const yearPct = clamp01((now.getTime() - yStart.getTime()) / (yEnd.getTime() - yStart.getTime()))
 
-  const totalSpent = cats.reduce((s, x) => s + num(x.spent), 0)
+  const catSpent = cats.reduce((s, x) => s + num(x.spent), 0)
   const catBudgetSum = cats.reduce((s, x) => s + num(x.budget), 0)
   const annualBudget = num(c.annual_budget) || catBudgetSum
+  const monthIdx = now.getMonth()
+
+  // Real spend from the dated expense ledger when the board has logged any;
+  // otherwise fall back to the per-category manual "spent" totals. The chart
+  // plots the real cumulative curve and the headline reflects spend-to-date.
+  const expenseCum = cumulativeByMonth(expenses, now.getFullYear())
+  const expensesToDate = expenseCum[monthIdx]
+  const hasExpenses = expenses.length > 0 && expensesToDate > 0
+  const totalSpent = hasExpenses ? expensesToDate : catSpent
   const spentPct = annualBudget > 0 ? totalSpent / annualBudget : 0
 
   const expectedPctNum = Math.round(yearPct * 100)
   const actualPctNum = Math.round(spentPct * 100)
   const deltaPp = actualPctNum - expectedPctNum
   const overPace = spentPct > yearPct
-  const monthIdx = now.getMonth()
 
   const monthlyDues = num(c.monthly_dues)
   const unitCount = num(c.unit_count)
@@ -161,6 +171,7 @@ export default function Home() {
           overPace={overPace}
           monthIdx={monthIdx}
           cats={cats}
+          monthlyCumulative={hasExpenses ? expenseCum : null}
         />
         <QuickActions />
       </section>
@@ -408,10 +419,11 @@ function SpentChip({ pct }: { pct: number }) {
 }
 
 function FinancialOverview({
-  totalSpent, annualBudget, actualPctNum, expectedPctNum, deltaPp, monthIdx, cats,
+  totalSpent, annualBudget, actualPctNum, expectedPctNum, deltaPp, monthIdx, cats, monthlyCumulative,
 }: {
   totalSpent: number; annualBudget: number; actualPctNum: number; expectedPctNum: number;
   deltaPp: number; overPace: boolean; monthIdx: number; cats: any[]
+  monthlyCumulative?: number[] | null
 }) {
   const t = useT()
   // "View budget" opens the full category breakdown in a popup (in-place, no nav).
@@ -420,16 +432,24 @@ function FinancialOverview({
   // and one row of month labels at the bottom.
   const w = 560, h = 200, pad = { l: 48, r: 16, t: 16, b: 32 }
   const yTicks = 4
-  // Aesthetic uptrend: smooth ease-out from Jan through September. Calibrate
-  // so the curve passes through totalSpent at the current month, then keeps
-  // climbing past it as a projection.
-  const projectedEndIdx = Math.max(monthIdx, 8)
-  const ease = (t: number) => 1 - Math.pow(1 - t, 1.6)
-  const scaleAtNow = ease(monthIdx / projectedEndIdx) || 1
-  const scale = totalSpent / scaleAtNow
-  const ymax = Math.max(annualBudget * 0.55, scale * 1.1, totalSpent * 1.6, 1)
+  // Real cumulative spend from the expense ledger when present (plot only
+  // through the current month). Otherwise a synthesized ease-out curve
+  // calibrated to pass through totalSpent at the current month and project on.
+  const realCurve = !!(monthlyCumulative && monthlyCumulative.length === 12)
+  const ease = (tt: number) => 1 - Math.pow(1 - tt, 1.6)
+  const projectedEndIdx = realCurve ? monthIdx : Math.max(monthIdx, 8)
+  let series: number[]
+  if (realCurve) {
+    series = monthlyCumulative as number[]
+  } else {
+    const scaleAtNow = ease(monthIdx / projectedEndIdx) || 1
+    const scale = totalSpent / scaleAtNow
+    series = MONTHS.map((_, i) => ease(Math.min(1, i / projectedEndIdx)) * scale)
+  }
+  const seriesMax = Math.max(...series, totalSpent, 1)
+  const ymax = Math.max(annualBudget * 0.55, seriesMax * 1.1, totalSpent * 1.6, 1)
   const pts = MONTHS.map((_, i) => {
-    const cumSpend = ease(Math.min(1, i / projectedEndIdx)) * scale
+    const cumSpend = series[i]
     const x = pad.l + ((w - pad.l - pad.r) * i) / (MONTHS.length - 1)
     const y = (h - pad.b) - ((h - pad.t - pad.b) * (cumSpend / ymax))
     return { x, y, v: cumSpend }
