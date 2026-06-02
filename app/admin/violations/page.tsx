@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import {
   appeal,
   computeStats,
@@ -156,6 +157,15 @@ export default function AdminViolations() {
         through Stripe and close themselves when paid &mdash; you only
         click for appeals, dismissals, or cash overrides.
       </p>
+
+      {/* Cross-link to the statutory enforcement workspace (Compliance). */}
+      <Link href="/admin/enforcement" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, margin: '4px 0 18px', padding: '12px 16px', borderRadius: 12, border: '1px solid rgba(0,0,0,0.1)', borderLeft: '4px solid #DC6803', background: '#fff', textDecoration: 'none', color: 'inherit' }}>
+        <span>
+          <span style={{ display: 'block', fontWeight: 700, fontSize: 14 }}>Statutory fines, hearings &amp; suspensions</span>
+          <span style={{ display: 'block', fontSize: 12.5, opacity: 0.7, marginTop: 2 }}>Run a fine through the independent fining committee and the 14-day hearing notice, and track voting / use-rights suspensions.</span>
+        </span>
+        <span style={{ color: '#DC6803', fontWeight: 700, whiteSpace: 'nowrap' }}>Open &rarr;</span>
+      </Link>
 
       {/* Headline stats — same four numbers the residents see. */}
       <div className="admin-vi-stats">
