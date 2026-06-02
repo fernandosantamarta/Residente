@@ -147,8 +147,8 @@ export default function EasyDocs() {
   const communityName = community?.name || 'Sunset Lakes'
 
   const DOC_TABS: SegTab[] = [
-    { id: 'rules',      label: t('documents.tabRules') },
     { id: 'documents',  label: t('documents.tabDocuments') },
+    { id: 'rules',      label: t('documents.tabRules') },
     { id: 'violations', label: 'My Violations' },
   ]
 

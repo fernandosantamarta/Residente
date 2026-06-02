@@ -71,7 +71,7 @@ export default function ResidentEnforcementPage() {
 
   return (
     <section className="con-wrap ev-section">
-      <Link href="/app/documents#violations" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#E14909', textDecoration: 'none', marginBottom: 14 }}>
+      <Link href="/app/documents#violations" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#0A2440', textDecoration: 'none', marginBottom: 14 }}>
         &larr; Back to My Violations
       </Link>
       <div className="voice-page-head">
