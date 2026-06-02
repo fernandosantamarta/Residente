@@ -43,6 +43,7 @@ export default function EstoppelPage() {
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const [rows, setRows] = useState<EstoppelRequestRow[]>([])
+  const [residents, setResidents] = useState<any[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError] = useState('')
   const [msg, setMsg] = useState('')
@@ -58,6 +59,11 @@ export default function EstoppelPage() {
           .eq('community_id', communityId).order('received_at', { ascending: false }),
       )) as any
       if (error) throw error
+      const { data: res } = (await withTimeout(
+        supabase.from('residents').select('id, full_name, unit_number, address, profile_id')
+          .eq('community_id', communityId).order('unit_number', { ascending: true }),
+      )) as any
+      setResidents(res || [])
       setRows(data || []); setStatus('ready')
     } catch (err: any) {
       setError(err?.message || 'Could not load estoppel requests'); setStatus('error')
@@ -77,9 +83,15 @@ export default function EstoppelPage() {
       const received = todayYmd()
       const due = estoppelDueAt(received, !!form.expedited)
       const fee = estoppelFee({ expedited: !!form.expedited, delinquent: !!form.delinquent })
+      const res = residents.find((r: any) => r.id === form.resident_id)
+      const unitLabel = res
+        ? `${res.full_name || 'Owner'}${res.unit_number ? ` · Unit ${res.unit_number}` : (res.address ? ` · ${res.address}` : '')}`
+        : (form.unit_label || '').trim() || null
       const insert = {
         community_id: communityId,
-        unit_label: (form.unit_label || '').trim() || null,
+        unit_label: unitLabel,
+        resident_id: res?.id ?? null,
+        profile_id: res?.profile_id ?? null,
         requestor_name: (form.requestor_name || '').trim() || null,
         requestor_email: (form.requestor_email || '').trim() || null,
         requestor_type: form.requestor_type,
@@ -151,8 +163,13 @@ export default function EstoppelPage() {
       <form className="admin-form" onSubmit={create} style={{ marginTop: 16 }}>
         <h2 className="bc-title" style={{ marginBottom: 8 }}>New request</h2>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-          <label className="admin-field"><span className="admin-field-label">Unit / parcel</span>
-            <input className="admin-input" value={form.unit_label ?? ''} placeholder="Unit 101" onChange={e => setF('unit_label', e.target.value)} /></label>
+          <label className="admin-field"><span className="admin-field-label">Unit / owner</span>
+            <select className="admin-input" value={form.resident_id ?? ''} onChange={e => setF('resident_id', e.target.value)}>
+              <option value="">— select unit / owner —</option>
+              {residents.map((r: any) => (
+                <option key={r.id} value={r.id}>{[r.full_name || 'Owner', r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>
+              ))}
+            </select></label>
           <label className="admin-field"><span className="admin-field-label">Requestor name</span>
             <input className="admin-input" value={form.requestor_name ?? ''} placeholder="Sunshine Title Co." onChange={e => setF('requestor_name', e.target.value)} /></label>
           <label className="admin-field"><span className="admin-field-label">Requestor email</span>

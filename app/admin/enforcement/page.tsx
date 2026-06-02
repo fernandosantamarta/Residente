@@ -70,7 +70,7 @@ export default function EnforcementPage() {
       setSuspensions(await grab('ev_suspensions', 'created_at'))
       setCases(await grab('ev_collection_cases', 'opened_at'))
       const { data: res } = (await withTimeout(
-        supabase.from('residents').select('id, full_name, unit_number, profile_id')
+        supabase.from('residents').select('id, full_name, unit_number, address, profile_id')
           .eq('community_id', communityId).order('unit_number', { ascending: true }),
       )) as any
       setResidents(res || [])
@@ -287,7 +287,7 @@ export default function EnforcementPage() {
               <label className="admin-field"><span className="admin-field-label">Owner (from roster)</span>
                 <select className="admin-input" value={form.resident_id} onChange={e => setF('resident_id', e.target.value)}>
                   <option value="">— select —</option>
-                  {residents.map(r => <option key={r.id} value={r.id}>{r.full_name || 'Owner'}{r.unit_number ? ` · ${r.unit_number}` : ''}</option>)}
+                  {residents.map(r => <option key={r.id} value={r.id}>{[r.full_name || 'Owner', r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>)}
                 </select></label>
               <label className="admin-field"><span className="admin-field-label">Violation / rule</span>
                 <input className="admin-input" value={form.rule_title ?? ''} placeholder="e.g. Unapproved exterior paint" onChange={e => setF('rule_title', e.target.value)} /></label>
@@ -585,7 +585,7 @@ function SuspensionForm({ residents, onRecord }: { residents: any[]; onRecord: (
         <label className="admin-field"><span className="admin-field-label">Owner</span>
           <select className="admin-input" value={residentId} onChange={e => setResidentId(e.target.value)}>
             <option value="">— select —</option>
-            {residents.map(r => <option key={r.id} value={r.id}>{r.full_name || 'Owner'}{r.unit_number ? ` · ${r.unit_number}` : ''}</option>)}
+            {residents.map(r => <option key={r.id} value={r.id}>{[r.full_name || 'Owner', r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>)}
           </select></label>
         <label className="admin-field"><span className="admin-field-label">Rights suspended</span>
           <select className="admin-input" value={rights} onChange={e => setRights(e.target.value as SuspensionRights)}>

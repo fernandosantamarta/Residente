@@ -56,7 +56,7 @@ export default function CollectionsPage() {
       )) as any
       if (error) throw error
       const { data: res } = (await withTimeout(
-        supabase.from('residents').select('id, full_name, unit_number, profile_id, opening_balance, created_at')
+        supabase.from('residents').select('id, full_name, unit_number, address, profile_id, opening_balance, created_at')
           .eq('community_id', communityId).order('unit_number', { ascending: true }),
       )) as any
       const { data: pays } = (await withTimeout(
@@ -186,7 +186,7 @@ export default function CollectionsPage() {
           <label className="admin-field"><span className="admin-field-label">Owner (from roster)</span>
             <select className="admin-input" value={form.resident_id} onChange={e => setF('resident_id', e.target.value)}>
               <option value="">— select —</option>
-              {residents.map(r => <option key={r.id} value={r.id}>{r.full_name || 'Owner'}{r.unit_number ? ` · ${r.unit_number}` : ''}</option>)}
+              {residents.map(r => <option key={r.id} value={r.id}>{[r.full_name || 'Owner', r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>)}
             </select></label>
           <label className="admin-field"><span className="admin-field-label">Unit / parcel label (override)</span>
             <input className="admin-input" value={form.unit_label ?? ''} placeholder="auto from owner" onChange={e => setF('unit_label', e.target.value)} /></label>

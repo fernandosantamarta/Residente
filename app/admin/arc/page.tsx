@@ -74,7 +74,7 @@ export default function ArcPage() {
       const { data: res } = (await withTimeout(
         supabase
           .from('residents')
-          .select('id, full_name, unit_number, profile_id')
+          .select('id, full_name, unit_number, address, profile_id')
           .eq('community_id', communityId)
           .order('unit_number', { ascending: true }),
       )) as any
@@ -229,7 +229,7 @@ export default function ArcPage() {
                   <option value="">— select —</option>
                   {residents.map(r => (
                     <option key={r.id} value={r.id}>
-                      {r.full_name || 'Owner'}{r.unit_number ? ` · ${r.unit_number}` : ''}
+                      {[r.full_name || 'Owner', r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}
                     </option>
                   ))}
                 </select>
