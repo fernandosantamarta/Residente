@@ -1008,6 +1008,11 @@ button { font-family: inherit; }
   .cockpit {
     grid-template-columns: 1fr !important;
     width: 100% !important;
+    /* The desktop floor (min-width:1280px on .cockpit) was never reset here, so
+       below 1199px the single-column cockpit still laid out at 1280px and the
+       overflow was merely hidden by body{overflow-x:hidden} — clipping the right
+       half of every page. Drop the floor so content actually fits the viewport. */
+    min-width: 0 !important;
   }
 
   /* Left rail becomes a slide-in drawer triggered by the hamburger */
