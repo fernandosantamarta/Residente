@@ -29,6 +29,10 @@ import {
   financialSignals,
   type BudgetCategoryRow, type ReserveComponentRow, type FinancialFilingRow,
 } from '@/lib/compliance/financials'
+import {
+  governanceSignals,
+  type BoardTermRow, type DirectorCertRow, type DirectorEligibilityRow, type ManagerRow, type ConflictDisclosureRow,
+} from '@/lib/compliance/governance'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -48,6 +52,7 @@ const WORKSPACES: { href: string; label: string; desc: string; color: string }[]
   { href: '/admin/structural', label: 'Structural integrity', desc: 'Milestone inspections & SIRS — track each building’s deadlines (condominium only).', color: '#067647' },
   { href: '/admin/documents#documents', label: 'Official records', desc: 'Post required records, track retention, and answer records-inspection requests on the clock.', color: '#7A5AF8' },
   { href: '/admin/financials', label: 'Financial reporting & reserves', desc: 'Audit tier, the annual financial report & budget clocks, and reserve funding.', color: '#0E7490' },
+  { href: '/admin/governance', label: 'Directors & management', desc: 'Term limits, the director certification clock, conflicts of interest, and CAM licensing.', color: '#9333EA' },
 ]
 
 // Resilient select: a table that hasn't had its migration run yet returns an
@@ -80,6 +85,12 @@ function gatherSignals(
   budgets: BudgetCategoryRow[],
   reserves: ReserveComponentRow[],
   filings: FinancialFilingRow[],
+  boardTerms: BoardTermRow[],
+  directorCerts: DirectorCertRow[],
+  directorElig: DirectorEligibilityRow[],
+  managers: ManagerRow[],
+  vendors: any[],
+  disclosures: ConflictDisclosureRow[],
 ): ComplianceSignal[] {
   const candidates = community ? delinquentOwnersWithoutCase({
     residents, paymentsByResident: payByResident, cases,
@@ -98,7 +109,8 @@ function gatherSignals(
     ...structuralSignals(buildings, assessments, sirsComponents, community), // condo-only (returns [] for HOA)
     ...officialRecordsSignals(community, documents, recordsRequests),
     ...financialSignals(community, budgets, reserves, filings),
-    // Future domains plug in here: governanceSignals(), …
+    ...governanceSignals(community, (residents || []).filter((r: any) => r.is_board), boardTerms, directorCerts, directorElig, managers, vendors, disclosures),
+    // Future domains plug in here: meetingsSignals(), electionsSignals(), arcSignals() …
   ])
 }
 
@@ -119,6 +131,12 @@ export default function CompliancePage() {
   const [budgets, setBudgets] = useState<BudgetCategoryRow[]>([])
   const [reserves, setReserves] = useState<ReserveComponentRow[]>([])
   const [filings, setFilings] = useState<FinancialFilingRow[]>([])
+  const [boardTerms, setBoardTerms] = useState<BoardTermRow[]>([])
+  const [directorCerts, setDirectorCerts] = useState<DirectorCertRow[]>([])
+  const [directorElig, setDirectorElig] = useState<DirectorEligibilityRow[]>([])
+  const [managers, setManagers] = useState<ManagerRow[]>([])
+  const [vendors, setVendors] = useState<any[]>([])
+  const [disclosures, setDisclosures] = useState<ConflictDisclosureRow[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError] = useState('')
 
@@ -147,6 +165,12 @@ export default function CompliancePage() {
       setBudgets(await safeSelect('budget_categories', communityId))
       setReserves(await safeSelect('ev_reserve_components', communityId))
       setFilings(await safeSelect('ev_financial_filings', communityId))
+      setBoardTerms(await safeSelect('ev_board_terms', communityId))
+      setDirectorCerts(await safeSelect('ev_director_certifications', communityId))
+      setDirectorElig(await safeSelect('ev_director_eligibility', communityId))
+      setManagers(await safeSelect('ev_managers', communityId))
+      setVendors(await safeSelect('vendors', communityId))
+      setDisclosures(await safeSelect('ev_conflict_disclosures', communityId))
       setStatus('ready')
     } catch (err: any) {
       setError(err?.message || 'Could not load compliance data'); setStatus('error')
@@ -154,7 +178,7 @@ export default function CompliancePage() {
   }, [communityId])
   useEffect(() => { load() }, [load])
 
-  const signals = useMemo(() => gatherSignals(community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests, budgets, reserves, filings), [community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests, budgets, reserves, filings])
+  const signals = useMemo(() => gatherSignals(community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests, budgets, reserves, filings, boardTerms, directorCerts, directorElig, managers, vendors, disclosures), [community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests, budgets, reserves, filings, boardTerms, directorCerts, directorElig, managers, vendors, disclosures])
   const counts = useMemo(() => {
     const c: Record<Severity, number> = { overdue: 0, soon: 0, info: 0 }
     for (const s of signals) c[s.severity]++
