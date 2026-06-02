@@ -323,6 +323,8 @@ export default function CompliancePage() {
             })}
           </section>
 
+          <h2 className="bc-title" style={{ margin: '26px 0 2px' }}>Admin&apos;s regulatory to-dos</h2>
+          <p className="admin-dek" style={{ marginTop: 0 }}>Statutory items needing attention, grouped by urgency.</p>
           {signals.length === 0 ? (
             <div className="admin-note" style={{ textAlign: 'center', padding: '28px 16px' }}>
               <div style={{ fontSize: 22, marginBottom: 6 }}>✓</div>
@@ -330,11 +332,23 @@ export default function CompliancePage() {
               this dashboard will track the statutory deadlines for you.
             </div>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {signals.map(s => (
-                <SignalCard key={s.id} signal={s} />
-              ))}
-            </div>
+            (['overdue', 'soon', 'info'] as Severity[]).map(sev => {
+              const group = signals.filter(s => s.severity === sev)
+              if (!group.length) return null
+              const meta = SEVERITY_META[sev]
+              return (
+                <div key={sev} style={{ marginBottom: 18 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 8px' }}>
+                    <span style={{ width: 9, height: 9, borderRadius: 999, background: meta.color }} />
+                    <span style={{ fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: meta.color }}>{meta.label}</span>
+                    <span style={{ fontSize: 12, fontWeight: 700, color: meta.color, background: meta.bg, padding: '1px 8px', borderRadius: 999 }}>{group.length}</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {group.map(s => <SignalCard key={s.id} signal={s} />)}
+                  </div>
+                </div>
+              )
+            })
           )}
         </>
       )}
