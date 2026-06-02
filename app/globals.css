@@ -7628,10 +7628,10 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   align-self: stretch; width: 1px; min-height: 158px; flex: 0 0 auto;
   background: rgba(15, 28, 46, 0.12);
 }
-/* The three rings fill the space beside the balance and spread evenly. */
+/* The three rings sit beside the balance, grouped tightly and pushed right. */
 [data-theme="sketch"] .pay-rings {
-  display: flex; flex: 1 1 380px; gap: 16px;
-  justify-content: space-around; align-items: flex-start; flex-wrap: wrap;
+  display: flex; flex: 1 1 380px; gap: 20px;
+  justify-content: flex-end; align-items: flex-start; flex-wrap: wrap;
 }
 [data-theme="sketch"] .pay-ring {
   display: flex; flex-direction: column; align-items: center; gap: 12px;
