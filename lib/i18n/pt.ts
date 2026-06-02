@@ -309,6 +309,7 @@ export const pt: Record<string, string> = {
   "home.duesTabCommunity": "Comunidade",
   "home.duesTabPersonal": "Pessoal",
   "home.duesTitle": "Para onde vai sua taxa",
+  "home.duesPctSpent": "{pct}% gasto",
   "home.duesTotalMonthlyIncome": "Receita mensal total",
   "home.duesYourMonthlyDues": "Sua taxa mensal",
   "home.duesYourRating": "Sua avaliação",

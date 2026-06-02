@@ -316,6 +316,7 @@ export const en: Record<string, string> = {
   "home.duesTabCommunity": "Community",
   "home.duesTabPersonal": "Personal",
   "home.duesTitle": "Where your dues go",
+  "home.duesPctSpent": "{pct}% spent",
   "home.duesTotalMonthlyIncome": "Total monthly income",
   "home.duesYourMonthlyDues": "Your monthly dues",
   "home.duesYourRating": "Your rating",

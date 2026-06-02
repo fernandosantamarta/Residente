@@ -4105,6 +4105,18 @@ html[data-theme="original"] { font-family: 'Space Grotesk', 'Inter', system-ui, 
 [data-theme="sketch"] .trend-chip.trend-up   { background: rgba(220, 38, 38, 0.10); color: #DC2626; }
 [data-theme="sketch"] .trend-chip.trend-down { background: rgba(22, 163, 74, 0.10); color: #16A34A; }
 [data-theme="sketch"] .trend-chip.trend-flat { background: rgba(15, 28, 46, 0.06); color: #0A2440; }
+
+/* Real "% of budget spent" chip on the Where-your-dues-go rows. */
+[data-theme="sketch"] .spent-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+  padding: 3px 8px; border-radius: 999px;
+  font-variant-numeric: tabular-nums; letter-spacing: 0.2px;
+  min-width: 76px; white-space: nowrap;
+}
+[data-theme="sketch"] .spent-chip.spent-ok   { background: rgba(22, 163, 74, 0.10); color: #16A34A; }
+[data-theme="sketch"] .spent-chip.spent-near { background: rgba(176, 116, 31, 0.14); color: #8a5a13; }
+[data-theme="sketch"] .spent-chip.spent-over { background: rgba(220, 38, 38, 0.10); color: #DC2626; }
 [data-theme="sketch"] .dues-bar {
   height: 6px;
   background: rgba(15, 28, 46, 0.06);

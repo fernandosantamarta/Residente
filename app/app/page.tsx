@@ -271,6 +271,9 @@ function DuesSection({
     : (catTotal > 0
         ? cats.filter(x => num(x.budget) > 0).map((x, i) => ({
             id: x.id ?? `c${i}`, name: x.name, share: num(x.budget) / catTotal, trend: 0,
+            // Real signal (no MoM history is stored): how much of this
+            // category's annual budget has actually been spent.
+            spentPct: num(x.budget) > 0 ? num(x.spent) / num(x.budget) : null,
           }))
         : [])
   const [tab, setTab] = useState<'community' | 'personal'>('community')
@@ -334,7 +337,9 @@ function DuesSection({
               <span className="dues-cat-name">{v.name}</span>
               <span className="dues-cat-meta">
                 <span className="dues-cat-amt">{fmtMoney(multiplier * v.share)}</span>
-                <TrendChip trend={v.trend} />
+                {(v as any).spentPct != null
+                  ? <SpentChip pct={(v as any).spentPct} />
+                  : <TrendChip trend={v.trend} />}
               </span>
             </div>
             <div className="dues-bar"><div className="dues-bar-fill" style={{ width: `${v.share * 100}%` }}/></div>
@@ -391,6 +396,15 @@ function TrendChip({ trend }: { trend: number }) {
       {pct}%
     </span>
   )
+}
+
+// Real per-category signal: share of this category's annual budget already
+// spent. Green under pace, amber as it nears the cap, red once over budget.
+function SpentChip({ pct }: { pct: number }) {
+  const t = useT()
+  const p = Math.round((Number(pct) || 0) * 100)
+  const tone = p > 100 ? 'over' : p >= 85 ? 'near' : 'ok'
+  return <span className={`spent-chip spent-${tone}`}>{t('home.duesPctSpent', { pct: p })}</span>
 }
 
 function FinancialOverview({
