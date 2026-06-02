@@ -21,6 +21,7 @@ import { usePlatformAdmin } from '@/hooks/usePlatform'
 type AdminNavItem = { href: string; label: string; match?: string[] }
 const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/community',  label: 'Community' },
+  { href: '/admin/compliance', label: 'Compliance', match: ['/admin/estoppel'] },
   { href: '/admin/residents',  label: 'Easy Track', match: ['/admin/vendor'] },
   { href: '/admin/voice',      label: 'Easy Voice', match: ['/admin/board', '/admin/requests'] },
   { href: '/admin/documents',  label: 'Easy Documents', match: ['/admin/rules', '/admin/violations'] },

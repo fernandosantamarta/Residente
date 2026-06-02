@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { residentBalance, duesStatus, DUES_LABEL, fmtMoney } from '@/lib/dues'
+import { residentBalance, duesStatus, DUES_LABEL, fmtMoney, communityDuesConfig } from '@/lib/dues'
 import { EasyTrackTabs } from '../EasyTrackTabs'
 
 const withTimeout = (p, ms = 10000) =>
@@ -92,7 +92,7 @@ export default function Residents() {
   useEffect(() => { load() }, [load])
 
   const monthlyDues = Number(community?.monthly_dues) || 0
-  const interestRate = Number(community?.late_interest_rate) || 0
+  const duesCfg = communityDuesConfig(community)
   const communityName = community?.name || ''
 
   // Payments grouped by resident so each row computes its own balance.
@@ -327,7 +327,7 @@ export default function Residents() {
                   {sub}<span className="res-group-n">{list.length}</span>
                 </div>
                 {list.map(r => (
-                  <ResidentRow key={r.id} r={r} monthlyDues={monthlyDues} interestRate={interestRate}
+                  <ResidentRow key={r.id} r={r} monthlyDues={monthlyDues} duesCfg={duesCfg}
                     payments={paymentsByResident.get(r.id) || []}
                     onLocal={editLocal} onCommit={commit} onRemove={remove} />
                 ))}
@@ -340,8 +340,8 @@ export default function Residents() {
   )
 }
 
-function ResidentRow({ r, monthlyDues, interestRate, payments, onLocal, onCommit, onRemove }) {
-  const balance = residentBalance(r, monthlyDues, payments, interestRate)
+function ResidentRow({ r, monthlyDues, duesCfg, payments, onLocal, onCommit, onRemove }) {
+  const balance = residentBalance(r, monthlyDues, payments, duesCfg)
   const st = duesStatus(balance, monthlyDues)
   const emailPhone = [r.email, r.phone].filter(Boolean).join('  ·  ')
   return (

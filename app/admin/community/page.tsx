@@ -37,7 +37,19 @@ const FIELDS = [
   { key: 'fiscal_year',   label: 'Fiscal year',    type: 'number', placeholder: '2026' },
   { key: 'annual_budget', label: 'Annual budget',  type: 'number', placeholder: '62000', prefix: '$' },
   { key: 'monthly_dues',  label: 'Dues per unit / month', type: 'number', placeholder: '38', prefix: '$' },
-  { key: 'late_interest_rate', label: 'Late-payment interest (% per month)', type: 'number', placeholder: '1.5' },
+  // ---- Florida late-payment config (FS 718.116(3) / 720.3085(3)) ----
+  // Interest is now expressed ANNUALLY (the statute's basis). Leave blank to
+  // charge no interest; the statutory cap is 18%/yr. Late fees are optional.
+  { key: 'interest_apr', label: 'Late-payment interest (% per year)', type: 'number', placeholder: '18',
+    note: 'Florida cap is 18%/year, simple interest. Leave blank to charge no interest.' },
+  { key: 'late_fee_flat', label: 'Admin late fee — flat', type: 'number', placeholder: '25', prefix: '$',
+    note: 'Per delinquent month. Statute caps the late fee at the greater of $25 or 5% of the installment.' },
+  { key: 'late_fee_pct', label: 'Admin late fee — percent', type: 'number', placeholder: '5',
+    note: 'Per delinquent month, % of the installment. The platform applies the greater of the two.' },
+  { key: 'association_address', label: 'Association mailing address', type: 'text', placeholder: '123 Main St, Miramar, FL 33025',
+    note: 'Used on liens, statutory notices, and estoppel certificates.' },
+  { key: 'association_officer_name', label: 'Authorized officer', type: 'text', placeholder: 'Jane Doe, President',
+    note: 'Signs liens and certificates.' },
 ]
 
 export default function CommunitySettings() {
@@ -83,7 +95,13 @@ export default function CommunitySettings() {
         fiscal_year: numOrNull(form.fiscal_year),
         annual_budget: numOrNull(form.annual_budget),
         monthly_dues: numOrNull(form.monthly_dues),
-        late_interest_rate: numOrNull(form.late_interest_rate) || 0,
+        // FL compliance config — annual APR replaces the legacy monthly rate.
+        // null = charge nothing (the platform never invents interest/fees).
+        interest_apr: numOrNull(form.interest_apr),
+        late_fee_flat: numOrNull(form.late_fee_flat),
+        late_fee_pct: numOrNull(form.late_fee_pct),
+        association_address: (form.association_address || '').trim() || null,
+        association_officer_name: (form.association_officer_name || '').trim() || null,
       }
       const { error } = await withTimeout(
         supabase.from('communities').update(patch).eq('id', communityId)
@@ -142,6 +160,11 @@ export default function CommunitySettings() {
                     onChange={e => setField(f.key, e.target.value)}
                   />
                 </div>
+                {f.note && (
+                  <span className="admin-field-hint" style={{ fontSize: 12, opacity: 0.65, marginTop: 4 }}>
+                    {f.note}
+                  </span>
+                )}
               </label>
             ))}
             <div className="admin-form-actions">

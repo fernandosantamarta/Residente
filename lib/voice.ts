@@ -97,6 +97,9 @@ export type NoticeKind =
   | 'custom_broadcast'
   | 'amenity_booked'
   | 'dues_due'
+  // ---- FL compliance layer ----
+  | 'compliance_alert'   // board-directed: a statutory deadline/obligation needs attention
+  | 'estoppel_update'    // owner-directed: their estoppel request was received / delivered
 
 export type NoticeChannel = 'in_app' | 'email' | 'sms'
 
@@ -116,6 +119,8 @@ export const NOTICE_KIND_LABELS: Record<NoticeKind, string> = {
   custom_broadcast:  'Announcement',
   amenity_booked:    'Amenity reserved',
   dues_due:          'Dues due',
+  compliance_alert:  'Compliance alert',
+  estoppel_update:   'Estoppel request',
 }
 
 export function noticeHref(n: { kind?: string | null; meeting_id?: string | null; vote_id?: string | null }): string {
@@ -123,6 +128,10 @@ export function noticeHref(n: { kind?: string | null; meeting_id?: string | null
   if (n.kind === 'amenity_booked') return '/admin/schedule#amenities'
   // Dues reminders send the resident to the Pay hub.
   if (n.kind === 'dues_due') return '/app/track#pay'
+  // Compliance alerts are board-facing — open the compliance dashboard.
+  if (n.kind === 'compliance_alert') return '/admin/compliance'
+  // Estoppel updates send the owner to their Pay/Track hub.
+  if (n.kind === 'estoppel_update') return '/app/track#pay'
   if (n.meeting_id) return `/app/voice/${n.meeting_id}`
   return '/app/voice'
 }
