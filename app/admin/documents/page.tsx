@@ -14,6 +14,7 @@ import {
 import { Dropdown } from '@/components/Dropdown'
 import { Pagination, paginate } from '@/components/Pagination'
 import { EasyDocsTabs } from '../EasyDocsTabs'
+import { DEFAULT_CHANNELS } from '@/lib/voice'
 
 const RULE_BOOK_PAGE_SIZE = 6
 const DOCS_PAGE_SIZE = 8
@@ -240,6 +241,25 @@ export default function AdminEasyDocs() {
       setDocFile(null)
       if (docFileRef.current) docFileRef.current.value = ''
       setDocSuccessMsg(`Uploaded "${row.title}".`)
+
+      // Tell residents a new library document is available. Uploads through the
+      // Voice tab already fire a 'document_uploaded' notice; the main Documents
+      // library was the one upload path that stayed silent. The ev_notice_fanout
+      // DB trigger materialises one recipient row per resident (honouring their
+      // channel prefs), so the bell + email work with just this insert.
+      // Best-effort: the document is already saved, so a notice failure must
+      // not surface to the board as an upload error.
+      try {
+        await withTimeoutDocs(
+          supabase.from('ev_notices').insert({
+            community_id: communityId,
+            kind: 'document_uploaded',
+            channels: DEFAULT_CHANNELS,
+            subject: `New document: ${row.title}`,
+            body: `A new document was added to your community library${row.category ? ` under ${row.category}` : ''}.`,
+          })
+        )
+      } catch { /* notice is best-effort; the document upload already succeeded */ }
     } catch (err) {
       setDocError(err?.message || 'Upload failed')
     } finally {

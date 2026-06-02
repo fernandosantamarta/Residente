@@ -124,6 +124,10 @@ export function noticeHref(n: { kind?: string | null; meeting_id?: string | null
   // Dues reminders send the resident to the Pay hub.
   if (n.kind === 'dues_due') return '/app/track#pay'
   if (n.meeting_id) return `/app/voice/${n.meeting_id}`
+  // A document notice with no meeting is a library upload — open Easy Documents,
+  // not the Voice meetings list. (Meeting-attached docs hit the meeting_id branch
+  // above and still deep-link to their meeting.)
+  if (n.kind === 'document_uploaded') return '/app/documents'
   return '/app/voice'
 }
 
