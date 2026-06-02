@@ -15,6 +15,12 @@ import { Dropdown } from '@/components/Dropdown'
 import { Pagination, paginate } from '@/components/Pagination'
 import { EasyDocsTabs } from '../EasyDocsTabs'
 import { DEFAULT_CHANNELS } from '@/lib/voice'
+import {
+  DOC_CATEGORIES, FL_REQUIRED_CATEGORIES, postingApplies, recordsInspectionDueAt,
+  type DocCategory,
+} from '@/lib/compliance/official-records'
+import { ymd } from '@/lib/compliance/rules-core'
+import { logAudit } from '@/lib/audit'
 
 const RULE_BOOK_PAGE_SIZE = 6
 const DOCS_PAGE_SIZE = 8
@@ -49,36 +55,9 @@ const fmtDate = (d) => (d
   : '')
 
 const RULE_EMPTY = { section: '', title: '', body: '', fine: '' }
-// Categories aligned with FL 718.111(12)(g) (condos) and FL 720.303(4)(b) (HOAs)
-// and the resident-facing CATEGORY_GRID in app/documents/page.tsx.
-const DOC_CATEGORIES = [
-  'Governing Documents',       // Declaration, bylaws, articles of incorporation, amendments
-  'Financial Documents',       // Annual budget, monthly statements, audits, reserve studies
-  'Rules & Policies',          // Current rules, CC&Rs, enforcement policies
-  'Reports & Meeting Minutes', // Board + member meeting minutes (FL: post within 7 days, retain 7 yrs)
-  'Notices & Announcements',   // Meeting notices and agendas (FL: post ≥14 days before member meetings)
-  'Insurance',                 // Master policy, certificates of insurance
-  'Vendor & Contracts',        // Service contracts >$500, bid summaries, conflict-of-interest contracts
-  'Director Records',          // Director certifications, conflict-of-interest disclosures
-  'Inspection Reports',        // Structural, life-safety, reserve studies (FL 718.111(12)(g))
-  'Forms & Applications',      // ARC, pet, lease, move-in/out forms
-  'Maps & Layouts',            // Site plan, parking, common areas
-  'Other',
-] as const
-type DocCategory = typeof DOC_CATEGORIES[number]
-
-// FL-required document types an association must post online.
-// Labels must exactly match a DOC_CATEGORIES entry — TypeScript enforces this.
-const FL_REQUIRED_CATEGORIES: { label: DocCategory; statute: string }[] = [
-  { label: 'Governing Documents',       statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
-  { label: 'Financial Documents',       statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
-  { label: 'Rules & Policies',          statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
-  { label: 'Reports & Meeting Minutes', statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
-  { label: 'Insurance',                 statute: '720.303(4)(b)1' },
-  { label: 'Vendor & Contracts',        statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
-  { label: 'Director Records',          statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
-  { label: 'Inspection Reports',        statute: '718.111(12)(g)2' },
-]
+// DOC_CATEGORIES + FL_REQUIRED_CATEGORIES now live in lib/compliance/official-records.ts
+// (imported above) so the statutory category set has one home shared with the
+// compliance signal producer.
 const DOC_EMPTY: { title: string; category: DocCategory } = { title: '', category: 'Governing Documents' }
 
 export default function AdminEasyDocs() {
@@ -178,6 +157,9 @@ export default function AdminEasyDocs() {
   const [docSuccessMsg, setDocSuccessMsg] = useState('')
   const [docPage, setDocPage] = useState(1)
   const docFileRef = useRef(null)
+  // Official-records compliance: community (for posting scope) + records-inspection requests.
+  const [community, setCommunity] = useState<any>(null)
+  const [recRequests, setRecRequests] = useState<any[]>([])
 
   useEffect(() => {
     if (!docSuccessMsg) return
@@ -196,6 +178,22 @@ export default function AdminEasyDocs() {
       )
       if (error) throw error
       setDocRows(data || [])
+      // Best-effort: community (posting scope) + records-inspection requests.
+      // A missing migration just leaves these empty — the archive still renders.
+      try {
+        const { data: c } = await withTimeoutDocs(
+          supabase.from('communities').select('*').eq('id', communityId).single()
+        )
+        setCommunity(c || null)
+      } catch { /* keep community null */ }
+      try {
+        const { data: rr } = await withTimeoutDocs(
+          supabase.from('resident_requests').select('*')
+            .eq('community_id', communityId).eq('category', 'records')
+            .order('created_at', { ascending: false })
+        )
+        setRecRequests(rr || [])
+      } catch { /* records-requests are optional */ }
       setDocStatus('ready')
     } catch (err) {
       const msg = err?.message || ''
@@ -280,6 +278,41 @@ export default function AdminEasyDocs() {
       setDocError(err?.message || 'Could not remove that document')
     }
   }
+
+  // Mark a document posted / unposted to the portal (drives the 30-day signal).
+  const togglePosted = async (doc: any) => {
+    const next = !doc.posted_to_portal
+    setDocRows((rs: any[]) => rs.map(r => r.id === doc.id ? { ...r, posted_to_portal: next, posted_at: next ? new Date().toISOString() : null } : r))
+    try {
+      const { error } = await withTimeoutDocs(
+        supabase.from('documents').update({ posted_to_portal: next, posted_at: next ? new Date().toISOString() : null }).eq('id', doc.id)
+      )
+      if (error) throw error
+      if (next && communityId) logAudit({ community_id: communityId, event_type: 'records.document_posted', target_type: 'document', target_id: doc.id })
+    } catch (err: any) {
+      setDocError(err?.message || 'Could not update posting status (run supabase/official-records.sql?)')
+      loadDocs()
+    }
+  }
+
+  // Mark a records-inspection request answered — stamps responded_at (the DB
+  // trigger then notifies the resident) and resolves it.
+  const respondToRequest = async (req: any) => {
+    try {
+      const { error } = await withTimeoutDocs(
+        supabase.from('resident_requests').update({ responded_at: new Date().toISOString(), status: 'resolved' }).eq('id', req.id)
+      )
+      if (error) throw error
+      if (communityId) logAudit({ community_id: communityId, event_type: 'records.request_responded', target_type: 'records_request', target_id: req.id })
+      setRecRequests((rs: any[]) => rs.map(r => r.id === req.id ? { ...r, responded_at: new Date().toISOString(), status: 'resolved' } : r))
+      setDocSuccessMsg('Records request marked answered.')
+    } catch (err: any) {
+      setDocError(err?.message || 'Could not update the request')
+    }
+  }
+
+  const recordsApplies = postingApplies(community)
+  const openRecRequests = recRequests.filter(r => r.status !== 'resolved' && r.status !== 'cancelled')
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -656,8 +689,22 @@ export default function AdminEasyDocs() {
                         {d.category && <><span>{d.category}</span><span className="bd-dot">·</span></>}
                         <span>{fmtDate(d.uploaded_at)}</span>
                         {fmtSize(d.file_size) && <><span className="bd-dot">·</span><span>{fmtSize(d.file_size)}</span></>}
+                        {recordsApplies && (
+                          <>
+                            <span className="bd-dot">·</span>
+                            <span style={{ color: d.posted_to_portal ? '#067647' : '#B54708', fontWeight: 600 }}>
+                              {d.posted_to_portal ? '✓ Posted' : 'Not posted'}
+                            </span>
+                          </>
+                        )}
                       </div>
                     </div>
+                    {recordsApplies && (
+                      <button type="button" className="admin-btn-ghost" style={{ marginRight: 8 }}
+                        onClick={() => togglePosted(d)}>
+                        {d.posted_to_portal ? 'Mark unposted' : 'Mark posted'}
+                      </button>
+                    )}
                     <button type="button" className="bc-del" onClick={() => removeDoc(d)}
                       aria-label="Remove document">&times;</button>
                   </div>
@@ -665,6 +712,53 @@ export default function AdminEasyDocs() {
               </div>
               <Pagination page={docPage} pageSize={DOCS_PAGE_SIZE}
                 total={docRows.length} onPageChange={setDocPage} />
+
+              {/* ── Records-inspection requests (FS 718.111(12)(c) / 720.303(5)) ── */}
+              <div id="records-requests" className="bc-head" style={{ marginTop: 44, marginBottom: 14, scrollMarginTop: 56, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                <div>
+                  <h2 className="bc-title">Records-inspection requests</h2>
+                  <span className="bc-sub">
+                    {openRecRequests.length} open · statutory production deadline is 10 {community?.association_type === 'hoa' ? 'business' : 'working'} days from a written request.
+                  </span>
+                </div>
+                <a href="/admin/documents/records-print?type=manifest" target="_blank" rel="noreferrer" className="admin-btn-ghost" style={{ textDecoration: 'none' }}>📄 Records index / posting manifest</a>
+              </div>
+              {recRequests.length === 0 ? (
+                <div className="bc-empty">No records-inspection requests. Residents can submit one from their Documents page.</div>
+              ) : (
+                <div className="bd-list">
+                  {recRequests.map(r => {
+                    const due = r.due_at ? new Date(r.due_at) : recordsInspectionDueAt(r.created_at)
+                    const answered = !!r.responded_at
+                    const overdue = !answered && due && due.getTime() < Date.now()
+                    return (
+                      <div className="bd-row" key={r.id} style={overdue ? { borderLeft: '4px solid #B42318' } : undefined}>
+                        <div className="bd-main">
+                          <div className="bd-title">{r.subject || 'Records request'}</div>
+                          <div className="bd-meta">
+                            {r.submitter_name && <><span>{r.submitter_name}</span><span className="bd-dot">·</span></>}
+                            <span>requested {fmtDate(r.created_at)}</span>
+                            {due && <><span className="bd-dot">·</span>
+                              <span style={{ color: answered ? '#067647' : overdue ? '#B42318' : '#475467', fontWeight: 600 }}>
+                                {answered ? `answered ${fmtDate(r.responded_at)}` : `due ${ymd(due)}`}
+                              </span></>}
+                          </div>
+                          {r.body && <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>{r.body}</div>}
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+                          {!answered && (
+                            <button type="button" className="admin-primary-btn" onClick={() => respondToRequest(r)}>
+                              Mark answered
+                            </button>
+                          )}
+                          <a href={`/admin/documents/records-print?type=acknowledgement&request=${r.id}`} target="_blank" rel="noreferrer" className="doc-card-link" style={{ fontSize: 12 }}>Acknowledgement</a>
+                          <a href={`/admin/documents/records-print?type=checklist&request=${r.id}`} target="_blank" rel="noreferrer" className="doc-card-link" style={{ fontSize: 12 }}>Checklist</a>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
             </>
           )}
         </div>

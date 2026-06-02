@@ -21,6 +21,10 @@ import {
   structuralSignals,
   type BuildingRow, type StructuralAssessmentRow, type SirsComponentRow,
 } from '@/lib/compliance/structural'
+import {
+  officialRecordsSignals,
+  type DocumentRow, type RecordsRequestRow,
+} from '@/lib/compliance/official-records'
 
 export const dynamic = 'force-dynamic'
 
@@ -65,10 +69,13 @@ export async function GET(req: Request) {
     const buildings = (await safe('ev_buildings', c.id)) as BuildingRow[]
     const assessments = (await safe('ev_structural_assessments', c.id)) as StructuralAssessmentRow[]
     const sirsComponents = (await safe('ev_sirs_components', c.id)) as SirsComponentRow[]
+    const documents = (await safe('documents', c.id)) as DocumentRow[]
+    const recordsRequests = (await safe('resident_requests', c.id)) as RecordsRequestRow[]
     const signals = sortSignals([
       ...foundationSignals(c),
       ...estoppelSignals(estoppel),
       ...structuralSignals(buildings, assessments, sirsComponents, c), // condo-only (returns [] for HOA)
+      ...officialRecordsSignals(c, documents, recordsRequests),
     ])
     const actionable = signals.filter(s => s.severity === 'overdue' || s.severity === 'soon')
     if (!actionable.length) { summary.push({ community: c.id, actionable: 0 }); continue }

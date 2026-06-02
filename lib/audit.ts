@@ -49,6 +49,9 @@ export type AuditEventType =
   | 'structural.assessment_created'
   | 'structural.assessment_status_changed'
   | 'structural.sirs_recorded'
+  // official records (compliance domain B)
+  | 'records.document_posted'
+  | 'records.request_responded'
 
 export type AuditTargetType =
   | 'vote' | 'ballot' | 'meeting' | 'document' | 'notice'
@@ -56,6 +59,7 @@ export type AuditTargetType =
   | 'roster' | 'resident'
   | 'collection_case' | 'collection_notice' | 'payment_plan'
   | 'building' | 'structural_assessment' | 'sirs_component'
+  | 'records_request'
 
 export interface LogAuditArgs {
   community_id: string
