@@ -29,6 +29,10 @@ import {
   financialSignals,
   type BudgetCategoryRow, type ReserveComponentRow, type FinancialFilingRow,
 } from '@/lib/compliance/financials'
+import {
+  governanceSignals,
+  type BoardTermRow, type DirectorCertRow, type DirectorEligibilityRow, type ManagerRow, type ConflictDisclosureRow,
+} from '@/lib/compliance/governance'
 
 export const dynamic = 'force-dynamic'
 
@@ -78,12 +82,20 @@ export async function GET(req: Request) {
     const budgets = (await safe('budget_categories', c.id)) as BudgetCategoryRow[]
     const reserves = (await safe('ev_reserve_components', c.id)) as ReserveComponentRow[]
     const filings = (await safe('ev_financial_filings', c.id)) as FinancialFilingRow[]
+    const directors = (await safe('residents', c.id)).filter((r: any) => r.is_board)
+    const boardTerms = (await safe('ev_board_terms', c.id)) as BoardTermRow[]
+    const directorCerts = (await safe('ev_director_certifications', c.id)) as DirectorCertRow[]
+    const directorElig = (await safe('ev_director_eligibility', c.id)) as DirectorEligibilityRow[]
+    const managers = (await safe('ev_managers', c.id)) as ManagerRow[]
+    const govVendors = await safe('vendors', c.id)
+    const disclosures = (await safe('ev_conflict_disclosures', c.id)) as ConflictDisclosureRow[]
     const signals = sortSignals([
       ...foundationSignals(c),
       ...estoppelSignals(estoppel),
       ...structuralSignals(buildings, assessments, sirsComponents, c), // condo-only (returns [] for HOA)
       ...officialRecordsSignals(c, documents, recordsRequests),
       ...financialSignals(c, budgets, reserves, filings),
+      ...governanceSignals(c, directors, boardTerms, directorCerts, directorElig, managers, govVendors, disclosures),
     ])
     const actionable = signals.filter(s => s.severity === 'overdue' || s.severity === 'soon')
     if (!actionable.length) { summary.push({ community: c.id, actionable: 0 }); continue }

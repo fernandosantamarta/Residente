@@ -55,6 +55,12 @@ export type AuditEventType =
   // financial reporting & reserves (compliance domain C)
   | 'financial.filing_recorded'
   | 'financial.reserve_updated'
+  // directors / certification / conflicts / CAM (compliance domain D)
+  | 'governance.term_recorded'
+  | 'governance.cert_recorded'
+  | 'governance.eligibility_updated'
+  | 'governance.manager_recorded'
+  | 'governance.conflict_disclosed'
 
 export type AuditTargetType =
   | 'vote' | 'ballot' | 'meeting' | 'document' | 'notice'
@@ -64,6 +70,7 @@ export type AuditTargetType =
   | 'building' | 'structural_assessment' | 'sirs_component'
   | 'records_request'
   | 'financial_filing' | 'reserve_component'
+  | 'director' | 'manager' | 'conflict_disclosure'
 
 export interface LogAuditArgs {
   community_id: string
