@@ -104,11 +104,18 @@ export function PaySection() {
   const isLoading = loading
   const currentBalance = balance == null ? 1250.00 : balance
 
+  // Breakdown that ALWAYS reconciles to the Current Balance above: the board-set
+  // opening balance, everything accrued since (dues + any late interest/fees),
+  // and payments received. The accrued charges are lumped into one line so the
+  // breakdown total equals the balance exactly — the rings already detail the
+  // monthly dues cadence, so we don't re-derive every charge here.
+  const openingBal = Number(resident?.opening_balance) || 0
+  const paidToDate = (payments || []).reduce((s: number, p: any) => s + (Number(p?.amount) || 0), 0)
+  const duesAndCharges = currentBalance - openingBal + paidToDate
   const breakdown = [
-    { label: t('pay.chargeMonthlyDues'),    amount: monthlyDues || 1000 },
-    { label: t('pay.chargeCapitalReserve'), amount: 200 },
-    { label: t('pay.chargePetFees'),        amount: 75 },
-    { label: t('pay.chargeLateFeeCredit'),  amount: -25 },
+    ...(openingBal ? [{ label: t('pay.chargeOpeningBalance'), amount: openingBal }] : []),
+    { label: t('pay.chargeDuesAndCharges'), amount: duesAndCharges },
+    ...(paidToDate ? [{ label: t('pay.chargePaymentsReceived'), amount: -paidToDate }] : []),
   ]
   const breakdownTotal = breakdown.reduce((s, r) => s + r.amount, 0)
 

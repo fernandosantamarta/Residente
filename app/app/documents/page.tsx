@@ -820,6 +820,18 @@ function MyViolationsPanel() {
   const payable = (v: any) =>
     isReal && v.kind === 'fine' && v.status !== 'closed' && Number(v.amount) > 0
 
+  // A settled fine — paid via Stripe or marked paid by the board.
+  const isPaid = (v: any) =>
+    v.status === 'closed' && (v.resolution === 'stripe-paid' || v.resolution === 'manual-paid' || v.resolution === 'Paid')
+
+  // Friendly closed-state label (raw resolutions like "stripe-paid" shouldn't show).
+  const resolvedLabel = (v: any): string => {
+    if (isPaid(v)) return t('documents.statusPaid')
+    if (v.resolution === 'waived') return t('documents.statusWaived')
+    if (v.resolution === 'dismissed') return t('documents.statusClosed')
+    return v.resolution || t('documents.statusClosed')   // demo strings (e.g. "Resolved")
+  }
+
   const onPay = async (v: any) => {
     setPayError(null)
     setPayingId(v.id)
@@ -846,10 +858,10 @@ function MyViolationsPanel() {
                   {v.rule_title || t('documents.communityRule')}
                   {v.amount != null && <span className="myv-amt"> · ${v.amount}</span>}
                 </div>
-                <div className="myv-meta">{v.status === 'closed' ? (v.resolution || t('documents.statusClosed')) : v.status} · {fmtDate(v.opened_at)}</div>
+                <div className="myv-meta">{v.status === 'closed' ? resolvedLabel(v) : v.status} · {fmtDate(v.opened_at)}</div>
                 {v.notes && <div className="myv-meta">{v.notes}</div>}
               </div>
-              {payable(v) && (
+              {payable(v) ? (
                 <button
                   type="button"
                   className="myv-pay-btn"
@@ -858,7 +870,9 @@ function MyViolationsPanel() {
                 >
                   {payingId === v.id ? t('documents.payingFine') : t('documents.payFine', { amount: fmtMoney(v.amount) })}
                 </button>
-              )}
+              ) : isPaid(v) ? (
+                <span className="myv-paid">✓ {t('documents.statusPaid')}</span>
+              ) : null}
             </div>
           ))}
           {pages > 1 && (
