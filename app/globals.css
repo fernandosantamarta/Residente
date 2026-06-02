@@ -7820,7 +7820,13 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   color: #C73E07;
 }
 [data-theme="sketch"] .pay-fines-total {
-  font-size: 16px; font-weight: 800; color: #9a4530;
+  display: inline-flex; align-items: center;
+  font-size: 14.5px; font-weight: 800; color: #0A2440;
+  background: #FFFFFF;
+  border: 1px solid rgba(10, 36, 64, 0.16);
+  border-radius: 999px;
+  padding: 5px 14px;
+  box-shadow: 0 2px 6px -3px rgba(31, 42, 58, 0.4);
 }
 [data-theme="sketch"] .pay-fines-list { display: flex; flex-direction: column; }
 [data-theme="sketch"] .pay-fine-row {
