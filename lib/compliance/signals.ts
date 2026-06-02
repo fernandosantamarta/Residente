@@ -3,12 +3,31 @@
 // (see estoppel.ts); the dashboard merges them all.
 
 import { STATUTORY_MAX_APR, STATUTORY_LATE_FEE_MIN, STATUTORY_LATE_FEE_PCT, communityDuesConfig } from '@/lib/dues'
-import { signal, type ComplianceSignal } from './rules-core'
+import { signal, calendarDaysUntil, type ComplianceSignal, type Severity } from './rules-core'
 
 type Community = Record<string, any> | null | undefined
 
+// Records-website posting compliance deadlines. Each is a hard "must be live by"
+// date with NO statutory grace or cure window — verified against primary sources:
+//   condo: FS 718.111(12)(g)1 (HB 1021 §8) — the paragraph itself takes effect, and
+//          must be complied with, on 2026-01-01; applies at 25+ non-timeshare units.
+//   hoa:   FS 720.303(4)(b)1 (HB 1203) — "By January 1, 2025 ... shall post";
+//          applies at 100+ parcels.
+// Because there is no cure window, the signal escalates from 'soon' (deadline
+// approaching) to 'overdue' the moment the deadline passes with posting still off.
+const WEBSITE_POSTING_DEADLINE = {
+  condo: '2026-01-01',
+  hoa:   '2025-01-01',
+} as const
+
+// Within this many days *before* the deadline we flag it 'Due soon'; earlier than
+// that it is 'info' (applicable, but not yet urgent). On/after the deadline it is
+// 'overdue'. `now` is past both real deadlines, so in practice in-scope communities
+// see 'overdue' today — the tiers keep the rule correct on both sides of the date.
+const WEBSITE_POSTING_SOON_DAYS = 90
+
 /** Interest/late-fee config sanity + association identity + records-website applicability. */
-export function foundationSignals(community: Community): ComplianceSignal[] {
+export function foundationSignals(community: Community, now: Date = new Date()): ComplianceSignal[] {
   if (!community) return []
   const out: ComplianceSignal[] = []
   const type = community.association_type === 'hoa' ? 'hoa' : 'condo'
@@ -56,34 +75,42 @@ export function foundationSignals(community: Community): ComplianceSignal[] {
     }))
   }
 
-  // Records website-posting applicability (thresholds already in force).
+  // Records website-posting applicability. Severity is date-aware: the requirement
+  // is 'soon' while the statutory deadline approaches and 'overdue' once it passes
+  // with posting still off (no grace/cure window exists — see WEBSITE_POSTING_*).
   const posting = !!community.website_posting_enabled
-  if (type === 'condo') {
-    const units = Number(community.unit_count) || 0
-    if (units >= 25 && !posting) {
-      out.push(signal({
+  const spec = type === 'condo'
+    ? {
         id: 'records:website-condo',
-        domain: 'Official records',
-        severity: 'soon',
+        applies: (Number(community.unit_count) || 0) >= 25,
+        deadline: WEBSITE_POSTING_DEADLINE.condo,
         title: 'Records website posting is required (condo, 25+ units)',
-        detail: 'Effective 2026-01-01, condominiums with 25 or more units must post official records on a password-protected website.',
-        href: '/admin/community',
+        who: 'condominiums with 25 or more units must post official records on a password-protected website',
         citation: 'FS 718.111(12)(g) (HB 1021)',
-      }))
-    }
-  } else {
-    const parcels = Number(community.parcel_count) || 0
-    if (parcels >= 100 && !posting) {
-      out.push(signal({
+      }
+    : {
         id: 'records:website-hoa',
-        domain: 'Official records',
-        severity: 'soon',
+        applies: (Number(community.parcel_count) || 0) >= 100,
+        deadline: WEBSITE_POSTING_DEADLINE.hoa,
         title: 'Records website posting is required (HOA, 100+ parcels)',
-        detail: 'Effective 2025-01-01, HOAs with 100 or more parcels must post official records online.',
-        href: '/admin/community',
+        who: 'HOAs with 100 or more parcels must post official records online',
         citation: 'FS 720.303(4)(b) (HB 1203)',
-      }))
-    }
+      }
+  if (spec.applies && !posting) {
+    const daysLeft = calendarDaysUntil(spec.deadline, now) // < 0 once the deadline is past
+    const severity: Severity = daysLeft < 0 ? 'overdue' : daysLeft <= WEBSITE_POSTING_SOON_DAYS ? 'soon' : 'info'
+    const detail = daysLeft < 0
+      ? `The ${spec.deadline} deadline has passed — ${spec.who}. There is no statutory grace or cure period.`
+      : `Effective ${spec.deadline}, ${spec.who}.`
+    out.push(signal({
+      id: spec.id,
+      domain: 'Official records',
+      severity,
+      title: spec.title,
+      detail,
+      href: '/admin/community',
+      citation: spec.citation,
+    }))
   }
 
   return out
