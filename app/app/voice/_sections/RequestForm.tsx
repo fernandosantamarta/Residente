@@ -16,11 +16,12 @@ const withTimeout = <T,>(p: Promise<T>, ms = 10000): Promise<T> =>
     new Promise<T>((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms)),
   ])
 
-export type Category = 'maintenance' | 'appeal' | 'account' | 'other'
+export type Category = 'maintenance' | 'appeal' | 'account' | 'records' | 'other'
 export const CATS: { value: Category; label: string }[] = [
   { value: 'maintenance', label: 'Maintenance issue' },
   { value: 'appeal',      label: 'Violation appeal' },
   { value: 'account',     label: 'Account question' },
+  { value: 'records',     label: 'Records inspection' }, // FS 718.111(12)(c) / 720.303(5)
   { value: 'other',       label: 'Other' },
 ]
 export const CAT_LABEL: Record<string, string> = Object.fromEntries(CATS.map(c => [c.value, c.label]))
@@ -34,10 +35,11 @@ const CAT_LABEL_KEY: Record<string, string> = {
   other:       'board.catOther',
 }
 
-// Translated category label, defaulting to the raw value for unknown categories.
+// Translated category label; falls back to the English CAT_LABEL (then the raw
+// value) for categories without a dedicated i18n key (e.g. 'records').
 export function useCatLabel() {
   const t = useT()
-  return (value: string) => (CAT_LABEL_KEY[value] ? t(CAT_LABEL_KEY[value]) : value)
+  return (value: string) => (CAT_LABEL_KEY[value] ? t(CAT_LABEL_KEY[value]) : (CAT_LABEL[value] || value))
 }
 
 const MAX_BODY = 500
@@ -214,6 +216,7 @@ export function catIcon(c: Category): ReactNode {
     case 'maintenance': return <Svg><><path d="M14 6 19 1l4 4-5 5z" /><path d="m17 4-9 9-4 4 1 1 4-4 9-9" /></></Svg>
     case 'appeal':      return <Svg><><path d="M12 3 4 6v6c0 4.5 3.2 8.5 8 9 4.8-.5 8-4.5 8-9V6z" /></></Svg>
     case 'account':     return <Svg><><path d="M12 2v20M17 6.5A4 4 0 0 0 13 4h-2a3.5 3.5 0 0 0 0 7h2a3.5 3.5 0 0 1 0 7h-2a4 4 0 0 1-4-2.5" /></></Svg>
+    case 'records':     return <Svg><><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h7" /><path d="M14 3v6h6" /><circle cx="17" cy="17" r="3" /><path d="m21 21-1.5-1.5" /></></Svg>
     case 'other':       return <Svg><><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></></Svg>
   }
 }

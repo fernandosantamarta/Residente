@@ -607,7 +607,14 @@ export default function EasyDocs() {
                     {t('documents.needDocSub')}
                   </div>
                 </div>
-                <Link href="/app/voice#contact" className="doc-cta-primary">{t('documents.requestDocument')}</Link>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
+                  <Link href="/app/voice#contact" className="doc-cta-primary">{t('documents.requestDocument')}</Link>
+                  {/* Statutory right to inspect official records — FS 718.111(12)(c) / 720.303(5).
+                      Routes to the request form; the resident picks "Records inspection". */}
+                  <Link href="/app/voice#contact" className="doc-card-link" style={{ fontSize: 12.5 }}>
+                    Request to inspect official records →
+                  </Link>
+                </div>
               </section>
 
               <section className="doc-card doc-stay">

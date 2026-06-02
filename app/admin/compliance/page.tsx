@@ -21,6 +21,10 @@ import {
   structuralSignals,
   type BuildingRow, type StructuralAssessmentRow, type SirsComponentRow,
 } from '@/lib/compliance/structural'
+import {
+  officialRecordsSignals,
+  type DocumentRow, type RecordsRequestRow,
+} from '@/lib/compliance/official-records'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -38,6 +42,7 @@ const WORKSPACES: { href: string; label: string; desc: string; color: string }[]
   { href: '/admin/collections', label: 'Collections & liens', desc: 'Work the statutory ladder — late-assessment notice, intent-to-lien, lien, foreclosure.', color: '#B54708' },
   { href: '/admin/estoppel', label: 'Estoppel certificates', desc: 'Intake requests, track the delivery clock + fee, and issue the certificate.', color: '#175CD3' },
   { href: '/admin/structural', label: 'Structural integrity', desc: 'Milestone inspections & SIRS — track each building’s deadlines (condominium only).', color: '#067647' },
+  { href: '/admin/documents#documents', label: 'Official records', desc: 'Post required records, track retention, and answer records-inspection requests on the clock.', color: '#7A5AF8' },
 ]
 
 // Resilient select: a table that hasn't had its migration run yet returns an
@@ -65,6 +70,8 @@ function gatherSignals(
   buildings: BuildingRow[],
   assessments: StructuralAssessmentRow[],
   sirsComponents: SirsComponentRow[],
+  documents: DocumentRow[],
+  recordsRequests: RecordsRequestRow[],
 ): ComplianceSignal[] {
   const candidates = community ? delinquentOwnersWithoutCase({
     residents, paymentsByResident: payByResident, cases,
@@ -81,6 +88,7 @@ function gatherSignals(
     ...paymentPlanSignals(plans),
     ...delinquencySignals(candidates),
     ...structuralSignals(buildings, assessments, sirsComponents, community), // condo-only (returns [] for HOA)
+    ...officialRecordsSignals(community, documents, recordsRequests),
     // Future domains plug in here: financialSignals(), …
   ])
 }
@@ -97,6 +105,8 @@ export default function CompliancePage() {
   const [buildings, setBuildings] = useState<BuildingRow[]>([])
   const [assessments, setAssessments] = useState<StructuralAssessmentRow[]>([])
   const [sirsComponents, setSirsComponents] = useState<SirsComponentRow[]>([])
+  const [documents, setDocuments] = useState<DocumentRow[]>([])
+  const [recordsRequests, setRecordsRequests] = useState<RecordsRequestRow[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError] = useState('')
 
@@ -120,6 +130,8 @@ export default function CompliancePage() {
       setBuildings(await safeSelect('ev_buildings', communityId))
       setAssessments(await safeSelect('ev_structural_assessments', communityId))
       setSirsComponents(await safeSelect('ev_sirs_components', communityId))
+      setDocuments(await safeSelect('documents', communityId))
+      setRecordsRequests(await safeSelect('resident_requests', communityId))
       setStatus('ready')
     } catch (err: any) {
       setError(err?.message || 'Could not load compliance data'); setStatus('error')
@@ -127,7 +139,7 @@ export default function CompliancePage() {
   }, [communityId])
   useEffect(() => { load() }, [load])
 
-  const signals = useMemo(() => gatherSignals(community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents), [community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents])
+  const signals = useMemo(() => gatherSignals(community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests), [community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests])
   const counts = useMemo(() => {
     const c: Record<Severity, number> = { overdue: 0, soon: 0, info: 0 }
     for (const s of signals) c[s.severity]++
