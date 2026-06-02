@@ -1,0 +1,255 @@
+'use client'
+
+// Easy Voice — Architectural review (resident self-service). A self-contained
+// route (NOT yet wired into the Easy Voice hub tabs / left rail — see the
+// one-line wire-up note at the bottom of this file) so it doesn't collide with
+// in-progress Easy Voice front-end work. Residents submit an architectural-
+// review request for their unit/parcel and track the board's decision; the
+// ev_arc_requests "owner submits / owner reads own" RLS + the decision→owner
+// personal-notice trigger (supabase/arc.sql) back it. FS 720.3035 / 718.113(2).
+//
+// Reuses the shared global con-* styles (the Contact form's look) for visual
+// consistency; copy is local English for now (no i18n keys added).
+
+import { ReactNode, useState, useEffect, useCallback } from 'react'
+import { useAuth } from '@/app/providers'
+import { supabase, hasSupabase } from '@/lib/supabase'
+import {
+  ARC_TYPE_LABELS, ARC_STATUS_LABELS, arcResponseDeadline,
+  type ArcRequestRow, type ArcRequestType, type ArcStatus,
+} from '@/lib/compliance/arc'
+
+const withTimeout = (p: any, ms = 10000): Promise<any> =>
+  Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
+
+const fmtDate = (d: string | null | undefined) =>
+  d ? new Date(d + (d.length === 10 ? 'T00:00:00' : '')).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
+
+const shortId = (id: string) => {
+  const s = id.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6).toUpperCase()
+  return `#${s.slice(0, 3)}-${s.slice(3, 6)}`
+}
+
+// Status → pill color (inline so this route adds no CSS to the shared globals).
+const STATUS_COLOR: Record<string, string> = {
+  submitted: '#175CD3', under_review: '#B54708',
+  approved: '#067647', approved_with_conditions: '#067647',
+  denied: '#B42318', withdrawn: '#98A2B3',
+}
+
+const TYPES: { value: ArcRequestType; icon: ReactNode }[] = [
+  { value: 'exterior_alteration', icon: <Svg><><path d="M3 9 12 3l9 6" /><path d="M5 10v10h14V10" /><path d="M9 20v-6h6v6" /></></Svg> },
+  { value: 'new_construction',    icon: <Svg><><path d="M14 6 19 1l4 4-5 5z" /><path d="m17 4-9 9-4 4 1 1 4-4 9-9" /></></Svg> },
+  { value: 'landscaping',         icon: <Svg><><path d="M12 22V8" /><path d="M12 8a4 4 0 0 1 4-4 4 4 0 0 1-4 4 4 4 0 0 1-4-4 4 4 0 0 1 4 4z" /></></Svg> },
+  { value: 'other',              icon: <Svg><><circle cx="5" cy="12" r="1.6" /><circle cx="12" cy="12" r="1.6" /><circle cx="19" cy="12" r="1.6" /></></Svg> },
+]
+
+const MAX_DESC = 800
+
+export default function ArcPage() {
+  const { profile } = useAuth() || {}
+  const [community, setCommunity] = useState<any>(null)
+  const [rows, setRows] = useState<ArcRequestRow[]>([])
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  const [type, setType] = useState<ArcRequestType>('exterior_alteration')
+  const [description, setDescription] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [ok, setOk] = useState('')
+
+  const load = useCallback(async () => {
+    if (!hasSupabase || !supabase || !profile?.id) { setLoading(false); return }
+    setLoading(true)
+    try {
+      if (profile.community_id) {
+        const { data: c } = (await withTimeout(
+          supabase.from('communities').select('*').eq('id', profile.community_id).single(),
+        )) as any
+        setCommunity(c || null)
+      }
+      const { data, error } = (await withTimeout(
+        supabase.from('ev_arc_requests').select('*')
+          .eq('profile_id', profile.id).order('submitted_at', { ascending: false }),
+      )) as any
+      if (error) throw error
+      setRows((data as ArcRequestRow[]) || [])
+    } catch { /* leave empty */ } finally { setLoading(false) }
+  }, [profile?.id, profile?.community_id])
+  useEffect(() => { load() }, [load])
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!description.trim()) { setError('Please describe what you would like to change.'); return }
+    // Demo / preview (no session) — confirm the flow reads end to end.
+    if (!supabase || !profile?.id || !profile?.community_id) {
+      setOk('Request submitted. The board will review it and notify you of a decision.')
+      setDescription(''); return
+    }
+    setSaving(true); setError('')
+    try {
+      const unitLabel = `${profile.full_name || 'Owner'}${profile.unit_number ? ` · Unit ${profile.unit_number}` : ''}`.trim()
+      const row: Record<string, any> = {
+        community_id: profile.community_id,
+        profile_id: profile.id,
+        unit_label: unitLabel || null,
+        request_type: type,
+        description: description.trim(),
+        status: 'submitted',
+      }
+      const { data, error } = (await withTimeout(
+        supabase.from('ev_arc_requests').insert(row).select().single(),
+      )) as any
+      if (error) throw error
+      setRows(rs => [data as ArcRequestRow, ...rs])
+      setDescription(''); setType('exterior_alteration')
+      setOk('Request submitted. The board will review it and notify you of a decision.')
+    } catch (err: any) {
+      setError(err?.message || 'Could not submit your request. Please try again.')
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <section className="con-wrap ev-section">
+      <div className="voice-page-head">
+        <h1 className="voice-page-title">Architectural review</h1>
+        <p className="voice-page-sub">
+          Request approval before altering the exterior of your home, adding a structure, or changing
+          landscaping. The board reviews each request and will notify you of its decision.
+        </p>
+      </div>
+
+      <div className="con-grid">
+        {/* LEFT — submit a request */}
+        <section className="con-card con-form-card">
+          <h2 className="con-card-title">Submit a request</h2>
+          <form onSubmit={submit}>
+            <div className="con-field">
+              <span className="con-label">Type of change</span>
+              <div className="con-cats">
+                {TYPES.map(c => (
+                  <button
+                    key={c.value} type="button"
+                    className={`con-cat${type === c.value ? ' on' : ''}`}
+                    onClick={() => setType(c.value)}
+                    aria-pressed={type === c.value}
+                  >
+                    <span className="con-cat-ic">{c.icon}</span>
+                    <span className="con-cat-label">{ARC_TYPE_LABELS[c.value]}</span>
+                    <span className="con-cat-radio" aria-hidden="true" />
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="con-field">
+              <label className="con-label" htmlFor="arc-desc">What would you like to change?</label>
+              <textarea id="arc-desc" className="con-input con-textarea" rows={5} maxLength={MAX_DESC}
+                value={description} onChange={e => setDescription(e.target.value)}
+                placeholder="Describe the proposed change — materials, colors, dimensions, location. Attach plans or photos by email if requested." />
+              <div className="con-count">{description.length} / {MAX_DESC}</div>
+            </div>
+
+            <button type="submit" className="con-submit" disabled={saving}>
+              {saving ? 'Submitting…' : 'Submit request'}
+            </button>
+            {error && <div className="con-error">{error}</div>}
+            {ok && <div className="con-ok">✓ {ok}</div>}
+          </form>
+        </section>
+
+        {/* RIGHT — request history */}
+        <section className="con-card con-list-card">
+          <h2 className="con-card-title">Your requests</h2>
+          <div className="con-table">
+            <div className="con-thead">
+              <span>ID</span><span>Type</span><span>Status</span><span>Submitted</span><span></span>
+            </div>
+            {loading && <div className="con-empty">Loading…</div>}
+            {!loading && rows.length === 0 && (
+              <div className="con-empty">You haven&apos;t submitted any architectural requests yet.</div>
+            )}
+            {!loading && rows.map(r => {
+              const open = expandedId === r.id
+              const status = String(r.status ?? 'submitted') as ArcStatus
+              const color = STATUS_COLOR[status] || '#475467'
+              const decided = ['approved', 'approved_with_conditions', 'denied', 'withdrawn'].includes(status)
+              const deadline = !decided ? arcResponseDeadline(r, community) : null
+              const toggle = () => setExpandedId(open ? null : r.id)
+              return (
+                <div key={r.id}>
+                  <div
+                    className={`con-trow con-trow-click${open ? ' open' : ''}`}
+                    role="button" tabIndex={0} aria-expanded={open}
+                    onClick={toggle}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } }}
+                  >
+                    <span className="con-id">{shortId(r.id)}</span>
+                    <span className="con-subj">{ARC_TYPE_LABELS[(r.request_type ?? 'other') as ArcRequestType]}</span>
+                    <span><span style={pill(color)}>{ARC_STATUS_LABELS[status]}</span></span>
+                    <span className="con-date">{fmtDate(r.submitted_at)}</span>
+                    <span className="con-chev">
+                      <svg className={`con-chev-ic${open ? ' open' : ''}`} viewBox="0 0 24 24" width="16" height="16"
+                        fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="m6 9 6 6 6-6" />
+                      </svg>
+                    </span>
+                  </div>
+                  {open && (
+                    <div className="con-detail">
+                      <div className="con-detail-row">
+                        <span className="con-detail-label">Request</span>
+                        <span className="con-detail-val">{r.description || <em>No description</em>}</span>
+                      </div>
+                      {!decided && deadline && (
+                        <div className="con-detail-row">
+                          <span className="con-detail-label">Decision expected by</span>
+                          <span className="con-detail-val">{fmtDate(deadline.toISOString().slice(0, 10))}</span>
+                        </div>
+                      )}
+                      {decided && (
+                        <div className="con-note" style={{ margin: '2px 0 0' }}>
+                          <span className="con-note-tag" style={{ background: color }}>Board</span>
+                          <span className="con-note-body">
+                            {status === 'denied'
+                              ? <>Your request was <strong>denied</strong>.{r.decision_reason ? <> Reason: {r.decision_reason}</> : ''}</>
+                              : status === 'approved_with_conditions'
+                                ? <>Your request was <strong>approved with conditions</strong>.{r.decision_reason ? <> {r.decision_reason}</> : ''}</>
+                                : status === 'withdrawn'
+                                  ? <>This request was withdrawn.</>
+                                  : <>Your request was <strong>approved</strong>.{r.decision_reason ? <> {r.decision_reason}</> : ''}</>}
+                          </span>
+                          {r.decided_at && <span className="con-note-date">{fmtDate(r.decided_at)}</span>}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      </div>
+    </section>
+  )
+}
+
+function pill(color: string): React.CSSProperties {
+  return { fontSize: 11.5, fontWeight: 700, color, background: color + '14', padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap' }
+}
+
+function Svg({ children }: { children: ReactNode }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {children}
+    </svg>
+  )
+}
+
+// ── To wire into the resident UI when your Easy Voice front-end work settles ──
+// Left rail (app/app/layout.tsx NAV array): add
+//   { href: '/app/arc', label: 'Architectural', icon: <><path d="M3 9 12 3l9 6"/><path d="M5 10v10h14V10"/></> },
+// …or surface it as an Easy Voice hub tab (app/app/voice/page.tsx) once that
+// file is stable. Until then the page is reachable directly at /app/arc.
