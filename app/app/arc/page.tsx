@@ -162,73 +162,54 @@ export default function ArcPage() {
         {/* RIGHT — request history */}
         <section className="con-card con-list-card">
           <h2 className="con-card-title">Your requests</h2>
-          <div className="con-table">
-            <div className="con-thead">
-              <span>ID</span><span>Type</span><span>Status</span><span>Submitted</span><span></span>
-            </div>
-            {loading && <div className="con-empty">Loading…</div>}
-            {!loading && rows.length === 0 && (
-              <div className="con-empty">You haven&apos;t submitted any architectural requests yet.</div>
-            )}
-            {!loading && rows.map(r => {
-              const open = expandedId === r.id
-              const status = String(r.status ?? 'submitted') as ArcStatus
-              const color = STATUS_COLOR[status] || '#475467'
-              const decided = ['approved', 'approved_with_conditions', 'denied', 'withdrawn'].includes(status)
-              const deadline = !decided ? arcResponseDeadline(r, community) : null
-              const toggle = () => setExpandedId(open ? null : r.id)
-              return (
-                <div key={r.id}>
-                  <div
-                    className={`con-trow con-trow-click${open ? ' open' : ''}`}
-                    role="button" tabIndex={0} aria-expanded={open}
-                    onClick={toggle}
-                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } }}
-                  >
-                    <span className="con-id">{shortId(r.id)}</span>
-                    <span className="con-subj">{ARC_TYPE_LABELS[(r.request_type ?? 'other') as ArcRequestType]}</span>
-                    <span><span style={pill(color)}>{ARC_STATUS_LABELS[status]}</span></span>
-                    <span className="con-date">{fmtDate(r.submitted_at)}</span>
-                    <span className="con-chev">
-                      <svg className={`con-chev-ic${open ? ' open' : ''}`} viewBox="0 0 24 24" width="16" height="16"
-                        fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="m6 9 6 6 6-6" />
-                      </svg>
-                    </span>
-                  </div>
-                  {open && (
-                    <div className="con-detail">
-                      <div className="con-detail-row">
-                        <span className="con-detail-label">Request</span>
-                        <span className="con-detail-val">{r.description || <em>No description</em>}</span>
-                      </div>
-                      {!decided && deadline && (
-                        <div className="con-detail-row">
-                          <span className="con-detail-label">Decision expected by</span>
-                          <span className="con-detail-val">{fmtDate(deadline.toISOString().slice(0, 10))}</span>
-                        </div>
-                      )}
-                      {decided && (
-                        <div className="con-note" style={{ margin: '2px 0 0' }}>
-                          <span className="con-note-tag" style={{ background: color }}>Board</span>
-                          <span className="con-note-body">
-                            {status === 'denied'
-                              ? <>Your request was <strong>denied</strong>.{r.decision_reason ? <> Reason: {r.decision_reason}</> : ''}</>
-                              : status === 'approved_with_conditions'
-                                ? <>Your request was <strong>approved with conditions</strong>.{r.decision_reason ? <> {r.decision_reason}</> : ''}</>
-                                : status === 'withdrawn'
-                                  ? <>This request was withdrawn.</>
-                                  : <>Your request was <strong>approved</strong>.{r.decision_reason ? <> {r.decision_reason}</> : ''}</>}
-                          </span>
-                          {r.decided_at && <span className="con-note-date">{fmtDate(r.decided_at)}</span>}
-                        </div>
-                      )}
+          {loading && <div className="con-empty">Loading…</div>}
+          {!loading && rows.length === 0 && (
+            <div className="con-empty">You haven&apos;t submitted any architectural requests yet.</div>
+          )}
+          {!loading && rows.map(r => {
+            const open = expandedId === r.id
+            const status = String(r.status ?? 'submitted') as ArcStatus
+            const color = STATUS_COLOR[status] || '#475467'
+            const decided = ['approved', 'approved_with_conditions', 'denied', 'withdrawn'].includes(status)
+            const deadline = !decided ? arcResponseDeadline(r, community) : null
+            const toggle = () => setExpandedId(open ? null : r.id)
+            return (
+              <div key={r.id} style={ROW_WRAP}>
+                <div role="button" tabIndex={0} aria-expanded={open} onClick={toggle}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } }}
+                  style={ROW}>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={ROW_TITLE}>
+                      {ARC_TYPE_LABELS[(r.request_type ?? 'other') as ArcRequestType]}
+                      <span style={{ color: '#E14909', fontWeight: 600, marginLeft: 8, fontSize: 12 }}>{shortId(r.id)}</span>
                     </div>
-                  )}
+                    <div style={ROW_META}>Submitted {fmtDate(r.submitted_at)}</div>
+                  </div>
+                  <span style={pill(color)}>{ARC_STATUS_LABELS[status]}</span>
                 </div>
-              )
-            })}
-          </div>
+                {open && (
+                  <div style={{ padding: '0 2px 14px', fontSize: 13, color: '#0A2440' }}>
+                    <div style={{ marginBottom: 8 }}>{r.description || <em style={{ color: 'rgba(15,28,46,0.55)' }}>No description</em>}</div>
+                    {!decided && deadline && (
+                      <div style={ROW_META}>Decision expected by {fmtDate(deadline.toISOString().slice(0, 10))}</div>
+                    )}
+                    {decided && (
+                      <div style={{ fontSize: 13, padding: '8px 10px', borderRadius: 8, background: color + '12', color: '#0A2440' }}>
+                        {status === 'denied'
+                          ? <>Your request was <strong>denied</strong>.{r.decision_reason ? <> Reason: {r.decision_reason}</> : ''}</>
+                          : status === 'approved_with_conditions'
+                            ? <>Your request was <strong>approved with conditions</strong>.{r.decision_reason ? <> {r.decision_reason}</> : ''}</>
+                            : status === 'withdrawn'
+                              ? <>This request was withdrawn.</>
+                              : <>Your request was <strong>approved</strong>.{r.decision_reason ? <> {r.decision_reason}</> : ''}</>}
+                        {r.decided_at && <span style={{ display: 'block', marginTop: 4, fontSize: 11.5, color: 'rgba(15,28,46,0.5)' }}>{fmtDate(r.decided_at)}</span>}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </section>
       </div>
     </section>
@@ -236,8 +217,15 @@ export default function ArcPage() {
 }
 
 function pill(color: string): React.CSSProperties {
-  return { fontSize: 11.5, fontWeight: 700, color, background: color + '14', padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap' }
+  return { fontSize: 11.5, fontWeight: 700, color, background: color + '14', padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap', flexShrink: 0 }
 }
+
+// Self-contained list-row styles (theme colors), so these resident routes don't
+// depend on the Contact-tuned con-table grid.
+const ROW_WRAP: React.CSSProperties = { borderBottom: '1px solid rgba(15,28,46,0.07)' }
+const ROW: React.CSSProperties = { display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', padding: '12px 2px', cursor: 'pointer' }
+const ROW_TITLE: React.CSSProperties = { fontWeight: 600, fontSize: 14, color: '#0A2440' }
+const ROW_META: React.CSSProperties = { fontSize: 12.5, color: 'rgba(15,28,46,0.6)', marginTop: 2 }
 
 function Svg({ children }: { children: ReactNode }) {
   return (
