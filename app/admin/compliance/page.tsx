@@ -27,6 +27,14 @@ const SEVERITY_META: Record<Severity, { label: string; color: string; bg: string
   info:    { label: 'To do',   color: '#175CD3', bg: 'rgba(23,92,211,0.07)' },
 }
 
+// Persistent entry points to the compliance workspaces. The signal worklist
+// only links to a workspace when it has an active deadline, so these cards keep
+// every workspace reachable from the dashboard even when nothing is flagged.
+const WORKSPACES: { href: string; label: string; desc: string; color: string }[] = [
+  { href: '/admin/collections', label: 'Collections & liens', desc: 'Work the statutory ladder — late-assessment notice, intent-to-lien, lien, foreclosure.', color: '#B54708' },
+  { href: '/admin/estoppel', label: 'Estoppel certificates', desc: 'Intake requests, track the delivery clock + fee, and issue the certificate.', color: '#175CD3' },
+]
+
 // Resilient select: a table that hasn't had its migration run yet returns an
 // error rather than throwing — treat that as "no rows" so the dashboard still
 // renders the signals it can compute.
@@ -156,6 +164,24 @@ export default function CompliancePage() {
               </div>
             ))}
           </div>
+
+          {/* Always-available links into the domain workspaces */}
+          <section style={{ marginBottom: 22 }}>
+            <h2 className="bc-title" style={{ margin: '0 0 10px' }}>Workspaces</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 10 }}>
+              {WORKSPACES.map(w => (
+                <Link key={w.href} href={w.href} style={{ textDecoration: 'none', color: 'inherit' }}>
+                  <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${w.color}`, borderRadius: 12, padding: '14px 16px', background: '#fff', height: '100%' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14.5 }}>{w.label}</div>
+                      <span style={{ fontSize: 13, color: w.color, fontWeight: 700, whiteSpace: 'nowrap' }}>Open →</span>
+                    </div>
+                    <div style={{ fontSize: 12.5, opacity: 0.72, marginTop: 3 }}>{w.desc}</div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </section>
 
           {signals.length === 0 ? (
             <div className="admin-note" style={{ textAlign: 'center', padding: '28px 16px' }}>
