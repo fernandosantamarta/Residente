@@ -274,9 +274,22 @@ function BudgetCategories({ communityId, onSaved }) {
           budget: numOrNull(r.budget) || 0,
           spent: numOrNull(r.spent) || 0,
           sort_order: idx + 1,
+          // Domain C compliance columns — preserved through this clean-replace
+          // save so editing the budget never silently resets a category's
+          // reserve / fiscal-year / adoption classification.
+          is_reserve: r.is_reserve ?? false,
+          status: r.status ?? 'adopted',
+          fiscal_year: r.fiscal_year ?? null,
+          adopted_meeting_id: r.adopted_meeting_id ?? null,
         }))
       if (toInsert.length) {
-        const ins = await withTimeout(supabase.from('budget_categories').insert(toInsert))
+        let ins = await withTimeout(supabase.from('budget_categories').insert(toInsert))
+        // If supabase/financials.sql hasn't been run yet those columns don't
+        // exist — fall back to the base columns so the editor still works.
+        if (ins.error && /column|schema cache|fiscal_year|is_reserve/i.test(ins.error.message || '')) {
+          const basic = toInsert.map(({ is_reserve, status, fiscal_year, adopted_meeting_id, ...rest }) => rest)
+          ins = await withTimeout(supabase.from('budget_categories').insert(basic))
+        }
         if (ins.error) throw ins.error
       }
       setStatus('ready'); onSaved?.('Budget categories saved.')

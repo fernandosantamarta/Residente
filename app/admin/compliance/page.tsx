@@ -25,6 +25,10 @@ import {
   officialRecordsSignals,
   type DocumentRow, type RecordsRequestRow,
 } from '@/lib/compliance/official-records'
+import {
+  financialSignals,
+  type BudgetCategoryRow, type ReserveComponentRow, type FinancialFilingRow,
+} from '@/lib/compliance/financials'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -43,6 +47,7 @@ const WORKSPACES: { href: string; label: string; desc: string; color: string }[]
   { href: '/admin/estoppel', label: 'Estoppel certificates', desc: 'Intake requests, track the delivery clock + fee, and issue the certificate.', color: '#175CD3' },
   { href: '/admin/structural', label: 'Structural integrity', desc: 'Milestone inspections & SIRS — track each building’s deadlines (condominium only).', color: '#067647' },
   { href: '/admin/documents#documents', label: 'Official records', desc: 'Post required records, track retention, and answer records-inspection requests on the clock.', color: '#7A5AF8' },
+  { href: '/admin/financials', label: 'Financial reporting & reserves', desc: 'Audit tier, the annual financial report & budget clocks, and reserve funding.', color: '#0E7490' },
 ]
 
 // Resilient select: a table that hasn't had its migration run yet returns an
@@ -72,6 +77,9 @@ function gatherSignals(
   sirsComponents: SirsComponentRow[],
   documents: DocumentRow[],
   recordsRequests: RecordsRequestRow[],
+  budgets: BudgetCategoryRow[],
+  reserves: ReserveComponentRow[],
+  filings: FinancialFilingRow[],
 ): ComplianceSignal[] {
   const candidates = community ? delinquentOwnersWithoutCase({
     residents, paymentsByResident: payByResident, cases,
@@ -89,7 +97,8 @@ function gatherSignals(
     ...delinquencySignals(candidates),
     ...structuralSignals(buildings, assessments, sirsComponents, community), // condo-only (returns [] for HOA)
     ...officialRecordsSignals(community, documents, recordsRequests),
-    // Future domains plug in here: financialSignals(), …
+    ...financialSignals(community, budgets, reserves, filings),
+    // Future domains plug in here: governanceSignals(), …
   ])
 }
 
@@ -107,6 +116,9 @@ export default function CompliancePage() {
   const [sirsComponents, setSirsComponents] = useState<SirsComponentRow[]>([])
   const [documents, setDocuments] = useState<DocumentRow[]>([])
   const [recordsRequests, setRecordsRequests] = useState<RecordsRequestRow[]>([])
+  const [budgets, setBudgets] = useState<BudgetCategoryRow[]>([])
+  const [reserves, setReserves] = useState<ReserveComponentRow[]>([])
+  const [filings, setFilings] = useState<FinancialFilingRow[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError] = useState('')
 
@@ -132,6 +144,9 @@ export default function CompliancePage() {
       setSirsComponents(await safeSelect('ev_sirs_components', communityId))
       setDocuments(await safeSelect('documents', communityId))
       setRecordsRequests(await safeSelect('resident_requests', communityId))
+      setBudgets(await safeSelect('budget_categories', communityId))
+      setReserves(await safeSelect('ev_reserve_components', communityId))
+      setFilings(await safeSelect('ev_financial_filings', communityId))
       setStatus('ready')
     } catch (err: any) {
       setError(err?.message || 'Could not load compliance data'); setStatus('error')
@@ -139,7 +154,7 @@ export default function CompliancePage() {
   }, [communityId])
   useEffect(() => { load() }, [load])
 
-  const signals = useMemo(() => gatherSignals(community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests), [community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests])
+  const signals = useMemo(() => gatherSignals(community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests, budgets, reserves, filings), [community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests, budgets, reserves, filings])
   const counts = useMemo(() => {
     const c: Record<Severity, number> = { overdue: 0, soon: 0, info: 0 }
     for (const s of signals) c[s.severity]++

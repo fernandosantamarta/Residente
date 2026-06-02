@@ -52,6 +52,9 @@ export type AuditEventType =
   // official records (compliance domain B)
   | 'records.document_posted'
   | 'records.request_responded'
+  // financial reporting & reserves (compliance domain C)
+  | 'financial.filing_recorded'
+  | 'financial.reserve_updated'
 
 export type AuditTargetType =
   | 'vote' | 'ballot' | 'meeting' | 'document' | 'notice'
@@ -60,6 +63,7 @@ export type AuditTargetType =
   | 'collection_case' | 'collection_notice' | 'payment_plan'
   | 'building' | 'structural_assessment' | 'sirs_component'
   | 'records_request'
+  | 'financial_filing' | 'reserve_component'
 
 export interface LogAuditArgs {
   community_id: string
