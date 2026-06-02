@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { residentBalance, duesStatus } from '@/lib/dues'
+import { residentBalance, duesStatus, communityDuesConfig } from '@/lib/dues'
 
 const withTimeout = (p, ms = 10000) =>
   Promise.race([
@@ -84,12 +84,12 @@ export function useMyResident() {
         ])
         if (cancelled) return
         const monthlyDues = Number(comR.data?.monthly_dues) || 0
-        const interestRate = Number(comR.data?.late_interest_rate) || 0
+        const duesCfg = communityDuesConfig(comR.data)
         const payments = payR.data || []
-        const balance = residentBalance(resident, monthlyDues, payments, interestRate)
+        const balance = residentBalance(resident, monthlyDues, payments, duesCfg)
         setState({
           resident, balance, status: duesStatus(balance, monthlyDues),
-          payments, monthlyDues, interestRate, loading: false,
+          payments, monthlyDues, interestRate: duesCfg.apr, loading: false,
         })
       } catch (err) {
         if (!cancelled) setState(EMPTY)

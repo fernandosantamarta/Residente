@@ -3,6 +3,14 @@
     {
       "path": "/api/cron/dues-reminders",
       "schedule": "0 14 1 * *"
+    },
+    {
+      "path": "/api/cron/compliance-scan",
+      "schedule": "0 13 * * 1"
+    },
+    {
+      "path": "/api/cron/collections-deadlines",
+      "schedule": "0 13 * * *"
     }
   ]
 }

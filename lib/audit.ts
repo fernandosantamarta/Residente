@@ -37,11 +37,19 @@ export type AuditEventType =
   | 'roster.imported'
   | 'invite.sent'
   | 'invite.accepted'
+  // collections / liens (compliance domain F)
+  | 'collection.case_opened'
+  | 'collection.stage_changed'
+  | 'collection.notice_logged'
+  | 'collection.payment_plan_created'
+  | 'collection.payment_plan_updated'
+  | 'collection.resolved'
 
 export type AuditTargetType =
   | 'vote' | 'ballot' | 'meeting' | 'document' | 'notice'
   | 'proxy' | 'candidate' | 'attendance' | 'consent'
   | 'roster' | 'resident'
+  | 'collection_case' | 'collection_notice' | 'payment_plan'
 
 export interface LogAuditArgs {
   community_id: string

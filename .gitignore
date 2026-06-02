@@ -13,3 +13,6 @@ yarn-error.log*
 .gstack/
 
 .vercel
+
+# Supabase CLI local scratch
+supabase/.temp/

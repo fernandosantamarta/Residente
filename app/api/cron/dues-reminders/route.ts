@@ -17,7 +17,7 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { residentBalance, duesStatus } from '@/lib/dues'
+import { residentBalance, duesStatus, communityDuesConfig } from '@/lib/dues'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,9 +55,12 @@ export async function GET(req: Request) {
   // works, without inserting any notices or pinging a single resident.
   const dryRun = new URL(req.url).searchParams.get('dryRun') === '1'
 
+  // select('*') so the dues config (interest_apr / late_fee_* if present, else
+  // the legacy late_interest_rate fallback) resolves whether or not the
+  // compliance-foundation migration has run yet. communities is a tiny table.
   const { data: comms, error: cErr } = await admin
     .from('communities')
-    .select('id, monthly_dues, late_interest_rate')
+    .select('*')
   if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 })
 
   const sinceISO = new Date(Date.now() - RECENT_DAYS * 24 * 60 * 60 * 1000).toISOString()
@@ -66,7 +69,7 @@ export async function GET(req: Request) {
 
   for (const c of comms ?? []) {
     const monthlyDues = Number(c.monthly_dues) || 0
-    const rate = Number(c.late_interest_rate) || 0
+    const duesCfg = communityDuesConfig(c)
 
     // Only residents with a linked app account can receive an in-app notice.
     const { data: residents } = await admin
@@ -86,7 +89,7 @@ export async function GET(req: Request) {
     }
 
     const owing = residents.filter((r) => {
-      const bal = residentBalance(r, monthlyDues, payByResident[r.id] || [], rate)
+      const bal = residentBalance(r, monthlyDues, payByResident[r.id] || [], duesCfg)
       return duesStatus(bal, monthlyDues) !== 'paid'
     })
     if (!owing.length) { summary.push({ community: c.id, owing: 0 }); continue }
