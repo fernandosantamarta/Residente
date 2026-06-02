@@ -81,6 +81,14 @@ export function ProposalsRulesSection() {
         <span className="vd-proposals-go">Open Easy Documents →</span>
       </Link>
 
+      <Link href="/app/meetings" className="vd-proposals-cta">
+        <span className="vd-proposals-body">
+          <span className="vd-proposals-title">Board elections &amp; recall</span>
+          <span className="vd-proposals-sub">The election timeline — when you can run for the board, when ballots go out, and any recall in progress.</span>
+        </span>
+        <span className="vd-proposals-go">Open →</span>
+      </Link>
+
       {openVote && (
         <VoteDetailDialog vote={openVote} onClose={() => setOpenVote(null)} onVoted={() => { reload(); setOpenVote(null) }} />
       )}
