@@ -4,7 +4,12 @@ import { ReactNode, useState } from 'react'
 import { useBoardData, type BoardMember, type BoardMeeting, type Committee } from '@/hooks/useBoardData'
 import { useBoardDecisions } from '@/hooks/useBoardDecisions'
 import { DetailDialog } from '../../track/_sections/DetailDialog'
+import { Countdown } from './Countdown'
+import { BoardYourVotes } from './VotingBlock'
+import { MeetingDetailDialog } from './MeetingDetailDialog'
 import { useT } from '@/lib/i18n'
+
+const isUuid = (s: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s ?? '')
 
 type Update = { id: string; kind: UpdateKind; title: string; date: string; sub: string }
 
@@ -119,18 +124,23 @@ export function BoardSection() {
               <span className="brd-up-eyebrow">{t('board.upcomingEyebrow')}</span>
             </div>
             {upcoming ? (
-              <>
-                <div className="brd-up-when">
-                  {fmtLongDate(isoDay(upcoming.scheduled_at))} &middot; {isoTime(upcoming.scheduled_at)}
+              <div className="brd-up-row">
+                <div className="brd-up-main">
+                  <div className="brd-up-when">
+                    {fmtLongDate(isoDay(upcoming.scheduled_at))} &middot; {isoTime(upcoming.scheduled_at)}
+                  </div>
+                  <div className="brd-up-where">{upcoming.location || upcoming.virtual_link || t('board.locationTbd')}</div>
+                  <div className="brd-up-actions">
+                    <button type="button" className="brd-cta-secondary" onClick={() => setMeetingOpen(upcoming)}>{t('board.viewMeeting')}</button>
+                    {upcoming.virtual_link && (
+                      <a href={upcoming.virtual_link} target="_blank" rel="noreferrer" className="brd-cta-primary">{t('board.joinMeeting')}</a>
+                    )}
+                  </div>
                 </div>
-                <div className="brd-up-where">{upcoming.location || upcoming.virtual_link || t('board.locationTbd')}</div>
-                <div className="brd-up-actions">
-                  <button type="button" className="brd-cta-secondary" onClick={() => setMeetingOpen(upcoming)}>{t('board.viewMeeting')}</button>
-                  {upcoming.virtual_link && (
-                    <a href={upcoming.virtual_link} target="_blank" rel="noreferrer" className="brd-cta-primary">{t('board.joinMeeting')}</a>
-                  )}
+                <div className="vd-scope brd-up-countdown">
+                  <Countdown to={upcoming.scheduled_at} />
                 </div>
-              </>
+              </div>
             ) : (
               <div className="brd-up-where">{t('board.noUpcomingMeeting')}</div>
             )}
@@ -254,29 +264,36 @@ export function BoardSection() {
               </ul>
             </section>
           )}
+
+          <BoardYourVotes />
         </aside>
       </div>
 
-      {/* A single meeting (from upcoming or minutes) — detail in place. */}
-      {meetingOpen && (
+      {/* A single meeting (from upcoming or minutes) — detail in place. Real
+          meetings (UUID id) open the full detail (docs + summary + video); the
+          demo fallback rows (ids like "bmtg-1") use the lightweight dialog so
+          they don't hit Supabase with a non-UUID id. */}
+      {meetingOpen && (isUuid(meetingOpen.id) ? (
+        <MeetingDetailDialog meetingId={meetingOpen.id} onClose={() => setMeetingOpen(null)} />
+      ) : (
         <DetailDialog
           eyebrow={meetingTypeLabel(meetingOpen.type)}
           title={meetingOpen.title}
           period={`${fmtLongDate(isoDay(meetingOpen.scheduled_at))} · ${isoTime(meetingOpen.scheduled_at)}`}
           onClose={() => setMeetingOpen(null)}
+          size="large"
         >
           <div className="rd-bd-table">
             {meetingOpen.location && (
               <div className="rd-bd-row"><span className="rd-bd-cat">{t('board.location')}</span><span className="rd-bd-amt">{meetingOpen.location}</span><span /></div>
             )}
-            <div className="rd-bd-row"><span className="rd-bd-cat">{t('board.status')}</span><span className="rd-bd-amt">{meetingOpen.status === 'completed' ? t('board.statusCompleted') : t('board.statusScheduled')}</span><span /></div>
             <div className="rd-bd-row rd-bd-total"><span>{t('board.minutes')}</span><span className="rd-bd-amt">{meetingOpen.minutes_status === 'approved' ? t('board.statusApproved') : meetingOpen.minutes_status === 'published' ? t('board.statusPublished') : t('board.statusPending')}</span><span /></div>
           </div>
           {meetingOpen.virtual_link && (
             <a className="ven-cta-primary rd-report-dl" href={meetingOpen.virtual_link} target="_blank" rel="noreferrer">{t('board.joinMeetingLower')}</a>
           )}
         </DetailDialog>
-      )}
+      ))}
 
       {/* A single board update / decision. */}
       {updateOpen && (
@@ -285,6 +302,7 @@ export function BoardSection() {
           title={updateOpen.title}
           period={updateOpen.date ? fmtDate(isoDay(updateOpen.date)) : undefined}
           onClose={() => setUpdateOpen(null)}
+          size="large"
         >
           {updateOpen.sub && <p className="rd-report-blurb">{updateOpen.sub}</p>}
           <p className="rd-detail-foot-note">
@@ -317,7 +335,7 @@ export function BoardSection() {
       {minutesOpen && (
         <DetailDialog eyebrow={t('board.eyebrowYourBoard')} title={t('board.boardMeetings')}
           period={minutes.length === 1 ? t('board.meetingCountOne', { count: minutes.length }) : t('board.meetingCountOther', { count: minutes.length })}
-          onClose={() => setMinutesOpen(false)}>
+          onClose={() => setMinutesOpen(false)} size="large">
           <div className="rd-list">
             {minutes.map(m => (
               <button type="button" className="rd-list-row" key={m.id}

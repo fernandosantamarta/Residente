@@ -101,7 +101,7 @@ export function restoreAllBuiltInCategories() { writeList(HIDDEN_CATEGORIES_KEY,
 // ---------------------------------------------------------------
 // Supabase-backed rules (the `rules` table).
 // ---------------------------------------------------------------
-function useCommunityRules() {
+export function useCommunityRules() {
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const [rules, setRules] = useState<Rule[]>([])

@@ -5,7 +5,7 @@ import { useAuth } from '@/app/providers'
 import { EasyVoiceTabs } from '../EasyVoiceTabs'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import {
-  MEETING_TYPES, VOTE_TYPES, DOC_TYPES,
+  MEETING_TYPES, VOTE_TYPES, VOTE_CATEGORIES, DOC_TYPES,
   noticeWarning, MEETING_STATUS_LABELS, VOTE_STATUS_LABELS,
   NOTICE_KIND_LABELS, defaultNoticeCopy, DEFAULT_CHANNELS,
   type NoticeChannel,
@@ -35,11 +35,20 @@ const fmtDt = (iso) => {
 
 const EMPTY_MEETING = {
   type: 'board', title: '', scheduled_at: '', location: '', virtual_link: '',
-  quorum_required_pct: '',
+  quorum_required_pct: '', summary: '',
 }
 
 const EMPTY_VOTE = {
-  title: '', description: '', type: 'resolution', ballot_type: 'open', mode: 'in_meeting',
+  title: '', description: '', type: 'resolution', ballot_type: 'open', mode: 'in_meeting', closes_at: '', meeting_id: '', category: 'rules',
+}
+
+// timestamptz (ISO) -> the value a <input type="datetime-local"> expects, in
+// the viewer's local time.
+const toLocalDtInput = (iso?: string | null) => {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (isNaN(d.getTime())) return ''
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16)
 }
 
 export default function Meetings() {
@@ -118,7 +127,9 @@ function MeetingRow({ meeting: m, onClick }) {
 
 function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; onCancel: () => void; existing?: any }) {
   const { profile } = useAuth() || {}
-  const [form, setForm] = useState(existing ?? EMPTY_MEETING)
+  const [form, setForm] = useState(
+    existing ? { ...EMPTY_MEETING, ...existing, summary: existing.summary ?? '' } : EMPTY_MEETING,
+  )
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
 
@@ -144,6 +155,7 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
         location:            form.location.trim() || null,
         virtual_link:        form.virtual_link.trim() || null,
         quorum_required_pct: form.quorum_required_pct ? Number(form.quorum_required_pct) : null,
+        summary:             form.summary?.trim() || null,
         created_by:          profile.id,
       }
       let id = existing?.id
@@ -252,6 +264,17 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
           />
         </div>
 
+        <div className="voice-form-row">
+          <label>Summary / recap <span className="voice-opt">(optional — what was said, shown to residents)</span></label>
+          <textarea
+            name="summary"
+            value={form.summary}
+            onChange={e => set('summary', e.target.value)}
+            rows={4}
+            placeholder="A short recap of what was discussed and decided…"
+          />
+        </div>
+
         {err && <div className="admin-err">{err}</div>}
 
         <div className="voice-form-actions">
@@ -267,7 +290,7 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
 
 function MeetingDetail({ meetingId, onBack }) {
   const { meeting, loading, error, reload } = useVoiceMeeting(meetingId)
-  const [tab, setTab] = useState('votes') // votes | docs | notify | settings
+  const [tab, setTab] = useState('docs') // docs | notify | settings (votes are now standalone, see /admin/voice/votes)
   const [advancing, setAdvancing] = useState(false)
   const [advErr, setAdvErr] = useState(null)
 
@@ -366,22 +389,21 @@ function MeetingDetail({ meetingId, onBack }) {
       </div>
 
       <div className="seg-tabs voice-detail-tabs" role="tablist">
-        {['votes', 'docs', 'notify', 'settings'].map(t => (
+        {['docs', 'notify', 'settings'].map(t => (
           <button key={t} type="button" role="tab" aria-selected={tab === t}
             className={`seg-tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>
-            {t === 'votes' ? 'Votes' : t === 'docs' ? 'Documents' : t === 'notify' ? 'Notify residents' : 'Settings'}
+            {t === 'docs' ? 'Documents' : t === 'notify' ? 'Notify residents' : 'Settings'}
           </button>
         ))}
       </div>
 
-      {tab === 'votes'    && <VotesPanel  meeting={meeting} reload={reload} />}
       {tab === 'docs'     && <DocsPanel   meeting={meeting} reload={reload} />}
       {tab === 'notify'   && <NotifyPanel meeting={meeting} />}
       {tab === 'settings' && (
         <MeetingForm
           existing={meeting}
-          onSaved={() => { reload(); setTab('votes') }}
-          onCancel={() => setTab('votes')}
+          onSaved={() => { reload(); setTab('docs') }}
+          onCancel={() => setTab('docs')}
         />
       )}
     </div>
@@ -557,38 +579,7 @@ function QuorumConfirmBtn({ meetingId, communityId, onDone }) {
   )
 }
 
-function VotesPanel({ meeting, reload }) {
-  const [showForm, setShowForm] = useState(false)
-  const votes = meeting.ev_votes ?? []
-
-  return (
-    <div className="voice-panel">
-      <div className="voice-panel-head">
-        <span>Vote items</span>
-        <button className={showForm ? 'admin-btn-sm' : 'admin-btn voice-add-vote-btn'} onClick={() => setShowForm(v => !v)}>
-          {showForm ? 'Cancel' : '+ Add vote'}
-        </button>
-      </div>
-
-      {showForm && (
-        <VoteForm
-          meetingId={meeting.id}
-          communityId={meeting.community_id}
-          onSaved={() => { setShowForm(false); reload() }}
-          onCancel={() => setShowForm(false)}
-        />
-      )}
-
-      {votes.length === 0 && !showForm && (
-        <div className="admin-placeholder">No vote items yet. Add one above.</div>
-      )}
-
-      {votes.map(v => <VoteRow key={v.id} vote={v} meetingStatus={meeting.status} onChanged={reload} />)}
-    </div>
-  )
-}
-
-function VoteRow({ vote: v, meetingStatus, onChanged }) {
+export function VoteRow({ vote: v, meetingStatus, onChanged, onEdit }: any) {
   const typeLabel = VOTE_TYPES.find(t => t.value === v.type)?.label ?? v.type
   const [acting, setActing] = useState(false)
 
@@ -772,7 +763,7 @@ function VoteRow({ vote: v, meetingStatus, onChanged }) {
           <span className={`voice-status voice-status-${v.status}`}>
             {VOTE_STATUS_LABELS[v.status] ?? v.status}
           </span>
-          {v.status === 'draft' && meetingStatus === 'in_progress' && (
+          {v.status === 'draft' && (meetingStatus === 'in_progress' || !meetingStatus) && (
             <button className="admin-btn-sm" onClick={openVote} disabled={acting}>Open vote</button>
           )}
           {v.status === 'open' && (
@@ -787,6 +778,9 @@ function VoteRow({ vote: v, meetingStatus, onChanged }) {
           )}
           {v.status === 'tallied' && (
             <button className="admin-btn-sm" onClick={publishResult} disabled={acting}>Publish result</button>
+          )}
+          {onEdit && (
+            <button className="admin-btn-sm admin-btn-ghost" onClick={() => onEdit(v)} disabled={acting}>Edit</button>
           )}
         </div>
       </div>
@@ -843,9 +837,16 @@ function TallyPasswordPrompt({
   )
 }
 
-function VoteForm({ meetingId, communityId, onSaved, onCancel }) {
+export function VoteForm({ meetingId = null, communityId, onSaved, onCancel, existing = null }) {
   const { profile } = useAuth() || {}
-  const [form, setForm] = useState(EMPTY_VOTE)
+  const isEditing = !!existing?.id
+  const [form, setForm] = useState(
+    existing
+      ? { ...EMPTY_VOTE, ...existing, description: existing.description ?? '', closes_at: toLocalDtInput(existing.closes_at), meeting_id: existing.meeting_id ?? '', category: existing.category ?? 'other' }
+      : { ...EMPTY_VOTE, meeting_id: meetingId ?? '' },
+  )
+  // Meetings the vote can optionally be tagged to (shows up in that meeting's detail).
+  const { meetings: tagMeetings } = useVoiceMeetings()
   // Secret-vote tally password — required for ballot_type='secret'. We
   // generate the keypair at submit time and wrap the secret with this
   // password before writing it to the DB.
@@ -867,6 +868,33 @@ function VoteForm({ meetingId, communityId, onSaved, onCancel }) {
   const save = async (e) => {
     e.preventDefault()
     if (!form.title.trim()) { setErr('Title is required.'); return }
+
+    // Editing an existing vote — update the safe metadata fields only, allowed
+    // at any status (incl. published). Ballot type and the secret key are never
+    // touched on edit, so existing ballots/tallies stay valid.
+    if (isEditing) {
+      setSaving(true); setErr(null)
+      try {
+        const { error } = await withTimeout(
+          supabase.from('ev_votes').update({
+            title:       form.title.trim(),
+            description: form.description.trim() || null,
+            type:        form.type,
+            mode:        form.mode,
+            closes_at:   form.closes_at || null,
+            meeting_id:  form.meeting_id || null,
+            category:    form.category || null,
+          }).eq('id', existing.id)
+        )
+        if (error) throw error
+        onSaved()
+      } catch (e: any) {
+        setErr(e?.message ?? 'Failed to update vote.')
+      } finally {
+        setSaving(false)
+      }
+      return
+    }
 
     let public_key: string | null = null
     let wrapped_secret_key: string | null = null
@@ -895,13 +923,15 @@ function VoteForm({ meetingId, communityId, onSaved, onCancel }) {
 
       const { error } = await withTimeout(
         supabase.from('ev_votes').insert({
-          meeting_id:         meetingId,
+          meeting_id:         form.meeting_id || meetingId || null,
           community_id:       communityId,
           title:              form.title.trim(),
           description:        form.description.trim() || null,
           type:               form.type,
           ballot_type:        form.ballot_type,
           mode:               form.mode,
+          closes_at:          form.closes_at || null,
+          category:           form.category || null,
           created_by:         profile?.id,
           public_key,
           wrapped_secret_key,
@@ -956,6 +986,11 @@ function VoteForm({ meetingId, communityId, onSaved, onCancel }) {
         <textarea name="vote-description" value={form.description} onChange={e => set('description', e.target.value)}
           rows={2} placeholder="Additional details visible to residents…" />
       </div>
+      <div className="voice-form-row">
+        <label>Due date <span className="voice-opt">(when voting closes)</span></label>
+        <input name="vote-closes" type="datetime-local" value={form.closes_at}
+          onChange={e => set('closes_at', e.target.value)} />
+      </div>
       <div className="voice-form-inline">
         <div className="voice-form-row">
           <label>Type</label>
@@ -973,6 +1008,8 @@ function VoteForm({ meetingId, communityId, onSaved, onCancel }) {
               <div className="voice-channels-readonly">Secret ballot</div>
               <div className="voice-hard-block">Elections must use secret ballot (FL 718.112(2)(d)(3))</div>
             </>
+          ) : isEditing ? (
+            <div className="voice-channels-readonly">{form.ballot_type === 'secret' ? 'Secret ballot' : 'Open'}</div>
           ) : (
             <Dropdown<string>
               value={form.ballot_type}
@@ -986,7 +1023,25 @@ function VoteForm({ meetingId, communityId, onSaved, onCancel }) {
           )}
         </div>
       </div>
-      {isSecret && (
+      <div className="voice-form-row">
+        <label>Category <span className="voice-opt">(how it's grouped for residents)</span></label>
+        <Dropdown<string>
+          value={form.category}
+          onChange={v => set('category', v)}
+          ariaLabel="Voting category"
+          options={VOTE_CATEGORIES}
+        />
+      </div>
+      <div className="voice-form-row">
+        <label>Meeting <span className="voice-opt">(optional — tags this vote to a meeting)</span></label>
+        <Dropdown<string>
+          value={form.meeting_id}
+          onChange={v => set('meeting_id', v)}
+          ariaLabel="Meeting"
+          options={[{ value: '', label: 'No meeting' }, ...tagMeetings.map((m: any) => ({ value: m.id, label: m.title }))]}
+        />
+      </div>
+      {isSecret && !isEditing && (
         <div className="voice-secret-config">
           <div className="voice-secret-config-title">Tally password (required for secret ballots)</div>
           <p className="voice-secret-config-body">
@@ -1017,7 +1072,9 @@ function VoteForm({ meetingId, communityId, onSaved, onCancel }) {
       )}
       {err && <div className="admin-err">{err}</div>}
       <div className="voice-form-actions">
-        <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Adding…' : 'Add vote item'}</button>
+        <button type="submit" className="admin-primary-btn" disabled={saving}>
+          {saving ? 'Saving…' : isEditing ? 'Save changes' : 'Add vote item'}
+        </button>
         <button type="button" className="admin-btn-ghost" onClick={onCancel}>Cancel</button>
       </div>
     </form>

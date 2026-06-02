@@ -1,9 +1,9 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { MeetingsSection } from './_sections/MeetingsSection'
 import { BoardSection } from './_sections/BoardSection'
 import { ContactSection } from './_sections/ContactSection'
+import { ProposalsRulesSection } from './_sections/ProposalsRulesSection'
 import { SegTabs, SegTab } from '@/components/SegTabs'
 import { useT } from '@/lib/i18n'
 
@@ -11,16 +11,16 @@ import { useT } from '@/lib/i18n'
 // Votes), Board, and Contact tabs. The segmented control switches between
 // them; only the active section renders. /app/board and /app/contact
 // redirect here (with #board / #contact) for backward compatibility.
-const TAB_IDS = ['board', 'meetings', 'contact'] as const
+const TAB_IDS = ['board', 'proposals', 'contact'] as const
 
 export default function EasyVoice() {
   const t = useT()
   const [tab, setTab] = useState('board')
 
   const TABS: SegTab[] = [
-    { id: 'board',    label: t('voice.tabBoard') },
-    { id: 'meetings', label: t('voice.tabMeetings') },
-    { id: 'contact',  label: t('voice.tabContact') },
+    { id: 'board',     label: t('voice.tabBoard') },
+    { id: 'proposals', label: 'Voting' },
+    { id: 'contact',   label: t('voice.tabContact') },
   ]
 
   // Honor the URL hash so links like /app/voice#contact (and #meetings) open
@@ -46,8 +46,8 @@ export default function EasyVoice() {
 
       <SegTabs tabs={TABS} active={tab} onChange={setTab} ariaLabel={t('voice.hubSectionsAria')} />
 
-      {tab === 'meetings' && <MeetingsSection />}
       {tab === 'board' && <BoardSection />}
+      {tab === 'proposals' && <ProposalsRulesSection />}
       {tab === 'contact' && <ContactSection />}
     </div>
   )

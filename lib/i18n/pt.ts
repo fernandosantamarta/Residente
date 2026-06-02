@@ -89,7 +89,7 @@ export const pt: Record<string, string> = {
   "board.noUpcomingMeeting": "Ainda não há nenhuma reunião da diretoria agendada.",
   "board.noUpdates": "Ainda não há novidades da diretoria.",
   "board.pageSub": "Conheça sua diretoria, veja as novidades e fique por dentro das decisões que moldam nossa comunidade.",
-  "board.pageTitle": "Sua diretoria",
+  "board.pageTitle": "Diretoria e reuniões",
   "board.pastSubmissions": "Suas solicitações anteriores",
   "board.recentMinutes": "Atas recentes da diretoria",
   "board.requestSubmitted": "Solicitação enviada — a diretoria dará retorno.",

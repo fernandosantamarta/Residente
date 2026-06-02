@@ -96,7 +96,7 @@ export const en: Record<string, string> = {
   "board.noUpcomingMeeting": "No upcoming board meeting scheduled yet.",
   "board.noUpdates": "No board updates yet.",
   "board.pageSub": "Meet your board, view updates, and stay informed about decisions that shape our community.",
-  "board.pageTitle": "Your Board",
+  "board.pageTitle": "Board & Meetings",
   "board.pastSubmissions": "Your past submissions",
   "board.recentMinutes": "Recent Board Meeting Minutes",
   "board.requestSubmitted": "Request submitted — the board will follow up.",

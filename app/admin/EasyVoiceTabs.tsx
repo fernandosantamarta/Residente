@@ -6,10 +6,11 @@ import Link from 'next/link'
 // former Board, Voice (meetings/votes), and Contact admin sections. One tap
 // between Meetings, Roster, Board, and Contact. Rendered at the top of each
 // of those pages so they read as tabs of a single section.
-export type EasyVoiceTab = 'meetings' | 'roster' | 'board' | 'contact'
+export type EasyVoiceTab = 'meetings' | 'votes' | 'roster' | 'board' | 'contact'
 
 const TABS: { key: EasyVoiceTab; href: string; label: string }[] = [
   { key: 'meetings', href: '/admin/voice',        label: 'Meetings' },
+  { key: 'votes',    href: '/admin/voice/votes',  label: 'Votes' },
   { key: 'roster',   href: '/admin/voice/roster', label: 'Roster' },
   { key: 'board',    href: '/admin/board',        label: 'Board' },
   { key: 'contact',  href: '/admin/requests',     label: 'Contact' },

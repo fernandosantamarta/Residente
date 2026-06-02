@@ -22,7 +22,7 @@ export function useVoiceMeetings() {
       const { data, error } = await withTimeout(
         supabase
           .from('ev_meetings')
-          .select('*, ev_votes(id, title, type, status, ballot_type, yes_count, no_count, abstain_count)')
+          .select('*, ev_votes(id, title, description, type, status, ballot_type, yes_count, no_count, abstain_count, result, opens_at, closes_at)')
           .eq('community_id', profile.community_id)
           .order('scheduled_at', { ascending: false })
       )

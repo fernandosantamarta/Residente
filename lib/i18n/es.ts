@@ -89,7 +89,7 @@ export const es: Record<string, string> = {
   "board.noUpcomingMeeting": "Aún no hay ninguna reunión de la junta programada.",
   "board.noUpdates": "Aún no hay novedades de la junta.",
   "board.pageSub": "Conoce a tu junta, mira las novedades y mantente al tanto de las decisiones que dan forma a nuestra comunidad.",
-  "board.pageTitle": "Tu junta",
+  "board.pageTitle": "Junta y reuniones",
   "board.pastSubmissions": "Tus solicitudes anteriores",
   "board.recentMinutes": "Actas recientes de la junta",
   "board.requestSubmitted": "Solicitud enviada; la junta dará seguimiento.",

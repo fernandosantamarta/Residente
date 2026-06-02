@@ -25,7 +25,7 @@ export function MeetingDetailDialog({ meetingId, onClose }: { meetingId: string;
 
   return (
     <div className="ven-rd-backdrop" onClick={onClose}>
-      <div className="ven-rd-card rd-detail rd-detail-wide" role="dialog" aria-modal="true" onClick={e => e.stopPropagation()}>
+      <div className="ven-rd-card rd-detail rd-detail-lg" role="dialog" aria-modal="true" onClick={e => e.stopPropagation()}>
         <header className="ven-rd-head">
           <div>
             <div className="ven-rd-eyebrow">{typeLabel || t('voice.meeting')}</div>

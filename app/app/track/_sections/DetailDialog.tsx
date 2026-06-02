@@ -25,7 +25,7 @@ export function DetailDialog({
   footer?: ReactNode
   settingsHref?: string
   settingsLabel?: string
-  size?: 'default' | 'wide'
+  size?: 'default' | 'wide' | 'large'
 }) {
   const t = useT()
   useEffect(() => {
@@ -36,7 +36,7 @@ export function DetailDialog({
 
   return (
     <div className="ven-rd-backdrop" onClick={onClose}>
-      <div className={`ven-rd-card rd-detail${size === 'wide' ? ' rd-detail-wide' : ''}`}
+      <div className={`ven-rd-card rd-detail${size === 'wide' ? ' rd-detail-wide' : size === 'large' ? ' rd-detail-lg' : ''}`}
         role="dialog" aria-modal="true" onClick={e => e.stopPropagation()}>
         <header className="ven-rd-head">
           <div>

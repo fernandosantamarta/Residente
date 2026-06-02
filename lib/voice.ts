@@ -32,6 +32,19 @@ export const VOTE_TYPES: Option<VoteType>[] = [
   { value: 'other',               label: 'Other' },
 ]
 
+// User-facing voting categories — how proposals are grouped on the resident
+// Proposals & Rules tab. Distinct from the FL-statutory `type` above (which
+// drives ballot rules); this is just the bucket the board files it under.
+export type VoteCategory = 'rules' | 'expenses' | 'events' | 'other'
+export const VOTE_CATEGORIES: Option<VoteCategory>[] = [
+  { value: 'rules',    label: 'New rules & proposals' },
+  { value: 'expenses', label: 'New expenses' },
+  { value: 'events',   label: 'New events' },
+  { value: 'other',    label: 'Miscellaneous' },
+]
+export const voteCategoryLabel = (c?: string | null) =>
+  VOTE_CATEGORIES.find(x => x.value === (c || 'other'))?.label ?? 'Miscellaneous'
+
 export const DOC_TYPES: Option<DocType>[] = [
   { value: 'agenda',        label: 'Agenda' },
   { value: 'minutes',       label: 'Minutes' },
@@ -198,4 +211,72 @@ export function defaultNoticeCopy(
     default:
       return { subject: '', body: '' }
   }
+}
+
+// ---------- VOICE DASHBOARD HELPERS (resident + admin share these) ----------
+
+// Minimal vote shape the dashboards read. Pulled from ev_votes; all optional
+// so it tolerates the lighter list-query select and the full single-meeting one.
+export type VoteLike = {
+  id: string
+  title?: string | null
+  description?: string | null
+  type?: string | null
+  status?: VoteStatus | string | null
+  yes_count?: number | null
+  no_count?: number | null
+  abstain_count?: number | null
+  result?: string | null
+  opens_at?: string | null
+  closes_at?: string | null
+}
+
+// Ballots cast = yes + no + abstain. Used for the support bar and turnout copy.
+export function ballotsCast(v: VoteLike): number {
+  return (v.yes_count ?? 0) + (v.no_count ?? 0) + (v.abstain_count ?? 0)
+}
+
+// Share of decided ballots (yes / (yes+no)) as a 0-100 int. We have no
+// eligible-voter denominator in the schema, so the bar shows support among
+// those who voted, not community-wide turnout. Returns null when nobody has
+// voted yes or no yet (abstains don't move the bar).
+export function supportPct(v: VoteLike): number | null {
+  const decided = (v.yes_count ?? 0) + (v.no_count ?? 0)
+  if (decided === 0) return null
+  return Math.round(((v.yes_count ?? 0) / decided) * 100)
+}
+
+// "Ends Jun 10" style label from closes_at; null when there's no close date.
+export function voteEndsLabel(v: VoteLike): string | null {
+  if (!v.closes_at) return null
+  const d = new Date(v.closes_at)
+  if (isNaN(d.getTime())) return null
+  return `Ends ${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+}
+
+// Vote types that read as "Proposals & Rule Changes" on the resident page
+// (vs straight resolutions/elections). No proposals table exists, so the
+// dashboard derives this view from the meeting votes themselves.
+const PROPOSAL_VOTE_TYPES = new Set(['bylaw_amendment', 'special_assessment', 'budget_ratification'])
+export function isProposalVote(v: VoteLike): boolean {
+  return PROPOSAL_VOTE_TYPES.has(String(v.type ?? ''))
+}
+
+export type ProposalStatus = { label: string; tone: 'review' | 'pending' | 'approved' | 'rejected' }
+
+// Map a vote's lifecycle to the proposal pill in 4.png:
+//   draft        → Under Review   (board hasn't opened it)
+//   open         → Pending Vote   (community is voting now)
+//   closed       → Pending Vote   (awaiting tally)
+//   tallied/pub  → Approved / Rejected by result
+export function proposalStatus(v: VoteLike): ProposalStatus {
+  const s = String(v.status ?? '')
+  if (s === 'draft') return { label: 'Under Review', tone: 'review' }
+  if (s === 'open' || s === 'closed') return { label: 'Pending Vote', tone: 'pending' }
+  const passed = String(v.result ?? '').toLowerCase()
+  if (passed.includes('pass') || passed.includes('approve') || passed === 'yes')
+    return { label: 'Approved', tone: 'approved' }
+  if (passed.includes('fail') || passed.includes('reject') || passed === 'no')
+    return { label: 'Rejected', tone: 'rejected' }
+  return { label: 'Decided', tone: 'approved' }
 }

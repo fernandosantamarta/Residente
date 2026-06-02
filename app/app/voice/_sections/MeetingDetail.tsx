@@ -62,6 +62,13 @@ export function MeetingDetailBody({ meeting, reload, compact = false }) {
         )}
       </div>
 
+      {meeting.summary && (
+        <section className="voice-section">
+          <div className="voice-section-label">Summary</div>
+          <p className="voice-meeting-summary">{meeting.summary}</p>
+        </section>
+      )}
+
       {votes.length > 0 && (
         <section className="voice-section">
           <div className="voice-section-label">{t('voice.votes')}</div>
@@ -78,14 +85,14 @@ export function MeetingDetailBody({ meeting, reload, compact = false }) {
         </section>
       )}
 
-      {votes.length === 0 && docs.length === 0 && (
+      {votes.length === 0 && docs.length === 0 && !meeting.summary && (
         <div className="voice-placeholder">{t('voice.noVotesOrDocs')}</div>
       )}
     </>
   )
 }
 
-function ResidentVoteCard({ vote: v, onVoted }) {
+export function ResidentVoteCard({ vote: v, onVoted }) {
   const t = useT()
   const { profile } = useAuth() || {}
   const [casting, setCasting] = useState(false)

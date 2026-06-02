@@ -52,10 +52,11 @@ export function ContactSection() {
   // Quick actions on Home link here with ?cat= so the right category is already
   // selected when the resident arrives.
   const sp = useSearchParams()
-  const initialCat = (['maintenance', 'appeal', 'account', 'other'] as const)
+  const initialCat = (['maintenance', 'appeal', 'account', 'rule_proposal', 'other'] as const)
     .includes((sp?.get('cat') || '') as Category) ? (sp!.get('cat') as Category) : 'maintenance'
   const [rows, setRows] = useState<Request[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [showAll, setShowAll] = useState(false)
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
@@ -109,7 +110,7 @@ export function ContactSection() {
             {!loading && rows.length === 0 && (
               <div className="con-empty">{t('board.noRequests')}</div>
             )}
-            {!loading && rows.map(r => {
+            {!loading && (showAll ? rows : rows.slice(0, 5)).map(r => {
               const open = expandedId === r.id
               const hasReply = Boolean(r.board_note || r.board_note_attachment_path)
               const toggle = () => setExpandedId(open ? null : r.id)
@@ -170,8 +171,10 @@ export function ContactSection() {
               )
             })}
           </div>
-          {!loading && rows.length > 0 && (
-            <button type="button" className="con-viewall">{t('board.viewAllSubmissions')}</button>
+          {!loading && rows.length > 5 && (
+            <button type="button" className="con-viewall" onClick={() => setShowAll(v => !v)}>
+              {showAll ? 'Show less' : `${t('board.viewAllSubmissions')} (${rows.length})`}
+            </button>
           )}
         </section>
       </div>
