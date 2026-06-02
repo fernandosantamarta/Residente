@@ -33,6 +33,13 @@ import {
   governanceSignals,
   type BoardTermRow, type DirectorCertRow, type DirectorEligibilityRow, type ManagerRow, type ConflictDisclosureRow,
 } from '@/lib/compliance/governance'
+import {
+  enforcementSignals, suspensionSignals, votingSuspensionCandidates, votingSuspensionSignals,
+  type ViolationRow, type HearingRow, type FiningCommitteeMemberRow, type SuspensionRow,
+} from '@/lib/compliance/enforcement'
+import { meetingsSignals, type MeetingRow } from '@/lib/compliance/meetings'
+import { electionsSignals, recallSignals, type ElectionRow, type RecallRow } from '@/lib/compliance/elections'
+import { arcSignals, type ArcRequestRow } from '@/lib/compliance/arc'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -53,6 +60,10 @@ const WORKSPACES: { href: string; label: string; desc: string; color: string }[]
   { href: '/admin/documents#documents', label: 'Official records', desc: 'Post required records, track retention, and answer records-inspection requests on the clock.', color: '#7A5AF8' },
   { href: '/admin/financials', label: 'Financial reporting & reserves', desc: 'Audit tier, the annual financial report & budget clocks, and reserve funding.', color: '#0E7490' },
   { href: '/admin/governance', label: 'Directors & management', desc: 'Term limits, the director certification clock, conflicts of interest, and CAM licensing.', color: '#9333EA' },
+  { href: '/admin/enforcement', label: 'Violations, fines & hearings', desc: 'Run a fine through the independent committee, the 14-day hearing notice, and voting/use-rights suspensions.', color: '#DC6803' },
+  { href: '/admin/meetings', label: 'Meetings & notice', desc: 'Track the 48-hour / 14-day meeting-notice clock, agendas, and minutes availability.', color: '#0891B2' },
+  { href: '/admin/elections', label: 'Elections & recall', desc: 'The 60 / 40 / 14-day election timeline, the election quorum, and the 5-business-day recall clock.', color: '#7C3AED' },
+  { href: '/admin/arc', label: 'Architectural review', desc: 'Owner ARC requests against the response deadline, written-reason denials, and material-alteration votes.', color: '#65A30D' },
 ]
 
 // Resilient select: a table that hasn't had its migration run yet returns an
@@ -91,6 +102,14 @@ function gatherSignals(
   managers: ManagerRow[],
   vendors: any[],
   disclosures: ConflictDisclosureRow[],
+  violations: ViolationRow[],
+  hearings: HearingRow[],
+  finingCommittee: FiningCommitteeMemberRow[],
+  suspensions: SuspensionRow[],
+  meetings: MeetingRow[],
+  elections: ElectionRow[],
+  recalls: RecallRow[],
+  arcRequests: ArcRequestRow[],
 ): ComplianceSignal[] {
   const candidates = community ? delinquentOwnersWithoutCase({
     residents, paymentsByResident: payByResident, cases,
@@ -110,7 +129,13 @@ function gatherSignals(
     ...officialRecordsSignals(community, documents, recordsRequests),
     ...financialSignals(community, budgets, reserves, filings),
     ...governanceSignals(community, (residents || []).filter((r: any) => r.is_board), boardTerms, directorCerts, directorElig, managers, vendors, disclosures),
-    // Future domains plug in here: meetingsSignals(), electionsSignals(), arcSignals() …
+    ...enforcementSignals(community, violations, hearings, finingCommittee),
+    ...suspensionSignals(suspensions, hearings),
+    ...votingSuspensionSignals(votingSuspensionCandidates(cases, suspensions)),
+    ...meetingsSignals(meetings, community),
+    ...electionsSignals(elections, community),
+    ...recallSignals(recalls),
+    ...arcSignals(arcRequests, community),
   ])
 }
 
@@ -137,6 +162,14 @@ export default function CompliancePage() {
   const [managers, setManagers] = useState<ManagerRow[]>([])
   const [vendors, setVendors] = useState<any[]>([])
   const [disclosures, setDisclosures] = useState<ConflictDisclosureRow[]>([])
+  const [violations, setViolations] = useState<ViolationRow[]>([])
+  const [hearings, setHearings] = useState<HearingRow[]>([])
+  const [finingCommittee, setFiningCommittee] = useState<FiningCommitteeMemberRow[]>([])
+  const [suspensions, setSuspensions] = useState<SuspensionRow[]>([])
+  const [meetings, setMeetings] = useState<MeetingRow[]>([])
+  const [elections, setElections] = useState<ElectionRow[]>([])
+  const [recalls, setRecalls] = useState<RecallRow[]>([])
+  const [arcRequests, setArcRequests] = useState<ArcRequestRow[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError] = useState('')
 
@@ -171,6 +204,14 @@ export default function CompliancePage() {
       setManagers(await safeSelect('ev_managers', communityId))
       setVendors(await safeSelect('vendors', communityId))
       setDisclosures(await safeSelect('ev_conflict_disclosures', communityId))
+      setViolations(await safeSelect('ev_violations', communityId))
+      setHearings(await safeSelect('ev_violation_hearings', communityId))
+      setFiningCommittee(await safeSelect('ev_fining_committee_members', communityId))
+      setSuspensions(await safeSelect('ev_suspensions', communityId))
+      setMeetings(await safeSelect('ev_meetings', communityId))
+      setElections(await safeSelect('ev_elections', communityId))
+      setRecalls(await safeSelect('ev_recalls', communityId))
+      setArcRequests(await safeSelect('ev_arc_requests', communityId))
       setStatus('ready')
     } catch (err: any) {
       setError(err?.message || 'Could not load compliance data'); setStatus('error')
@@ -178,7 +219,7 @@ export default function CompliancePage() {
   }, [communityId])
   useEffect(() => { load() }, [load])
 
-  const signals = useMemo(() => gatherSignals(community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests, budgets, reserves, filings, boardTerms, directorCerts, directorElig, managers, vendors, disclosures), [community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests, budgets, reserves, filings, boardTerms, directorCerts, directorElig, managers, vendors, disclosures])
+  const signals = useMemo(() => gatherSignals(community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests, budgets, reserves, filings, boardTerms, directorCerts, directorElig, managers, vendors, disclosures, violations, hearings, finingCommittee, suspensions, meetings, elections, recalls, arcRequests), [community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests, budgets, reserves, filings, boardTerms, directorCerts, directorElig, managers, vendors, disclosures, violations, hearings, finingCommittee, suspensions, meetings, elections, recalls, arcRequests])
   const counts = useMemo(() => {
     const c: Record<Severity, number> = { overdue: 0, soon: 0, info: 0 }
     for (const s of signals) c[s.severity]++

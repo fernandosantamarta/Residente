@@ -1,0 +1,642 @@
+'use client'
+
+// Violations, fines, hearings & suspension (FS 718.303 condo / FS 720.305 &
+// 720.3085 HOA). The enforcement workspace: stand up an independent fining
+// committee, run a proposed fine through the 14-day notice → hearing → decision
+// → levy ladder (capped at $100/day and $1,000 aggregate), and track voting /
+// use-rights suspensions. Advisory posture — nothing here blocks; the board
+// decides each step.
+
+import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useAuth } from '@/app/providers'
+import { supabase, hasSupabase } from '@/lib/supabase'
+import { ymd, calendarDaysUntil, toDate, ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
+import {
+  STAGE_LABELS, SUSPENSION_BASIS_LABELS, SUSPENSION_RIGHTS_LABELS,
+  fineAccrued, hearingReadyDate, committeeReady, independentMembers,
+  votingSuspensionCandidates,
+  FINE_PER_VIOLATION_MAX, FINE_AGGREGATE_CAP, HEARING_NOTICE_DAYS, FINING_COMMITTEE_MIN,
+  SUSPENSION_DELINQUENCY_DAYS,
+  type ViolationRow, type HearingRow, type FiningCommitteeMemberRow, type SuspensionRow,
+  type EnforcementStage, type SuspensionBasis, type SuspensionRights,
+} from '@/lib/compliance/enforcement'
+
+const withTimeout = (p: any, ms = 10000) =>
+  Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
+
+const todayYmd = () => ymd(new Date())
+const fmt$ = (n: any) => '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US')
+
+const STAGE_COLOR: Record<string, string> = {
+  none: '#475467', proposed: '#175CD3', notice_sent: '#B54708', hearing_set: '#B54708',
+  upheld: '#067647', rejected: '#98A2B3', levied: '#B42318',
+}
+
+export default function EnforcementPage() {
+  const { profile } = useAuth() || {}
+  const communityId = profile?.community_id
+  const [community, setCommunity] = useState<any>(null)
+  const [violations, setViolations] = useState<ViolationRow[]>([])
+  const [hearings, setHearings] = useState<HearingRow[]>([])
+  const [committee, setCommittee] = useState<FiningCommitteeMemberRow[]>([])
+  const [suspensions, setSuspensions] = useState<SuspensionRow[]>([])
+  const [cases, setCases] = useState<any[]>([])
+  const [residents, setResidents] = useState<any[]>([])
+  const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
+  const [error, setError] = useState('')
+  const [msg, setMsg] = useState('')
+
+  useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(''), 4000); return () => clearTimeout(t) }, [msg])
+
+  const load = useCallback(async () => {
+    if (!hasSupabase || !communityId) { setStatus('none'); return }
+    setStatus('loading'); setError('')
+    try {
+      const grab = async (table: string, order?: string) => {
+        try {
+          let q = supabase.from(table).select('*').eq('community_id', communityId)
+          if (order) q = q.order(order, { ascending: false })
+          const { data, error } = (await withTimeout(q)) as any
+          if (error) return []
+          return data || []
+        } catch { return [] }
+      }
+      const { data: c } = (await withTimeout(supabase.from('communities').select('*').eq('id', communityId).single())) as any
+      setCommunity(c || null)
+      setViolations(await grab('ev_violations', 'opened_at'))
+      setHearings(await grab('ev_violation_hearings'))
+      setCommittee(await grab('ev_fining_committee_members'))
+      setSuspensions(await grab('ev_suspensions', 'created_at'))
+      setCases(await grab('ev_collection_cases', 'opened_at'))
+      const { data: res } = (await withTimeout(
+        supabase.from('residents').select('id, full_name, unit_number, profile_id')
+          .eq('community_id', communityId).order('unit_number', { ascending: true }),
+      )) as any
+      setResidents(res || [])
+      setStatus('ready')
+    } catch (err: any) {
+      setError(err?.message || 'Could not load enforcement data'); setStatus('error')
+    }
+  }, [communityId])
+  useEffect(() => { load() }, [load])
+
+  const hearingByViolation = useMemo(() => {
+    const m = new Map<string, HearingRow>()
+    for (const h of hearings) {
+      const k = String(h.violation_id ?? '')
+      const prev = m.get(k)
+      if (!prev || (toDate(h.notice_sent_at)?.getTime() ?? 0) >= (toDate(prev.notice_sent_at)?.getTime() ?? 0)) m.set(k, h)
+    }
+    return m
+  }, [hearings])
+
+  const committeeOk = committeeReady(committee)
+  const independents = independentMembers(committee)
+
+  // Fines / violations on the hearing track (open, kind=fine or hearing_required).
+  const trackViolations = useMemo(
+    () => violations.filter(v =>
+      String(v.status ?? 'open') !== 'closed' && !v.resolution &&
+      (v.kind === 'fine' || v.hearing_required)),
+    [violations],
+  )
+
+  const candidates = useMemo(
+    () => votingSuspensionCandidates(cases, suspensions),
+    [cases, suspensions],
+  )
+
+  // ---- mutations ----
+  const patchViolation = async (id: string, patch: Record<string, any>, ok?: string) => {
+    setError('')
+    try {
+      const { error } = (await withTimeout(supabase.from('ev_violations').update(patch).eq('id', id))) as any
+      if (error) throw error
+      if (ok) setMsg(ok)
+      await load()
+    } catch (err: any) { setError(err?.message || 'Could not update') }
+  }
+
+  const sendHearingNotice = async (v: ViolationRow) => {
+    setError('')
+    try {
+      const { error } = (await withTimeout(supabase.from('ev_violation_hearings').insert({
+        community_id: communityId,
+        violation_id: v.id,
+        notice_sent_at: todayYmd(),
+        decision: 'pending',
+        created_by: profile?.id ?? null,
+      }))) as any
+      if (error) throw error
+      await patchViolation(v.id, { enforcement_stage: 'notice_sent' }, '14-day hearing notice logged — the owner has been notified.')
+    } catch (err: any) { setError(err?.message || 'Could not log the notice') }
+  }
+
+  const scheduleHearing = async (v: ViolationRow, h: HearingRow | undefined, date: string) => {
+    if (!h || !date) return
+    setError('')
+    try {
+      const { error } = (await withTimeout(supabase.from('ev_violation_hearings').update({ scheduled_at: date }).eq('id', h.id))) as any
+      if (error) throw error
+      await patchViolation(v.id, { enforcement_stage: 'hearing_set' }, `Hearing scheduled for ${date}.`)
+    } catch (err: any) { setError(err?.message || 'Could not schedule the hearing') }
+  }
+
+  const recordDecision = async (
+    v: ViolationRow, h: HearingRow | undefined,
+    d: { decision: 'upheld' | 'rejected'; present: number; forV: number; against: number; minutes: string },
+  ) => {
+    setError('')
+    try {
+      const hearingPatch = {
+        held_at: todayYmd(), decision: d.decision,
+        committee_present: d.present, vote_for: d.forV, vote_against: d.against,
+        minutes: d.minutes || null,
+      }
+      if (h) {
+        const { error } = (await withTimeout(supabase.from('ev_violation_hearings').update(hearingPatch).eq('id', h.id))) as any
+        if (error) throw error
+      } else {
+        const { error } = (await withTimeout(supabase.from('ev_violation_hearings').insert({
+          community_id: communityId, violation_id: v.id, notice_sent_at: todayYmd(), ...hearingPatch, created_by: profile?.id ?? null,
+        }))) as any
+        if (error) throw error
+      }
+      await patchViolation(v.id, { enforcement_stage: d.decision }, d.decision === 'upheld'
+        ? 'Recorded — the committee upheld the fine.'
+        : 'Recorded — the committee rejected the fine; it may not be imposed.')
+    } catch (err: any) { setError(err?.message || 'Could not record the decision') }
+  }
+
+  const markLevied = (v: ViolationRow) =>
+    patchViolation(v.id, { enforcement_stage: 'levied', levied_at: todayYmd() }, 'Fine recorded as levied.')
+
+  // ---- propose-fine intake ----
+  const [form, setForm] = useState<any>({ resident_id: '', continuing: false, hearing_required: true })
+  const setF = (k: string, val: any) => setForm((f: any) => ({ ...f, [k]: val }))
+  const [saving, setSaving] = useState(false)
+
+  const proposeFine = async (e: any) => {
+    e.preventDefault()
+    setSaving(true); setError('')
+    try {
+      const res = residents.find(r => r.id === form.resident_id)
+      const label = res ? `${res.full_name || 'Owner'}${res.unit_number ? ` · ${res.unit_number}` : ''}`.trim() : (form.resident_label || '').trim() || null
+      const insert: Record<string, any> = {
+        community_id: communityId,
+        profile_id: res?.profile_id ?? null,
+        resident_label: label,
+        kind: 'fine',
+        rule_title: (form.rule_title || '').trim() || null,
+        status: 'open',
+        opened_at: todayYmd(),
+        hearing_required: form.hearing_required !== false,
+        enforcement_stage: 'proposed',
+        fine_continuing: !!form.continuing,
+        created_by: profile?.id ?? null,
+      }
+      if (form.continuing) {
+        insert.fine_per_day = Math.min(Number(form.fine_per_day) || 0, FINE_PER_VIOLATION_MAX.value)
+        insert.fine_started_on = (form.fine_started_on || '').trim() || todayYmd()
+      } else {
+        insert.amount = Math.min(Number(form.amount) || 0, FINE_PER_VIOLATION_MAX.value)
+      }
+      if ((form.cure_by || '').trim()) insert.cure_by = form.cure_by
+      const { error } = (await withTimeout(supabase.from('ev_violations').insert(insert))) as any
+      if (error) throw error
+      setForm({ resident_id: '', continuing: false, hearing_required: true })
+      setMsg('Fine proposed. Send the 14-day hearing notice when ready.')
+      load()
+    } catch (err: any) { setError(err?.message || 'Could not propose the fine') }
+    finally { setSaving(false) }
+  }
+
+  // ---- suspensions ----
+  const recordSuspension = async (s: Partial<SuspensionRow> & { resident_id?: string | null }) => {
+    setError('')
+    try {
+      const { error } = (await withTimeout(supabase.from('ev_suspensions').insert({
+        community_id: communityId,
+        ...s,
+        status: 'proposed',
+        created_by: profile?.id ?? null,
+      }))) as any
+      if (error) throw error
+      setMsg('Suspension recorded as proposed.')
+      load()
+    } catch (err: any) { setError(err?.message || 'Could not record the suspension') }
+  }
+
+  const patchSuspension = async (id: string, patch: Record<string, any>, ok?: string) => {
+    setError('')
+    try {
+      const { error } = (await withTimeout(supabase.from('ev_suspensions').update(patch).eq('id', id))) as any
+      if (error) throw error
+      if (ok) setMsg(ok)
+      await load()
+    } catch (err: any) { setError(err?.message || 'Could not update the suspension') }
+  }
+
+  return (
+    <div className="admin-page">
+      <div className="admin-kicker">Florida compliance</div>
+      <h1 className="admin-h1">Violations, fines &amp; hearings</h1>
+      <p className="admin-dek">
+        Run a fine or a use-rights suspension through the statutory process — an independent fining
+        committee, the {HEARING_NOTICE_DAYS.value}-day notice and opportunity for a hearing, the
+        ${FINE_PER_VIOLATION_MAX.value}/day and ${FINE_AGGREGATE_CAP.value.toLocaleString('en-US')}-aggregate
+        caps, and voting / use-rights suspensions. We track each deadline; you decide every step.
+      </p>
+
+      <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>{ATTORNEY_REVIEW_BANNER}</div>
+
+      {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
+      {status === 'none' && <div className="admin-note admin-note-warn">No community is linked to your account yet. Run the setup SQL, then reload.</div>}
+      {status === 'error' && <div className="admin-note admin-note-err">{error}<button type="button" className="admin-btn-ghost" onClick={load}>Retry</button></div>}
+      {status === 'loading' && <div className="admin-note">Loading…</div>}
+
+      {status === 'ready' && (
+        <>
+          {/* ---- Fining committee ---- */}
+          <section style={{ marginTop: 18 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <h2 className="bc-title" style={{ margin: 0 }}>Independent fining committee</h2>
+              <span style={chip(committeeOk ? '#067647' : '#B42318')}>
+                {independents.length} of {FINING_COMMITTEE_MIN.value} independent {committeeOk ? '✓' : 'required'}
+              </span>
+            </div>
+            <p style={{ fontSize: 12.5, opacity: 0.72, margin: '4px 0 10px' }}>
+              A fine or covenant-violation suspension can&apos;t be imposed without a hearing before a committee of at
+              least {FINING_COMMITTEE_MIN.value} members the board appoints who are <strong>not</strong> officers, directors,
+              employees, or their relatives ({FINING_COMMITTEE_MIN.citation}).
+            </p>
+            <CommitteeManager
+              members={committee} communityId={communityId} createdBy={profile?.id ?? null}
+              onChange={load} setError={setError}
+            />
+          </section>
+
+          {/* ---- Propose a fine ---- */}
+          <form className="admin-form" onSubmit={proposeFine} style={{ marginTop: 22 }}>
+            <h2 className="bc-title" style={{ marginBottom: 8 }}>Propose a fine</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+              <label className="admin-field"><span className="admin-field-label">Owner (from roster)</span>
+                <select className="admin-input" value={form.resident_id} onChange={e => setF('resident_id', e.target.value)}>
+                  <option value="">— select —</option>
+                  {residents.map(r => <option key={r.id} value={r.id}>{r.full_name || 'Owner'}{r.unit_number ? ` · ${r.unit_number}` : ''}</option>)}
+                </select></label>
+              <label className="admin-field"><span className="admin-field-label">Violation / rule</span>
+                <input className="admin-input" value={form.rule_title ?? ''} placeholder="e.g. Unapproved exterior paint" onChange={e => setF('rule_title', e.target.value)} /></label>
+              {form.continuing ? (
+                <>
+                  <label className="admin-field"><span className="admin-field-label">Fine per day ($, max {FINE_PER_VIOLATION_MAX.value})</span>
+                    <input className="admin-input" type="number" min="0" max={FINE_PER_VIOLATION_MAX.value} step="1" value={form.fine_per_day ?? ''} onChange={e => setF('fine_per_day', e.target.value)} /></label>
+                  <label className="admin-field"><span className="admin-field-label">Accrues from</span>
+                    <input className="admin-input" type="date" value={form.fine_started_on ?? ''} onChange={e => setF('fine_started_on', e.target.value)} /></label>
+                </>
+              ) : (
+                <label className="admin-field"><span className="admin-field-label">Fine amount ($, max {FINE_PER_VIOLATION_MAX.value})</span>
+                  <input className="admin-input" type="number" min="0" max={FINE_PER_VIOLATION_MAX.value} step="1" value={form.amount ?? ''} onChange={e => setF('amount', e.target.value)} /></label>
+              )}
+              <label className="admin-field"><span className="admin-field-label">Cure-by date (optional)</span>
+                <input className="admin-input" type="date" value={form.cure_by ?? ''} onChange={e => setF('cure_by', e.target.value)} /></label>
+            </div>
+            <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', margin: '10px 0' }}>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
+                <input type="checkbox" checked={!!form.continuing} onChange={e => setF('continuing', e.target.checked)} />
+                Continuing violation (per-day fine, capped at ${FINE_AGGREGATE_CAP.value.toLocaleString('en-US')})
+              </label>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
+                <input type="checkbox" checked={form.hearing_required !== false} onChange={e => setF('hearing_required', e.target.checked)} />
+                Requires a hearing (recommended)
+              </label>
+            </div>
+            <div className="admin-form-actions">
+              <button type="submit" className="admin-primary-btn" disabled={saving || !form.resident_id}>{saving ? 'Saving…' : 'Propose fine'}</button>
+              {error && status === 'ready' && <span className="admin-err-inline">{error}</span>}
+            </div>
+          </form>
+
+          {/* ---- Fines on the hearing track ---- */}
+          <h2 className="bc-title" style={{ margin: '24px 0 10px' }}>Fines &amp; hearings ({trackViolations.length})</h2>
+          {trackViolations.length === 0 && <div className="admin-note">No fines are working through the hearing process.</div>}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+            {trackViolations.map(v => (
+              <ViolationCard
+                key={v.id} v={v} hearing={hearingByViolation.get(String(v.id))} regime={community?.association_type === 'hoa' ? 'hoa' : 'condo'}
+                committeeOk={committeeOk}
+                onSendNotice={() => sendHearingNotice(v)}
+                onSchedule={(date: string) => scheduleHearing(v, hearingByViolation.get(String(v.id)), date)}
+                onDecision={(d: any) => recordDecision(v, hearingByViolation.get(String(v.id)), d)}
+                onLevy={() => markLevied(v)}
+              />
+            ))}
+          </div>
+
+          {/* ---- Suspensions ---- */}
+          <h2 className="bc-title" style={{ margin: '26px 0 10px' }}>Voting &amp; use-rights suspensions</h2>
+          <SuspensionForm residents={residents} onRecord={recordSuspension} />
+
+          {/* Suggested voting suspensions (>90 days delinquent, no hearing required) */}
+          {candidates.length > 0 && (
+            <section style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, padding: '14px 16px', background: '#fafafa', marginTop: 16 }}>
+              <h3 className="bc-title" style={{ margin: '0 0 4px', fontSize: 15 }}>Eligible for voting suspension ({candidates.length})</h3>
+              <p style={{ fontSize: 12.5, opacity: 0.72, margin: '0 0 10px' }}>
+                Owners more than {SUSPENSION_DELINQUENCY_DAYS.value} days delinquent with an open collection case and no
+                suspension on file. The board may suspend voting + use rights at a properly noticed meeting — no hearing required.
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {candidates.map(c => (
+                  <div key={c.case_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', border: '1px solid rgba(0,0,0,0.08)', borderLeft: '4px solid #B54708', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>{c.unit_label}</div>
+                      <div style={{ fontSize: 12, opacity: 0.7 }}>{c.days} days delinquent{c.balance ? ` · ${fmt$(c.balance)} owed` : ''}</div>
+                    </div>
+                    <button className="admin-primary-btn" onClick={() => recordSuspension({
+                      resident_id: c.resident_id, profile_id: c.profile_id, unit_label: c.unit_label,
+                      rights: 'both', basis: 'delinquency_90', requires_hearing: false,
+                      amount_owed: c.balance || null,
+                    })}>Record suspension</button>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Suspension list */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
+            {suspensions.length === 0 && <div className="admin-note">No suspensions on file.</div>}
+            {suspensions.map(s => (
+              <SuspensionCard
+                key={s.id} s={s}
+                onActivate={() => patchSuspension(s.id, { status: 'active', started_at: todayYmd(), approved_at: todayYmd() }, 'Suspension activated.')}
+                onLift={() => patchSuspension(s.id, { status: 'lifted', ended_at: todayYmd() }, 'Suspension lifted.')}
+              />
+            ))}
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+function chip(color: string): React.CSSProperties {
+  return { fontSize: 11.5, fontWeight: 700, color, background: color + '14', padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap' }
+}
+
+// ----------------------------------------------------------------------------
+// Committee manager
+// ----------------------------------------------------------------------------
+function CommitteeManager({ members, communityId, createdBy, onChange, setError }: {
+  members: FiningCommitteeMemberRow[]; communityId: string | undefined; createdBy: string | null; onChange: () => void; setError: (s: string) => void
+}) {
+  const [name, setName] = useState('')
+  const [independent, setIndependent] = useState(true)
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const add = async () => {
+    if (!name.trim()) return
+    setBusy(true); setError('')
+    try {
+      const { error } = (await withTimeout(supabase.from('ev_fining_committee_members').insert({
+        community_id: communityId, full_name: name.trim(), is_independent: independent,
+        relationship_note: independent ? null : (note.trim() || null), appointed_at: todayYmd(), active: true, created_by: createdBy,
+      }))) as any
+      if (error) throw error
+      setName(''); setIndependent(true); setNote(''); onChange()
+    } catch (err: any) { setError(err?.message || 'Could not add the member') }
+    finally { setBusy(false) }
+  }
+
+  const remove = async (id: string) => {
+    setError('')
+    try {
+      const { error } = (await withTimeout(supabase.from('ev_fining_committee_members').update({ active: false }).eq('id', id))) as any
+      if (error) throw error
+      onChange()
+    } catch (err: any) { setError(err?.message || 'Could not remove the member') }
+  }
+
+  const active = members.filter(m => m.active !== false)
+  return (
+    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: '12px 14px', background: '#fff' }}>
+      {active.length > 0 && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginBottom: 10 }}>
+          {active.map(m => (
+            <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, fontSize: 13.5 }}>
+              <span>
+                {m.full_name}
+                {m.is_independent === false
+                  ? <span style={{ ...chip('#B42318'), marginLeft: 8 }}>NOT independent{m.relationship_note ? ` — ${m.relationship_note}` : ''}</span>
+                  : <span style={{ ...chip('#067647'), marginLeft: 8 }}>independent</span>}
+              </span>
+              <button className="admin-btn-ghost" onClick={() => remove(m.id)}>Remove</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <label className="admin-field" style={{ maxWidth: 220 }}><span className="admin-field-label">Member name</span>
+          <input className="admin-input" value={name} onChange={e => setName(e.target.value)} placeholder="Full name" /></label>
+        <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, paddingBottom: 8 }}>
+          <input type="checkbox" checked={independent} onChange={e => setIndependent(e.target.checked)} />
+          Independent of the board
+        </label>
+        {!independent && (
+          <label className="admin-field" style={{ maxWidth: 220 }}><span className="admin-field-label">Relationship (why not independent)</span>
+            <input className="admin-input" value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. director's spouse" /></label>
+        )}
+        <button className="admin-primary-btn" disabled={busy || !name.trim()} onClick={add}>{busy ? 'Adding…' : 'Add member'}</button>
+      </div>
+    </div>
+  )
+}
+
+// ----------------------------------------------------------------------------
+// Violation card (the hearing ladder)
+// ----------------------------------------------------------------------------
+function ViolationCard({ v, hearing, regime, committeeOk, onSendNotice, onSchedule, onDecision, onLevy }: {
+  v: ViolationRow; hearing: HearingRow | undefined; regime: 'condo' | 'hoa'; committeeOk: boolean
+  onSendNotice: () => void; onSchedule: (date: string) => void; onDecision: (d: any) => void; onLevy: () => void
+}) {
+  const stage = String(v.enforcement_stage ?? 'none') as EnforcementStage
+  const color = STAGE_COLOR[stage] || '#475467'
+  const fine = fineAccrued(v)
+  const ready = hearingReadyDate(hearing)
+  const [schedDate, setSchedDate] = useState('')
+  const [decideOpen, setDecideOpen] = useState(false)
+
+  let chipText: string | null = null
+  let chipColor = '#175CD3'
+  if (stage === 'proposed') { chipText = 'Send 14-day notice'; chipColor = '#175CD3' }
+  else if ((stage === 'notice_sent' || stage === 'hearing_set') && ready) {
+    const d = calendarDaysUntil(ready, new Date())
+    chipText = d > 0 ? `Hearing window to ${ymd(ready)}` : `May hold hearing (since ${ymd(ready)})`
+    chipColor = d > 0 ? '#175CD3' : '#B54708'
+  } else if (stage === 'upheld') { chipText = 'Upheld — levy when ready'; chipColor = '#067647' }
+  else if (stage === 'rejected') { chipText = 'Rejected — may not impose'; chipColor = '#98A2B3' }
+  else if (stage === 'levied') { chipText = 'Levied'; chipColor = '#B42318' }
+
+  const docHref = (type: string) => `/admin/enforcement/${v.id}/document?type=${type}`
+
+  return (
+    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${color}`, borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{v.resident_label || v.id.slice(0, 8)}</div>
+          <div style={{ fontSize: 12.5, opacity: 0.72, marginTop: 2 }}>
+            {v.rule_title || 'Rule violation'} · {STAGE_LABELS[stage]}
+            {v.fine_continuing
+              ? ` · ${fmt$(v.fine_per_day)}/day → ${fmt$(fine.capped)}${fine.atCap ? ' (at cap)' : ''}`
+              : v.amount != null ? ` · ${fmt$(v.amount)}` : ''}
+          </div>
+        </div>
+        {chipText && <span style={chip(chipColor)}>{chipText}</span>}
+      </div>
+
+      {/* Stage actions */}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
+        {stage === 'proposed' && (
+          <button className="admin-primary-btn" onClick={onSendNotice}>Send 14-day hearing notice</button>
+        )}
+        {(stage === 'notice_sent' || stage === 'hearing_set') && (
+          <>
+            <input type="date" className="admin-input" style={{ maxWidth: 170 }} value={schedDate} onChange={e => setSchedDate(e.target.value)} />
+            <button className="admin-btn-ghost" disabled={!schedDate} onClick={() => onSchedule(schedDate)}>
+              {stage === 'hearing_set' ? 'Reschedule' : 'Schedule hearing'}
+            </button>
+            <button className="admin-primary-btn" onClick={() => setDecideOpen(o => !o)}>{decideOpen ? 'Cancel' : 'Record decision'}</button>
+            {!committeeOk && <span style={{ fontSize: 12, color: '#B42318' }}>⚠ committee not yet independent/quorate</span>}
+          </>
+        )}
+        {stage === 'upheld' && !v.levied_at && (
+          <button className="admin-primary-btn" onClick={onLevy}>Mark fine levied</button>
+        )}
+        {/* document links */}
+        <a className="admin-btn-ghost" href={docHref('violation_notice')} target="_blank" rel="noopener noreferrer">Violation notice</a>
+        {(stage !== 'proposed' && stage !== 'none') && <a className="admin-btn-ghost" href={docHref('hearing_notice')} target="_blank" rel="noopener noreferrer">Hearing notice</a>}
+        {(stage === 'upheld' || stage === 'rejected' || stage === 'levied') && <a className="admin-btn-ghost" href={docHref('decision')} target="_blank" rel="noopener noreferrer">Decision</a>}
+      </div>
+
+      {decideOpen && <DecisionForm onSubmit={(d: any) => { setDecideOpen(false); onDecision(d) }} />}
+    </div>
+  )
+}
+
+function DecisionForm({ onSubmit }: { onSubmit: (d: any) => void }) {
+  const [present, setPresent] = useState('3')
+  const [forV, setForV] = useState('')
+  const [against, setAgainst] = useState('')
+  const [minutes, setMinutes] = useState('')
+  const proposed = { decision: (Number(forV) || 0) > (Number(against) || 0) && (Number(present) || 0) >= FINING_COMMITTEE_MIN.value ? 'upheld' : 'rejected' as const }
+  return (
+    <div style={{ border: '1px dashed #cbd5e1', borderRadius: 10, padding: 12, marginTop: 10 }}>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <label className="admin-field" style={{ maxWidth: 130 }}><span className="admin-field-label">Members present</span>
+          <input className="admin-input" type="number" min="0" value={present} onChange={e => setPresent(e.target.value)} /></label>
+        <label className="admin-field" style={{ maxWidth: 110 }}><span className="admin-field-label">Votes to uphold</span>
+          <input className="admin-input" type="number" min="0" value={forV} onChange={e => setForV(e.target.value)} /></label>
+        <label className="admin-field" style={{ maxWidth: 110 }}><span className="admin-field-label">Votes against</span>
+          <input className="admin-input" type="number" min="0" value={against} onChange={e => setAgainst(e.target.value)} /></label>
+      </div>
+      <label className="admin-field" style={{ marginTop: 8 }}><span className="admin-field-label">Minutes / notes</span>
+        <textarea className="admin-input" rows={2} value={minutes} onChange={e => setMinutes(e.target.value)} /></label>
+      <div style={{ display: 'flex', gap: 10, marginTop: 8, alignItems: 'center' }}>
+        <button className="admin-primary-btn" onClick={() => onSubmit({ decision: 'upheld', present: Number(present) || 0, forV: Number(forV) || 0, against: Number(against) || 0, minutes })}>Record: upheld</button>
+        <button className="admin-btn-ghost" onClick={() => onSubmit({ decision: 'rejected', present: Number(present) || 0, forV: Number(forV) || 0, against: Number(against) || 0, minutes })}>Record: rejected</button>
+        <span style={{ fontSize: 12, opacity: 0.7 }}>By the votes entered, a majority {proposed.decision === 'upheld' ? 'upholds' : 'does not uphold'} the fine.</span>
+      </div>
+    </div>
+  )
+}
+
+// ----------------------------------------------------------------------------
+// Suspension form + card
+// ----------------------------------------------------------------------------
+function SuspensionForm({ residents, onRecord }: { residents: any[]; onRecord: (s: any) => void }) {
+  const [open, setOpen] = useState(false)
+  const [residentId, setResidentId] = useState('')
+  const [rights, setRights] = useState<SuspensionRights>('voting')
+  const [basis, setBasis] = useState<SuspensionBasis>('delinquency_90')
+  const [amount, setAmount] = useState('')
+  const [since, setSince] = useState('')
+
+  if (!open) return <button className="admin-btn-ghost" onClick={() => setOpen(true)}>+ Record a suspension</button>
+
+  const submit = () => {
+    const res = residents.find(r => r.id === residentId)
+    const label = res ? `${res.full_name || 'Owner'}${res.unit_number ? ` · ${res.unit_number}` : ''}`.trim() : null
+    onRecord({
+      resident_id: res?.id ?? null, profile_id: res?.profile_id ?? null, unit_label: label,
+      rights, basis, requires_hearing: basis === 'rule_violation',
+      amount_owed: amount === '' ? null : Number(amount), delinquent_since: since || null,
+    })
+    setOpen(false); setResidentId(''); setRights('voting'); setBasis('delinquency_90'); setAmount(''); setSince('')
+  }
+
+  return (
+    <div style={{ border: '1px dashed #cbd5e1', borderRadius: 12, padding: 14 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
+        <label className="admin-field"><span className="admin-field-label">Owner</span>
+          <select className="admin-input" value={residentId} onChange={e => setResidentId(e.target.value)}>
+            <option value="">— select —</option>
+            {residents.map(r => <option key={r.id} value={r.id}>{r.full_name || 'Owner'}{r.unit_number ? ` · ${r.unit_number}` : ''}</option>)}
+          </select></label>
+        <label className="admin-field"><span className="admin-field-label">Rights suspended</span>
+          <select className="admin-input" value={rights} onChange={e => setRights(e.target.value as SuspensionRights)}>
+            {Object.entries(SUSPENSION_RIGHTS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select></label>
+        <label className="admin-field"><span className="admin-field-label">Basis</span>
+          <select className="admin-input" value={basis} onChange={e => setBasis(e.target.value as SuspensionBasis)}>
+            {Object.entries(SUSPENSION_BASIS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select></label>
+        <label className="admin-field"><span className="admin-field-label">Amount owed ($, optional)</span>
+          <input className="admin-input" type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} /></label>
+        <label className="admin-field"><span className="admin-field-label">Delinquent since (optional)</span>
+          <input className="admin-input" type="date" value={since} onChange={e => setSince(e.target.value)} /></label>
+      </div>
+      {basis === 'rule_violation' && (
+        <p style={{ fontSize: 12, color: '#B54708', margin: '8px 0 0' }}>
+          A covenant-violation use-rights suspension requires the 14-day notice + committee hearing first.
+        </p>
+      )}
+      <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+        <button className="admin-primary-btn" disabled={!residentId} onClick={submit}>Record suspension</button>
+        <button className="admin-btn-ghost" onClick={() => setOpen(false)}>Cancel</button>
+      </div>
+    </div>
+  )
+}
+
+function SuspensionCard({ s, onActivate, onLift }: { s: SuspensionRow; onActivate: () => void; onLift: () => void }) {
+  const st = String(s.status ?? 'proposed')
+  const color = st === 'active' ? '#B42318' : st === 'lifted' ? '#98A2B3' : '#175CD3'
+  const basis = String(s.basis ?? 'delinquency_90') as SuspensionBasis
+  const needsHearing = basis === 'rule_violation' || s.requires_hearing === true
+  const hearingMissing = needsHearing && !s.hearing_id
+  return (
+    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${color}`, borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 15 }}>{s.unit_label || s.id.slice(0, 8)}</div>
+          <div style={{ fontSize: 12.5, opacity: 0.72, marginTop: 2 }}>
+            {SUSPENSION_RIGHTS_LABELS[(s.rights ?? 'voting') as SuspensionRights]} · {SUSPENSION_BASIS_LABELS[basis]}
+            {s.started_at ? ` · since ${s.started_at}` : ''}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={chip(color)}>{st}</span>
+          {hearingMissing && <span style={chip('#B42318')}>hearing required</span>}
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+        {st === 'proposed' && (
+          <button className="admin-primary-btn" disabled={hearingMissing} onClick={onActivate} title={hearingMissing ? 'Record an approved committee hearing first' : ''}>Activate</button>
+        )}
+        {st !== 'lifted' && <button className="admin-btn-ghost" onClick={onLift}>Lift suspension</button>}
+        <a className="admin-btn-ghost" href={`/admin/enforcement/suspension/${s.id}/notice`} target="_blank" rel="noopener noreferrer">Suspension notice</a>
+      </div>
+    </div>
+  )
+}

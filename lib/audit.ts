@@ -61,6 +61,27 @@ export type AuditEventType =
   | 'governance.eligibility_updated'
   | 'governance.manager_recorded'
   | 'governance.conflict_disclosed'
+  // violations / fines / hearings / suspension (compliance domain G)
+  | 'enforcement.fine_proposed'
+  | 'enforcement.hearing_noticed'
+  | 'enforcement.hearing_decided'
+  | 'enforcement.fine_levied'
+  | 'enforcement.committee_updated'
+  | 'enforcement.suspension_recorded'
+  | 'enforcement.suspension_lifted'
+  // meetings & statutory notice (compliance domain H)
+  | 'meeting.notice_recorded'
+  | 'meeting.agenda_posted'
+  | 'meeting.minutes_published'
+  // elections & recall (compliance domain I)
+  | 'election.scheduled'
+  | 'election.notice_recorded'
+  | 'election.completed'
+  | 'recall.served'
+  | 'recall.certified'
+  // architectural review / ARC (compliance domain J)
+  | 'arc.request_submitted'
+  | 'arc.decided'
 
 export type AuditTargetType =
   | 'vote' | 'ballot' | 'meeting' | 'document' | 'notice'
@@ -71,6 +92,9 @@ export type AuditTargetType =
   | 'records_request'
   | 'financial_filing' | 'reserve_component'
   | 'director' | 'manager' | 'conflict_disclosure'
+  | 'violation' | 'fining_committee_member' | 'violation_hearing' | 'suspension'
+  | 'election' | 'recall'
+  | 'arc_request'
 
 export interface LogAuditArgs {
   community_id: string

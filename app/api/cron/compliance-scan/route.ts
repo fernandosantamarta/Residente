@@ -33,6 +33,13 @@ import {
   governanceSignals,
   type BoardTermRow, type DirectorCertRow, type DirectorEligibilityRow, type ManagerRow, type ConflictDisclosureRow,
 } from '@/lib/compliance/governance'
+import {
+  enforcementSignals, suspensionSignals, votingSuspensionCandidates, votingSuspensionSignals,
+  type ViolationRow, type HearingRow, type FiningCommitteeMemberRow, type SuspensionRow,
+} from '@/lib/compliance/enforcement'
+import { meetingsSignals, type MeetingRow } from '@/lib/compliance/meetings'
+import { electionsSignals, recallSignals, type ElectionRow, type RecallRow } from '@/lib/compliance/elections'
+import { arcSignals, type ArcRequestRow } from '@/lib/compliance/arc'
 
 export const dynamic = 'force-dynamic'
 
@@ -89,6 +96,15 @@ export async function GET(req: Request) {
     const managers = (await safe('ev_managers', c.id)) as ManagerRow[]
     const govVendors = await safe('vendors', c.id)
     const disclosures = (await safe('ev_conflict_disclosures', c.id)) as ConflictDisclosureRow[]
+    const violations = (await safe('ev_violations', c.id)) as ViolationRow[]
+    const hearings = (await safe('ev_violation_hearings', c.id)) as HearingRow[]
+    const finingCommittee = (await safe('ev_fining_committee_members', c.id)) as FiningCommitteeMemberRow[]
+    const suspensions = (await safe('ev_suspensions', c.id)) as SuspensionRow[]
+    const cases = await safe('ev_collection_cases', c.id)
+    const meetings = (await safe('ev_meetings', c.id)) as MeetingRow[]
+    const elections = (await safe('ev_elections', c.id)) as ElectionRow[]
+    const recalls = (await safe('ev_recalls', c.id)) as RecallRow[]
+    const arcRequests = (await safe('ev_arc_requests', c.id)) as ArcRequestRow[]
     const signals = sortSignals([
       ...foundationSignals(c),
       ...estoppelSignals(estoppel),
@@ -96,6 +112,13 @@ export async function GET(req: Request) {
       ...officialRecordsSignals(c, documents, recordsRequests),
       ...financialSignals(c, budgets, reserves, filings),
       ...governanceSignals(c, directors, boardTerms, directorCerts, directorElig, managers, govVendors, disclosures),
+      ...enforcementSignals(c, violations, hearings, finingCommittee),
+      ...suspensionSignals(suspensions, hearings),
+      ...votingSuspensionSignals(votingSuspensionCandidates(cases, suspensions)),
+      ...meetingsSignals(meetings, c),
+      ...electionsSignals(elections, c),
+      ...recallSignals(recalls),
+      ...arcSignals(arcRequests, c),
     ])
     const actionable = signals.filter(s => s.severity === 'overdue' || s.severity === 'soon')
     if (!actionable.length) { summary.push({ community: c.id, actionable: 0 }); continue }
