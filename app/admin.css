@@ -108,11 +108,13 @@
 .admin-form-actions { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
 .admin-btn {
   padding: 11px 22px; border: none; border-radius: 8px;
-  background: var(--grad); color: #fff;
+  /* Vivid orange (matches the resident financial-card accent) instead of the
+     muted terracotta --grad, so admin CTAs read clearly orange on every page. */
+  background: #EB5507; color: #fff;
   font-family: inherit; font-size: 14px; font-weight: 600;
-  cursor: pointer; transition: opacity 0.15s ease;
+  cursor: pointer; transition: background 0.15s ease, opacity 0.15s ease;
 }
-.admin-btn:hover { opacity: 0.92; }
+.admin-btn:hover { background: #D24C04; }
 .admin-btn:disabled { opacity: 0.6; cursor: default; }
 .admin-btn-ghost {
   margin-left: 12px; padding: 6px 14px;
@@ -419,8 +421,8 @@
   border: none; border-radius: 20px; cursor: pointer;
   transition: background-color 0.18s ease, color 0.18s ease;
 }
-.easydocs-tab:hover { background-color: var(--pink); color: #fff; }
-.easydocs-tab.active { background-color: var(--pink); color: #fff; }
+.easydocs-tab:hover { background-color: #EB5507; color: #fff; }
+.easydocs-tab.active { background-color: #EB5507; color: #fff; }
 
 /* Panels */
 .voice-panel { display: flex; flex-direction: column; gap: 12px; }

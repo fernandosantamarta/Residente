@@ -8426,6 +8426,11 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .voice-status-published { background: rgba(125, 140, 92, 0.16); color: #566234; }
 [data-theme="sketch"] .voice-status-tallied   { background: rgba(176, 84, 59, 0.14); color: #9a4530; }
 [data-theme="sketch"] .voice-status-draft     { background: rgba(10, 36, 64, 0.06); color: rgba(10, 36, 64, 0.55); }
+/* in_progress + notice_sent kept their original dark-theme fills (#2A3A2A /
+   #2A3A4E) — re-theme them to the sketch palette so they don't read as dark
+   pills on the cream admin pages. */
+[data-theme="sketch"] .voice-status-in_progress { background: rgba(125, 140, 92, 0.16); color: #566234; }
+[data-theme="sketch"] .voice-status-notice_sent { background: rgba(60, 104, 145, 0.14); color: #3C5A78; }
 
 [data-theme="sketch"] .voice-ballot-yes { background: rgba(125, 140, 92, 0.12); border-color: #7D8C5C; color: #566234; }
 [data-theme="sketch"] .voice-ballot-yes:hover:not(:disabled) { background: rgba(125, 140, 92, 0.2); }
@@ -8438,6 +8443,7 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 
 [data-theme="sketch"] .voice-badge-quorum { color: #566234; background: rgba(125, 140, 92, 0.16); }
 [data-theme="sketch"] .voice-badge-vote { color: #C45F2A; background: rgba(199, 111, 69, 0.16); }
+[data-theme="sketch"] .voice-badge-open { color: #C45F2A; background: rgba(199, 111, 69, 0.16); }
 [data-theme="sketch"] .voice-consent-cta-btn { background: #E8743E; }
 [data-theme="sketch"] .voice-consent-cta { background: rgba(199, 111, 69, 0.08); border-color: rgba(199, 111, 69, 0.30); }
 
@@ -8909,6 +8915,14 @@ textarea[disabled] {
     justify-self: start;
   }
   [data-theme="sketch"] .fin-stats { gap: 28px; }
+
+  /* "At a glance" + "Recent activity" had no mobile override, so they stayed a
+     2-column grid and got crushed side-by-side on phones. Stack them with a
+     comfortable gap so each card gets the full width. */
+  [data-theme="sketch"] .dash-row2 {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 18px;
+  }
 }
 
 /* ============ RESPONSIVE — admin controls that assume desktop width ============ */
