@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { hasSupabase, signIn, signUp, supabase } from '@/lib/supabase'
 import {
   provisionAccount,
+  stashPendingProvision,
+  clearPendingProvision,
   ProvisionError,
   type ProvisionInput,
   type PropertyType,
@@ -68,6 +70,29 @@ export default function SignupPage() {
       return
     }
     setBusy(true); setErr(null)
+
+    // Assemble the provisioning payload up front so we can stash it if signUp
+    // can't hand us a session (email-confirmation ON) and resume after the user
+    // confirms + signs in. Without this, the confirm-email branch loses every
+    // answer the user typed and their community never gets created.
+    const input: ProvisionInput = who === 'resident'
+      ? {
+          mode: 'join',
+          full_name: fullName.trim(),
+          join_code: joinCode.trim() || undefined,
+          unit_number: unitNumber.trim() || undefined,
+        }
+      : {
+          mode: 'create',
+          association_type: propertyType!,
+          community_name: communityName.trim(),
+          location: location.trim() || undefined,
+          unit_count: unitCount.trim() ? Number(unitCount) : undefined,
+          role: who === 'management' ? 'admin' : 'board_member',
+          full_name: fullName.trim(),
+          unit_number: unitNumber.trim() || undefined,
+        }
+
     try {
       let session = (await supabase.auth.getSession()).data.session
       if (!session) {
@@ -88,27 +113,19 @@ export default function SignupPage() {
           session = su.session
         }
       }
-      if (!session) { setStep('confirm-email'); setBusy(false); return }
+      if (!session) {
+        // Email confirmation is on — keep the answers so the login flow can
+        // finish provisioning once they're verified.
+        stashPendingProvision(input)
+        setStep('confirm-email')
+        setBusy(false)
+        return
+      }
 
       setStep('working')
-      const input: ProvisionInput = who === 'resident'
-        ? {
-            mode: 'join',
-            full_name: fullName.trim(),
-            join_code: joinCode.trim() || undefined,
-            unit_number: unitNumber.trim() || undefined,
-          }
-        : {
-            mode: 'create',
-            association_type: propertyType!,
-            community_name: communityName.trim(),
-            location: location.trim() || undefined,
-            unit_count: unitCount.trim() ? Number(unitCount) : undefined,
-            role: who === 'management' ? 'admin' : 'board_member',
-            full_name: fullName.trim(),
-            unit_number: unitNumber.trim() || undefined,
-          }
       const res = await provisionAccount(input)
+      // Inline path succeeded — make sure no stale stash lingers to re-run later.
+      clearPendingProvision()
       const dest = res.role === 'resident' ? '/onboard' : '/admin'
       window.location.assign(dest)
     } catch (e) {

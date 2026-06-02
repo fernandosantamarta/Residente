@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { signIn, hasSupabase } from '@/lib/supabase'
+import { resumePendingProvision } from '@/lib/signup'
 import { getStoredPrefs } from '@/lib/preferences'
 import { useAuth } from '../providers'
 
@@ -23,10 +24,16 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  // If already signed in, bounce to the cockpit at the user's
-  // preferred landing page.
+  // If already signed in, bounce to the cockpit at the user's preferred landing
+  // page — but first finish any sign-up left mid-flight by email confirmation.
   useEffect(() => {
-    if (session) router.replace(landingTarget())
+    if (!session) return
+    let cancelled = false
+    ;(async () => {
+      const resumed = await resumePendingProvision()
+      if (!cancelled) router.replace(resumed ?? landingTarget())
+    })()
+    return () => { cancelled = true }
   }, [session, router])
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -42,7 +49,10 @@ export default function Login() {
       if (err) {
         setError(err.message || 'Sign in failed')
       } else {
-        router.replace(landingTarget())
+        // Finish a confirmation-deferred sign-up if one is pending, otherwise
+        // land on the user's preferred page.
+        const resumed = await resumePendingProvision()
+        router.replace(resumed ?? landingTarget())
       }
     } catch (err) {
       setError((err as Error)?.message || 'Sign in failed')

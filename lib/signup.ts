@@ -1,4 +1,4 @@
-import { supabase, hasSupabase } from './supabase'
+import { supabase, hasSupabase, getProfile } from './supabase'
 
 // Client helpers for the self-serve /signup flow. The heavy lifting (creating
 // the community, profile, membership, and roster row) happens server-side in
@@ -62,6 +62,72 @@ async function readFnError(error: unknown): Promise<ProvisionError> {
     /* fall through to the generic message */
   }
   return new ProvisionError(anyErr?.message || 'Could not finish setting up your account')
+}
+
+// ---------------------------------------------------------------------------
+// Deferred provisioning (email-confirmation safety net).
+//
+// The happy path assumes email confirmation is OFF: supabase.auth.signUp returns
+// a live session, so /signup provisions inline. If confirmation is ON, signUp
+// returns NO session — the user must click an emailed link and come back to sign
+// in, by which point the answers they typed are gone and nothing ever creates
+// their community. To survive that, /signup stashes the collected ProvisionInput
+// before showing the "check your email" screen, and the next authenticated page
+// load (the login flow) resumes it. Idempotent by design: if the user already
+// has a community, the stash is discarded rather than creating a duplicate.
+// ---------------------------------------------------------------------------
+
+const PENDING_KEY = 'residente.pendingProvision.v1'
+
+export function stashPendingProvision(input: ProvisionInput): void {
+  try { localStorage.setItem(PENDING_KEY, JSON.stringify(input)) } catch { /* private mode / no storage */ }
+}
+
+export function clearPendingProvision(): void {
+  try { localStorage.removeItem(PENDING_KEY) } catch { /* ignore */ }
+}
+
+function readPendingProvision(): ProvisionInput | null {
+  try {
+    const raw = localStorage.getItem(PENDING_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    if (parsed?.mode === 'create' || parsed?.mode === 'join') return parsed as ProvisionInput
+  } catch { /* corrupt — fall through and clear */ }
+  clearPendingProvision()
+  return null
+}
+
+// If a sign-up was left mid-flight (email-confirm branch), finish it now that the
+// user is authenticated. Returns the destination route ('/admin' | '/onboard')
+// when provisioning ran, or null when there was nothing to resume. Safe to call
+// on every authenticated entry point — it no-ops without a stashed payload, an
+// active session, or when the user already belongs to a community.
+export async function resumePendingProvision(): Promise<string | null> {
+  if (!hasSupabase || !supabase) return null
+  const input = readPendingProvision()
+  if (!input) return null
+
+  const { data: { session } } = await supabase.auth.getSession()
+  if (!session?.user) return null
+
+  // Already provisioned (e.g. they completed signup elsewhere, or this is a
+  // stale stash) — never create a second community. Discard and bail.
+  const { data: existing } = await getProfile(session.user.id)
+  if (existing?.community_id) { clearPendingProvision(); return null }
+
+  try {
+    const res = await provisionAccount(input)
+    clearPendingProvision()
+    return res.role === 'resident' ? '/onboard' : '/admin'
+  } catch (e) {
+    // Unrecoverable join errors (bad code / no match) would loop forever if we
+    // kept retrying them on every load — drop the stash. Transient/network
+    // errors keep it so the next load can try again.
+    const code = (e as ProvisionError)?.code
+    if (code && ['bad_code', 'no_match', 'ambiguous'].includes(code)) clearPendingProvision()
+    return null
+  }
 }
 
 export async function provisionAccount(input: ProvisionInput): Promise<ProvisionResult> {

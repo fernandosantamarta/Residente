@@ -64,8 +64,19 @@ export const signIn = async ({ email, password }: { email: string; password: str
 // Self-serve account creation (the /signup flow). With email confirmation
 // turned OFF in Supabase Auth, this returns a live session immediately so the
 // flow can call signup-provision without an inbox round-trip.
+//
+// If confirmation is ON, signUp returns no session and Supabase emails a link.
+// We point that link at /login (instead of the project Site URL) because that's
+// the page that runs resumePendingProvision — so a confirm-then-return signup
+// still finishes creating the community. Harmless when confirmation is off.
 export const signUp = async ({ email, password }: { email: string; password: string }) => {
-  const { data, error } = await supabase!.auth.signUp({ email, password })
+  const emailRedirectTo =
+    typeof window !== 'undefined' ? `${window.location.origin}/login` : undefined
+  const { data, error } = await supabase!.auth.signUp({
+    email,
+    password,
+    options: emailRedirectTo ? { emailRedirectTo } : undefined,
+  })
   return { data, error }
 }
 
