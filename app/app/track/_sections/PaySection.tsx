@@ -5,7 +5,7 @@ import { ReactNode, useEffect, useState } from 'react'
 import { useMyResident } from '@/hooks/useMyResident'
 import { stripeEnabled, supabase } from '@/lib/supabase'
 import { usePreferences, newId, PaymentMethod } from '@/lib/preferences'
-import { fmtMoney } from '@/lib/dues'
+import { fmtMoney, monthsCovered, monthsOwed } from '@/lib/dues'
 import { useMyViolations, payFine } from '@/lib/violations'
 import { useT } from '@/lib/i18n'
 import { DetailDialog } from './DetailDialog'
@@ -52,7 +52,7 @@ const DEMO_STATEMENTS = [
 // preferences).
 export function PaySection() {
   const t = useT()
-  const { resident, balance, monthlyDues, payments, loading } = useMyResident() as any
+  const { resident, balance, monthlyDues, payments, loading, status } = useMyResident() as any
   const [prefs, patchPrefs] = usePreferences()
   const [checkout, setCheckout] = useState({ loading: false, error: '' })
   // Demo-mode payment confirmation (no real Stripe): holds the amount "paid".
@@ -127,18 +127,22 @@ export function PaySection() {
   const nextDue = nextDueDate(now)
   const dueDate = nextDue
   const monthlyDue = monthlyDues || 1000
-  const monthsElapsed = now.getMonth() + 1                       // Jan = 1
-  const monthsPaid = Math.min(12, monthsElapsed)                 // paid through this month
+  // Real ring inputs from the resident's actual payments (lib/dues). With no
+  // roster match (preview / marketing view) there's no `resident`, so fall
+  // back to the date-derived demo so the showcase view still looks alive.
+  const paidAmount = (payments || []).reduce((s: number, p: any) => s + (Number(p?.amount) || 0), 0)
+  const coveredMonths = resident ? monthsCovered(resident, monthlyDue, payments || []) : Math.min(12, now.getMonth() + 1)
+  const owedMonths = resident ? monthsOwed(resident) : Math.max(1, now.getMonth() + 1)
+  const monthsPaid = Math.min(12, coveredMonths)
   const annualDue = monthlyDue * 12
-  const paidYTD = monthlyDue * monthsPaid
+  const paidYTD = resident ? paidAmount : monthlyDue * monthsPaid
 
-  // On Track = share of due payments made on time. Demo treats each elapsed
-  // month as on time; real data can refine this from payment dates. Green
-  // check at 75%+ on time, yellow clock below that.
-  const monthsDue = Math.max(1, monthsElapsed)
+  // On Track = months actually covered ÷ months owed. Late status (a real
+  // overdue balance) flips the ring to "behind"; otherwise it reads on track.
+  const monthsDue = Math.max(1, Math.min(12, owedMonths))
   const onTimeRate = Math.min(1, monthsPaid / monthsDue)
   const onTimePct = Math.round(onTimeRate * 100)
-  const trackState: 'ok' | 'warn' = onTimeRate >= 0.75 ? 'ok' : 'warn'
+  const trackState: 'ok' | 'warn' = resident ? (status === 'late' ? 'warn' : 'ok') : (onTimeRate >= 0.75 ? 'ok' : 'warn')
 
   // Next-payment cycle — exact days remaining until the 1st-of-next-month due.
   const cycleStart = new Date(nextDue.getFullYear(), nextDue.getMonth() - 1, 1)
