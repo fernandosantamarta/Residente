@@ -274,6 +274,8 @@ export const es: Record<string, string> = {
   "documents.tabDocuments": "Documentos",
   "documents.tabRules": "Reglas",
   "documents.tagFine": "Multa",
+  "documents.payFine": "Pagar {amount}",
+  "documents.payingFine": "Abriendo el pago…",
   "documents.tagWarning": "Advertencia",
   "documents.viewAll": "Ver todos",
   "documents.violationsSub": "Cómo la junta hace cumplir el reglamento.",

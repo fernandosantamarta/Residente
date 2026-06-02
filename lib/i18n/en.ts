@@ -281,6 +281,8 @@ export const en: Record<string, string> = {
   "documents.tabDocuments": "Documents",
   "documents.tabRules": "Rules",
   "documents.tagFine": "Fine",
+  "documents.payFine": "Pay {amount}",
+  "documents.payingFine": "Starting checkout…",
   "documents.tagWarning": "Warning",
   "documents.viewAll": "View all",
   "documents.violationsSub": "How the board keeps the rule book real.",

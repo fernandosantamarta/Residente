@@ -158,6 +158,27 @@ export async function removeStoredViolation(id: string) {
   await supabase.from('ev_violations').delete().eq('id', id)
 }
 
+// Resident pays their own open fine. Starts a Stripe Checkout session via the
+// create-fine-checkout edge function and redirects to Stripe's hosted page.
+// On return, the stripe-webhook closes the fine as 'stripe-paid' and the
+// realtime subscription refreshes the row. Mirrors the dues checkout flow.
+// Returns an error message on failure, or null on a successful redirect.
+export async function payFine(violationId: string): Promise<string | null> {
+  if (!hasSupabase || !supabase) return 'Payments are not configured.'
+  try {
+    const { data, error } = await supabase.functions.invoke('create-fine-checkout', {
+      body: { violation_id: violationId },
+    })
+    if (error) return error.message || 'Could not start checkout.'
+    const url = (data as { url?: string })?.url
+    if (!url) return 'Could not start checkout.'
+    window.location.href = url
+    return null
+  } catch (err) {
+    return (err as Error)?.message || 'Could not start checkout.'
+  }
+}
+
 // ---------- admin management ----------
 export type NewViolation = {
   profile_id: string | null

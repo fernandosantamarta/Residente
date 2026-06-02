@@ -17,6 +17,11 @@ verify_jwt = true
 [functions.set-autopay]
 verify_jwt = true
 
+# create-fine-checkout is called by a signed-in resident paying their own
+# violation fine — keep JWT verification on so RLS scopes it to a fine they own.
+[functions.create-fine-checkout]
+verify_jwt = true
+
 # charge-autopay is the recurring-charge engine, called on a schedule (cron /
 # scheduled function), not by a browser. JWT verification MUST stay off —
 # authenticity is the CRON_SECRET header check inside the function.

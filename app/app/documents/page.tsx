@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { Fragment, ReactNode, useEffect, useMemo, useState } from 'react'
 import { SegTabs, SegTab } from '@/components/SegTabs'
 import { useCategoriesData, useRulesData, DEMO_RULES } from '@/lib/rules'
-import { computeStats, useViolationsData, useMyViolations } from '@/lib/violations'
+import { computeStats, useViolationsData, useMyViolations, payFine } from '@/lib/violations'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import { useDocuments } from '@/hooks/useDocuments'
 import { supabase } from '@/lib/supabase'
@@ -809,9 +809,23 @@ function MyViolationsPanel() {
   const t = useT()
   const { violations } = useMyViolations()
   const data: any[] = violations.length ? violations : DEMO_VIOLATIONS
+  const isReal = violations.length > 0
   const [page, setPage] = useState(0)
+  const [payingId, setPayingId] = useState<string | null>(null)
+  const [payError, setPayError] = useState<string | null>(null)
   const pages = Math.max(1, Math.ceil(data.length / VIOL_PAGE))
   const shown = data.slice(page * VIOL_PAGE, page * VIOL_PAGE + VIOL_PAGE)
+
+  // Open, payable fine on a real (non-demo) row → resident can pay it online.
+  const payable = (v: any) =>
+    isReal && v.kind === 'fine' && v.status !== 'closed' && Number(v.amount) > 0
+
+  const onPay = async (v: any) => {
+    setPayError(null)
+    setPayingId(v.id)
+    const err = await payFine(v.id)   // redirects to Stripe on success
+    if (err) { setPayError(err); setPayingId(null) }
+  }
 
   return (
     <section className="doc-card" style={{ gridColumn: '1 / -1' }}>
@@ -819,6 +833,7 @@ function MyViolationsPanel() {
         <h2 className="doc-card-title">{t('documents.yourViolations')}</h2>
         <span style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(10,36,64,0.55)' }}>{t('documents.appealsNote')}</span>
       </div>
+      {payError && <div className="myv-pay-err">{payError}</div>}
       {data.length === 0 ? (
         <div className="doc-empty">{t('documents.noViolations')}</div>
       ) : (
@@ -834,6 +849,16 @@ function MyViolationsPanel() {
                 <div className="myv-meta">{v.status === 'closed' ? (v.resolution || t('documents.statusClosed')) : v.status} · {fmtDate(v.opened_at)}</div>
                 {v.notes && <div className="myv-meta">{v.notes}</div>}
               </div>
+              {payable(v) && (
+                <button
+                  type="button"
+                  className="myv-pay-btn"
+                  onClick={() => onPay(v)}
+                  disabled={payingId === v.id}
+                >
+                  {payingId === v.id ? t('documents.payingFine') : t('documents.payFine', { amount: fmtMoney(v.amount) })}
+                </button>
+              )}
             </div>
           ))}
           {pages > 1 && (

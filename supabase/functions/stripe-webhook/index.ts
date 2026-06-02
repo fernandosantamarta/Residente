@@ -55,6 +55,29 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Fine checkout (create-fine-checkout) carries a violation_id. Close the
+    // violation as stripe-paid. Idempotent: a Stripe retry re-runs the same
+    // UPDATE harmlessly, and an already-closed fine stays closed.
+    const violation_id = session.metadata?.violation_id
+    if (violation_id) {
+      const { error } = await admin
+        .from('ev_violations')
+        .update({
+          status: 'closed',
+          resolution: 'stripe-paid',
+          stripe_invoice_id: session.id,
+          closed_at: new Date().toISOString().slice(0, 10),
+        })
+        .eq('id', violation_id)
+      if (error) {
+        console.error('Failed to close fine as paid:', error)
+        return new Response('Update failed', { status: 500 })
+      }
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200, headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
     // Amenity reservation checkout (create-amenity-checkout) carries a
     // reservation_id instead of a resident_id. Flip that reservation to paid.
     // Idempotent: a Stripe retry re-runs the same UPDATE harmlessly.
