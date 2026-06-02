@@ -509,6 +509,7 @@ export const en: Record<string, string> = {
   "pay.size": "Size",
   "pay.startingCheckout": "Starting checkout…",
   "pay.finesDue": "Fines due",
+  "pay.finesTotal": "Total {amount}",
   "pay.payNow": "Pay now",
   "pay.fineGeneric": "Community rule fine",
   "pay.fineIssued": "Issued {date}",

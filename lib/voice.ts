@@ -155,8 +155,9 @@ export function noticeHref(n: { kind?: string | null; meeting_id?: string | null
   if (n.kind === 'collections_deadline') return '/admin/collections'
   // A collection notice on the owner's account sends them to their balance.
   if (n.kind === 'collections_update') return '/app/track#pay'
-  // A fine/warning notice opens the resident's violations in Easy Documents.
-  if (n.kind === 'violation') return '/app/documents'
+  // A fine/warning notice opens the resident's violations tab in Easy Documents
+  // (the #violations hash selects that tab on load, not the default Rules tab).
+  if (n.kind === 'violation') return '/app/documents#violations'
   if (n.meeting_id) return `/app/voice/${n.meeting_id}`
   // A document notice with no meeting is a library upload — open Easy Documents,
   // not the Voice meetings list. (Meeting-attached docs hit the meeting_id branch

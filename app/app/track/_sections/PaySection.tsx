@@ -843,7 +843,7 @@ function FinesDueCard() {
     <section className="pay-card pay-fines-card" id="fines">
       <div className="pay-card-head">
         <h2 className="pay-card-title">{t('pay.finesDue')}</h2>
-        <span className="pay-fines-total">{fmtMoney(total)}</span>
+        <span className="pay-fines-total">{t('pay.finesTotal', { amount: fmtMoney(total) })}</span>
       </div>
       {error && <div className="pay-err">{error}</div>}
       <div className="pay-fines-list">
