@@ -98,8 +98,10 @@ export type NoticeKind =
   | 'amenity_booked'
   | 'dues_due'
   // ---- FL compliance layer ----
-  | 'compliance_alert'   // board-directed: a statutory deadline/obligation needs attention
-  | 'estoppel_update'    // owner-directed: their estoppel request was received / delivered
+  | 'compliance_alert'    // board-directed: a statutory deadline/obligation needs attention
+  | 'estoppel_update'     // owner-directed: their estoppel request was received / delivered
+  | 'collections_deadline' // board-directed: a collection-case statutory deadline needs attention
+  | 'collections_update'   // owner-directed: a statutory collection notice was logged on their account
 
 export type NoticeChannel = 'in_app' | 'email' | 'sms'
 
@@ -121,6 +123,8 @@ export const NOTICE_KIND_LABELS: Record<NoticeKind, string> = {
   dues_due:          'Dues due',
   compliance_alert:  'Compliance alert',
   estoppel_update:   'Estoppel request',
+  collections_deadline: 'Collections deadline',
+  collections_update:   'Account in collections',
 }
 
 export function noticeHref(n: { kind?: string | null; meeting_id?: string | null; vote_id?: string | null }): string {
@@ -132,6 +136,10 @@ export function noticeHref(n: { kind?: string | null; meeting_id?: string | null
   if (n.kind === 'compliance_alert') return '/admin/compliance'
   // Estoppel updates send the owner to their Pay/Track hub.
   if (n.kind === 'estoppel_update') return '/app/track#pay'
+  // Collection deadlines are board-facing — open the collections worklist.
+  if (n.kind === 'collections_deadline') return '/admin/collections'
+  // A collection notice on the owner's account sends them to their balance.
+  if (n.kind === 'collections_update') return '/app/track#pay'
   if (n.meeting_id) return `/app/voice/${n.meeting_id}`
   return '/app/voice'
 }

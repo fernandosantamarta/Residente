@@ -10,8 +10,13 @@ import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { sortSignals, ATTORNEY_REVIEW_BANNER, type ComplianceSignal, type Severity } from '@/lib/compliance/rules-core'
+import { communityDuesConfig } from '@/lib/dues'
 import { foundationSignals } from '@/lib/compliance/signals'
 import { estoppelSignals, type EstoppelRequestRow } from '@/lib/compliance/estoppel'
+import {
+  collectionsSignals, paymentPlanSignals, delinquencySignals, delinquentOwnersWithoutCase,
+  type CollectionCaseRow, type PaymentPlanRow,
+} from '@/lib/compliance/collections'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -37,10 +42,28 @@ async function safeSelect(table: string, communityId: string): Promise<any[]> {
   }
 }
 
-function gatherSignals(community: any, estoppel: EstoppelRequestRow[]): ComplianceSignal[] {
+function gatherSignals(
+  community: any,
+  estoppel: EstoppelRequestRow[],
+  cases: CollectionCaseRow[],
+  plans: PaymentPlanRow[],
+  residents: any[],
+  payByResident: Record<string, { amount: number }[]>,
+): ComplianceSignal[] {
+  const candidates = community ? delinquentOwnersWithoutCase({
+    residents, paymentsByResident: payByResident, cases,
+    monthlyDues: Number(community.monthly_dues) || 0,
+    duesConfig: communityDuesConfig(community),
+    minBalance: Number(community.collections_min_balance) || 0,
+    minDays: Number(community.collections_min_days) || 0,
+    dueDay: Number(community.assessment_due_day) || 1,
+  }) : []
   return sortSignals([
     ...foundationSignals(community),
     ...estoppelSignals(estoppel),
+    ...collectionsSignals(cases, community?.association_type),
+    ...paymentPlanSignals(plans),
+    ...delinquencySignals(candidates),
     // Future domains plug in here: structuralSignals(), financialSignals(), …
   ])
 }
@@ -50,6 +73,10 @@ export default function CompliancePage() {
   const communityId = profile?.community_id
   const [community, setCommunity] = useState<any>(null)
   const [estoppel, setEstoppel] = useState<EstoppelRequestRow[]>([])
+  const [cases, setCases] = useState<CollectionCaseRow[]>([])
+  const [plans, setPlans] = useState<PaymentPlanRow[]>([])
+  const [residents, setResidents] = useState<any[]>([])
+  const [payByResident, setPayByResident] = useState<Record<string, { amount: number }[]>>({})
   const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError] = useState('')
 
@@ -63,6 +90,13 @@ export default function CompliancePage() {
       if (error) throw error
       setCommunity(data)
       setEstoppel(await safeSelect('ev_estoppel_requests', communityId))
+      setCases(await safeSelect('ev_collection_cases', communityId))
+      setPlans(await safeSelect('ev_payment_plans', communityId))
+      setResidents(await safeSelect('residents', communityId))
+      const pays = await safeSelect('payments', communityId)
+      const map: Record<string, { amount: number }[]> = {}
+      for (const p of pays) { (map[p.resident_id] ||= []).push({ amount: Number(p.amount) || 0 }) }
+      setPayByResident(map)
       setStatus('ready')
     } catch (err: any) {
       setError(err?.message || 'Could not load compliance data'); setStatus('error')
@@ -70,7 +104,7 @@ export default function CompliancePage() {
   }, [communityId])
   useEffect(() => { load() }, [load])
 
-  const signals = useMemo(() => gatherSignals(community, estoppel), [community, estoppel])
+  const signals = useMemo(() => gatherSignals(community, estoppel, cases, plans, residents, payByResident), [community, estoppel, cases, plans, residents, payByResident])
   const counts = useMemo(() => {
     const c: Record<Severity, number> = { overdue: 0, soon: 0, info: 0 }
     for (const s of signals) c[s.severity]++
