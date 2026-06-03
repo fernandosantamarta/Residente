@@ -194,7 +194,7 @@ export default function RolesPage() {
                   </div>
                   <div className="admin-amen-row-actions">
                     {!r.is_admin && <button className="admin-sched-row-del" onClick={() => startEdit(r)}>Edit</button>}
-                    {!r.is_admin && !r.is_system && <button className="admin-sched-row-del" onClick={() => deleteRole(r)}>Delete</button>}
+                    {!r.is_admin && <button className="admin-sched-row-del" onClick={() => deleteRole(r)}>Delete</button>}
                   </div>
                 </div>
               ))}

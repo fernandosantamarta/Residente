@@ -165,8 +165,9 @@ declare cid uuid;
 begin
   if not public.has_permission('roles.manage') then raise exception 'not allowed'; end if;
   select community_id into cid from public.profiles where id = auth.uid();
+  -- Any role except the protected Admin role can be deleted (defaults included).
   delete from public.ev_roles
-    where id = p_id and community_id = cid and not is_system and not is_admin;
+    where id = p_id and community_id = cid and not is_admin;
   if not found then raise exception 'role not found or protected'; end if;
 end $$;
 grant execute on function public.ev_role_delete(uuid) to authenticated;
