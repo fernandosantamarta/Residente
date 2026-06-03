@@ -120,6 +120,7 @@ export type NoticeKind =
   | 'request_new'          // board-directed: a resident submitted a new request
   | 'request_update'       // owner-directed: the board changed status / replied on their request
   | 'payment_received'     // owner-directed: a payment landed on their account (receipt)
+  | 'rule_published'       // community-directed: the board added a new rule to the rule book
 
 export type NoticeChannel = 'in_app' | 'email' | 'sms'
 
@@ -147,6 +148,7 @@ export const NOTICE_KIND_LABELS: Record<NoticeKind, string> = {
   request_new:          'New request',
   request_update:       'Request update',
   payment_received:     'Payment received',
+  rule_published:       'New rule',
 }
 
 export function noticeHref(n: { kind?: string | null; meeting_id?: string | null; vote_id?: string | null }): string {
@@ -169,6 +171,8 @@ export function noticeHref(n: { kind?: string | null; meeting_id?: string | null
   if (n.kind === 'request_update') return '/app/voice#contact'
   // A payment receipt sends the resident to their Pay/Track balance.
   if (n.kind === 'payment_received') return '/app/track#pay'
+  // A new rule opens the resident rule book (Rules tab in Easy Documents).
+  if (n.kind === 'rule_published') return '/app/documents#rules'
   // A fine/warning notice opens the resident's violations tab in Easy Documents
   // (the #violations hash selects that tab on load, not the default Rules tab).
   if (n.kind === 'violation') return '/app/documents#violations'

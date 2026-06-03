@@ -117,6 +117,25 @@ export default function AdminEasyDocs() {
         fine: ruleForm.fine === '' ? null : Number(ruleForm.fine),
         sort_order: rows.length,
       })
+
+      // Tell residents a new rule was added. Same broadcast path as a library
+      // upload: one ev_notices insert + the ev_notice_fanout DB trigger delivers
+      // a recipient row per resident (honouring channel prefs). Fires only on
+      // this explicit single-rule add — never the bulk "restore samples" seed —
+      // so onboarding doesn't blast the whole community. Best-effort: the rule
+      // is already saved, so a notice failure must not read as an add error.
+      try {
+        await withTimeoutDocs(
+          supabase.from('ev_notices').insert({
+            community_id: communityId,
+            kind: 'rule_published',
+            channels: DEFAULT_CHANNELS,
+            subject: `New rule: ${title}`,
+            body: `A new rule was added to your community rule book${section ? ` under ${section}` : ''}.`,
+          })
+        )
+      } catch { /* notice is best-effort; the rule add already succeeded */ }
+
       setRuleForm(RULE_EMPTY)
       setRuleSuccessMsg(
         newCategoryCreated
