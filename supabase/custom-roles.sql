@@ -45,24 +45,25 @@ alter table public.residents
   add column if not exists role_id uuid references public.ev_roles(id) on delete set null;
 
 -- ---------- THE CHECK (used by RLS + the app) ----------
--- my_permissions() is the single source of truth. Access rules:
---   • platform admins (Residente staff)        → full access ['*']
---   • community owner (profiles.role = 'admin') → full access ['*'] (never locked out)
---   • board member with an assigned role        → that role's permissions
---   • board member with NO role assigned        → none (locked out of /admin)
---   • board_member account with no resident row (anomalous) → full access (safety)
+-- my_permissions() is the single source of truth. Access rules, in order:
+--   • platform admins (Residente staff)           → full access ['*']
+--   • resident WITH an assigned role               → that role's perms (Admin role => '*')
+--   • resident WITHOUT a role                      → none (locked out of /admin)
+--   • account with NO resident row that is admin/board_member → full access (safety)
+-- Note: the assigned role is authoritative even for profiles.role='admin', so
+-- board roles actually take effect. Lockout is prevented by the platform-admin
+-- override + the "can't demote the last role manager" guard in ev_role_assign.
 create or replace function public.my_permissions()
 returns text[] language sql stable security definer as $$
   select case
     when public.is_platform_admin(auth.uid()) then array['*']
-    when exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin') then array['*']
     when exists (select 1 from public.residents r where r.profile_id = auth.uid() and r.role_id is not null) then (
       select case when ro.is_admin then array['*'] else coalesce(ro.permissions, '{}') end
       from public.residents r join public.ev_roles ro on ro.id = r.role_id
       where r.profile_id = auth.uid() limit 1
     )
     when exists (select 1 from public.residents r where r.profile_id = auth.uid()) then '{}'::text[]
-    when exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'board_member') then array['*']
+    when exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin','board_member')) then array['*']
     else '{}'::text[]
   end;
 $$;

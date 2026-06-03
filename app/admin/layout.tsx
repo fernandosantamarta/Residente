@@ -57,7 +57,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     if (hasSupabase && !session) { router.replace('/login'); return }
     if (!hasSupabase) return
     if (permLoading) return
-    const hasAccess = isPlatformAdmin || profile?.role === 'admin' || (!!perms && perms.length > 0)
+    const hasAccess = isPlatformAdmin || (!!perms && perms.length > 0)
     if (!hasAccess) router.replace('/app')
   }, [session, profile, perms, permLoading, isPlatformAdmin, router])
 
