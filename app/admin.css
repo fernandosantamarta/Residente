@@ -552,7 +552,7 @@
   letter-spacing: 1px; text-transform: uppercase; margin-bottom: 14px;
 }
 .voice-keycard-block {
-  font-family: 'SF Mono', Menlo, Monaco, monospace;
+  font-family: 'AmpFix', 'SF Mono', Menlo, Monaco, monospace;
   background: var(--bg-card); padding: 14px;
   border: 1px solid var(--border); border-radius: 8px;
   font-size: 13px; color: var(--text); word-break: break-all; white-space: pre-wrap;

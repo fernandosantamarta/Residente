@@ -55,7 +55,7 @@
 }
 .su-brand-chip img { width: 18px; height: 18px; object-fit: contain; }
 .su-brand-word {
-  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-family: 'AmpFix', 'Space Grotesk', system-ui, sans-serif;
   font-weight: 700; color: #fff; font-size: 16px; letter-spacing: -0.3px;
 }
 .su-topbar-spacer { width: 36px; }
