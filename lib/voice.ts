@@ -116,6 +116,10 @@ export type NoticeKind =
   | 'estoppel_update'     // owner-directed: their estoppel request was received / delivered
   | 'collections_deadline' // board-directed: a collection-case statutory deadline needs attention
   | 'collections_update'   // owner-directed: a statutory collection notice was logged on their account
+  // ---- resident requests & payments ----
+  | 'request_new'          // board-directed: a resident submitted a new request
+  | 'request_update'       // owner-directed: the board changed status / replied on their request
+  | 'payment_received'     // owner-directed: a payment landed on their account (receipt)
 
 export type NoticeChannel = 'in_app' | 'email' | 'sms'
 
@@ -140,6 +144,9 @@ export const NOTICE_KIND_LABELS: Record<NoticeKind, string> = {
   estoppel_update:   'Estoppel request',
   collections_deadline: 'Collections deadline',
   collections_update:   'Account in collections',
+  request_new:          'New request',
+  request_update:       'Request update',
+  payment_received:     'Payment received',
 }
 
 export function noticeHref(n: { kind?: string | null; meeting_id?: string | null; vote_id?: string | null }): string {
@@ -155,6 +162,13 @@ export function noticeHref(n: { kind?: string | null; meeting_id?: string | null
   if (n.kind === 'collections_deadline') return '/admin/collections'
   // A collection notice on the owner's account sends them to their balance.
   if (n.kind === 'collections_update') return '/app/track#pay'
+  // A new resident request is board-facing — open the requests triage worklist.
+  if (n.kind === 'request_new') return '/admin/requests'
+  // A status change / board reply sends the resident to the Contact tab where
+  // their requests, statuses, and board replies render (#contact selects it).
+  if (n.kind === 'request_update') return '/app/voice#contact'
+  // A payment receipt sends the resident to their Pay/Track balance.
+  if (n.kind === 'payment_received') return '/app/track#pay'
   // A fine/warning notice opens the resident's violations tab in Easy Documents
   // (the #violations hash selects that tab on load, not the default Rules tab).
   if (n.kind === 'violation') return '/app/documents#violations'
