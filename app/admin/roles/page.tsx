@@ -36,6 +36,7 @@ export default function RolesPage() {
   const [name, setName] = useState('')
   const [perms, setPerms] = useState<Set<string>>(new Set())
   const [saving, setSaving] = useState(false)
+  const [savedId, setSavedId] = useState<string | null>(null) // member row that just saved
 
   useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(''), 4000); return () => clearTimeout(t) }, [msg])
 
@@ -103,6 +104,8 @@ export default function RolesPage() {
       }))) as any
       if (error) throw error
       setMsg('Role assigned.')
+      setSavedId(residentId)
+      setTimeout(() => setSavedId(s => (s === residentId ? null : s)), 2500)
     } catch (err: any) { setError(err?.message || 'Could not assign the role.'); load() }
   }
 
@@ -214,13 +217,18 @@ export default function RolesPage() {
                       <div className="admin-sched-row-title">{m.full_name || 'Resident'}</div>
                       <div className="admin-sched-row-meta">{m.board_position} · {roleName(m.role_id)}</div>
                     </div>
-                    <div style={{ minWidth: 200 }}>
-                      <Dropdown<string>
-                        value={m.role_id || ''}
-                        onChange={v => assignRole(m.id, v || null)}
-                        ariaLabel={`Role for ${m.full_name || 'resident'}`}
-                        options={[{ value: '', label: 'No role' }, ...roles.map(r => ({ value: r.id, label: r.name }))]}
-                      />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, justifyContent: 'flex-end' }}>
+                      {savedId === m.id && (
+                        <span style={{ color: '#067647', fontSize: 13, fontWeight: 600, whiteSpace: 'nowrap' }}>Saved ✓</span>
+                      )}
+                      <div style={{ minWidth: 200 }}>
+                        <Dropdown<string>
+                          value={m.role_id || ''}
+                          onChange={v => assignRole(m.id, v || null)}
+                          ariaLabel={`Role for ${m.full_name || 'resident'}`}
+                          options={[{ value: '', label: 'No role' }, ...roles.map(r => ({ value: r.id, label: r.name }))]}
+                        />
+                      </div>
                     </div>
                   </div>
                 ))}
