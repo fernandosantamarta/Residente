@@ -311,7 +311,10 @@ function Community({
   unitCount: string; setUnitCount: (s: string) => void
   onNext: () => void
 }) {
-  const valid = name.trim().length > 1
+  // Units are required: the count sets the plan/price (≤25 free, 26+ paid), and
+  // leaving it blank let any size community fall through to Free. Must be ≥ 1.
+  const units = Number(unitCount)
+  const valid = name.trim().length > 1 && Number.isFinite(units) && units >= 1
   const label = propertyType === 'condo' ? 'condo association' : 'community'
   return (
     <>
@@ -336,12 +339,13 @@ function Community({
             </div>
           </label>
           <label className="su-field">
-            <span className="su-label">Number of units (optional)</span>
+            <span className="su-label">Number of {propertyType === 'condo' ? 'units' : 'homes'}</span>
             <div className="su-input-wrap">
               <input className="su-input" value={unitCount}
                 onChange={(e) => setUnitCount(e.target.value.replace(/[^0-9]/g, ''))}
-                inputMode="numeric" placeholder="e.g. 120" />
+                inputMode="numeric" placeholder="e.g. 120" required />
             </div>
+            <span className="su-hint">Sets your plan — up to 25 is free.</span>
           </label>
         </div>
         <div className="su-actions">
