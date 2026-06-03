@@ -76,20 +76,35 @@ export default function Landing() {
   )
 }
 
+// Anchor scroll that survives the scroll-reveal reflow. A native `#id` jump
+// lands short because the data-anim sections between here and the target reveal
+// (and grow) AFTER the jump. So we scroll, then re-correct a couple of times as
+// the reveals settle — the last call lands exactly on the section.
+function scrollToHash(e: React.MouseEvent, hash: string) {
+  const el = document.getElementById(hash.replace('#', ''))
+  if (!el) return
+  e.preventDefault()
+  const go = () => el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  go()
+  setTimeout(go, 300)
+  setTimeout(go, 650)
+  history.replaceState(null, '', hash)
+}
+
 function LandingNav() {
   const scrolled = useScrolled(32)
   return (
     <header className={`ln-nav${scrolled ? ' scrolled' : ''}`}>
       <div className="ln-nav-inner">
-        <a href="#top" className="ln-brand">
+        <a href="#top" className="ln-brand" onClick={(e) => scrollToHash(e, '#top')}>
           <img src="/residente-logo.png" alt="" className="ln-brand-logo" />
           <span className="ln-brand-word">Residente</span>
         </a>
         <nav className="ln-nav-links">
-          <a href="#what">Product</a>
-          <a href="#boards">For boards</a>
-          <a href="#residents">For residents</a>
-          <a href="#pricing">Pricing</a>
+          <a href="#what" onClick={(e) => scrollToHash(e, '#what')}>Product</a>
+          <a href="#boards" onClick={(e) => scrollToHash(e, '#boards')}>For boards</a>
+          <a href="#residents" onClick={(e) => scrollToHash(e, '#residents')}>For residents</a>
+          <a href="#pricing" onClick={(e) => scrollToHash(e, '#pricing')}>Pricing</a>
           <Link href="/login" className="ln-nav-signin">Sign in</Link>
         </nav>
         <Link href="/signup" className="ln-cta-pill">Sign up</Link>
