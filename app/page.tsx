@@ -1385,10 +1385,10 @@ function Pricing() {
     { name: 'Enterprise', amt: '$10', unit: '/ home / mo',  band: '500+ homes',     cta: 'Talk to us',     href: '/signup', featured: false },
   ]
   const INCLUDED = [
-    'Resident cockpit', 'Online dues + fines (Stripe)', 'Live budget rings',
+    'Resident cockpit', 'Online dues & fines (Stripe)', 'Live budget rings',
     'Board decisions feed', 'Meeting minutes & voting', 'Document vault',
     'Amenity booking', 'Maintenance & complaint requests', 'Violation tracking & appeals',
-    'Community calendar & events', 'Household roster + CSV import', 'English · Spanish · Portuguese',
+    'Community calendar & events', 'Household roster & CSV import', 'English · Spanish · Portuguese',
   ]
   return (
     <section className="ln-pricing" id="pricing" data-anim>
