@@ -117,7 +117,7 @@ export default function RolesPage() {
     return (
       <div className="admin-page">
         <div className="admin-kicker">Administration</div>
-        <h1 className="admin-h1">Roles &amp; permissions</h1>
+        <h1 className="admin-h1">Roles <span className="amp">&</span> permissions</h1>
         <div className="admin-note admin-note-warn">You don&rsquo;t have permission to manage roles.</div>
       </div>
     )
@@ -126,7 +126,7 @@ export default function RolesPage() {
   return (
     <div className="admin-page">
       <div className="admin-kicker">Administration</div>
-      <h1 className="admin-h1">Roles &amp; permissions</h1>
+      <h1 className="admin-h1">Roles <span className="amp">&</span> permissions</h1>
       <p className="admin-dek">
         Build roles with exactly the access each board member needs, then assign
         them below. The <strong>Admin</strong> role always has full access.
