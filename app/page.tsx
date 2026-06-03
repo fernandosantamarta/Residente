@@ -1430,6 +1430,16 @@ function Pricing() {
         </ul>
       </div>
 
+      <div className="ln-addons">
+        <div className="ln-addons-text">
+          <span className="ln-addons-label">Premium &amp; Enterprise add-ons</span>
+          <span className="ln-addons-list">API access &amp; webhooks · SSO / SAML sign-in · Accounting integrations</span>
+        </div>
+        <a href="mailto:hello@residente.io?subject=Residente%20add-ons" className="ln-addons-link">
+          Ask us about this <span aria-hidden="true">→</span>
+        </a>
+      </div>
+
       <p className="ln-pricing-fine">
         Online payments are powered by Stripe. Standard Stripe processing fees
         are passed through to your association.
