@@ -24,7 +24,14 @@ const yearStartISO = () => `${new Date().getUTCFullYear()}-01-01`
 const payDate = (p: any) => (p.paid_on || (p.created_at ? String(p.created_at).slice(0, 10) : '')) as string
 const inRange = (iso: string, from: string, to: string) => !!iso && iso >= from && iso <= to
 
-type Payment = { id: string; amount: number; paid_on: string | null; status: string | null; created_at: string | null; resident_id: string | null }
+type Payment = { id: string; amount: number; paid_on: string | null; created_at: string | null; resident_id: string | null; charge_type: string | null; method: string | null }
+
+// payments.charge_type is null for an ordinary dues payment; otherwise one of
+// the collections charge kinds. Render a friendly label for exports.
+const CHARGE_LABEL: Record<string, string> = {
+  assessment: 'Assessment', interest: 'Interest', late_fee: 'Late fee', cost: 'Cost', fine: 'Fine', other: 'Other',
+}
+const chargeLabel = (t: string | null) => (t ? (CHARGE_LABEL[t] || t) : 'Dues')
 type Expense = { id: string; amount: number; spent_on: string; category_id: string | null; vendor: string | null; description: string | null }
 type Resident = { id: string; full_name: string | null; unit_number: string | null; address: string | null; opening_balance: number | null }
 
@@ -48,7 +55,7 @@ export default function ReportsPage() {
     try {
       const [{ data: pay }, { data: exp }, { data: res }, { data: bc }] = (await Promise.all([
         withTimeout(supabase!.from('payments')
-          .select('id, amount, paid_on, status, created_at, resident_id')
+          .select('id, amount, paid_on, created_at, resident_id, charge_type, method')
           .eq('community_id', communityId).order('paid_on', { ascending: false })),
         withTimeout(supabase!.from('ev_expenses')
           .select('id, amount, spent_on, category_id, vendor, description')
@@ -87,8 +94,9 @@ export default function ReportsPage() {
       { label: 'Date', value: p => payDate(p) },
       { label: 'Resident', value: p => residentById[p.resident_id || '']?.full_name || '' },
       { label: 'Unit', value: p => residentById[p.resident_id || '']?.unit_number || '' },
+      { label: 'Type', value: p => chargeLabel(p.charge_type) },
       { label: 'Amount', value: p => (Number(p.amount) || 0).toFixed(2) },
-      { label: 'Status', value: p => p.status || '' },
+      { label: 'Method', value: p => p.method || '' },
     ]
     downloadCsv(exportFilename('residente-payments', todayISO()), paysInRange, cols)
   }
@@ -98,7 +106,7 @@ export default function ReportsPage() {
       { label: 'Date', value: p => payDate(p) },
       { label: 'Description', value: p => {
         const r = residentById[p.resident_id || '']
-        return `Dues — ${r?.full_name || 'Resident'}${r?.unit_number ? ` (Unit ${r.unit_number})` : ''}`
+        return `${chargeLabel(p.charge_type)} — ${r?.full_name || 'Resident'}${r?.unit_number ? ` (Unit ${r.unit_number})` : ''}`
       } },
       { label: 'Amount', value: p => (Number(p.amount) || 0).toFixed(2) },
     ]
