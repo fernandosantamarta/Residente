@@ -147,7 +147,7 @@
 /* Plain ampersand — renders "&" in a regular sans font so it reads like a normal
    typed "&" instead of the serif (Fraunces) heading glyph. Wrap with
    <span className="amp">&</span>. */
-.amp { font-family: 'Inter', system-ui, sans-serif; font-style: normal; font-weight: 400; }
+.amp { font-family: system-ui, 'Segoe UI', Arial, sans-serif; font-style: normal; font-weight: 400; }
 
 /* Pill buttons match the landing CTAs. */
 [data-theme="sketch"] button,
