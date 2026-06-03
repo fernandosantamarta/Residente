@@ -1368,12 +1368,13 @@ function DashboardPreview() {
   )
 }
 
-// Pricing. One product, priced per home and billed to the association —
-// residents are always free (keeps the promise the CtaBlock copy makes).
+// Pricing. One product, priced per home and billed to the association.
+// Residents pay no software fee — only their own dues/fees, which go to the
+// HOA (not us), so the marketing copy avoids the misleading "free" absolute.
 // Every plan ships the entire platform; the tiers are purely community-size
 // bands (by home count), so the cards carry a price + a size band and the
-// full feature set is listed once below in a shared "every plan includes"
-// strip. A launch promo ribbon offers $1/home for the first year.
+// full (real, shipped) feature set is listed once below in a shared "every
+// plan includes" strip. Launch promo: $1/home first year, sign up by Aug 31 2026.
 function Pricing() {
   const TIERS = [
     { name: 'Free',       amt: '$0',  unit: '',             band: 'Up to 25 homes', cta: 'Get started',    href: '/signup', featured: false },
@@ -1382,10 +1383,10 @@ function Pricing() {
     { name: 'Enterprise', amt: '$10', unit: '/ home / mo',  band: '500+ homes',     cta: 'Talk to us',     href: '/signup', featured: false },
   ]
   const INCLUDED = [
-    'Resident cockpit', 'Board decisions feed', 'Document vault', 'Live budget rings',
-    'Online dues + fines (Stripe)', 'Amenity booking', 'Advanced reporting & exports',
-    'Custom roles & permissions', 'API access & webhooks', 'SSO / SAML sign-in',
-    'Accounting integrations', 'Priority support',
+    'Resident cockpit', 'Online dues + fines (Stripe)', 'Live budget rings',
+    'Board decisions feed', 'Meeting minutes & voting', 'Document vault',
+    'Amenity booking', 'Maintenance & complaint requests', 'Violation tracking & appeals',
+    'Community calendar & events', 'Household roster + CSV import', 'English · Spanish · Portuguese',
   ]
   return (
     <section className="ln-pricing" id="pricing" data-anim>
@@ -1394,12 +1395,13 @@ function Pricing() {
         <h2 className="ln-pricing-title">One product. Priced by community size.</h2>
         <p className="ln-pricing-sub">
           Every plan includes the entire Residente platform — larger communities
-          just pay a little more per home. Residents never pay a cent.
+          just pay a little more per home. Residents pay no software fee — only
+          their own dues, which go straight to the HOA.
         </p>
         <div className="ln-promo" role="note">
           <span className="ln-promo-tag">Launch offer</span>
           <span className="ln-promo-text">
-            Sign up now and pay just <strong>$1 / home</strong> for your entire first year.
+            Sign up by <strong>Aug 31, 2026</strong> and pay just <strong>$1 / home</strong> for your entire first year.
           </span>
         </div>
       </div>
@@ -1446,7 +1448,7 @@ function CtaBlock() {
           </h2>
           <p className="ln-waitlist-sub">
             Set up your association in a few minutes. Free to start for boards and
-            managers, always free for residents. No spam, no upsell.
+            managers, free for residents to use. No spam, no upsell.
           </p>
           <div className="ln-waitlist-cta">
             <Link href="/signup" className="ln-waitlist-btn">Sign up</Link>
