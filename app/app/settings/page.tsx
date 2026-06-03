@@ -1127,22 +1127,28 @@ function PushDeviceToggle({ profileId, communityId }: { profileId?: string; comm
 
   return (
     <div className="set-dialog-field" style={{ display: 'block' }}>
-      <span className="set-dialog-field-label">This device</span>
-      {!configured ? (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <span className="set-dialog-field-label" style={{ marginBottom: 0 }}>This device</span>
+        {configured && perm !== 'denied' && (
+          subscribed ? (
+            <button type="button" className="set-btn-ghost" disabled={busy} onClick={onDisable}>
+              {busy ? 'Working…' : 'Turn off'}
+            </button>
+          ) : (
+            <button type="button" className="set-btn-primary" disabled={busy} onClick={onEnable}>
+              {busy ? 'Working…' : 'Enable'}
+            </button>
+          )
+        )}
+      </div>
+      {!configured && (
         <p className="set-dialog-note">Push isn’t configured on the server yet.</p>
-      ) : subscribed ? (
-        <button type="button" className="set-btn-ghost" disabled={busy} onClick={onDisable}>
-          {busy ? 'Working…' : 'Turn off on this device'}
-        </button>
-      ) : perm === 'denied' ? (
+      )}
+      {configured && perm === 'denied' && (
         <p className="set-dialog-note">
           Notifications are blocked for this site in your browser settings. Allow them, then
           reopen this dialog.
         </p>
-      ) : (
-        <button type="button" className="set-btn-primary" disabled={busy} onClick={onEnable}>
-          {busy ? 'Working…' : 'Enable on this device'}
-        </button>
       )}
       {msg && <p className="set-dialog-note" style={{ marginTop: 8 }}>{msg}</p>}
     </div>
