@@ -1,0 +1,58 @@
+// Permission taxonomy for community custom roles. Mirrors supabase/custom-roles.sql.
+// The app gates UI on these keys; RLS enforces them at the DB via has_permission().
+// An admin/legacy-full user carries the wildcard '*'.
+
+export type Permission =
+  | 'community.manage'
+  | 'residents.view' | 'residents.manage'
+  | 'financials.view' | 'financials.manage'
+  | 'payments.view' | 'payments.manage'
+  | 'documents.manage'
+  | 'violations.manage'
+  | 'voice.manage'
+  | 'schedule.manage'
+  | 'roles.manage'
+
+// Grouped for the role-builder UI checkboxes.
+export const PERMISSION_GROUPS: { label: string; perms: { key: Permission; label: string }[] }[] = [
+  { label: 'Community', perms: [
+    { key: 'community.manage', label: 'Manage community settings' },
+  ] },
+  { label: 'Roster', perms: [
+    { key: 'residents.view', label: 'View residents' },
+    { key: 'residents.manage', label: 'Add & edit residents' },
+  ] },
+  { label: 'Money', perms: [
+    { key: 'financials.view', label: 'View budgets & financials' },
+    { key: 'financials.manage', label: 'Edit budgets & expenses' },
+    { key: 'payments.view', label: 'View dues & collections' },
+    { key: 'payments.manage', label: 'Manage dues & collections' },
+  ] },
+  { label: 'Operations', perms: [
+    { key: 'documents.manage', label: 'Documents & rules' },
+    { key: 'violations.manage', label: 'Violations & compliance' },
+    { key: 'voice.manage', label: 'Meetings & voting' },
+    { key: 'schedule.manage', label: 'Calendar & amenities' },
+  ] },
+  { label: 'Administration', perms: [
+    { key: 'roles.manage', label: 'Manage roles & permissions' },
+  ] },
+]
+
+export const ALL_PERMISSIONS: Permission[] = PERMISSION_GROUPS.flatMap(g => g.perms.map(p => p.key))
+
+export const PERMISSION_LABEL: Record<string, string> =
+  Object.fromEntries(PERMISSION_GROUPS.flatMap(g => g.perms).map(p => [p.key, p.label]))
+
+// True when a permission set grants `perm` ('*' = full access).
+export function canDo(perms: string[] | null | undefined, perm: Permission): boolean {
+  if (!perms) return false
+  return perms.includes('*') || perms.includes(perm)
+}
+
+// True if the set grants ANY of the given permissions (used to show hub nav items).
+export function canDoAny(perms: string[] | null | undefined, wanted: Permission[]): boolean {
+  if (!perms) return false
+  if (perms.includes('*')) return true
+  return wanted.some(p => perms.includes(p))
+}

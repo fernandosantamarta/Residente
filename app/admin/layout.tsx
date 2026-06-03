@@ -9,6 +9,8 @@ import { SiteFooterSlim } from '@/components/SiteFooter'
 import { useAuth } from '../providers'
 import { CommunitySwitcher } from '../CommunitySwitcher'
 import { usePlatformAdmin } from '@/hooks/usePlatform'
+import { usePermissions } from '@/hooks/usePermissions'
+import type { Permission } from '@/lib/permissions'
 
 // Board-only admin section. Gated by role check — only board_member/admin
 // (or local dev without Supabase) reach here.
@@ -19,16 +21,17 @@ import { usePlatformAdmin } from '@/hooks/usePlatform'
 //   Easy Voice     → Meetings, Roster, Board, Contact (EasyVoiceTabs)
 //   Easy Documents → Rules, Documents, Violations (EasyDocsTabs)
 // The admin-only setup section (Community) leads.
-type AdminNavItem = { href: string; label: string; match?: string[]; exact?: boolean }
+type AdminNavItem = { href: string; label: string; match?: string[]; exact?: boolean; anyPerm?: Permission[] }
 const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin',            label: 'Overview', exact: true },
-  { href: '/admin/community',  label: 'Community' },
-  { href: '/admin/compliance', label: 'Compliance', match: ['/admin/estoppel', '/admin/collections', '/admin/structural', '/admin/financials', '/admin/governance', '/admin/enforcement', '/admin/meetings', '/admin/elections', '/admin/arc'] },
-  { href: '/admin/reports',    label: 'Reports' },
-  { href: '/admin/residents',  label: 'Easy Track', match: ['/admin/vendor'] },
-  { href: '/admin/voice',      label: 'Easy Voice', match: ['/admin/board', '/admin/requests'] },
-  { href: '/admin/documents',  label: 'Easy Documents', match: ['/admin/rules', '/admin/violations'] },
-  { href: '/admin/schedule',   label: 'Easy Schedule' },
+  { href: '/admin/community',  label: 'Community', anyPerm: ['community.manage'] },
+  { href: '/admin/compliance', label: 'Compliance', anyPerm: ['financials.view', 'payments.view', 'violations.manage'], match: ['/admin/estoppel', '/admin/collections', '/admin/structural', '/admin/financials', '/admin/governance', '/admin/enforcement', '/admin/meetings', '/admin/elections', '/admin/arc'] },
+  { href: '/admin/reports',    label: 'Reports', anyPerm: ['financials.view', 'payments.view'] },
+  { href: '/admin/residents',  label: 'Easy Track', anyPerm: ['residents.view', 'residents.manage'], match: ['/admin/vendor'] },
+  { href: '/admin/voice',      label: 'Easy Voice', anyPerm: ['voice.manage'], match: ['/admin/board', '/admin/requests'] },
+  { href: '/admin/documents',  label: 'Easy Documents', anyPerm: ['documents.manage', 'violations.manage'], match: ['/admin/rules', '/admin/violations'] },
+  { href: '/admin/schedule',   label: 'Easy Schedule', anyPerm: ['schedule.manage'] },
+  { href: '/admin/roles',      label: 'Roles', anyPerm: ['roles.manage'] },
 ]
 
 const navActive = (pathname: string, item: AdminNavItem) => {
@@ -44,6 +47,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter()
   const pathname = usePathname() || '/admin'
   const isPlatformAdmin = usePlatformAdmin()
+  const { canAny, loading: permLoading } = usePermissions()
 
   // Auth + role gate
   useEffect(() => {
@@ -72,7 +76,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       </header>
 
       <nav className="admin-nav" style={{ position: 'relative' }}>
-        {ADMIN_NAV.map(item => (
+        {ADMIN_NAV.filter(item => !item.anyPerm || permLoading || canAny(item.anyPerm)).map(item => (
           <Link
             key={item.href}
             href={item.href}
