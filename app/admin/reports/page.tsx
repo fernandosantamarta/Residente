@@ -24,7 +24,7 @@ const yearStartISO = () => `${new Date().getUTCFullYear()}-01-01`
 const payDate = (p: any) => (p.paid_on || (p.created_at ? String(p.created_at).slice(0, 10) : '')) as string
 const inRange = (iso: string, from: string, to: string) => !!iso && iso >= from && iso <= to
 
-type Payment = { id: string; amount: number; paid_on: string | null; status: string | null; created_at: string | null; resident: any }
+type Payment = { id: string; amount: number; paid_on: string | null; status: string | null; created_at: string | null; resident_id: string | null }
 type Expense = { id: string; amount: number; spent_on: string; category_id: string | null; vendor: string | null; description: string | null }
 type Resident = { id: string; full_name: string | null; unit_number: string | null; address: string | null; opening_balance: number | null }
 
@@ -48,7 +48,7 @@ export default function ReportsPage() {
     try {
       const [{ data: pay }, { data: exp }, { data: res }, { data: bc }] = (await Promise.all([
         withTimeout(supabase!.from('payments')
-          .select('id, amount, paid_on, status, created_at, resident:resident_id(full_name, unit_number, address)')
+          .select('id, amount, paid_on, status, created_at, resident_id')
           .eq('community_id', communityId).order('paid_on', { ascending: false })),
         withTimeout(supabase!.from('ev_expenses')
           .select('id, amount, spent_on, category_id, vendor, description')
@@ -67,6 +67,13 @@ export default function ReportsPage() {
   useEffect(() => { load() }, [load])
 
   const catName = useCallback((id: string | null) => cats.find(c => c.id === id)?.name || '', [cats])
+  // Resident lookup for payment rows — joined client-side (PostgREST has no
+  // detectable FK embed from payments → residents).
+  const residentById = useMemo(() => {
+    const m: Record<string, Resident> = {}
+    for (const r of residents) m[r.id] = r
+    return m
+  }, [residents])
 
   const paysInRange = useMemo(() => payments.filter(p => inRange(payDate(p), from, to)), [payments, from, to])
   const expInRange = useMemo(() => expenses.filter(x => inRange(x.spent_on, from, to)), [expenses, from, to])
@@ -78,8 +85,8 @@ export default function ReportsPage() {
   const exportPayments = () => {
     const cols: CsvColumn<Payment>[] = [
       { label: 'Date', value: p => payDate(p) },
-      { label: 'Resident', value: p => p.resident?.full_name || '' },
-      { label: 'Unit', value: p => p.resident?.unit_number || '' },
+      { label: 'Resident', value: p => residentById[p.resident_id || '']?.full_name || '' },
+      { label: 'Unit', value: p => residentById[p.resident_id || '']?.unit_number || '' },
       { label: 'Amount', value: p => (Number(p.amount) || 0).toFixed(2) },
       { label: 'Status', value: p => p.status || '' },
     ]
@@ -89,7 +96,10 @@ export default function ReportsPage() {
     // QuickBooks Online 3-column bank-import format: Date, Description, Amount.
     const cols: CsvColumn<Payment>[] = [
       { label: 'Date', value: p => payDate(p) },
-      { label: 'Description', value: p => `Dues — ${p.resident?.full_name || 'Resident'}${p.resident?.unit_number ? ` (Unit ${p.resident.unit_number})` : ''}` },
+      { label: 'Description', value: p => {
+        const r = residentById[p.resident_id || '']
+        return `Dues — ${r?.full_name || 'Resident'}${r?.unit_number ? ` (Unit ${r.unit_number})` : ''}`
+      } },
       { label: 'Amount', value: p => (Number(p.amount) || 0).toFixed(2) },
     ]
     downloadCsv(exportFilename('residente-payments-quickbooks', todayISO()), paysInRange, cols)
