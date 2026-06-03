@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { residentBalance, duesStatus, DUES_LABEL, fmtMoney, communityDuesConfig } from '@/lib/dues'
+import { downloadCsv, exportFilename } from '@/lib/exportCsv'
 import { EasyTrackTabs } from '../EasyTrackTabs'
 
 const withTimeout = (p, ms = 10000) =>
@@ -90,6 +91,21 @@ export default function Residents() {
     }
   }, [communityId])
   useEffect(() => { load() }, [load])
+
+  // Download the roster as CSV (reuses the shared lib/exportCsv helper that
+  // also powers /admin/reports).
+  const exportRoster = () => {
+    const cols = [
+      { label: 'Name', value: r => r.full_name || '' },
+      { label: 'Unit', value: r => r.unit_number || '' },
+      { label: 'Subdivision', value: r => r.subdivision || '' },
+      { label: 'Address', value: r => r.address || '' },
+      { label: 'Email', value: r => r.email || '' },
+      { label: 'Phone', value: r => r.phone || '' },
+      { label: 'Opening balance', value: r => (r.opening_balance != null ? Number(r.opening_balance).toFixed(2) : '') },
+    ]
+    downloadCsv(exportFilename('residente-roster', new Date().toISOString().slice(0, 10)), rows, cols)
+  }
 
   const monthlyDues = Number(community?.monthly_dues) || 0
   const duesCfg = communityDuesConfig(community)
@@ -293,6 +309,11 @@ export default function Residents() {
                 title="CSV columns: name, subdivision, address, email, phone"
                 onClick={() => fileRef.current && fileRef.current.click()}>
                 Import CSV
+              </button>
+              <button type="button" className="admin-secondary-btn"
+                title="Download all households as CSV"
+                onClick={exportRoster} disabled={rows.length === 0}>
+                Export CSV
               </button>
               <input name="residents-csv" ref={fileRef} type="file" accept=".csv,text/csv"
                 onChange={onPickFile} style={{ display: 'none' }} />

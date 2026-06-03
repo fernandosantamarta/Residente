@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { useExpensesAdmin } from '@/hooks/useExpenses'
 import { Dropdown } from '@/components/Dropdown'
+import { downloadCsv, exportFilename } from '@/lib/exportCsv'
 
 const fmtMoney = (n: number | null | undefined) =>
   '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
@@ -61,6 +62,18 @@ export function ExpensesLog({ communityId }: { communityId: string | undefined }
   const catName = (id: string | null) => cats.find(c => c.id === id)?.name || '—'
   const total = expenses.reduce((s, x) => s + x.amount, 0)
 
+  // Download the expense ledger as CSV (shared lib/exportCsv helper).
+  const exportExpenses = () => {
+    const cols = [
+      { label: 'Date', value: (x: typeof expenses[number]) => x.spent_on || '' },
+      { label: 'Category', value: (x: typeof expenses[number]) => (x.category_id ? catName(x.category_id) : '') },
+      { label: 'Vendor', value: (x: typeof expenses[number]) => x.vendor || '' },
+      { label: 'Description', value: (x: typeof expenses[number]) => x.description || '' },
+      { label: 'Amount', value: (x: typeof expenses[number]) => (Number(x.amount) || 0).toFixed(2) },
+    ]
+    downloadCsv(exportFilename('residente-expenses', todayISO()), expenses, cols)
+  }
+
   return (
     <div className="bc" style={{ marginTop: 40 }}>
       <div className="bc-head">
@@ -68,6 +81,11 @@ export function ExpensesLog({ communityId }: { communityId: string | undefined }
         <span className="bc-sub">
           Dated spending that powers the residents&rsquo; Financial Overview chart. {expenses.length} logged · {fmtMoney(total)} total.
         </span>
+        <button type="button" className="admin-secondary-btn" onClick={exportExpenses}
+          disabled={expenses.length === 0} title="Download the expense ledger as CSV"
+          style={{ marginTop: 8, alignSelf: 'flex-start' }}>
+          Export CSV
+        </button>
       </div>
 
       <form className="admin-form" onSubmit={add}>
