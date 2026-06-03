@@ -41,18 +41,15 @@ export function CommunitySwitcher() {
     if (community_id === profile.community_id) { setOpen(false); return }
     setBusy(true); setErr(null)
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ community_id })
-        .eq('id', profile.id)
+      // Goes through the set_active_community SECURITY DEFINER fn (see
+      // supabase/community-switch.sql): a direct PATCH of profiles.community_id
+      // 403s (authenticated can't write that column) and would be an IDOR if it
+      // could. The function checks ev_membership first, then switches and bumps
+      // last_active_at in one call.
+      const { error } = await supabase.rpc('set_active_community', {
+        p_community_id: community_id,
+      })
       if (error) throw error
-      // Touch last_active_at so the picker can later prefer the most
-      // recently used community as the boot default.
-      supabase.from('ev_membership')
-        .update({ last_active_at: new Date().toISOString() })
-        .eq('profile_id', profile.id)
-        .eq('community_id', community_id)
-        .then(() => undefined, () => undefined)
 
       if (setProfile) setProfile({ ...profile, community_id })
       setOpen(false)
