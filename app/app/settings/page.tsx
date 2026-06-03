@@ -30,6 +30,9 @@ import {
 } from '@/lib/homeVault'
 import { loadNotificationPrefs, saveNotificationPrefs } from '@/lib/notificationPrefs'
 import { loadResidentLists, addContact, addVehicle, addPet, removeResidentRow } from '@/lib/residentLists'
+import {
+  isPushSupported, isPushConfigured, pushPermission, isSubscribedHere, enablePush, disablePush,
+} from '@/lib/webPush'
 import '../home/home.css'
 
 // Every row + sidebar CTA opens a dialog (keyed below). One generic
@@ -951,15 +954,18 @@ function DialogBody({
 
     case 'push':
       return (
-        <RadioGroup<PushPref>
-          value={prefs.push_pref}
-          onChange={v => patch({ push_pref: v })}
-          options={[
-            { value: 'all',       label: 'All',              desc: 'Every push the board sends.' },
-            { value: 'important', label: 'Important only',   desc: 'Votes, dues, emergencies.' },
-            { value: 'none',      label: 'None',             desc: 'Silence in-app and mobile push.' },
-          ]}
-        />
+        <>
+          <PushDeviceToggle profileId={profileId ?? undefined} communityId={communityId} />
+          <RadioGroup<PushPref>
+            value={prefs.push_pref}
+            onChange={v => patch({ push_pref: v })}
+            options={[
+              { value: 'all',       label: 'All',              desc: 'Every push the board sends.' },
+              { value: 'important', label: 'Important only',   desc: 'Votes, dues, emergencies.' },
+              { value: 'none',      label: 'None',             desc: 'Silence in-app and mobile push.' },
+            ]}
+          />
+        </>
       )
 
     case 'quiet-hours':
@@ -1075,6 +1081,71 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
       <span className="set-dialog-field-label">{label}</span>
       {children}
     </label>
+  )
+}
+
+// Per-device push enable/disable. The push_pref radio below it decides WHAT
+// gets pushed; this decides WHETHER this browser is subscribed at all. State is
+// per-browser (a push subscription is tied to one browser/device), so the user
+// turns it on once per device.
+function PushDeviceToggle({ profileId, communityId }: { profileId?: string; communityId?: string | null }) {
+  const [supported]  = useState(() => isPushSupported())
+  const [configured] = useState(() => isPushConfigured())
+  const [perm, setPerm]             = useState<NotificationPermission | 'unsupported'>('default')
+  const [subscribed, setSubscribed] = useState(false)
+  const [busy, setBusy]             = useState(false)
+  const [msg, setMsg]               = useState('')
+
+  useEffect(() => {
+    setPerm(pushPermission())
+    isSubscribedHere().then(setSubscribed)
+  }, [])
+
+  if (!supported) {
+    return (
+      <p className="set-dialog-note">
+        This browser doesn’t support push notifications. On iPhone, add Residente to your
+        Home Screen first, then enable it from the installed app.
+      </p>
+    )
+  }
+
+  const onEnable = async () => {
+    if (!profileId) { setMsg('Sign in first.'); return }
+    setBusy(true); setMsg('')
+    const res = await enablePush(profileId, communityId ?? null)
+    setBusy(false)
+    setPerm(pushPermission())
+    if (res.ok) { setSubscribed(true); setMsg('✓ This device will now get push alerts.') }
+    else setMsg(res.error || 'Could not enable push.')
+  }
+  const onDisable = async () => {
+    setBusy(true); setMsg('')
+    await disablePush()
+    setBusy(false); setSubscribed(false); setMsg('Push turned off on this device.')
+  }
+
+  return (
+    <div className="set-dialog-field" style={{ display: 'block' }}>
+      <span className="set-dialog-field-label">This device</span>
+      {!configured ? (
+        <p className="set-dialog-note">Push isn’t configured on the server yet.</p>
+      ) : subscribed ? (
+        <button type="button" className="set-btn-ghost" disabled={busy} onClick={onDisable}>
+          {busy ? 'Working…' : 'Turn off on this device'}
+        </button>
+      ) : perm === 'denied' ? (
+        <p className="set-dialog-note">
+          Notifications are blocked for this site in your browser settings. Allow them, then
+          reopen this dialog.
+        </p>
+      ) : (
+        <button type="button" className="set-btn-primary" disabled={busy} onClick={onEnable}>
+          {busy ? 'Working…' : 'Enable on this device'}
+        </button>
+      )}
+      {msg && <p className="set-dialog-note" style={{ marginTop: 8 }}>{msg}</p>}
+    </div>
   )
 }
 
