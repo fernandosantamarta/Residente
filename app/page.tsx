@@ -69,6 +69,7 @@ export default function Landing() {
       <BuiltForBoth />
       <VsEverything />
       <DashboardPreview />
+      <Pricing />
       <CtaBlock />
       <SiteFooter />
     </div>
@@ -88,6 +89,7 @@ function LandingNav() {
           <a href="#what">Product</a>
           <a href="#boards">For boards</a>
           <a href="#residents">For residents</a>
+          <a href="#pricing">Pricing</a>
           <Link href="/login" className="ln-nav-signin">Sign in</Link>
         </nav>
         <Link href="/signup" className="ln-cta-pill">Sign up</Link>
@@ -1362,6 +1364,72 @@ function DashboardPreview() {
           <Link href="/app?preview=1" className="ln-pill-btn">Try the interactive demo</Link>
         </div>
       </div>
+    </section>
+  )
+}
+
+// Pricing. One product, priced per home and billed to the association —
+// residents are always free (keeps the promise the CtaBlock copy makes).
+// Every plan ships the entire platform; the tiers are purely community-size
+// bands (by home count), so the cards carry a price + a size band and the
+// full feature set is listed once below in a shared "every plan includes"
+// strip. A launch promo ribbon offers $1/home for the first year.
+function Pricing() {
+  const TIERS = [
+    { name: 'Free',       amt: '$0',  unit: '',             band: 'Up to 25 homes', cta: 'Get started',    href: '/signup', featured: false },
+    { name: 'Pro',        amt: '$2',  unit: '/ home / mo',  band: '26–100 homes',   cta: 'Start with Pro', href: '/signup', featured: true  },
+    { name: 'Premium',    amt: '$5',  unit: '/ home / mo',  band: '101–500 homes',  cta: 'Choose Premium', href: '/signup', featured: false },
+    { name: 'Enterprise', amt: '$10', unit: '/ home / mo',  band: '500+ homes',     cta: 'Talk to us',     href: '/signup', featured: false },
+  ]
+  const INCLUDED = [
+    'Resident cockpit', 'Board decisions feed', 'Document vault', 'Live budget rings',
+    'Online dues + fines (Stripe)', 'Amenity booking', 'Advanced reporting & exports',
+    'Custom roles & permissions', 'API access & webhooks', 'SSO / SAML sign-in',
+    'Accounting integrations', 'Priority support',
+  ]
+  return (
+    <section className="ln-pricing" id="pricing" data-anim>
+      <div className="ln-pricing-head">
+        <div className="ln-eyebrow">Pricing</div>
+        <h2 className="ln-pricing-title">One product. Priced by community size.</h2>
+        <p className="ln-pricing-sub">
+          Every plan includes the entire Residente platform — larger communities
+          just pay a little more per home. Residents never pay a cent.
+        </p>
+        <div className="ln-promo" role="note">
+          <span className="ln-promo-tag">Launch offer</span>
+          <span className="ln-promo-text">
+            Sign up now and pay just <strong>$1 / home</strong> for your entire first year.
+          </span>
+        </div>
+      </div>
+
+      <div className="ln-tiers">
+        {TIERS.map((t, i) => (
+          <div key={t.name} className={`ln-tier${t.featured ? ' ln-tier-feature' : ''}`} data-stagger={i + 1}>
+            {t.featured && <div className="ln-tier-badge">Most popular</div>}
+            <div className="ln-tier-name">{t.name}</div>
+            <div className="ln-tier-price">
+              <span className="ln-tier-amt">{t.amt}</span>
+              {t.unit && <span className="ln-tier-unit">{t.unit}</span>}
+            </div>
+            <div className="ln-tier-note">{t.band}</div>
+            <Link href={t.href} className={`ln-tier-btn${t.featured ? ' ln-tier-btn-accent' : ''}`}>{t.cta}</Link>
+          </div>
+        ))}
+      </div>
+
+      <div className="ln-included">
+        <div className="ln-included-label">Every plan includes the whole platform</div>
+        <ul className="ln-included-grid">
+          {INCLUDED.map(f => <li key={f}>{f}</li>)}
+        </ul>
+      </div>
+
+      <p className="ln-pricing-fine">
+        Online payments are powered by Stripe. Standard Stripe processing fees
+        are passed through to your association.
+      </p>
     </section>
   )
 }
