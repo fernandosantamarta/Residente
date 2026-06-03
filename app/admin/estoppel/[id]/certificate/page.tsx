@@ -2,15 +2,16 @@
 
 // Estoppel certificate — print-ready HTML (Save as PDF). Assembles the
 // statutory content categories of FS 718.116(8) / 720.30851 from the request +
-// community profile. The financial block draws on the current dues model; the
-// per-installment payoff itemisation is finalised once the collections ledger
-// (compliance domain F) lands — fields the board must confirm are clearly
-// marked. ⚠ Certificate language requires attorney review before issuance.
+// community profile. The financial block draws the amounts-owed itemisation
+// from the collections ledger (compliance domain F, casePayoff) when the
+// request is linked to a resident; genuinely non-derivable fields (special
+// assessments, violations, transfer approval) stay marked for board confirm.
+// ⚠ Certificate language + figures require attorney review before issuance.
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { fmtMoney } from '@/lib/dues'
+import { fmtMoney, casePayoff, type PayoffResult } from '@/lib/dues'
 import { ymd } from '@/lib/compliance/rules-core'
 import { estoppelFee, ESTOPPEL_CPI_NEXT_ADJUST } from '@/lib/compliance/estoppel'
 
@@ -22,6 +23,8 @@ export default function EstoppelCertificate() {
   const id = params?.id as string
   const [req, setReq] = useState<any>(null)
   const [community, setCommunity] = useState<any>(null)
+  const [resident, setResident] = useState<any>(null)
+  const [payoff, setPayoff] = useState<PayoffResult | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState('')
 
@@ -37,8 +40,38 @@ export default function EstoppelCertificate() {
         const { data: c } = (await withTimeout(
           supabase.from('communities').select('*').eq('id', r.community_id).single(),
         )) as any
+
+        // Pull the statutory amounts-owed itemisation from the collections
+        // ledger when the request is linked to a resident.
+        let res: any = null
+        let pays: any[] = []
+        let extraCosts = 0
+        if (r.resident_id) {
+          const { data: rr } = (await withTimeout(
+            supabase.from('residents').select('*').eq('id', r.resident_id).single(),
+          )) as any
+          res = rr || null
+          const { data: p } = (await withTimeout(
+            supabase.from('payments').select('amount, created_at').eq('resident_id', r.resident_id),
+          )) as any
+          pays = p || []
+          // Recorded collection / attorney costs from an open case, if any.
+          // Guarded so the cert still renders if the collections tables are absent.
+          try {
+            const { data: cs } = (await withTimeout(
+              supabase.from('ev_collection_cases').select('cost_balance')
+                .eq('resident_id', r.resident_id).order('opened_at', { ascending: false }).limit(1),
+            )) as any
+            extraCosts = Number(cs?.[0]?.cost_balance) || 0
+          } catch { /* collections not provisioned — leave costs at 0 */ }
+        }
+
         if (cancelled) return
-        setReq(r); setCommunity(c || null); setStatus('ready')
+        setReq(r); setCommunity(c || null); setResident(res)
+        if (res) {
+          try { setPayoff(casePayoff(res, c, pays, { extraCosts })) } catch { setPayoff(null) }
+        }
+        setStatus('ready')
       } catch (err: any) {
         if (!cancelled) { setError(err?.message || 'Could not load'); setStatus('error') }
       }
@@ -54,6 +87,27 @@ export default function EstoppelCertificate() {
   const fee = req.fee_waived ? 0 : (req.fee_total ?? estoppelFee({ expedited: !!req.expedited, delinquent: !!req.delinquent }).total)
   const monthly = Number(community?.monthly_dues) || 0
   const issued = ymd(new Date())
+
+  // Amounts owed, drawn from the collections ledger when the request is linked
+  // to a resident. `remaining` is the unpaid balance by statutory bucket.
+  const owed = payoff?.remaining ?? null
+  const totalDue = payoff?.payoff ?? null
+  // Paid-through = due date of the most recent installment whose principal the
+  // applied payments fully cover (statutory application order: interest → fees →
+  // costs → principal, so principal is paid last). Null when nothing is covered.
+  const paidThrough = (() => {
+    if (!payoff) return null
+    let acc = 0
+    let last: string | null = null
+    for (const l of payoff.lines) {
+      acc = Math.round((acc + l.principal) * 100) / 100
+      if (acc <= payoff.applied.principal + 0.005) last = l.dueDate
+      else break
+    }
+    return last
+  })()
+  const Em = ({ children }: { children: React.ReactNode }) => <em style={{ color: '#888' }}>{children}</em>
+  const Confirm = () => <em style={{ color: '#B54708' }}>confirm from ledger</em>
 
   const Row = ({ label, value }: { label: string; value: any }) => (
     <tr>
@@ -98,17 +152,48 @@ export default function EstoppelCertificate() {
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
         <tbody>
           <Row label="Regular periodic assessment" value={`${fmtMoney(monthly)} / month`} />
-          <Row label="Paid through date" value={<em style={{ color: '#888' }}>confirm from ledger</em>} />
-          <Row label="Next assessment due (date / amount)" value={<em style={{ color: '#888' }}>confirm</em>} />
-          <Row label="Delinquent assessments owed" value={req.delinquent ? <em style={{ color: '#B54708' }}>itemise from ledger</em> : fmtMoney(0)} />
-          <Row label="Interest / late fees owed" value={<em style={{ color: '#888' }}>itemise from ledger</em>} />
-          <Row label="Special assessments" value={<em style={{ color: '#888' }}>None / confirm</em>} />
-          <Row label="Capital contribution / transfer fee" value={<em style={{ color: '#888' }}>None / confirm</em>} />
-          <Row label="Open violations" value={<em style={{ color: '#888' }}>None / confirm</em>} />
-          <Row label="Transfer approval / right of first refusal" value={<em style={{ color: '#888' }}>confirm</em>} />
-          {req.delinquent && <Row label="Collection attorney contact" value={<em style={{ color: '#B54708' }}>provide if delinquent</em>} />}
+          <Row label="Paid through date" value={paidThrough || <Confirm />} />
+          <Row
+            label="Next assessment due (date / amount)"
+            value={monthly > 0 ? <span>{fmtMoney(monthly)} · <Em>date — confirm</Em></span> : <Confirm />}
+          />
+          <Row
+            label="Delinquent assessments owed"
+            value={owed ? fmtMoney(owed.principal) : (req.delinquent ? <Confirm /> : fmtMoney(0))}
+          />
+          <Row
+            label="Interest owed"
+            value={owed ? fmtMoney(owed.interest) : <Confirm />}
+          />
+          <Row
+            label="Late fees owed"
+            value={owed ? fmtMoney(owed.lateFee) : <Confirm />}
+          />
+          {owed && owed.cost > 0 && (
+            <Row label="Collection / attorney costs owed" value={fmtMoney(owed.cost)} />
+          )}
+          <Row
+            label={`Total amount due${payoff ? ` as of ${payoff.asOf}` : ''}`}
+            value={totalDue != null
+              ? <strong>{fmtMoney(totalDue)}</strong>
+              : <Confirm />}
+          />
+          <Row label="Special assessments" value={<Em>None / confirm</Em>} />
+          <Row label="Capital contribution / transfer fee" value={<Em>None / confirm</Em>} />
+          <Row label="Open violations" value={<Em>None / confirm</Em>} />
+          <Row label="Transfer approval / right of first refusal" value={<Em>confirm</Em>} />
+          {(owed ? totalDue! > 0.005 : req.delinquent) && (
+            <Row label="Collection attorney contact" value={<em style={{ color: '#B54708' }}>provide if delinquent</em>} />
+          )}
         </tbody>
       </table>
+      {payoff && (
+        <p style={{ fontSize: 11.5, color: '#888', marginTop: 6, lineHeight: 1.5 }}>
+          Amounts owed are itemised from the association&apos;s dues ledger as of {payoff.asOf} (simple
+          interest accruing daily, payments applied interest → late fees → costs → principal). Confirm
+          against your records and add any special assessments, fines, or transfer fees before delivery.
+        </p>
+      )}
 
       <p style={{ fontSize: 12, color: '#555', marginTop: 18, lineHeight: 1.5 }}>
         This certificate is valid for 30 days from the date of delivery if hand-delivered or sent electronically, or
