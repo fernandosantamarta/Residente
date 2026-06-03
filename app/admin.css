@@ -43,7 +43,7 @@
   flex-shrink: 0;
 }
 .admin-nav-item {
-  padding: 10px 16px;
+  padding: 10px 13px;
   font-size: 14px; font-weight: 500;
   color: var(--text-dim);
   border-bottom: 2px solid transparent;
