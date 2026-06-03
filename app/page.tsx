@@ -1397,8 +1397,8 @@ function Pricing() {
         <h2 className="ln-pricing-title">One product. Priced by community size.</h2>
         <p className="ln-pricing-sub">
           Every plan includes the entire Residente platform — larger communities
-          just pay a little more per home. Residents pay no software fee — only
-          their own dues, which go straight to the HOA.
+          just pay a little more per home. The association covers it; residents
+          never pay Residente, just their own dues straight to the HOA.
         </p>
         <div className="ln-promo" role="note">
           <span className="ln-promo-tag">Launch offer</span>
