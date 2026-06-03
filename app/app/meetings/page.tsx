@@ -77,7 +77,7 @@ export default function ResidentMeetingsPage() {
   return (
     <section className="con-wrap ev-section">
       <div className="voice-page-head">
-        <h1 className="voice-page-title">Meetings &amp; elections</h1>
+        <h1 className="voice-page-title">Meetings <span className="amp">&</span> elections</h1>
         <p className="voice-page-sub">
           Upcoming association meetings and the board-election timeline — including when you can run for the
           board and when ballots go out. Notices are also delivered to you directly.

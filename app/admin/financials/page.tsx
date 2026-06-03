@@ -156,7 +156,7 @@ export default function FinancialsPage() {
   return (
     <div className="admin-page">
       <div className="admin-kicker">Florida compliance</div>
-      <h1 className="admin-h1">Financial reporting &amp; reserves</h1>
+      <h1 className="admin-h1">Financial reporting <span className="amp">&</span> reserves</h1>
       <p className="admin-dek">
         Track the audit tier your revenue requires, the annual financial report and budget-adoption
         clocks, and reserve funding (FS 718.111(13) / 720.303(6)-(7)). Advisory — you decide each step.

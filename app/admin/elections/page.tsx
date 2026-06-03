@@ -199,7 +199,7 @@ export default function ElectionsPage() {
   return (
     <div className="admin-page">
       <div className="admin-kicker">Florida compliance</div>
-      <h1 className="admin-h1">Elections &amp; recall</h1>
+      <h1 className="admin-h1">Elections <span className="amp">&</span> recall</h1>
       <p className="admin-dek">
         Track the statutory election timeline — the {ELECTION_FIRST_NOTICE_DAYS.value}-day first notice,
         the {CANDIDATE_NOTICE_DAYS.value}-day candidate deadline, and the {SECOND_NOTICE_MIN_DAYS.value}–{SECOND_NOTICE_MAX_DAYS.value}-day

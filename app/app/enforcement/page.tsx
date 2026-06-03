@@ -75,7 +75,7 @@ export default function ResidentEnforcementPage() {
         &larr; Back to My Violations
       </Link>
       <div className="voice-page-head">
-        <h1 className="voice-page-title">Violations &amp; fines</h1>
+        <h1 className="voice-page-title">Violations <span className="amp">&</span> fines</h1>
         <p className="voice-page-sub">
           Any rule violations, fines, or suspensions on your account. Fines and use-rights suspensions are
           decided by the board, and you have the right to at least {HEARING_NOTICE_DAYS.value} days&apos; notice and a

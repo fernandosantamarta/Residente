@@ -144,7 +144,7 @@ export default function MeetingsPage() {
   return (
     <div className="admin-page">
       <div className="admin-kicker">Florida compliance</div>
-      <h1 className="admin-h1">Meetings &amp; notice</h1>
+      <h1 className="admin-h1">Meetings <span className="amp">&</span> notice</h1>
       <p className="admin-dek">
         Track statutory notice obligations for every meeting — {BOARD_MEETING_NOTICE_HOURS.value}-hour posting
         for regular board meetings, {ANNUAL_MEETING_NOTICE_DAYS.value}-day mailed + posted notice for annual,

@@ -145,7 +145,7 @@ export default function ReportsPage() {
   return (
     <div className="admin-page">
       <div className="admin-kicker">Reporting</div>
-      <h1 className="admin-h1">Reports &amp; exports</h1>
+      <h1 className="admin-h1">Reports <span className="amp">&</span> exports</h1>
       <p className="admin-dek">
         Download your community&rsquo;s dues, fines, expenses, and roster as CSV —
         ready for a spreadsheet or to import into QuickBooks. Payments and expenses

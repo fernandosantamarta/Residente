@@ -161,7 +161,7 @@ export default function CollectionsPage() {
   return (
     <div className="admin-page">
       <div className="admin-kicker">Florida compliance</div>
-      <h1 className="admin-h1">Collections &amp; liens</h1>
+      <h1 className="admin-h1">Collections <span className="amp">&</span> liens</h1>
       <p className="admin-dek">
         Work a delinquent owner through the statutory ladder — 30-day notice of late assessment,
         45-day notice of intent to record a lien, the recorded lien, then the 45-day notice of intent

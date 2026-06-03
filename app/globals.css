@@ -144,9 +144,10 @@
 [data-theme="sketch"] .admin-h1,
 [data-theme="sketch"] .you-title { font-family: 'Fraunces', Georgia, serif; font-weight: 500; letter-spacing: -0.01em; }
 
-/* Fancy ampersand — renders any "&" as a Fraunces italic swash, regardless of
-   the surrounding font. Wrap with <span className="amp">&</span>. */
-.amp { font-family: 'Fraunces', Georgia, serif; font-style: italic; font-weight: 500; }
+/* Plain ampersand — renders "&" in a regular sans font so it reads like a normal
+   typed "&" instead of the serif (Fraunces) heading glyph. Wrap with
+   <span className="amp">&</span>. */
+.amp { font-family: 'Inter', system-ui, sans-serif; font-style: normal; font-weight: inherit; }
 
 /* Pill buttons match the landing CTAs. */
 [data-theme="sketch"] button,

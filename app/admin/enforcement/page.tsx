@@ -244,7 +244,7 @@ export default function EnforcementPage() {
         &larr; All violations (issue &amp; track)
       </Link>
       <div className="admin-kicker">Florida compliance</div>
-      <h1 className="admin-h1">Violations, fines &amp; hearings</h1>
+      <h1 className="admin-h1">Violations, fines <span className="amp">&</span> hearings</h1>
       <p className="admin-dek">
         Run a fine or a use-rights suspension through the statutory process — an independent fining
         committee, the {HEARING_NOTICE_DAYS.value}-day notice and opportunity for a hearing, the

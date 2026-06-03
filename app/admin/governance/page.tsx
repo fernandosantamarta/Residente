@@ -158,7 +158,7 @@ export default function GovernancePage() {
   return (
     <div className="admin-page">
       <div className="admin-kicker">Florida compliance</div>
-      <h1 className="admin-h1">Directors &amp; management</h1>
+      <h1 className="admin-h1">Directors <span className="amp">&</span> management</h1>
       <p className="admin-dek">
         Track director eligibility, the 4-hour certification + continuing education, conflict-of-interest
         disclosures, and CAM licensing (FS 718.112(2)(d) / 720.3033 / Ch. 468). Advisory — the board decides;
