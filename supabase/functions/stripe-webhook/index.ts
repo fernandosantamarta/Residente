@@ -48,6 +48,32 @@ Deno.serve(async (req) => {
 
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object as Stripe.Checkout.Session
+
+    // Platform subscription (the community paying Residente). Flip the community
+    // to active and store the Stripe ids. Idempotent: a retry re-runs the same
+    // UPDATE harmlessly. This is separate from the resident dues flow below.
+    if (session.mode === 'subscription') {
+      const community_id = session.metadata?.community_id
+      const plan = session.metadata?.plan
+      if (!community_id) {
+        console.error('subscription checkout missing community_id:', session.id)
+        return new Response('Missing metadata', { status: 400 })
+      }
+      const { error } = await admin.from('communities').update({
+        subscription_status: 'active',
+        ...(plan ? { plan } : {}),
+        stripe_customer_id: typeof session.customer === 'string' ? session.customer : null,
+        stripe_subscription_id: typeof session.subscription === 'string' ? session.subscription : null,
+      }).eq('id', community_id)
+      if (error) {
+        console.error('Failed to activate community subscription:', error)
+        return new Response('Update failed', { status: 500 })
+      }
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200, headers: { 'Content-Type': 'application/json' },
+      })
+    }
+
     // `setup` sessions (saving a card) carry no payment — ignore them here.
     if (session.mode !== 'payment') {
       return new Response(JSON.stringify({ received: true }), {
@@ -165,6 +191,32 @@ Deno.serve(async (req) => {
         console.error('Failed to insert autopay payment:', error)
         return new Response('Insert failed', { status: 500 })
       }
+    }
+  }
+
+  // Platform subscription lifecycle — keep communities.subscription_status
+  // current on renewals, failures, and cancellations. Keyed by the stored
+  // stripe_subscription_id. (Requires these events on the webhook endpoint.)
+  if (event.type === 'customer.subscription.deleted') {
+    const sub = event.data.object as Stripe.Subscription
+    await admin.from('communities')
+      .update({ subscription_status: 'canceled' })
+      .eq('stripe_subscription_id', sub.id)
+  }
+  if (event.type === 'invoice.payment_failed') {
+    const inv = event.data.object as Stripe.Invoice
+    if (typeof inv.subscription === 'string') {
+      await admin.from('communities')
+        .update({ subscription_status: 'past_due' })
+        .eq('stripe_subscription_id', inv.subscription)
+    }
+  }
+  if (event.type === 'invoice.paid') {
+    const inv = event.data.object as Stripe.Invoice
+    if (typeof inv.subscription === 'string') {
+      await admin.from('communities')
+        .update({ subscription_status: 'active' })
+        .eq('stripe_subscription_id', inv.subscription)
     }
   }
 

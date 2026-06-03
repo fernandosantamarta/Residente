@@ -34,6 +34,29 @@ export interface ProvisionResult {
   community_id: string
   role: SignupRole
   join_code?: string
+  plan?: string           // free | pro | premium | enterprise
+  needs_payment?: boolean // true for paid bands (26+ homes) → on-the-spot checkout
+}
+
+// Start the platform-subscription Stripe Checkout for the caller's community and
+// return the hosted-checkout URL (null on failure — the caller falls back to
+// /admin, where the Activate banner lets them retry). Used by /signup right after
+// provisioning and by the /admin Activate banner.
+export async function startSubscriptionCheckout(): Promise<string | null> {
+  if (!hasSupabase || !supabase) return null
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const { data, error } = await supabase.functions.invoke('create-subscription-checkout', {
+      body: {},
+      headers: session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : undefined,
+    })
+    if (error || !data?.url) return null
+    return data.url as string
+  } catch {
+    return null
+  }
 }
 
 // Error thrown by provisionAccount. `code` mirrors the edge function's

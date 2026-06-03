@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { hasSupabase, signIn, signUp, supabase } from '@/lib/supabase'
 import {
   provisionAccount,
+  startSubscriptionCheckout,
   stashPendingProvision,
   clearPendingProvision,
   ProvisionError,
@@ -126,6 +127,13 @@ export default function SignupPage() {
       const res = await provisionAccount(input)
       // Inline path succeeded — make sure no stale stash lingers to re-run later.
       clearPendingProvision()
+      // Paid band (26+ homes) → pay on the spot: redirect straight into Stripe
+      // subscription checkout. On failure we fall through to /admin, where the
+      // Activate banner lets them complete payment. ≤25 homes is free → /admin.
+      if (res.needs_payment) {
+        const url = await startSubscriptionCheckout()
+        if (url) { window.location.assign(url); return }
+      }
       const dest = res.role === 'resident' ? '/onboard' : '/admin'
       window.location.assign(dest)
     } catch (e) {

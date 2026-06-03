@@ -115,6 +115,17 @@ Deno.serve(async (req) => {
       if (!community_name) return json({ error: 'community_name is required' }, 400)
       if (!fullName) return json({ error: 'full_name is required' }, 400)
 
+      // Pricing band from home count (mirror of lib/plan.ts — keep in sync).
+      // ≤25 (or unknown) = free + active forever; 26+ = a paid plan that starts
+      // 'pending' until the on-the-spot Stripe subscription checkout completes.
+      const homes = unit_count ?? 0
+      const plan =
+        homes <= 25  ? 'free' :
+        homes <= 100 ? 'pro' :
+        homes <= 500 ? 'premium' : 'enterprise'
+      const needs_payment = plan !== 'free'
+      const subscription_status = needs_payment ? 'pending' : 'free'
+
       const join_code = await uniqueJoinCode(admin)
 
       const { data: community, error: cErr } = await admin
@@ -123,8 +134,10 @@ Deno.serve(async (req) => {
           name: community_name,
           location,
           unit_count,
+          home_count: unit_count,
+          plan,
           association_type,
-          subscription_status: 'trial',
+          subscription_status,
           join_code,
         })
         .select('id')
@@ -190,7 +203,7 @@ Deno.serve(async (req) => {
         })
       }
 
-      return json({ ok: true, community_id, join_code, role })
+      return json({ ok: true, community_id, join_code, role, plan, needs_payment })
     }
 
     // ---------------------------------------------------------------

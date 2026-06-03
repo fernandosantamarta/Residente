@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
+import { startSubscriptionCheckout } from '@/lib/signup'
+import { planForHomes, monthlyTotalLabel } from '@/lib/plan'
 
 // Admin home — replaces the old redirect-to-/community. A real dashboard:
 // quick stats + a "Get your community live" checklist whose items tick off
@@ -22,6 +24,14 @@ export default function AdminHome() {
   const [counts, setCounts] = useState<Counts | null>(null)
   const [status, setStatus] = useState('loading') // loading | ready | none | error
   const [copied, setCopied] = useState(false)
+  const [paying, setPaying] = useState(false)
+
+  const activatePlan = async () => {
+    setPaying(true)
+    const url = await startSubscriptionCheckout()
+    if (url) { window.location.assign(url); return }
+    setPaying(false)
+  }
 
   const load = useCallback(async () => {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
@@ -82,6 +92,21 @@ export default function AdminHome() {
   const doneCount = items.filter(i => i.done).length
   const pct = Math.round((doneCount / items.length) * 100)
 
+  // Subscription state (see lib/plan.ts + supabase/community-billing.sql).
+  const homes = community?.home_count ?? community?.unit_count ?? 0
+  const sub = community?.subscription_status
+  const plan = community?.plan
+  const isPaidPlan = plan && plan !== 'free'
+  const pastDue = sub === 'past_due'
+  // Paid band that isn't active yet → show the Activate banner (covers pending,
+  // legacy 'trial', and past_due). Free communities never see it.
+  const needsActivation = Boolean(isPaidPlan && sub !== 'active')
+  const subBadge =
+    sub === 'free'     ? 'Free plan' :
+    sub === 'active'   ? `${planForHomes(homes).label} plan` :
+    pastDue            ? 'Payment past due' :
+    isPaidPlan         ? 'Activation pending' : ''
+
   const stats = [
     { label: 'Units', value: community?.unit_count ?? '—' },
     { label: 'Monthly dues', value: dues ? `$${dues}` : '—' },
@@ -97,8 +122,33 @@ export default function AdminHome() {
       <p className="admin-dek">
         {community?.location ? `${community.location} · ` : ''}
         {community?.association_type === 'condo' ? 'Condominium association' : 'Homeowners association'}
-        {community?.subscription_status === 'trial' ? ' · Free trial' : ''}
+        {subBadge ? ` · ${subBadge}` : ''}
       </p>
+
+      {needsActivation && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+          flexWrap: 'wrap', margin: '4px 0 20px', padding: '14px 18px',
+          border: '1px solid #f3b27a', background: '#fff6ee', borderRadius: 12,
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <strong style={{ fontSize: 14.5 }}>
+              {pastDue
+                ? 'Your subscription payment failed'
+                : `Activate your ${planForHomes(homes).label} plan`}
+            </strong>
+            <span style={{ fontSize: 13, color: '#6b5544' }}>
+              {monthlyTotalLabel(homes)} · {homes} homes.{' '}
+              {pastDue
+                ? 'Update your payment method to keep your community running.'
+                : 'Your community is live — subscribe to keep it active.'}
+            </span>
+          </div>
+          <button className="admin-primary-btn" onClick={activatePlan} disabled={paying}>
+            {paying ? 'Opening…' : pastDue ? 'Update payment' : 'Subscribe now'}
+          </button>
+        </div>
+      )}
 
       <div className="admin-dash-stats">
         {stats.map(s => (
