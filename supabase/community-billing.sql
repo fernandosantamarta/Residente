@@ -22,6 +22,17 @@ alter table public.communities
   add column if not exists stripe_customer_id     text,
   add column if not exists stripe_subscription_id text;
 
+-- Widen the subscription_status CHECK to permit the new lifecycle values.
+-- The original (easy-voice.sql) only allowed trial/active/past_due/cancelled,
+-- so inserting 'free' (≤25 homes) or 'pending' (paid, awaiting payment) was
+-- rejected and every create-community signup failed. Keep the British
+-- 'cancelled' spelling the rest of the schema uses.
+alter table public.communities
+  drop constraint if exists communities_subscription_status_check;
+alter table public.communities
+  add constraint communities_subscription_status_check
+  check (subscription_status in ('trial','active','past_due','cancelled','free','pending'));
+
 create index if not exists communities_stripe_subscription_idx
   on public.communities (stripe_subscription_id);
 

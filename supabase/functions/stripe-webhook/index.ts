@@ -200,7 +200,7 @@ Deno.serve(async (req) => {
   if (event.type === 'customer.subscription.deleted') {
     const sub = event.data.object as Stripe.Subscription
     await admin.from('communities')
-      .update({ subscription_status: 'canceled' })
+      .update({ subscription_status: 'cancelled' })
       .eq('stripe_subscription_id', sub.id)
   }
   if (event.type === 'invoice.payment_failed') {
