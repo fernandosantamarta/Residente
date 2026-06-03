@@ -47,14 +47,19 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter()
   const pathname = usePathname() || '/admin'
   const isPlatformAdmin = usePlatformAdmin()
-  const { canAny, loading: permLoading } = usePermissions()
+  const { canAny, perms, loading: permLoading } = usePermissions()
 
-  // Auth + role gate
+  // Auth + access gate. Access = platform admin, community owner (role 'admin'),
+  // or a board member whose assigned role grants at least one permission. A
+  // board member set to "No role" has an empty permission set and is sent back
+  // to the resident app. Waits for perms to load so we don't false-redirect.
   useEffect(() => {
     if (hasSupabase && !session) { router.replace('/login'); return }
-    const isBoard = !hasSupabase || ['board_member', 'admin'].includes(profile?.role || '')
-    if (!isBoard) router.replace('/app')
-  }, [session, profile, router])
+    if (!hasSupabase) return
+    if (permLoading) return
+    const hasAccess = isPlatformAdmin || profile?.role === 'admin' || (!!perms && perms.length > 0)
+    if (!hasAccess) router.replace('/app')
+  }, [session, profile, perms, permLoading, isPlatformAdmin, router])
 
   if (hasSupabase && !session) return null
 

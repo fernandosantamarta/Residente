@@ -45,55 +45,35 @@ alter table public.residents
   add column if not exists role_id uuid references public.ev_roles(id) on delete set null;
 
 -- ---------- THE CHECK (used by RLS + the app) ----------
--- True when the signed-in user holds a role granting `perm` in their community,
--- OR is a legacy board_member/admin with no custom role assigned yet (full access
--- until a role is explicitly given — keeps existing boards working on day one).
-create or replace function public.has_permission(perm text)
-returns boolean language sql stable security definer as $$
-  select
-    exists (
-      select 1
-      from public.residents r
-      join public.ev_roles ro on ro.id = r.role_id
-      where r.profile_id = auth.uid()
-        and (ro.is_admin or perm = any(ro.permissions))
-    )
-    or exists (
-      -- Legacy fallback: board_member/admin who hasn't been given a role yet.
-      select 1 from public.profiles p
-      where p.id = auth.uid()
-        and p.role in ('board_member', 'admin')
-        and not exists (
-          select 1 from public.residents r2
-          where r2.profile_id = auth.uid() and r2.role_id is not null
-        )
-    );
-$$;
-grant execute on function public.has_permission(text) to authenticated;
-
--- Convenience: the caller's full permission set (for the app to gate UI without
--- a round-trip per permission). Returns ['*'] for admin/legacy-full.
+-- my_permissions() is the single source of truth. Access rules:
+--   • platform admins (Residente staff)        → full access ['*']
+--   • community owner (profiles.role = 'admin') → full access ['*'] (never locked out)
+--   • board member with an assigned role        → that role's permissions
+--   • board member with NO role assigned        → none (locked out of /admin)
+--   • board_member account with no resident row (anomalous) → full access (safety)
 create or replace function public.my_permissions()
 returns text[] language sql stable security definer as $$
   select case
-    when exists (
-      select 1 from public.residents r join public.ev_roles ro on ro.id = r.role_id
-      where r.profile_id = auth.uid() and ro.is_admin
-    ) then array['*']
-    when exists (
-      select 1 from public.residents r where r.profile_id = auth.uid() and r.role_id is not null
-    ) then (
-      select coalesce(ro.permissions, '{}')
+    when public.is_platform_admin(auth.uid()) then array['*']
+    when exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'admin') then array['*']
+    when exists (select 1 from public.residents r where r.profile_id = auth.uid() and r.role_id is not null) then (
+      select case when ro.is_admin then array['*'] else coalesce(ro.permissions, '{}') end
       from public.residents r join public.ev_roles ro on ro.id = r.role_id
       where r.profile_id = auth.uid() limit 1
     )
-    when exists (
-      select 1 from public.profiles p where p.id = auth.uid() and p.role in ('board_member','admin')
-    ) then array['*']
+    when exists (select 1 from public.residents r where r.profile_id = auth.uid()) then '{}'::text[]
+    when exists (select 1 from public.profiles p where p.id = auth.uid() and p.role = 'board_member') then array['*']
     else '{}'::text[]
   end;
 $$;
 grant execute on function public.my_permissions() to authenticated;
+
+-- True when the caller's permission set grants `perm` ('*' = full access).
+create or replace function public.has_permission(perm text)
+returns boolean language sql stable security definer as $$
+  select exists (select 1 from unnest(public.my_permissions()) x where x = '*' or x = perm);
+$$;
+grant execute on function public.has_permission(text) to authenticated;
 
 -- ---------- RLS ON ev_roles ITSELF ----------
 alter table public.ev_roles enable row level security;
@@ -118,16 +98,16 @@ cross join (values
 ) as v(name, perms, is_admin)
 on conflict (community_id, name) do nothing;
 
--- ---------- BACKFILL: give existing board members the Admin role ----------
--- So today's boards land in an explicit, editable role instead of the legacy
--- fallback. Only touches board members who don't already have a role.
+-- ---------- BACKFILL: give every current board member the Admin role ----------
+-- Critical for the "No role = locked out" rule: this preserves access for
+-- EVERYONE who can reach /admin today, so only FUTURE "No role" assignments lock
+-- anyone out. Covers all board_member/admin profiles with a resident row.
 update public.residents r
 set role_id = (
   select ro.id from public.ev_roles ro
   where ro.community_id = r.community_id and ro.is_admin limit 1
 )
 where r.role_id is null
-  and r.board_position is not null
   and exists (
     select 1 from public.profiles p
     where p.id = r.profile_id and p.role in ('board_member','admin')
