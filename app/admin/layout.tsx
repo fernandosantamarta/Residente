@@ -80,7 +80,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <nav className="admin-nav" style={{ position: 'relative' }}>
+      <nav className="admin-nav">
         {ADMIN_NAV.filter(item => !item.anyPerm || permLoading || canAny(item.anyPerm)).map(item => (
           <Link
             key={item.href}
@@ -90,14 +90,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             {item.label}
           </Link>
         ))}
-        {isPlatformAdmin && (
-          <Link href="/platform" className="admin-nav-item" style={{ color: '#FF6B3D', fontWeight: 700 }}>
-            Platform Console
+        {/* Utility links pinned to the right in normal flow (no absolute
+            positioning, which collided with the tabs once the nav grew). */}
+        <span className="admin-nav-utility">
+          {isPlatformAdmin && (
+            <Link href="/platform" className="admin-nav-item" style={{ color: '#FF6B3D', fontWeight: 700 }}>
+              Platform Console
+            </Link>
+          )}
+          <Link href="/admin/support" className="admin-nav-item">
+            Contact Residente
           </Link>
-        )}
-        <Link href="/admin/support" className="admin-nav-item" style={{ position: 'absolute', right: 32, top: 14 }}>
-          Contact Residente
-        </Link>
+        </span>
       </nav>
 
       <main className="admin-main">

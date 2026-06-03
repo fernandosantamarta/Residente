@@ -25,10 +25,20 @@
 
 .admin-nav {
   display: flex; gap: 4px;
-  justify-content: center;
+  justify-content: flex-start;
+  flex-wrap: wrap;
+  align-items: center;
   padding: 14px 32px 0;
   background: var(--bg-elev);
   border-bottom: 1px solid var(--border);
+}
+/* Platform Console + Contact Residente, pushed to the right edge in flow. */
+.admin-nav-utility {
+  margin-left: auto;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-shrink: 0;
 }
 .admin-nav-item {
   padding: 10px 16px;
