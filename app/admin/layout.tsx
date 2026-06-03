@@ -24,6 +24,7 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin',            label: 'Overview', exact: true },
   { href: '/admin/community',  label: 'Community' },
   { href: '/admin/compliance', label: 'Compliance', match: ['/admin/estoppel', '/admin/collections', '/admin/structural', '/admin/financials', '/admin/governance', '/admin/enforcement', '/admin/meetings', '/admin/elections', '/admin/arc'] },
+  { href: '/admin/reports',    label: 'Reports' },
   { href: '/admin/residents',  label: 'Easy Track', match: ['/admin/vendor'] },
   { href: '/admin/voice',      label: 'Easy Voice', match: ['/admin/board', '/admin/requests'] },
   { href: '/admin/documents',  label: 'Easy Documents', match: ['/admin/rules', '/admin/violations'] },
