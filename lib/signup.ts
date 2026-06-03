@@ -140,7 +140,7 @@ export async function resumePendingProvision(): Promise<string | null> {
   if (existing?.community_id) { clearPendingProvision(); return null }
 
   try {
-    const res = await provisionAccount(input)
+    const res = await provisionAccount(input, session.access_token)
     clearPendingProvision()
     return res.role === 'resident' ? '/onboard' : '/admin'
   } catch (e) {
@@ -153,18 +153,22 @@ export async function resumePendingProvision(): Promise<string | null> {
   }
 }
 
-export async function provisionAccount(input: ProvisionInput): Promise<ProvisionResult> {
+export async function provisionAccount(
+  input: ProvisionInput,
+  accessToken?: string,
+): Promise<ProvisionResult> {
   if (!hasSupabase || !supabase) throw new ProvisionError('Supabase is not configured')
-  // Pass the user's access token explicitly. supabase-js updates the Functions
-  // client's auth header via an async onAuthStateChange listener, so invoking
-  // right after signUp can otherwise still send the anon key → the edge
-  // function sees no user and returns 401 Unauthorized.
-  const { data: { session } } = await supabase.auth.getSession()
+  // Pass the user's access token explicitly. Right after signUp, the new session
+  // isn't in storage yet, so supabase.auth.getSession() can return null and the
+  // invoke goes out unauthenticated → the gateway 401s it ("Invalid credentials")
+  // before the function runs. The caller (finish / resume) holds the fresh
+  // session in memory, so it threads the token in here directly; we only fall
+  // back to getSession() when no token was passed.
+  let token = accessToken
+  if (!token) token = (await supabase.auth.getSession()).data.session?.access_token
   const { data, error } = await supabase.functions.invoke('signup-provision', {
     body: input,
-    headers: session?.access_token
-      ? { Authorization: `Bearer ${session.access_token}` }
-      : undefined,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   })
   if (error) throw await readFnError(error)
   if (data?.error) throw new ProvisionError(data.error, data.code)

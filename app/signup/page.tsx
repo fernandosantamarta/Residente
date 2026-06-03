@@ -124,7 +124,9 @@ export default function SignupPage() {
       }
 
       setStep('working')
-      const res = await provisionAccount(input)
+      // Thread the fresh in-memory access token: getSession() can still be empty
+      // this soon after signUp, which made the provision call go out unauthed.
+      const res = await provisionAccount(input, session.access_token)
       // Inline path succeeded — make sure no stale stash lingers to re-run later.
       clearPendingProvision()
       // Paid band (26+ homes) → pay on the spot: redirect straight into Stripe
