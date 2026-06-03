@@ -9,6 +9,7 @@ export type Permission =
   | 'payments.view' | 'payments.manage'
   | 'documents.manage'
   | 'violations.manage'
+  | 'compliance.manage'
   | 'voice.manage'
   | 'schedule.manage'
   | 'roles.manage'
@@ -30,7 +31,8 @@ export const PERMISSION_GROUPS: { label: string; perms: { key: Permission; label
   ] },
   { label: 'Operations', perms: [
     { key: 'documents.manage', label: 'Documents & rules' },
-    { key: 'violations.manage', label: 'Violations & compliance' },
+    { key: 'violations.manage', label: 'Violations' },
+    { key: 'compliance.manage', label: 'Compliance: estoppel, governance, elections, enforcement, collections' },
     { key: 'voice.manage', label: 'Meetings & voting' },
     { key: 'schedule.manage', label: 'Calendar & amenities' },
   ] },
