@@ -25,31 +25,17 @@
 
 .admin-nav {
   display: flex; gap: 4px;
-  justify-content: flex-start;
-  align-items: center;
+  justify-content: center;
   padding: 14px 32px 0;
-  overflow-x: auto;
-  scrollbar-width: none;
   background: var(--bg-elev);
   border-bottom: 1px solid var(--border);
 }
-.admin-nav::-webkit-scrollbar { display: none; }
-/* Platform Console + Contact Residente, pushed to the right edge in flow. */
-.admin-nav-utility {
-  margin-left: auto;
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  flex-shrink: 0;
-}
 .admin-nav-item {
-  padding: 10px 13px;
+  padding: 10px 16px;
   font-size: 14px; font-weight: 500;
   color: var(--text-dim);
   border-bottom: 2px solid transparent;
   cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
   transition: color 0.15s ease;
 }
 .admin-nav-item:hover { color: var(--text); }
