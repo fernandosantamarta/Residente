@@ -1141,17 +1141,19 @@ function WhatIs() {
   return (
     <section className="ln-what" id="what" data-anim>
       <div className="ln-what-left">
-        <div className="ln-eyebrow">What is Residente?</div>
+        <div className="ln-eyebrow">For residents — not a management company</div>
         <h2 className="ln-what-title">
-          The HOA cockpit your community has been quietly hoping for.
+          Manage your own community, easily and effortlessly.
         </h2>
         <Link href="/signup" className="ln-pill-btn">Sign up</Link>
       </div>
       <p className="ln-what-body">
-        Most small HOAs still run on email chains, paper notices, and a
-        QuickBooks file only the treasurer can read. Residente replaces all
-        of that with a portal residents actually want to open — transparent
-        budgets, board decisions in a feed, and one-tap dues.
+        Residente isn&apos;t a management company, and there&apos;s no middleman —
+        it&apos;s software your board and residents run together. Most small HOAs
+        still live in email chains, paper notices, and a QuickBooks file only the
+        treasurer can read. Residente replaces all of that with a portal residents
+        actually want to open — transparent budgets, board decisions in a feed,
+        and one-tap dues.
       </p>
     </section>
   )
