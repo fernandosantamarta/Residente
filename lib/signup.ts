@@ -86,7 +86,7 @@ export async function openBillingPortal(): Promise<string | null> {
 // residents). Used by the /admin Manage subscription dialog.
 export async function manageSubscription(
   action: 'status' | 'cancel' | 'resume' | 'change_plan',
-  payload: { home_count?: number; plan?: string } = {},
+  payload: { home_count?: number; plan?: string; addons?: string[] } = {},
 ): Promise<any> {
   if (!hasSupabase || !supabase) return { error: 'Not available' }
   try {

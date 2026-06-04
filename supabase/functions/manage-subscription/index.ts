@@ -29,6 +29,15 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
+// Optional add-ons (mirrors the landing "Premium & Enterprise add-ons" line),
+// billed as flat monthly subscription items alongside the per-home plan. Keep
+// in sync with the ADDONS list in app/admin/page.tsx.
+const ADDONS: Record<string, { name: string; cents: number }> = {
+  api:        { name: 'API access & webhooks',  cents: 4900 },
+  sso:        { name: 'SSO / SAML sign-in',      cents: 9900 },
+  accounting: { name: 'Accounting integrations', cents: 4900 },
+}
+
 // Bands mirror lib/plan.ts + create-subscription-checkout. A plan override lets
 // the admin sit on a higher tier than their home count implies ("both" model).
 function bandFor(homes: number, planOverride?: string): { plan: string; perHomeCents: number; label: string } {
@@ -52,7 +61,7 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
   try {
-    const body = await req.json().catch(() => ({})) as { action?: string; home_count?: number; plan?: string }
+    const body = await req.json().catch(() => ({})) as { action?: string; home_count?: number; plan?: string; addons?: string[] }
     const action = body.action || 'status'
 
     const authHeader = req.headers.get('Authorization') ?? ''
@@ -81,17 +90,19 @@ Deno.serve(async (req) => {
     if (action === 'status') {
       let cancelAtPeriodEnd = false
       let periodEnd: number | null = null
+      let addons: string[] = []
       if (subId) {
         try {
           const sub = await stripe.subscriptions.retrieve(subId)
           cancelAtPeriodEnd = sub.cancel_at_period_end
           periodEnd = sub.current_period_end
+          addons = sub.items.data.map((i) => i.metadata?.addon).filter((k): k is string => !!k && !!ADDONS[k])
         } catch { /* sub may be gone — treat as none */ }
       }
       return json({
         plan: community.plan, homes, status: community.subscription_status,
         cancel_at_period_end: cancelAtPeriodEnd, current_period_end: periodEnd,
-        has_subscription: Boolean(subId),
+        has_subscription: Boolean(subId), addons,
       })
     }
 
@@ -110,25 +121,47 @@ Deno.serve(async (req) => {
       }
       if (!subId) return json({ error: 'No active subscription to change. Subscribe first.' }, 400)
 
+      const wantAddons = Array.isArray(body.addons)
+        ? [...new Set(body.addons.filter((a): a is string => typeof a === 'string' && !!ADDONS[a]))]
+        : []
+
       const sub = await stripe.subscriptions.retrieve(subId)
-      const itemId = sub.items.data[0]?.id
-      if (!itemId) return json({ error: 'Subscription has no line item.' }, 400)
+      // Base = the one item not tagged as an add-on (the per-home plan).
+      const baseItem = sub.items.data.find((i) => !i.metadata?.addon) || sub.items.data[0]
+      if (!baseItem) return json({ error: 'Subscription has no line item.' }, 400)
+
+      const items: Record<string, unknown>[] = [{
+        id: baseItem.id,
+        quantity: newHomes,
+        price_data: {
+          currency: 'usd', unit_amount: band.perHomeCents, recurring: { interval: 'month' },
+          product_data: {
+            name: `Residente — ${band.label} plan`,
+            description: `${newHomes} homes · $${(band.perHomeCents / 100).toFixed(2)}/home/mo`,
+          },
+        },
+      }]
+      // Reconcile add-on items: keep selected, delete deselected, add new.
+      const stillWanted = new Set(wantAddons)
+      for (const it of sub.items.data) {
+        const key = it.metadata?.addon
+        if (!key || !ADDONS[key]) continue
+        if (stillWanted.has(key)) { stillWanted.delete(key) }
+        else { items.push({ id: it.id, deleted: true }) }
+      }
+      for (const key of stillWanted) {
+        const a = ADDONS[key]
+        items.push({
+          quantity: 1, metadata: { addon: key },
+          price_data: {
+            currency: 'usd', unit_amount: a.cents, recurring: { interval: 'month' },
+            product_data: { name: `Residente — ${a.name}` },
+          },
+        })
+      }
 
       await stripe.subscriptions.update(subId, {
-        items: [{
-          id: itemId,
-          quantity: newHomes,
-          price_data: {
-            currency: 'usd',
-            unit_amount: band.perHomeCents,
-            recurring: { interval: 'month' },
-            product: undefined,
-            product_data: {
-              name: `Residente — ${band.label} plan`,
-              description: `${newHomes} homes · $${(band.perHomeCents / 100).toFixed(2)}/home/mo`,
-            },
-          } as Stripe.SubscriptionUpdateParams.Item.PriceData,
-        }],
+        items: items as unknown as Stripe.SubscriptionUpdateParams.Item[],
         proration_behavior: 'create_prorations',
         cancel_at_period_end: false,
       })

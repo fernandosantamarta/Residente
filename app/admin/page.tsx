@@ -245,20 +245,28 @@ export default function AdminHome() {
 // plan. Talks to the manage-subscription edge fn; no Stripe portal redirect.
 const TIER_RATE: Record<string, number> = { free: 0, pro: 200, premium: 500, enterprise: 1000 }
 type TierKey = 'free' | 'pro' | 'premium' | 'enterprise'
+// Paid plan boxes for the picker (Free isn't a box — to stop paying you cancel).
 const PLAN_CARDS: { key: TierKey; name: string; per: number; band: string; popular?: boolean }[] = [
-  { key: 'free',       name: 'Free',       per: 0,    band: 'Up to 25 homes' },
   { key: 'pro',        name: 'Pro',        per: 200,  band: '26–100 homes', popular: true },
   { key: 'premium',    name: 'Premium',    per: 500,  band: '101–500 homes' },
   { key: 'enterprise', name: 'Enterprise', per: 1000, band: '500+ homes' },
+]
+// Optional add-ons (mirrors the landing Enterprise add-ons + the edge fn ADDONS).
+const ADDONS: { key: string; name: string; cents: number; blurb: string }[] = [
+  { key: 'api',        name: 'API access & webhooks',  cents: 4900, blurb: 'Build on your data; push events out.' },
+  { key: 'sso',        name: 'SSO / SAML sign-in',      cents: 9900, blurb: 'Single sign-on for your board + staff.' },
+  { key: 'accounting', name: 'Accounting integrations', cents: 4900, blurb: 'Sync dues + expenses to your books.' },
 ]
 
 function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
   currentHomes: number; onClose: () => void; onChanged: () => void
 }) {
+  const initialPlan = (planForHomes(currentHomes).plan !== 'free' ? planForHomes(currentHomes).plan : 'pro') as TierKey
   const [status, setStatus] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [homes, setHomes] = useState(String(currentHomes || ''))
-  const [tier, setTier] = useState<TierKey>(planForHomes(currentHomes).plan as TierKey)
+  const [tier, setTier] = useState<TierKey>(initialPlan)
+  const [addons, setAddons] = useState<string[]>([])
   const [busy, setBusy] = useState<string | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const [msg, setMsg] = useState<string | null>(null)
@@ -267,27 +275,37 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
     (async () => {
       const s = await manageSubscription('status')
       if (s?.error) setErr(s.error)
-      else { setStatus(s); if (s?.plan && TIER_RATE[s.plan] !== undefined) setTier(s.plan as TierKey) }
+      else {
+        setStatus(s)
+        if (s?.plan && TIER_RATE[s.plan] && s.plan !== 'free') setTier(s.plan as TierKey)
+        if (Array.isArray(s?.addons)) setAddons(s.addons)
+      }
       setLoading(false)
     })()
   }, [])
 
   const n = Math.max(0, parseInt(homes || '0', 10) || 0)
+  const homesValid = n >= 1
   const perHome = TIER_RATE[tier]
-  const isFree = tier === 'free'
-  const previewMonthly = isFree ? 'Free' : `$${((perHome * n) / 100).toLocaleString('en-US')}/mo`
-  const currentPlan = (status?.plan as string) || planForHomes(currentHomes).plan
-  const changed = tier !== currentPlan || n !== currentHomes
+  const addonCents = ADDONS.filter(a => addons.includes(a.key)).reduce((s, a) => s + a.cents, 0)
+  const totalCents = perHome * n + addonCents
+  const totalLabel = `$${(totalCents / 100).toLocaleString('en-US')}/mo`
+  const currentPlan = (status?.plan as string) || initialPlan
+  const currentAddons: string[] = status?.addons || []
+  const sameAddons = addons.length === currentAddons.length && addons.every(a => currentAddons.includes(a))
+  const changed = tier !== currentPlan || n !== currentHomes || !sameAddons
   const periodEnd = status?.current_period_end
     ? new Date(status.current_period_end * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : null
   const canceling = !!status?.cancel_at_period_end
+  const toggleAddon = (key: string) => setAddons(p => p.includes(key) ? p.filter(x => x !== key) : [...p, key])
 
   const doChange = async () => {
+    if (!homesValid) return
     setBusy('change'); setErr(null); setMsg(null)
-    const r = await manageSubscription('change_plan', { home_count: n, plan: tier })
+    const r = await manageSubscription('change_plan', { home_count: n, plan: tier, addons })
     if (r?.error) { setErr(r.error); setBusy(null); return }
-    setMsg(`Now on the ${r.label} plan — ${previewMonthly}.`)
+    setMsg(`Now on the ${r.label} plan — ${totalLabel}.`)
     setBusy(null); onChanged()
   }
   const doCancel = async () => {
@@ -350,55 +368,90 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
                   Homes
                   <input value={homes} inputMode="numeric"
                     onChange={(e) => setHomes(e.target.value.replace(/[^0-9]/g, ''))}
-                    style={{ width: 90, padding: '9px 12px', borderRadius: 10, border: '1px solid #d8cfc4', fontSize: 15 }} />
+                    style={{ width: 90, padding: '9px 12px', borderRadius: 10, border: `1px solid ${homesValid ? '#d8cfc4' : '#e0857a'}`, fontSize: 15 }} />
                 </label>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
                 {PLAN_CARDS.map((p) => {
                   const sel = tier === p.key
-                  const monthly = p.per === 0 ? 'Free' : `$${((p.per * n) / 100).toLocaleString('en-US')}/mo`
+                  const monthly = `$${((p.per * n) / 100).toLocaleString('en-US')}/mo`
                   return (
                     <button key={p.key} type="button" onClick={() => setTier(p.key)} style={{
                       textAlign: 'left', cursor: 'pointer', position: 'relative',
                       borderRadius: 16, padding: '16px 16px 15px',
-                      border: sel ? '2px solid #E5601F' : '2px solid #ece4da',
-                      background: sel ? '#fff7f1' : '#fff',
-                      boxShadow: sel ? '0 6px 18px rgba(229,96,31,0.16)' : 'none',
-                      transition: 'border-color .12s, background .12s',
+                      border: '2px solid ' + (sel ? '#E5601F' : '#ece4da'),
+                      background: sel ? '#E5601F' : '#fff',
+                      color: sel ? '#fff' : '#2a1206',
+                      boxShadow: sel ? '0 8px 22px rgba(229,96,31,0.32)' : 'none',
+                      transition: 'all .12s',
                     }}>
                       {p.popular && (
-                        <span style={{ position: 'absolute', top: -10, right: 12, fontSize: 10.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: '#fff', background: '#E5601F', padding: '3px 9px', borderRadius: 999 }}>Popular</span>
+                        <span style={{ position: 'absolute', top: -10, right: 12, fontSize: 10.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: sel ? '#E5601F' : '#fff', background: sel ? '#fff' : '#E5601F', padding: '3px 9px', borderRadius: 999 }}>Popular</span>
                       )}
-                      <div style={{ fontSize: 16, fontWeight: 800, color: '#2a1206' }}>{p.name}</div>
-                      <div style={{ marginTop: 6, fontSize: 22, fontWeight: 800, color: sel ? '#E5601F' : '#2a1206', lineHeight: 1 }}>
-                        {p.per === 0 ? '$0' : `$${p.per / 100}`}
-                        {p.per > 0 && <span style={{ fontSize: 12, fontWeight: 600, color: '#8a7560' }}> /home/mo</span>}
+                      <div style={{ fontSize: 16, fontWeight: 800 }}>{p.name}</div>
+                      <div style={{ marginTop: 6, fontSize: 22, fontWeight: 800, lineHeight: 1 }}>
+                        ${p.per / 100}<span style={{ fontSize: 12, fontWeight: 600, opacity: 0.75 }}> /home/mo</span>
                       </div>
-                      <div style={{ marginTop: 7, fontSize: 12.5, color: '#8a7560' }}>{p.band}</div>
-                      <div style={{ marginTop: 10, paddingTop: 9, borderTop: '1px solid #f0e8df', fontSize: 13, fontWeight: 700, color: '#4a3a2c' }}>
-                        {monthly}
+                      <div style={{ marginTop: 7, fontSize: 12.5, opacity: sel ? 0.9 : 0.6 }}>{p.band}</div>
+                      <div style={{ marginTop: 10, paddingTop: 9, borderTop: `1px solid ${sel ? 'rgba(255,255,255,0.3)' : '#f0e8df'}`, fontSize: 13, fontWeight: 700 }}>
+                        {homesValid ? monthly : '— /mo'}
                       </div>
                     </button>
                   )
                 })}
               </div>
 
-              {isFree ? (
-                <button onClick={doCancel} disabled={busy != null || canceling}
-                  style={{ marginTop: 18, width: '100%', padding: '14px', borderRadius: 999, border: '1px solid #e0b4a4', background: '#fff', color: '#b5481f', fontWeight: 800, fontSize: 15.5, cursor: canceling ? 'default' : 'pointer', opacity: canceling ? 0.5 : 1 }}>
-                  {canceling ? 'Already set to cancel' : busy === 'cancel' ? 'Canceling…' : 'Cancel — drop to Free at period end'}
-                </button>
-              ) : (
-                <button className="admin-primary-btn" style={{ marginTop: 18, width: '100%', padding: '14px', fontSize: 15.5 }}
-                  onClick={doChange} disabled={busy != null || !changed}>
-                  {busy === 'change' ? 'Updating…' : canceling ? `Keep active on ${PLAN_CARDS.find(p => p.key === tier)?.name} — ${previewMonthly}` : `Switch to ${PLAN_CARDS.find(p => p.key === tier)?.name} — ${previewMonthly}`}
-                </button>
-              )}
+              {/* Add-ons */}
+              <div style={{ marginTop: 22, fontWeight: 800, fontSize: 16 }}>Add-ons</div>
+              <div style={{ fontSize: 12.5, color: '#8a7560', marginBottom: 12 }}>Optional, billed monthly on top of your plan.</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {ADDONS.map((a) => {
+                  const on = addons.includes(a.key)
+                  return (
+                    <button key={a.key} type="button" onClick={() => toggleAddon(a.key)} style={{
+                      display: 'flex', alignItems: 'center', gap: 13, textAlign: 'left', cursor: 'pointer',
+                      padding: '13px 15px', borderRadius: 13,
+                      border: '2px solid ' + (on ? '#E5601F' : '#ece4da'),
+                      background: on ? '#fff7f1' : '#fff',
+                    }}>
+                      <span style={{ width: 22, height: 22, borderRadius: 7, flexShrink: 0, display: 'grid', placeItems: 'center',
+                        border: '2px solid ' + (on ? '#E5601F' : '#cdbfae'), background: on ? '#E5601F' : '#fff', color: '#fff', fontSize: 13, fontWeight: 900 }}>
+                        {on ? '✓' : ''}
+                      </span>
+                      <span style={{ flex: 1, minWidth: 0 }}>
+                        <span style={{ display: 'block', fontSize: 14.5, fontWeight: 700, color: '#2a1206' }}>{a.name}</span>
+                        <span style={{ display: 'block', fontSize: 12.5, color: '#8a7560' }}>{a.blurb}</span>
+                      </span>
+                      <span style={{ flexShrink: 0, fontSize: 14, fontWeight: 800, color: '#E5601F' }}>+${a.cents / 100}/mo</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <button className="admin-primary-btn" style={{ marginTop: 20, width: '100%', padding: '15px', fontSize: 16 }}
+                onClick={doChange} disabled={busy != null || !changed || !homesValid}>
+                {busy === 'change' ? 'Updating…'
+                  : !homesValid ? 'Enter the number of homes'
+                  : `${canceling ? 'Keep active on' : 'Switch to'} ${PLAN_CARDS.find(p => p.key === tier)?.name} — ${totalLabel}`}
+              </button>
               <div style={{ marginTop: 10, fontSize: 12.5, color: '#8a7560', textAlign: 'center' }}>
-                Plan changes are prorated. Cancellations take effect at the end of your billing period.
+                Plan + add-on changes are prorated to today.
               </div>
             </div>
+
+            {/* Cancel */}
+            {status?.has_subscription && !canceling && (
+              <div style={{ borderTop: '1px solid #eee', marginTop: 22, paddingTop: 18 }}>
+                <button onClick={doCancel} disabled={busy != null}
+                  style={{ width: '100%', padding: '13px', borderRadius: 999, border: '1px solid #e0b4a4', background: '#fff', color: '#b5481f', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
+                  {busy === 'cancel' ? 'Canceling…' : 'Cancel subscription'}
+                </button>
+                <div style={{ marginTop: 8, fontSize: 12, color: '#8a7560', textAlign: 'center' }}>
+                  Stays active until the end of your billing period — you can resume before then.
+                </div>
+              </div>
+            )}
 
             {err && <div style={{ marginTop: 16, padding: '11px 13px', borderRadius: 10, background: '#fdecec', color: '#a32020', fontSize: 14 }}>{err}</div>}
             {msg && <div style={{ marginTop: 16, padding: '11px 13px', borderRadius: 10, background: '#eaf7ec', color: '#1d7a33', fontSize: 14 }}>{msg}</div>}
