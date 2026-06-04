@@ -63,7 +63,14 @@ export default function Login() {
     try {
       const { error: err } = await signIn({ email, password })
       if (err) {
-        setError(err.message || 'Sign in failed')
+        const m = (err.message || '').toLowerCase()
+        if (m.includes('email not confirmed')) {
+          setError("Your email isn't confirmed yet — check your inbox for the confirmation link, then sign in.")
+        } else if (m.includes('invalid login credentials')) {
+          setError("That email and password don't match an account. If the account was reset or deleted, use Forgot password below.")
+        } else {
+          setError(err.message || 'Sign in failed')
+        }
       } else {
         // Finish a confirmation-deferred sign-up if one is pending, otherwise
         // land on the user's preferred page.
