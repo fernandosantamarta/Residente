@@ -27,14 +27,22 @@ const statusStyle = (s: PlatformRequest['status']): React.CSSProperties => ({
   color: s === 'resolved' ? '#4AC99B' : s === 'in_progress' ? '#6BA6F5' : C.accent,
 })
 
-type Tab = 'overview' | 'communities' | 'support' | 'operators' | 'activity'
+type Tab = 'overview' | 'communities' | 'subscriptions' | 'support' | 'operators' | 'activity'
 const TABS: { key: Tab; label: string }[] = [
   { key: 'overview', label: 'Overview' },
   { key: 'communities', label: 'Communities' },
+  { key: 'subscriptions', label: 'Subscriptions' },
   { key: 'support', label: 'Support' },
   { key: 'operators', label: 'Operators' },
   { key: 'activity', label: 'Activity' },
 ]
+
+// Per-home monthly rate (cents) by plan tier — mirrors lib/plan.ts. Uses the
+// community's stored plan (respects manual tier overrides), not a recompute.
+const PLAN_RATE_CENTS: Record<string, number> = { free: 0, pro: 200, premium: 500, enterprise: 1000 }
+const communityMonthlyCents = (c: { plan: string | null; home_count: number | null; unit_count: number | null }) =>
+  (PLAN_RATE_CENTS[c.plan || 'free'] ?? 0) * Number(c.home_count ?? c.unit_count ?? 0)
+const fmtMoney = (cents: number) => `$${Math.round(cents / 100).toLocaleString('en-US')}`
 
 const ROLES: { key: OperatorRole; label: string; blurb: string }[] = [
   { key: 'owner', label: 'Owner', blurb: 'Full control + manage operators' },
@@ -169,6 +177,10 @@ export default function PlatformConsole() {
   const openCount = requests.filter(r => r.status !== 'resolved').length
   const totalResidents = communities.reduce((s, c) => s + Number(c.resident_count || 0), 0)
   const trials = communities.filter(c => c.subscription_status === 'trial').length
+  const paying = communities.filter(c => communityMonthlyCents(c) > 0)
+  const mrrCents = communities.reduce((s, c) => s + (c.subscription_status === 'active' ? communityMonthlyCents(c) : 0), 0)
+  const activeCount = communities.filter(c => c.subscription_status === 'active').length
+  const pastDueCount = communities.filter(c => c.subscription_status === 'past_due').length
 
   const onEnter = async (id: string) => {
     setEntering(id)
@@ -188,7 +200,8 @@ export default function PlatformConsole() {
   const statsGrid = (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14, marginBottom: 18 }}>
       {stat('Communities', communities.length)}
-      {stat('On trial', trials)}
+      {stat('MRR ($/mo)', Math.round(mrrCents / 100), mrrCents > 0)}
+      {stat('Active subs', activeCount)}
       {stat('Total residents', totalResidents)}
       {stat('Open tickets', openCount, openCount > 0)}
     </div>
@@ -233,6 +246,55 @@ export default function PlatformConsole() {
                   </td>
                 </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+
+  const subStatusColor = (s: string | null) =>
+    s === 'active' ? '#4AC99B' : s === 'past_due' ? '#E97070' : s === 'cancelled' || s === 'canceled' ? '#E9A23B' : C.muted
+  const subStatusBg = (s: string | null) =>
+    s === 'active' ? 'rgba(74,201,155,0.15)' : s === 'past_due' ? 'rgba(229,112,112,0.15)' : s === 'cancelled' || s === 'canceled' ? 'rgba(233,162,59,0.15)' : C.accentSoft
+
+  const subscriptionsSection = (
+    <section style={{ ...card, marginBottom: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
+        <h2 style={{ fontSize: 15, fontWeight: 700 }}>Subscriptions</h2>
+        <span style={{ fontSize: 13, color: C.muted }}>
+          MRR <strong style={{ color: C.accent }}>{fmtMoney(mrrCents)}/mo</strong> · {activeCount} active · {paying.length} on a paid plan
+          {pastDueCount > 0 && <span style={{ color: '#E97070' }}> · {pastDueCount} past due</span>}
+        </span>
+      </div>
+      <p style={{ color: C.muted, fontSize: 12.5, marginBottom: 14 }}>Every community&apos;s plan, status, and monthly amount. MRR counts active subscriptions only.</p>
+      {communities.length === 0 ? (
+        <div style={{ color: C.muted, fontSize: 13.5 }}>No communities yet.</div>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
+            <thead><tr>
+              {['Community', 'Plan', 'Status', 'Homes', 'Monthly', 'Billing'].map(h => <th key={h} style={th}>{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {communities.map(c => {
+                const monthly = communityMonthlyCents(c)
+                return (
+                  <tr key={c.id}>
+                    <td style={{ ...td, fontWeight: 700 }}>{c.name || '—'}</td>
+                    <td style={{ ...td, textTransform: 'capitalize' }}>{c.plan || 'free'}</td>
+                    <td style={td}>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, textTransform: 'capitalize',
+                        background: subStatusBg(c.subscription_status), color: subStatusColor(c.subscription_status) }}>
+                        {c.subscription_status || 'active'}
+                      </span>
+                    </td>
+                    <td style={td}>{c.home_count ?? c.unit_count ?? '—'}</td>
+                    <td style={{ ...td, fontWeight: 700 }}>{monthly > 0 ? `${fmtMoney(monthly)}/mo` : 'Free'}</td>
+                    <td style={{ ...td, color: C.muted }}>{c.stripe_subscription_id ? 'Stripe' : '—'}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -293,10 +355,13 @@ export default function PlatformConsole() {
       </div>
 
       {/* OVERVIEW — everything on one page */}
-      {tab === 'overview' && (<>{statsGrid}{communitiesSection}{supportSection}</>)}
+      {tab === 'overview' && (<>{statsGrid}{subscriptionsSection}{communitiesSection}{supportSection}</>)}
 
       {/* COMMUNITIES */}
       {tab === 'communities' && communitiesSection}
+
+      {/* SUBSCRIPTIONS */}
+      {tab === 'subscriptions' && subscriptionsSection}
 
       {/* SUPPORT */}
       {tab === 'support' && supportSection}

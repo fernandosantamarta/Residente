@@ -6,6 +6,8 @@ export type PlatformCommunity = {
   id: string; name: string; location: string | null
   subscription_status: string | null; join_code: string | null
   created_at: string; resident_count: number; board_count: number
+  plan: string | null; home_count: number | null; unit_count: number | null
+  stripe_subscription_id: string | null
 }
 export type PlatformRequest = {
   id: string; from_name: string | null; from_email: string | null

@@ -45,10 +45,14 @@ on conflict (profile_id) do nothing;
 -- ---------- PLATFORM OVERVIEW (all communities + stats) ----------
 -- Guarded definer function: the ONLY cross-community read path. Raises if the
 -- caller isn't a platform admin.
+-- Drop first: the RETURNS TABLE signature changed (added billing columns), and
+-- Postgres won't CREATE OR REPLACE a function whose OUT columns differ.
+drop function if exists public.platform_overview();
 create or replace function public.platform_overview()
 returns table (
   id uuid, name text, location text, subscription_status text, join_code text,
-  created_at timestamptz, resident_count bigint, board_count bigint
+  created_at timestamptz, resident_count bigint, board_count bigint,
+  plan text, home_count int, unit_count int, stripe_subscription_id text
 ) language plpgsql stable security definer as $$
 begin
   if not public.is_platform_admin(auth.uid()) then
@@ -57,7 +61,8 @@ begin
   return query
     select c.id, c.name, c.location, c.subscription_status, c.join_code, c.created_at,
       (select count(*) from public.residents r where r.community_id = c.id),
-      (select count(*) from public.residents r where r.community_id = c.id and r.is_board)
+      (select count(*) from public.residents r where r.community_id = c.id and r.is_board),
+      c.plan, c.home_count, c.unit_count, c.stripe_subscription_id
     from public.communities c
     order by c.created_at desc nulls last;
 end $$;
