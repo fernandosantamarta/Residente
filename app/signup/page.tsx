@@ -343,13 +343,7 @@ function Community({
                 placeholder="e.g. Palm Grove" required />
             </div>
           </label>
-          <label className="su-field">
-            <span className="su-label">City &amp; state</span>
-            <div className="su-input-wrap">
-              <input className="su-input" value={location} onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g. Miami, FL" required />
-            </div>
-          </label>
+          <CitySearch value={location} onChange={setLocation} />
           <label className="su-field">
             <span className="su-label">Number of {propertyType === 'condo' ? 'units' : 'homes'}</span>
             <div className="su-input-wrap">
@@ -465,6 +459,72 @@ function PlaceSearch({ onPick }: { onPick: (r: { name: string; location: string 
         </span>
       ) : (
         <span className="su-hint">Start typing to find it — or just fill it in below.</span>
+      )}
+    </div>
+  )
+}
+
+// City & state field with its own dropdown — same proxy, kind:'city' (localities
+// + states only). Bound to `location` so manual typing always works and the
+// field stays required; picking a suggestion drops in "City, State".
+function CitySearch({ value, onChange }: { value: string; onChange: (s: string) => void }) {
+  const [preds, setPreds] = useState<Prediction[]>([])
+  const [open, setOpen] = useState(false)
+  const justPicked = useRef(false)
+
+  useEffect(() => {
+    if (justPicked.current) { justPicked.current = false; return }
+    const input = value.trim()
+    if (input.length < 3) { setPreds([]); setOpen(false); return }
+    const ctl = new AbortController()
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/places/autocomplete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input, kind: 'city' }),
+          signal: ctl.signal,
+        })
+        const data = await res.json()
+        const list: Prediction[] = data.predictions || []
+        setPreds(list); setOpen(list.length > 0)
+      } catch { /* offline — typing still works */ }
+    }, 280)
+    return () => { clearTimeout(t); ctl.abort() }
+  }, [value])
+
+  const choose = (pred: Prediction) => {
+    justPicked.current = true
+    onChange(pred.location || pred.primary)
+    setOpen(false); setPreds([])
+  }
+
+  return (
+    <div className="su-field su-place">
+      <span className="su-label">City &amp; state</span>
+      <div className="su-input-wrap">
+        <span className="su-place-icon" aria-hidden="true"><IconPin /></span>
+        <input className="su-input su-place-input" value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => preds.length && setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 120)}
+          placeholder="e.g. Miami, FL" required autoComplete="off" />
+      </div>
+      {open && preds.length > 0 && (
+        <ul className="su-place-list">
+          {preds.map((p) => (
+            <li key={p.placeId}>
+              <button type="button" className="su-place-opt"
+                onMouseDown={(e) => e.preventDefault()} onClick={() => choose(p)}>
+                <span className="su-place-pin" aria-hidden="true"><IconPin /></span>
+                <span className="su-place-opt-text">
+                  <span className="su-place-opt-main">{p.location || p.primary}</span>
+                  {p.secondary && <span className="su-place-opt-sub">{p.secondary}</span>}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   )
