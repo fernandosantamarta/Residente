@@ -68,6 +68,30 @@ begin
 end $$;
 grant execute on function public.platform_overview() to authenticated;
 
+-- ---------- PLATFORM: a community's residents (operator only) ----------
+-- Lets the Platform Console list + remove residents of any community without
+-- entering it. Guarded definer fns — raise for non-operators.
+create or replace function public.platform_community_residents(p_community uuid)
+returns table (id uuid, full_name text, email text, unit_number text, board_position text, is_board boolean, created_at timestamptz)
+language plpgsql stable security definer as $$
+begin
+  if not public.is_platform_admin(auth.uid()) then raise exception 'not a platform admin'; end if;
+  return query
+    select r.id, r.full_name, r.email, r.unit_number, r.board_position, r.is_board, r.created_at
+    from public.residents r
+    where r.community_id = p_community
+    order by r.is_board desc, r.full_name nulls last;
+end $$;
+grant execute on function public.platform_community_residents(uuid) to authenticated;
+
+create or replace function public.platform_remove_resident(p_resident uuid)
+returns void language plpgsql security definer as $$
+begin
+  if not public.is_platform_admin(auth.uid()) then raise exception 'not a platform admin'; end if;
+  delete from public.residents where id = p_resident;
+end $$;
+grant execute on function public.platform_remove_resident(uuid) to authenticated;
+
 -- ---------- CONTACT RESIDENTE (support tickets) ----------
 create table if not exists public.platform_requests (
   id               uuid primary key default gen_random_uuid(),

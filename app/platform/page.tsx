@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { usePlatformConsole, PlatformRequest, OperatorRole, AuditEntry } from '@/hooks/usePlatform'
+import { usePlatformConsole, PlatformRequest, PlatformResident, OperatorRole, AuditEntry } from '@/hooks/usePlatform'
+import { DangerAction } from '@/components/DangerAction'
 
 const fmtDate = (s: string) =>
   s ? new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
@@ -127,12 +128,29 @@ export default function PlatformConsole() {
   const {
     isAdmin, myRole, communities, requests, operators, audit, loading,
     setRequestStatus, enterCommunity, addOperator, removeOperator, setOperatorRole,
+    removeCommunity, fetchResidents, removeResident,
   } = usePlatformConsole()
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('overview')
   const [entering, setEntering] = useState<string | null>(null)
   const isOwner = myRole === 'owner'
   const canEnter = myRole === 'owner' || myRole === 'operator'
+  // Residents roster modal (per community)
+  const [rosterFor, setRosterFor] = useState<{ id: string; name: string } | null>(null)
+  const [roster, setRoster] = useState<PlatformResident[]>([])
+  const [rosterLoading, setRosterLoading] = useState(false)
+  const [rosterBusy, setRosterBusy] = useState<string | null>(null)
+  const openRoster = async (id: string, name: string) => {
+    setRosterFor({ id, name }); setRoster([]); setRosterLoading(true)
+    setRoster(await fetchResidents(id)); setRosterLoading(false)
+  }
+  const onRemoveResident = async (rid: string, rname: string) => {
+    if (!window.confirm(`Remove ${rname || 'this resident'} from the community? This deletes their roster record.`)) return
+    setRosterBusy(rid)
+    const err = await removeResident(rid)
+    if (!err && rosterFor) setRoster(await fetchResidents(rosterFor.id))
+    setRosterBusy(null)
+  }
   const [newEmail, setNewEmail] = useState('')
   const [newRole, setNewRole] = useState<OperatorRole>('operator')
   const [opMsg, setOpMsg] = useState<{ kind: 'err' | 'ok'; text: string } | null>(null)
@@ -235,13 +253,34 @@ export default function PlatformConsole() {
                   <td style={{ ...td, color: C.muted }}>{fmtDate(c.created_at)}</td>
                   <td style={td}>
                     {canEnter ? (
-                      <button onClick={() => onEnter(c.id)} disabled={entering === c.id}
-                        style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 700, padding: '7px 14px', borderRadius: 8,
-                          border: `1px solid ${C.accent}`, background: C.accentSoft, color: C.accent, whiteSpace: 'nowrap' }}>
-                        {entering === c.id ? 'Entering…' : 'Manage →'}
-                      </button>
+                      <div style={{ display: 'flex', gap: 7, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                        <button onClick={() => onEnter(c.id)} disabled={entering === c.id}
+                          style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 700, padding: '7px 13px', borderRadius: 8,
+                            border: `1px solid ${C.accent}`, background: C.accentSoft, color: C.accent, whiteSpace: 'nowrap' }}>
+                          {entering === c.id ? 'Entering…' : 'Manage →'}
+                        </button>
+                        <button onClick={() => openRoster(c.id, c.name)}
+                          style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 700, padding: '7px 13px', borderRadius: 8,
+                            border: `1px solid ${C.border}`, background: 'transparent', color: C.text, whiteSpace: 'nowrap' }}>
+                          Residents
+                        </button>
+                        <DangerAction
+                          confirmWord="DELETE"
+                          confirmLabel="Delete community"
+                          title={`Delete ${c.name || 'community'}`}
+                          body={<>This permanently deletes <strong>{c.name || 'this community'}</strong> and all its data, and cancels its subscription. This can&apos;t be undone.</>}
+                          onConfirm={async () => { const e = await removeCommunity(c.id); return e ? { error: e } : { ok: true } }}
+                          trigger={(open) => (
+                            <button onClick={open}
+                              style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 700, padding: '7px 13px', borderRadius: 8,
+                                border: '1px solid #E97070', background: 'transparent', color: '#E97070', whiteSpace: 'nowrap' }}>
+                              Delete
+                            </button>
+                          )}
+                        />
+                      </div>
                     ) : (
-                      <span title="Support operators can't enter communities" style={{ fontSize: 12, color: C.muted, whiteSpace: 'nowrap' }}>View only</span>
+                      <span title="Support operators can't manage communities" style={{ fontSize: 12, color: C.muted, whiteSpace: 'nowrap' }}>View only</span>
                     )}
                   </td>
                 </tr>
@@ -461,6 +500,39 @@ export default function PlatformConsole() {
             </div>
           ))}
         </section>
+      )}
+
+      {/* Residents roster modal — view + remove a community's residents */}
+      {rosterFor && (
+        <div onClick={() => setRosterFor(null)} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(8,10,16,0.6)', display: 'grid', placeItems: 'center', padding: 22 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 560, maxHeight: '85vh', overflowY: 'auto', background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 16, padding: '24px 26px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+              <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>{rosterFor.name || 'Community'} · residents</h2>
+              <button onClick={() => setRosterFor(null)} aria-label="Close" style={{ border: 'none', background: 'none', fontSize: 26, cursor: 'pointer', color: C.muted, lineHeight: 1 }}>×</button>
+            </div>
+            <p style={{ color: C.muted, fontSize: 12.5, marginBottom: 14 }}>Remove a resident to delete their roster record from this community.</p>
+            {rosterLoading ? (
+              <div style={{ color: C.muted, fontSize: 13.5, padding: '14px 0' }}>Loading…</div>
+            ) : roster.length === 0 ? (
+              <div style={{ color: C.muted, fontSize: 13.5, padding: '14px 0' }}>No residents in this community.</div>
+            ) : roster.map(r => (
+              <div key={r.id} style={{ borderTop: `1px solid ${C.border}`, padding: '12px 0', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>
+                    {r.full_name || '—'}{r.is_board && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: C.accent }}>{r.board_position || 'Board'}</span>}
+                  </div>
+                  <div style={{ color: C.muted, fontSize: 12.5 }}>
+                    {[r.unit_number ? `Unit ${r.unit_number}` : null, r.email].filter(Boolean).join(' · ') || '—'}
+                  </div>
+                </div>
+                <button onClick={() => onRemoveResident(r.id, r.full_name || '')} disabled={rosterBusy === r.id}
+                  style={{ flexShrink: 0, cursor: 'pointer', fontSize: 12.5, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: '1px solid #E97070', background: 'transparent', color: '#E97070' }}>
+                  {rosterBusy === r.id ? 'Removing…' : 'Remove'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </>
   )

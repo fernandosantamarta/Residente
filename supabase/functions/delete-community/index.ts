@@ -37,18 +37,30 @@ Deno.serve(async (req) => {
     const { data: { user } } = await supabase.auth.getUser(authHeader.replace(/^Bearer\s+/i, ''))
     if (!user) return json({ error: 'Unauthorized' }, 401)
 
+    const body = await req.json().catch(() => ({})) as { community_id?: string }
     const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
-    const { data: profile } = await admin.from('profiles').select('community_id, role').eq('id', user.id).single()
-    if (!profile?.community_id) return json({ error: 'No community to delete.' }, 400)
-    if (profile.role === 'resident') return json({ error: 'Only an admin can delete the community.' }, 403)
+
+    // Target community: a platform admin can pass any community_id (Platform
+    // Console); otherwise it's the caller's own community (admin/board only).
+    let targetId: string
+    if (body.community_id) {
+      const { data: isAdmin } = await admin.rpc('is_platform_admin', { uid: user.id })
+      if (isAdmin !== true) return json({ error: 'Only a platform operator can delete another community.' }, 403)
+      targetId = body.community_id
+    } else {
+      const { data: profile } = await admin.from('profiles').select('community_id, role').eq('id', user.id).single()
+      if (!profile?.community_id) return json({ error: 'No community to delete.' }, 400)
+      if (profile.role === 'resident') return json({ error: 'Only an admin can delete the community.' }, 403)
+      targetId = profile.community_id
+    }
 
     const { data: comm } = await admin.from('communities')
-      .select('id, stripe_subscription_id').eq('id', profile.community_id).single()
+      .select('id, stripe_subscription_id').eq('id', targetId).single()
     if (comm?.stripe_subscription_id) {
       try { await stripe.subscriptions.cancel(comm.stripe_subscription_id as string) } catch (e) { console.error('sub cancel failed:', e) }
     }
 
-    const { error } = await admin.from('communities').delete().eq('id', profile.community_id)
+    const { error } = await admin.from('communities').delete().eq('id', targetId)
     if (error) { console.error('community delete failed:', error); return json({ error: 'Could not delete the community. ' + error.message }, 500) }
     return json({ ok: true })
   } catch (err) {

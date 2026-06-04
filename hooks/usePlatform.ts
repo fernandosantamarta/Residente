@@ -9,6 +9,11 @@ export type PlatformCommunity = {
   plan: string | null; home_count: number | null; unit_count: number | null
   stripe_subscription_id: string | null
 }
+export type PlatformResident = {
+  id: string; full_name: string | null; email: string | null
+  unit_number: string | null; board_position: string | null
+  is_board: boolean | null; created_at: string
+}
 export type PlatformRequest = {
   id: string; from_name: string | null; from_email: string | null
   from_community_id: string | null; subject: string; body: string | null
@@ -137,8 +142,42 @@ export function usePlatformConsole() {
     return null
   }, [load])
 
+  // Delete a whole community (operator). Goes through the delete-community edge
+  // fn with a community_id so the Stripe subscription is cancelled too.
+  const removeCommunity = useCallback(async (communityId: string): Promise<string | null> => {
+    if (!hasSupabase || !supabase) return 'Not connected'
+    const { data: { session } } = await supabase.auth.getSession()
+    const { data, error } = await supabase.functions.invoke('delete-community', {
+      body: { community_id: communityId },
+      headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+    })
+    if (error) {
+      try { const b = await (error as { context?: Response }).context?.json(); if (b?.error) return b.error } catch { /* ignore */ }
+      return 'Could not delete the community.'
+    }
+    if (data?.error) return data.error
+    await load()
+    return null
+  }, [load])
+
+  // List a community's residents (operator), for the in-console roster modal.
+  const fetchResidents = useCallback(async (communityId: string): Promise<PlatformResident[]> => {
+    if (!hasSupabase || !supabase) return []
+    const { data, error } = await supabase.rpc('platform_community_residents', { p_community: communityId })
+    return error ? [] : ((data ?? []) as PlatformResident[])
+  }, [])
+
+  const removeResident = useCallback(async (residentId: string): Promise<string | null> => {
+    if (!hasSupabase || !supabase) return 'Not connected'
+    const { error } = await supabase.rpc('platform_remove_resident', { p_resident: residentId })
+    if (error) return error.message
+    await load()
+    return null
+  }, [load])
+
   return {
     isAdmin, myRole, communities, requests, operators, audit, loading, reload: load,
     setRequestStatus, enterCommunity, addOperator, removeOperator, setOperatorRole,
+    removeCommunity, fetchResidents, removeResident,
   }
 }

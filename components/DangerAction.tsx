@@ -27,7 +27,9 @@ export function DangerAction({
     setBusy(true); setErr(null)
     const r = await onConfirm()
     if (r?.error) { setErr(r.error); setBusy(false); return }
-    // success → onConfirm navigated away; leave the dialog up under the redirect.
+    // Success: close. (Self-delete flows navigate away first; for in-place
+    // deletes like the Platform Console, closing returns to the refreshed list.)
+    setBusy(false); setOpen(false)
   }
 
   return (
