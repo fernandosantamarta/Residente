@@ -191,7 +191,8 @@ export default function CommunitySettings() {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <strong style={{ fontSize: 14.5 }}>Delete this community</strong>
                 <span style={{ fontSize: 13, color: '#6b5544' }}>
-                  Permanently deletes {form.name || 'the community'} and all its data, cancels the subscription, and removes every member. This can&apos;t be undone.
+                  Permanently deletes {form.name || 'the community'} and all its data, cancels the subscription, and removes every member. This can&apos;t be undone.{' '}
+                  Need help instead? <a href="/admin/support" style={{ color: '#E5601F', fontWeight: 700 }}>Contact Residente</a>.
                 </span>
               </div>
               <DangerAction

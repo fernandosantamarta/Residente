@@ -468,8 +468,7 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
                   {busy === 'cancel' ? 'Canceling…' : 'Cancel subscription'}
                 </button>
                 <div style={{ marginTop: 8, fontSize: 12, color: '#8a7560', textAlign: 'center' }}>
-                  Stays active until the end of your billing period — you can resume before then.{' '}
-                  <Link href="/admin/support" style={{ color: '#E5601F', fontWeight: 700 }}>Contact Residente</Link>
+                  Stays active until the end of your billing period — you can resume before then.
                 </div>
               </div>
             )}

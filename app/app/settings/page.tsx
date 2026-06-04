@@ -276,7 +276,7 @@ export default function Settings() {
             confirmWord="DELETE"
             confirmLabel="Delete my account"
             title="Delete account"
-            body={<>This permanently deletes your account and your personal data, and signs you out. If you&apos;re the only member of your community, the community is deleted too. This can&apos;t be undone.</>}
+            body={<>This permanently deletes your account and your personal data, and signs you out. If you&apos;re the only member of your community, the community is deleted too. This can&apos;t be undone.{' '}Need help instead? <a href="/app/contact" style={{ color: '#E5601F', fontWeight: 700 }}>Contact Residente</a>.</>}
             onConfirm={async () => {
               const r = await deleteAccount()
               if (r?.error) return r
