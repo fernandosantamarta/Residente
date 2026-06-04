@@ -104,6 +104,7 @@ function LandingNav() {
           <a href="#what" onClick={(e) => scrollToHash(e, '#what')}>Product</a>
           <a href="#boards" onClick={(e) => scrollToHash(e, '#boards')}>For boards</a>
           <a href="#residents" onClick={(e) => scrollToHash(e, '#residents')}>For residents</a>
+          <a href="#demo" onClick={(e) => scrollToHash(e, '#demo')}>Demo</a>
           <a href="#pricing" onClick={(e) => scrollToHash(e, '#pricing')}>Pricing</a>
           <Link href="/login" className="ln-nav-signin">Sign in</Link>
         </nav>
@@ -1354,7 +1355,7 @@ function VsEverything() {
 
 function DashboardPreview() {
   return (
-    <section className="ln-preview" data-anim>
+    <section className="ln-preview" id="demo" data-anim>
       <div className="ln-preview-inner">
         <div className="ln-eyebrow">A peek inside</div>
         <h2 className="ln-preview-title">This is what your community sees.</h2>

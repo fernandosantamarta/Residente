@@ -1183,6 +1183,10 @@ body:has(.landing-screen) { min-width: 0; }
   display: block;
   width: 100%;
   height: auto;
+  /* Reserve the image's space before it loads (1440×1656) so the lazy load
+     doesn't reflow the page mid-scroll — which used to park the Pricing anchor
+     on this demo section instead of Pricing. */
+  aspect-ratio: 1440 / 1656;
 }
 .ln-preview-ctas {
   margin-top: 40px;
