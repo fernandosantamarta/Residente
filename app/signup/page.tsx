@@ -1,8 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { hasSupabase, signIn, signUp, supabase } from '@/lib/supabase'
+import { planForHomes, monthlyTotalLabel } from '@/lib/plan'
 import {
   provisionAccount,
   startSubscriptionCheckout,
@@ -22,13 +23,13 @@ import './signup.css'
 type Who = 'resident' | 'board' | 'management'
 type Step =
   | 'property' | 'role'
-  | 'community' | 'connect' | 'details' | 'account'
+  | 'community' | 'plan' | 'connect' | 'details' | 'account'
   | 'working' | 'confirm-email'
 
 const FLOW: Record<Who, Step[]> = {
   resident:   ['property', 'role', 'connect', 'details', 'account'],
-  board:      ['property', 'role', 'community', 'details', 'account'],
-  management: ['property', 'role', 'community', 'details', 'account'],
+  board:      ['property', 'role', 'community', 'plan', 'details', 'account'],
+  management: ['property', 'role', 'community', 'plan', 'details', 'account'],
 }
 
 export default function SignupPage() {
@@ -191,6 +192,13 @@ export default function SignupPage() {
             name={communityName} setName={setCommunityName}
             location={location} setLocation={setLocation}
             unitCount={unitCount} setUnitCount={setUnitCount}
+            onNext={() => { setErr(null); setStep('plan') }}
+          />
+        )}
+
+        {step === 'plan' && (
+          <Plan
+            propertyType={propertyType!} unitCount={unitCount}
             onNext={() => { setErr(null); setStep('details') }}
           />
         )}
@@ -324,11 +332,15 @@ function Community({
       <HouseArt />
       <form className="su-content" onSubmit={(e) => { e.preventDefault(); if (valid) onNext() }}>
         <div className="su-form">
+          <PlaceSearch onPick={({ name: n, location: l }) => {
+            if (n) setName(n)
+            if (l) setLocation(l)
+          }} />
           <label className="su-field">
             <span className="su-label">Community name</span>
             <div className="su-input-wrap">
               <input className="su-input" value={name} onChange={(e) => setName(e.target.value)}
-                placeholder="e.g. Palm Grove" autoFocus required />
+                placeholder="e.g. Palm Grove" required />
             </div>
           </label>
           <label className="su-field">
@@ -352,6 +364,189 @@ function Community({
           <button className="su-btn" type="submit" disabled={!valid}>Continue</button>
         </div>
       </form>
+    </>
+  )
+}
+
+// Google Places autocomplete (proxied server-side via /api/places/*). Lets the
+// board search their real community, city, or street address and have the name
+// + location filled in. Self-disabling: if the API has no key configured the
+// box hides itself and the manual fields below carry the flow.
+function PlaceSearch({ onPick }: { onPick: (r: { name: string; location: string }) => void }) {
+  const [q, setQ] = useState('')
+  const [preds, setPreds] = useState<{ placeId: string; primary: string; secondary: string }[]>([])
+  const [open, setOpen] = useState(false)
+  const [enabled, setEnabled] = useState(true)
+  const tokenRef = useRef<string>('')
+  const justPicked = useRef(false)
+  if (!tokenRef.current && typeof crypto !== 'undefined' && crypto.randomUUID) {
+    tokenRef.current = crypto.randomUUID()
+  }
+
+  // Probe once on mount: if the Places API has no key, hide the search box up
+  // front so it never flashes in and out as the user starts typing.
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/places/autocomplete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input: '' }),
+    })
+      .then((r) => r.json())
+      .then((d) => { if (!cancelled && d.disabled) setEnabled(false) })
+      .catch(() => { /* offline — leave the box; manual fields still work */ })
+    return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    if (!enabled) return
+    if (justPicked.current) { justPicked.current = false; return }
+    const input = q.trim()
+    if (input.length < 3) { setPreds([]); setOpen(false); return }
+    const ctl = new AbortController()
+    const t = setTimeout(async () => {
+      try {
+        const res = await fetch('/api/places/autocomplete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ input, sessionToken: tokenRef.current }),
+          signal: ctl.signal,
+        })
+        const data = await res.json()
+        if (data.disabled) { setEnabled(false); return }
+        setPreds(data.predictions || [])
+        setOpen((data.predictions || []).length > 0)
+      } catch { /* aborted or offline — ignore, manual fields still work */ }
+    }, 280)
+    return () => { clearTimeout(t); ctl.abort() }
+  }, [q, enabled])
+
+  const choose = async (placeId: string, fallback: string) => {
+    justPicked.current = true
+    setQ(fallback); setOpen(false); setPreds([])
+    try {
+      const res = await fetch(
+        `/api/places/details?placeId=${encodeURIComponent(placeId)}&sessionToken=${encodeURIComponent(tokenRef.current)}`,
+      )
+      const data = await res.json()
+      onPick({ name: data.name || fallback, location: data.location || '' })
+    } catch {
+      onPick({ name: fallback, location: '' })
+    }
+    // A details call consumes the session token — rotate it for the next search.
+    tokenRef.current = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ''
+  }
+
+  if (!enabled) return null
+
+  return (
+    <div className="su-field su-place">
+      <span className="su-label">Search your community</span>
+      <div className="su-input-wrap">
+        <span className="su-place-icon" aria-hidden="true"><IconSearch /></span>
+        <input className="su-input su-place-input" value={q}
+          onChange={(e) => setQ(e.target.value)}
+          onFocus={() => preds.length && setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 120)}
+          placeholder="Community name, city, or address" autoFocus autoComplete="off" />
+      </div>
+      {open && preds.length > 0 && (
+        <ul className="su-place-list">
+          {preds.map((p) => (
+            <li key={p.placeId}>
+              <button type="button" className="su-place-opt"
+                onMouseDown={(e) => e.preventDefault()} onClick={() => choose(p.placeId, p.primary)}>
+                <span className="su-place-pin" aria-hidden="true"><IconPin /></span>
+                <span className="su-place-opt-text">
+                  <span className="su-place-opt-main">{p.primary}</span>
+                  {p.secondary && <span className="su-place-opt-sub">{p.secondary}</span>}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <span className="su-hint">Start typing to find it — or just fill it in below.</span>
+    </div>
+  )
+}
+
+// Plan confirmation. Reads the size the board just entered, shows the matching
+// band (lib/plan.ts — the single source of truth), the whole-community monthly
+// total, what every plan includes, and the launch promo. Paid bands continue to
+// payment (collected by Stripe after account creation); ≤25 homes is free.
+function Plan({ propertyType, unitCount, onNext }: {
+  propertyType: PropertyType; unitCount: string; onNext: () => void
+}) {
+  const homes = Number(unitCount) || 0
+  const band = planForHomes(homes)
+  const paid = band.perHomeCents > 0
+  const total = monthlyTotalLabel(homes)
+  const unitWord = propertyType === 'condo' ? 'units' : 'homes'
+  const oneWord = unitWord.slice(0, -1)
+  const perHome = Math.round(band.perHomeCents / 100)
+  const INCLUDED = [
+    'Resident cockpit', 'Online dues & fines', 'Live budget rings',
+    'Board decisions & voting', 'Meeting minutes', 'Document vault',
+    'Amenity booking', 'Maintenance & complaints', 'Violation tracking',
+    'Community calendar', 'Household roster & CSV import', 'English · Spanish · Portuguese',
+  ]
+  return (
+    <>
+      <div className="su-kicker">Your plan</div>
+      <h1 className="su-h1">
+        {paid ? <>The <span className="su-plan-hl">{band.label}</span> plan is right for you.</>
+              : <>You&apos;re on us — the Free plan.</>}
+      </h1>
+      <p className="su-sub">
+        {paid
+          ? `Based on ${homes} ${unitWord}, here's your plan and everything it includes.`
+          : `${homes} ${unitWord} means Residente is free for your community — forever. Here's everything you get.`}
+      </p>
+      <div className="su-content">
+        <div className="su-plan-card">
+          <div className="su-plan-top">
+            <div className="su-plan-id">
+              <div className="su-plan-name">{band.label}</div>
+              <div className="su-plan-band">{band.band}</div>
+            </div>
+            <div className="su-plan-price">
+              <span className="su-plan-amt">{paid ? total : 'Free'}</span>
+              {paid && <span className="su-plan-unit">${perHome}/{oneWord}/mo · {homes} {unitWord}</span>}
+            </div>
+          </div>
+
+          {paid && (
+            <div className="su-plan-promo">
+              <span className="su-plan-promo-tag">Launch offer</span>
+              <span>Pay just <strong>$1/{oneWord}</strong> for your entire first year if you sign up by <strong>Aug 31, 2026</strong>.</span>
+            </div>
+          )}
+
+          <div className="su-plan-feats-label">Every plan includes the whole platform</div>
+          <ul className="su-plan-feats">
+            {INCLUDED.map((f) => (
+              <li key={f}><span className="su-plan-check"><IconCheck /></span>{f}</li>
+            ))}
+          </ul>
+
+          {paid && (
+            <p className="su-plan-fine">
+              Billed to the association, monthly. Residents never pay a software fee.
+              Stripe processing fees are passed through.
+            </p>
+          )}
+        </div>
+
+        <div className="su-actions">
+          <button className="su-btn" type="button" onClick={onNext}>
+            {paid ? 'Continue to payment' : 'Continue — it’s free'}
+          </button>
+        </div>
+        {paid && (
+          <p className="su-foot">You&apos;ll create your account first, then pay securely with Stripe.</p>
+        )}
+      </div>
     </>
   )
 }
@@ -654,6 +849,20 @@ function IconCheck() {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="5 12 10 17 19 7" />
+    </svg>
+  )
+}
+function IconSearch() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
+    </svg>
+  )
+}
+function IconPin() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" /><circle cx="12" cy="10" r="2.5" />
     </svg>
   )
 }
