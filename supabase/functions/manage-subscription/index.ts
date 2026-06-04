@@ -130,17 +130,15 @@ Deno.serve(async (req) => {
       const baseItem = sub.items.data.find((i) => !i.metadata?.addon) || sub.items.data[0]
       if (!baseItem) return json({ error: 'Subscription has no line item.' }, 400)
 
-      const items: Record<string, unknown>[] = [{
-        id: baseItem.id,
-        quantity: newHomes,
-        price_data: {
-          currency: 'usd', unit_amount: band.perHomeCents, recurring: { interval: 'month' },
-          product_data: {
-            name: `Residente — ${band.label} plan`,
-            description: `${newHomes} homes · $${(band.perHomeCents / 100).toFixed(2)}/home/mo`,
-          },
-        },
-      }]
+      // Subscription-item price_data only accepts an existing `product` id (not
+      // inline product_data, which is Checkout-only). prices.create DOES accept
+      // product_data, so we mint a recurring price first and attach it by id.
+      const basePrice = await stripe.prices.create({
+        currency: 'usd', unit_amount: band.perHomeCents, recurring: { interval: 'month' },
+        product_data: { name: `Residente — ${band.label} plan` },
+      })
+
+      const items: Record<string, unknown>[] = [{ id: baseItem.id, price: basePrice.id, quantity: newHomes }]
       // Reconcile add-on items: keep selected, delete deselected, add new.
       const stillWanted = new Set(wantAddons)
       for (const it of sub.items.data) {
@@ -151,13 +149,11 @@ Deno.serve(async (req) => {
       }
       for (const key of stillWanted) {
         const a = ADDONS[key]
-        items.push({
-          quantity: 1, metadata: { addon: key },
-          price_data: {
-            currency: 'usd', unit_amount: a.cents, recurring: { interval: 'month' },
-            product_data: { name: `Residente — ${a.name}` },
-          },
+        const addonPrice = await stripe.prices.create({
+          currency: 'usd', unit_amount: a.cents, recurring: { interval: 'month' },
+          product_data: { name: `Residente — ${a.name}` },
         })
+        items.push({ price: addonPrice.id, quantity: 1, metadata: { addon: key } })
       }
 
       await stripe.subscriptions.update(subId, {

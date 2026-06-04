@@ -364,14 +364,15 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
 
             {/* Choose a plan — landing-style boxes */}
             <div style={{ borderTop: '1px solid #eee', paddingTop: 20 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
-                <div style={{ fontWeight: 800, fontSize: 18 }}>Choose your plan</div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13.5, color: '#6b5544' }}>
-                  Homes
-                  <input value={homes} inputMode="numeric"
-                    onChange={(e) => setHomes(e.target.value.replace(/[^0-9]/g, ''))}
-                    style={{ width: 90, padding: '9px 12px', borderRadius: 10, border: `1px solid ${homesValid ? '#d8cfc4' : '#e0857a'}`, fontSize: 15 }} />
-                </label>
+              <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 12 }}>Choose your plan</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 16, padding: '13px 16px', background: '#faf6f1', borderRadius: 13, border: `1px solid ${homesValid ? '#efe6da' : '#e0857a'}` }}>
+                <label htmlFor="sub-homes" style={{ fontSize: 15, fontWeight: 800, color: '#2a1206', whiteSpace: 'nowrap' }}>Pick your homes</label>
+                <input id="sub-homes" value={homes} inputMode="numeric" placeholder="e.g. 120"
+                  onChange={(e) => setHomes(e.target.value.replace(/[^0-9]/g, ''))}
+                  style={{ width: 110, padding: '11px 14px', borderRadius: 10, border: `1px solid ${homesValid ? '#d8cfc4' : '#e0857a'}`, fontSize: 17, fontWeight: 700, color: '#2a1206' }} />
+                <span style={{ flex: '1 1 200px', fontSize: 12.5, color: '#8a7560', lineHeight: 1.4 }}>
+                  Stay on any plan and add homes anytime — billing is per home, so your monthly updates automatically.
+                </span>
               </div>
 
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
@@ -390,7 +391,7 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
                       transition: 'all .12s',
                     }}>
                       {p.popular && (
-                        <span style={{ position: 'absolute', top: -10, right: 12, fontSize: 10.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: sel ? '#E5601F' : '#fff', background: sel ? '#fff' : '#E5601F', padding: '3px 9px', borderRadius: 999 }}>Popular</span>
+                        <span style={{ position: 'absolute', top: -11, right: 12, fontSize: 10.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: sel ? '#E5601F' : '#fff', background: sel ? '#fff' : '#E5601F', padding: '3px 10px', borderRadius: 999, border: '2px solid #1a0d07' }}>Popular</span>
                       )}
                       <div style={{ fontSize: 16, fontWeight: 800 }}>{p.name}</div>
                       <div style={{ marginTop: 6, fontSize: 22, fontWeight: 800, lineHeight: 1 }}>
