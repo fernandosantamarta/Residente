@@ -614,7 +614,7 @@ function Plan({ propertyType, unitCount, onNext }: {
 
           {paid && (
             <p className="su-plan-fine">
-              Billed to the association, monthly. Residents never pay a software fee.
+              Billed to the association, monthly. Cancel anytime.
               Stripe processing fees are passed through.
             </p>
           )}
