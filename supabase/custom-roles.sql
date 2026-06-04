@@ -48,11 +48,15 @@ alter table public.residents
 -- my_permissions() is the single source of truth. Access rules, in order:
 --   • platform admins (Residente staff)           → full access ['*']
 --   • resident WITH an assigned role               → that role's perms (Admin role => '*')
---   • resident WITHOUT a role                      → none (locked out of /admin)
---   • account with NO resident row that is admin/board_member → full access (safety)
--- Note: the assigned role is authoritative even for profiles.role='admin', so
--- board roles actually take effect. Lockout is prevented by the platform-admin
--- override + the "can't demote the last role manager" guard in ev_role_assign.
+--   • NO assigned role, profile is admin/board_member → full access (legacy rule)
+--   • NO assigned role, plain resident             → none (locked out of /admin)
+-- Note: an explicitly assigned role (role_id) is authoritative even for
+-- profiles.role='admin', so board roles take effect. But a freshly provisioned
+-- owner/board member has a resident row with role_id NULL — they must keep full
+-- access (matches the backward-compat promise above), so once there's no
+-- assigned role we defer to profiles.role rather than locking out anyone who
+-- happens to have a resident row. Lockout for that case is intended only for
+-- plain residents.
 create or replace function public.my_permissions()
 returns text[] language sql stable security definer as $$
   select case
@@ -62,7 +66,6 @@ returns text[] language sql stable security definer as $$
       from public.residents r join public.ev_roles ro on ro.id = r.role_id
       where r.profile_id = auth.uid() limit 1
     )
-    when exists (select 1 from public.residents r where r.profile_id = auth.uid()) then '{}'::text[]
     when exists (select 1 from public.profiles p where p.id = auth.uid() and p.role in ('admin','board_member')) then array['*']
     else '{}'::text[]
   end;

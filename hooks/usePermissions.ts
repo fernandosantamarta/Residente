@@ -25,7 +25,12 @@ export function usePermissions() {
       try {
         const { data, error } = await supabase.rpc('my_permissions')
         if (cancelled) return
-        setPerms(error ? fallback : ((data as string[] | null) ?? fallback))
+        const resolved = error ? fallback : ((data as string[] | null) ?? fallback)
+        // An owner/board account (legacyFull) must never end up with zero perms.
+        // If the RPC returns an empty set for them — e.g. a freshly provisioned
+        // admin who has a resident row but no assigned role — use full access.
+        // Plain residents legitimately resolve to [].
+        setPerms(resolved.length === 0 && legacyFull ? ['*'] : resolved)
       } catch {
         if (!cancelled) setPerms(fallback)
       } finally {
