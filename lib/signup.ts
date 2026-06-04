@@ -80,6 +80,32 @@ export async function openBillingPortal(): Promise<string | null> {
   }
 }
 
+// In-app subscription management (manage-subscription edge fn). action is
+// status | cancel | resume | change_plan; change_plan takes { home_count, plan }.
+// Returns the fn's JSON, or { error } on failure. Admin/board only (fn 403s
+// residents). Used by the /admin Manage subscription dialog.
+export async function manageSubscription(
+  action: 'status' | 'cancel' | 'resume' | 'change_plan',
+  payload: { home_count?: number; plan?: string } = {},
+): Promise<any> {
+  if (!hasSupabase || !supabase) return { error: 'Not available' }
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const { data, error } = await supabase.functions.invoke('manage-subscription', {
+      body: { action, ...payload },
+      headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+    })
+    if (error) {
+      // Pull the edge fn's { error } body out of the non-2xx response.
+      try { const b = await (error as { context?: Response }).context?.json(); if (b?.error) return { error: b.error } } catch { /* ignore */ }
+      return { error: 'Something went wrong.' }
+    }
+    return data
+  } catch {
+    return { error: 'Something went wrong.' }
+  }
+}
+
 // Error thrown by provisionAccount. `code` mirrors the edge function's
 // business-error codes (bad_code | no_match | ambiguous) so the UI can react
 // — e.g. fall back from email-match to asking for a join code.

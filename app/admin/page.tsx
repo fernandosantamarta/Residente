@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { startSubscriptionCheckout, openBillingPortal } from '@/lib/signup'
+import { startSubscriptionCheckout, manageSubscription } from '@/lib/signup'
 import { planForHomes, monthlyTotalLabel } from '@/lib/plan'
 
 // Admin home — replaces the old redirect-to-/community. A real dashboard:
@@ -25,22 +25,13 @@ export default function AdminHome() {
   const [status, setStatus] = useState('loading') // loading | ready | none | error
   const [copied, setCopied] = useState(false)
   const [paying, setPaying] = useState(false)
-  const [managing, setManaging] = useState(false)
+  const [showSub, setShowSub] = useState(false)
 
   const activatePlan = async () => {
     setPaying(true)
     const url = await startSubscriptionCheckout()
     if (url) { window.location.assign(url); return }
     setPaying(false)
-  }
-
-  // Stripe Customer Portal — manage card, invoices, cancel anytime. Also the
-  // right place to fix a past-due card (vs. starting a fresh subscription).
-  const manageSubscription = async () => {
-    setManaging(true)
-    const url = await openBillingPortal()
-    if (url) { window.location.assign(url); return }
-    setManaging(false)
   }
 
   const load = useCallback(async () => {
@@ -164,10 +155,10 @@ export default function AdminHome() {
           </div>
           <button
             className="admin-primary-btn"
-            onClick={pastDue ? manageSubscription : activatePlan}
-            disabled={paying || managing}
+            onClick={pastDue ? () => setShowSub(true) : activatePlan}
+            disabled={paying}
           >
-            {(paying || managing) ? 'Opening…' : pastDue ? 'Update payment' : 'Subscribe now'}
+            {paying ? 'Opening…' : pastDue ? 'Manage subscription' : 'Subscribe now'}
           </button>
         </div>
       )}
@@ -181,13 +172,21 @@ export default function AdminHome() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <strong style={{ fontSize: 14.5 }}>{planForHomes(homes).label} plan · active</strong>
             <span style={{ fontSize: 13, color: '#6b5544' }}>
-              {monthlyTotalLabel(homes)} · {homes} homes. Update your card, see invoices, or cancel anytime.
+              {monthlyTotalLabel(homes)} · {homes} homes. Change your plan or cancel anytime.
             </span>
           </div>
-          <button className="admin-secondary-btn" onClick={manageSubscription} disabled={managing}>
-            {managing ? 'Opening…' : 'Manage subscription'}
+          <button className="admin-secondary-btn" onClick={() => setShowSub(true)}>
+            Manage subscription
           </button>
         </div>
+      )}
+
+      {showSub && (
+        <SubscriptionDialog
+          currentHomes={homes}
+          onClose={() => setShowSub(false)}
+          onChanged={() => { setShowSub(false); load() }}
+        />
       )}
 
       <div className="admin-dash-stats">
@@ -238,6 +237,162 @@ export default function AdminHome() {
           <button className="admin-secondary-btn" onClick={copyCode}>{copied ? 'Copied ✓' : 'Copy'}</button>
         </div>
       )}
+    </div>
+  )
+}
+
+// In-app subscription management — cancel (at period end) / resume / change
+// plan. Talks to the manage-subscription edge fn; no Stripe portal redirect.
+const TIER_RATE: Record<string, number> = { free: 0, pro: 200, premium: 500, enterprise: 1000 }
+
+function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
+  currentHomes: number; onClose: () => void; onChanged: () => void
+}) {
+  const [status, setStatus] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [homes, setHomes] = useState(String(currentHomes || ''))
+  const [tier, setTier] = useState<'auto' | 'pro' | 'premium' | 'enterprise'>('auto')
+  const [busy, setBusy] = useState<string | null>(null)
+  const [err, setErr] = useState<string | null>(null)
+  const [msg, setMsg] = useState<string | null>(null)
+
+  useEffect(() => {
+    (async () => {
+      const s = await manageSubscription('status')
+      if (s?.error) setErr(s.error); else setStatus(s)
+      setLoading(false)
+    })()
+  }, [])
+
+  const n = Math.max(0, parseInt(homes || '0', 10) || 0)
+  const band = planForHomes(n)
+  const effPlan = tier === 'auto' ? band.plan : tier
+  const perHome = tier === 'auto' ? band.perHomeCents : TIER_RATE[tier]
+  const isFree = perHome === 0
+  const previewMonthly = isFree ? 'Free' : `$${((perHome * n) / 100).toLocaleString('en-US')}/mo`
+  const planLabel = effPlan.charAt(0).toUpperCase() + effPlan.slice(1)
+  const unchanged = n === currentHomes && tier === 'auto'
+  const periodEnd = status?.current_period_end
+    ? new Date(status.current_period_end * 1000).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+    : null
+  const canceling = !!status?.cancel_at_period_end
+
+  const doChange = async () => {
+    setBusy('change'); setErr(null); setMsg(null)
+    const payload: { home_count: number; plan?: string } = { home_count: n }
+    if (tier !== 'auto') payload.plan = tier
+    const r = await manageSubscription('change_plan', payload)
+    if (r?.error) { setErr(r.error); setBusy(null); return }
+    setMsg(`Now on the ${r.label} plan — ${previewMonthly}.`)
+    setBusy(null); onChanged()
+  }
+  const doCancel = async () => {
+    if (!window.confirm('Cancel your subscription? It stays active until the end of the current billing period, and you can resume anytime before then.')) return
+    setBusy('cancel'); setErr(null); setMsg(null)
+    const r = await manageSubscription('cancel')
+    if (r?.error) { setErr(r.error); setBusy(null); return }
+    setStatus((s: any) => ({ ...s, cancel_at_period_end: true, current_period_end: r.current_period_end }))
+    setBusy(null)
+  }
+  const doResume = async () => {
+    setBusy('resume'); setErr(null); setMsg(null)
+    const r = await manageSubscription('resume')
+    if (r?.error) { setErr(r.error); setBusy(null); return }
+    setStatus((s: any) => ({ ...s, cancel_at_period_end: false }))
+    setBusy(null)
+  }
+
+  return (
+    <div onClick={onClose} style={{
+      position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(20,10,4,0.45)',
+      display: 'grid', placeItems: 'center', padding: 20,
+    }}>
+      <div onClick={(e) => e.stopPropagation()} style={{
+        width: '100%', maxWidth: 460, background: '#fff', borderRadius: 16,
+        padding: '22px 24px', boxShadow: '0 24px 60px rgba(40,15,0,0.3)',
+      }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Manage subscription</h2>
+          <button onClick={onClose} aria-label="Close" style={{ border: 'none', background: 'none', fontSize: 22, cursor: 'pointer', color: '#8a7560', lineHeight: 1 }}>×</button>
+        </div>
+
+        {loading ? (
+          <div style={{ padding: '20px 0', color: '#6b5544', fontSize: 14 }}>Loading…</div>
+        ) : (
+          <>
+            {status && (
+              <div style={{ fontSize: 13.5, color: '#4a3a2c', marginBottom: 16, lineHeight: 1.5 }}>
+                Current: <strong>{planForHomes(currentHomes).label} plan</strong> · {monthlyTotalLabel(currentHomes)} · {currentHomes} homes
+                {canceling && periodEnd && (
+                  <div style={{ marginTop: 6, color: '#b5481f', fontWeight: 600 }}>
+                    Cancels on {periodEnd}. You can resume before then.
+                  </div>
+                )}
+                {!canceling && periodEnd && (
+                  <div style={{ marginTop: 4, color: '#8a7560' }}>Renews {periodEnd}.</div>
+                )}
+              </div>
+            )}
+
+            {/* Change plan */}
+            <div style={{ borderTop: '1px solid #eee', paddingTop: 14 }}>
+              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Change plan</div>
+              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                <label style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5, color: '#6b5544' }}>
+                  Number of homes
+                  <input value={homes} inputMode="numeric"
+                    onChange={(e) => setHomes(e.target.value.replace(/[^0-9]/g, ''))}
+                    style={{ padding: '9px 11px', borderRadius: 9, border: '1px solid #d8cfc4', fontSize: 14 }} />
+                </label>
+                <label style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5, color: '#6b5544' }}>
+                  Tier
+                  <select value={tier} onChange={(e) => setTier(e.target.value as any)}
+                    style={{ padding: '9px 11px', borderRadius: 9, border: '1px solid #d8cfc4', fontSize: 14, background: '#fff' }}>
+                    <option value="auto">Auto (by size)</option>
+                    <option value="pro">Pro ($2/home)</option>
+                    <option value="premium">Premium ($5/home)</option>
+                    <option value="enterprise">Enterprise ($10/home)</option>
+                  </select>
+                </label>
+              </div>
+              <div style={{ marginTop: 10, fontSize: 13.5 }}>
+                New: <strong>{planLabel} plan</strong> · <strong>{previewMonthly}</strong>
+                {!isFree && <span style={{ color: '#8a7560' }}> · prorated to today</span>}
+              </div>
+              {isFree && (
+                <div style={{ marginTop: 6, fontSize: 12.5, color: '#b5481f' }}>
+                  That size is Free — to stop paying, use Cancel below instead.
+                </div>
+              )}
+              <button className="admin-primary-btn" style={{ marginTop: 12, width: '100%' }}
+                onClick={doChange} disabled={busy != null || isFree || unchanged}>
+                {busy === 'change' ? 'Updating…' : 'Update plan'}
+              </button>
+            </div>
+
+            {/* Cancel / resume */}
+            <div style={{ borderTop: '1px solid #eee', marginTop: 16, paddingTop: 14 }}>
+              {canceling ? (
+                <button className="admin-primary-btn" style={{ width: '100%' }}
+                  onClick={doResume} disabled={busy != null}>
+                  {busy === 'resume' ? 'Resuming…' : 'Resume subscription'}
+                </button>
+              ) : (
+                <button onClick={doCancel} disabled={busy != null}
+                  style={{ width: '100%', padding: '11px', borderRadius: 999, border: '1px solid #e0b4a4', background: '#fff', color: '#b5481f', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                  {busy === 'cancel' ? 'Canceling…' : 'Cancel subscription'}
+                </button>
+              )}
+              <div style={{ marginTop: 8, fontSize: 12, color: '#8a7560', textAlign: 'center' }}>
+                Cancellations take effect at the end of your billing period.
+              </div>
+            </div>
+
+            {err && <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 10, background: '#fdecec', color: '#a32020', fontSize: 13 }}>{err}</div>}
+            {msg && <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 10, background: '#eaf7ec', color: '#1d7a33', fontSize: 13 }}>{msg}</div>}
+          </>
+        )}
+      </div>
     </div>
   )
 }
