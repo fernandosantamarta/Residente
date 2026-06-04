@@ -461,7 +461,7 @@ function PlaceSearch({ onPick }: { onPick: (r: { name: string; location: string 
       )}
       {noMatch ? (
         <span className="su-place-nomatch">
-          Can&apos;t find it? No problem — just type your community name and city in the fields below.
+          No option here? Please manually fill it out in the fields below.
         </span>
       ) : (
         <span className="su-hint">Start typing to find it — or just fill it in below.</span>
