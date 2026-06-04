@@ -686,9 +686,12 @@
 .admin-check-dot {
   width: 24px; height: 24px; border-radius: 50%; flex-shrink: 0;
   display: grid; place-items: center; font-size: 13px; font-weight: 800;
-  border: 2px solid var(--border); color: transparent;
+  border: 2px solid var(--border); color: var(--text-dim);
 }
 .admin-check-item.done .admin-check-dot { background: var(--grad); border-color: transparent; color: #fff; }
+.admin-dash-card-foot {
+  margin: 14px 2px 0; font-size: 12.5px; color: var(--text-faint); line-height: 1.5;
+}
 .admin-check-body { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
 .admin-check-label { font-size: 14.5px; font-weight: 600; color: var(--text); }
 .admin-check-item.done .admin-check-label { color: var(--text-dim); }

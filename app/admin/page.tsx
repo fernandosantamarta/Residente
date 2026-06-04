@@ -92,12 +92,20 @@ export default function AdminHome() {
   )
 
   const dues = Number(community?.monthly_dues) || 0
+  // Setup guide, in the order a manager should actually do it. Each hint names
+  // the exact tab to open (matching the admin nav) plus the action to take, so
+  // it reads as step-by-step instructions, not just a label.
   const items = [
-    { label: 'Review your budget', done: (counts?.budgets || 0) > 0, href: '/admin/community', hint: 'Edit the starter categories and set amounts.' },
-    { label: 'Set your monthly dues', done: dues > 0, href: '/admin/community', hint: 'So residents see what they owe.' },
-    { label: 'Add your residents', done: (counts?.residents || 0) > 1, href: '/admin/residents', hint: 'Import your roster (CSV) or add owners.' },
-    { label: 'Add board members', done: (counts?.board || 0) >= 1, href: '/admin/voice', hint: 'Assign President, Treasurer, and the rest.' },
-    { label: 'Upload key documents', done: (counts?.documents || 0) >= 1, href: '/admin/documents', hint: 'Bylaws, budget, insurance, latest minutes.' },
+    { label: 'Add your board members', done: (counts?.board || 0) >= 1, href: '/admin/voice',
+      hint: 'Open Easy Voice → Board and add your President, Treasurer, and Secretary. They get admin access too.' },
+    { label: 'Review your budget', done: (counts?.budgets || 0) > 0, href: '/admin/community',
+      hint: 'Open the Community tab, edit the starter categories, and set this year’s amounts.' },
+    { label: 'Set your monthly dues', done: dues > 0, href: '/admin/community',
+      hint: 'In the Community tab, enter what each home pays per month — residents then see their balance.' },
+    { label: 'Add your residents', done: (counts?.residents || 0) > 1, href: '/admin/residents',
+      hint: 'Open Easy Track → Residents, then import your owner roster by CSV or add them one at a time.' },
+    { label: 'Upload key documents', done: (counts?.documents || 0) >= 1, href: '/admin/documents',
+      hint: 'Open Easy Documents and upload your bylaws, declaration, budget, insurance, and latest minutes.' },
   ]
   const doneCount = items.filter(i => i.done).length
   const pct = Math.round((doneCount / items.length) * 100)
@@ -194,23 +202,30 @@ export default function AdminHome() {
       <div className="admin-dash-card">
         <div className="admin-dash-card-head">
           <div>
-            <h2 className="admin-dash-card-title">Get your community live</h2>
-            <span className="admin-dash-card-sub">{doneCount} of {items.length} done</span>
+            <h2 className="admin-dash-card-title">Set up your community</h2>
+            <span className="admin-dash-card-sub">
+              {doneCount === items.length
+                ? 'All set — your community is live. 🎉'
+                : `Follow these ${items.length} steps top to bottom. ${doneCount} of ${items.length} done.`}
+            </span>
           </div>
           <div className="admin-dash-ring" style={{ ['--pct' as any]: `${pct}%` }}>{pct}%</div>
         </div>
         <ul className="admin-check-list">
-          {items.map(i => (
+          {items.map((i, idx) => (
             <li key={i.label} className={`admin-check-item${i.done ? ' done' : ''}`}>
-              <span className="admin-check-dot">{i.done ? '✓' : ''}</span>
+              <span className="admin-check-dot">{i.done ? '✓' : idx + 1}</span>
               <div className="admin-check-body">
                 <span className="admin-check-label">{i.label}</span>
                 <span className="admin-check-hint">{i.hint}</span>
               </div>
-              {!i.done && <Link href={i.href} className="admin-check-go">Do it →</Link>}
+              <Link href={i.href} className="admin-check-go">{i.done ? 'Edit →' : 'Start →'}</Link>
             </li>
           ))}
         </ul>
+        <p className="admin-dash-card-foot">
+          Last step: share your join code below so owners can sign in to their homes.
+        </p>
       </div>
 
       {community?.join_code && (
