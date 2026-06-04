@@ -692,6 +692,10 @@
 .admin-dash-card-foot {
   margin: 14px 2px 0; font-size: 12.5px; color: var(--text-faint); line-height: 1.5;
 }
+/* Manage-subscription dialog: keep it scrollable on short screens but hide the
+   scrollbar so it reads as a clean card. */
+.sub-modal-noscroll { scrollbar-width: none; -ms-overflow-style: none; }
+.sub-modal-noscroll::-webkit-scrollbar { width: 0; height: 0; display: none; }
 .admin-check-body { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
 .admin-check-label { font-size: 14.5px; font-weight: 600; color: var(--text); }
 .admin-check-item.done .admin-check-label { color: var(--text-dim); }

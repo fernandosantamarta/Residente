@@ -331,7 +331,7 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
       position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(20,10,4,0.45)',
       display: 'grid', placeItems: 'center', padding: 24,
     }}>
-      <div onClick={(e) => e.stopPropagation()} style={{
+      <div onClick={(e) => e.stopPropagation()} className="sub-modal-noscroll" style={{
         width: '100%', maxWidth: 820, maxHeight: '92vh', overflowY: 'auto',
         background: '#fff', borderRadius: 22,
         padding: '36px 44px', boxShadow: '0 24px 60px rgba(40,15,0,0.3)',
@@ -368,7 +368,14 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 16, padding: '13px 16px', background: '#faf6f1', borderRadius: 13, border: `1px solid ${homesValid ? '#efe6da' : '#e0857a'}` }}>
                 <label htmlFor="sub-homes" style={{ fontSize: 15, fontWeight: 800, color: '#2a1206', whiteSpace: 'nowrap' }}>Pick your homes</label>
                 <input id="sub-homes" value={homes} inputMode="numeric" placeholder="e.g. 120"
-                  onChange={(e) => setHomes(e.target.value.replace(/[^0-9]/g, ''))}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/[^0-9]/g, '')
+                    setHomes(v)
+                    // Home count drives the plan: ≤25 Free, 26–100 Pro, 101–500
+                    // Premium, 500+ Enterprise. Clicking a box still overrides.
+                    const num = parseInt(v || '0', 10) || 0
+                    if (num >= 1) setTier(planForHomes(num).plan as TierKey)
+                  }}
                   style={{ width: 110, padding: '11px 14px', borderRadius: 10, border: `1px solid ${homesValid ? '#d8cfc4' : '#e0857a'}`, fontSize: 17, fontWeight: 700, color: '#2a1206' }} />
                 <span style={{ flex: '1 1 200px', fontSize: 12.5, color: '#8a7560', lineHeight: 1.4 }}>
                   Stay on any plan and add homes anytime — billing is per home, so your monthly updates automatically.
