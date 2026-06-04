@@ -372,34 +372,19 @@ function Community({
 // board search their real community, city, or street address and have the name
 // + location filled in. Self-disabling: if the API has no key configured the
 // box hides itself and the manual fields below carry the flow.
+type Prediction = { placeId: string; primary: string; secondary: string; name?: string; location?: string }
+
 function PlaceSearch({ onPick }: { onPick: (r: { name: string; location: string }) => void }) {
   const [q, setQ] = useState('')
-  const [preds, setPreds] = useState<{ placeId: string; primary: string; secondary: string }[]>([])
+  const [preds, setPreds] = useState<Prediction[]>([])
   const [open, setOpen] = useState(false)
-  const [enabled, setEnabled] = useState(true)
   const tokenRef = useRef<string>('')
   const justPicked = useRef(false)
   if (!tokenRef.current && typeof crypto !== 'undefined' && crypto.randomUUID) {
     tokenRef.current = crypto.randomUUID()
   }
 
-  // Probe once on mount: if the Places API has no key, hide the search box up
-  // front so it never flashes in and out as the user starts typing.
   useEffect(() => {
-    let cancelled = false
-    fetch('/api/places/autocomplete', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ input: '' }),
-    })
-      .then((r) => r.json())
-      .then((d) => { if (!cancelled && d.disabled) setEnabled(false) })
-      .catch(() => { /* offline — leave the box; manual fields still work */ })
-    return () => { cancelled = true }
-  }, [])
-
-  useEffect(() => {
-    if (!enabled) return
     if (justPicked.current) { justPicked.current = false; return }
     const input = q.trim()
     if (input.length < 3) { setPreds([]); setOpen(false); return }
@@ -413,31 +398,34 @@ function PlaceSearch({ onPick }: { onPick: (r: { name: string; location: string 
           signal: ctl.signal,
         })
         const data = await res.json()
-        if (data.disabled) { setEnabled(false); return }
         setPreds(data.predictions || [])
         setOpen((data.predictions || []).length > 0)
       } catch { /* aborted or offline — ignore, manual fields still work */ }
     }, 280)
     return () => { clearTimeout(t); ctl.abort() }
-  }, [q, enabled])
+  }, [q])
 
-  const choose = async (placeId: string, fallback: string) => {
+  const choose = async (pred: Prediction) => {
     justPicked.current = true
-    setQ(fallback); setOpen(false); setPreds([])
+    setQ(pred.primary); setOpen(false); setPreds([])
+    // OSM predictions already carry name + location — use them directly. Google
+    // predictions don't, so resolve via /api/places/details.
+    if (pred.name != null || pred.location != null) {
+      onPick({ name: pred.name || pred.primary, location: pred.location || '' })
+      return
+    }
     try {
       const res = await fetch(
-        `/api/places/details?placeId=${encodeURIComponent(placeId)}&sessionToken=${encodeURIComponent(tokenRef.current)}`,
+        `/api/places/details?placeId=${encodeURIComponent(pred.placeId)}&sessionToken=${encodeURIComponent(tokenRef.current)}`,
       )
       const data = await res.json()
-      onPick({ name: data.name || fallback, location: data.location || '' })
+      onPick({ name: data.name || pred.primary, location: data.location || '' })
     } catch {
-      onPick({ name: fallback, location: '' })
+      onPick({ name: pred.primary, location: '' })
     }
     // A details call consumes the session token — rotate it for the next search.
     tokenRef.current = (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : ''
   }
-
-  if (!enabled) return null
 
   return (
     <div className="su-field su-place">
@@ -455,7 +443,7 @@ function PlaceSearch({ onPick }: { onPick: (r: { name: string; location: string 
           {preds.map((p) => (
             <li key={p.placeId}>
               <button type="button" className="su-place-opt"
-                onMouseDown={(e) => e.preventDefault()} onClick={() => choose(p.placeId, p.primary)}>
+                onMouseDown={(e) => e.preventDefault()} onClick={() => choose(p)}>
                 <span className="su-place-pin" aria-hidden="true"><IconPin /></span>
                 <span className="su-place-opt-text">
                   <span className="su-place-opt-main">{p.primary}</span>
