@@ -245,8 +245,10 @@ export default function AdminHome() {
 // plan. Talks to the manage-subscription edge fn; no Stripe portal redirect.
 const TIER_RATE: Record<string, number> = { free: 0, pro: 200, premium: 500, enterprise: 1000 }
 type TierKey = 'free' | 'pro' | 'premium' | 'enterprise'
-// Paid plan boxes for the picker (Free isn't a box — to stop paying you cancel).
+// Plan boxes for the picker — all four tiers, like the landing Pricing section.
+// Selecting Free is a downgrade = cancel the paid subscription at period end.
 const PLAN_CARDS: { key: TierKey; name: string; per: number; band: string; popular?: boolean }[] = [
+  { key: 'free',       name: 'Free',       per: 0,    band: 'Up to 25 homes' },
   { key: 'pro',        name: 'Pro',        per: 200,  band: '26–100 homes', popular: true },
   { key: 'premium',    name: 'Premium',    per: 500,  band: '101–500 homes' },
   { key: 'enterprise', name: 'Enterprise', per: 1000, band: '500+ homes' },
@@ -375,7 +377,8 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
                 {PLAN_CARDS.map((p) => {
                   const sel = tier === p.key
-                  const monthly = `$${((p.per * n) / 100).toLocaleString('en-US')}/mo`
+                  const free = p.per === 0
+                  const monthly = free ? 'Free' : (homesValid ? `$${((p.per * n) / 100).toLocaleString('en-US')}/mo` : '— /mo')
                   return (
                     <button key={p.key} type="button" onClick={() => setTier(p.key)} style={{
                       textAlign: 'left', cursor: 'pointer', position: 'relative',
@@ -391,11 +394,11 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
                       )}
                       <div style={{ fontSize: 16, fontWeight: 800 }}>{p.name}</div>
                       <div style={{ marginTop: 6, fontSize: 22, fontWeight: 800, lineHeight: 1 }}>
-                        ${p.per / 100}<span style={{ fontSize: 12, fontWeight: 600, opacity: 0.75 }}> /home/mo</span>
+                        ${p.per / 100}{!free && <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.75 }}> /home/mo</span>}
                       </div>
                       <div style={{ marginTop: 7, fontSize: 12.5, opacity: sel ? 0.9 : 0.6 }}>{p.band}</div>
                       <div style={{ marginTop: 10, paddingTop: 9, borderTop: `1px solid ${sel ? 'rgba(255,255,255,0.3)' : '#f0e8df'}`, fontSize: 13, fontWeight: 700 }}>
-                        {homesValid ? monthly : '— /mo'}
+                        {monthly}
                       </div>
                     </button>
                   )
@@ -429,19 +432,28 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
                 })}
               </div>
 
-              <button className="admin-primary-btn" style={{ marginTop: 20, width: '100%', padding: '15px', fontSize: 16 }}
-                onClick={doChange} disabled={busy != null || !changed || !homesValid}>
-                {busy === 'change' ? 'Updating…'
-                  : !homesValid ? 'Enter the number of homes'
-                  : `${canceling ? 'Keep active on' : 'Switch to'} ${PLAN_CARDS.find(p => p.key === tier)?.name} — ${totalLabel}`}
-              </button>
+              {tier === 'free' ? (
+                <button onClick={doCancel} disabled={busy != null || canceling}
+                  style={{ marginTop: 20, width: '100%', padding: '15px', borderRadius: 999, border: '1px solid #e0b4a4', background: '#fff', color: '#b5481f', fontWeight: 800, fontSize: 16, cursor: canceling ? 'default' : 'pointer', opacity: canceling ? 0.5 : 1 }}>
+                  {canceling ? 'Already set to cancel' : busy === 'cancel' ? 'Canceling…' : 'Downgrade to Free — cancel at period end'}
+                </button>
+              ) : (
+                <button className="admin-primary-btn" style={{ marginTop: 20, width: '100%', padding: '15px', fontSize: 16 }}
+                  onClick={doChange} disabled={busy != null || !changed || !homesValid}>
+                  {busy === 'change' ? 'Updating…'
+                    : !homesValid ? 'Enter the number of homes'
+                    : `${canceling ? 'Keep active on' : 'Switch to'} ${PLAN_CARDS.find(p => p.key === tier)?.name} — ${totalLabel}`}
+                </button>
+              )}
               <div style={{ marginTop: 10, fontSize: 12.5, color: '#8a7560', textAlign: 'center' }}>
-                Plan + add-on changes are prorated to today.
+                {tier === 'free'
+                  ? 'Free communities (≤25 homes) pay nothing. Your plan stays active until the period ends.'
+                  : 'Plan + add-on changes are prorated to today.'}
               </div>
             </div>
 
-            {/* Cancel */}
-            {status?.has_subscription && !canceling && (
+            {/* Explicit cancel (when not already on the Free/cancel path) */}
+            {status?.has_subscription && !canceling && tier !== 'free' && (
               <div style={{ borderTop: '1px solid #eee', marginTop: 22, paddingTop: 18 }}>
                 <button onClick={doCancel} disabled={busy != null}
                   style={{ width: '100%', padding: '13px', borderRadius: 999, border: '1px solid #e0b4a4', background: '#fff', color: '#b5481f', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>

@@ -265,6 +265,7 @@ export default function PlatformConsole() {
                           Residents
                         </button>
                         <DangerAction
+                          dark
                           confirmWord="DELETE"
                           confirmLabel="Delete community"
                           title={`Delete ${c.name || 'community'}`}
