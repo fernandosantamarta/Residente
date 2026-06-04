@@ -3,17 +3,32 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { signIn, hasSupabase } from '@/lib/supabase'
+import { signIn, hasSupabase, supabase } from '@/lib/supabase'
 import { resumePendingProvision } from '@/lib/signup'
 import { getStoredPrefs } from '@/lib/preferences'
 import { useAuth } from '../providers'
 
-// Where to land after sign-in. Reads the local preference written
-// from /app/settings → Default landing page; falls back to /app.
-function landingTarget(): string {
+// Where to land after sign-in. An explicit "Default landing page" preference
+// (from /app/settings) wins. Otherwise route by role: a community admin / board
+// member lands on /admin to run their community; residents land on the cockpit.
+// The /admin layout still gates access, so a no-permission board member who
+// slips through is bounced back to /app — this just sets the right default.
+async function resolveLanding(): Promise<string> {
   if (typeof window === 'undefined') return '/app'
-  try { return getStoredPrefs().default_homepage || '/app' }
-  catch { return '/app' }
+  try {
+    const pref = getStoredPrefs().default_homepage
+    if (pref) return pref
+  } catch { /* no stored prefs */ }
+  try {
+    if (supabase) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+        if (data?.role && data.role !== 'resident') return '/admin'
+      }
+    }
+  } catch { /* fall through to the resident cockpit */ }
+  return '/app'
 }
 
 export default function Login() {
@@ -31,7 +46,8 @@ export default function Login() {
     let cancelled = false
     ;(async () => {
       const resumed = await resumePendingProvision()
-      if (!cancelled) router.replace(resumed ?? landingTarget())
+      const dest = resumed ?? (await resolveLanding())
+      if (!cancelled) router.replace(dest)
     })()
     return () => { cancelled = true }
   }, [session, router])
@@ -52,7 +68,7 @@ export default function Login() {
         // Finish a confirmation-deferred sign-up if one is pending, otherwise
         // land on the user's preferred page.
         const resumed = await resumePendingProvision()
-        router.replace(resumed ?? landingTarget())
+        router.replace(resumed ?? (await resolveLanding()))
       }
     } catch (err) {
       setError((err as Error)?.message || 'Sign in failed')

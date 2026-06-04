@@ -59,6 +59,27 @@ export async function startSubscriptionCheckout(): Promise<string | null> {
   }
 }
 
+// Opens the Stripe Billing Customer Portal (manage card / invoices / cancel
+// anytime) for the caller's community. Returns the portal URL or null on
+// failure. Admin/board only — the edge fn 403s residents. Used by the /admin
+// "Manage subscription" action and the past-due "Update payment" button.
+export async function openBillingPortal(): Promise<string | null> {
+  if (!hasSupabase || !supabase) return null
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const { data, error } = await supabase.functions.invoke('create-billing-portal', {
+      body: {},
+      headers: session?.access_token
+        ? { Authorization: `Bearer ${session.access_token}` }
+        : undefined,
+    })
+    if (error || !data?.url) return null
+    return data.url as string
+  } catch {
+    return null
+  }
+}
+
 // Error thrown by provisionAccount. `code` mirrors the edge function's
 // business-error codes (bad_code | no_match | ambiguous) so the UI can react
 // — e.g. fall back from email-match to asking for a join code.

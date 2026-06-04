@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { startSubscriptionCheckout } from '@/lib/signup'
+import { startSubscriptionCheckout, openBillingPortal } from '@/lib/signup'
 import { planForHomes, monthlyTotalLabel } from '@/lib/plan'
 
 // Admin home — replaces the old redirect-to-/community. A real dashboard:
@@ -25,12 +25,22 @@ export default function AdminHome() {
   const [status, setStatus] = useState('loading') // loading | ready | none | error
   const [copied, setCopied] = useState(false)
   const [paying, setPaying] = useState(false)
+  const [managing, setManaging] = useState(false)
 
   const activatePlan = async () => {
     setPaying(true)
     const url = await startSubscriptionCheckout()
     if (url) { window.location.assign(url); return }
     setPaying(false)
+  }
+
+  // Stripe Customer Portal — manage card, invoices, cancel anytime. Also the
+  // right place to fix a past-due card (vs. starting a fresh subscription).
+  const manageSubscription = async () => {
+    setManaging(true)
+    const url = await openBillingPortal()
+    if (url) { window.location.assign(url); return }
+    setManaging(false)
   }
 
   const load = useCallback(async () => {
@@ -144,8 +154,30 @@ export default function AdminHome() {
                 : 'Your community is live — subscribe to keep it active.'}
             </span>
           </div>
-          <button className="admin-primary-btn" onClick={activatePlan} disabled={paying}>
-            {paying ? 'Opening…' : pastDue ? 'Update payment' : 'Subscribe now'}
+          <button
+            className="admin-primary-btn"
+            onClick={pastDue ? manageSubscription : activatePlan}
+            disabled={paying || managing}
+          >
+            {(paying || managing) ? 'Opening…' : pastDue ? 'Update payment' : 'Subscribe now'}
+          </button>
+        </div>
+      )}
+
+      {sub === 'active' && (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+          flexWrap: 'wrap', margin: '4px 0 20px', padding: '14px 18px',
+          border: '1px solid #d8cfc4', background: '#faf7f2', borderRadius: 12,
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <strong style={{ fontSize: 14.5 }}>{planForHomes(homes).label} plan · active</strong>
+            <span style={{ fontSize: 13, color: '#6b5544' }}>
+              {monthlyTotalLabel(homes)} · {homes} homes. Update your card, see invoices, or cancel anytime.
+            </span>
+          </div>
+          <button className="admin-secondary-btn" onClick={manageSubscription} disabled={managing}>
+            {managing ? 'Opening…' : 'Manage subscription'}
           </button>
         </div>
       )}
