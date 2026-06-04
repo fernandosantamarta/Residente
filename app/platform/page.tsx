@@ -235,13 +235,16 @@ export default function PlatformConsole() {
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
             <thead><tr>
-              {['Community', 'Location', 'Plan', 'Residents', 'Board', 'Join code', 'Created', ''].map(h => <th key={h} style={th}>{h}</th>)}
+              {['Community', 'Created by', 'Plan', 'Residents', 'Board', 'Join code', 'Created', ''].map(h => <th key={h} style={th}>{h}</th>)}
             </tr></thead>
             <tbody>
               {communities.map(c => (
                 <tr key={c.id}>
-                  <td style={{ ...td, fontWeight: 700 }}>{c.name || '—'}</td>
-                  <td style={{ ...td, color: C.muted }}>{c.location || '—'}</td>
+                  <td style={{ ...td, fontWeight: 700 }}>{c.name || '—'}{c.location ? <span style={{ display: 'block', fontWeight: 400, fontSize: 12, color: C.muted }}>{c.location}</span> : null}</td>
+                  <td style={td}>
+                    <div style={{ fontWeight: 600 }}>{c.created_by_name || '—'}</div>
+                    {c.created_by_email && <div style={{ fontSize: 12, color: C.muted }}>{c.created_by_email}</div>}
+                  </td>
                   <td style={td}>
                     <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, textTransform: 'capitalize',
                       background: c.subscription_status === 'trial' ? C.accentSoft : 'rgba(74,201,155,0.15)',

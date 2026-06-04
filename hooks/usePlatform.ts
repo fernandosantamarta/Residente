@@ -8,6 +8,7 @@ export type PlatformCommunity = {
   created_at: string; resident_count: number; board_count: number
   plan: string | null; home_count: number | null; unit_count: number | null
   stripe_subscription_id: string | null
+  created_by_name: string | null; created_by_email: string | null
 }
 export type PlatformResident = {
   id: string; full_name: string | null; email: string | null

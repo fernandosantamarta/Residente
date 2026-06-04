@@ -45,6 +45,11 @@ on conflict (profile_id) do nothing;
 -- ---------- PLATFORM OVERVIEW (all communities + stats) ----------
 -- Guarded definer function: the ONLY cross-community read path. Raises if the
 -- caller isn't a platform admin.
+-- created_by records the founding admin (set by signup-provision). Older
+-- communities won't have it; platform_overview falls back to the earliest board
+-- member for the "Created by" column.
+alter table public.communities add column if not exists created_by uuid;
+
 -- Drop first: the RETURNS TABLE signature changed (added billing columns), and
 -- Postgres won't CREATE OR REPLACE a function whose OUT columns differ.
 drop function if exists public.platform_overview();
@@ -52,7 +57,8 @@ create or replace function public.platform_overview()
 returns table (
   id uuid, name text, location text, subscription_status text, join_code text,
   created_at timestamptz, resident_count bigint, board_count bigint,
-  plan text, home_count int, unit_count int, stripe_subscription_id text
+  plan text, home_count int, unit_count int, stripe_subscription_id text,
+  created_by_name text, created_by_email text
 ) language plpgsql stable security definer as $$
 begin
   if not public.is_platform_admin(auth.uid()) then
@@ -62,7 +68,15 @@ begin
     select c.id, c.name, c.location, c.subscription_status, c.join_code, c.created_at,
       (select count(*) from public.residents r where r.community_id = c.id),
       (select count(*) from public.residents r where r.community_id = c.id and r.is_board),
-      c.plan, c.home_count, c.unit_count, c.stripe_subscription_id
+      c.plan, c.home_count, c.unit_count, c.stripe_subscription_id,
+      coalesce(
+        (select r.full_name from public.residents r where r.community_id = c.id and r.profile_id = c.created_by limit 1),
+        (select r.full_name from public.residents r where r.community_id = c.id and r.is_board order by r.created_at nulls last limit 1)
+      ),
+      coalesce(
+        (select r.email from public.residents r where r.community_id = c.id and r.profile_id = c.created_by limit 1),
+        (select r.email from public.residents r where r.community_id = c.id and r.is_board order by r.created_at nulls last limit 1)
+      )
     from public.communities c
     order by c.created_at desc nulls last;
 end $$;

@@ -139,6 +139,7 @@ Deno.serve(async (req) => {
           association_type,
           subscription_status,
           join_code,
+          created_by: caller.id,
         })
         .select('id')
         .single()
