@@ -322,7 +322,7 @@ function Community({
   // Units are required: the count sets the plan/price (≤25 free, 26+ paid), and
   // leaving it blank let any size community fall through to Free. Must be ≥ 1.
   const units = Number(unitCount)
-  const valid = name.trim().length > 1 && Number.isFinite(units) && units >= 1
+  const valid = name.trim().length > 1 && location.trim().length > 1 && Number.isFinite(units) && units >= 1
   const label = propertyType === 'condo' ? 'condo association' : 'community'
   return (
     <>
@@ -344,10 +344,10 @@ function Community({
             </div>
           </label>
           <label className="su-field">
-            <span className="su-label">City / location (optional)</span>
+            <span className="su-label">City &amp; state</span>
             <div className="su-input-wrap">
               <input className="su-input" value={location} onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g. Miami, FL" />
+                placeholder="e.g. Miami, FL" required />
             </div>
           </label>
           <label className="su-field">
@@ -583,8 +583,8 @@ function Details({
   unitNumber: string; setUnitNumber: (s: string) => void
   onNext: () => void
 }) {
-  const valid = fullName.trim().length > 1
   const showUnit = who !== 'management'
+  const valid = fullName.trim().length > 1 && (!showUnit || unitNumber.trim().length > 0)
   return (
     <>
       <div className="su-kicker">About you</div>
@@ -602,10 +602,10 @@ function Details({
           </label>
           {showUnit && (
             <label className="su-field">
-              <span className="su-label">Your unit / address (optional)</span>
+              <span className="su-label">Your unit / address</span>
               <div className="su-input-wrap">
                 <input className="su-input" value={unitNumber} onChange={(e) => setUnitNumber(e.target.value)}
-                  placeholder="e.g. 4B or 1420 Palm St" />
+                  placeholder="e.g. 4B or 1420 Palm St" required />
               </div>
             </label>
           )}
