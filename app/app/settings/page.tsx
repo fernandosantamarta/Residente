@@ -4,6 +4,8 @@ import { ChangeEvent, ReactNode, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { signOut, supabase, hasSupabase } from '@/lib/supabase'
+import { deleteAccount } from '@/lib/signup'
+import { DangerAction } from '@/components/DangerAction'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import {
   EMAIL_PREF_LABEL,
@@ -269,6 +271,38 @@ export default function Settings() {
               </svg>
             </span>
           </button>
+
+          <DangerAction
+            confirmWord="DELETE"
+            confirmLabel="Delete my account"
+            title="Delete account"
+            body={<>This permanently deletes your account and your personal data, and signs you out. If you&apos;re the only member of your community, the community is deleted too. This can&apos;t be undone.</>}
+            onConfirm={async () => {
+              const r = await deleteAccount()
+              if (r?.error) return r
+              try { await signOut() } catch { /* ignore */ }
+              if (typeof window !== 'undefined') window.location.assign('/')
+              return { ok: true }
+            }}
+            trigger={(open) => (
+              <button className="set-logout" onClick={open} style={{ marginTop: 12 }}>
+                <span className="set-logout-icon" aria-hidden="true" style={{ color: '#b5481f' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6M14 11v6M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                  </svg>
+                </span>
+                <span className="set-logout-body">
+                  <span className="set-logout-title" style={{ color: '#b5481f' }}>Delete account</span>
+                  <span className="set-logout-desc">Permanently remove your account and data.</span>
+                </span>
+                <span className="set-logout-chev" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9 18 15 12 9 6"/>
+                  </svg>
+                </span>
+              </button>
+            )}
+          />
         </div>
 
         {/* RIGHT SIDEBAR */}

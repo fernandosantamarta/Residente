@@ -106,6 +106,44 @@ export async function manageSubscription(
   }
 }
 
+// Permanently delete the signed-in user's own account (delete-account edge fn).
+// If they're the sole owner of a community, it's torn down too; if it has other
+// members, returns { code:'owner_with_members' } so the UI can point them at
+// Delete community first. Caller should sign out + redirect on { ok }.
+export async function deleteAccount(): Promise<{ ok?: boolean; error?: string; code?: string }> {
+  if (!hasSupabase || !supabase) return { error: 'Not available' }
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const { data, error } = await supabase.functions.invoke('delete-account', {
+      body: {},
+      headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+    })
+    if (error) {
+      try { const b = await (error as { context?: Response }).context?.json(); if (b?.error) return { error: b.error, code: b.code } } catch { /* ignore */ }
+      return { error: 'Something went wrong.' }
+    }
+    return data
+  } catch { return { error: 'Something went wrong.' } }
+}
+
+// Permanently delete the caller's whole community + all its data (delete-community
+// edge fn). Admin/board only. Caller should sign out + redirect on { ok }.
+export async function deleteCommunity(): Promise<{ ok?: boolean; error?: string }> {
+  if (!hasSupabase || !supabase) return { error: 'Not available' }
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const { data, error } = await supabase.functions.invoke('delete-community', {
+      body: {},
+      headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+    })
+    if (error) {
+      try { const b = await (error as { context?: Response }).context?.json(); if (b?.error) return { error: b.error } } catch { /* ignore */ }
+      return { error: 'Something went wrong.' }
+    }
+    return data
+  } catch { return { error: 'Something went wrong.' } }
+}
+
 // Error thrown by provisionAccount. `code` mirrors the edge function's
 // business-error codes (bad_code | no_match | ambiguous) so the UI can react
 // — e.g. fall back from email-match to asking for a join code.

@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/app/providers'
-import { supabase, hasSupabase } from '@/lib/supabase'
+import { supabase, hasSupabase, signOut } from '@/lib/supabase'
+import { deleteCommunity } from '@/lib/signup'
+import { DangerAction } from '@/components/DangerAction'
 import { ExpensesLog } from './ExpensesLog'
 
 // Hardening (carried from Genie): wrap network promises, never .catch on Supabase.
@@ -178,6 +180,41 @@ export default function CommunitySettings() {
           <BudgetCategories communityId={communityId} onSaved={setSuccessMsg} />
 
           <ExpensesLog communityId={communityId} />
+
+          <div style={{ marginTop: 34, borderTop: '1px solid #f0d9c8', paddingTop: 18 }}>
+            <h2 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 800, color: '#b5481f' }}>Danger zone</h2>
+            <div style={{
+              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
+              flexWrap: 'wrap', marginTop: 10, padding: '14px 18px',
+              border: '1px solid #e7b9ad', background: '#fdf3ef', borderRadius: 12,
+            }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <strong style={{ fontSize: 14.5 }}>Delete this community</strong>
+                <span style={{ fontSize: 13, color: '#6b5544' }}>
+                  Permanently deletes {form.name || 'the community'} and all its data, cancels the subscription, and removes every member. This can&apos;t be undone.
+                </span>
+              </div>
+              <DangerAction
+                confirmWord="DELETE"
+                confirmLabel="Delete community"
+                title="Delete community"
+                body={<>This permanently deletes <strong>{form.name || 'this community'}</strong> — every resident, document, payment, meeting, and setting — and cancels the subscription. All members lose access. This can&apos;t be undone.</>}
+                onConfirm={async () => {
+                  const r = await deleteCommunity()
+                  if (r?.error) return r
+                  try { await signOut() } catch { /* ignore */ }
+                  if (typeof window !== 'undefined') window.location.assign('/')
+                  return { ok: true }
+                }}
+                trigger={(open) => (
+                  <button type="button" onClick={open}
+                    style={{ flexShrink: 0, padding: '10px 18px', borderRadius: 999, border: '1px solid #c5341a', background: '#fff', color: '#c5341a', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>
+                    Delete community
+                  </button>
+                )}
+              />
+            </div>
+          </div>
         </>
       )}
     </div>
