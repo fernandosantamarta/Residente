@@ -305,15 +305,16 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
   return (
     <div onClick={onClose} style={{
       position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(20,10,4,0.45)',
-      display: 'grid', placeItems: 'center', padding: 20,
+      display: 'grid', placeItems: 'center', padding: 24,
     }}>
       <div onClick={(e) => e.stopPropagation()} style={{
-        width: '100%', maxWidth: 460, background: '#fff', borderRadius: 16,
-        padding: '22px 24px', boxShadow: '0 24px 60px rgba(40,15,0,0.3)',
+        width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto',
+        background: '#fff', borderRadius: 20,
+        padding: '32px 36px', boxShadow: '0 24px 60px rgba(40,15,0,0.3)',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-          <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>Manage subscription</h2>
-          <button onClick={onClose} aria-label="Close" style={{ border: 'none', background: 'none', fontSize: 22, cursor: 'pointer', color: '#8a7560', lineHeight: 1 }}>×</button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <h2 style={{ margin: 0, fontSize: 24, fontWeight: 800 }}>Manage subscription</h2>
+          <button onClick={onClose} aria-label="Close" style={{ border: 'none', background: 'none', fontSize: 28, cursor: 'pointer', color: '#8a7560', lineHeight: 1 }}>×</button>
         </div>
 
         {loading ? (
@@ -321,7 +322,7 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
         ) : (
           <>
             {status && (
-              <div style={{ fontSize: 13.5, color: '#4a3a2c', marginBottom: 16, lineHeight: 1.5 }}>
+              <div style={{ fontSize: 15, color: '#4a3a2c', marginBottom: 18, lineHeight: 1.5 }}>
                 Current: <strong>{planForHomes(currentHomes).label} plan</strong> · {monthlyTotalLabel(currentHomes)} · {currentHomes} homes
                 {canceling && periodEnd && (
                   <div style={{ marginTop: 6, color: '#b5481f', fontWeight: 600 }}>
@@ -335,19 +336,19 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
             )}
 
             {/* Change plan */}
-            <div style={{ borderTop: '1px solid #eee', paddingTop: 14 }}>
-              <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 10 }}>Change plan</div>
-              <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-                <label style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5, color: '#6b5544' }}>
+            <div style={{ borderTop: '1px solid #eee', paddingTop: 18 }}>
+              <div style={{ fontWeight: 700, fontSize: 16, marginBottom: 12 }}>Change plan</div>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <label style={{ flex: '1 1 150px', display: 'flex', flexDirection: 'column', gap: 5, fontSize: 13, color: '#6b5544' }}>
                   Number of homes
                   <input value={homes} inputMode="numeric"
                     onChange={(e) => setHomes(e.target.value.replace(/[^0-9]/g, ''))}
-                    style={{ padding: '9px 11px', borderRadius: 9, border: '1px solid #d8cfc4', fontSize: 14 }} />
+                    style={{ padding: '11px 13px', borderRadius: 10, border: '1px solid #d8cfc4', fontSize: 15 }} />
                 </label>
-                <label style={{ flex: '1 1 120px', display: 'flex', flexDirection: 'column', gap: 4, fontSize: 12.5, color: '#6b5544' }}>
+                <label style={{ flex: '1 1 150px', display: 'flex', flexDirection: 'column', gap: 5, fontSize: 13, color: '#6b5544' }}>
                   Tier
                   <select value={tier} onChange={(e) => setTier(e.target.value as any)}
-                    style={{ padding: '9px 11px', borderRadius: 9, border: '1px solid #d8cfc4', fontSize: 14, background: '#fff' }}>
+                    style={{ padding: '11px 13px', borderRadius: 10, border: '1px solid #d8cfc4', fontSize: 15, background: '#fff' }}>
                     <option value="auto">Auto (by size)</option>
                     <option value="pro">Pro ($2/home)</option>
                     <option value="premium">Premium ($5/home)</option>
@@ -355,7 +356,7 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
                   </select>
                 </label>
               </div>
-              <div style={{ marginTop: 10, fontSize: 13.5 }}>
+              <div style={{ marginTop: 12, fontSize: 15 }}>
                 New: <strong>{planLabel} plan</strong> · <strong>{previewMonthly}</strong>
                 {!isFree && <span style={{ color: '#8a7560' }}> · prorated to today</span>}
               </div>
@@ -364,32 +365,32 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
                   That size is Free — to stop paying, use Cancel below instead.
                 </div>
               )}
-              <button className="admin-primary-btn" style={{ marginTop: 12, width: '100%' }}
+              <button className="admin-primary-btn" style={{ marginTop: 14, width: '100%', padding: '13px', fontSize: 15 }}
                 onClick={doChange} disabled={busy != null || isFree || unchanged}>
                 {busy === 'change' ? 'Updating…' : 'Update plan'}
               </button>
             </div>
 
             {/* Cancel / resume */}
-            <div style={{ borderTop: '1px solid #eee', marginTop: 16, paddingTop: 14 }}>
+            <div style={{ borderTop: '1px solid #eee', marginTop: 20, paddingTop: 18 }}>
               {canceling ? (
-                <button className="admin-primary-btn" style={{ width: '100%' }}
+                <button className="admin-primary-btn" style={{ width: '100%', padding: '13px', fontSize: 15 }}
                   onClick={doResume} disabled={busy != null}>
                   {busy === 'resume' ? 'Resuming…' : 'Resume subscription'}
                 </button>
               ) : (
                 <button onClick={doCancel} disabled={busy != null}
-                  style={{ width: '100%', padding: '11px', borderRadius: 999, border: '1px solid #e0b4a4', background: '#fff', color: '#b5481f', fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+                  style={{ width: '100%', padding: '13px', borderRadius: 999, border: '1px solid #e0b4a4', background: '#fff', color: '#b5481f', fontWeight: 700, fontSize: 15, cursor: 'pointer' }}>
                   {busy === 'cancel' ? 'Canceling…' : 'Cancel subscription'}
                 </button>
               )}
-              <div style={{ marginTop: 8, fontSize: 12, color: '#8a7560', textAlign: 'center' }}>
+              <div style={{ marginTop: 10, fontSize: 12.5, color: '#8a7560', textAlign: 'center' }}>
                 Cancellations take effect at the end of your billing period.
               </div>
             </div>
 
-            {err && <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 10, background: '#fdecec', color: '#a32020', fontSize: 13 }}>{err}</div>}
-            {msg && <div style={{ marginTop: 14, padding: '10px 12px', borderRadius: 10, background: '#eaf7ec', color: '#1d7a33', fontSize: 13 }}>{msg}</div>}
+            {err && <div style={{ marginTop: 16, padding: '11px 13px', borderRadius: 10, background: '#fdecec', color: '#a32020', fontSize: 14 }}>{err}</div>}
+            {msg && <div style={{ marginTop: 16, padding: '11px 13px', borderRadius: 10, background: '#eaf7ec', color: '#1d7a33', fontSize: 14 }}>{msg}</div>}
           </>
         )}
       </div>
