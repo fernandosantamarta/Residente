@@ -395,14 +395,24 @@ function PlaceSearch({ onPick }: { onPick: (r: { name: string; location: string 
         const data = await res.json()
         const list: Prediction[] = data.predictions || []
         setPreds(list)
-        setOpen(list.length > 0)
-        // Empty result → tell them to just type it in below (common for private
-        // HOA subdivisions the geocoder doesn't know).
+        // Always open once they've typed enough — even with zero (or wrong)
+        // results, the dropdown still offers the "Use what I typed" row so a
+        // private HOA the geocoder doesn't know never blocks them.
+        setOpen(true)
         setNoMatch(list.length === 0)
       } catch { /* aborted or offline — ignore, manual fields still work */ }
     }, 280)
     return () => { clearTimeout(t); ctl.abort() }
   }, [q])
+
+  // Keep exactly what the user typed as the community name (no geocoder match
+  // needed). Leaves location empty so it doesn't clobber a city they picked.
+  const useTyped = () => {
+    justPicked.current = true
+    const text = q.trim()
+    setOpen(false); setPreds([]); setNoMatch(false)
+    onPick({ name: text, location: '' })
+  }
 
   const choose = async (pred: Prediction) => {
     justPicked.current = true
@@ -433,12 +443,25 @@ function PlaceSearch({ onPick }: { onPick: (r: { name: string; location: string 
         <span className="su-place-icon" aria-hidden="true"><IconSearch /></span>
         <input className="su-input su-place-input" value={q}
           onChange={(e) => setQ(e.target.value)}
-          onFocus={() => preds.length && setOpen(true)}
-          onBlur={() => setTimeout(() => setOpen(false), 120)}
+          onFocus={() => q.trim().length >= 3 && setOpen(true)}
+          onBlur={() => setTimeout(() => setOpen(false), 150)}
           placeholder="Community name, city, or address" autoFocus autoComplete="off" />
       </div>
-      {open && preds.length > 0 && (
+      {open && q.trim().length >= 3 && (
         <ul className="su-place-list">
+          {/* First, and always present: keep exactly what they typed. Geocoders
+              rarely know private HOA names (e.g. "Pembroke Falls"), so this is
+              usually what they want — the matches below are the fallback. */}
+          <li>
+            <button type="button" className="su-place-opt su-place-use"
+              onMouseDown={(e) => e.preventDefault()} onClick={useTyped}>
+              <span className="su-place-pin su-place-pin-add" aria-hidden="true">+</span>
+              <span className="su-place-opt-text">
+                <span className="su-place-opt-main">Use &ldquo;{q.trim()}&rdquo;</span>
+                <span className="su-place-opt-sub">Enter your community name as typed</span>
+              </span>
+            </button>
+          </li>
           {preds.map((p) => (
             <li key={p.placeId}>
               <button type="button" className="su-place-opt"
