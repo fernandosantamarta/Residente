@@ -256,6 +256,12 @@
   font-size: 12.5px; color: rgba(42, 18, 6, 0.55);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+.su-place-nomatch {
+  display: block; margin-top: 8px;
+  padding: 9px 12px; border-radius: 10px;
+  background: rgba(255, 255, 255, 0.16); border: 1px solid rgba(255, 255, 255, 0.28);
+  font-size: 13px; line-height: 1.45; color: #fff; font-weight: 600;
+}
 
 /* ---- plan confirmation card ---- */
 .su-plan-hl { color: #FFE6CF; }

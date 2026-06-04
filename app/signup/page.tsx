@@ -378,6 +378,7 @@ function PlaceSearch({ onPick }: { onPick: (r: { name: string; location: string 
   const [q, setQ] = useState('')
   const [preds, setPreds] = useState<Prediction[]>([])
   const [open, setOpen] = useState(false)
+  const [noMatch, setNoMatch] = useState(false)
   const tokenRef = useRef<string>('')
   const justPicked = useRef(false)
   if (!tokenRef.current && typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -387,7 +388,7 @@ function PlaceSearch({ onPick }: { onPick: (r: { name: string; location: string 
   useEffect(() => {
     if (justPicked.current) { justPicked.current = false; return }
     const input = q.trim()
-    if (input.length < 3) { setPreds([]); setOpen(false); return }
+    if (input.length < 3) { setPreds([]); setOpen(false); setNoMatch(false); return }
     const ctl = new AbortController()
     const t = setTimeout(async () => {
       try {
@@ -398,8 +399,12 @@ function PlaceSearch({ onPick }: { onPick: (r: { name: string; location: string 
           signal: ctl.signal,
         })
         const data = await res.json()
-        setPreds(data.predictions || [])
-        setOpen((data.predictions || []).length > 0)
+        const list: Prediction[] = data.predictions || []
+        setPreds(list)
+        setOpen(list.length > 0)
+        // Empty result → tell them to just type it in below (common for private
+        // HOA subdivisions the geocoder doesn't know).
+        setNoMatch(list.length === 0)
       } catch { /* aborted or offline — ignore, manual fields still work */ }
     }, 280)
     return () => { clearTimeout(t); ctl.abort() }
@@ -407,7 +412,7 @@ function PlaceSearch({ onPick }: { onPick: (r: { name: string; location: string 
 
   const choose = async (pred: Prediction) => {
     justPicked.current = true
-    setQ(pred.primary); setOpen(false); setPreds([])
+    setQ(pred.primary); setOpen(false); setPreds([]); setNoMatch(false)
     // OSM predictions already carry name + location — use them directly. Google
     // predictions don't, so resolve via /api/places/details.
     if (pred.name != null || pred.location != null) {
@@ -454,7 +459,13 @@ function PlaceSearch({ onPick }: { onPick: (r: { name: string; location: string 
           ))}
         </ul>
       )}
-      <span className="su-hint">Start typing to find it — or just fill it in below.</span>
+      {noMatch ? (
+        <span className="su-place-nomatch">
+          Can&apos;t find it? No problem — just type your community name and city in the fields below.
+        </span>
+      ) : (
+        <span className="su-hint">Start typing to find it — or just fill it in below.</span>
+      )}
     </div>
   )
 }
