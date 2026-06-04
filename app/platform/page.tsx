@@ -256,14 +256,14 @@ export default function PlatformConsole() {
                   <td style={{ ...td, color: C.muted }}>{fmtDate(c.created_at)}</td>
                   <td style={td}>
                     {canEnter ? (
-                      <div style={{ display: 'flex', gap: 7, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                      <div style={{ display: 'flex', gap: 7, justifyContent: 'flex-end', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
                         <button onClick={() => onEnter(c.id)} disabled={entering === c.id}
-                          style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 700, padding: '7px 13px', borderRadius: 8,
+                          style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 700, padding: '7px 13px', borderRadius: 8, flexShrink: 0,
                             border: `1px solid ${C.accent}`, background: C.accentSoft, color: C.accent, whiteSpace: 'nowrap' }}>
                           {entering === c.id ? 'Entering…' : 'Manage →'}
                         </button>
                         <button onClick={() => openRoster(c.id, c.name)}
-                          style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 700, padding: '7px 13px', borderRadius: 8,
+                          style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 700, padding: '7px 13px', borderRadius: 8, flexShrink: 0,
                             border: `1px solid ${C.border}`, background: 'transparent', color: C.text, whiteSpace: 'nowrap' }}>
                           Residents
                         </button>
@@ -276,7 +276,7 @@ export default function PlatformConsole() {
                           onConfirm={async () => { const e = await removeCommunity(c.id); return e ? { error: e } : { ok: true } }}
                           trigger={(open) => (
                             <button onClick={open}
-                              style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 700, padding: '7px 13px', borderRadius: 8,
+                              style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 700, padding: '7px 13px', borderRadius: 8, flexShrink: 0,
                                 border: '1px solid #E97070', background: 'transparent', color: '#E97070', whiteSpace: 'nowrap' }}>
                               Delete
                             </button>
