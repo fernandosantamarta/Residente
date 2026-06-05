@@ -160,7 +160,8 @@ export function PaySection() {
     },
     {
       label: t('pay.ringCatPaymentStatus'),
-      value: trackState === 'warn' ? t('pay.ringBehind') : `${onTimePct}% ${t('pay.ringOnTimeSub')}`,
+      value: trackState === 'warn' ? t('pay.ringBehind') : `${onTimePct}%`,
+      meta: trackState === 'warn' ? undefined : t('pay.ringOnTimeSub'),
       tone: trackState === 'warn' ? 'warn' : 'ok',
     },
     {
