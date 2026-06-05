@@ -9498,7 +9498,8 @@ textarea[disabled] {
   /* Easy Voice (Requests) ONLY: shrink Board/Voting/Architectural/Contact so all
      four fit one row without scrolling or clipping. */
   [data-theme="sketch"] .voice-segtabs .seg-tabs { overflow-x: visible; padding: 4px; gap: 3px; }
-  [data-theme="sketch"] .voice-segtabs .seg-tab { padding: 8px 9px; font-size: 12px; white-space: nowrap; flex-shrink: 1; min-width: 0; }
+  /* Equal-width tabs, evenly spaced across the row. */
+  [data-theme="sketch"] .voice-segtabs .seg-tab { flex: 1 1 0; min-width: 0; padding: 8px 4px; font-size: 12px; white-space: nowrap; text-align: center; }
 
   /* Filter bar: stack the filters and let each dropdown go full width so the
      two pills don't fight for a single phone row. */
