@@ -5488,8 +5488,6 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
      before the rest of the page. Size to content + a tight gap. */
   [data-theme="sketch"] .rb-hero { height: auto; margin-bottom: 8px; }
   [data-theme="sketch"] .rb-hero-title { font-size: 32px; }
-  /* Smaller "Documents" tab title on phones (was 44px). */
-  [data-theme="sketch"] .doc-hero-title { font-size: 32px; }
   [data-theme="sketch"] .rb-vi-stats { grid-template-columns: 1fr; }
   [data-theme="sketch"] .rb-suggest { flex-direction: column; align-items: flex-start; }
 }
