@@ -61,8 +61,9 @@ export function PaySection() {
   // add-payment-method (action — also offers the Settings route).
   const [accountOpen, setAccountOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
-  // Manage Autopay opens in a popup from Quick Actions (mirrors the #autopay tile).
+  // Autopay + Payment Methods open as popups straight from the balance card.
   const [autopayOpen, setAutopayOpen] = useState(false)
+  const [methodsOpen, setMethodsOpen] = useState(false)
   // "View all" list popups + a single statement opened in place.
   const [listOpen, setListOpen] = useState<null | 'history' | 'statements'>(null)
   const [stmtOpen, setStmtOpen] = useState<typeof DEMO_STATEMENTS[number] | null>(null)
@@ -320,6 +321,14 @@ export function PaySection() {
                 onClick={() => setAccountOpen(true)}>
                 {t('pay.viewAccountDetails')}
               </button>
+              <button type="button" className="pay-cta-secondary"
+                onClick={() => setAutopayOpen(true)}>
+                {autopayActive ? t('pay.manageAutopay') : t('pay.setUpAutopay')}
+              </button>
+              <button type="button" className="pay-cta-secondary"
+                onClick={() => setMethodsOpen(true)}>
+                {t('pay.paymentMethods')}
+              </button>
             </div>
             {checkout.error && <div className="pay-err">{checkout.error}</div>}
 
@@ -357,205 +366,58 @@ export function PaySection() {
         </div>
       </section>
 
-      <div className="pay-grid">
-        {/* MAIN COLUMN */}
-        <div className="pay-col">
-          {/* Payment History */}
-          <section className="pay-card" id="history">
-            <div className="pay-card-head">
-              <h2 className="pay-card-title">{t('pay.paymentHistory')}</h2>
-              <button type="button" className="pay-card-link" onClick={() => setListOpen('history')}>{t('pay.viewAll')}</button>
-            </div>
-            <div className="pay-history-table">
-              <div className="pay-history-row pay-history-header">
-                <span>{t('pay.colDate')}</span>
-                <span>{t('pay.colDescription')}</span>
-                <span>{t('pay.colAmount')}</span>
-                <span>{t('pay.colStatus')}</span>
-                <span>{t('pay.colPaymentMethod')}</span>
-              </div>
-              {history.length === 0 ? (
-                <div className="pay-empty">{t('pay.historyEmpty')}</div>
-              ) : history.map((h: any) => (
-                <div key={h.id} className="pay-history-row">
-                  <span className="pay-hist-date">{fmtDate(h.date)}</span>
-                  <span className="pay-hist-desc">{h.desc}</span>
-                  <span className={`pay-hist-amt${h.amount < 0 ? ' pay-amt-credit' : ''}`}>
-                    {h.amount < 0 ? `-${fmtMoney(Math.abs(h.amount))}` : fmtMoney(h.amount)}
-                  </span>
-                  <span className="pay-hist-status"><StatusPill kind={h.status} /></span>
-                  <span className="pay-hist-method">{h.method}</span>
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* Statements — above Payment Methods */}
-          <section className="pay-card" id="statements">
-            <div className="pay-card-head">
-              <h3 className="pay-tile-title">{t('pay.statements')}</h3>
-              <button type="button" className="pay-card-link" onClick={() => setListOpen('statements')}>{t('pay.viewAll')}</button>
-            </div>
-            <div className="pay-statements">
-              {DEMO_STATEMENTS.map(s => (
-                <button key={s.id} type="button" className="pay-statement" onClick={() => setStmtOpen(s)}>
-                  <span className="pay-statement-icon"><PdfIcon /></span>
-                  <span className="pay-statement-body">
-                    <span className="pay-statement-title">{s.label}</span>
-                    <span className="pay-statement-meta">{fmtDate(s.date)} &middot; {s.size}</span>
-                  </span>
-                  <span className="pay-statement-dl" aria-label={t('pay.open')}>
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M12 4v12"/><path d="m6 10 6 6 6-6"/><path d="M5 20h14"/>
-                    </svg>
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-
-          {/* Payment Methods */}
-          <section className="pay-card">
-            <div className="pay-card-head">
-              <h2 className="pay-card-title">{t('pay.paymentMethods')}</h2>
-              <button type="button" className="pay-card-link" onClick={() => setAddOpen(true)}>{t('pay.addNew')}</button>
-            </div>
-            {methods.length === 0 ? (
-              <div className="pay-empty">
-                {t('pay.noMethodsSaved')}{' '}
-                <button type="button" className="pay-empty-link" onClick={() => setAddOpen(true)}>{t('pay.addACard')}</button>.
-              </div>
-            ) : (
-              <div className="pay-methods-grid">
-                {methods.map(pm => (
-                  <div key={pm.id} className={`pay-method-card${pm.is_default ? ' is-default' : ''}`}>
-                    <div className="pay-method-icon">
-                      {pm.kind === 'card' ? <CardIcon /> : <BankIcon />}
-                    </div>
-                    <div className="pay-method-info">
-                      <div className="pay-method-title">{t('pay.methodEndingIn', { brand: pm.brand, last4: pm.last4 })}</div>
-                      <div className="pay-method-meta">
-                        {pm.kind === 'card' ? t('pay.creditDebitCard') : t('pay.bankAccount')}
-                      </div>
-                    </div>
-                    {pm.is_default ? (
-                      <span className="pay-method-badge">{t('pay.default')}</span>
-                    ) : (
-                      <button type="button" className="pay-method-action"
-                        onClick={() => makeDefault(pm.id)}>{t('pay.setAsDefault')}</button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-            {autopayErr && <div className="pay-err">{autopayErr}</div>}
-            <p className="pay-card-note">
-              {t('pay.secureNote')}
-            </p>
-          </section>
+      {/* Payment History */}
+      <section className="pay-card" id="history">
+        <div className="pay-card-head">
+          <h2 className="pay-card-title">{t('pay.paymentHistory')}</h2>
+          <button type="button" className="pay-card-link" onClick={() => setListOpen('history')}>{t('pay.viewAll')}</button>
         </div>
-
-        {/* RIGHT COLUMN */}
-        <aside className="pay-aside">
-          <section className="pay-card pay-tile-tight">
-            <h3 className="pay-tile-title">{t('pay.quickActions')}</h3>
-            <div className="pay-quick">
-              <QuickRow icon={<IconLightning />}
-                title={t('pay.qaOneTimeTitle')}
-                desc={t('pay.qaOneTimeDesc')}
-                onClick={startCheckout} />
-              <QuickRow icon={<IconRepeat />}
-                title={autopayActive ? t('pay.manageAutopay') : t('pay.setUpAutopay')}
-                desc={t('pay.qaAutopayDesc')}
-                onClick={() => setAutopayOpen(true)} />
-              <QuickRow icon={<IconReceipt />}
-                title={t('pay.qaViewStatementsTitle')}
-                desc={t('pay.qaViewStatementsDesc')}
-                onClick={() => setListOpen('statements')} />
-              <QuickRow icon={<IconClock />}
-                title={t('pay.paymentHistory')}
-                desc={t('pay.qaHistoryDesc')}
-                onClick={() => setListOpen('history')} />
-            </div>
-          </section>
-
-          <section className="pay-card pay-autopay" id="autopay">
-            <div className="pay-autopay-head">
-              <div className="pay-autopay-title">{t('pay.autopay')}</div>
-              {autopayActive ? (
-                <span className="pay-pill pay-pill-on">{t('pay.active')}</span>
-              ) : (
-                <span className="pay-pill pay-pill-off">{t('pay.off')}</span>
-              )}
-            </div>
-            {autopayActive ? (
-              <>
-                <div className="pay-autopay-note">
-                  {t('pay.autopayActiveNote')}
-                </div>
-                <div className="pay-autopay-meta">
-                  <div className="pay-autopay-row">
-                    <span>{t('pay.nextPayment')}</span>
-                    <span>{fmtDate(dueDate)}</span>
-                  </div>
-                  <div className="pay-autopay-row">
-                    <span>{t('pay.amount')}</span>
-                    <span>{fmtMoney(currentBalance)}</span>
-                  </div>
-                  {defaultMethod && (
-                    <div className="pay-autopay-row">
-                      <span>{t('pay.paymentMethod')}</span>
-                      <span>{defaultMethod.brand} ···· {defaultMethod.last4}</span>
-                    </div>
-                  )}
-                </div>
-                {stripeLive ? (
-                  <button type="button" className="pay-cta-secondary pay-cta-block"
-                    disabled={autopayBusy} onClick={() => toggleAutopay(false)}>
-                    {autopayBusy ? t('pay.updating') : t('pay.pauseAutopay')}
-                  </button>
-                ) : (
-                  <button type="button" className="pay-cta-secondary pay-cta-block"
-                    onClick={() => setAutopayDemo(false)}>
-                    {t('pay.pauseAutopay')}
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="pay-autopay-note">
-                  {t('pay.autopayOffNote')}
-                </div>
-                {stripeLive ? (
-                  <button type="button" className="pay-cta-primary pay-cta-block"
-                    disabled={autopayBusy} onClick={() => toggleAutopay(true)}>
-                    {autopayBusy ? t('pay.updating') : defaultMethod ? t('pay.turnOnAutopay') : t('pay.addCardToEnable')}
-                  </button>
-                ) : (
-                  <button type="button" className="pay-cta-primary pay-cta-block"
-                    onClick={() => setAutopayDemo(true)}>
-                    {t('pay.turnOnAutopay')}
-                  </button>
-                )}
-              </>
-            )}
-            {autopayErr && <div className="pay-err">{autopayErr}</div>}
-          </section>
-        </aside>
-      </div>
-
-      {/* Support footer */}
-      <section className="pay-support">
-        <div className="pay-support-icon" aria-hidden="true">
-          <IconHelp />
-        </div>
-        <div className="pay-support-body">
-          <div className="pay-support-title">{t('pay.supportTitle')}</div>
-          <div className="pay-support-sub">
-            {t('pay.supportSub')}
+        <div className="pay-history-table">
+          <div className="pay-history-row pay-history-header">
+            <span>{t('pay.colDate')}</span>
+            <span>{t('pay.colDescription')}</span>
+            <span>{t('pay.colAmount')}</span>
+            <span>{t('pay.colStatus')}</span>
+            <span>{t('pay.colPaymentMethod')}</span>
           </div>
+          {history.length === 0 ? (
+            <div className="pay-empty">{t('pay.historyEmpty')}</div>
+          ) : history.map((h: any) => (
+            <div key={h.id} className="pay-history-row">
+              <span className="pay-hist-date">{fmtDate(h.date)}</span>
+              <span className="pay-hist-desc">{h.desc}</span>
+              <span className={`pay-hist-amt${h.amount < 0 ? ' pay-amt-credit' : ''}`}>
+                {h.amount < 0 ? `-${fmtMoney(Math.abs(h.amount))}` : fmtMoney(h.amount)}
+              </span>
+              <span className="pay-hist-status"><StatusPill kind={h.status} /></span>
+              <span className="pay-hist-method">{h.method}</span>
+            </div>
+          ))}
         </div>
-        <Link href="/app/voice#contact" className="pay-cta-secondary">{t('pay.contactSupport')}</Link>
+      </section>
+
+      {/* Statements — above Payment Methods */}
+      <section className="pay-card" id="statements">
+        <div className="pay-card-head">
+          <h3 className="pay-tile-title">{t('pay.statements')}</h3>
+          <button type="button" className="pay-card-link" onClick={() => setListOpen('statements')}>{t('pay.viewAll')}</button>
+        </div>
+        <div className="pay-statements">
+          {DEMO_STATEMENTS.map(s => (
+            <button key={s.id} type="button" className="pay-statement" onClick={() => setStmtOpen(s)}>
+              <span className="pay-statement-icon"><PdfIcon /></span>
+              <span className="pay-statement-body">
+                <span className="pay-statement-title">{s.label}</span>
+                <span className="pay-statement-meta">{fmtDate(s.date)} &middot; {s.size}</span>
+              </span>
+              <span className="pay-statement-dl" aria-label={t('pay.open')}>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 4v12"/><path d="m6 10 6 6 6-6"/><path d="M5 20h14"/>
+                </svg>
+              </span>
+            </button>
+          ))}
+        </div>
       </section>
 
       {/* Account Details — view popup, opened in place from the balance card. */}
@@ -597,6 +459,49 @@ export function PaySection() {
               <div className="rd-bd-row"><span className="rd-bd-cat">{t('pay.defaultMethod')}</span><span className="rd-bd-amt">{defaultMethod.brand} ···· {defaultMethod.last4}</span><span /></div>
             )}
           </div>
+        </DetailDialog>
+      )}
+
+      {/* Payment Methods — manage saved cards in a popup, opened from the balance card. */}
+      {methodsOpen && (
+        <DetailDialog
+          eyebrow={t('pay.heading')}
+          title={t('pay.paymentMethods')}
+          onClose={() => setMethodsOpen(false)}
+          footer={
+            <button type="button" className="ven-cta-primary"
+              onClick={() => { setMethodsOpen(false); setAddOpen(true) }}>
+              {t('pay.addNew')}
+            </button>
+          }
+        >
+          {methods.length === 0 ? (
+            <p className="rd-report-blurb">{t('pay.noMethodsSaved')}</p>
+          ) : (
+            <div className="pay-methods-grid">
+              {methods.map(pm => (
+                <div key={pm.id} className={`pay-method-card${pm.is_default ? ' is-default' : ''}`}>
+                  <div className="pay-method-icon">
+                    {pm.kind === 'card' ? <CardIcon /> : <BankIcon />}
+                  </div>
+                  <div className="pay-method-info">
+                    <div className="pay-method-title">{t('pay.methodEndingIn', { brand: pm.brand, last4: pm.last4 })}</div>
+                    <div className="pay-method-meta">
+                      {pm.kind === 'card' ? t('pay.creditDebitCard') : t('pay.bankAccount')}
+                    </div>
+                  </div>
+                  {pm.is_default ? (
+                    <span className="pay-method-badge">{t('pay.default')}</span>
+                  ) : (
+                    <button type="button" className="pay-method-action"
+                      onClick={() => makeDefault(pm.id)}>{t('pay.setAsDefault')}</button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+          {autopayErr && <div className="pay-err">{autopayErr}</div>}
+          <p className="pay-card-note">{t('pay.secureNote')}</p>
         </DetailDialog>
       )}
 
