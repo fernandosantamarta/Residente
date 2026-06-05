@@ -182,6 +182,11 @@ export default function EasyDocs() {
       const h = window.location.hash.replace('#', '')
       if (ids.includes(h)) setTab(h)
     }
+    // Returning from a fine payment (Stripe success_url carries ?fine_paid=1)
+    // lands on My Violations, not the default Rules tab.
+    if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('fine_paid')) {
+      setTab('violations')
+    }
     fromHash()
     window.addEventListener('hashchange', fromHash)
     return () => window.removeEventListener('hashchange', fromHash)
