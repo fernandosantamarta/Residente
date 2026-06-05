@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { BoardSection } from './_sections/BoardSection'
 import { ContactSection } from './_sections/ContactSection'
 import { ProposalsRulesSection } from './_sections/ProposalsRulesSection'
+// Phone variant — today's single combined quick-links card (desktop keeps 3 cards).
+import { ProposalsRulesSection as ProposalsRulesSectionMobile } from './_sections/ProposalsRulesSection.mobile'
 import ArcView from '../arc/page'
 import { SegTabs, SegTab } from '@/components/SegTabs'
 import { useT } from '@/lib/i18n'
@@ -54,7 +56,10 @@ export default function EasyVoice() {
       <SegTabs tabs={TABS} active={tab} onChange={setTab} ariaLabel={t('voice.hubSectionsAria')} />
 
       {tab === 'board' && <BoardSection />}
-      {tab === 'proposals' && <ProposalsRulesSection />}
+      {tab === 'proposals' && (<>
+        <div className="rsv-web"><ProposalsRulesSection /></div>
+        <div className="rsv-mob"><ProposalsRulesSectionMobile /></div>
+      </>)}
       {tab === 'architectural' && <ArcView />}
       {tab === 'contact' && <ContactSection />}
     </div>

@@ -9634,3 +9634,112 @@ textarea[disabled] {
      it just stacked redundant dues/schedule info under the page. */
   [data-theme="sketch"] .rail-right, .rail-right { display: none !important; }
 }
+
+/* ===== Mobile section variants CSS (2026-06-05, used by .mobile components =====
+   rendered only inside .rsv-mob, i.e. phones <=767px). Desktop uses the
+   recovered full sections and never sees these classes. */
+/* Pay — rows redesign (replaces dial rings on phones) */
+[data-theme="sketch"] .pay-balance-paid {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 4px;
+  padding: 4px 11px 4px 8px; border-radius: 999px;
+  background: rgba(62, 155, 79, 0.12); border: 1px solid rgba(62, 155, 79, 0.32);
+  color: #2F7A3E; font-size: 13px; font-weight: 700;
+}
+[data-theme="sketch"] .pay-balance-paid svg { width: 15px; height: 15px; }
+[data-theme="sketch"] .pay-balance-rows {
+  display: flex; flex-direction: column;
+  margin-top: 14px; padding-top: 4px;
+  border-top: 1px solid rgba(15, 28, 46, 0.10);
+}
+[data-theme="sketch"] .pay-stat-row {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
+  padding: 13px 0; border-bottom: 1px solid rgba(15, 28, 46, 0.07);
+}
+[data-theme="sketch"] .pay-stat-row:last-child { border-bottom: none; }
+[data-theme="sketch"] .pay-stat-label {
+  flex: 0 0 auto; white-space: nowrap;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;
+  color: rgba(10, 36, 64, 0.55);
+}
+/* Value sits on the right and takes the remaining width; the small grey meta
+   stacks UNDER it (not beside it) so nothing wraps mid-figure. */
+[data-theme="sketch"] .pay-stat-value {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+  text-align: right; line-height: 1.25;
+  font-size: 15px; font-weight: 700; color: #0A2440; font-variant-numeric: tabular-nums;
+}
+[data-theme="sketch"] .pay-stat-value.ok   { color: #3E9B4F; }
+[data-theme="sketch"] .pay-stat-value.warn { color: #E0A106; }
+[data-theme="sketch"] .pay-stat-meta {
+  font-size: 11.5px; font-weight: 500; color: rgba(10, 36, 64, 0.5); white-space: nowrap;
+}
+
+/* Voice — combined quick-links card (replaces 3 stacked cards on phones) */
+.vd-links {
+  margin-top: 30px; border-radius: 16px; overflow: hidden;
+  background: linear-gradient(135deg, var(--vd-accent-soft), rgba(232,116,62,0.04));
+  border: 1px solid rgba(232,116,62,0.22);
+}
+.vd-link {
+  display: flex; align-items: center; gap: 14px; padding: 15px 18px;
+  text-decoration: none; color: var(--vd-ink); transition: background-color .12s ease;
+}
+.vd-link + .vd-link { border-top: 1px solid rgba(232,116,62,0.18); }
+.vd-link:hover { background: rgba(232,116,62,0.06); }
+.vd-link-ic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 11px; background: var(--vd-card); color: var(--vd-accent); flex-shrink: 0; }
+.vd-link-ic svg { width: 20px; height: 20px; }
+.vd-link-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.vd-link-title { font-size: 15px; font-weight: 700; letter-spacing: -0.2px; }
+.vd-link-sub { font-size: 12.5px; color: var(--vd-dim); }
+.vd-link-go { font-size: 18px; font-weight: 700; color: var(--vd-accent); flex-shrink: 0; line-height: 1; }
+/* Pay history / Vendors / Reports — stack table rows into cards on phones */
+@media (max-width: 640px) {
+  [data-theme="sketch"] .pay-history-row.pay-history-header { display: none; }
+  [data-theme="sketch"] .pay-history-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "desc   amt"
+      "date   status"
+      "method method";
+    gap: 3px 12px; padding: 14px 0;
+  }
+  [data-theme="sketch"] .pay-hist-desc   { grid-area: desc; }
+  [data-theme="sketch"] .pay-hist-amt    { grid-area: amt;    justify-self: end; align-self: center; }
+  [data-theme="sketch"] .pay-hist-date   { grid-area: date;   font-size: 12px; color: rgba(10, 36, 64, 0.6); }
+  [data-theme="sketch"] .pay-hist-status { grid-area: status; justify-self: end; align-self: center; }
+  [data-theme="sketch"] .pay-hist-method { grid-area: method; font-size: 11.5px; color: rgba(10, 36, 64, 0.55); }
+}
+@media (max-width: 640px) {
+  [data-theme="sketch"] .ven-row.ven-row-head { display: none; }
+  [data-theme="sketch"] .ven-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "name    rating"
+      "cat     cat"
+      "contact contact";
+    gap: 4px 12px; padding: 14px 0;
+  }
+  [data-theme="sketch"] .ven-row-name    { grid-area: name; }
+  [data-theme="sketch"] .ven-row-cat     { grid-area: cat; }
+  [data-theme="sketch"] .ven-row-rating  { grid-area: rating; justify-self: end; align-self: center; }
+  [data-theme="sketch"] .ven-row-contact { grid-area: contact; margin-top: 2px; }
+  [data-theme="sketch"] .ven-row-contact a { overflow-wrap: anywhere; }
+}
+@media (max-width: 640px) {
+  [data-theme="sketch"] .rep-row.rep-row-head { display: none; }
+  [data-theme="sketch"] .rep-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "title  status"
+      "cat    date"
+      "action action";
+    gap: 4px 12px; padding: 14px 0;
+  }
+  [data-theme="sketch"] .rep-row-title  { grid-area: title; }
+  [data-theme="sketch"] .rep-row-cat    { grid-area: cat; }
+  [data-theme="sketch"] .rep-row-date   { grid-area: date;   justify-self: end; align-self: center; }
+  [data-theme="sketch"] .rep-row-status { grid-area: status; justify-self: end; align-self: center; }
+  [data-theme="sketch"] .rep-row-action { grid-area: action; justify-self: start; margin-top: 2px; }
+}
+/* === end mobile section variants === */

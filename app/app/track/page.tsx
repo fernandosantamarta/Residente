@@ -4,6 +4,11 @@ import { useState } from 'react'
 import { PaySection } from './_sections/PaySection'
 import { VendorSection } from './_sections/VendorSection'
 import { ReportsSection } from './_sections/ReportsSection'
+// Phone (<=767px) variants — today's simplified layouts (Pay rows, slim Vendors /
+// Reports). Desktop keeps the full sections above; CSS .rsv-web/.rsv-mob picks one.
+import { PaySection as PaySectionMobile } from './_sections/PaySection.mobile'
+import { VendorSection as VendorSectionMobile } from './_sections/VendorSection.mobile'
+import { ReportsSection as ReportsSectionMobile } from './_sections/ReportsSection.mobile'
 import { SegTabs, SegTab } from '@/components/SegTabs'
 import { useT } from '@/lib/i18n'
 
@@ -33,9 +38,18 @@ export default function EasyTrack() {
 
       <SegTabs tabs={TABS} active={tab} onChange={setTab} ariaLabel={t('pay.hubSectionsAria')} />
 
-      {tab === 'pay' && <PaySection />}
-      {tab === 'vendor' && <VendorSection />}
-      {tab === 'reports' && <ReportsSection />}
+      {tab === 'pay' && (<>
+        <div className="rsv-web"><PaySection /></div>
+        <div className="rsv-mob"><PaySectionMobile /></div>
+      </>)}
+      {tab === 'vendor' && (<>
+        <div className="rsv-web"><VendorSection /></div>
+        <div className="rsv-mob"><VendorSectionMobile /></div>
+      </>)}
+      {tab === 'reports' && (<>
+        <div className="rsv-web"><ReportsSection /></div>
+        <div className="rsv-mob"><ReportsSectionMobile /></div>
+      </>)}
     </div>
   )
 }
