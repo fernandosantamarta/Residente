@@ -447,7 +447,6 @@ export const en: Record<string, string> = {
   "pay.defaultMethod": "Default method",
   "pay.demoPaidNote": "✓ Payment of {amount} submitted. It'll show under Payment History once Stripe is connected.",
   "pay.dueOn": "Due {date}",
-  "pay.paidInFull": "Paid in full",
   "pay.duesProgressAria": "Dues progress",
   "pay.errAddBankName": "Add the bank name.",
   "pay.errAddCardBrand": "Add the card brand (e.g. Visa).",

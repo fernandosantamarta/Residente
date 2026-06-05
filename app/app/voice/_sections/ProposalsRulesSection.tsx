@@ -58,48 +58,36 @@ export function ProposalsRulesSection() {
         </div>
       )}
 
-      {/* Quick links — propose a rule, the rule book, elections. One tidy card
-          instead of three stacked gradient panels. */}
-      <div className="vd-links">
-        <Link href="/app/voice?cat=rule_proposal#contact" className="vd-link">
-          <span className="vd-link-ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M14 13l-7.5 7.5a2.12 2.12 0 0 1-3-3L11 10"/><path d="M9.5 6.5l8 8"/><path d="M14 4l6 6"/><path d="M11 7l6 6"/><line x1="16" y1="20" x2="22" y2="20"/>
-            </svg>
-          </span>
-          <span className="vd-link-body">
-            <span className="vd-link-title">Propose a rule</span>
-            <span className="vd-link-sub">Have one in mind? Put it to the board for a vote.</span>
-          </span>
-          <span className="vd-link-go" aria-hidden="true">→</span>
-        </Link>
+      {/* Propose-a-rule notice — jumps to Contact with the request form opened
+          on the "Propose a rule" category. */}
+      <Link href="/app/voice?cat=rule_proposal#contact" className="vd-propose-notice">
+        <span className="vd-propose-ic">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14 13l-7.5 7.5a2.12 2.12 0 0 1-3-3L11 10"/><path d="M9.5 6.5l8 8"/><path d="M14 4l6 6"/><path d="M11 7l6 6"/><line x1="16" y1="20" x2="22" y2="20"/>
+          </svg>
+        </span>
+        <span className="vd-propose-body">
+          <span className="vd-propose-title">Have a rule in mind?</span>
+          <span className="vd-propose-sub">Propose it to the board — they can put it up for a vote here.</span>
+        </span>
+        <span className="vd-propose-go">Propose a rule →</span>
+      </Link>
 
-        <Link href="/app/documents#rules" className="vd-link">
-          <span className="vd-link-ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-            </svg>
-          </span>
-          <span className="vd-link-body">
-            <span className="vd-link-title">See the rule book</span>
-            <span className="vd-link-sub">Adopted rules live in Easy Documents → Rules.</span>
-          </span>
-          <span className="vd-link-go" aria-hidden="true">→</span>
-        </Link>
+      <Link href="/app/documents#rules" className="vd-proposals-cta">
+        <span className="vd-proposals-body">
+          <span className="vd-proposals-title">See the rule book</span>
+          <span className="vd-proposals-sub">Adopted rules and policies live in Easy Documents → Rules.</span>
+        </span>
+        <span className="vd-proposals-go">Open Easy Documents →</span>
+      </Link>
 
-        <Link href="/app/meetings" className="vd-link">
-          <span className="vd-link-ic">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="3" y="4" width="18" height="16" rx="2"/><path d="m8 12 2.5 2.5L16 9"/>
-            </svg>
-          </span>
-          <span className="vd-link-body">
-            <span className="vd-link-title">Board elections &amp; recall</span>
-            <span className="vd-link-sub">Election timeline, candidacy, and any recall.</span>
-          </span>
-          <span className="vd-link-go" aria-hidden="true">→</span>
-        </Link>
-      </div>
+      <Link href="/app/meetings" className="vd-proposals-cta">
+        <span className="vd-proposals-body">
+          <span className="vd-proposals-title">Board elections &amp; recall</span>
+          <span className="vd-proposals-sub">The election timeline — when you can run for the board, when ballots go out, and any recall in progress.</span>
+        </span>
+        <span className="vd-proposals-go">Open →</span>
+      </Link>
 
       {openVote && (
         <VoteDetailDialog vote={openVote} onClose={() => setOpenVote(null)} onVoted={() => { reload(); setOpenVote(null) }} />

@@ -335,6 +335,43 @@ export default function Settings() {
               View profile
             </button>
           </div>
+
+          <div className="set-tile">
+            <div className="set-tile-title">Quick links</div>
+            <ul className="set-links">
+              <li><Link href="/app/voice#contact">Help center</Link></li>
+              <li><Link href="/app/voice#contact">Contact management</Link></li>
+              <li><button type="button" className="set-links-btn" onClick={() => setDialog('notifications')}>Update communication preferences</button></li>
+              <li><Link href="/app/documents">Download center</Link></li>
+              <li><button type="button" className="set-links-btn" onClick={() => setDialog('refer')}>Refer a neighbor</button></li>
+            </ul>
+          </div>
+
+          <div className="set-tile">
+            <div className="set-tile-title">Preferences overview</div>
+            <div className="set-prefs">
+              <div className="set-pref-row"><span>Email</span><span>{EMAIL_PREF_LABEL[prefs.email_pref]}</span></div>
+              <div className="set-pref-row"><span>SMS</span><span>{SMS_PREF_LABEL[prefs.sms_pref]}</span></div>
+              <div className="set-pref-row"><span>Push</span><span>{PUSH_PREF_LABEL[prefs.push_pref]}</span></div>
+              <div className="set-pref-row"><span>Quiet hours</span><span>{formatTime12(prefs.quiet_hours_start)} – {formatTime12(prefs.quiet_hours_end)}</span></div>
+              <div className="set-pref-row"><span>Language</span><span>{LANGUAGE_LABEL[prefs.language]}</span></div>
+            </div>
+            <button className="set-tile-cta" type="button" onClick={() => setDialog('notifications')}>
+              Edit preferences
+            </button>
+          </div>
+
+          <div className="set-tile">
+            <div className="set-tile-title">About this site</div>
+            <div className="set-prefs">
+              <div className="set-pref-row"><span>Build</span><span>1.2.5 (web)</span></div>
+              <div className="set-pref-row"><span>Last deployed</span><span>May 27, 2026</span></div>
+              <div className="set-pref-row"><span>Native apps</span><span>Coming soon</span></div>
+            </div>
+            <button className="set-tile-cta" type="button" onClick={() => setDialog('updates')}>
+              Reload latest
+            </button>
+          </div>
         </aside>
       </div>
 

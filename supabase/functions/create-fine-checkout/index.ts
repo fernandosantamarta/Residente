@@ -75,9 +75,8 @@ Deno.serve(async (req) => {
           },
         },
       }],
-      // #violations so the resident lands back on My Violations, not Rules.
-      success_url: `${APP_URL}/app/documents?fine_paid=1#violations`,
-      cancel_url: `${APP_URL}/app/documents#violations`,
+      success_url: `${APP_URL}/app/documents?fine_paid=1`,
+      cancel_url: `${APP_URL}/app/documents`,
       // stripe-webhook reads violation_id back to close this fine as
       // stripe-paid. community_id distinguishes it from a dues / amenity checkout.
       metadata: {

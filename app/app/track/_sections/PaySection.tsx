@@ -61,9 +61,8 @@ export function PaySection() {
   // add-payment-method (action — also offers the Settings route).
   const [accountOpen, setAccountOpen] = useState(false)
   const [addOpen, setAddOpen] = useState(false)
-  // Autopay + Payment Methods open as popups straight from the balance card.
+  // Manage Autopay opens in a popup from Quick Actions (mirrors the #autopay tile).
   const [autopayOpen, setAutopayOpen] = useState(false)
-  const [methodsOpen, setMethodsOpen] = useState(false)
   // "View all" list popups + a single statement opened in place.
   const [listOpen, setListOpen] = useState<null | 'history' | 'statements'>(null)
   const [stmtOpen, setStmtOpen] = useState<typeof DEMO_STATEMENTS[number] | null>(null)
@@ -151,24 +150,35 @@ export function PaySection() {
   const daysLeft = Math.max(0, Math.ceil((nextDue.getTime() - now.getTime()) / DAY_MS))
   const duePct = (cycleDays - daysLeft) / cycleDays
 
-  // The same three signals the dial rings used to show, now as plain
-  // label/value rows sitting under the Make Payment actions.
-  const statRows: { label: string; value: string; meta?: string; tone?: 'ok' | 'warn' }[] = [
+  const trackFaces: Record<'ok' | 'warn', [RingFace, RingFace]> = {
+    ok: [
+      { value: <RingCheck />, sub: '',         aria: t('pay.ringOnTrackAria', { pct: onTimePct }) },
+      { value: `${onTimePct}%`, sub: t('pay.ringOnTimeSub'),  aria: t('pay.ringOnTimeAria', { pct: onTimePct }) },
+    ],
+    warn: [
+      { value: t('pay.ringBehind'), sub: '',         aria: t('pay.ringBehindAria', { pct: onTimePct }) },
+      { value: `${onTimePct}%`, sub: t('pay.ringOnTimeSub'),  aria: t('pay.ringOnTimeAria', { pct: onTimePct }) },
+    ],
+  }
+
+  const rings: { tone: RingTone; pct: number; cat: string; faces: [RingFace, RingFace] }[] = [
     {
-      label: t('pay.ringCatBalance'),
-      value: `${fmtMoney(paidYTD)} ${t('pay.ringOfAmount', { amount: fmtMoney(annualDue) })}`,
-      meta: `${monthsPaid}/12 ${t('pay.ringMonthsPaidSub')}`,
+      tone: 'dues', cat: t('pay.ringCatBalance'), pct: annualDue ? paidYTD / annualDue : 0,
+      faces: [
+        { value: `${monthsPaid}/12`, sub: t('pay.ringMonthsPaidSub'),              aria: t('pay.ringMonthsPaidAria', { count: monthsPaid }) },
+        { value: fmtMoney(paidYTD),  sub: t('pay.ringOfAmount', { amount: fmtMoney(annualDue) }), aria: t('pay.ringPaidYtdAria', { paid: fmtMoney(paidYTD), total: fmtMoney(annualDue) }) },
+      ],
     },
     {
-      label: t('pay.ringCatPaymentStatus'),
-      value: trackState === 'warn' ? t('pay.ringBehind') : `${onTimePct}%`,
-      meta: trackState === 'warn' ? undefined : t('pay.ringOnTimeSub'),
-      tone: trackState === 'warn' ? 'warn' : 'ok',
+      tone: trackState, cat: t('pay.ringCatPaymentStatus'), pct: onTimeRate,
+      faces: trackFaces[trackState],
     },
     {
-      label: t('pay.ringCatDueDate'),
-      value: daysLeft === 0 ? t('pay.ringToday') : `${daysLeft} ${t('pay.ringDaysLeftSub')}`,
-      meta: fmtShort(nextDue),
+      tone: 'due', cat: t('pay.ringCatDueDate'), pct: duePct,
+      faces: [
+        { value: daysLeft === 0 ? t('pay.ringToday') : `${daysLeft}`, sub: daysLeft === 0 ? t('pay.ringDueTodaySub') : t('pay.ringDaysLeftSub'), aria: daysLeft === 0 ? t('pay.ringDueTodayAria') : t('pay.ringDaysUntilAria', { count: daysLeft }) },
+        { value: fmtShort(nextDue), sub: t('pay.ringNextDueSub'), aria: t('pay.ringNextDueAria', { date: fmtShort(nextDue) }) },
+      ],
     },
   ]
 
@@ -265,11 +275,6 @@ export function PaySection() {
         }
       })
 
-  // Paid in full — a real roster resident whose balance is cleared. Show it
-  // (with the date of their latest payment) so they know dues are settled.
-  const paidInFull = resident != null && currentBalance <= 0.005
-  const lastPaidIso = history[0]?.date
-
   const startCheckout = async () => {
     // Demo / no-Stripe: simulate a successful payment instead of dead-clicking,
     // mirroring the Home Quick-Pay popup.
@@ -313,13 +318,6 @@ export function PaySection() {
             )}
             {isLoading ? (
               <div className="pay-balance-due pay-skel pay-skel-due">&nbsp;</div>
-            ) : paidInFull ? (
-              <div className="pay-balance-paid">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                  <circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>
-                </svg>
-                {t('pay.paidInFull')}{lastPaidIso ? ` · ${fmtDate(lastPaidIso)}` : ''}
-              </div>
             ) : (
               <div className="pay-balance-due">{t('pay.dueOn', { date: fmtDate(dueDate) })}</div>
             )}
@@ -333,28 +331,16 @@ export function PaySection() {
                 onClick={() => setAccountOpen(true)}>
                 {t('pay.viewAccountDetails')}
               </button>
-              <button type="button" className="pay-cta-secondary"
-                onClick={() => setAutopayOpen(true)}>
-                {autopayActive ? t('pay.manageAutopay') : t('pay.setUpAutopay')}
-              </button>
-              <button type="button" className="pay-cta-secondary"
-                onClick={() => setMethodsOpen(true)}>
-                {t('pay.paymentMethods')}
-              </button>
             </div>
             {checkout.error && <div className="pay-err">{checkout.error}</div>}
+          </div>
 
-            <div className="pay-balance-rows" role="group" aria-label={t('pay.duesProgressAria')}>
-              {statRows.map(row => (
-                <div key={row.label} className="pay-stat-row">
-                  <span className="pay-stat-label">{row.label}</span>
-                  <span className={`pay-stat-value${row.tone ? ' ' + row.tone : ''}`}>
-                    {row.value}
-                    {row.meta && <span className="pay-stat-meta">{row.meta}</span>}
-                  </span>
-                </div>
-              ))}
-            </div>
+          <div className="pay-balance-sep" aria-hidden="true" />
+
+          <div className="pay-rings" role="group" aria-label={t('pay.duesProgressAria')}>
+            {rings.map((r, i) => (
+              <BalanceRing key={i} index={i} tone={r.tone} pct={r.pct} cat={r.cat} faces={r.faces} />
+            ))}
           </div>
         </div>
       </section>
@@ -378,58 +364,205 @@ export function PaySection() {
         </div>
       </section>
 
-      {/* Payment History */}
-      <section className="pay-card" id="history">
-        <div className="pay-card-head">
-          <h2 className="pay-card-title">{t('pay.paymentHistory')}</h2>
-          <button type="button" className="pay-card-link" onClick={() => setListOpen('history')}>{t('pay.viewAll')}</button>
-        </div>
-        <div className="pay-history-table">
-          <div className="pay-history-row pay-history-header">
-            <span>{t('pay.colDate')}</span>
-            <span>{t('pay.colDescription')}</span>
-            <span>{t('pay.colAmount')}</span>
-            <span>{t('pay.colStatus')}</span>
-            <span>{t('pay.colPaymentMethod')}</span>
-          </div>
-          {history.length === 0 ? (
-            <div className="pay-empty">{t('pay.historyEmpty')}</div>
-          ) : history.map((h: any) => (
-            <div key={h.id} className="pay-history-row">
-              <span className="pay-hist-date">{fmtDate(h.date)}</span>
-              <span className="pay-hist-desc">{h.desc}</span>
-              <span className={`pay-hist-amt${h.amount < 0 ? ' pay-amt-credit' : ''}`}>
-                {h.amount < 0 ? `-${fmtMoney(Math.abs(h.amount))}` : fmtMoney(h.amount)}
-              </span>
-              <span className="pay-hist-status"><StatusPill kind={h.status} /></span>
-              <span className="pay-hist-method">{h.method}</span>
+      <div className="pay-grid">
+        {/* MAIN COLUMN */}
+        <div className="pay-col">
+          {/* Payment History */}
+          <section className="pay-card" id="history">
+            <div className="pay-card-head">
+              <h2 className="pay-card-title">{t('pay.paymentHistory')}</h2>
+              <button type="button" className="pay-card-link" onClick={() => setListOpen('history')}>{t('pay.viewAll')}</button>
             </div>
-          ))}
-        </div>
-      </section>
+            <div className="pay-history-table">
+              <div className="pay-history-row pay-history-header">
+                <span>{t('pay.colDate')}</span>
+                <span>{t('pay.colDescription')}</span>
+                <span>{t('pay.colAmount')}</span>
+                <span>{t('pay.colStatus')}</span>
+                <span>{t('pay.colPaymentMethod')}</span>
+              </div>
+              {history.length === 0 ? (
+                <div className="pay-empty">{t('pay.historyEmpty')}</div>
+              ) : history.map((h: any) => (
+                <div key={h.id} className="pay-history-row">
+                  <span className="pay-hist-date">{fmtDate(h.date)}</span>
+                  <span className="pay-hist-desc">{h.desc}</span>
+                  <span className={`pay-hist-amt${h.amount < 0 ? ' pay-amt-credit' : ''}`}>
+                    {h.amount < 0 ? `-${fmtMoney(Math.abs(h.amount))}` : fmtMoney(h.amount)}
+                  </span>
+                  <span><StatusPill kind={h.status} /></span>
+                  <span className="pay-hist-method">{h.method}</span>
+                </div>
+              ))}
+            </div>
+          </section>
 
-      {/* Statements — above Payment Methods */}
-      <section className="pay-card" id="statements">
-        <div className="pay-card-head">
-          <h3 className="pay-tile-title">{t('pay.statements')}</h3>
-          <button type="button" className="pay-card-link" onClick={() => setListOpen('statements')}>{t('pay.viewAll')}</button>
+          {/* Statements — above Payment Methods */}
+          <section className="pay-card" id="statements">
+            <div className="pay-card-head">
+              <h3 className="pay-tile-title">{t('pay.statements')}</h3>
+              <button type="button" className="pay-card-link" onClick={() => setListOpen('statements')}>{t('pay.viewAll')}</button>
+            </div>
+            <div className="pay-statements">
+              {DEMO_STATEMENTS.map(s => (
+                <button key={s.id} type="button" className="pay-statement" onClick={() => setStmtOpen(s)}>
+                  <span className="pay-statement-icon"><PdfIcon /></span>
+                  <span className="pay-statement-body">
+                    <span className="pay-statement-title">{s.label}</span>
+                    <span className="pay-statement-meta">{fmtDate(s.date)} &middot; {s.size}</span>
+                  </span>
+                  <span className="pay-statement-dl" aria-label={t('pay.open')}>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 4v12"/><path d="m6 10 6 6 6-6"/><path d="M5 20h14"/>
+                    </svg>
+                  </span>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          {/* Payment Methods */}
+          <section className="pay-card">
+            <div className="pay-card-head">
+              <h2 className="pay-card-title">{t('pay.paymentMethods')}</h2>
+              <button type="button" className="pay-card-link" onClick={() => setAddOpen(true)}>{t('pay.addNew')}</button>
+            </div>
+            {methods.length === 0 ? (
+              <div className="pay-empty">
+                {t('pay.noMethodsSaved')}{' '}
+                <button type="button" className="pay-empty-link" onClick={() => setAddOpen(true)}>{t('pay.addACard')}</button>.
+              </div>
+            ) : (
+              <div className="pay-methods-grid">
+                {methods.map(pm => (
+                  <div key={pm.id} className={`pay-method-card${pm.is_default ? ' is-default' : ''}`}>
+                    <div className="pay-method-icon">
+                      {pm.kind === 'card' ? <CardIcon /> : <BankIcon />}
+                    </div>
+                    <div className="pay-method-info">
+                      <div className="pay-method-title">{t('pay.methodEndingIn', { brand: pm.brand, last4: pm.last4 })}</div>
+                      <div className="pay-method-meta">
+                        {pm.kind === 'card' ? t('pay.creditDebitCard') : t('pay.bankAccount')}
+                      </div>
+                    </div>
+                    {pm.is_default ? (
+                      <span className="pay-method-badge">{t('pay.default')}</span>
+                    ) : (
+                      <button type="button" className="pay-method-action"
+                        onClick={() => makeDefault(pm.id)}>{t('pay.setAsDefault')}</button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            {autopayErr && <div className="pay-err">{autopayErr}</div>}
+            <p className="pay-card-note">
+              {t('pay.secureNote')}
+            </p>
+          </section>
         </div>
-        <div className="pay-statements">
-          {DEMO_STATEMENTS.map(s => (
-            <button key={s.id} type="button" className="pay-statement" onClick={() => setStmtOpen(s)}>
-              <span className="pay-statement-icon"><PdfIcon /></span>
-              <span className="pay-statement-body">
-                <span className="pay-statement-title">{s.label}</span>
-                <span className="pay-statement-meta">{fmtDate(s.date)} &middot; {s.size}</span>
-              </span>
-              <span className="pay-statement-dl" aria-label={t('pay.open')}>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 4v12"/><path d="m6 10 6 6 6-6"/><path d="M5 20h14"/>
-                </svg>
-              </span>
-            </button>
-          ))}
+
+        {/* RIGHT COLUMN */}
+        <aside className="pay-aside">
+          <section className="pay-card pay-tile-tight">
+            <h3 className="pay-tile-title">{t('pay.quickActions')}</h3>
+            <div className="pay-quick">
+              <QuickRow icon={<IconLightning />}
+                title={t('pay.qaOneTimeTitle')}
+                desc={t('pay.qaOneTimeDesc')}
+                onClick={startCheckout} />
+              <QuickRow icon={<IconRepeat />}
+                title={autopayActive ? t('pay.manageAutopay') : t('pay.setUpAutopay')}
+                desc={t('pay.qaAutopayDesc')}
+                onClick={() => setAutopayOpen(true)} />
+              <QuickRow icon={<IconReceipt />}
+                title={t('pay.qaViewStatementsTitle')}
+                desc={t('pay.qaViewStatementsDesc')}
+                onClick={() => setListOpen('statements')} />
+              <QuickRow icon={<IconClock />}
+                title={t('pay.paymentHistory')}
+                desc={t('pay.qaHistoryDesc')}
+                onClick={() => setListOpen('history')} />
+            </div>
+          </section>
+
+          <section className="pay-card pay-autopay" id="autopay">
+            <div className="pay-autopay-head">
+              <div className="pay-autopay-title">{t('pay.autopay')}</div>
+              {autopayActive ? (
+                <span className="pay-pill pay-pill-on">{t('pay.active')}</span>
+              ) : (
+                <span className="pay-pill pay-pill-off">{t('pay.off')}</span>
+              )}
+            </div>
+            {autopayActive ? (
+              <>
+                <div className="pay-autopay-note">
+                  {t('pay.autopayActiveNote')}
+                </div>
+                <div className="pay-autopay-meta">
+                  <div className="pay-autopay-row">
+                    <span>{t('pay.nextPayment')}</span>
+                    <span>{fmtDate(dueDate)}</span>
+                  </div>
+                  <div className="pay-autopay-row">
+                    <span>{t('pay.amount')}</span>
+                    <span>{fmtMoney(currentBalance)}</span>
+                  </div>
+                  {defaultMethod && (
+                    <div className="pay-autopay-row">
+                      <span>{t('pay.paymentMethod')}</span>
+                      <span>{defaultMethod.brand} ···· {defaultMethod.last4}</span>
+                    </div>
+                  )}
+                </div>
+                {stripeLive ? (
+                  <button type="button" className="pay-cta-secondary pay-cta-block"
+                    disabled={autopayBusy} onClick={() => toggleAutopay(false)}>
+                    {autopayBusy ? t('pay.updating') : t('pay.pauseAutopay')}
+                  </button>
+                ) : (
+                  <button type="button" className="pay-cta-secondary pay-cta-block"
+                    onClick={() => setAutopayDemo(false)}>
+                    {t('pay.pauseAutopay')}
+                  </button>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="pay-autopay-note">
+                  {t('pay.autopayOffNote')}
+                </div>
+                {stripeLive ? (
+                  <button type="button" className="pay-cta-primary pay-cta-block"
+                    disabled={autopayBusy} onClick={() => toggleAutopay(true)}>
+                    {autopayBusy ? t('pay.updating') : defaultMethod ? t('pay.turnOnAutopay') : t('pay.addCardToEnable')}
+                  </button>
+                ) : (
+                  <button type="button" className="pay-cta-primary pay-cta-block"
+                    onClick={() => setAutopayDemo(true)}>
+                    {t('pay.turnOnAutopay')}
+                  </button>
+                )}
+              </>
+            )}
+            {autopayErr && <div className="pay-err">{autopayErr}</div>}
+          </section>
+        </aside>
+      </div>
+
+      {/* Support footer */}
+      <section className="pay-support">
+        <div className="pay-support-icon" aria-hidden="true">
+          <IconHelp />
         </div>
+        <div className="pay-support-body">
+          <div className="pay-support-title">{t('pay.supportTitle')}</div>
+          <div className="pay-support-sub">
+            {t('pay.supportSub')}
+          </div>
+        </div>
+        <Link href="/app/voice#contact" className="pay-cta-secondary">{t('pay.contactSupport')}</Link>
       </section>
 
       {/* Account Details — view popup, opened in place from the balance card. */}
@@ -471,49 +604,6 @@ export function PaySection() {
               <div className="rd-bd-row"><span className="rd-bd-cat">{t('pay.defaultMethod')}</span><span className="rd-bd-amt">{defaultMethod.brand} ···· {defaultMethod.last4}</span><span /></div>
             )}
           </div>
-        </DetailDialog>
-      )}
-
-      {/* Payment Methods — manage saved cards in a popup, opened from the balance card. */}
-      {methodsOpen && (
-        <DetailDialog
-          eyebrow={t('pay.heading')}
-          title={t('pay.paymentMethods')}
-          onClose={() => setMethodsOpen(false)}
-          footer={
-            <button type="button" className="ven-cta-primary"
-              onClick={() => { setMethodsOpen(false); setAddOpen(true) }}>
-              {t('pay.addNew')}
-            </button>
-          }
-        >
-          {methods.length === 0 ? (
-            <p className="rd-report-blurb">{t('pay.noMethodsSaved')}</p>
-          ) : (
-            <div className="pay-methods-grid">
-              {methods.map(pm => (
-                <div key={pm.id} className={`pay-method-card${pm.is_default ? ' is-default' : ''}`}>
-                  <div className="pay-method-icon">
-                    {pm.kind === 'card' ? <CardIcon /> : <BankIcon />}
-                  </div>
-                  <div className="pay-method-info">
-                    <div className="pay-method-title">{t('pay.methodEndingIn', { brand: pm.brand, last4: pm.last4 })}</div>
-                    <div className="pay-method-meta">
-                      {pm.kind === 'card' ? t('pay.creditDebitCard') : t('pay.bankAccount')}
-                    </div>
-                  </div>
-                  {pm.is_default ? (
-                    <span className="pay-method-badge">{t('pay.default')}</span>
-                  ) : (
-                    <button type="button" className="pay-method-action"
-                      onClick={() => makeDefault(pm.id)}>{t('pay.setAsDefault')}</button>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-          {autopayErr && <div className="pay-err">{autopayErr}</div>}
-          <p className="pay-card-note">{t('pay.secureNote')}</p>
         </DetailDialog>
       )}
 
@@ -609,7 +699,7 @@ export function PaySection() {
                 <span className={`pay-hist-amt${h.amount < 0 ? ' pay-amt-credit' : ''}`}>
                   {h.amount < 0 ? `-${fmtMoney(Math.abs(h.amount))}` : fmtMoney(h.amount)}
                 </span>
-                <span className="pay-hist-status"><StatusPill kind={h.status} /></span>
+                <span><StatusPill kind={h.status} /></span>
                 <span className="pay-hist-method">{h.method}</span>
               </div>
             ))}
@@ -797,8 +887,107 @@ function StatusPill({ kind }: { kind: string }) {
   return <span className={`pay-pill ${cls}`}>{label}</span>
 }
 
+// -- Current Balance rings -----------------------------------------
+
+type RingTone = 'dues' | 'due' | 'ok' | 'warn' | 'bad'
+type RingFace = { value: ReactNode; sub: string; aria: string }
+
+const RING_R = 51
+const RING_C = 2 * Math.PI * RING_R   // circumference of the progress arc
+
+// Green checkmark shown inside the Payment Status ring when on track. Sized
+// (via CSS) to sit comfortably inside the ring with room to spare.
+function RingCheck() {
+  return (
+    <svg className="pay-ring-check" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="20 6.5 9.5 17.5 4 12" />
+    </svg>
+  )
+}
+
+// A single progress ring. The arc draws itself in on mount (staggered by
+// `index` for a cascade) and fills to `pct`. The centre + caption show the
+// primary face by default and hold on the detail face the whole time the ring
+// is hovered or focused — the two faces cross-fade as they swap. Hovering
+// lifts + glows the ring; tapping toggles the faces for touch.
+function BalanceRing({ pct, faces, tone, cat, index = 0 }: {
+  pct: number
+  faces: [RingFace, RingFace]
+  tone: RingTone
+  cat: string
+  index?: number
+}) {
+  const [idx, setIdx] = useState(0)
+  const [armed, setArmed] = useState(false)   // false until the entrance draw fires
+  const show = (i: number) => setIdx(i)
+
+  useEffect(() => {
+    const t = setTimeout(() => setArmed(true), 90 + index * 140)
+    return () => clearTimeout(t)
+  }, [index])
+
+  const target = Math.max(0, Math.min(1, pct || 0)) * RING_C
+  const dash = armed ? target : 0   // animate 0 → target via the CSS transition
+  const face = faces[idx] ?? faces[0]
+
+  return (
+    <button
+      type="button"
+      className={`pay-ring pay-ring-${tone}${idx > 0 ? ' is-hot' : ''}`}
+      onMouseEnter={() => show(1)} onMouseLeave={() => show(0)}
+      onFocus={() => show(1)} onBlur={() => show(0)}
+      onClick={() => show(idx === 0 ? 1 : 0)}
+      aria-label={`${cat}: ${face.aria}`}
+    >
+      <span className="pay-ring-viz">
+        <svg viewBox="0 0 120 120" aria-hidden="true">
+          <circle className="pay-ring-track" cx="60" cy="60" r={RING_R} />
+          <circle
+            className="pay-ring-fill" cx="60" cy="60" r={RING_R}
+            strokeDasharray={`${dash} ${RING_C}`}
+            transform="rotate(-90 60 60)"
+          />
+        </svg>
+        <span className="pay-ring-center" key={idx}>
+          <span className="pay-ring-value">{face.value}</span>
+          {face.sub && <span className="pay-ring-sub">{face.sub}</span>}
+        </span>
+      </span>
+      <span className="pay-ring-cat">{cat}</span>
+    </button>
+  )
+}
+
+function QuickRow({
+  icon, title, desc, href, onClick,
+}: {
+  icon: ReactNode; title: string; desc: string; href?: string; onClick?: () => void
+}) {
+  const inner = (
+    <>
+      <span className="pay-quick-icon">{icon}</span>
+      <span className="pay-quick-body">
+        <span className="pay-quick-title">{title}</span>
+        <span className="pay-quick-desc">{desc}</span>
+      </span>
+      <svg className="pay-quick-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+    </>
+  )
+  return href
+    ? <a href={href} className="pay-quick-row">{inner}</a>
+    : <button type="button" className="pay-quick-row" onClick={onClick}>{inner}</button>
+}
+
 // -- icons ---------------------------------------------------------
 
+function IconLightning() { return <Svg><><path d="M13 2 4 14h7l-1 8 9-12h-7z"/></></Svg> }
+function IconRepeat()    { return <Svg><><path d="M17 1l4 4-4 4"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><path d="M7 23l-4-4 4-4"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></></Svg> }
+function IconReceipt()   { return <Svg><><path d="M5 3h14v18l-2-2-2 2-2-2-2 2-2-2-2 2-2-2z"/><path d="M9 8h6M9 12h6M9 16h4"/></></Svg> }
+function IconClock()     { return <Svg><><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></></Svg> }
+function IconHelp()      { return <Svg><><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3.5"/><circle cx="12" cy="17.5" r="0.5" fill="currentColor"/></></Svg> }
 function CardIcon()      { return <Svg><><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/></></Svg> }
 function BankIcon()      { return <Svg><><path d="M3 10 12 4l9 6"/><path d="M5 10v8h14v-8"/><path d="M3 20h18"/></></Svg> }
 function PdfIcon()       { return <Svg><><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6"/><text x="7" y="17" fontSize="5.5" fontWeight="700" fill="currentColor" stroke="none">PDF</text></></Svg> }

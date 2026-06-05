@@ -6,6 +6,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { signOut, hasSupabase } from '@/lib/supabase'
 import { useAuth } from '../providers'
 import { useMyResident } from '@/hooks/useMyResident'
+import { kindToUpTag, upcomingFrom, useScheduleEvents } from '@/lib/schedule'
 import { useUnreadNoticeCount, useMyNotices } from '@/hooks/useNotices'
 import { SiteFooterSlim } from '@/components/SiteFooter'
 import { NOTICE_KIND_LABELS, noticeHref, NoticeKind } from '@/lib/voice'
@@ -83,16 +84,8 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
   const { count: unreadCount } = useUnreadNoticeCount()
   useMyResident() // keep mounted before the auth guard for stable hook order
   const homeHasAlert = isPreview || unreadCount > 0
+  const showRightRail = pathname === '/app'
   const [navOpen, setNavOpen] = useState(false)
-  // Tapping a bottom-nav tab you're already on must snap the page back to its
-  // first sub-tab. Next's <Link> to the same path with a different hash updates
-  // the URL but never fires hashchange, so set + dispatch it ourselves.
-  const resetSubtab = (base: string, first: string) => {
-    if (typeof window !== 'undefined' && pathname.startsWith(base)) {
-      window.location.hash = first
-      window.dispatchEvent(new Event('hashchange'))
-    }
-  }
   const showAdmin = !hasSupabase || ['board_member', 'admin'].includes(profile?.role || '')
   const communityName = community?.name || 'Sunset Lakes'
   const now = new Date()
@@ -151,7 +144,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <CockpitIntro />
-    <div className="cockpit" style={{ gridTemplateColumns: '220px 1fr' }}>
+    <div className="cockpit" style={!showRightRail ? { gridTemplateColumns: '220px 1fr' } : undefined}>
       <aside className={`rail-left${navOpen ? ' open' : ''}`}>
         {isPreview ? (
           <Link href="/" className="brand brand-back" aria-label="Back to home">
@@ -181,40 +174,29 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
               {item.href === '/app' && homeHasAlert && <span className="pulse-dot"></span>}
             </Link>
           ))}
-          {(showAdmin || isPlatformAdmin) && (
+          {showAdmin && (
             <>
-              {/* Board/platform tools — set apart from the resident tabs, and
-                  desktop-only: on phones we show a note instead of the links. */}
+              {/* Set the board-only Admin entry apart from the resident tabs. */}
               <div aria-hidden="true" style={{ height: 1, background: 'var(--border)', margin: '14px 14px 6px' }} />
-              {showAdmin && (
-                <Link
-                  href="/admin"
-                  className={`nav-item nav-desktop-only${pathname.startsWith('/admin') ? ' active' : ''}`}
-                >
-                  <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2 4 6v6c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6z"/>
-                  </svg>
-                  <span>{t('nav.admin')}</span>
-                </Link>
-              )}
-              {isPlatformAdmin && (
-                <Link href="/platform" className="nav-item nav-desktop-only" style={{ color: '#FF6B3D', fontWeight: 700 }}>
-                  <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-                    <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-                  </svg>
-                  <span>Platform Console</span>
-                </Link>
-              )}
-              <div className="nav-desktop-note">
+              <Link
+                href="/admin"
+                className={`nav-item${pathname.startsWith('/admin') ? ' active' : ''}`}
+              >
                 <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
+                  <path d="M12 2 4 6v6c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6z"/>
                 </svg>
-                <span>{isPlatformAdmin
-                  ? 'Open Admin & the Platform Console on a desktop.'
-                  : 'Open Admin on a desktop.'}</span>
-              </div>
+                <span>{t('nav.admin')}</span>
+              </Link>
             </>
+          )}
+          {isPlatformAdmin && (
+            <Link href="/platform" className="nav-item" style={{ color: '#FF6B3D', fontWeight: 700 }}>
+              <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+              </svg>
+              <span>Platform Console</span>
+            </Link>
           )}
         </nav>
 
@@ -276,23 +258,16 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
       <main className="center">
         <div className="topbar">
           <div className="kicker">
-            {/* Hide the menu button while the drawer is open — it otherwise
-                shows as an empty square over the drawer's "Residente" header.
-                The drawer closes via the backdrop or the More tab. */}
-            {!navOpen && (
-              <button
-                className="hamburger"
-                onClick={() => setNavOpen(true)}
-                aria-label="Open menu"
-                aria-expanded={false}
-              >
-                <span /><span /><span />
-              </button>
-            )}
-            {/* Hide the community label while the More drawer is open — it
-                otherwise overlaps the drawer's "Residente" header. */}
-            {!navOpen && <span className="live-dot" aria-label="Live" title="Live"></span>}
-            {!navOpen && <span className="kicker-text">{communityName} · {fyLabel}</span>}
+            <button
+              className={`hamburger${navOpen ? ' open' : ''}`}
+              onClick={() => setNavOpen(v => !v)}
+              aria-label={navOpen ? 'Close menu' : 'Open menu'}
+              aria-expanded={navOpen}
+            >
+              <span /><span /><span />
+            </button>
+            <span className="live-dot" aria-label="Live" title="Live"></span>
+            <span className="kicker-text">{communityName} · {fyLabel}</span>
           </div>
           <div className="topbar-right">
             <NotificationBell />
@@ -302,6 +277,8 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
         {children}
         <SiteFooterSlim />
       </main>
+
+      {showRightRail && <RightRail />}
 
       {/* Mobile bottom tab bar — primary navigation on phones, matching the
           native-app pattern. Replaces the hamburger as the main entry point;
@@ -313,19 +290,19 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
           <span>Home</span>
           {homeHasAlert && <span className="bn-dot" aria-hidden="true" />}
         </Link>
-        <Link href={isPreview ? '/app/track?preview=1#pay' : '/app/track#pay'} onClick={() => resetSubtab('/app/track', 'pay')} className={`bn-item${pathname.startsWith('/app/track') ? ' active' : ''}`}>
+        <Link href={isPreview ? '/app/track?preview=1' : '/app/track'} className={`bn-item${pathname.startsWith('/app/track') ? ' active' : ''}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
           <span>Pay</span>
         </Link>
-        <Link href={isPreview ? '/app/voice?preview=1#board' : '/app/voice#board'} onClick={() => resetSubtab('/app/voice', 'board')} className={`bn-item${pathname.startsWith('/app/voice') ? ' active' : ''}`}>
+        <Link href={isPreview ? '/app/voice?preview=1' : '/app/voice'} className={`bn-item${pathname.startsWith('/app/voice') ? ' active' : ''}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           <span>Requests</span>
         </Link>
-        <Link href={isPreview ? '/app/documents?preview=1#documents' : '/app/documents#documents'} onClick={() => resetSubtab('/app/documents', 'documents')} className={`bn-item${(pathname.startsWith('/app/documents') || pathname.startsWith('/app/rules')) ? ' active' : ''}`}>
+        <Link href={isPreview ? '/app/documents?preview=1' : '/app/documents'} className={`bn-item${(pathname.startsWith('/app/documents') || pathname.startsWith('/app/rules')) ? ' active' : ''}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h12l4 4v12H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
           <span>Documents</span>
         </Link>
-        <button type="button" className={`bn-item${navOpen ? ' active' : ''}`} onClick={() => setNavOpen(v => !v)} aria-label="More">
+        <button type="button" className={`bn-item${navOpen ? ' active' : ''}`} onClick={() => setNavOpen(true)} aria-label="More">
           <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
           <span>More</span>
         </button>
@@ -423,6 +400,134 @@ function CockpitIntro() {
         </div>
       </div>
     </div>
+  )
+}
+
+const fmtAmt = (n: number | string | null | undefined) =>
+  '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
+
+// HOA convention: dues for month N are due on the 1st of month N.
+// If we're already past the 1st, the next bill is for next month.
+function nextDueDate(): Date {
+  const now = new Date()
+  if (now.getDate() === 1) return new Date(now.getFullYear(), now.getMonth(), 1)
+  return new Date(now.getFullYear(), now.getMonth() + 1, 1)
+}
+function nextDueLabel(): string {
+  return nextDueDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+}
+function nextDueMonth(): string {
+  return nextDueDate().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+}
+
+const UP_TAG_LABEL: Record<string, string> = {
+  pending: 'pending',
+  renewed: 'renewed',
+  hosted:  'hosted',
+}
+
+function shortDate(s: string) {
+  const d = new Date(s + 'T00:00:00')
+  return {
+    day: d.toLocaleDateString('en-US', { day: '2-digit' }),
+    mo:  d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
+  }
+}
+
+function RightRail() {
+  const { profile } = useAuth()
+  const t = useT()
+  const { resident, balance, status: dues } = useMyResident() as { resident: any; balance: number | null; status: 'paid' | 'due' | 'late' }
+  const unitLabel = resident?.address || (profile?.unit_number ? `Unit ${profile.unit_number}` : 'Unit —')
+
+  // UP NEXT — wired to the same schedule events the /app/schedule
+  // calendar uses, so this rail always matches what the resident
+  // sees on the full calendar. Upcoming = date >= today, sorted
+  // ascending, first 4.
+  const allEvents = useScheduleEvents()
+  const todayISO = new Date().toISOString().slice(0, 10)
+  const items = upcomingFrom(allEvents, todayISO, 4).map(e => ({
+    id: e.id,
+    date: e.date,
+    title: e.title,
+    vendor: e.vendor ?? null,
+    amount: null as number | null,
+    tag: kindToUpTag(e.kind),
+    href: e.href,
+  }))
+
+  return (
+    <aside className="rail-right">
+      <div className="up-head">
+        <div className="up-title">{t('rail.upNext')}</div>
+        <Link href="/app/schedule" className="up-see-all">{t('rail.viewAll')}</Link>
+      </div>
+
+      <div className="up-list">
+        {items.map((it) => {
+          const { day, mo } = shortDate(it.date)
+          const row = (
+            <>
+              <div className="up-date">
+                <div className="up-date-day">{day}</div>
+                <div className="up-date-mo">{mo}</div>
+              </div>
+              <div className="up-body">
+                <div className="up-row-title">{it.title}</div>
+                <div className="up-row-meta">
+                  {it.vendor && <span className="up-vendor">{it.vendor}</span>}
+                  {it.amount != null && <>
+                    {it.vendor && <span className="up-dot">·</span>}
+                    <span className="up-amt">{fmtAmt(it.amount)}</span>
+                  </>}
+                </div>
+              </div>
+              <div className={`up-tag tag-${it.tag}`}>{UP_TAG_LABEL[it.tag] || it.tag}</div>
+            </>
+          )
+          return it.href ? (
+            <Link key={it.id} href={it.href} className="up-row up-row-link">{row}</Link>
+          ) : (
+            <div key={it.id} className="up-row">{row}</div>
+          )
+        })}
+      </div>
+
+      <div className="household">
+        <div className="household-title">{t('rail.yourResidence')}</div>
+        <div className="household-row">
+          <span className="h-label">{t('rail.unit')}</span>
+          <span className="h-val unit">{unitLabel}</span>
+        </div>
+        <div className="household-divider"></div>
+        <div className="household-row">
+          <span className="h-label">{t('rail.whatYouOwe')}</span>
+          <span className={`h-val h-val-amount ${balance ? 'due' : 'ok'}`}>
+            {balance === null ? '—' : fmtAmt(balance)}
+          </span>
+        </div>
+        <div className="household-row">
+          <span className="h-label">{t('rail.due')}</span>
+          <span className="h-val">{nextDueLabel()}</span>
+        </div>
+        <div className="household-row">
+          <span className="h-label">{t('rail.for')}</span>
+          <span className="h-val">{nextDueMonth()}</span>
+        </div>
+        <div className="household-row">
+          <span className="h-label">{t('rail.duesStatus')}</span>
+          <span className={`h-val h-val-pill ${dues === 'paid' ? 'ok' : 'due'}`}>
+            {resident ? DUES_LABEL[dues] : '—'}
+          </span>
+        </div>
+        <Link href="/app/track#pay" className="household-cta household-cta-dark">
+          {t('rail.makePayment')}
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>
+          </svg>
+        </Link>
+      </div>
+    </aside>
   )
 }
 

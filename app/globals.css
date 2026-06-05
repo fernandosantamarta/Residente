@@ -498,13 +498,13 @@ button { font-family: inherit; }
 }
 .bell-row:last-child { border-bottom: 0; }
 .bell-row:hover { background: rgba(255,255,255,0.03); }
-.bell-row.unread { background: rgba(225,73,9,0.07); }
-.bell-row.unread:hover { background: rgba(225,73,9,0.11); }
+.bell-row.unread { background: rgba(99,102,241,0.06); }
+.bell-row.unread:hover { background: rgba(99,102,241,0.1); }
 .bell-row-kind {
   font-size: 10px; font-weight: 700; letter-spacing: 0.6px;
   text-transform: uppercase; color: var(--text-dim); margin-bottom: 4px;
 }
-.bell-row.unread .bell-row-kind { color: #C45F2A; }
+.bell-row.unread .bell-row-kind { color: #a5b4fc; }
 .bell-row-subject { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
 .bell-row-body {
   font-size: 12px; color: var(--text-dim);
@@ -517,14 +517,6 @@ button { font-family: inherit; }
   transition: color 0.15s ease, background 0.15s ease;
 }
 .bell-panel-footer:hover { color: var(--text); background: rgba(255,255,255,0.03); }
-/* Phone: the fixed 360px dropdown sat half-off the bell and left the page
-   showing through. Span it across the screen, pinned under the topbar. */
-@media (max-width: 767px) {
-  .bell-panel {
-    position: fixed; top: 58px; left: 10px; right: 10px;
-    width: auto; max-height: 72vh;
-  }
-}
 
 .hero-head { margin-bottom: 48px; }
 .headline {
@@ -1127,6 +1119,366 @@ button { font-family: inherit; }
   .household { padding: 14px; gap: 10px; }
 }
 
+/* ============ COMMUNITY PAGE (editorial magazine layout) ============ */
+/* All styles namespaced under .community-page to prevent bleed into other
+   routes — generic class names like .feature/.article/.footer/.divider
+   live behind the comm- prefix. */
+
+.community-page {
+  font-feature-settings: "ss01", "ss02";
+  line-height: 1.5;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.kicker-ed {
+  text-transform: uppercase;
+  letter-spacing: 0.22em;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--pink);
+}
+
+.gradient-text {
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+.warn-text {
+  background: var(--grad-warn);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+}
+
+/* Feature well */
+.comm-feature {
+  display: grid;
+  grid-template-columns: 60% 40%;
+  padding: 56px 0 72px;
+  gap: 48px;
+  min-height: 480px;
+  align-items: center;
+}
+.comm-feature-left .kicker-ed { display: inline-block; margin-bottom: 28px; }
+.comm-feature-headline {
+  font-family: 'AmpFix', 'Fraunces', Georgia, serif;
+  font-size: 112px; font-weight: 700;
+  letter-spacing: -3.5px; line-height: 0.92;
+  margin-bottom: 32px;
+}
+.comm-feature-dek {
+  font-family: 'AmpFix', 'Fraunces', Georgia, serif;
+  font-size: 22px; font-weight: 400; font-style: italic;
+  color: rgba(255,255,255,0.82); line-height: 1.45;
+  max-width: 620px; margin-bottom: 36px;
+}
+.comm-byline {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  color: var(--text-faint);
+  font-size: 11px; letter-spacing: 0.24em;
+  text-transform: uppercase; font-weight: 500;
+}
+.comm-byline-dot {
+  width: 3px; height: 3px; border-radius: 50%;
+  background: var(--text-faint); display: inline-block;
+}
+
+.comm-feature-right {
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  text-align: center;
+}
+.comm-rings-wrap {
+  position: relative; width: 380px; height: 380px;
+  display: flex; align-items: center; justify-content: center;
+}
+.comm-rings-svg { width: 380px; height: 380px; transform: rotate(-90deg); }
+.comm-ring-center {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 4px;
+}
+.comm-ring-pct {
+  font-family: 'AmpFix', 'Fraunces', serif;
+  font-size: 68px; font-weight: 900;
+  letter-spacing: -2px; line-height: 1;
+}
+.comm-ring-lbl {
+  font-size: 10px; letter-spacing: 0.28em;
+  color: var(--text-faint); text-transform: uppercase;
+}
+
+.comm-money { margin-top: 24px; text-align: center; }
+.comm-money-amt {
+  font-family: 'AmpFix', 'Fraunces', serif;
+  font-size: 84px; font-weight: 900;
+  letter-spacing: -2.5px; line-height: 1;
+  margin-bottom: 8px;
+}
+.comm-money-sub {
+  font-size: 11px; letter-spacing: 0.28em;
+  color: var(--text-dim); text-transform: uppercase;
+  font-weight: 500; margin-bottom: 18px;
+}
+.comm-warn-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 16px; border-radius: 999px;
+  background: rgba(217, 164, 65, 0.12);
+  border: 1px solid rgba(217, 164, 65, 0.45);
+  color: #E5BE7A;
+  font-size: 11px; letter-spacing: 0.22em;
+  text-transform: uppercase; font-weight: 600;
+}
+
+/* Section divider */
+.comm-divider {
+  padding: 40px 0;
+  display: flex; align-items: center; gap: 32px;
+}
+.comm-divider::before, .comm-divider::after {
+  content: ""; flex: 1; height: 1px;
+  background: var(--border);
+}
+.comm-divider-mark {
+  font-family: 'AmpFix', 'Fraunces', serif;
+  font-size: 24px; color: var(--pink); font-weight: 400;
+}
+
+/* Section heads (shared by categories + board) */
+.comm-section-head { margin-bottom: 48px; }
+.comm-section-head .kicker-ed { display: inline-block; margin-bottom: 14px; }
+.comm-section-title {
+  font-family: 'AmpFix', 'Fraunces', serif;
+  font-size: 44px; font-style: italic;
+  font-weight: 400; letter-spacing: -1px;
+  line-height: 1.05; max-width: 760px;
+}
+
+/* Categories */
+.comm-categories { padding: 40px 0 72px; }
+.comm-cat-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+}
+.comm-cat-col {
+  padding: 36px 22px;
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  align-items: flex-start; gap: 16px;
+  position: relative;
+}
+.comm-cat-col:last-child { border-right: none; }
+.comm-cat-col.warn {
+  border-top: 2px solid var(--grad-warn);
+  margin-top: -1px;
+}
+.comm-mini-ring-wrap { position: relative; width: 88px; height: 88px; }
+.comm-mini-ring-svg { width: 88px; height: 88px; transform: rotate(-90deg); }
+.comm-mini-ring-pct {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'AmpFix', 'Inter', sans-serif;
+  font-weight: 600; font-size: 17px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+}
+.comm-cat-name {
+  font-family: 'AmpFix', 'Fraunces', serif;
+  font-size: 26px; font-weight: 600;
+  letter-spacing: -0.5px; line-height: 1;
+  margin-top: 4px;
+}
+.comm-cat-amount {
+  font-family: 'AmpFix', 'Inter', sans-serif;
+  font-size: 19px; font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim); letter-spacing: -0.2px;
+}
+.comm-cat-amount.warn { color: var(--grad-warn); }
+.comm-cat-note {
+  font-family: 'AmpFix', 'Fraunces', serif;
+  font-size: 14px; font-style: italic;
+  color: var(--text-faint); line-height: 1.5;
+  margin-top: 4px;
+}
+
+/* Board / articles */
+.comm-board { padding: 40px 0 72px; }
+.comm-articles-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 24px;
+}
+.comm-article {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 32px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.comm-article.feature { grid-column: span 2; padding: 40px; }
+.comm-article-btn { cursor: pointer; transition: border-color 0.12s ease, transform 0.08s ease; }
+.comm-article-btn:hover { border-color: var(--border-hover); transform: translateY(-2px); }
+.comm-article-btn:focus-visible { outline: 2px solid #C76F45; outline-offset: 2px; }
+.comm-article-top {
+  display: flex; justify-content: space-between;
+  align-items: flex-start; gap: 16px;
+}
+.comm-article-section {
+  font-size: 10px; letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--text-faint); font-weight: 500;
+}
+.comm-chip {
+  font-size: 10px; letter-spacing: 0.28em;
+  text-transform: uppercase; font-weight: 600;
+  padding: 6px 12px; border-radius: 999px;
+  white-space: nowrap;
+}
+.chip-resolved {
+  background: var(--accent-soft);
+  color: var(--pink);
+  border: 1px solid var(--pink);
+}
+.chip-pending {
+  color: var(--text-faint);
+  border: 1px dashed var(--border-hover);
+}
+.chip-warn {
+  background: rgba(217, 164, 65, 0.15);
+  color: #E5BE7A;
+  border: 1px solid rgba(217, 164, 65, 0.5);
+}
+.comm-article-headline {
+  font-family: 'AmpFix', 'Fraunces', serif;
+  font-size: 28px; font-weight: 700;
+  letter-spacing: -0.8px; line-height: 1.08;
+  color: var(--text);
+}
+.comm-article.feature .comm-article-headline {
+  font-size: 40px; letter-spacing: -1.2px;
+  line-height: 1.05; max-width: 780px;
+}
+.comm-article-dek {
+  font-size: 16px; line-height: 1.55;
+  color: var(--text-dim); font-weight: 400;
+  max-width: 640px;
+}
+.comm-article-byline {
+  display: flex; align-items: center; gap: 12px;
+  padding-top: 16px; border-top: 1px solid var(--border);
+  font-size: 12px; color: var(--text-faint);
+  letter-spacing: 0.02em; flex-wrap: wrap;
+}
+.comm-article-avatar {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: var(--grad);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-family: 'AmpFix', 'Fraunces', serif;
+  font-weight: 700; font-size: 12px; color: #fff;
+  flex-shrink: 0;
+}
+.comm-byline-vendor { color: var(--pink); font-weight: 600; font-size: 13px; }
+.comm-byline-dim { color: var(--text-faint); font-size: 12px; }
+.comm-byline-amt {
+  font-family: 'AmpFix', 'Inter', sans-serif;
+  font-weight: 600; font-size: 13px;
+  font-variant-numeric: tabular-nums;
+  background: var(--grad);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+.comm-byline-sep { color: var(--text-faint); opacity: 0.6; }
+
+/* Footer */
+.comm-footer {
+  padding: 56px 0;
+  text-align: center;
+  border-top: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  gap: 10px; align-items: center;
+  margin-top: 24px;
+}
+.comm-footer-masthead {
+  font-size: 11px; letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--text-faint); font-weight: 500;
+}
+.comm-footer-note {
+  font-family: 'AmpFix', 'Fraunces', serif;
+  font-style: italic; font-size: 15px;
+  color: var(--text-faint);
+}
+.comm-footer-links {
+  margin-top: 6px; display: flex; gap: 18px;
+  color: var(--text-faint);
+  font-size: 11px; letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+.comm-footer-links a { color: inherit; text-decoration: none; }
+.comm-footer-links a:hover { color: var(--text-dim); }
+.comm-footer-divider { color: var(--text-faint); opacity: 0.5; }
+
+/* Community page — mobile/tablet treatment */
+@media (max-width: 1199px) {
+  .community-page { padding: 0 4px; }
+  .comm-feature {
+    grid-template-columns: 1fr;
+    padding: 32px 0 48px;
+    gap: 32px;
+    min-height: 0;
+  }
+  .comm-feature-headline { font-size: 72px; letter-spacing: -2.5px; margin-bottom: 20px; }
+  .comm-feature-dek { font-size: 18px; margin-bottom: 24px; }
+  .comm-feature-right { order: -1; }  /* rings above headline on tablet */
+  .comm-rings-wrap, .comm-rings-svg { width: 300px; height: 300px; }
+  .comm-ring-pct { font-size: 56px; }
+  .comm-money-amt { font-size: 64px; letter-spacing: -2px; }
+  .comm-cat-grid { grid-template-columns: repeat(2, 1fr); }
+  .comm-cat-col:nth-child(2) { border-right: none; }
+  .comm-cat-col:nth-child(3) { border-top: 1px solid var(--border); }
+  .comm-cat-col:nth-child(4) { border-top: 1px solid var(--border); border-right: none; }
+  .comm-articles-grid { grid-template-columns: 1fr; }
+  .comm-article.feature { grid-column: auto; padding: 28px; }
+  .comm-article.feature .comm-article-headline { font-size: 28px; }
+}
+
+@media (max-width: 767px) {
+  .comm-feature { padding: 20px 0 36px; gap: 24px; }
+  .comm-feature-headline { font-size: 48px; letter-spacing: -1.8px; margin-bottom: 14px; }
+  .comm-feature-dek { font-size: 16px; margin-bottom: 20px; }
+  .comm-rings-wrap, .comm-rings-svg { width: 240px; height: 240px; }
+  .comm-ring-pct { font-size: 44px; }
+  .comm-money-amt { font-size: 52px; letter-spacing: -1.5px; }
+  .comm-byline { font-size: 9px; letter-spacing: 0.18em; gap: 8px; }
+  .comm-divider { padding: 24px 0; gap: 16px; }
+  .comm-section-head { margin-bottom: 28px; }
+  .comm-section-title { font-size: 30px; }
+  .comm-cat-grid { grid-template-columns: 1fr; }
+  .comm-cat-col {
+    padding: 24px 16px;
+    border-right: none !important;
+    border-top: 1px solid var(--border) !important;
+  }
+  .comm-cat-col:first-child { border-top: none !important; }
+  .comm-cat-col.warn { border-top: 2px solid var(--grad-warn) !important; }
+  .comm-article { padding: 20px; gap: 14px; }
+  .comm-article.feature { padding: 20px; }
+  .comm-article-headline { font-size: 22px; }
+  .comm-article.feature .comm-article-headline { font-size: 24px; }
+  .comm-article-dek { font-size: 14px; }
+  .comm-article-byline { gap: 8px; font-size: 11px; padding-top: 12px; }
+  .comm-footer { padding: 32px 0; }
+  .comm-footer-links { flex-wrap: wrap; justify-content: center; gap: 10px; font-size: 10px; }
+}
+
 /* Tablet — collapse right rail under content, keep nav drawer pattern */
 @media (min-width: 768px) and (max-width: 1199px) {
   .hero-head { margin-bottom: 36px; }
@@ -1293,7 +1645,9 @@ button { font-family: inherit; }
 /* SVG ring/donut tracks (non-gradient circles) — CSS beats the inline stroke
    attribute, so light themes get a readable track without touching the JSX. */
 .rings-wrap circle:not([stroke^="url"]),
-.cat-mini-ring circle:not([stroke^="url"]) { stroke: var(--track); }
+.cat-mini-ring circle:not([stroke^="url"]),
+.comm-rings-svg circle:not([stroke^="url"]),
+.comm-mini-ring-svg circle:not([stroke^="url"]) { stroke: var(--track); }
 
 /* SVG gradient stops — token-driven so each theme recolors the rings. */
 .gm1 { stop-color: var(--ring-a); }
@@ -2089,26 +2443,6 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 .vd-propose-go { display: inline-flex; align-items: center; font-size: 13px; font-weight: 700; color: var(--vd-accent); flex-shrink: 0; }
 @media (max-width: 560px) { .vd-propose-notice { flex-wrap: wrap; } }
 
-/* Combined quick-links card — propose a rule / rule book / elections, as three
-   tidy rows in one panel (replaced three stacked gradient cards). */
-.vd-links {
-  margin-top: 30px; border-radius: 16px; overflow: hidden;
-  background: linear-gradient(135deg, var(--vd-accent-soft), rgba(232,116,62,0.04));
-  border: 1px solid rgba(232,116,62,0.22);
-}
-.vd-link {
-  display: flex; align-items: center; gap: 14px; padding: 15px 18px;
-  text-decoration: none; color: var(--vd-ink); transition: background-color .12s ease;
-}
-.vd-link + .vd-link { border-top: 1px solid rgba(232,116,62,0.18); }
-.vd-link:hover { background: rgba(232,116,62,0.06); }
-.vd-link-ic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 11px; background: var(--vd-card); color: var(--vd-accent); flex-shrink: 0; }
-.vd-link-ic svg { width: 20px; height: 20px; }
-.vd-link-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.vd-link-title { font-size: 15px; font-weight: 700; letter-spacing: -0.2px; }
-.vd-link-sub { font-size: 12.5px; color: var(--vd-dim); }
-.vd-link-go { font-size: 18px; font-weight: 700; color: var(--vd-accent); flex-shrink: 0; line-height: 1; }
-
 /* Responsive — rail drops below the main column */
 @media (max-width: 900px) {
   .vd-grid { grid-template-columns: 1fr; }
@@ -2321,8 +2655,8 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 .inbox-row:hover { border-color: var(--border-hover); background: var(--bg-elev); }
-.inbox-row.unread { border-color: rgba(225,73,9,0.40); background: rgba(225,73,9,0.07); }
-.inbox-row.unread:hover { background: rgba(225,73,9,0.11); }
+.inbox-row.unread { border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.06); }
+.inbox-row.unread:hover { background: rgba(99,102,241,0.1); }
 
 .inbox-row-meta {
   display: flex; align-items: center; justify-content: space-between;
@@ -2332,7 +2666,7 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   font-size: 10px; font-weight: 700; letter-spacing: 0.6px;
   text-transform: uppercase; color: var(--text-dim);
 }
-.inbox-row.unread .inbox-row-kind { color: #C45F2A; }
+.inbox-row.unread .inbox-row-kind { color: #a5b4fc; }
 .inbox-row-ts { font-size: 11px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
 .inbox-row-subject { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
 .inbox-row-body {
@@ -2411,19 +2745,6 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   image-rendering: -webkit-optimize-contrast;
 }
 [data-theme="sketch"] .rail-left .nav-item { color: #0A2440; font-weight: 500; }
-/* Admin + Platform Console are desktop-only. On phones the links hide and a
-   "open on desktop" note shows in their place. */
-.nav-desktop-note { display: none; }
-@media (max-width: 767px) {
-  .nav-desktop-only { display: none !important; }
-  [data-theme="sketch"] .rail-left .nav-desktop-note {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 14px; margin: 2px 6px;
-    font-size: 12.5px; font-weight: 600; line-height: 1.35;
-    color: rgba(10, 36, 64, 0.6);
-  }
-  [data-theme="sketch"] .rail-left .nav-desktop-note .ic { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.7; }
-}
 [data-theme="sketch"] .rail-left .nav-item:hover {
   color: var(--sidebar-text); background: var(--sidebar-hover);
 }
@@ -3914,16 +4235,14 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
    month picker (prev / month-dropdown / next), Month/Week/Day pills,
    Filter button, and the Today indicator block all in one strip. */
 [data-theme="sketch"] .sched-toolbar {
-  display: flex; flex-direction: column; gap: 12px;
+  display: flex; align-items: center; gap: 14px;
   margin-bottom: 18px;
+  flex-wrap: wrap;
   background: var(--bg-card);
   border: 1px solid rgba(15, 28, 46, 0.10);
   border-radius: 14px;
-  padding: 12px 14px;
+  padding: 10px 14px;
   box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
-}
-[data-theme="sketch"] .sched-toolbar-row {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px;
 }
 [data-theme="sketch"] .sched-today-btn {
   padding: 7px 16px;
@@ -4022,9 +4341,10 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 [data-theme="sketch"] .sched-filter-btn svg { width: 15px; height: 15px; }
 
 [data-theme="sketch"] .sched-toolbar-today {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
-  padding-top: 10px;
-  border-top: 1px solid rgba(15, 28, 46, 0.10);
+  display: flex; flex-direction: column;
+  padding: 4px 14px;
+  border-left: 1px solid rgba(15, 28, 46, 0.10);
+  min-width: 200px;
 }
 [data-theme="sketch"] .sched-toolbar-today-label {
   font-size: 13px;
@@ -5079,10 +5399,6 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   font-size: 12px;
   color: rgba(10, 36, 64, 0.55);
 }
-/* Phone: title + sub shared a space-between row and collided. Stack them. */
-@media (max-width: 560px) {
-  [data-theme="sketch"] .rb-vi-head { flex-direction: column; align-items: flex-start; gap: 4px; }
-}
 [data-theme="sketch"] .rb-vi-stats {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -5121,7 +5437,6 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 [data-theme="sketch"] .rb-suggest {
   display: flex; align-items: center; justify-content: space-between;
   gap: 18px;
-  margin-top: 30px;
   padding: 20px 24px;
   background: #E14909;
   border-radius: 18px;
@@ -5169,9 +5484,7 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   [data-theme="sketch"] .rb-vi-stats { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 599px) {
-  /* No fixed height — it left ~70px of dead white space between the subtitle
-     and the search bar on phones. Let the hero size to its content. */
-  [data-theme="sketch"] .rb-hero { height: auto; }
+  [data-theme="sketch"] .rb-hero { height: 160px; }
   [data-theme="sketch"] .rb-hero-title { font-size: 32px; }
   [data-theme="sketch"] .rb-vi-stats { grid-template-columns: 1fr; }
   [data-theme="sketch"] .rb-suggest { flex-direction: column; align-items: flex-start; }
@@ -6089,16 +6402,10 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   }
 }
 @media (max-width: 767px) {
-  /* Squarer day cells on phones (were tall 78px rectangles); events render as a
-     compact row of colour dots so they stay visible in the narrow column. */
-  [data-theme="sketch"] .sched-cell { min-height: 58px; }
-  [data-theme="sketch"] .sched-cell-events { flex-direction: row; flex-wrap: wrap; gap: 3px; margin-top: 1px; }
-  [data-theme="sketch"] .sched-pill { padding: 0; background: none !important; border: none; }
-  [data-theme="sketch"] .sched-pill .sched-pill-title { display: none; }
-  [data-theme="sketch"] .sched-pill .sched-dot { width: 7px; height: 7px; }
-  [data-theme="sketch"] .sched-pill-more { font-size: 9px; padding: 0; color: rgba(10, 36, 64, 0.55); }
+  [data-theme="sketch"] .sched-cell { min-height: 78px; }
   [data-theme="sketch"] .sched-pill { font-size: 10px; padding: 2px 4px; }
   [data-theme="sketch"] .sched-hero-title { font-size: 32px; }
+  [data-theme="sketch"] .sched-views { width: 100%; }
 }
 
 /* ---- RESPONSIVE ---- */
@@ -6112,13 +6419,7 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   [data-theme="sketch"] .glance-cards { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 767px) {
-  /* Tighter, more mobile hero: less side padding, a compact wrapping chip row,
-     and a soft halo so the navy greeting reads over the bright sunset. */
-  [data-theme="sketch"] .hero-bleed-content { padding: 40px 18px 0; max-width: 100%; gap: 10px; }
-  [data-theme="sketch"] .hero-title { font-size: 33px; letter-spacing: -0.035em; text-shadow: 0 1px 14px rgba(255, 255, 255, 0.6); }
-  [data-theme="sketch"] .hero-sub { text-shadow: 0 1px 10px rgba(255, 255, 255, 0.65); }
-  [data-theme="sketch"] .hero-chips { flex-wrap: wrap; white-space: normal; gap: 8px; }
-  [data-theme="sketch"] .hero-chip { padding: 6px 12px; font-size: 12.5px; }
+  [data-theme="sketch"] .hero-title { font-size: 36px; letter-spacing: -0.035em; }
   [data-theme="sketch"] .fin-amount { font-size: 34px; letter-spacing: -1px; }
   [data-theme="sketch"] .glance-cards { grid-template-columns: 1fr 1fr; gap: 10px; }
   [data-theme="sketch"] .glance-card { padding: 14px; }
@@ -6404,8 +6705,6 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   [data-theme="sketch"] .set-grid {
     grid-template-columns: 1fr;
   }
-  /* Account summary above the settings list on phones. */
-  [data-theme="sketch"] .set-aside { order: -1; }
 }
 
 [data-theme="sketch"] .set-col {
@@ -6469,27 +6768,21 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   gap: 2px;
   min-width: 0;
 }
-/* One line each (ellipsis) so every row is the exact same height — a long
-   "right" value (e.g. a full name) no longer squeezes the title/desc onto
-   extra lines and balloons the row. */
 [data-theme="sketch"] .set-row-title {
   font-size: 14px;
   font-weight: 700;
   color: #0A2440;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 [data-theme="sketch"] .set-row-desc {
   font-size: 12.5px;
   color: rgba(10, 36, 64, 0.62);
   line-height: 1.4;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 [data-theme="sketch"] .set-row-right {
   font-size: 12px;
   font-weight: 600;
   color: rgba(10, 36, 64, 0.55);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  max-width: 96px;
+  white-space: nowrap;
 }
 [data-theme="sketch"] .set-row-chev {
   width: 16px; height: 16px;
@@ -7281,6 +7574,13 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   font-size: 14px; font-weight: 500; color: #0A2440; max-width: 620px; text-wrap: balance;
 }
 
+[data-theme="sketch"] .pay-grid {
+  display: grid; grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 24px; align-items: start;
+}
+@media (max-width: 1080px) { [data-theme="sketch"] .pay-grid { grid-template-columns: 1fr; } }
+[data-theme="sketch"] .pay-col { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+[data-theme="sketch"] .pay-aside { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 
 [data-theme="sketch"] .pay-wrap .pay-card {
   display: flex; flex-direction: column; gap: 14px;
@@ -7297,6 +7597,7 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .pay-wrap .pay-card::before {
   display: none !important;
 }
+[data-theme="sketch"] .pay-tile-tight { padding: 18px; gap: 12px; }
 [data-theme="sketch"] .pay-tile-title,
 [data-theme="sketch"] .pay-card-title {
   font-family: 'AmpFix', 'Fraunces', Georgia, serif;
@@ -7319,15 +7620,7 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   font-size: 56px; font-weight: 600; line-height: 1; letter-spacing: -0.02em; color: #0A2440;
 }
 [data-theme="sketch"] .pay-balance-due { font-size: 13px; font-weight: 600; color: #0A2440; margin-top: 2px; }
-/* Paid-in-full badge — green, with a check, replacing the due line. */
-[data-theme="sketch"] .pay-balance-paid {
-  display: inline-flex; align-items: center; gap: 6px; margin-top: 4px;
-  padding: 4px 11px 4px 8px; border-radius: 999px;
-  background: rgba(62, 155, 79, 0.12); border: 1px solid rgba(62, 155, 79, 0.32);
-  color: #2F7A3E; font-size: 13px; font-weight: 700;
-}
-[data-theme="sketch"] .pay-balance-paid svg { width: 15px; height: 15px; }
-[data-theme="sketch"] .pay-balance-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; max-width: 340px; }
+[data-theme="sketch"] .pay-balance-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
 [data-theme="sketch"] .pay-breakdown {
   padding: 18px 26px; background: #FBF7F1; border-top: 1px solid rgba(15, 28, 46, 0.08);
   display: flex; flex-direction: column; gap: 6px;
@@ -7354,37 +7647,78 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   flex-direction: row; align-items: center; gap: 28px; flex-wrap: wrap;
 }
 [data-theme="sketch"] .pay-balance-main {
-  display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; min-width: 0;
+  display: flex; flex-direction: column; gap: 8px; flex: 0 1 360px; min-width: 280px;
 }
-/* Dues signals (Balance / Payment status / Due date) as rows under the Make
-   Payment actions — replaced the three dial rings. */
-[data-theme="sketch"] .pay-balance-rows {
-  display: flex; flex-direction: column;
-  margin-top: 14px; padding-top: 4px;
-  border-top: 1px solid rgba(15, 28, 46, 0.10);
+/* Vertical divider between the balance and the rings. */
+[data-theme="sketch"] .pay-balance-sep {
+  align-self: stretch; width: 1px; min-height: 158px; flex: 0 0 auto;
+  background: rgba(15, 28, 46, 0.12);
 }
-[data-theme="sketch"] .pay-stat-row {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 16px;
-  padding: 13px 0; border-bottom: 1px solid rgba(15, 28, 46, 0.07);
+/* The three rings sit beside the balance, grouped tightly and pushed right. */
+[data-theme="sketch"] .pay-rings {
+  display: flex; flex: 1 1 380px; gap: 20px;
+  justify-content: flex-end; align-items: flex-start; flex-wrap: wrap;
 }
-[data-theme="sketch"] .pay-stat-row:last-child { border-bottom: none; }
-[data-theme="sketch"] .pay-stat-label {
-  flex: 0 0 auto; white-space: nowrap;
-  font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;
-  color: rgba(10, 36, 64, 0.55);
+[data-theme="sketch"] .pay-ring {
+  display: flex; flex-direction: column; align-items: center; gap: 12px;
+  flex: 0 0 auto; padding: 0;
+  background: none; border: none; cursor: pointer; font-family: inherit;
+  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-/* Value sits on the right and takes the remaining width; the small grey meta
-   stacks UNDER it (not beside it) so nothing wraps mid-figure. */
-[data-theme="sketch"] .pay-stat-value {
-  flex: 1 1 auto; min-width: 0;
-  display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
-  text-align: right; line-height: 1.25;
-  font-size: 15px; font-weight: 700; color: #0A2440; font-variant-numeric: tabular-nums;
+[data-theme="sketch"] .pay-ring:hover,
+[data-theme="sketch"] .pay-ring:focus-visible { transform: translateY(-2px); outline: none; }
+[data-theme="sketch"] .pay-ring-viz { position: relative; width: 156px; height: 156px; transition: filter 0.2s ease; }
+/* Coloured glow per tone on hover — makes each dial feel alive, not static. */
+[data-theme="sketch"] .pay-ring-dues:hover .pay-ring-viz { filter: drop-shadow(0 5px 13px rgba(225, 73, 9, 0.30)); }
+[data-theme="sketch"] .pay-ring-due:hover  .pay-ring-viz { filter: drop-shadow(0 5px 13px rgba(230, 162, 60, 0.34)); }
+[data-theme="sketch"] .pay-ring-ok:hover   .pay-ring-viz { filter: drop-shadow(0 5px 13px rgba(62, 155, 79, 0.32)); }
+[data-theme="sketch"] .pay-ring-warn:hover .pay-ring-viz { filter: drop-shadow(0 5px 13px rgba(224, 161, 6, 0.32)); }
+/* Opt out of the global .pay-card svg hand-ink wobble filter — the rings are
+   precise progress arcs, not sketch icons, so they must render clean. */
+[data-theme="sketch"] .pay-ring-viz svg { width: 100%; height: 100%; display: block; filter: none; }
+[data-theme="sketch"] .pay-ring-track { fill: none; stroke: rgba(15, 28, 46, 0.08); stroke-width: 7; }
+[data-theme="sketch"] .pay-ring-fill {
+  fill: none; stroke-width: 7; stroke-linecap: round;
+  /* draws the arc in on mount (0 → target) and eases it when growing on hover */
+  transition: stroke-dasharray 0.95s cubic-bezier(0.22, 1, 0.36, 1), stroke-width 0.2s ease;
 }
-[data-theme="sketch"] .pay-stat-value.ok   { color: #3E9B4F; }
-[data-theme="sketch"] .pay-stat-value.warn { color: #E0A106; }
-[data-theme="sketch"] .pay-stat-meta {
-  font-size: 11.5px; font-weight: 500; color: rgba(10, 36, 64, 0.5); white-space: nowrap;
+[data-theme="sketch"] .pay-ring:hover .pay-ring-fill,
+[data-theme="sketch"] .pay-ring:focus-visible .pay-ring-fill { stroke-width: 9; }
+[data-theme="sketch"] .pay-ring-dues .pay-ring-fill { stroke: #E14909; }
+[data-theme="sketch"] .pay-ring-due  .pay-ring-fill { stroke: #E6A23C; }
+[data-theme="sketch"] .pay-ring-ok   .pay-ring-fill { stroke: #3E9B4F; }
+[data-theme="sketch"] .pay-ring-warn .pay-ring-fill { stroke: #E0A106; }
+[data-theme="sketch"] .pay-ring-bad  .pay-ring-fill { stroke: #C8372D; }
+/* Centred stack inside the ring: headline value + small label. */
+[data-theme="sketch"] .pay-ring-center {
+  position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 2px; padding: 0 26px; text-align: center;
+  animation: pay-ring-fade 0.32s ease;
+}
+[data-theme="sketch"] .pay-ring-value {
+  font-family: 'AmpFix', 'Inter', -apple-system, system-ui, sans-serif;
+  font-size: 25px; font-weight: 700; line-height: 1.08; letter-spacing: -0.01em;
+  color: #0A2440; font-variant-numeric: tabular-nums; max-width: 100%;
+}
+[data-theme="sketch"] .pay-ring-sub {
+  font-size: 11px; font-weight: 500; color: rgba(10, 36, 64, 0.55); line-height: 1.15;
+}
+/* Green checkmark for the on-track Payment Status ring. */
+[data-theme="sketch"] .pay-ring-check { width: 52px; height: 52px; display: block; color: #3E9B4F; }
+/* Category label beneath each ring (BALANCE / PAYMENT STATUS / DUE DATE). */
+[data-theme="sketch"] .pay-ring-cat {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+  color: rgba(10, 36, 64, 0.5);
+}
+@keyframes pay-ring-fade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
+@media (max-width: 760px) {
+  [data-theme="sketch"] .pay-balance-sep { display: none; }
+  [data-theme="sketch"] .pay-rings { flex-basis: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  [data-theme="sketch"] .pay-ring,
+  [data-theme="sketch"] .pay-ring-fill { transition: none; }
+  [data-theme="sketch"] .pay-ring-center { animation: none; }
 }
 
 /* Shimmer skeleton — replaces the balance + due-date strings while
@@ -7445,26 +7779,6 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .pay-hist-desc { font-weight: 600; }
 [data-theme="sketch"] .pay-hist-amt { font-weight: 700; text-align: left; }
 [data-theme="sketch"] .pay-hist-method { font-size: 12.5px; color: #0A2440; }
-
-/* Phone: the 5-column history grid collides (the amount lands on top of the
-   description, the header reads "DESCAMOUNTTION"). Stack each payment into a
-   compact card and drop the now-meaningless column header. */
-@media (max-width: 640px) {
-  [data-theme="sketch"] .pay-history-row.pay-history-header { display: none; }
-  [data-theme="sketch"] .pay-history-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "desc   amt"
-      "date   status"
-      "method method";
-    gap: 3px 12px; padding: 14px 0;
-  }
-  [data-theme="sketch"] .pay-hist-desc   { grid-area: desc; }
-  [data-theme="sketch"] .pay-hist-amt    { grid-area: amt;    justify-self: end; align-self: center; }
-  [data-theme="sketch"] .pay-hist-date   { grid-area: date;   font-size: 12px; color: rgba(10, 36, 64, 0.6); }
-  [data-theme="sketch"] .pay-hist-status { grid-area: status; justify-self: end; align-self: center; }
-  [data-theme="sketch"] .pay-hist-method { grid-area: method; font-size: 11.5px; color: rgba(10, 36, 64, 0.55); }
-}
 
 /* Status pills */
 [data-theme="sketch"] .pay-pill {
@@ -7561,7 +7875,42 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   [data-theme="sketch"] .pay-fine-pay { grid-column: 1 / -1; justify-self: start; }
 }
 
+/* Quick actions */
+[data-theme="sketch"] .pay-quick { display: flex; flex-direction: column; gap: 4px; }
+[data-theme="sketch"] .pay-quick-row {
+  display: grid; grid-template-columns: 36px minmax(0, 1fr) auto;
+  align-items: center; gap: 12px;
+  padding: 10px 6px;
+  background: transparent; border: none; text-align: left;
+  font-family: inherit; cursor: pointer; text-decoration: none;
+  border-top: 1px solid rgba(15, 28, 46, 0.06);
+  transition: background-color 0.12s ease;
+}
+[data-theme="sketch"] .pay-quick-row:first-child { border-top: none; }
+[data-theme="sketch"] .pay-quick-row:hover { background: rgba(225, 73, 9, 0.05); }
+[data-theme="sketch"] .pay-quick-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; border-radius: 10px;
+  background: rgba(225, 73, 9, 0.10); color: #C45F2A;
+}
+[data-theme="sketch"] .pay-quick-icon svg { width: 18px; height: 18px; }
+[data-theme="sketch"] .pay-quick-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+[data-theme="sketch"] .pay-quick-title { font-size: 13.5px; font-weight: 700; color: #0A2440; }
+[data-theme="sketch"] .pay-quick-desc { font-size: 12px; color: #0A2440; line-height: 1.35; }
+[data-theme="sketch"] .pay-quick-chev { width: 16px; height: 16px; color: #0A2440; }
 
+/* Autopay tile */
+[data-theme="sketch"] .pay-autopay { gap: 10px; }
+[data-theme="sketch"] .pay-autopay-head { display: flex; justify-content: space-between; align-items: center; }
+[data-theme="sketch"] .pay-autopay-title {
+  font-family: 'AmpFix', 'Fraunces', Georgia, serif;
+  font-size: 18px; font-weight: 600; color: #0A2440;
+}
+[data-theme="sketch"] .pay-autopay-note { font-size: 12.5px; color: #0A2440; line-height: 1.4; }
+[data-theme="sketch"] .pay-autopay-meta { display: flex; flex-direction: column; gap: 4px; padding-top: 6px; border-top: 1px dashed rgba(15, 28, 46, 0.10); }
+[data-theme="sketch"] .pay-autopay-row { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; padding: 4px 0; }
+[data-theme="sketch"] .pay-autopay-row > span:first-child { color: #0A2440; }
+[data-theme="sketch"] .pay-autopay-row > span:last-child  { color: #0A2440; font-weight: 700; }
 
 /* Statements */
 [data-theme="sketch"] .pay-statements { display: flex; flex-direction: column; }
@@ -7590,6 +7939,35 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .pay-statement-dl { color: #C45F2A; }
 [data-theme="sketch"] .pay-statement-dl svg { width: 16px; height: 16px; }
 
+/* Support footer — full orange banner. White content; the
+   "Contact Support" CTA is navy so it pops against the orange. */
+[data-theme="sketch"] .pay-support {
+  display: flex; align-items: center; gap: 16px;
+  padding: 20px 24px;
+  background: #E14909;
+  border: 1px solid #E14909;
+  border-radius: 18px;
+  color: #FFFFFF;
+  box-shadow: 0 10px 30px -14px rgba(225, 73, 9, 0.45);
+}
+[data-theme="sketch"] .pay-support-icon {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18); color: #FFFFFF;
+}
+[data-theme="sketch"] .pay-support-icon svg { width: 22px; height: 22px; }
+[data-theme="sketch"] .pay-support-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+[data-theme="sketch"] .pay-support-title { font-size: 15px; font-weight: 700; color: #FFFFFF; }
+[data-theme="sketch"] .pay-support-sub { font-size: 13px; color: rgba(255, 255, 255, 0.92); }
+[data-theme="sketch"] .pay-support .pay-cta-secondary {
+  background: #0A2440;
+  border-color: #0A2440;
+  color: #FFFFFF;
+}
+[data-theme="sketch"] .pay-support .pay-cta-secondary:hover {
+  background: #0D2E52;
+  border-color: #0D2E52;
+}
 
 /* ===== Vendor ratings UI ===== */
 [data-theme="sketch"] .ven-rate-btn {
@@ -7757,11 +8135,6 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   font-size: 44px; font-weight: 600; line-height: 1; letter-spacing: -0.02em; margin: 0; color: #0A2440;
 }
 [data-theme="sketch"] .doc-hero-sub { font-size: 14px; font-weight: 500; color: #0A2440; max-width: 620px; text-wrap: balance; }
-/* Match the Rules hero on phones — the Documents title was stuck at 44px while
-   Rules dropped to 32px, so it dwarfed the other tabs. */
-@media (max-width: 599px) {
-  [data-theme="sketch"] .doc-hero-title { font-size: 32px; }
-}
 
 [data-theme="sketch"] .doc-toolbar {
   display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch;
@@ -7805,13 +8178,6 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 
 /* Three-row paired layout — each row holds two stretched cards so
    their bottom edges line up. Collapses to a single column under 1080. */
-/* Easy Documents leads with the seg-tabs (no hero header above them like the
-   other hubs), so on phones they sat jammed under the status bar and the title
-   crowded the top. Drop the whole block down into the white space below. */
-@media (max-width: 767px) {
-  .easydocs-combined { padding-top: 44px; }
-}
-
 [data-theme="sketch"] .doc-rows {
   display: flex; flex-direction: column;
   gap: 22px;
@@ -7874,20 +8240,6 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 /* Need + stay-informed cards */
 [data-theme="sketch"] .doc-need, [data-theme="sketch"] .doc-stay {
   flex-direction: row; align-items: center; gap: 14px;
-}
-[data-theme="sketch"] .doc-need-actions {
-  display: flex; flex-direction: column; gap: 8px; align-items: flex-end; flex-shrink: 0;
-}
-/* Phone: the icon|body|actions row crushed the text to one word per line.
-   Stack each card so the body gets full width and the actions sit below. */
-@media (max-width: 640px) {
-  [data-theme="sketch"] .doc-need, [data-theme="sketch"] .doc-stay {
-    flex-direction: column; align-items: stretch; gap: 12px;
-  }
-  [data-theme="sketch"] .doc-need-icon, [data-theme="sketch"] .doc-stay-bell { align-self: flex-start; }
-  [data-theme="sketch"] .doc-need-actions { align-items: stretch; }
-  [data-theme="sketch"] .doc-need-actions .doc-cta-primary,
-  [data-theme="sketch"] .doc-stay .doc-cta-secondary { width: 100%; }
 }
 [data-theme="sketch"] .doc-need-icon, [data-theme="sketch"] .doc-stay-bell {
   display: inline-flex; align-items: center; justify-content: center;
@@ -8133,25 +8485,6 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .ven-row-contact a:hover { color: #E14909; }
 [data-theme="sketch"] .ven-empty { padding: 14px 0; font-size: 13px; color: #0A2440; text-align: center; }
 
-/* Phone: the 4-column All Vendors grid collides (header reads "CATEGORRATING",
-   names wrap, emails get cut off). Stack each vendor into a card. */
-@media (max-width: 640px) {
-  [data-theme="sketch"] .ven-row.ven-row-head { display: none; }
-  [data-theme="sketch"] .ven-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "name    rating"
-      "cat     cat"
-      "contact contact";
-    gap: 4px 12px; padding: 14px 0;
-  }
-  [data-theme="sketch"] .ven-row-name    { grid-area: name; }
-  [data-theme="sketch"] .ven-row-cat     { grid-area: cat; }
-  [data-theme="sketch"] .ven-row-rating  { grid-area: rating; justify-self: end; align-self: center; }
-  [data-theme="sketch"] .ven-row-contact { grid-area: contact; margin-top: 2px; }
-  [data-theme="sketch"] .ven-row-contact a { overflow-wrap: anywhere; }
-}
-
 /* Star rating */
 [data-theme="sketch"] .ven-rating { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: #0A2440; }
 [data-theme="sketch"] .ven-rating svg { width: 14px; height: 14px; color: #E1A40B; }
@@ -8368,25 +8701,6 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   font-size: 12.5px; font-weight: 700; color: #C45F2A; text-decoration: none;
 }
 [data-theme="sketch"] .rep-row-action:hover { color: #E14909; }
-
-/* Phone: the 5-column Recent Reports grid collides. Stack each report into a
-   card: title + status, then category + date, then the view/download action. */
-@media (max-width: 640px) {
-  [data-theme="sketch"] .rep-row.rep-row-head { display: none; }
-  [data-theme="sketch"] .rep-row {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "title  status"
-      "cat    date"
-      "action action";
-    gap: 4px 12px; padding: 14px 0;
-  }
-  [data-theme="sketch"] .rep-row-title  { grid-area: title; }
-  [data-theme="sketch"] .rep-row-cat    { grid-area: cat; }
-  [data-theme="sketch"] .rep-row-date   { grid-area: date;   justify-self: end; align-self: center; }
-  [data-theme="sketch"] .rep-row-status { grid-area: status; justify-self: end; align-self: center; }
-  [data-theme="sketch"] .rep-row-action { grid-area: action; justify-self: start; margin-top: 2px; }
-}
 
 /* Status pills */
 [data-theme="sketch"] .rep-pill {
@@ -8691,16 +9005,16 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   border: 1px solid rgba(125, 140, 92, 0.36);
   font-size: 12px; font-weight: 700; letter-spacing: 0.3px;
 }
+@media (max-width: 560px) {
+  [data-theme="sketch"] .myv-paid { grid-column: 1 / -1; justify-self: start; }
+}
 [data-theme="sketch"] .myv-pay-err {
   font-size: 12.5px; color: #C82E2E;
   background: rgba(200, 46, 46, 0.08); border-radius: 8px;
   padding: 8px 12px; margin: 8px 0 4px;
 }
 @media (max-width: 560px) {
-  /* Keep the small "✓ Paid" pill inline top-right; only the wider "Pay fine"
-     button drops to its own full-width line. */
-  [data-theme="sketch"] .myv-row { align-items: start; }
-  [data-theme="sketch"] .myv-paid { align-self: start; }
+  [data-theme="sketch"] .myv-row { grid-template-columns: auto minmax(0, 1fr); }
   [data-theme="sketch"] .myv-pay-btn { grid-column: 1 / -1; justify-self: start; }
 }
 
@@ -9172,8 +9486,7 @@ textarea[disabled] {
   }
   [data-theme="sketch"] .seg-tabs::-webkit-scrollbar { display: none; }
   [data-theme="sketch"] .seg-tab {
-    padding: 9px 11px;
-    font-size: 13px;
+    padding: 9px 16px;
     flex-shrink: 0;
   }
 

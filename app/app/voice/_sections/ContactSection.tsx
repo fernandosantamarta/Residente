@@ -95,7 +95,7 @@ export function ContactSection() {
         {/* LEFT — submit a request */}
         <section className="con-card con-form-card">
           <h2 className="con-card-title">{t('board.submitRequest')}</h2>
-          <RequestForm initialCategory={initialCat} focusMessage={!!sp?.get('cat')} onSubmitted={row => setRows(rs => [row as Request, ...rs])} />
+          <RequestForm initialCategory={initialCat} onSubmitted={row => setRows(rs => [row as Request, ...rs])} />
         </section>
 
         {/* RIGHT — submission history */}

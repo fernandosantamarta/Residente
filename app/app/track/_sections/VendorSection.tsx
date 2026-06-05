@@ -42,6 +42,11 @@ const VENDORS: Vendor[] = [
   { id: 'v9',  name: 'Atlas Pest Control',          category: 'property',   contact: { phone: '(305) 555-0331', email: 'hello@atlaspest.com' }, blurb: 'Quarterly perimeter treatment, common-area abatement.' },
 ]
 
+const EMERGENCY_CONTACTS = [
+  { id: 'e1', label: '24/7 Hotline',           phone: '(305) 555-0001', desc: 'On-call manager — anything urgent.' },
+  { id: 'e2', label: 'After-Hours Maintenance', phone: '(305) 555-0002', desc: 'Coastal Maintenance after 6 PM.' },
+  { id: 'e3', label: 'Water Emergency',        phone: '(305) 555-0003', desc: 'Flow Right Plumbing — leaks, no water.' },
+]
 
 const CATEGORY_GRID: { key: VendorCat; label: string }[] = [
   { key: 'property',   label: 'Property Maintenance' },
@@ -136,6 +141,13 @@ export function VendorSection() {
   }, [])
   const vendors = dbVendors ?? VENDORS
 
+  const counts = useMemo(() => {
+    const map: Record<VendorCat, number> = {
+      property: 0, cleaning: 0, security: 0, plumbing: 0, electrical: 0, hvac: 0,
+    }
+    for (const v of vendors) map[v.category]++
+    return map
+  }, [vendors])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -182,6 +194,22 @@ export function VendorSection() {
       <div className="ven-grid">
         {/* MAIN COLUMN */}
         <div className="ven-col">
+          {/* Vendor categories — icon grid */}
+          <section className="ven-card">
+            <h2 className="ven-card-title">{t('vendors.categories')}</h2>
+            <div className="ven-cat-grid">
+              <CategoryTile k="all" label={t('vendors.all')} count={vendors.length}
+                active={active === 'all'} onClick={() => setActive('all')} />
+              {CATEGORY_GRID.map(c => (
+                <CategoryTile
+                  key={c.key} k={c.key} label={catLabel(c.key)} count={counts[c.key]}
+                  active={active === c.key}
+                  onClick={() => setActive(c.key)}
+                />
+              ))}
+            </div>
+          </section>
+
           {/* Featured vendors */}
           {featured.length > 0 && (
             <section className="ven-card">
@@ -252,6 +280,24 @@ export function VendorSection() {
 
         {/* RIGHT COLUMN */}
         <aside className="ven-aside">
+          <section className="ven-card ven-tile-tight">
+            <h3 className="ven-tile-title">{t('vendors.quickActions')}</h3>
+            <div className="ven-quick">
+              <QuickRow icon={<IconPlus />}
+                title={t('vendors.requestVendor')}
+                desc={t('vendors.requestVendorDesc')}
+                onClick={() => setRequest('request')} />
+              <QuickRow icon={<IconStar />}
+                title={t('vendors.recommendVendor')}
+                desc={t('vendors.recommendVendorDesc')}
+                onClick={() => setRequest('recommend')} />
+              <QuickRow icon={<IconList />}
+                title={t('vendors.viewServiceRequests')}
+                desc={t('vendors.viewServiceRequestsDesc')}
+                href="/app/voice#contact" />
+            </div>
+          </section>
+
           <section className="ven-card ven-need">
             <div className="ven-need-icon" aria-hidden="true"><IconHelp /></div>
             <div className="ven-need-body">
@@ -264,6 +310,45 @@ export function VendorSection() {
               onClick={() => setRequest('request')}>
               {t('vendors.requestRecommendations')}
             </button>
+          </section>
+
+          <section className="ven-card ven-guide">
+            <div className="ven-guide-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3 4 6v6c0 4.5 3.2 8.5 8 9 4.8-.5 8-4.5 8-9V6z"/>
+                <path d="m9 12 2 2 4-4"/>
+              </svg>
+            </div>
+            <div className="ven-guide-body">
+              <div className="ven-guide-title">{t('vendors.guidelines')}</div>
+              <div className="ven-guide-sub">
+                {t('vendors.guidelinesSub')}
+              </div>
+            </div>
+            <button type="button" className="ven-cta-secondary"
+              disabled={guideBusy} onClick={openGuidelines}>
+              {guideBusy ? t('vendors.opening') : t('vendors.viewGuidelines')}
+            </button>
+          </section>
+
+          <section className="ven-card ven-emerg">
+            <h3 className="ven-tile-title">{t('vendors.emergencyContacts')}</h3>
+            <div className="ven-emerg-list">
+              {EMERGENCY_CONTACTS.map(c => (
+                <a key={c.id} href={`tel:${c.phone}`} className="ven-emerg-row">
+                  <span className="ven-emerg-icon" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .3 1.9.6 2.7a2 2 0 0 1-.4 2.1L8 9.6a16 16 0 0 0 6 6l1.1-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.5 2.7.6a2 2 0 0 1 1.7 2z"/>
+                    </svg>
+                  </span>
+                  <span className="ven-emerg-body">
+                    <span className="ven-emerg-label">{c.label}</span>
+                    <span className="ven-emerg-phone">{c.phone}</span>
+                    <span className="ven-emerg-desc">{c.desc}</span>
+                  </span>
+                </a>
+              ))}
+            </div>
           </section>
         </aside>
       </div>
@@ -383,6 +468,23 @@ export function VendorSection() {
 
 // -- sub-components ------------------------------------------------
 
+function CategoryTile({
+  k, label, count, active, onClick,
+}: {
+  k: 'all' | VendorCat
+  label: string
+  count: number
+  active: boolean
+  onClick: () => void
+}) {
+  return (
+    <button type="button" className={`ven-cat${active ? ' on' : ''}`} onClick={onClick}>
+      <span className="ven-cat-icon">{categoryIcon(k)}</span>
+      <span className="ven-cat-label">{label}</span>
+      <span className="ven-cat-count">{count}</span>
+    </button>
+  )
+}
 
 function FeaturedCard({
   v, catLabel, avg, count, myRating, onRate,
@@ -565,6 +667,27 @@ function RatingDialog({
   )
 }
 
+function QuickRow({
+  icon, title, desc, href, onClick,
+}: {
+  icon: ReactNode; title: string; desc: string; href?: string; onClick?: () => void
+}) {
+  const inner = (
+    <>
+      <span className="ven-quick-icon">{icon}</span>
+      <span className="ven-quick-body">
+        <span className="ven-quick-title">{title}</span>
+        <span className="ven-quick-desc">{desc}</span>
+      </span>
+      <svg className="ven-quick-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <polyline points="9 18 15 12 9 6"/>
+      </svg>
+    </>
+  )
+  return href
+    ? <Link href={href} className="ven-quick-row">{inner}</Link>
+    : <button type="button" className="ven-quick-row" onClick={onClick}>{inner}</button>
+}
 
 // -- icons ---------------------------------------------------------
 
@@ -580,6 +703,9 @@ function categoryIcon(k: 'all' | VendorCat): ReactNode {
   }
 }
 
+function IconPlus()  { return <Svg><><path d="M12 5v14M5 12h14"/></></Svg> }
+function IconStar()  { return <Svg><><path d="m12 2 2.9 6.2 6.8.6-5.1 4.6 1.5 6.6L12 16.8 5.9 20l1.5-6.6L2.3 8.8l6.8-.6z"/></></Svg> }
+function IconList()  { return <Svg><><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></></Svg> }
 function IconHelp()  { return <Svg><><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3.5"/><circle cx="12" cy="17.5" r="0.5" fill="currentColor"/></></Svg> }
 
 function Svg({ children }: { children: ReactNode }) {
