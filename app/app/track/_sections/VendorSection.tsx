@@ -136,13 +136,6 @@ export function VendorSection() {
   }, [])
   const vendors = dbVendors ?? VENDORS
 
-  const counts = useMemo(() => {
-    const map: Record<VendorCat, number> = {
-      property: 0, cleaning: 0, security: 0, plumbing: 0, electrical: 0, hvac: 0,
-    }
-    for (const v of vendors) map[v.category]++
-    return map
-  }, [vendors])
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
@@ -390,23 +383,6 @@ export function VendorSection() {
 
 // -- sub-components ------------------------------------------------
 
-function CategoryTile({
-  k, label, count, active, onClick,
-}: {
-  k: 'all' | VendorCat
-  label: string
-  count: number
-  active: boolean
-  onClick: () => void
-}) {
-  return (
-    <button type="button" className={`ven-cat${active ? ' on' : ''}`} onClick={onClick}>
-      <span className="ven-cat-icon">{categoryIcon(k)}</span>
-      <span className="ven-cat-label">{label}</span>
-      <span className="ven-cat-count">{count}</span>
-    </button>
-  )
-}
 
 function FeaturedCard({
   v, catLabel, avg, count, myRating, onRate,
@@ -589,27 +565,6 @@ function RatingDialog({
   )
 }
 
-function QuickRow({
-  icon, title, desc, href, onClick,
-}: {
-  icon: ReactNode; title: string; desc: string; href?: string; onClick?: () => void
-}) {
-  const inner = (
-    <>
-      <span className="ven-quick-icon">{icon}</span>
-      <span className="ven-quick-body">
-        <span className="ven-quick-title">{title}</span>
-        <span className="ven-quick-desc">{desc}</span>
-      </span>
-      <svg className="ven-quick-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-        <polyline points="9 18 15 12 9 6"/>
-      </svg>
-    </>
-  )
-  return href
-    ? <Link href={href} className="ven-quick-row">{inner}</Link>
-    : <button type="button" className="ven-quick-row" onClick={onClick}>{inner}</button>
-}
 
 // -- icons ---------------------------------------------------------
 
