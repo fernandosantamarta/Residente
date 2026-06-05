@@ -9482,18 +9482,20 @@ textarea[disabled] {
    clipped by the section's overflow. Rules are scoped to [data-theme="sketch"]
    to match (and override) the themed definitions above. */
 @media (max-width: 640px) {
-  /* Wrap the tabs onto a second row instead of horizontal-scrolling — a 4-tab
-     control (Easy Voice: Board / Voting / Architectural / Contact) overflowed
-     and the hidden scrollbar left the last tab clipped at the pill's edge. */
+  /* Shrink the tabs so all four (Easy Voice: Board / Voting / Architectural /
+     Contact) fit on one row — no wrap, no scroll, nothing clipped. */
   [data-theme="sketch"] .seg-tabs {
     display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
     max-width: 100%;
+    padding: 4px;
+    gap: 3px;
   }
   [data-theme="sketch"] .seg-tab {
-    padding: 9px 16px;
-    flex-shrink: 0;
+    padding: 8px 9px;
+    font-size: 12px;
+    white-space: nowrap;
+    flex-shrink: 1;
+    min-width: 0;
   }
 
   /* Filter bar: stack the filters and let each dropdown go full width so the
