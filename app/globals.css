@@ -7949,6 +7949,20 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .doc-need, [data-theme="sketch"] .doc-stay {
   flex-direction: row; align-items: center; gap: 14px;
 }
+[data-theme="sketch"] .doc-need-actions {
+  display: flex; flex-direction: column; gap: 8px; align-items: flex-end; flex-shrink: 0;
+}
+/* Phone: the icon|body|actions row crushed the text to one word per line.
+   Stack each card so the body gets full width and the actions sit below. */
+@media (max-width: 640px) {
+  [data-theme="sketch"] .doc-need, [data-theme="sketch"] .doc-stay {
+    flex-direction: column; align-items: stretch; gap: 12px;
+  }
+  [data-theme="sketch"] .doc-need-icon, [data-theme="sketch"] .doc-stay-bell { align-self: flex-start; }
+  [data-theme="sketch"] .doc-need-actions { align-items: stretch; }
+  [data-theme="sketch"] .doc-need-actions .doc-cta-primary,
+  [data-theme="sketch"] .doc-stay .doc-cta-secondary { width: 100%; }
+}
 [data-theme="sketch"] .doc-need-icon, [data-theme="sketch"] .doc-stay-bell {
   display: inline-flex; align-items: center; justify-content: center;
   width: 44px; height: 44px; border-radius: 50%; flex: 0 0 auto;
