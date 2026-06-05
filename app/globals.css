@@ -827,6 +827,7 @@ button { font-family: inherit; }
 /* ============ LOGIN ============ */
 .login-screen {
   min-height: 100vh;
+  min-height: 100dvh;   /* fill the real mobile viewport — no squared band when the toolbar collapses */
   min-width: 100vw;
   background: var(--bg);
   display: flex;
@@ -836,6 +837,10 @@ button { font-family: inherit; }
   overflow: hidden;
   padding: 24px;
 }
+/* Paint the page + body the same warm tone so there's no squared cream/white
+   band at the top or bottom where the login screen meets the browser chrome. */
+body:has(.login-screen),
+html:has(.login-screen) { background: #FFF5EE; }
 
 .login-glow {
   position: absolute;
