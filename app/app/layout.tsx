@@ -6,7 +6,6 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { signOut, hasSupabase } from '@/lib/supabase'
 import { useAuth } from '../providers'
 import { useMyResident } from '@/hooks/useMyResident'
-import { kindToUpTag, upcomingFrom, useScheduleEvents } from '@/lib/schedule'
 import { useUnreadNoticeCount, useMyNotices } from '@/hooks/useNotices'
 import { SiteFooterSlim } from '@/components/SiteFooter'
 import { NOTICE_KIND_LABELS, noticeHref, NoticeKind } from '@/lib/voice'
@@ -84,7 +83,6 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
   const { count: unreadCount } = useUnreadNoticeCount()
   useMyResident() // keep mounted before the auth guard for stable hook order
   const homeHasAlert = isPreview || unreadCount > 0
-  const showRightRail = pathname === '/app'
   const [navOpen, setNavOpen] = useState(false)
   const showAdmin = !hasSupabase || ['board_member', 'admin'].includes(profile?.role || '')
   const communityName = community?.name || 'Sunset Lakes'
@@ -144,7 +142,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
   return (
     <>
       <CockpitIntro />
-    <div className="cockpit" style={!showRightRail ? { gridTemplateColumns: '220px 1fr' } : undefined}>
+    <div className="cockpit" style={{ gridTemplateColumns: '220px 1fr' }}>
       <aside className={`rail-left${navOpen ? ' open' : ''}`}>
         {isPreview ? (
           <Link href="/" className="brand brand-back" aria-label="Back to home">
@@ -278,8 +276,6 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
         <SiteFooterSlim />
       </main>
 
-      {showRightRail && <RightRail />}
-
       {/* Mobile bottom tab bar — primary navigation on phones, matching the
           native-app pattern. Replaces the hamburger as the main entry point;
           the "More" tab opens the existing drawer (Schedule, Settings, Admin,
@@ -400,134 +396,6 @@ function CockpitIntro() {
         </div>
       </div>
     </div>
-  )
-}
-
-const fmtAmt = (n: number | string | null | undefined) =>
-  '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
-
-// HOA convention: dues for month N are due on the 1st of month N.
-// If we're already past the 1st, the next bill is for next month.
-function nextDueDate(): Date {
-  const now = new Date()
-  if (now.getDate() === 1) return new Date(now.getFullYear(), now.getMonth(), 1)
-  return new Date(now.getFullYear(), now.getMonth() + 1, 1)
-}
-function nextDueLabel(): string {
-  return nextDueDate().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-function nextDueMonth(): string {
-  return nextDueDate().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-}
-
-const UP_TAG_LABEL: Record<string, string> = {
-  pending: 'pending',
-  renewed: 'renewed',
-  hosted:  'hosted',
-}
-
-function shortDate(s: string) {
-  const d = new Date(s + 'T00:00:00')
-  return {
-    day: d.toLocaleDateString('en-US', { day: '2-digit' }),
-    mo:  d.toLocaleDateString('en-US', { month: 'short' }).toUpperCase(),
-  }
-}
-
-function RightRail() {
-  const { profile } = useAuth()
-  const t = useT()
-  const { resident, balance, status: dues } = useMyResident() as { resident: any; balance: number | null; status: 'paid' | 'due' | 'late' }
-  const unitLabel = resident?.address || (profile?.unit_number ? `Unit ${profile.unit_number}` : 'Unit —')
-
-  // UP NEXT — wired to the same schedule events the /app/schedule
-  // calendar uses, so this rail always matches what the resident
-  // sees on the full calendar. Upcoming = date >= today, sorted
-  // ascending, first 4.
-  const allEvents = useScheduleEvents()
-  const todayISO = new Date().toISOString().slice(0, 10)
-  const items = upcomingFrom(allEvents, todayISO, 4).map(e => ({
-    id: e.id,
-    date: e.date,
-    title: e.title,
-    vendor: e.vendor ?? null,
-    amount: null as number | null,
-    tag: kindToUpTag(e.kind),
-    href: e.href,
-  }))
-
-  return (
-    <aside className="rail-right">
-      <div className="up-head">
-        <div className="up-title">{t('rail.upNext')}</div>
-        <Link href="/app/schedule" className="up-see-all">{t('rail.viewAll')}</Link>
-      </div>
-
-      <div className="up-list">
-        {items.map((it) => {
-          const { day, mo } = shortDate(it.date)
-          const row = (
-            <>
-              <div className="up-date">
-                <div className="up-date-day">{day}</div>
-                <div className="up-date-mo">{mo}</div>
-              </div>
-              <div className="up-body">
-                <div className="up-row-title">{it.title}</div>
-                <div className="up-row-meta">
-                  {it.vendor && <span className="up-vendor">{it.vendor}</span>}
-                  {it.amount != null && <>
-                    {it.vendor && <span className="up-dot">·</span>}
-                    <span className="up-amt">{fmtAmt(it.amount)}</span>
-                  </>}
-                </div>
-              </div>
-              <div className={`up-tag tag-${it.tag}`}>{UP_TAG_LABEL[it.tag] || it.tag}</div>
-            </>
-          )
-          return it.href ? (
-            <Link key={it.id} href={it.href} className="up-row up-row-link">{row}</Link>
-          ) : (
-            <div key={it.id} className="up-row">{row}</div>
-          )
-        })}
-      </div>
-
-      <div className="household">
-        <div className="household-title">{t('rail.yourResidence')}</div>
-        <div className="household-row">
-          <span className="h-label">{t('rail.unit')}</span>
-          <span className="h-val unit">{unitLabel}</span>
-        </div>
-        <div className="household-divider"></div>
-        <div className="household-row">
-          <span className="h-label">{t('rail.whatYouOwe')}</span>
-          <span className={`h-val h-val-amount ${balance ? 'due' : 'ok'}`}>
-            {balance === null ? '—' : fmtAmt(balance)}
-          </span>
-        </div>
-        <div className="household-row">
-          <span className="h-label">{t('rail.due')}</span>
-          <span className="h-val">{nextDueLabel()}</span>
-        </div>
-        <div className="household-row">
-          <span className="h-label">{t('rail.for')}</span>
-          <span className="h-val">{nextDueMonth()}</span>
-        </div>
-        <div className="household-row">
-          <span className="h-label">{t('rail.duesStatus')}</span>
-          <span className={`h-val h-val-pill ${dues === 'paid' ? 'ok' : 'due'}`}>
-            {resident ? DUES_LABEL[dues] : '—'}
-          </span>
-        </div>
-        <Link href="/app/track#pay" className="household-cta household-cta-dark">
-          {t('rail.makePayment')}
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>
-          </svg>
-        </Link>
-      </div>
-    </aside>
   )
 }
 
