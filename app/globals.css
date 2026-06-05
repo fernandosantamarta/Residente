@@ -6104,7 +6104,13 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   [data-theme="sketch"] .glance-cards { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 767px) {
-  [data-theme="sketch"] .hero-title { font-size: 36px; letter-spacing: -0.035em; }
+  /* Tighter, more mobile hero: less side padding, a compact wrapping chip row,
+     and a soft halo so the navy greeting reads over the bright sunset. */
+  [data-theme="sketch"] .hero-bleed-content { padding: 16px 18px 0; max-width: 100%; gap: 10px; }
+  [data-theme="sketch"] .hero-title { font-size: 33px; letter-spacing: -0.035em; text-shadow: 0 1px 14px rgba(255, 255, 255, 0.6); }
+  [data-theme="sketch"] .hero-sub { text-shadow: 0 1px 10px rgba(255, 255, 255, 0.65); }
+  [data-theme="sketch"] .hero-chips { flex-wrap: wrap; white-space: normal; gap: 8px; }
+  [data-theme="sketch"] .hero-chip { padding: 6px 12px; font-size: 12.5px; }
   [data-theme="sketch"] .fin-amount { font-size: 34px; letter-spacing: -1px; }
   [data-theme="sketch"] .glance-cards { grid-template-columns: 1fr 1fr; gap: 10px; }
   [data-theme="sketch"] .glance-card { padding: 14px; }
