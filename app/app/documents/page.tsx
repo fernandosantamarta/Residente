@@ -172,7 +172,9 @@ export default function EasyDocs() {
 
   // Which section is showing. The segmented control switches between them;
   // only the active section renders (a real switch, not a scroll-spy).
-  const [tab, setTab] = useState('rules')
+  // Default to the first tab (Documents) when opening the page with no hash —
+  // clicking the Documents nav always lands here, not on Rules.
+  const [tab, setTab] = useState('documents')
 
   // Honor the URL hash (#rules / #documents / #violations) so deep links and the
   // "Back to My Violations" link from /app/enforcement open the right tab.

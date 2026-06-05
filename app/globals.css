@@ -7620,7 +7620,11 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   font-size: 56px; font-weight: 600; line-height: 1; letter-spacing: -0.02em; color: #0A2440;
 }
 [data-theme="sketch"] .pay-balance-due { font-size: 13px; font-weight: 600; color: #0A2440; margin-top: 2px; }
-[data-theme="sketch"] .pay-balance-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+/* Action buttons stack as one tidy, equal-width column (were content-width and
+   wrapped to uneven widths). Make Payment + View Account / Autopay / Methods. */
+[data-theme="sketch"] .pay-balance-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; max-width: 360px; }
+[data-theme="sketch"] .pay-balance-actions .pay-cta-primary,
+[data-theme="sketch"] .pay-balance-actions .pay-cta-secondary { width: 100%; }
 [data-theme="sketch"] .pay-breakdown {
   padding: 18px 26px; background: #FBF7F1; border-top: 1px solid rgba(15, 28, 46, 0.08);
   display: flex; flex-direction: column; gap: 6px;
@@ -9478,13 +9482,15 @@ textarea[disabled] {
    clipped by the section's overflow. Rules are scoped to [data-theme="sketch"]
    to match (and override) the themed definitions above. */
 @media (max-width: 640px) {
+  /* Wrap the tabs onto a second row instead of horizontal-scrolling — a 4-tab
+     control (Easy Voice: Board / Voting / Architectural / Contact) overflowed
+     and the hidden scrollbar left the last tab clipped at the pill's edge. */
   [data-theme="sketch"] .seg-tabs {
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     max-width: 100%;
-    overflow-x: auto;
-    scrollbar-width: none;
   }
-  [data-theme="sketch"] .seg-tabs::-webkit-scrollbar { display: none; }
   [data-theme="sketch"] .seg-tab {
     padding: 9px 16px;
     flex-shrink: 0;
