@@ -213,9 +213,9 @@ export function ReportsSection() {
                 recent.map(r => (
                   <div key={r.id} className="rep-row">
                     <span className="rep-row-title">{r.title}</span>
-                    <span><span className={`rep-tag rep-tag-${r.category}`}>{catLabel(r.category)}</span></span>
+                    <span className="rep-row-cat"><span className={`rep-tag rep-tag-${r.category}`}>{catLabel(r.category)}</span></span>
                     <span className="rep-row-date">{fmtDate(r.date)}</span>
-                    <span><StatusPill kind={r.status} /></span>
+                    <span className="rep-row-status"><StatusPill kind={r.status} /></span>
                     <a href="#" className="rep-row-action"
                       onClick={e => { e.preventDefault(); openReport(r) }}>
                       {r.storagePath ? t('vendors.download') : t('vendors.view')}

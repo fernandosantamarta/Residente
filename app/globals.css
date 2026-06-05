@@ -8173,6 +8173,25 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .ven-row-contact a:hover { color: #E14909; }
 [data-theme="sketch"] .ven-empty { padding: 14px 0; font-size: 13px; color: #0A2440; text-align: center; }
 
+/* Phone: the 4-column All Vendors grid collides (header reads "CATEGORRATING",
+   names wrap, emails get cut off). Stack each vendor into a card. */
+@media (max-width: 640px) {
+  [data-theme="sketch"] .ven-row.ven-row-head { display: none; }
+  [data-theme="sketch"] .ven-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "name    rating"
+      "cat     cat"
+      "contact contact";
+    gap: 4px 12px; padding: 14px 0;
+  }
+  [data-theme="sketch"] .ven-row-name    { grid-area: name; }
+  [data-theme="sketch"] .ven-row-cat     { grid-area: cat; }
+  [data-theme="sketch"] .ven-row-rating  { grid-area: rating; justify-self: end; align-self: center; }
+  [data-theme="sketch"] .ven-row-contact { grid-area: contact; margin-top: 2px; }
+  [data-theme="sketch"] .ven-row-contact a { overflow-wrap: anywhere; }
+}
+
 /* Star rating */
 [data-theme="sketch"] .ven-rating { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: #0A2440; }
 [data-theme="sketch"] .ven-rating svg { width: 14px; height: 14px; color: #E1A40B; }
@@ -8389,6 +8408,25 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   font-size: 12.5px; font-weight: 700; color: #C45F2A; text-decoration: none;
 }
 [data-theme="sketch"] .rep-row-action:hover { color: #E14909; }
+
+/* Phone: the 5-column Recent Reports grid collides. Stack each report into a
+   card: title + status, then category + date, then the view/download action. */
+@media (max-width: 640px) {
+  [data-theme="sketch"] .rep-row.rep-row-head { display: none; }
+  [data-theme="sketch"] .rep-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "title  status"
+      "cat    date"
+      "action action";
+    gap: 4px 12px; padding: 14px 0;
+  }
+  [data-theme="sketch"] .rep-row-title  { grid-area: title; }
+  [data-theme="sketch"] .rep-row-cat    { grid-area: cat; }
+  [data-theme="sketch"] .rep-row-date   { grid-area: date;   justify-self: end; align-self: center; }
+  [data-theme="sketch"] .rep-row-status { grid-area: status; justify-self: end; align-self: center; }
+  [data-theme="sketch"] .rep-row-action { grid-area: action; justify-self: start; margin-top: 2px; }
+}
 
 /* Status pills */
 [data-theme="sketch"] .rep-pill {
