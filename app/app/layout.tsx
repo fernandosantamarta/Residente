@@ -256,14 +256,19 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
       <main className="center">
         <div className="topbar">
           <div className="kicker">
-            <button
-              className={`hamburger${navOpen ? ' open' : ''}`}
-              onClick={() => setNavOpen(v => !v)}
-              aria-label={navOpen ? 'Close menu' : 'Open menu'}
-              aria-expanded={navOpen}
-            >
-              <span /><span /><span />
-            </button>
+            {/* Hide the menu button while the drawer is open — it otherwise
+                shows as an empty square over the drawer's "Residente" header.
+                The drawer closes via the backdrop or the More tab. */}
+            {!navOpen && (
+              <button
+                className="hamburger"
+                onClick={() => setNavOpen(true)}
+                aria-label="Open menu"
+                aria-expanded={false}
+              >
+                <span /><span /><span />
+              </button>
+            )}
             {/* Hide the community label while the More drawer is open — it
                 otherwise overlaps the drawer's "Residente" header. */}
             {!navOpen && <span className="live-dot" aria-label="Live" title="Live"></span>}
@@ -300,7 +305,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h12l4 4v12H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
           <span>Documents</span>
         </Link>
-        <button type="button" className={`bn-item${navOpen ? ' active' : ''}`} onClick={() => setNavOpen(true)} aria-label="More">
+        <button type="button" className={`bn-item${navOpen ? ' active' : ''}`} onClick={() => setNavOpen(v => !v)} aria-label="More">
           <svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><circle cx="5" cy="12" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="19" cy="12" r="1.7"/></svg>
           <span>More</span>
         </button>
