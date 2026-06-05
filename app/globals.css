@@ -9619,3 +9619,18 @@ textarea[disabled] {
   background: rgba(31, 34, 51, 0.04); border-radius: 10px;
   font-size: 13px; color: rgba(31, 34, 51, 0.6);
 }
+
+/* ===== Mobile-only declutter (2026-06-05 re-apply, phone <=767px only) =====
+   Desktop keeps the full layout; phones get the trimmed version. .rsv-web /
+   .rsv-mob dual-render gate (non-destructive: each element keeps its own
+   display on desktop), plus hide the Settings web-only aside tiles, the
+   Documents action row/sort, and the Home right rail on phones. */
+.rsv-mob { display: none !important; }
+@media (max-width: 767px) {
+  .rsv-web { display: none !important; }
+  .rsv-mob { display: revert !important; }
+  [data-theme="sketch"] .set-tile-web { display: none; }
+  /* Home right rail (Up next / Your residence) — desktop-only now; on phones
+     it just stacked redundant dues/schedule info under the page. */
+  [data-theme="sketch"] .rail-right, .rail-right { display: none !important; }
+}

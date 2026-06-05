@@ -336,7 +336,7 @@ export default function Settings() {
             </button>
           </div>
 
-          <div className="set-tile">
+          <div className="set-tile set-tile-web">
             <div className="set-tile-title">Quick links</div>
             <ul className="set-links">
               <li><Link href="/app/voice#contact">Help center</Link></li>
@@ -347,7 +347,7 @@ export default function Settings() {
             </ul>
           </div>
 
-          <div className="set-tile">
+          <div className="set-tile set-tile-web">
             <div className="set-tile-title">Preferences overview</div>
             <div className="set-prefs">
               <div className="set-pref-row"><span>Email</span><span>{EMAIL_PREF_LABEL[prefs.email_pref]}</span></div>
@@ -361,7 +361,7 @@ export default function Settings() {
             </button>
           </div>
 
-          <div className="set-tile">
+          <div className="set-tile set-tile-web">
             <div className="set-tile-title">About this site</div>
             <div className="set-prefs">
               <div className="set-pref-row"><span>Build</span><span>1.2.5 (web)</span></div>

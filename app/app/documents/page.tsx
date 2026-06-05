@@ -533,7 +533,7 @@ export default function EasyDocs() {
                 <option key={c.key} value={c.label}>{t(`documents.cat_${c.key}_label`)}</option>
               ))}
             </select>
-            <select name="doc-period" className="doc-select" value={docFilterPeriod}
+            <select name="doc-period" className="doc-select rsv-web" value={docFilterPeriod}
               onChange={e => setDocFilterPeriod(e.target.value as any)}>
               <option value="recent">{t('documents.recentlyUpdated')}</option>
               <option value="oldest">{t('documents.oldestFirst')}</option>
@@ -581,7 +581,7 @@ export default function EasyDocs() {
               </section>
             </div>
 
-            <div className="doc-row">
+            <div className="doc-row rsv-web">
               <section className="doc-card doc-need">
                 <div className="doc-need-icon" aria-hidden="true"><IconHelp /></div>
                 <div className="doc-need-body">
