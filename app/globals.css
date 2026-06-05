@@ -9827,3 +9827,11 @@ textarea[disabled] {
    margin and balance-card top padding. Scoped to .rsv-mob so desktop is unchanged. */
 .rsv-mob .voice-page-head { margin-bottom: 12px; }
 [data-theme="sketch"] .rsv-mob .pay-balance-head { padding: 16px 18px; }
+
+/* Easy Documents header in the serif (Fraunces) face to match the big
+   "Documents" title below it. Scoped to this hub only — Easy Track / Easy Voice
+   headers stay sans-serif. */
+[data-theme="sketch"] .easydocs-combined .voice-page-title {
+  font-family: 'AmpFix', 'Fraunces', Georgia, serif;
+  letter-spacing: -0.01em;
+}
