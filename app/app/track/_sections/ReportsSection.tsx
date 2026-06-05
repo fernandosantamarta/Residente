@@ -294,28 +294,6 @@ export function ReportsSection() {
         {/* RIGHT SIDEBAR */}
         <aside className="rep-aside">
           <section className="rep-card rep-tile-tight">
-            <h3 className="rep-tile-title">{t('vendors.quickActions')}</h3>
-            <div className="rep-quick">
-              <QuickRow icon={<IconPlus />}
-                title={t('vendors.requestReport')}
-                desc={t('vendors.requestReportDesc')}
-                onClick={() => setRequest('request')} />
-              <QuickRow icon={<IconCalendar />}
-                title={t('vendors.scheduleReport')}
-                desc={t('vendors.scheduleReportDesc')}
-                onClick={() => setRequest('schedule')} />
-              <QuickRow icon={<IconCog />}
-                title={t('vendors.reportsSettings')}
-                desc={t('vendors.reportsSettingsDesc')}
-                href="/app/settings" />
-              <QuickRow icon={<IconBell />}
-                title={t('vendors.notifications')}
-                desc={t('vendors.notificationsDesc')}
-                href="/app/settings" />
-            </div>
-          </section>
-
-          <section className="rep-card rep-tile-tight">
             <h3 className="rep-tile-title">{t('vendors.reportCategories')}</h3>
             <ul className="rep-cats">
               <li>
