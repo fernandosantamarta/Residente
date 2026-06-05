@@ -102,6 +102,13 @@ export default function ElectionsPage() {
     }
   }
 
+  const recordAffidavit = async (e: ElectionRow) => {
+    await patchElection(e.id, { affidavit_filed_at: todayYmd() }, 'Affidavit of compliance recorded.')
+    if (communityId) {
+      await logAudit({ community_id: communityId, event_type: 'election.notice_recorded', target_type: 'election', target_id: e.id, metadata: { affidavit: true, date: todayYmd() } })
+    }
+  }
+
   const completeElection = async (e: ElectionRow, ballotsCast: number) => {
     await patchElection(e.id, { ballots_cast: ballotsCast, status: 'completed' }, 'Election marked completed.')
     if (communityId) {
@@ -248,6 +255,7 @@ export default function ElectionsPage() {
                 onCloseCandidates={() => closeCandidates(e)}
                 onBallotsMailed={() => recordBallotsMailed(e)}
                 onComplete={(ballotsCast) => completeElection(e, ballotsCast)}
+                onAffidavit={() => recordAffidavit(e)}
               />
             ))}
           </div>
@@ -299,13 +307,14 @@ function chip(color: string): React.CSSProperties {
 // ----------------------------------------------------------------------------
 // ElectionCard
 // ----------------------------------------------------------------------------
-function ElectionCard({ e, regime, onFirstNotice, onCloseCandidates, onBallotsMailed, onComplete }: {
+function ElectionCard({ e, regime, onFirstNotice, onCloseCandidates, onBallotsMailed, onComplete, onAffidavit }: {
   e: ElectionRow
   regime: 'condo' | 'hoa'
   onFirstNotice: () => void
   onCloseCandidates: () => void
   onBallotsMailed: () => void
   onComplete: (ballotsCast: number) => void
+  onAffidavit: () => void
 }) {
   const status = String(e.status ?? 'proposed')
   const ms = electionMilestones(e)
@@ -398,8 +407,13 @@ function ElectionCard({ e, regime, onFirstNotice, onCloseCandidates, onBallotsMa
             <button className="admin-btn-ghost" onClick={() => setCompletingOpen(false)}>Cancel</button>
           </div>
         )}
+        {e.ballots_sent_at && !e.affidavit_filed_at && (
+          <button className="admin-btn-ghost" onClick={onAffidavit}>Record affidavit filed</button>
+        )}
+        {e.affidavit_filed_at && <span style={chip('#067647')}>Affidavit filed {e.affidavit_filed_at}</span>}
         <a className="admin-btn-ghost" href={`/admin/elections/${e.id}/document?type=first_notice`} target="_blank" rel="noopener noreferrer">First notice doc</a>
         <a className="admin-btn-ghost" href={`/admin/elections/${e.id}/document?type=second_notice`} target="_blank" rel="noopener noreferrer">Ballot / second notice</a>
+        <a className="admin-btn-ghost" href={`/admin/elections/${e.id}/document?type=affidavit`} target="_blank" rel="noopener noreferrer">Affidavit doc</a>
       </div>
     </div>
   )

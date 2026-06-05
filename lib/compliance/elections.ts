@@ -68,6 +68,16 @@ export const RECALL_MAJORITY = rule('a majority of the voting interests', 'FS 71
   note: 'recall requires a majority of all voting interests',
 })
 
+// Affidavit of compliance: after the election notices/ballot are mailed or
+// delivered, an officer (or the person who provided notice) must execute an
+// affidavit — or retain the USPS certificate of mailing — affirming the mailing
+// or hand delivery, kept in the official records as proof of compliance. Condo
+// 718.112(2)(d)3 (incorporated into the election procedure of (d)4); HOA
+// 720.306(5) requires the analogous affidavit for the members-meeting notice.
+export const ELECTION_AFFIDAVIT = rule(true, 'FS 718.112(2)(d)3 / 720.306(5)', {
+  note: 'an affidavit (or USPS certificate of mailing) affirming notice was mailed/delivered must be kept in the official records',
+})
+
 // ----------------------------------------------------------------------------
 // Domain types
 // ----------------------------------------------------------------------------
@@ -98,6 +108,7 @@ export interface ElectionRow {
   candidate_count?: number | null
   ballots_cast?: number | null
   eligible_count?: number | null
+  affidavit_filed_at?: string | null
   status?: ElectionStatus | string | null
   notes?: string | null
 }
@@ -259,6 +270,17 @@ export function electionsSignals(
           href: HREF, citation: ELECTION_QUORUM_PCT.citation,
         }))
       }
+    }
+
+    // 5. Affidavit of compliance: once the ballot / second notice is out, an
+    //    officer must execute and file the affidavit of mailing.
+    if (e.ballots_sent_at && !e.affidavit_filed_at) {
+      out.push(signal({
+        id: `elections:affidavit:${e.id}`, domain: DOMAIN, severity: 'info',
+        title: `${label}: file the affidavit of compliance for the election notices`,
+        detail: 'An officer (or the person who gave notice) must execute an affidavit — or retain the USPS certificate of mailing — affirming the notice and ballot were mailed or delivered, and keep it in the official records.',
+        href: HREF, citation: ELECTION_AFFIDAVIT.citation,
+      }))
     }
   }
 

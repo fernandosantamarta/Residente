@@ -139,7 +139,7 @@ function gatherSignals(
     ...governanceSignals(community, (residents || []).filter((r: any) => r.is_board), boardTerms, directorCerts, directorElig, managers, vendors, disclosures),
     ...enforcementSignals(community, violations, hearings, finingCommittee),
     ...suspensionSignals(suspensions, hearings),
-    ...votingSuspensionSignals(votingSuspensionCandidates(cases, suspensions)),
+    ...votingSuspensionSignals(votingSuspensionCandidates(cases, suspensions, community?.association_type), community?.association_type),
     ...meetingsSignals(meetings, community),
     ...electionsSignals(elections, community),
     ...recallSignals(recalls),

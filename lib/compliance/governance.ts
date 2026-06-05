@@ -24,12 +24,22 @@ import {
 // Statutory constants (validated:false).
 // ----------------------------------------------------------------------------
 
-// Condo director term limit: 8 consecutive years (FS 718.112(2)(d)2). Service is
-// counted from 2018-07-01 forward; the limit reaches hard impact 2026-07-01.
-// (HOAs have no equivalent statutory term limit — governing docs may impose one.)
+// Condo director term limit: 8 consecutive years (FS 718.112(2)(d)2). Only
+// service on/after 2018-07-01 counts. A director MAY serve beyond 8 years under
+// two statutory exceptions: re-elected by an affirmative vote of two-thirds of
+// all votes cast, OR there are not enough eligible candidates to fill the
+// vacancies. (HOAs have no equivalent statutory term limit — governing docs may
+// impose one.)
 export const CONDO_TERM_LIMIT_YEARS = rule(8, 'FS 718.112(2)(d)2', { note: 'consecutive years; condo only' })
-export const TERM_LIMIT_COUNT_SINCE = rule('2018-07-01', 'FS 718.112(2)(d)2', { note: 'service counted from this date' })
-export const TERM_LIMIT_HARD_IMPACT = rule('2026-07-01', 'FS 718.112(2)(d)2', { note: 'limit reaches hard impact' })
+export const TERM_LIMIT_COUNT_SINCE = rule('2018-07-01', 'FS 718.112(2)(d)2', { note: 'only board service on/after this date counts' })
+
+// The two statutory exceptions that let a director serve beyond the 8-year
+// consecutive limit. Recorded on the most recent board term.
+export type TermLimitException = 'supermajority_vote' | 'insufficient_candidates'
+export const TERM_LIMIT_EXCEPTION_LABELS: Record<TermLimitException, string> = {
+  supermajority_vote:      're-elected by a two-thirds vote of all votes cast',
+  insufficient_candidates: 'not enough eligible candidates to fill the vacancies',
+}
 
 // Initial certification: within 90 days of being elected/appointed, a director
 // must either complete the approved educational course OR sign a written
@@ -83,6 +93,8 @@ export interface BoardTermRow {
   term_start?: string | null
   term_end?: string | null
   elected_at?: string | null
+  /** Set on the term that re-elected a director beyond the 8-year limit. */
+  term_limit_exception?: TermLimitException | string | null
 }
 export interface DirectorEligibilityRow {
   id: string
@@ -220,13 +232,32 @@ export function governanceSignals(
     // --- Condo 8-year consecutive term limit ---
     if (regime === 'condo' && dTerms.length) {
       const years = consecutiveServiceYears(dTerms.map(t => t.term_start), now)
-      if (years >= CONDO_TERM_LIMIT_YEARS.value) {
+      // A statutory exception recorded on the most recent term lets the director
+      // serve beyond 8 years (re-elected by ⅔ vote, or insufficient candidates).
+      const latestTerm = [...dTerms].sort(
+        (a, b) => (toDate(b.term_start)?.getTime() ?? 0) - (toDate(a.term_start)?.getTime() ?? 0),
+      )[0]
+      const exception = latestTerm?.term_limit_exception
+        ? (TERM_LIMIT_EXCEPTION_LABELS[latestTerm.term_limit_exception as TermLimitException] ?? String(latestTerm.term_limit_exception))
+        : null
+      if (years >= CONDO_TERM_LIMIT_YEARS.value && exception) {
+        // Validly re-elected beyond the limit — informational, not overdue.
+        out.push(signal({
+          id: `governance:term-limit-exception:${d.id}`,
+          domain: 'Directors & management',
+          severity: 'info',
+          title: `${label} is serving beyond the 8-year limit under the statutory exception`,
+          detail: `~${years.toFixed(1)} consecutive years served (counted since ${TERM_LIMIT_COUNT_SINCE.value}). Recorded exception: ${exception}. No action needed unless that basis no longer holds.`,
+          href: HREF,
+          citation: CONDO_TERM_LIMIT_YEARS.citation,
+        }))
+      } else if (years >= CONDO_TERM_LIMIT_YEARS.value) {
         out.push(signal({
           id: `governance:term-limit:${d.id}`,
           domain: 'Directors & management',
           severity: 'overdue',
           title: `${label} has served ~${years.toFixed(1)} consecutive years (8-year limit)`,
-          detail: `Condominium directors may not serve more than ${CONDO_TERM_LIMIT_YEARS.value} consecutive years (service counted since ${TERM_LIMIT_COUNT_SINCE.value}) absent the statutory exception. This is advisory — the board decides.`,
+          detail: `Condominium directors may not serve more than ${CONDO_TERM_LIMIT_YEARS.value} consecutive years (service counted since ${TERM_LIMIT_COUNT_SINCE.value}) unless re-elected by a two-thirds vote of all votes cast or there are not enough eligible candidates. Record the exception on the term if it applies. Advisory — the board decides.`,
           href: HREF,
           citation: CONDO_TERM_LIMIT_YEARS.citation,
         }))

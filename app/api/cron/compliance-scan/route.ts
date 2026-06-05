@@ -114,7 +114,7 @@ export async function GET(req: Request) {
       ...governanceSignals(c, directors, boardTerms, directorCerts, directorElig, managers, govVendors, disclosures),
       ...enforcementSignals(c, violations, hearings, finingCommittee),
       ...suspensionSignals(suspensions, hearings),
-      ...votingSuspensionSignals(votingSuspensionCandidates(cases, suspensions)),
+      ...votingSuspensionSignals(votingSuspensionCandidates(cases, suspensions, c.association_type), c.association_type),
       ...meetingsSignals(meetings, c),
       ...electionsSignals(elections, c),
       ...recallSignals(recalls),

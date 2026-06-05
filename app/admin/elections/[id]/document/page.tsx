@@ -4,7 +4,8 @@
 // page (?type=) renders each statutory election notice:
 //   first_notice  — First Notice of Election & Annual Meeting (≥60 days before)
 //   second_notice — Second Notice of Election / Ballot (14–34 days before)
-// Both are DRAFTs requiring attorney review. FS 718.112(2)(d)4 (condo) /
+//   affidavit     — Affidavit of Compliance / Mailing (FS 718.112(2)(d)3 / 720.306(5))
+// All are DRAFTs requiring attorney review. FS 718.112(2)(d)4 (condo) /
 // FS 720.306(9) (HOA). Nothing here is an official filing or binding document.
 
 import { Suspense, useState, useEffect } from 'react'
@@ -23,11 +24,12 @@ import {
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
 
-type DocType = 'first_notice' | 'second_notice'
+type DocType = 'first_notice' | 'second_notice' | 'affidavit'
 
 const TITLES: Record<DocType, string> = {
   first_notice:  'First Notice of Election & Annual Meeting',
   second_notice: 'Second Notice of Election (Ballot)',
+  affidavit:     'Affidavit of Compliance — Election Notices',
 }
 
 export default function ElectionDocumentPage() {
@@ -231,6 +233,52 @@ function DocInner() {
                 `Florida Statutes § 720.306(9)(b) (${CANDIDATE_NOTICE_DAYS.citation})`
               )}.{' '}
               Questions? Contact the association at the address above.
+            </p>
+          </>
+        )}
+
+        {/* ---- AFFIDAVIT OF COMPLIANCE / MAILING ---- */}
+        {type === 'affidavit' && (
+          <>
+            <p>
+              STATE OF FLORIDA<br />
+              COUNTY OF <Em>[county]</Em>
+            </p>
+            <p>
+              Before me, the undersigned authority, personally appeared{' '}
+              <strong>{officerName}</strong>, who, being first duly sworn, deposes and says:
+            </p>
+            <p>
+              1. I am an officer of {assocName} (or the person who provided notice of its election),
+              and I am authorized to make this affidavit.
+            </p>
+            <p>
+              2. {cite(
+                'Pursuant to section 718.112(2)(d)3, Florida Statutes',
+                'Pursuant to section 720.306(5), Florida Statutes'
+              )}, I affirm that notice of the election and annual meeting scheduled for{' '}
+              <strong>{electionDateStr || <Em>election date</Em>}</strong> was mailed, hand delivered, or
+              electronically transmitted to all members entitled to vote, as follows:
+            </p>
+            <table style={tbl}><tbody>
+              <Trow label="First notice mailed / delivered" value={election?.first_notice_at ? ymd(election.first_notice_at) : <Em>date</Em>} />
+              <Trow label="Second notice & ballot mailed / delivered" value={election?.ballots_sent_at ? ymd(election.ballots_sent_at) : <Em>date</Em>} />
+              <Trow label="Election / annual meeting date" value={electionDateStr || <Em>date</Em>} />
+            </tbody></table>
+            <p>
+              3. A United States Postal Service certificate of mailing (or other proof of delivery) is
+              retained with this affidavit in the official records of the association.
+            </p>
+            <p style={{ marginTop: 28 }}>_______________________________<br />{officerName}, Affiant</p>
+            <p style={{ marginTop: 18 }}>
+              Sworn to and subscribed before me this ____ day of __________, 20____, by the affiant who is
+              personally known to me or produced ____________________ as identification.
+            </p>
+            <p style={{ marginTop: 18 }}>_______________________________<br />Notary Public, State of Florida</p>
+            <p style={{ fontSize: 12, color: '#555', marginTop: 14 }}>
+              This affidavit of compliance is provided under{' '}
+              {cite('Florida Statutes § 718.112(2)(d)3', 'Florida Statutes § 720.306(5)')}{' '}
+              and must be retained among the association&apos;s official records.
             </p>
           </>
         )}

@@ -45,6 +45,20 @@ export const ESTOPPEL_AGGREGATE_CAPS = rule(
 
 export const ESTOPPEL_CPI_NEXT_ADJUST = '2027-07-01'
 
+// No fee may be charged for a certificate NOT delivered within the statutory
+// window (condo 718.116(8)(d) / HOA 720.30851(4)). A fee collected on a late
+// certificate must be waived / refunded.
+export const ESTOPPEL_NO_FEE_IF_LATE = rule(true, 'FS 718.116(8)(d) / 720.30851(4)', {
+  note: 'no fee may be charged for an estoppel certificate not delivered within 10 (or 3 expedited) business days',
+})
+// If the sale/mortgage closing does not occur and a payor (not the owner) makes
+// a timely written refund request with reasonable documentation, the fee is
+// refunded within 30 days of that request (condo 718.116(8)(h) / HOA
+// 720.30851(8)).
+export const ESTOPPEL_REFUND_DAYS = rule(30, 'FS 718.116(8)(h) / 720.30851(8)', {
+  note: 'estoppel fee refunded within 30 days of a timely written refund request when the closing does not occur',
+})
+
 export type EstoppelDeliveryMethod = 'electronic' | 'hand' | 'mail'
 export type EstoppelStatus = 'new' | 'in_progress' | 'delivered' | 'fee_waived' | 'cancelled'
 
@@ -62,6 +76,12 @@ export interface EstoppelRequestRow {
   delivery_method?: EstoppelDeliveryMethod | string | null
   effective_until?: string | null
   fee_total?: number | null
+  fee_waived?: boolean | null
+  // Slice-1 detective fields (no-fee-if-late / refund-if-closing-cancelled).
+  fee_paid?: boolean | null
+  closing_cancelled_at?: string | null
+  refund_due?: boolean | null
+  refund_issued_at?: string | null
 }
 
 /** Statutory delivery deadline = received + 10 (or 3 expedited) business days. */
@@ -161,6 +181,39 @@ export function estoppelSignals(rows: EstoppelRequestRow[] = [], now: Date = new
           citation: ESTOPPEL_VALIDITY_DAYS.citation,
         }))
       }
+    }
+
+    // Detective: a certificate delivered AFTER its deadline may carry NO fee —
+    // flag any late delivery that still shows a fee charged or paid (and isn't
+    // already waived) so the board waives or refunds it.
+    const deliveredAt = toDate(r.delivered_at)
+    if (String(r.status) === 'delivered' && deliveredAt && due && deliveredAt.getTime() > due.getTime()
+        && !r.fee_waived && ((Number(r.fee_total) || 0) > 0 || r.fee_paid)) {
+      out.push(signal({
+        id: `estoppel:no-fee-late:${r.id}`,
+        domain: 'Estoppel',
+        severity: 'overdue',
+        title: `Estoppel for ${label} was delivered late — no fee may be charged`,
+        detail: `Delivered ${ymd(deliveredAt)} after the ${ymd(due)} deadline. When a certificate is not delivered within ${r.expedited ? ESTOPPEL_EXPEDITED_BUSINESS_DAYS.value : ESTOPPEL_DELIVERY_BUSINESS_DAYS.value} business days, no fee may be charged — ${r.fee_paid ? 'refund the amount collected' : 'waive the fee'}.`,
+        href: '/admin/estoppel',
+        citation: ESTOPPEL_NO_FEE_IF_LATE.citation,
+      }))
+    }
+
+    // Detective: the closing did not occur and a paid fee has not been refunded.
+    const cancelledAt = toDate(r.closing_cancelled_at)
+    if (cancelledAt && r.fee_paid && !toDate(r.refund_issued_at)) {
+      const by = addCalendarDays(cancelledAt, ESTOPPEL_REFUND_DAYS.value)
+      const left = by ? calendarDaysUntil(by, now) : 0
+      out.push(signal({
+        id: `estoppel:refund-due:${r.id}`,
+        domain: 'Estoppel',
+        severity: left < 0 ? 'overdue' : 'soon',
+        title: `Estoppel fee for ${label} may be refundable — the closing did not occur`,
+        detail: `The closing was marked cancelled ${ymd(cancelledAt)}. If a payor other than the owner timely requested a refund with documentation, refund the fee within ${ESTOPPEL_REFUND_DAYS.value} days${by ? ` (by ${ymd(by)})` : ''}.`,
+        href: '/admin/estoppel',
+        citation: ESTOPPEL_REFUND_DAYS.citation,
+      }))
     }
   }
   return out

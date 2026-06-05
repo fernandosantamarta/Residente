@@ -43,6 +43,11 @@ create table if not exists public.ev_elections (
 );
 create index if not exists ev_elections_community_idx on public.ev_elections (community_id, election_date desc);
 
+-- Slice-1: affidavit of compliance / mailing for the election notices
+-- (condo FS 718.112(2)(d)3 incorporated into (d)4; HOA FS 720.306(5)).
+alter table public.ev_elections
+  add column if not exists affidavit_filed_at date;
+
 alter table public.ev_elections enable row level security;
 grant select, insert, update, delete on public.ev_elections to authenticated;
 grant select, insert, update, delete on public.ev_elections to service_role;

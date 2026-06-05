@@ -39,6 +39,7 @@ export const DOC_CATEGORIES = [
   'Insurance',                 // Master policy, certificates of insurance
   'Vendor & Contracts',        // Service contracts >$500, bid summaries
   'Director Records',          // Director certifications, conflict disclosures
+  'Election & Voting Records', // Ballots, sign-in sheets, proxies (1-yr retention)
   'Inspection Reports',        // Structural, milestone, SIRS (15-yr retention)
   'Bank Records & Ledgers',    // HB 913 — bank statements + accounting ledgers
   'Building Permits',          // HB 913 — building permits / approvals
@@ -90,27 +91,37 @@ export const POSTING_CLOCK_DAYS = rule(30, 'FS 718.111(12)(g) / 720.303(4)(b)', 
 //           presumption of willful non-compliance arises and the member may
 //           recover $50/day for up to 10 days ($500), beginning on the 11th day.
 export const RECORDS_INSPECTION_DAYS = rule(10, 'FS 718.111(12)(c) / 720.303(5)', { note: 'working (condo) / business (HOA) days to produce records' })
-export const HOA_RECORDS_FINE_PER_DAY = rule(50, 'FS 720.303(5)(b)', { note: 'HOA only; a rebuttable presumption of willful non-compliance arises on the 11th business day — the member MAY recover $50/day (cap 10 days = $500); the association may rebut' })
-export const HOA_RECORDS_FINE_MAX_DAYS = rule(10, 'FS 720.303(5)(b)', { note: 'HOA only; $50/day capped at 10 days = $500' })
+// BOTH regimes carry the same minimum-damages exposure: a rebuttable
+// presumption of willful non-compliance arises on the 11th working (condo) /
+// business (HOA) day, and the member MAY recover $50/day for up to 10 days
+// ($500). (Condo 718.111(12)(c) needs only "a written request"; HOA 720.303(5)
+// requires the request be sent by certified mail to raise the presumption.)
+export const RECORDS_FINE_PER_DAY = rule(50, 'FS 718.111(12)(c) / 720.303(5)(b)', { note: 'condo + HOA; member MAY recover $50/day from the 11th day (cap 10 days = $500); the association may rebut' })
+export const RECORDS_FINE_MAX_DAYS = rule(10, 'FS 718.111(12)(c) / 720.303(5)(b)', { note: 'condo + HOA; $50/day capped at 10 days = $500' })
 
 // Retention tiers. PERMANENT = keep for the life of the association.
+// The 1-year `election` tier covers ballots, sign-in sheets, voting proxies, and
+// other papers/records relating to voting (FS 718.111(12)(b) / 720.303).
 export const RETENTION_YEARS = rule(
-  { permanent: null as number | null, structural: 15, default: 7 },
+  { permanent: null as number | null, structural: 15, default: 7, election: 1 },
   'FS 718.111(12) / 720.303(4)',
-  { note: 'structural/milestone/SIRS reports kept 15 yr; governing docs & plans permanent; most records 7 yr' },
+  { note: 'structural/milestone/SIRS reports 15 yr; governing docs & plans permanent; ballots/proxies/voting records 1 yr; most records 7 yr' },
 )
 
-// Categories whose records are kept 15 years (structural) or permanently.
-// Everything else (incl. HB 913 'Bank Records & Ledgers', for which the statute
-// specifies no unique retention) falls to the 7-year default.
+// Categories whose records are kept 15 years (structural), 1 year (election
+// materials), or permanently. Everything else (incl. HB 913 'Bank Records &
+// Ledgers', for which the statute specifies no unique retention) falls to the
+// 7-year default.
 const STRUCTURAL_CATEGORIES = new Set<string>(['Inspection Reports'])
 const PERMANENT_CATEGORIES = new Set<string>(['Governing Documents', 'Building Permits', 'Maps & Layouts'])
+const ELECTION_MATERIAL_CATEGORIES = new Set<string>(['Election & Voting Records'])
 
 /** Statutory minimum retention (years) for a category; null = permanent. */
 export function retentionYearsForCategory(category: string | null | undefined): number | null {
   const c = String(category ?? '')
   if (PERMANENT_CATEGORIES.has(c)) return RETENTION_YEARS.value.permanent // null
   if (STRUCTURAL_CATEGORIES.has(c)) return RETENTION_YEARS.value.structural // 15
+  if (ELECTION_MATERIAL_CATEGORIES.has(c)) return RETENTION_YEARS.value.election // 1
   return RETENTION_YEARS.value.default // 7
 }
 
@@ -286,15 +297,16 @@ export function officialRecordsSignals(
     const left = Math.round((due.getTime() - nowMs) / 86400000)
     const label = r.subject || r.id.slice(0, 8)
     if (left < 0) {
-      const hoaTail = regime === 'hoa'
-        ? ` From the 11th business day the member may seek $${HOA_RECORDS_FINE_PER_DAY.value}/day (up to $${HOA_RECORDS_FINE_PER_DAY.value * HOA_RECORDS_FINE_MAX_DAYS.value}).`
-        : ''
+      // Both regimes: from the 11th day a rebuttable presumption of willful
+      // non-compliance arises and the member MAY recover $50/day up to $500.
+      const dayWord = regime === 'hoa' ? 'business' : 'working'
+      const penaltyTail = ` From the 11th ${dayWord} day a rebuttable presumption of willful non-compliance arises and the member may seek $${RECORDS_FINE_PER_DAY.value}/day (up to $${RECORDS_FINE_PER_DAY.value * RECORDS_FINE_MAX_DAYS.value}).`
       out.push(signal({
         id: `records:inspection-overdue:${r.id}`,
         domain: 'Official records',
         severity: 'overdue',
         title: `Records-inspection request "${label}" is past its deadline`,
-        detail: `Records were due ${ymd(due)} (${RECORDS_INSPECTION_DAYS.value} ${regime === 'hoa' ? 'business' : 'working'} days).${hoaTail}`,
+        detail: `Records were due ${ymd(due)} (${RECORDS_INSPECTION_DAYS.value} ${dayWord} days).${penaltyTail}`,
         href: '/admin/documents#records-requests',
         citation: RECORDS_INSPECTION_DAYS.citation,
       }))
