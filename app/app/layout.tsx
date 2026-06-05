@@ -264,8 +264,10 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
             >
               <span /><span /><span />
             </button>
-            <span className="live-dot" aria-label="Live" title="Live"></span>
-            <span className="kicker-text">{communityName} · {fyLabel}</span>
+            {/* Hide the community label while the More drawer is open — it
+                otherwise overlaps the drawer's "Residente" header. */}
+            {!navOpen && <span className="live-dot" aria-label="Live" title="Live"></span>}
+            {!navOpen && <span className="kicker-text">{communityName} · {fyLabel}</span>}
           </div>
           <div className="topbar-right">
             <NotificationBell />

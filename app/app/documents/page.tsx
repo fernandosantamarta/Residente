@@ -551,11 +551,6 @@ export default function EasyDocs() {
                 <option key={c.key} value={c.label}>{t(`documents.cat_${c.key}_label`)}</option>
               ))}
             </select>
-            <select name="doc-period" className="doc-select" value={docFilterPeriod}
-              onChange={e => setDocFilterPeriod(e.target.value as any)}>
-              <option value="recent">{t('documents.recentlyUpdated')}</option>
-              <option value="oldest">{t('documents.oldestFirst')}</option>
-            </select>
           </div>
 
           <div className="doc-rows">
@@ -596,41 +591,6 @@ export default function EasyDocs() {
                     </button>
                   ))}
                 </div>
-              </section>
-            </div>
-
-            <div className="doc-row">
-              <section className="doc-card doc-need">
-                <div className="doc-need-icon" aria-hidden="true"><IconHelp /></div>
-                <div className="doc-need-body">
-                  <div className="doc-need-title">{t('documents.needDocTitle')}</div>
-                  <div className="doc-need-sub">
-                    {t('documents.needDocSub')}
-                  </div>
-                </div>
-                <div className="doc-need-actions">
-                  <Link href="/app/voice#contact" className="doc-cta-primary">{t('documents.requestDocument')}</Link>
-                  {/* Statutory right to inspect official records — FS 718.111(12)(c) / 720.303(5).
-                      Routes to the request form; the resident picks "Records inspection". */}
-                  <Link href="/app/voice#contact" className="doc-card-link" style={{ fontSize: 12.5 }}>
-                    Request to inspect official records →
-                  </Link>
-                </div>
-              </section>
-
-              <section className="doc-card doc-stay">
-                <div className="doc-stay-bell" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M6 8a6 6 0 0 1 12 0v5l2 3H4l2-3z"/><path d="M10 19a2 2 0 0 0 4 0"/>
-                  </svg>
-                </div>
-                <div className="doc-stay-body">
-                  <div className="doc-stay-title">{t('documents.stayInformedTitle')}</div>
-                  <div className="doc-stay-sub">
-                    {t('documents.stayInformedSub')}
-                  </div>
-                </div>
-                <Link href="/app/settings" className="doc-cta-secondary">{t('documents.manageNotifications')}</Link>
               </section>
             </div>
 
@@ -861,8 +821,8 @@ function MyViolationsPanel() {
     <section className="doc-card" style={{ gridColumn: '1 / -1' }}>
       <div className="doc-card-head">
         <h2 className="doc-card-title">{t('documents.yourViolations')}</h2>
-        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(10,36,64,0.55)' }}>{t('documents.appealsNote')}</span>
       </div>
+      <p style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(10,36,64,0.55)', margin: '-2px 0 14px' }}>{t('documents.appealsNote')}</p>
       {payError && <div className="myv-pay-err">{payError}</div>}
       {data.length === 0 ? (
         <div className="doc-empty">{t('documents.noViolations')}</div>
