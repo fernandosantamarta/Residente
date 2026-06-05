@@ -23,6 +23,15 @@ function toISO(y: number, m: number, d: number) {
   const dd = String(d).padStart(2, '0')
   return `${y}-${mm}-${dd}`
 }
+// Shift an ISO date by N days (handles month/year rollover).
+function shiftISO(iso: string, days: number): string {
+  const d = new Date(iso + 'T00:00:00')
+  d.setDate(d.getDate() + days)
+  return toISO(d.getFullYear(), d.getMonth(), d.getDate())
+}
+function fmtWeekdayShort(iso: string) {
+  return new Date(iso + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short' })
+}
 function fmtMonth(y: number, m: number) {
   return new Date(y, m, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
 }
@@ -85,6 +94,11 @@ function CalendarView() {
   const [cursor, setCursor] = useState({ y: today.getFullYear(), m: today.getMonth() })
   const [selected, setSelected] = useState<string>(toISO(today.getFullYear(), today.getMonth(), today.getDate()))
   const [enabledKinds, setEnabledKinds] = useState<Set<EventKind>>(new Set(ALL_KINDS))
+  // Month (full grid) / Week (7 day-sections) / Day (single-day list).
+  const [view, setView] = useState<'Month' | 'Week' | 'Day'>('Month')
+  // Filter popup (the toolbar Filter button opens it — works on phones where the
+  // side filter card isn't visible).
+  const [filterOpen, setFilterOpen] = useState(false)
 
   // Hover tooltip — shows everything happening on a day (the cell only fits 3
   // pills). Follows the cursor; flips to the other side of the pointer when it
@@ -148,18 +162,37 @@ function CalendarView() {
   for (let d = 1; d <= totalDays; d++) cells.push({ day: d, iso: toISO(cursor.y, cursor.m, d) })
   while (cells.length % 7 !== 0) cells.push(null)
 
+  // Prev/next steps by the active view: a month, a week, or a day.
   const go = (delta: number) => {
-    let m = cursor.m + delta
-    let y = cursor.y
-    if (m < 0) { m = 11; y-- }
-    if (m > 11) { m = 0; y++ }
-    setCursor({ y, m })
+    if (view === 'Month') {
+      let m = cursor.m + delta
+      let y = cursor.y
+      if (m < 0) { m = 11; y-- }
+      if (m > 11) { m = 0; y++ }
+      setCursor({ y, m })
+      return
+    }
+    const next = shiftISO(selected, delta * (view === 'Week' ? 7 : 1))
+    const d = new Date(next + 'T00:00:00')
+    setSelected(next)
+    setCursor({ y: d.getFullYear(), m: d.getMonth() })
   }
 
   const goToday = () => {
     setCursor({ y: today.getFullYear(), m: today.getMonth() })
     setSelected(todayISO)
   }
+
+  // The 7 dates of the week containing the selected day (respects week-start pref).
+  const weekDays = useMemo(() => {
+    const d = new Date(selected + 'T00:00:00')
+    const dow = (d.getDay() - startDay + 7) % 7
+    const start = new Date(d); start.setDate(d.getDate() - dow)
+    return Array.from({ length: 7 }, (_, i) => {
+      const x = new Date(start); x.setDate(start.getDate() + i)
+      return toISO(x.getFullYear(), x.getMonth(), x.getDate())
+    })
+  }, [selected, startDay])
 
   const toggleKind = (k: EventKind) => {
     setEnabledKinds(prev => {
@@ -208,16 +241,15 @@ function CalendarView() {
           ].map(v => (
             <button
               key={v.id}
-              className={`sched-view-btn${v.id === 'Month' ? ' active' : ''}`}
-              disabled={v.id !== 'Month'}
-              title={v.id !== 'Month' ? t('schedule.comingSoon') : undefined}
+              className={`sched-view-btn${v.id === view ? ' active' : ''}`}
+              onClick={() => setView(v.id as 'Month' | 'Week' | 'Day')}
             >
               {v.label}
             </button>
           ))}
         </div>
 
-        <button className="sched-filter-btn" aria-label={t('schedule.filterEvents')}>
+        <button className="sched-filter-btn" aria-label={t('schedule.filterEvents')} onClick={() => setFilterOpen(true)}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 5h18l-7 9v6l-4-2v-4z" />
           </svg>
@@ -266,16 +298,15 @@ function CalendarView() {
             ].map(v => (
               <button
                 key={v.id}
-                className={`sched-view-btn${v.id === 'Month' ? ' active' : ''}`}
-                disabled={v.id !== 'Month'}
-                title={v.id !== 'Month' ? t('schedule.comingSoon') : undefined}
+                className={`sched-view-btn${v.id === view ? ' active' : ''}`}
+                onClick={() => setView(v.id as 'Month' | 'Week' | 'Day')}
               >
                 {v.label}
               </button>
             ))}
           </div>
 
-          <button className="sched-filter-btn" aria-label={t('schedule.filterEvents')}>
+          <button className="sched-filter-btn" aria-label={t('schedule.filterEvents')} onClick={() => setFilterOpen(true)}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M3 5h18l-7 9v6l-4-2v-4z" />
             </svg>
@@ -293,6 +324,7 @@ function CalendarView() {
       <div className="sched-layout">
         {/* Calendar */}
         <div className="sched-cal">
+          {view === 'Month' && (<>
           <div className="sched-weekdays">
             {WEEKDAYS.map(w => <div key={w} className="sched-weekday">{w}</div>)}
           </div>
@@ -331,6 +363,46 @@ function CalendarView() {
               )
             })}
           </div>
+          </>)}
+
+          {/* WEEK — the seven days of the selected week, each with its events. */}
+          {view === 'Week' && (
+            <div className="sched-week">
+              {weekDays.map(iso => {
+                const dayEvents = byDate[iso] || []
+                const d = new Date(iso + 'T00:00:00')
+                return (
+                  <div key={iso} className={`sched-week-day${iso === todayISO ? ' today' : ''}${iso === selected ? ' selected' : ''}`}>
+                    <button className="sched-week-dayhead" onClick={() => setSelected(iso)}>
+                      <span className="sched-week-dow">{fmtWeekdayShort(iso)}</span>
+                      <span className="sched-week-date">{d.getDate()}</span>
+                      <span className="sched-week-count">{dayEvents.length ? t('schedule.eventsCount', { count: dayEvents.length }) : ''}</span>
+                    </button>
+                    <div className="sched-week-events">
+                      {dayEvents.length === 0
+                        ? <div className="sched-week-empty">{t('schedule.nothingScheduled')}</div>
+                        : dayEvents.map(e => <EventRow key={e.id} e={e} />)}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* DAY — the selected day's full event list. */}
+          {view === 'Day' && (
+            <div className="sched-day">
+              <div className="sched-day-head">
+                <span className="sched-day-title">{relativeDayLabel(selected, todayISO, t)} · {fmtFullDate(selected)}</span>
+                <span className="sched-day-count">{t('schedule.eventsCount', { count: selectedEvents.length })}</span>
+              </div>
+              <div className="sched-day-events">
+                {selectedEvents.length === 0
+                  ? <div className="sched-week-empty">{t('schedule.nothingScheduled')}</div>
+                  : selectedEvents.map(e => <EventRow key={e.id} e={e} />)}
+              </div>
+            </div>
+          )}
 
           <div className="sched-legend">
             {ALL_KINDS.map(k => (
@@ -453,6 +525,35 @@ function CalendarView() {
                   </div>
                 ))
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Filter popup — opened by the toolbar Filter button (the side filter
+          card isn't visible on phones). Toggles the same event-kind set. */}
+      {filterOpen && (
+        <div className="sched-modal-backdrop" onClick={() => setFilterOpen(false)}>
+          <div className="sched-modal sched-filter-modal" role="dialog" aria-modal="true" onClick={e => e.stopPropagation()}>
+            <div className="sched-modal-head">
+              <div className="sched-modal-title">{t('schedule.filters')}</div>
+              <button className="sched-modal-close" aria-label={t('schedule.close')} onClick={() => setFilterOpen(false)}>×</button>
+            </div>
+            <div className="sched-filters-list">
+              {ALL_KINDS.map(k => {
+                const on = enabledKinds.has(k)
+                return (
+                  <label key={k} className={`sched-filter${on ? ' on' : ''}`}>
+                    <input name={`kind-m-${k}`} type="checkbox" checked={on} onChange={() => toggleKind(k)} />
+                    <span className={`sched-dot kind-${k}`} />
+                    <span>{KIND_LABEL[k]}</span>
+                  </label>
+                )
+              })}
+            </div>
+            <div className="sched-filter-foot">
+              <button className="sched-filters-clear" onClick={() => setEnabledKinds(new Set(ALL_KINDS))}>{t('schedule.reset')}</button>
+              <button className="sched-filter-done" onClick={() => setFilterOpen(false)}>Done</button>
             </div>
           </div>
         </div>

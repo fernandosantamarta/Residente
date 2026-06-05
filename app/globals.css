@@ -9837,3 +9837,24 @@ textarea[disabled] {
   font-family: 'AmpFix', 'Fraunces', Georgia, serif;
   letter-spacing: -0.01em;
 }
+
+/* ===== Schedule Week + Day views and filter modal (2026-06-05) ===== */
+[data-theme="sketch"] .sched-week { display: flex; flex-direction: column; gap: 10px; }
+[data-theme="sketch"] .sched-week-day { border: 1px solid rgba(15,28,46,0.10); border-radius: 12px; overflow: hidden; background: var(--bg-card); }
+[data-theme="sketch"] .sched-week-day.today { border-color: rgba(225,73,9,0.45); }
+[data-theme="sketch"] .sched-week-day.selected { box-shadow: 0 0 0 2px rgba(225,73,9,0.22); }
+[data-theme="sketch"] .sched-week-dayhead { display: flex; align-items: baseline; gap: 10px; width: 100%; padding: 10px 14px; background: #FBF7F1; border: none; cursor: pointer; font-family: inherit; text-align: left; border-bottom: 1px solid rgba(15,28,46,0.07); }
+[data-theme="sketch"] .sched-week-dow { font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: rgba(10,36,64,0.55); }
+[data-theme="sketch"] .sched-week-date { font-size: 16px; font-weight: 700; color: #0A2440; }
+[data-theme="sketch"] .sched-week-count { margin-left: auto; font-size: 12px; color: rgba(10,36,64,0.5); }
+[data-theme="sketch"] .sched-week-events { display: flex; flex-direction: column; padding: 4px 14px 8px; }
+[data-theme="sketch"] .sched-week-empty { padding: 10px 0; font-size: 13px; color: rgba(10,36,64,0.5); }
+
+[data-theme="sketch"] .sched-day-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; padding: 0 0 12px; border-bottom: 1px solid rgba(15,28,46,0.10); margin-bottom: 8px; }
+[data-theme="sketch"] .sched-day-title { font-size: 16px; font-weight: 700; color: #0A2440; }
+[data-theme="sketch"] .sched-day-count { font-size: 12.5px; color: rgba(10,36,64,0.55); }
+[data-theme="sketch"] .sched-day-events { display: flex; flex-direction: column; }
+
+[data-theme="sketch"] .sched-filter-modal { max-width: 360px; }
+[data-theme="sketch"] .sched-filter-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid rgba(15,28,46,0.08); }
+[data-theme="sketch"] .sched-filter-done { padding: 8px 18px; border-radius: 999px; background: #E14909; border: 1px solid #E14909; color: #fff; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
