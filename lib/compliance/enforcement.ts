@@ -92,6 +92,20 @@ export const VOTING_SUSPENSION_ELECTION_NOTICE_DAYS = rule(90, 'FS 718.303(5)', 
   note: 'condo: at least 90 days before an election, notify owners that nonpayment may suspend their voting rights',
 })
 
+// HOA ONLY (FS 720.305(2)(d)/(f), HB 1203 eff 2024-07-01): the post-hearing
+// fining clock. After the committee's hearing the association must give the owner
+// WRITTEN NOTICE of the committee's findings within 7 days; and the fine's payment
+// deadline must be AT LEAST 30 days after that notice is delivered. (Pre-HB 1203
+// the payment window was 5 days with no separate findings notice — a fine whose
+// hearing predates 2024-07-01 used the old rule, so these constants are forward-
+// looking.) Condominiums run the parallel 718.303 process, not this one.
+export const HOA_FINDINGS_NOTICE_DAYS = rule(7, 'FS 720.305(2)(d)', {
+  note: 'HOA: written notice of the committee findings to the owner within 7 days after the hearing',
+})
+export const HOA_FINE_PAYMENT_MIN_DAYS = rule(30, 'FS 720.305(2)(f)', {
+  note: 'HOA (HB 1203, eff 2024-07-01): fine payment deadline ≥ 30 days after the findings notice is delivered (was 5 days before)',
+})
+
 // ----------------------------------------------------------------------------
 // Domain types
 // ----------------------------------------------------------------------------
@@ -153,6 +167,9 @@ export interface ViolationRow {
   hearing_required?: boolean | null
   levied_at?: string | null
   enforcement_stage?: EnforcementStage | string | null
+  // HOA post-hearing fining clock (FS 720.305(2)(d)/(f))
+  findings_sent_at?: string | null   // written notice of the committee's findings
+  fine_due_on?: string | null        // the payment deadline set for the owner
 }
 
 export interface HearingRow {
@@ -243,6 +260,18 @@ export function fineAccrued(v: ViolationRow, now: Date = new Date()): {
 export function hearingReadyDate(h: HearingRow | null | undefined): Date | null {
   if (!h?.notice_sent_at) return null
   return addCalendarDays(h.notice_sent_at, HEARING_NOTICE_DAYS.value)
+}
+
+/** HOA: the deadline to send the committee's written findings = hearing + 7 days.
+ *  Null until the hearing is held. (FS 720.305(2)(d)) */
+export function hoaFindingsNoticeDue(held: string | Date | null | undefined): Date | null {
+  return held ? addCalendarDays(held, HOA_FINDINGS_NOTICE_DAYS.value) : null
+}
+
+/** HOA: the EARLIEST permissible fine-payment deadline = findings notice + 30
+ *  days. Null until the findings notice is sent. (FS 720.305(2)(f)) */
+export function hoaPaymentMinDue(findingsSentAt: string | Date | null | undefined): Date | null {
+  return findingsSentAt ? addCalendarDays(findingsSentAt, HOA_FINE_PAYMENT_MIN_DAYS.value) : null
 }
 
 /** Does an HOA fine reach the $1,000 floor needed to become a lien? A condo fine
@@ -407,6 +436,54 @@ export function enforcementSignals(
         href: HREF,
         citation: FINE_AGGREGATE_CAP.citation,
       }))
+    }
+
+    // 5. HOA post-hearing fining clock (FS 720.305(2)(d)/(f)). After the
+    //    committee upholds the fine the association must (a) give written notice
+    //    of the findings within 7 days of the hearing, and (b) set a payment
+    //    deadline at least 30 days after that notice. Condos run 718.303 instead.
+    if (regime === 'hoa' && (stage === 'upheld' || stage === 'levied')) {
+      const held = toDate(h?.held_at)
+      if (held && !v.findings_sent_at) {
+        const due = hoaFindingsNoticeDue(held)!
+        const d = calendarDaysUntil(due, now)
+        out.push(signal({
+          id: `enforcement:findings-notice:${v.id}`,
+          domain: DOMAIN,
+          severity: d < 0 ? 'overdue' : 'soon',
+          title: d < 0
+            ? `${label}: written notice of the committee's findings is overdue`
+            : `${label}: send written notice of the committee's findings by ${ymd(due)}`,
+          detail: `After the committee's hearing on ${ymd(held)}, an HOA must give the owner written notice of the committee's findings within ${HOA_FINDINGS_NOTICE_DAYS.value} days (by ${ymd(due)}).`,
+          href: HREF,
+          citation: HOA_FINDINGS_NOTICE_DAYS.citation,
+        }))
+      }
+      if (v.findings_sent_at) {
+        const minDue = hoaPaymentMinDue(v.findings_sent_at)!
+        const dueOn = toDate(v.fine_due_on)
+        if (!dueOn) {
+          out.push(signal({
+            id: `enforcement:pay-window:${v.id}`,
+            domain: DOMAIN,
+            severity: 'info',
+            title: `${label}: set a fine-payment deadline at least 30 days out`,
+            detail: `The payment deadline must be at least ${HOA_FINE_PAYMENT_MIN_DAYS.value} days after the ${ymd(v.findings_sent_at)} findings notice (on or after ${ymd(minDue)}).`,
+            href: HREF,
+            citation: HOA_FINE_PAYMENT_MIN_DAYS.citation,
+          }))
+        } else if (dueOn.getTime() < minDue.getTime()) {
+          out.push(signal({
+            id: `enforcement:pay-window-short:${v.id}`,
+            domain: DOMAIN,
+            severity: 'soon',
+            title: `${label}: the fine-payment window is shorter than 30 days`,
+            detail: `The deadline ${ymd(dueOn)} is less than ${HOA_FINE_PAYMENT_MIN_DAYS.value} days after the ${ymd(v.findings_sent_at)} findings notice; an HOA must allow at least ${HOA_FINE_PAYMENT_MIN_DAYS.value} days (on or after ${ymd(minDue)}).`,
+            href: HREF,
+            citation: HOA_FINE_PAYMENT_MIN_DAYS.citation,
+          }))
+        }
+      }
     }
   }
 

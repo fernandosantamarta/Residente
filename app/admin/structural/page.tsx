@@ -14,6 +14,7 @@ import { ymd, ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
 import {
   SIRS_COMPONENTS, SIRS_MIN_STORIES,
+  DBPR_FEE_PER_UNIT, DBPR_FEE_MIN_UNITS, DBPR_BUILDING_REPORT_MIN_STORIES, dbprAnnualFee,
   milestoneInitialDueDate, milestoneTriggerYears, isSirsEligible,
   type BuildingRow, type StructuralAssessmentRow, type SirsComponentRow,
   type AssessmentKind,
@@ -79,6 +80,32 @@ export default function StructuralPage() {
   useEffect(() => { load() }, [load])
 
   const regime = community?.association_type === 'hoa' ? 'hoa' : 'condo'
+
+  // ---------- DBPR (Division) settings ----------
+  const [dbprForm, setDbprForm] = useState<any>({})
+  useEffect(() => {
+    if (!community) return
+    setDbprForm({
+      dbpr_account_created_at: community.dbpr_account_created_at ? String(community.dbpr_account_created_at).slice(0, 10) : '',
+      dbpr_fee_paid_year: community.dbpr_fee_paid_year ?? '',
+      dbpr_building_report_filed_at: community.dbpr_building_report_filed_at ?? '',
+    })
+  }, [community])
+  const [dbprSaving, setDbprSaving] = useState(false)
+  const saveDbpr = async () => {
+    setDbprSaving(true); setError('')
+    try {
+      const patch = {
+        dbpr_account_created_at: (dbprForm.dbpr_account_created_at || '').trim() || null,
+        dbpr_fee_paid_year: dbprForm.dbpr_fee_paid_year === '' ? null : Number(dbprForm.dbpr_fee_paid_year),
+        dbpr_building_report_filed_at: (dbprForm.dbpr_building_report_filed_at || '').trim() || null,
+      }
+      const { error } = (await withTimeout(supabase.from('communities').update(patch).eq('id', communityId))) as any
+      if (error) throw error
+      setMsg('DBPR settings saved.'); load()
+    } catch (err: any) { setError(err?.message || 'Could not save DBPR settings') }
+    finally { setDbprSaving(false) }
+  }
 
   // ---------- building intake ----------
   const [bForm, setBForm] = useState<any>({ coastal: false })
@@ -232,8 +259,31 @@ export default function StructuralPage() {
             ))}
           </div>
 
+          {/* DBPR (Division of Florida Condominiums) settings */}
+          <section style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: '4px solid #067647', borderRadius: 12, padding: '14px 16px', background: '#fff', marginTop: 8 }}>
+            <h2 className="bc-title" style={{ marginBottom: 4 }}>DBPR (Division) filings</h2>
+            <p style={{ fontSize: 12.5, opacity: 0.72, margin: '0 0 12px' }}>
+              Record your condominium&apos;s Division filings so the dashboard can track them:
+              the online account (FS 718.501(1)), the ${DBPR_FEE_PER_UNIT.value}/unit annual fee
+              due January 1 (FS 718.501(2) — associations operating more than {DBPR_FEE_MIN_UNITS.value} units),
+              and the {DBPR_BUILDING_REPORT_MIN_STORIES.value}+-story building report (FS 718.501(3)).
+            </p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
+              <label className="admin-field"><span className="admin-field-label">DBPR online account created</span>
+                <input className="admin-input" type="date" value={dbprForm.dbpr_account_created_at ?? ''} onChange={e => setDbprForm((f: any) => ({ ...f, dbpr_account_created_at: e.target.value }))} /></label>
+              <label className="admin-field">
+                <span className="admin-field-label">Annual fee — last year paid{(Number(community?.unit_count) || 0) > 0 ? ` (~${'$' + dbprAnnualFee(community?.unit_count).toLocaleString('en-US')})` : ''}</span>
+                <input className="admin-input" type="number" min="2000" max="2100" step="1" placeholder="e.g. 2026" value={dbprForm.dbpr_fee_paid_year ?? ''} onChange={e => setDbprForm((f: any) => ({ ...f, dbpr_fee_paid_year: e.target.value }))} /></label>
+              <label className="admin-field"><span className="admin-field-label">{DBPR_BUILDING_REPORT_MIN_STORIES.value}+-story building report filed</span>
+                <input className="admin-input" type="date" value={dbprForm.dbpr_building_report_filed_at ?? ''} onChange={e => setDbprForm((f: any) => ({ ...f, dbpr_building_report_filed_at: e.target.value }))} /></label>
+            </div>
+            <div style={{ marginTop: 10 }}>
+              <button className="admin-primary-btn" disabled={dbprSaving} onClick={saveDbpr}>{dbprSaving ? 'Saving…' : 'Save DBPR settings'}</button>
+            </div>
+          </section>
+
           {/* Building intake */}
-          <form className="admin-form" onSubmit={createBuilding} style={{ marginTop: 8 }}>
+          <form className="admin-form" onSubmit={createBuilding} style={{ marginTop: 24 }}>
             <h2 className="bc-title" style={{ marginBottom: 8 }}>Add a building</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
               <label className="admin-field"><span className="admin-field-label">Name</span>

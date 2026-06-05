@@ -84,6 +84,22 @@ export const POSTING_IN_FORCE = rule(
 // 30 days.
 export const POSTING_CLOCK_DAYS = rule(30, 'FS 718.111(12)(g) / 720.303(4)(b)', { note: 'days to post a new official record' })
 
+// HOA ONLY (FS 720.306(1)(b)): within 30 days after RECORDING an amendment to the
+// governing documents in the public records, the association must provide members
+// a copy of the amendment (or written notice identifying the recorded instrument,
+// with copies free on request). The clock runs from the RECORDING date, not the
+// vote. ⚠ A late distribution does NOT invalidate the amendment — flag the unmet
+// duty only, never imply the amendment is void. (Predates HB 1203; last amended
+// 2021. Condominium amendment-distribution is governed elsewhere, so this is HOA-only.)
+export const AMENDMENT_DISTRIBUTION_DAYS = rule(30, 'FS 720.306(1)(b)', {
+  note: 'HOA: provide members a copy of (or notice identifying) a recorded governing-document amendment within 30 days of RECORDING; failure does not invalidate the amendment',
+})
+
+/** HOA: the deadline to distribute a recorded amendment = recording + 30 days. */
+export function amendmentDistributionDue(recordedAt: string | Date | null | undefined): Date | null {
+  return recordedAt ? addCalendarDays(recordedAt, AMENDMENT_DISTRIBUTION_DAYS.value) : null
+}
+
 // Records-inspection request SLA: the association must make records available
 // within 10 working/business days of a written request.
 //   condo — FS 718.111(12)(c): 10 working days.
@@ -164,6 +180,10 @@ export interface DocumentRow {
   redaction_status?: 'pending' | 'redacted' | 'not_required' | string | null
   access_level?: 'members' | 'public' | string | null
   retention_until?: string | null
+  // HOA recorded-amendment distribution (FS 720.306(1)(b))
+  is_amendment?: boolean | null
+  amendment_recorded_at?: string | null
+  members_distributed_at?: string | null
 }
 
 export interface RecordsRequestRow {
@@ -319,6 +339,32 @@ export function officialRecordsSignals(
         detail: `Statutory deadline ${ymd(due)}.`,
         href: '/admin/documents#records-requests',
         citation: RECORDS_INSPECTION_DAYS.citation,
+      }))
+    }
+  }
+
+  // --- HOA recorded-amendment distribution (30 days from recording) ---
+  // Applies to every HOA regardless of website-posting scope. The board flags a
+  // governing-document amendment + the date it was recorded; this nudges the
+  // 30-day member-distribution duty. Never implies the amendment is void.
+  if (regime === 'hoa') {
+    for (const d of documents) {
+      if (!d.is_amendment || !d.amendment_recorded_at || d.members_distributed_at) continue
+      const due = amendmentDistributionDue(d.amendment_recorded_at)
+      if (!due) continue
+      const left = Math.round((due.getTime() - nowMs) / 86400000)
+      if (left > 7) continue
+      const label = d.title || d.id.slice(0, 8)
+      out.push(signal({
+        id: `records:amendment-distribution:${d.id}`,
+        domain: 'Official records',
+        severity: left < 0 ? 'overdue' : 'soon',
+        title: left < 0
+          ? `Recorded amendment "${label}" has not been distributed to members`
+          : `Distribute recorded amendment "${label}" to members by ${ymd(due)}`,
+        detail: `An amendment recorded ${ymd(d.amendment_recorded_at)} must be provided to members (a copy, or written notice identifying the recorded instrument with copies free on request) within ${AMENDMENT_DISTRIBUTION_DAYS.value} days — by ${ymd(due)}. Mark it distributed once members are served.`,
+        href: HREF,
+        citation: AMENDMENT_DISTRIBUTION_DAYS.citation,
       }))
     }
   }

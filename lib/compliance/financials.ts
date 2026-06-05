@@ -65,7 +65,29 @@ export const MIN_RESERVE_FUNDING_PCT = rule(50, 'FS 718.112(2)(f) / 720.303(6)',
 // signal lives there); kept here for the aggregate reserve + no-waiver rule.
 export const SIRS_WAIVER_PROHIBITED_SINCE = rule('2024-12-31', 'FS 718.112(2)(g)2', { note: 'SIRS reserves may not be waived/reduced for budgets adopted on/after this date' })
 export const SIRS_FULL_FUNDING_EFFECTIVE = rule('2026-01-01', 'FS 718.112(2)(g)2', { note: 'SIRS reserves must be fully funded' })
-export const RESERVE_WAIVER_VOTE_BASIS = rule('majority of all voting interests', 'FS 718.112(2)(f) / 720.303(6)', { note: 'a reserve waiver requires a majority of ALL voting interests, not just a quorum' })
+// The vote standard to WAIVE or REDUCE reserve funding. ⚠ The two regimes differ:
+// an HOA (720.303(6)(f)) needs a majority of the voting interests PRESENT at a
+// quorum meeting — NOT a majority of all voting interests — and the waiver lasts
+// one budget year only. The condo basis (718.112(2)(f)2) must be confirmed by
+// counsel; it is kept here for the condo print artifacts.
+export const RESERVE_WAIVER_VOTE_BASIS = rule(
+  {
+    condo: 'a majority of the total voting interests',
+    hoa: 'a majority of the voting interests present at a meeting at which a quorum is present',
+  } as { condo: string; hoa: string },
+  'FS 718.112(2)(f)2 / 720.303(6)(f)',
+  { note: 'HOA (720.303(6)(f)): majority of those PRESENT at a quorum meeting, effective ONE budget year; condo (718.112(2)(f)2) basis to be confirmed by counsel' },
+)
+// HOA: a reserve waiver/reduction is effective for only one budget year and must
+// be re-approved annually.
+export const RESERVE_WAIVER_VALID_YEARS = rule(1, 'FS 720.303(6)(f)', { note: 'HOA reserve waiver/reduction lasts one budget year; renew annually' })
+// HOA: USING reserves for a non-reserve purpose is a separate member decision
+// (720.303(6)(h)) with no one-year expiry; the pre-turnover standard is stricter.
+export const RESERVE_DIVERSION_VOTE_BASIS = rule(
+  'a majority of the voting interests present at a quorum meeting (after turnover); during developer control, a majority of all non-developer voting interests',
+  'FS 720.303(6)(h)',
+  { note: 'HOA: diverting reserves to another purpose needs a separate vote; no annual expiry; stricter pre-turnover standard' },
+)
 
 // ----------------------------------------------------------------------------
 // Row shapes.
@@ -316,8 +338,15 @@ export function financialSignals(
   }
 
   // --- SIRS reserve waiver prohibited (budgets adopted on/after 2024-12-31) ---
+  // Only a waiver that actually post-dates the prohibition counts — match by the
+  // date it was recorded (completed_at) or a budget year after the cutoff year, so
+  // a stale pre-2024 waiver record doesn't perpetually flag as "overdue".
   const waiverProhibited = calendarDaysUntil(SIRS_WAIVER_PROHIBITED_SINCE.value, now) <= 0 // on/after the date
-  const sirsWaiver = filings.find(f => f.filing_type === 'reserve_waiver' && String(f.status) === 'waived')
+  const prohibitedSinceMs = toDate(SIRS_WAIVER_PROHIBITED_SINCE.value)!.getTime()
+  const prohibitedYear = toDate(SIRS_WAIVER_PROHIBITED_SINCE.value)!.getUTCFullYear() // 2024
+  const sirsWaiver = filings.find(f =>
+    f.filing_type === 'reserve_waiver' && String(f.status) === 'waived' &&
+    ((toDate(f.completed_at)?.getTime() ?? 0) >= prohibitedSinceMs || (Number(f.fiscal_year) || 0) > prohibitedYear))
   const hasSirsReserve = reserves.some(r => r.is_sirs)
   if (waiverProhibited && sirsWaiver && hasSirsReserve && regime === 'condo') {
     out.push(signal({
@@ -329,6 +358,32 @@ export function financialSignals(
       href: HREF,
       citation: SIRS_WAIVER_PROHIBITED_SINCE.citation,
     }))
+  }
+
+  // --- HOA reserve-waiver one-year expiry + diversion advisory (720.303(6)) ---
+  // A recorded reserve waiver is good for one budget year only. If the most recent
+  // waiver predates the budget year now in effect, nudge that a fresh annual vote
+  // is needed to waive again — and that diverting reserves is a separate decision.
+  if (regime === 'hoa') {
+    const latestWaiverYear = filings
+      .filter(f => f.filing_type === 'reserve_waiver' && String(f.status) === 'waived')
+      .reduce((max, f) => Math.max(max, Number(f.fiscal_year) || 0), 0)
+    if (latestWaiverYear > 0) {
+      const nowD = toDate(now)!
+      const fyStartThis = fiscalYearStart(community, nowD.getUTCFullYear())
+      const currentBudgetYear = nowD.getTime() >= fyStartThis.getTime() ? nowD.getUTCFullYear() : nowD.getUTCFullYear() - 1
+      if (latestWaiverYear < currentBudgetYear) {
+        out.push(signal({
+          id: 'financial:hoa-reserve-waiver-expired',
+          domain: 'Financial reporting',
+          severity: 'info',
+          title: `The last reserve waiver (FY${latestWaiverYear}) has expired — a waiver lasts one budget year`,
+          detail: `An HOA reserve waiver or reduction is approved by ${RESERVE_WAIVER_VOTE_BASIS.value.hoa} and is effective for one budget year only; to waive again for FY${currentBudgetYear} the members must vote anew. Using reserve funds for any non-reserve purpose is a separate decision requiring ${RESERVE_DIVERSION_VOTE_BASIS.value}.`,
+          href: HREF,
+          citation: RESERVE_WAIVER_VALID_YEARS.citation,
+        }))
+      }
+    }
   }
 
   return out

@@ -77,6 +77,40 @@ export const SIRS_COMPONENT_THRESHOLD = rule(25000, 'FS 718.112(2)(g)1', { note:
 // took effect 2025-10-01 (already past). Reuses communities.dbpr_account_created_at.
 export const DBPR_ACCOUNT_REQUIRED_SINCE = rule('2025-10-01', 'FS 718.501(1)', { note: 'condo DBPR online account registration' })
 
+// --- Condominium DBPR annual fee (FS 718.501(2)(a), distinct from the (1) account) ---
+// Each condominium association operating MORE THAN two units owes the Division a
+// $4-per-residential-unit annual fee, due by January 1. If it is not paid by
+// March 1 a 10% penalty is added, and the association has NO standing to maintain
+// or defend a court action until all fees + penalties are paid. (HB 1021 expanded
+// 718.501(1) jurisdiction but did NOT change this (2) fee structure.)
+export const DBPR_FEE_PER_UNIT = rule(4, 'FS 718.501(2)(a)', { note: '$4 per residential unit, per year' })
+export const DBPR_FEE_MIN_UNITS = rule(2, 'FS 718.501(2)(a)', { note: 'applies to an association operating MORE THAN two units' })
+export const DBPR_FEE_PENALTY_PCT = rule(10, 'FS 718.501(2)(a)', { note: '10% penalty if the fee is unpaid by March 1' })
+// Month/day anchors (year is supplied at evaluation time).
+export const DBPR_FEE_DUE_MMDD = rule('01-01', 'FS 718.501(2)(a)', { note: 'annual fee due January 1' })
+export const DBPR_FEE_PENALTY_MMDD = rule('03-01', 'FS 718.501(2)(a)', { note: '10% penalty + loss of court standing once unpaid past March 1' })
+
+// --- Condominium DBPR three-or-more-story building report (FS 718.501(3), SB 4-D) ---
+// A condominium association with one or more buildings three or more stories high
+// must report to the Division the number of such buildings, the total units in
+// them, their addresses, and the counties. The one-time SB 4-D report was due
+// 2023-01-01 (already past); a written UPDATE is due within 6 months of any change
+// to that information. ⚠ The statute is SILENT on a penalty for a missed filing —
+// we flag non-compliance but assert no fine. (HB 913's 2025-10-01 online account
+// is a SEPARATE duty and does not satisfy this report.)
+export const DBPR_BUILDING_REPORT_MIN_STORIES = rule(3, 'FS 718.501(3)', { note: 'buildings three or more stories' })
+export const DBPR_BUILDING_REPORT_DEADLINE = rule('2023-01-01', 'FS 718.501(3)', { note: 'SB 4-D one-time building report; associations existing on/before 2022-07-01' })
+export const DBPR_BUILDING_REPORT_UPDATE_MONTHS = rule(6, 'FS 718.501(3)', { note: 'written update within 6 months of a change to the reported information' })
+
+/** The condominium DBPR annual fee for `units` residential units ($4/unit). */
+export function dbprAnnualFee(units: number | null | undefined): number {
+  return (Number(units) || 0) * DBPR_FEE_PER_UNIT.value
+}
+/** The fee plus the 10% late penalty (charged when unpaid past March 1). */
+export function dbprFeeWithPenalty(units: number | null | undefined): number {
+  return Math.round(dbprAnnualFee(units) * (1 + DBPR_FEE_PENALTY_PCT.value / 100) * 100) / 100
+}
+
 // Accepted credentials. Milestone Phase 1/2 must be by a licensed professional
 // engineer (PE) or registered architect (RA). A SIRS may additionally be
 // performed by a reserve specialist (CAI-RS / APRA-PRA) for the financial
@@ -256,6 +290,54 @@ export function structuralSignals(
       href: '/admin/community',
       citation: DBPR_ACCOUNT_REQUIRED_SINCE.citation,
     }))
+  }
+
+  // --- Condominium DBPR annual fee ($4/unit, due Jan 1; 10% penalty Mar 1) ---
+  // Only associations operating MORE THAN two units owe the fee.
+  const units = Number(community?.unit_count) || 0
+  if (community && units > DBPR_FEE_MIN_UNITS.value) {
+    const year = toDate(now)!.getUTCFullYear()
+    const paidYear = Number(community.dbpr_fee_paid_year) || 0
+    if (paidYear < year) {
+      const penaltyDate = `${year}-${DBPR_FEE_PENALTY_MMDD.value}` // March 1 of the obligation year
+      const pastPenalty = calendarDaysUntil(penaltyDate, now) < 0
+      const fee = dbprAnnualFee(units)
+      const withPenalty = dbprFeeWithPenalty(units)
+      out.push(signal({
+        id: `structural:dbpr-fee:${year}`,
+        domain: 'Structural',
+        severity: pastPenalty ? 'overdue' : 'soon',
+        title: pastPenalty
+          ? `Condominium DBPR annual fee for ${year} is past due (10% penalty)`
+          : `Condominium DBPR annual fee for ${year} is due`,
+        detail: pastPenalty
+          ? `The $${DBPR_FEE_PER_UNIT.value}/unit Division fee (~$${fee.toLocaleString('en-US')} for ${units} units) was due January 1 and was not recorded paid by March 1, so a ${DBPR_FEE_PENALTY_PCT.value}% penalty applies (~$${withPenalty.toLocaleString('en-US')} total). Until the fee and penalty are paid, the association has no standing to maintain or defend a court action.`
+          : `Florida condominiums operating more than two units owe the Division a $${DBPR_FEE_PER_UNIT.value}/unit annual fee (~$${fee.toLocaleString('en-US')} for ${units} units), due January 1. Pay by March 1 to avoid a ${DBPR_FEE_PENALTY_PCT.value}% penalty; record the year paid in the DBPR settings.`,
+        href: HREF,
+        citation: DBPR_FEE_PER_UNIT.citation,
+      }))
+    }
+  }
+
+  // --- Condominium DBPR 3+-story building report (one-time + 6-month updates) ---
+  // Fires when any building is ≥3 stories (or the community profile records ≥3
+  // stories) and no filing date is on record. The SB 4-D deadline is already
+  // past, so an unrecorded filing is overdue; we assert no penalty (statute silent).
+  if (community) {
+    const has3Story =
+      buildings.some(b => (Number(b.stories) || 0) >= DBPR_BUILDING_REPORT_MIN_STORIES.value) ||
+      (Number(community.building_stories) || 0) >= DBPR_BUILDING_REPORT_MIN_STORIES.value
+    if (has3Story && !community.dbpr_building_report_filed_at) {
+      out.push(signal({
+        id: 'structural:dbpr-building-report',
+        domain: 'Structural',
+        severity: 'overdue',
+        title: 'DBPR three-or-more-story building report is not recorded',
+        detail: `A condominium with buildings ${DBPR_BUILDING_REPORT_MIN_STORIES.value} or more stories must report the building count, units, addresses, and counties to the Division (the SB 4-D report was due ${DBPR_BUILDING_REPORT_DEADLINE.value}). Record the filing date once submitted, and file a written update within ${DBPR_BUILDING_REPORT_UPDATE_MONTHS.value} months of any change to that information. (This is separate from the DBPR online account.)`,
+        href: HREF,
+        citation: DBPR_BUILDING_REPORT_DEADLINE.citation,
+      }))
+    }
   }
 
   // --- Per-building milestone + SIRS coverage ---

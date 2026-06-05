@@ -17,6 +17,7 @@ import { EasyDocsTabs } from '../EasyDocsTabs'
 import { DEFAULT_CHANNELS } from '@/lib/voice'
 import {
   DOC_CATEGORIES, FL_REQUIRED_CATEGORIES, postingApplies, recordsInspectionDueAt,
+  amendmentDistributionDue, AMENDMENT_DISTRIBUTION_DAYS,
   type DocCategory,
 } from '@/lib/compliance/official-records'
 import { ymd } from '@/lib/compliance/rules-core'
@@ -314,6 +315,19 @@ export default function AdminEasyDocs() {
     }
   }
 
+  // Patch a document row (used by the HOA recorded-amendment distribution
+  // control — drives the 30-day FS 720.306(1)(b) signal). Optimistic.
+  const patchDoc = async (id: string, patch: Record<string, any>) => {
+    setDocRows((rs: any[]) => rs.map(r => r.id === id ? { ...r, ...patch } : r))
+    try {
+      const { error } = await withTimeoutDocs(supabase.from('documents').update(patch).eq('id', id))
+      if (error) throw error
+    } catch (err: any) {
+      setDocError(err?.message || 'Could not update the amendment (run supabase/compliance-slice2.sql?)')
+      loadDocs()
+    }
+  }
+
   // Mark a records-inspection request answered — stamps responded_at (the DB
   // trigger then notifies the resident) and resolves it.
   const respondToRequest = async (req: any) => {
@@ -331,6 +345,7 @@ export default function AdminEasyDocs() {
   }
 
   const recordsApplies = postingApplies(community)
+  const isHoa = community?.association_type === 'hoa'
   const openRecRequests = recRequests.filter(r => r.status !== 'resolved' && r.status !== 'cancelled')
 
   // ── Render ───────────────────────────────────────────────────────────────
@@ -701,31 +716,34 @@ export default function AdminEasyDocs() {
               )}
               <div className="bd-list">
                 {paginate(docRows, docPage, DOCS_PAGE_SIZE).map(d => (
-                  <div className="bd-row" key={d.id}>
-                    <div className="bd-main">
-                      <div className="bd-title">{d.title}</div>
-                      <div className="bd-meta">
-                        {d.category && <><span>{d.category}</span><span className="bd-dot">·</span></>}
-                        <span>{fmtDate(d.uploaded_at)}</span>
-                        {fmtSize(d.file_size) && <><span className="bd-dot">·</span><span>{fmtSize(d.file_size)}</span></>}
-                        {recordsApplies && (
-                          <>
-                            <span className="bd-dot">·</span>
-                            <span style={{ color: d.posted_to_portal ? '#067647' : '#B54708', fontWeight: 600 }}>
-                              {d.posted_to_portal ? '✓ Posted' : 'Not posted'}
-                            </span>
-                          </>
-                        )}
+                  <div key={d.id}>
+                    <div className="bd-row">
+                      <div className="bd-main">
+                        <div className="bd-title">{d.title}</div>
+                        <div className="bd-meta">
+                          {d.category && <><span>{d.category}</span><span className="bd-dot">·</span></>}
+                          <span>{fmtDate(d.uploaded_at)}</span>
+                          {fmtSize(d.file_size) && <><span className="bd-dot">·</span><span>{fmtSize(d.file_size)}</span></>}
+                          {recordsApplies && (
+                            <>
+                              <span className="bd-dot">·</span>
+                              <span style={{ color: d.posted_to_portal ? '#067647' : '#B54708', fontWeight: 600 }}>
+                                {d.posted_to_portal ? '✓ Posted' : 'Not posted'}
+                              </span>
+                            </>
+                          )}
+                        </div>
                       </div>
+                      {recordsApplies && (
+                        <button type="button" className="admin-btn-ghost" style={{ marginRight: 8 }}
+                          onClick={() => togglePosted(d)}>
+                          {d.posted_to_portal ? 'Mark unposted' : 'Mark posted'}
+                        </button>
+                      )}
+                      <button type="button" className="bc-del" onClick={() => removeDoc(d)}
+                        aria-label="Remove document">&times;</button>
                     </div>
-                    {recordsApplies && (
-                      <button type="button" className="admin-btn-ghost" style={{ marginRight: 8 }}
-                        onClick={() => togglePosted(d)}>
-                        {d.posted_to_portal ? 'Mark unposted' : 'Mark posted'}
-                      </button>
-                    )}
-                    <button type="button" className="bc-del" onClick={() => removeDoc(d)}
-                      aria-label="Remove document">&times;</button>
+                    {isHoa && <AmendmentControl doc={d} onPatch={patchDoc} />}
                   </div>
                 ))}
               </div>
@@ -783,6 +801,66 @@ export default function AdminEasyDocs() {
         </div>
       </section>
       )}
+    </div>
+  )
+}
+
+// HOA recorded-amendment distribution control (FS 720.306(1)(b)). Lets the board
+// flag a document as a recorded governing-document amendment and record the
+// recording + member-distribution dates that drive the 30-day advisory signal.
+// Rendered below each archive row for HOA communities only.
+function AmendmentControl({ doc, onPatch }: { doc: any; onPatch: (id: string, patch: Record<string, any>) => void }) {
+  const [open, setOpen] = useState(false)
+  const isAmend = !!doc.is_amendment
+  const recorded = doc.amendment_recorded_at || null
+  const distributed = doc.members_distributed_at || null
+  const due = recorded ? amendmentDistributionDue(recorded) : null
+  const overdue = !!due && !distributed && due.getTime() < Date.now()
+
+  if (!open) {
+    if (!isAmend) {
+      return (
+        <button type="button" className="admin-btn-ghost" style={{ fontSize: 12, marginTop: 2 }} onClick={() => setOpen(true)}
+          title="Flag a recorded governing-document amendment to track the 30-day member-distribution duty (FS 720.306(1)(b))">
+          ⚖ Recorded amendment?
+        </button>
+      )
+    }
+    const label = distributed ? '⚖ Amendment · distributed' : overdue ? '⚖ Amendment · distribute now' : '⚖ Amendment · pending'
+    const col = distributed ? '#067647' : overdue ? '#B42318' : '#B54708'
+    return (
+      <button type="button" className="admin-btn-ghost" style={{ fontSize: 12, marginTop: 2, color: col, fontWeight: 600 }} onClick={() => setOpen(true)}>
+        {label}
+      </button>
+    )
+  }
+
+  return (
+    <div style={{ border: '1px dashed #cbd5e1', borderRadius: 10, padding: '10px 12px', marginTop: 4, background: '#fafafa' }}>
+      <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, fontWeight: 600 }}>
+        <input type="checkbox" checked={isAmend} onChange={e => onPatch(doc.id, { is_amendment: e.target.checked })} />
+        Recorded governing-document amendment (FS 720.306(1)(b))
+      </label>
+      {isAmend && (
+        <>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 8 }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11.5 }}>
+              <span style={{ opacity: 0.7 }}>Recorded on{due ? ` (distribute by ${ymd(due)})` : ''}</span>
+              <input className="admin-input" style={{ maxWidth: 170 }} type="date" defaultValue={recorded ?? ''}
+                onChange={e => onPatch(doc.id, { amendment_recorded_at: e.target.value || null })} />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11.5 }}>
+              <span style={{ opacity: 0.7 }}>Members served on</span>
+              <input className="admin-input" style={{ maxWidth: 170 }} type="date" defaultValue={distributed ?? ''}
+                onChange={e => onPatch(doc.id, { members_distributed_at: e.target.value || null })} />
+            </label>
+          </div>
+          <p style={{ fontSize: 11.5, opacity: 0.7, margin: '6px 0 0' }}>
+            Provide members a copy (or written notice identifying the recorded instrument, with copies free on request) within {AMENDMENT_DISTRIBUTION_DAYS.value} days of recording. A late distribution does not invalidate the amendment.
+          </p>
+        </>
+      )}
+      <button type="button" className="admin-btn-ghost" style={{ fontSize: 12, marginTop: 8 }} onClick={() => setOpen(false)}>Close</button>
     </div>
   )
 }

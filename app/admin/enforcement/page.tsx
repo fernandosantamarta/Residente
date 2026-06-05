@@ -15,9 +15,9 @@ import { ymd, calendarDaysUntil, toDate, ATTORNEY_REVIEW_BANNER } from '@/lib/co
 import {
   STAGE_LABELS, SUSPENSION_BASIS_LABELS, SUSPENSION_RIGHTS_LABELS,
   fineAccrued, hearingReadyDate, committeeReady, independentMembers,
-  votingSuspensionCandidates,
+  votingSuspensionCandidates, hoaFindingsNoticeDue, hoaPaymentMinDue,
   FINE_PER_VIOLATION_MAX, FINE_AGGREGATE_CAP, HEARING_NOTICE_DAYS, FINING_COMMITTEE_MIN,
-  SUSPENSION_DELINQUENCY_DAYS,
+  SUSPENSION_DELINQUENCY_DAYS, HOA_FINDINGS_NOTICE_DAYS, HOA_FINE_PAYMENT_MIN_DAYS,
   VOTING_SUSPENSION_MONETARY_FLOOR, VOTING_SUSPENSION_PROOF_DAYS, VOTING_SUSPENSION_ELECTION_NOTICE_DAYS,
   type ViolationRow, type HearingRow, type FiningCommitteeMemberRow, type SuspensionRow,
   type EnforcementStage, type SuspensionBasis, type SuspensionRights,
@@ -334,6 +334,7 @@ export default function EnforcementPage() {
                 onSchedule={(date: string) => scheduleHearing(v, hearingByViolation.get(String(v.id)), date)}
                 onDecision={(d: any) => recordDecision(v, hearingByViolation.get(String(v.id)), d)}
                 onLevy={() => markLevied(v)}
+                onPatch={(patch: Record<string, any>, ok?: string) => patchViolation(v.id, patch, ok)}
               />
             ))}
           </div>
@@ -470,9 +471,10 @@ function CommitteeManager({ members, communityId, createdBy, onChange, setError 
 // ----------------------------------------------------------------------------
 // Violation card (the hearing ladder)
 // ----------------------------------------------------------------------------
-function ViolationCard({ v, hearing, regime, committeeOk, onSendNotice, onSchedule, onDecision, onLevy }: {
+function ViolationCard({ v, hearing, regime, committeeOk, onSendNotice, onSchedule, onDecision, onLevy, onPatch }: {
   v: ViolationRow; hearing: HearingRow | undefined; regime: 'condo' | 'hoa'; committeeOk: boolean
   onSendNotice: () => void; onSchedule: (date: string) => void; onDecision: (d: any) => void; onLevy: () => void
+  onPatch: (patch: Record<string, any>, ok?: string) => void
 }) {
   const stage = String(v.enforcement_stage ?? 'none') as EnforcementStage
   const color = STAGE_COLOR[stage] || '#475467'
@@ -534,6 +536,28 @@ function ViolationCard({ v, hearing, regime, committeeOk, onSendNotice, onSchedu
       </div>
 
       {decideOpen && <DecisionForm onSubmit={(d: any) => { setDecideOpen(false); onDecision(d) }} />}
+
+      {/* HOA post-hearing fining clock — findings notice (7d) + payment window (≥30d) */}
+      {regime === 'hoa' && (stage === 'upheld' || stage === 'levied') && (
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed rgba(0,0,0,0.12)' }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#475467', marginBottom: 6 }}>HOA fining clock ({HOA_FINDINGS_NOTICE_DAYS.citation} / {HOA_FINE_PAYMENT_MIN_DAYS.citation})</div>
+          <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11.5 }}>
+              <span style={{ opacity: 0.7 }}>Findings notice sent{hearing?.held_at ? ` (due ${ymd(hoaFindingsNoticeDue(hearing.held_at)!)})` : ''}</span>
+              <input className="admin-input" style={{ maxWidth: 160 }} type="date" defaultValue={v.findings_sent_at ?? ''}
+                onChange={e => onPatch({ findings_sent_at: e.target.value || null }, 'Findings notice date saved.')} />
+            </label>
+            <label style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11.5 }}>
+              <span style={{ opacity: 0.7 }}>Payment due by{v.findings_sent_at ? ` (≥ ${ymd(hoaPaymentMinDue(v.findings_sent_at)!)})` : ''}</span>
+              <input className="admin-input" style={{ maxWidth: 160 }} type="date" defaultValue={v.fine_due_on ?? ''}
+                onChange={e => onPatch({ fine_due_on: e.target.value || null }, 'Payment deadline saved.')} />
+            </label>
+          </div>
+          <p style={{ fontSize: 11.5, opacity: 0.7, margin: '6px 0 0' }}>
+            Written notice of the committee&apos;s findings is due within {HOA_FINDINGS_NOTICE_DAYS.value} days of the hearing; the payment deadline must be at least {HOA_FINE_PAYMENT_MIN_DAYS.value} days after that notice.
+          </p>
+        </div>
+      )}
     </div>
   )
 }
