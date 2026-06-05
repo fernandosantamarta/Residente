@@ -9787,10 +9787,9 @@ textarea[disabled] {
 
 /* ===== Mobile spacing/layout tweaks (2026-06-05, phone <=767px) ===== */
 @media (max-width: 767px) {
-  /* Hub tabs/title were jammed under the status bar — drop them down. */
-  .easydocs-combined { padding-top: 40px; }
   /* Drop the hub header (Easy Track/Voice/Documents) down the sunset so more of
-     the hero photo shows above it — matching Home's greeting placement. */
+     the hero photo shows above it — matching Home's greeting placement. Easy
+     Documents now uses .ev-hub-head too, so it gets the same treatment. */
   [data-theme="sketch"] .ev-hub-head { padding-top: 64px; }
   /* Settings: Account summary aside moves to the TOP, and every row is one
      line (ellipsis) so they're all the same height. */

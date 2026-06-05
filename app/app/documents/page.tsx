@@ -311,6 +311,10 @@ export default function EasyDocs() {
 
   return (
     <div className="easydocs-combined">
+      <div className="voice-page-head ev-hub-head">
+        <h1 className="voice-page-title">Easy Documents</h1>
+        <p className="voice-page-sub">{t('documents.hubSub')}</p>
+      </div>
       <SegTabs tabs={DOC_TABS} active={tab} onChange={setTab} ariaLabel={t('documents.sectionsAria')} />
 
       {/* ════════════════════════════════════════════════════════════════

@@ -207,6 +207,7 @@ export const en: Record<string, string> = {
   "documents.detailUpdated": "Updated",
   "documents.docPlural": "docs",
   "documents.docsHeroSub": "Important community documents, resources, and forms — all in one place.",
+  "documents.hubSub": "Governing documents, community rules, and your violations — all in one place.",
   "documents.docsHeroTitle": "Documents",
   "documents.docSingular": "doc",
   "documents.docsSearchPlaceholder": "Search documents…",
