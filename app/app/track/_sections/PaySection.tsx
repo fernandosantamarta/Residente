@@ -150,35 +150,23 @@ export function PaySection() {
   const daysLeft = Math.max(0, Math.ceil((nextDue.getTime() - now.getTime()) / DAY_MS))
   const duePct = (cycleDays - daysLeft) / cycleDays
 
-  const trackFaces: Record<'ok' | 'warn', [RingFace, RingFace]> = {
-    ok: [
-      { value: <RingCheck />, sub: '',         aria: t('pay.ringOnTrackAria', { pct: onTimePct }) },
-      { value: `${onTimePct}%`, sub: t('pay.ringOnTimeSub'),  aria: t('pay.ringOnTimeAria', { pct: onTimePct }) },
-    ],
-    warn: [
-      { value: t('pay.ringBehind'), sub: '',         aria: t('pay.ringBehindAria', { pct: onTimePct }) },
-      { value: `${onTimePct}%`, sub: t('pay.ringOnTimeSub'),  aria: t('pay.ringOnTimeAria', { pct: onTimePct }) },
-    ],
-  }
-
-  const rings: { tone: RingTone; pct: number; cat: string; faces: [RingFace, RingFace] }[] = [
+  // The same three signals the dial rings used to show, now as plain
+  // label/value rows sitting under the Make Payment actions.
+  const statRows: { label: string; value: string; meta?: string; tone?: 'ok' | 'warn' }[] = [
     {
-      tone: 'dues', cat: t('pay.ringCatBalance'), pct: annualDue ? paidYTD / annualDue : 0,
-      faces: [
-        { value: `${monthsPaid}/12`, sub: t('pay.ringMonthsPaidSub'),              aria: t('pay.ringMonthsPaidAria', { count: monthsPaid }) },
-        { value: fmtMoney(paidYTD),  sub: t('pay.ringOfAmount', { amount: fmtMoney(annualDue) }), aria: t('pay.ringPaidYtdAria', { paid: fmtMoney(paidYTD), total: fmtMoney(annualDue) }) },
-      ],
+      label: t('pay.ringCatBalance'),
+      value: `${fmtMoney(paidYTD)} ${t('pay.ringOfAmount', { amount: fmtMoney(annualDue) })}`,
+      meta: `${monthsPaid}/12 ${t('pay.ringMonthsPaidSub')}`,
     },
     {
-      tone: trackState, cat: t('pay.ringCatPaymentStatus'), pct: onTimeRate,
-      faces: trackFaces[trackState],
+      label: t('pay.ringCatPaymentStatus'),
+      value: trackState === 'warn' ? t('pay.ringBehind') : `${onTimePct}% ${t('pay.ringOnTimeSub')}`,
+      tone: trackState === 'warn' ? 'warn' : 'ok',
     },
     {
-      tone: 'due', cat: t('pay.ringCatDueDate'), pct: duePct,
-      faces: [
-        { value: daysLeft === 0 ? t('pay.ringToday') : `${daysLeft}`, sub: daysLeft === 0 ? t('pay.ringDueTodaySub') : t('pay.ringDaysLeftSub'), aria: daysLeft === 0 ? t('pay.ringDueTodayAria') : t('pay.ringDaysUntilAria', { count: daysLeft }) },
-        { value: fmtShort(nextDue), sub: t('pay.ringNextDueSub'), aria: t('pay.ringNextDueAria', { date: fmtShort(nextDue) }) },
-      ],
+      label: t('pay.ringCatDueDate'),
+      value: daysLeft === 0 ? t('pay.ringToday') : `${daysLeft} ${t('pay.ringDaysLeftSub')}`,
+      meta: fmtShort(nextDue),
     },
   ]
 
@@ -333,14 +321,18 @@ export function PaySection() {
               </button>
             </div>
             {checkout.error && <div className="pay-err">{checkout.error}</div>}
-          </div>
 
-          <div className="pay-balance-sep" aria-hidden="true" />
-
-          <div className="pay-rings" role="group" aria-label={t('pay.duesProgressAria')}>
-            {rings.map((r, i) => (
-              <BalanceRing key={i} index={i} tone={r.tone} pct={r.pct} cat={r.cat} faces={r.faces} />
-            ))}
+            <div className="pay-balance-rows" role="group" aria-label={t('pay.duesProgressAria')}>
+              {statRows.map(row => (
+                <div key={row.label} className="pay-stat-row">
+                  <span className="pay-stat-label">{row.label}</span>
+                  <span className={`pay-stat-value${row.tone ? ' ' + row.tone : ''}`}>
+                    {row.value}
+                    {row.meta && <span className="pay-stat-meta">{row.meta}</span>}
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </section>
@@ -390,7 +382,7 @@ export function PaySection() {
                   <span className={`pay-hist-amt${h.amount < 0 ? ' pay-amt-credit' : ''}`}>
                     {h.amount < 0 ? `-${fmtMoney(Math.abs(h.amount))}` : fmtMoney(h.amount)}
                   </span>
-                  <span><StatusPill kind={h.status} /></span>
+                  <span className="pay-hist-status"><StatusPill kind={h.status} /></span>
                   <span className="pay-hist-method">{h.method}</span>
                 </div>
               ))}
@@ -699,7 +691,7 @@ export function PaySection() {
                 <span className={`pay-hist-amt${h.amount < 0 ? ' pay-amt-credit' : ''}`}>
                   {h.amount < 0 ? `-${fmtMoney(Math.abs(h.amount))}` : fmtMoney(h.amount)}
                 </span>
-                <span><StatusPill kind={h.status} /></span>
+                <span className="pay-hist-status"><StatusPill kind={h.status} /></span>
                 <span className="pay-hist-method">{h.method}</span>
               </div>
             ))}

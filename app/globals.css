@@ -7285,7 +7285,32 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   flex-direction: row; align-items: center; gap: 28px; flex-wrap: wrap;
 }
 [data-theme="sketch"] .pay-balance-main {
-  display: flex; flex-direction: column; gap: 8px; flex: 0 1 360px; min-width: 280px;
+  display: flex; flex-direction: column; gap: 8px; flex: 1 1 auto; min-width: 0;
+}
+/* Dues signals (Balance / Payment status / Due date) as rows under the Make
+   Payment actions — replaced the three dial rings. */
+[data-theme="sketch"] .pay-balance-rows {
+  display: flex; flex-direction: column;
+  margin-top: 14px; padding-top: 4px;
+  border-top: 1px solid rgba(15, 28, 46, 0.10);
+}
+[data-theme="sketch"] .pay-stat-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 12px 0; border-bottom: 1px solid rgba(15, 28, 46, 0.07);
+}
+[data-theme="sketch"] .pay-stat-row:last-child { border-bottom: none; }
+[data-theme="sketch"] .pay-stat-label {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase;
+  color: rgba(10, 36, 64, 0.55);
+}
+[data-theme="sketch"] .pay-stat-value {
+  display: inline-flex; align-items: baseline; gap: 8px; text-align: right;
+  font-size: 14.5px; font-weight: 700; color: #0A2440; font-variant-numeric: tabular-nums;
+}
+[data-theme="sketch"] .pay-stat-value.ok   { color: #3E9B4F; }
+[data-theme="sketch"] .pay-stat-value.warn { color: #E0A106; }
+[data-theme="sketch"] .pay-stat-meta {
+  font-size: 11.5px; font-weight: 500; color: rgba(10, 36, 64, 0.5);
 }
 /* Vertical divider between the balance and the rings. */
 [data-theme="sketch"] .pay-balance-sep {
@@ -7417,6 +7442,26 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .pay-hist-desc { font-weight: 600; }
 [data-theme="sketch"] .pay-hist-amt { font-weight: 700; text-align: left; }
 [data-theme="sketch"] .pay-hist-method { font-size: 12.5px; color: #0A2440; }
+
+/* Phone: the 5-column history grid collides (the amount lands on top of the
+   description, the header reads "DESCAMOUNTTION"). Stack each payment into a
+   compact card and drop the now-meaningless column header. */
+@media (max-width: 640px) {
+  [data-theme="sketch"] .pay-history-row.pay-history-header { display: none; }
+  [data-theme="sketch"] .pay-history-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "desc   amt"
+      "date   status"
+      "method method";
+    gap: 3px 12px; padding: 14px 0;
+  }
+  [data-theme="sketch"] .pay-hist-desc   { grid-area: desc; }
+  [data-theme="sketch"] .pay-hist-amt    { grid-area: amt;    justify-self: end; align-self: center; }
+  [data-theme="sketch"] .pay-hist-date   { grid-area: date;   font-size: 12px; color: rgba(10, 36, 64, 0.6); }
+  [data-theme="sketch"] .pay-hist-status { grid-area: status; justify-self: end; align-self: center; }
+  [data-theme="sketch"] .pay-hist-method { grid-area: method; font-size: 11.5px; color: rgba(10, 36, 64, 0.55); }
+}
 
 /* Status pills */
 [data-theme="sketch"] .pay-pill {
