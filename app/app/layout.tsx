@@ -84,6 +84,15 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
   useMyResident() // keep mounted before the auth guard for stable hook order
   const homeHasAlert = isPreview || unreadCount > 0
   const [navOpen, setNavOpen] = useState(false)
+  // Tapping a bottom-nav tab you're already on must snap the page back to its
+  // first sub-tab. Next's <Link> to the same path with a different hash updates
+  // the URL but never fires hashchange, so set + dispatch it ourselves.
+  const resetSubtab = (base: string, first: string) => {
+    if (typeof window !== 'undefined' && pathname.startsWith(base)) {
+      window.location.hash = first
+      window.dispatchEvent(new Event('hashchange'))
+    }
+  }
   const showAdmin = !hasSupabase || ['board_member', 'admin'].includes(profile?.role || '')
   const communityName = community?.name || 'Sunset Lakes'
   const now = new Date()
@@ -304,15 +313,15 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
           <span>Home</span>
           {homeHasAlert && <span className="bn-dot" aria-hidden="true" />}
         </Link>
-        <Link href={isPreview ? '/app/track?preview=1#pay' : '/app/track#pay'} className={`bn-item${pathname.startsWith('/app/track') ? ' active' : ''}`}>
+        <Link href={isPreview ? '/app/track?preview=1#pay' : '/app/track#pay'} onClick={() => resetSubtab('/app/track', 'pay')} className={`bn-item${pathname.startsWith('/app/track') ? ' active' : ''}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
           <span>Pay</span>
         </Link>
-        <Link href={isPreview ? '/app/voice?preview=1#board' : '/app/voice#board'} className={`bn-item${pathname.startsWith('/app/voice') ? ' active' : ''}`}>
+        <Link href={isPreview ? '/app/voice?preview=1#board' : '/app/voice#board'} onClick={() => resetSubtab('/app/voice', 'board')} className={`bn-item${pathname.startsWith('/app/voice') ? ' active' : ''}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           <span>Requests</span>
         </Link>
-        <Link href={isPreview ? '/app/documents?preview=1#documents' : '/app/documents#documents'} className={`bn-item${(pathname.startsWith('/app/documents') || pathname.startsWith('/app/rules')) ? ' active' : ''}`}>
+        <Link href={isPreview ? '/app/documents?preview=1#documents' : '/app/documents#documents'} onClick={() => resetSubtab('/app/documents', 'documents')} className={`bn-item${(pathname.startsWith('/app/documents') || pathname.startsWith('/app/rules')) ? ' active' : ''}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h12l4 4v12H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
           <span>Documents</span>
         </Link>
