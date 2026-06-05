@@ -7886,6 +7886,13 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 
 /* Three-row paired layout — each row holds two stretched cards so
    their bottom edges line up. Collapses to a single column under 1080. */
+/* Easy Documents leads with the seg-tabs (no hero header above them like the
+   other hubs), so on phones they sat jammed under the status bar and the title
+   crowded the top. Drop the whole block down into the white space below. */
+@media (max-width: 767px) {
+  .easydocs-combined { padding-top: 44px; }
+}
+
 [data-theme="sketch"] .doc-rows {
   display: flex; flex-direction: column;
   gap: 22px;
