@@ -442,6 +442,23 @@ create policy "board writes notices"
     and (select role from public.profiles where id = auth.uid()) in ('board_member','admin')
   );
 
+-- Recipients must be able to read the notices addressed to them. Without this
+-- a resident (or a board member viewing notices from a community that isn't
+-- their current profile.community_id) can read their own ev_notice_recipients
+-- rows but NOT the parent ev_notices — so the bell badge counts unread items
+-- the inbox can't render (the inbox joins ev_notices!inner). This permissive
+-- policy ORs with "board reads notices": you can read a notice you were sent.
+drop policy if exists "recipient reads own notices" on public.ev_notices;
+create policy "recipient reads own notices"
+  on public.ev_notices for select to authenticated
+  using (
+    exists (
+      select 1 from public.ev_notice_recipients r
+      where r.notice_id = ev_notices.id
+        and r.profile_id = auth.uid()
+    )
+  );
+
 -- ---------- ATTENDANCE ----------
 create table if not exists public.ev_attendance (
   id            uuid primary key default gen_random_uuid(),
