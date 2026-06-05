@@ -7281,13 +7281,6 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   font-size: 14px; font-weight: 500; color: #0A2440; max-width: 620px; text-wrap: balance;
 }
 
-[data-theme="sketch"] .pay-grid {
-  display: grid; grid-template-columns: minmax(0, 1fr) 340px;
-  gap: 24px; align-items: start;
-}
-@media (max-width: 1080px) { [data-theme="sketch"] .pay-grid { grid-template-columns: 1fr; } }
-[data-theme="sketch"] .pay-col { display: flex; flex-direction: column; gap: 22px; min-width: 0; }
-[data-theme="sketch"] .pay-aside { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
 
 [data-theme="sketch"] .pay-wrap .pay-card {
   display: flex; flex-direction: column; gap: 14px;
@@ -7304,7 +7297,6 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .pay-wrap .pay-card::before {
   display: none !important;
 }
-[data-theme="sketch"] .pay-tile-tight { padding: 18px; gap: 12px; }
 [data-theme="sketch"] .pay-tile-title,
 [data-theme="sketch"] .pay-card-title {
   font-family: 'AmpFix', 'Fraunces', Georgia, serif;
@@ -7385,77 +7377,6 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .pay-stat-value.warn { color: #E0A106; }
 [data-theme="sketch"] .pay-stat-meta {
   font-size: 11.5px; font-weight: 500; color: rgba(10, 36, 64, 0.5); white-space: nowrap;
-}
-/* Vertical divider between the balance and the rings. */
-[data-theme="sketch"] .pay-balance-sep {
-  align-self: stretch; width: 1px; min-height: 158px; flex: 0 0 auto;
-  background: rgba(15, 28, 46, 0.12);
-}
-/* The three rings sit beside the balance, grouped tightly and pushed right. */
-[data-theme="sketch"] .pay-rings {
-  display: flex; flex: 1 1 380px; gap: 20px;
-  justify-content: flex-end; align-items: flex-start; flex-wrap: wrap;
-}
-[data-theme="sketch"] .pay-ring {
-  display: flex; flex-direction: column; align-items: center; gap: 12px;
-  flex: 0 0 auto; padding: 0;
-  background: none; border: none; cursor: pointer; font-family: inherit;
-  transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-[data-theme="sketch"] .pay-ring:hover,
-[data-theme="sketch"] .pay-ring:focus-visible { transform: translateY(-2px); outline: none; }
-[data-theme="sketch"] .pay-ring-viz { position: relative; width: 156px; height: 156px; transition: filter 0.2s ease; }
-/* Coloured glow per tone on hover — makes each dial feel alive, not static. */
-[data-theme="sketch"] .pay-ring-dues:hover .pay-ring-viz { filter: drop-shadow(0 5px 13px rgba(225, 73, 9, 0.30)); }
-[data-theme="sketch"] .pay-ring-due:hover  .pay-ring-viz { filter: drop-shadow(0 5px 13px rgba(230, 162, 60, 0.34)); }
-[data-theme="sketch"] .pay-ring-ok:hover   .pay-ring-viz { filter: drop-shadow(0 5px 13px rgba(62, 155, 79, 0.32)); }
-[data-theme="sketch"] .pay-ring-warn:hover .pay-ring-viz { filter: drop-shadow(0 5px 13px rgba(224, 161, 6, 0.32)); }
-/* Opt out of the global .pay-card svg hand-ink wobble filter — the rings are
-   precise progress arcs, not sketch icons, so they must render clean. */
-[data-theme="sketch"] .pay-ring-viz svg { width: 100%; height: 100%; display: block; filter: none; }
-[data-theme="sketch"] .pay-ring-track { fill: none; stroke: rgba(15, 28, 46, 0.08); stroke-width: 7; }
-[data-theme="sketch"] .pay-ring-fill {
-  fill: none; stroke-width: 7; stroke-linecap: round;
-  /* draws the arc in on mount (0 → target) and eases it when growing on hover */
-  transition: stroke-dasharray 0.95s cubic-bezier(0.22, 1, 0.36, 1), stroke-width 0.2s ease;
-}
-[data-theme="sketch"] .pay-ring:hover .pay-ring-fill,
-[data-theme="sketch"] .pay-ring:focus-visible .pay-ring-fill { stroke-width: 9; }
-[data-theme="sketch"] .pay-ring-dues .pay-ring-fill { stroke: #E14909; }
-[data-theme="sketch"] .pay-ring-due  .pay-ring-fill { stroke: #E6A23C; }
-[data-theme="sketch"] .pay-ring-ok   .pay-ring-fill { stroke: #3E9B4F; }
-[data-theme="sketch"] .pay-ring-warn .pay-ring-fill { stroke: #E0A106; }
-[data-theme="sketch"] .pay-ring-bad  .pay-ring-fill { stroke: #C8372D; }
-/* Centred stack inside the ring: headline value + small label. */
-[data-theme="sketch"] .pay-ring-center {
-  position: absolute; inset: 0; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; gap: 2px; padding: 0 26px; text-align: center;
-  animation: pay-ring-fade 0.32s ease;
-}
-[data-theme="sketch"] .pay-ring-value {
-  font-family: 'AmpFix', 'Inter', -apple-system, system-ui, sans-serif;
-  font-size: 25px; font-weight: 700; line-height: 1.08; letter-spacing: -0.01em;
-  color: #0A2440; font-variant-numeric: tabular-nums; max-width: 100%;
-}
-[data-theme="sketch"] .pay-ring-sub {
-  font-size: 11px; font-weight: 500; color: rgba(10, 36, 64, 0.55); line-height: 1.15;
-}
-/* Green checkmark for the on-track Payment Status ring. */
-[data-theme="sketch"] .pay-ring-check { width: 52px; height: 52px; display: block; color: #3E9B4F; }
-/* Category label beneath each ring (BALANCE / PAYMENT STATUS / DUE DATE). */
-[data-theme="sketch"] .pay-ring-cat {
-  font-size: 10.5px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
-  color: rgba(10, 36, 64, 0.5);
-}
-@keyframes pay-ring-fade { from { opacity: 0; transform: translateY(3px); } to { opacity: 1; transform: none; } }
-@media (max-width: 760px) {
-  [data-theme="sketch"] .pay-balance-sep { display: none; }
-  [data-theme="sketch"] .pay-rings { flex-basis: 100%; }
-}
-@media (prefers-reduced-motion: reduce) {
-  [data-theme="sketch"] .pay-ring,
-  [data-theme="sketch"] .pay-ring-fill { transition: none; }
-  [data-theme="sketch"] .pay-ring-center { animation: none; }
 }
 
 /* Shimmer skeleton — replaces the balance + due-date strings while
@@ -7632,42 +7553,7 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   [data-theme="sketch"] .pay-fine-pay { grid-column: 1 / -1; justify-self: start; }
 }
 
-/* Quick actions */
-[data-theme="sketch"] .pay-quick { display: flex; flex-direction: column; gap: 4px; }
-[data-theme="sketch"] .pay-quick-row {
-  display: grid; grid-template-columns: 36px minmax(0, 1fr) auto;
-  align-items: center; gap: 12px;
-  padding: 10px 6px;
-  background: transparent; border: none; text-align: left;
-  font-family: inherit; cursor: pointer; text-decoration: none;
-  border-top: 1px solid rgba(15, 28, 46, 0.06);
-  transition: background-color 0.12s ease;
-}
-[data-theme="sketch"] .pay-quick-row:first-child { border-top: none; }
-[data-theme="sketch"] .pay-quick-row:hover { background: rgba(225, 73, 9, 0.05); }
-[data-theme="sketch"] .pay-quick-icon {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 36px; height: 36px; border-radius: 10px;
-  background: rgba(225, 73, 9, 0.10); color: #C45F2A;
-}
-[data-theme="sketch"] .pay-quick-icon svg { width: 18px; height: 18px; }
-[data-theme="sketch"] .pay-quick-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-[data-theme="sketch"] .pay-quick-title { font-size: 13.5px; font-weight: 700; color: #0A2440; }
-[data-theme="sketch"] .pay-quick-desc { font-size: 12px; color: #0A2440; line-height: 1.35; }
-[data-theme="sketch"] .pay-quick-chev { width: 16px; height: 16px; color: #0A2440; }
 
-/* Autopay tile */
-[data-theme="sketch"] .pay-autopay { gap: 10px; }
-[data-theme="sketch"] .pay-autopay-head { display: flex; justify-content: space-between; align-items: center; }
-[data-theme="sketch"] .pay-autopay-title {
-  font-family: 'AmpFix', 'Fraunces', Georgia, serif;
-  font-size: 18px; font-weight: 600; color: #0A2440;
-}
-[data-theme="sketch"] .pay-autopay-note { font-size: 12.5px; color: #0A2440; line-height: 1.4; }
-[data-theme="sketch"] .pay-autopay-meta { display: flex; flex-direction: column; gap: 4px; padding-top: 6px; border-top: 1px dashed rgba(15, 28, 46, 0.10); }
-[data-theme="sketch"] .pay-autopay-row { display: flex; justify-content: space-between; gap: 12px; font-size: 12.5px; padding: 4px 0; }
-[data-theme="sketch"] .pay-autopay-row > span:first-child { color: #0A2440; }
-[data-theme="sketch"] .pay-autopay-row > span:last-child  { color: #0A2440; font-weight: 700; }
 
 /* Statements */
 [data-theme="sketch"] .pay-statements { display: flex; flex-direction: column; }
@@ -7696,35 +7582,6 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .pay-statement-dl { color: #C45F2A; }
 [data-theme="sketch"] .pay-statement-dl svg { width: 16px; height: 16px; }
 
-/* Support footer — full orange banner. White content; the
-   "Contact Support" CTA is navy so it pops against the orange. */
-[data-theme="sketch"] .pay-support {
-  display: flex; align-items: center; gap: 16px;
-  padding: 20px 24px;
-  background: #E14909;
-  border: 1px solid #E14909;
-  border-radius: 18px;
-  color: #FFFFFF;
-  box-shadow: 0 10px 30px -14px rgba(225, 73, 9, 0.45);
-}
-[data-theme="sketch"] .pay-support-icon {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 44px; height: 44px; border-radius: 50%;
-  background: rgba(255, 255, 255, 0.18); color: #FFFFFF;
-}
-[data-theme="sketch"] .pay-support-icon svg { width: 22px; height: 22px; }
-[data-theme="sketch"] .pay-support-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-[data-theme="sketch"] .pay-support-title { font-size: 15px; font-weight: 700; color: #FFFFFF; }
-[data-theme="sketch"] .pay-support-sub { font-size: 13px; color: rgba(255, 255, 255, 0.92); }
-[data-theme="sketch"] .pay-support .pay-cta-secondary {
-  background: #0A2440;
-  border-color: #0A2440;
-  color: #FFFFFF;
-}
-[data-theme="sketch"] .pay-support .pay-cta-secondary:hover {
-  background: #0D2E52;
-  border-color: #0D2E52;
-}
 
 /* ===== Vendor ratings UI ===== */
 [data-theme="sketch"] .ven-rate-btn {

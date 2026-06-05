@@ -42,11 +42,6 @@ const VENDORS: Vendor[] = [
   { id: 'v9',  name: 'Atlas Pest Control',          category: 'property',   contact: { phone: '(305) 555-0331', email: 'hello@atlaspest.com' }, blurb: 'Quarterly perimeter treatment, common-area abatement.' },
 ]
 
-const EMERGENCY_CONTACTS = [
-  { id: 'e1', label: '24/7 Hotline',           phone: '(305) 555-0001', desc: 'On-call manager — anything urgent.' },
-  { id: 'e2', label: 'After-Hours Maintenance', phone: '(305) 555-0002', desc: 'Coastal Maintenance after 6 PM.' },
-  { id: 'e3', label: 'Water Emergency',        phone: '(305) 555-0003', desc: 'Flow Right Plumbing — leaks, no water.' },
-]
 
 const CATEGORY_GRID: { key: VendorCat; label: string }[] = [
   { key: 'property',   label: 'Property Maintenance' },
@@ -630,9 +625,6 @@ function categoryIcon(k: 'all' | VendorCat): ReactNode {
   }
 }
 
-function IconPlus()  { return <Svg><><path d="M12 5v14M5 12h14"/></></Svg> }
-function IconStar()  { return <Svg><><path d="m12 2 2.9 6.2 6.8.6-5.1 4.6 1.5 6.6L12 16.8 5.9 20l1.5-6.6L2.3 8.8l6.8-.6z"/></></Svg> }
-function IconList()  { return <Svg><><path d="M8 6h13M8 12h13M8 18h13"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></></Svg> }
 function IconHelp()  { return <Svg><><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4.5 1.5c0 1.5-2 2-2 3.5"/><circle cx="12" cy="17.5" r="0.5" fill="currentColor"/></></Svg> }
 
 function Svg({ children }: { children: ReactNode }) {
