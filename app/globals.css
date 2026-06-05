@@ -9789,7 +9789,9 @@ textarea[disabled] {
 @media (max-width: 767px) {
   /* Hub tabs/title were jammed under the status bar — drop them down. */
   .easydocs-combined { padding-top: 40px; }
-  [data-theme="sketch"] .ev-hub-head { margin-top: 18px; }
+  /* Drop the hub header (Easy Track/Voice/Documents) down the sunset so more of
+     the hero photo shows above it — matching Home's greeting placement. */
+  [data-theme="sketch"] .ev-hub-head { padding-top: 64px; }
   /* Settings: Account summary aside moves to the TOP, and every row is one
      line (ellipsis) so they're all the same height. */
   [data-theme="sketch"] .set-aside { order: -1; }
@@ -9810,4 +9812,10 @@ textarea[disabled] {
     color: rgba(10, 36, 64, 0.6);
   }
   [data-theme="sketch"] .rail-left .nav-desktop-note .ic { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.7; }
+}
+
+/* Phone: the 38px notification bell circle reads too large in the topbar — trim it. */
+@media (max-width: 767px) {
+  [data-theme="sketch"] .bell { width: 32px; height: 32px; }
+  [data-theme="sketch"] .bell svg { width: 15px; height: 15px; }
 }
