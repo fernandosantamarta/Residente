@@ -503,7 +503,7 @@ export default function EasyDocs() {
                     {t('documents.suggestSub')}
                   </div>
                 </div>
-                <Link href="/app/voice#contact" className="rb-suggest-cta">
+                <Link href="/app/voice?cat=rule_proposal#contact" className="rb-suggest-cta">
                   {t('documents.suggestCta')}
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                     <path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>
