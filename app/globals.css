@@ -517,6 +517,14 @@ button { font-family: inherit; }
   transition: color 0.15s ease, background 0.15s ease;
 }
 .bell-panel-footer:hover { color: var(--text); background: rgba(255,255,255,0.03); }
+/* Phone: the fixed 360px dropdown sat half-off the bell and left the page
+   showing through. Span it across the screen, pinned under the topbar. */
+@media (max-width: 767px) {
+  .bell-panel {
+    position: fixed; top: 58px; left: 10px; right: 10px;
+    width: auto; max-height: 72vh;
+  }
+}
 
 .hero-head { margin-bottom: 48px; }
 .headline {
@@ -6106,7 +6114,7 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 @media (max-width: 767px) {
   /* Tighter, more mobile hero: less side padding, a compact wrapping chip row,
      and a soft halo so the navy greeting reads over the bright sunset. */
-  [data-theme="sketch"] .hero-bleed-content { padding: 16px 18px 0; max-width: 100%; gap: 10px; }
+  [data-theme="sketch"] .hero-bleed-content { padding: 40px 18px 0; max-width: 100%; gap: 10px; }
   [data-theme="sketch"] .hero-title { font-size: 33px; letter-spacing: -0.035em; text-shadow: 0 1px 14px rgba(255, 255, 255, 0.6); }
   [data-theme="sketch"] .hero-sub { text-shadow: 0 1px 10px rgba(255, 255, 255, 0.65); }
   [data-theme="sketch"] .hero-chips { flex-wrap: wrap; white-space: normal; gap: 8px; }
