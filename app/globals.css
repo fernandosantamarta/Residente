@@ -5013,7 +5013,7 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 }
 [data-theme="sketch"] .rb-hero-title {
   font-family: 'AmpFix', 'Fraunces', Georgia, serif;
-  font-size: 44px;
+  font-size: 32px;
   font-weight: 600;
   line-height: 1;
   letter-spacing: -0.02em;
@@ -5487,7 +5487,6 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   /* No fixed height — it left ~70px of dead white space below the Rules title
      before the rest of the page. Size to content + a tight gap. */
   [data-theme="sketch"] .rb-hero { height: auto; margin-bottom: 8px; }
-  [data-theme="sketch"] .rb-hero-title { font-size: 32px; }
   [data-theme="sketch"] .rb-vi-stats { grid-template-columns: 1fr; }
   [data-theme="sketch"] .rb-suggest { flex-direction: column; align-items: flex-start; }
 }
