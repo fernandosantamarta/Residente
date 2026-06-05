@@ -9794,3 +9794,17 @@ textarea[disabled] {
   [data-theme="sketch"] .set-row-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   [data-theme="sketch"] .set-row-right { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
 }
+
+/* Admin + Platform Console are desktop-only; on phones the links hide and an
+   "open on desktop" note shows in their place (re-applied 2026-06-05). */
+.nav-desktop-note { display: none; }
+@media (max-width: 767px) {
+  .nav-desktop-only { display: none !important; }
+  [data-theme="sketch"] .rail-left .nav-desktop-note {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; margin: 2px 6px;
+    font-size: 12.5px; font-weight: 600; line-height: 1.35;
+    color: rgba(10, 36, 64, 0.6);
+  }
+  [data-theme="sketch"] .rail-left .nav-desktop-note .ic { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.7; }
+}
