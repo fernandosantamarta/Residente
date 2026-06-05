@@ -9819,3 +9819,8 @@ textarea[disabled] {
   [data-theme="sketch"] .bell { width: 32px; height: 32px; }
   [data-theme="sketch"] .bell svg { width: 15px; height: 15px; }
 }
+
+/* Close the gaps in the mobile Pay section (phone): tighter section header
+   margin and balance-card top padding. Scoped to .rsv-mob so desktop is unchanged. */
+.rsv-mob .voice-page-head { margin-bottom: 12px; }
+[data-theme="sketch"] .rsv-mob .pay-balance-head { padding: 16px 18px; }
