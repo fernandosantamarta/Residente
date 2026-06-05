@@ -3893,14 +3893,16 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
    month picker (prev / month-dropdown / next), Month/Week/Day pills,
    Filter button, and the Today indicator block all in one strip. */
 [data-theme="sketch"] .sched-toolbar {
-  display: flex; align-items: center; gap: 14px;
+  display: flex; flex-direction: column; gap: 12px;
   margin-bottom: 18px;
-  flex-wrap: wrap;
   background: var(--bg-card);
   border: 1px solid rgba(15, 28, 46, 0.10);
   border-radius: 14px;
-  padding: 10px 14px;
+  padding: 12px 14px;
   box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
+}
+[data-theme="sketch"] .sched-toolbar-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
 }
 [data-theme="sketch"] .sched-today-btn {
   padding: 7px 16px;
@@ -3999,10 +4001,9 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 [data-theme="sketch"] .sched-filter-btn svg { width: 15px; height: 15px; }
 
 [data-theme="sketch"] .sched-toolbar-today {
-  display: flex; flex-direction: column;
-  padding: 4px 14px;
-  border-left: 1px solid rgba(15, 28, 46, 0.10);
-  min-width: 200px;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(15, 28, 46, 0.10);
 }
 [data-theme="sketch"] .sched-toolbar-today-label {
   font-size: 13px;
@@ -6070,7 +6071,6 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   [data-theme="sketch"] .sched-cell { min-height: 78px; }
   [data-theme="sketch"] .sched-pill { font-size: 10px; padding: 2px 4px; }
   [data-theme="sketch"] .sched-hero-title { font-size: 32px; }
-  [data-theme="sketch"] .sched-views { width: 100%; }
 }
 
 /* ---- RESPONSIVE ---- */
