@@ -250,6 +250,24 @@ function EstoppelRow({ r, onDeliver, onPatch, communityId }: any) {
           </>
         )}
       </div>
+
+      {/* Fee & refund tracking — no fee if delivered late (718.116(8)(d) /
+          720.30851(4)); refund within 30 days if the closing does not occur
+          (718.116(8)(h) / 720.30851(8)). */}
+      <div style={{ display: 'flex', gap: 10, marginTop: 8, flexWrap: 'wrap', alignItems: 'center', fontSize: 12.5 }}>
+        {!r.fee_waived && (Number(r.fee_total) || 0) > 0 && (
+          <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+            <input type="checkbox" checked={!!r.fee_paid} onChange={e => onPatch(r.id, { fee_paid: e.target.checked }, e.target.checked ? 'Fee marked paid.' : 'Fee marked unpaid.')} /> Fee paid
+          </label>
+        )}
+        {!r.closing_cancelled_at
+          ? <button className="admin-btn-ghost" onClick={() => onPatch(r.id, { closing_cancelled_at: todayYmd(), refund_due: !!r.fee_paid }, 'Closing marked cancelled — a refund may be due.')}>Closing cancelled</button>
+          : <span style={chip('#B54708')}>Closing cancelled {r.closing_cancelled_at}</span>}
+        {r.closing_cancelled_at && r.fee_paid && !r.refund_issued_at && (
+          <button className="admin-primary-btn" onClick={() => onPatch(r.id, { refund_issued_at: todayYmd(), refund_due: false }, 'Refund recorded.')}>Mark refunded</button>
+        )}
+        {r.refund_issued_at && <span style={chip('#067647')}>Refunded {r.refund_issued_at}</span>}
+      </div>
     </div>
   )
 }

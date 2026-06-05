@@ -450,8 +450,11 @@ export function structuralSignals(
       }
     }
 
-    // Performer credential gap (any completed/in-progress assessment).
-    if (a.performer_type && a.kind) {
+    // Performer credential gap — only milestone + SIRS have a statutory PE/RA
+    // credential requirement. A 'turnover' assessment (financial/records review
+    // at developer turnover) is NOT a structural engineering report, so it must
+    // not be measured against the milestone/SIRS performer set.
+    if (a.performer_type && (a.kind === 'milestone' || a.kind === 'sirs')) {
       const accepted = a.kind === 'sirs' ? SIRS_PERFORMER_TYPES.value : MILESTONE_PERFORMER_TYPES.value
       if (!accepted.includes(String(a.performer_type))) {
         out.push(signal({

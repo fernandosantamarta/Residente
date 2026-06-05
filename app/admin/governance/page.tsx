@@ -13,9 +13,9 @@ import { ymd, ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
 import {
   governanceSignals, consecutiveServiceYears, certExpiry, camRequired,
-  CONDO_TERM_LIMIT_YEARS,
+  CONDO_TERM_LIMIT_YEARS, TERM_LIMIT_EXCEPTION_LABELS,
   type DirectorRow, type BoardTermRow, type DirectorCertRow,
-  type DirectorEligibilityRow, type ManagerRow, type ConflictDisclosureRow,
+  type DirectorEligibilityRow, type ManagerRow, type ConflictDisclosureRow, type TermLimitException,
 } from '@/lib/compliance/governance'
 
 const withTimeout = (p: any, ms = 10000) =>
@@ -73,12 +73,12 @@ export default function GovernancePage() {
   )
 
   // ---- mutations ----
-  const addTerm = async (resident_id: string, term_start: string, position: string) => {
+  const addTerm = async (resident_id: string, term_start: string, position: string, exception?: string) => {
     setError('')
     try {
       const { error } = (await withTimeout(supabase.from('ev_board_terms').insert({
         community_id: communityId, resident_id, term_start: term_start || null, elected_at: term_start || null,
-        position: position || null, created_by: profile?.id ?? null,
+        position: position || null, term_limit_exception: exception || null, created_by: profile?.id ?? null,
       }))) as any
       if (error) throw error
       if (communityId) logAudit({ community_id: communityId, event_type: 'governance.term_recorded', target_type: 'director', target_id: resident_id })
@@ -290,12 +290,13 @@ export default function GovernancePage() {
 function DirectorCard({ d, regime, terms, certs, elig, onAddTerm, onAddCert, onSaveElig }: {
   d: DirectorRow; regime: string
   terms: BoardTermRow[]; certs: DirectorCertRow[]; elig?: DirectorEligibilityRow
-  onAddTerm: (rid: string, ts: string, pos: string) => void
+  onAddTerm: (rid: string, ts: string, pos: string, exception?: string) => void
   onAddCert: (rid: string, kind: string, completed: string, hours: string) => void
   onSaveElig: (rid: string, patch: Record<string, any>) => void
 }) {
   const [open, setOpen] = useState(false)
   const [ts, setTs] = useState('')
+  const [tex, setTex] = useState('')
   const [cd, setCd] = useState(''); const [ck, setCk] = useState('initial'); const [ch, setCh] = useState('')
   const years = consecutiveServiceYears(terms.map(t => t.term_start))
   const newestCert = certs.filter(c => c.completed_at).sort((a, b) => String(b.completed_at).localeCompare(String(a.completed_at)))[0]
@@ -319,10 +320,21 @@ function DirectorCard({ d, regime, terms, certs, elig, onAddTerm, onAddCert, onS
           {/* Terms */}
           <div>
             <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 4 }}>Terms ({terms.length})</div>
-            <div style={{ fontSize: 12, opacity: 0.75 }}>{terms.map(t => t.term_start).filter(Boolean).join(', ') || '—'}</div>
+            <div style={{ fontSize: 12, opacity: 0.75 }}>
+              {terms.length === 0 ? '—' : terms.map(t => `${t.term_start || '—'}${t.term_limit_exception ? ` (exception: ${TERM_LIMIT_EXCEPTION_LABELS[t.term_limit_exception as TermLimitException] ?? t.term_limit_exception})` : ''}`).join(', ')}
+            </div>
             <div style={{ display: 'flex', gap: 8, marginTop: 6, alignItems: 'flex-end', flexWrap: 'wrap' }}>
               <label style={{ fontSize: 11.5 }}>Term start<input className="admin-input" style={{ maxWidth: 150 }} type="date" value={ts} onChange={e => setTs(e.target.value)} /></label>
-              <button type="button" className="admin-btn-ghost" disabled={!ts} onClick={() => { onAddTerm(d.id, ts, d.board_position || ''); setTs('') }}>Add term</button>
+              {regime === 'condo' && (
+                <label style={{ fontSize: 11.5 }}>Beyond-8-yr exception (if any)
+                  <select className="admin-input" style={{ maxWidth: 230 }} value={tex} onChange={e => setTex(e.target.value)}>
+                    <option value="">— none —</option>
+                    {(Object.keys(TERM_LIMIT_EXCEPTION_LABELS) as TermLimitException[]).map(k => (
+                      <option key={k} value={k}>{TERM_LIMIT_EXCEPTION_LABELS[k]}</option>
+                    ))}
+                  </select></label>
+              )}
+              <button type="button" className="admin-btn-ghost" disabled={!ts} onClick={() => { onAddTerm(d.id, ts, d.board_position || '', tex); setTs(''); setTex('') }}>Add term</button>
             </div>
           </div>
           {/* Certifications */}

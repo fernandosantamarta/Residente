@@ -47,6 +47,15 @@ create index if not exists ev_estoppel_community_idx on public.ev_estoppel_reque
 create index if not exists ev_estoppel_profile_idx   on public.ev_estoppel_requests (profile_id);
 create index if not exists ev_estoppel_status_idx    on public.ev_estoppel_requests (community_id, status);
 
+-- Slice-1 detective fields: NO FEE if the certificate is delivered late
+-- (718.116(8)(d) / 720.30851(4)), and a REFUND within 30 days if the closing
+-- does not occur (718.116(8)(h) / 720.30851(8)).
+alter table public.ev_estoppel_requests
+  add column if not exists fee_paid            boolean not null default false,
+  add column if not exists closing_cancelled_at date,
+  add column if not exists refund_due          boolean not null default false,
+  add column if not exists refund_issued_at    date;
+
 alter table public.ev_estoppel_requests enable row level security;
 grant select, insert, update, delete on public.ev_estoppel_requests to authenticated;
 grant select, insert, update, delete on public.ev_estoppel_requests to service_role;

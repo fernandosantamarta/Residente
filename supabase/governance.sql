@@ -45,6 +45,21 @@ create table if not exists public.ev_board_terms (
 create index if not exists ev_board_terms_community_idx on public.ev_board_terms (community_id);
 create index if not exists ev_board_terms_resident_idx on public.ev_board_terms (resident_id);
 
+-- Slice-1 precision fix (FS 718.112(2)(d)2): a director may serve beyond the
+-- 8-year consecutive limit if re-elected by a two-thirds vote of all votes cast
+-- OR there are not enough eligible candidates. Recorded on the re-electing term
+-- so a validly re-elected director is not flagged "overdue".
+alter table public.ev_board_terms
+  add column if not exists term_limit_exception text;
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'ev_board_terms_term_limit_exception_check') then
+    alter table public.ev_board_terms
+      add constraint ev_board_terms_term_limit_exception_check
+      check (term_limit_exception is null or term_limit_exception in ('supermajority_vote','insufficient_candidates'));
+  end if;
+end $$;
+
 alter table public.ev_board_terms enable row level security;
 grant select, insert, update, delete on public.ev_board_terms to authenticated;
 grant select, insert, update, delete on public.ev_board_terms to service_role;

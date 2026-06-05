@@ -72,6 +72,26 @@ export const SUSPENSION_DELINQUENCY_DAYS = rule(90, 'FS 718.303(4)-(5) / 720.308
   note: '>90 days delinquent → voting/use-rights may be suspended without a hearing; the suspension stays until the debt is paid',
 })
 
+// CONDO ONLY (FS 718.303(5)): a condominium may suspend VOTING rights only when
+// the monetary obligation is BOTH more than $1,000 AND more than 90 days
+// delinquent — a higher bar than the use-rights suspension (718.303(4): 90 days,
+// no $ floor) and than an HOA voting suspension (720.305(2): 90 days, no $
+// floor). The 90-day delinquency stays in SUSPENSION_DELINQUENCY_DAYS above.
+export const VOTING_SUSPENSION_MONETARY_FLOOR = rule(1000, 'FS 718.303(5)', {
+  note: 'condo: voting rights may be suspended only when the debt is more than $1,000 AND more than 90 days delinquent',
+})
+// Two condo-specific notice duties attach to a voting suspension (718.303(5)):
+//   • proof of the obligation must reach the owner 30 days before the
+//     suspension takes effect, and
+//   • at least 90 days before an election the association must notify owners
+//     that nonpayment may suspend their voting rights.
+export const VOTING_SUSPENSION_PROOF_DAYS = rule(30, 'FS 718.303(5)', {
+  note: 'condo: proof of the obligation must be provided to the owner 30 days before the voting suspension takes effect',
+})
+export const VOTING_SUSPENSION_ELECTION_NOTICE_DAYS = rule(90, 'FS 718.303(5)', {
+  note: 'condo: at least 90 days before an election, notify owners that nonpayment may suspend their voting rights',
+})
+
 // ----------------------------------------------------------------------------
 // Domain types
 // ----------------------------------------------------------------------------
@@ -454,12 +474,20 @@ export interface DelinquentCaseLike {
 
 const OPEN_CASE_STAGES = new Set(['delinquent', 'notice_30', 'intent_to_lien', 'lien_recorded', 'intent_to_foreclose', 'foreclosure'])
 
-/** Owners ≥90 days delinquent with an open case and no recorded suspension. */
+/**
+ * Owners eligible for a voting-rights suspension: >90 days delinquent on an open
+ * case with no recorded suspension. For a CONDO the debt must ALSO exceed $1,000
+ * (718.303(5)); an HOA has no monetary floor (720.305(2)). When the balance is
+ * unknown a condo owner is conservatively NOT surfaced (we never assert the
+ * $1,000 bar is met without a figure).
+ */
 export function votingSuspensionCandidates(
   cases: DelinquentCaseLike[] = [],
   suspensions: SuspensionRow[] = [],
+  regime: AssociationType | string | null | undefined = 'condo',
   now: Date = new Date(),
 ): { case_id: string; resident_id: string | null; profile_id: string | null; unit_label: string; days: number; balance: number }[] {
+  const condo = asType(regime) === 'condo'
   const suspendedResidents = new Set<string>()
   for (const s of suspensions) {
     if (String(s.status ?? 'proposed') !== 'lifted' && s.resident_id) suspendedResidents.add(String(s.resident_id))
@@ -472,32 +500,44 @@ export function votingSuspensionCandidates(
     if (!since) continue
     const days = calendarDaysUntil(now, since) // days since delinquency began
     if (days < SUSPENSION_DELINQUENCY_DAYS.value) continue
+    const balance = Number(c.total_balance) || 0
+    // Condo voting suspension also requires the debt exceed $1,000 (718.303(5)).
+    if (condo && balance <= VOTING_SUSPENSION_MONETARY_FLOOR.value) continue
     out.push({
       case_id: c.id,
       resident_id: c.resident_id ?? null,
       profile_id: c.profile_id ?? null,
       unit_label: c.unit_label || c.id.slice(0, 8),
       days,
-      balance: Number(c.total_balance) || 0,
+      balance,
     })
   }
   return out.sort((a, b) => b.days - a.days)
 }
 
 /** One aggregate signal nudging the board that delinquent owners may have voting
- *  rights suspended (no hearing required). Advisory. */
+ *  rights suspended. Regime-aware: a condo carries the >$1,000 floor plus the
+ *  30-day-proof and 90-day-before-election notice duties (718.303(5)); an HOA
+ *  suspends at >90 days with no monetary floor (720.305(2)). Advisory. */
 export function votingSuspensionSignals(
   candidates: { unit_label: string }[] = [],
+  regime: AssociationType | string | null | undefined = 'condo',
 ): ComplianceSignal[] {
   if (!candidates.length) return []
   const n = candidates.length
+  const condo = asType(regime) === 'condo'
+  const floor = `$${VOTING_SUSPENSION_MONETARY_FLOOR.value.toLocaleString('en-US')}`
   return [signal({
     id: 'enforcement:voting-suspension-eligible',
     domain: DOMAIN,
     severity: 'info',
-    title: `${n} owner${n === 1 ? '' : 's'} more than 90 days delinquent may have voting rights suspended`,
-    detail: `Voting and common-area use rights of an owner more than ${SUSPENSION_DELINQUENCY_DAYS.value} days delinquent may be suspended by the board at a properly noticed meeting — no hearing required. The suspension lasts until the debt is paid.`,
+    title: condo
+      ? `${n} owner${n === 1 ? '' : 's'} more than ${floor} and 90 days delinquent may have voting rights suspended`
+      : `${n} owner${n === 1 ? '' : 's'} more than 90 days delinquent may have voting rights suspended`,
+    detail: condo
+      ? `A condominium may suspend voting rights only when the debt is more than ${floor} AND more than ${SUSPENSION_DELINQUENCY_DAYS.value} days delinquent. Proof of the obligation must be given to the owner at least ${VOTING_SUSPENSION_PROOF_DAYS.value} days before the suspension takes effect, and at least ${VOTING_SUSPENSION_ELECTION_NOTICE_DAYS.value} days before an election the association must notify owners that nonpayment may suspend voting rights. The suspension lasts until the debt is paid.`
+      : `Voting and common-area use rights of an owner more than ${SUSPENSION_DELINQUENCY_DAYS.value} days delinquent may be suspended by the board at a properly noticed meeting — no hearing required. The suspension lasts until the debt is paid.`,
     href: HREF,
-    citation: SUSPENSION_DELINQUENCY_DAYS.citation,
+    citation: condo ? VOTING_SUSPENSION_MONETARY_FLOOR.citation : SUSPENSION_DELINQUENCY_DAYS.citation,
   })]
 }

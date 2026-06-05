@@ -147,7 +147,7 @@ function DocInner() {
               })}
             </tbody></table>
           )}
-          <p style={cite}>Retention: governing documents, plans &amp; permits are kept permanently; milestone / SIRS / structural reports for 15 years; most other official records for 7 years. Posting obligations under FS 718.111(12)(g) / 720.303(4)(b). Confirm with counsel.</p>
+          <p style={cite}>Retention: governing documents, plans &amp; permits are kept permanently; milestone / SIRS / structural reports for 15 years; ballots, sign-in sheets &amp; voting proxies for 1 year; most other official records for 7 years. Posting obligations under FS 718.111(12)(g) / 720.303(4)(b). Confirm with counsel.</p>
         </Body>
       )}
 
@@ -159,8 +159,8 @@ function DocInner() {
           <p>Under {isHoa ? 'section 720.303(5), Florida Statutes' : 'section 718.111(12)(c), Florida Statutes'}, the association will make the requested records available for inspection or copying within <strong>{RECORDS_INSPECTION_DAYS.value} {isHoa ? 'business' : 'working'} days</strong> of this request{due ? `, on or before ${ymd(due)}` : ''}, at a mutually convenient time and place. Records containing protected personal information will be produced in redacted form as the statute requires.</p>
           <p>Reasonable costs of copies and the personnel time required to supervise the inspection may apply, consistent with the statute and the association's governing documents.</p>
           <p>{isHoa
-            ? 'If the records are not made available within 10 business days, the law provides a rebuttable presumption of willful non-compliance and a possible statutory penalty; the association is committed to timely compliance.'
-            : 'The association is committed to timely compliance with its records-inspection obligations.'}</p>
+            ? 'If the records are not made available within 10 business days of a request sent by certified mail, return receipt requested, the law provides a rebuttable presumption of willful non-compliance and minimum damages of $50 per day for up to 10 days ($500), beginning on the 11th business day; the association is committed to timely compliance.'
+            : 'If the records are not made available within 10 working days, the law provides a rebuttable presumption of willful non-compliance and minimum damages of $50 per day for up to 10 days ($500), beginning on the 11th working day; the association is committed to timely compliance.'}</p>
           <Sign name={community?.association_officer_name} assoc={community?.name} />
         </Body>
       )}

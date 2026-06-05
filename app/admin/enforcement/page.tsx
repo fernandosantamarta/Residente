@@ -18,6 +18,7 @@ import {
   votingSuspensionCandidates,
   FINE_PER_VIOLATION_MAX, FINE_AGGREGATE_CAP, HEARING_NOTICE_DAYS, FINING_COMMITTEE_MIN,
   SUSPENSION_DELINQUENCY_DAYS,
+  VOTING_SUSPENSION_MONETARY_FLOOR, VOTING_SUSPENSION_PROOF_DAYS, VOTING_SUSPENSION_ELECTION_NOTICE_DAYS,
   type ViolationRow, type HearingRow, type FiningCommitteeMemberRow, type SuspensionRow,
   type EnforcementStage, type SuspensionBasis, type SuspensionRights,
 } from '@/lib/compliance/enforcement'
@@ -103,8 +104,8 @@ export default function EnforcementPage() {
   )
 
   const candidates = useMemo(
-    () => votingSuspensionCandidates(cases, suspensions),
-    [cases, suspensions],
+    () => votingSuspensionCandidates(cases, suspensions, community?.association_type),
+    [cases, suspensions, community],
   )
 
   // ---- mutations ----
@@ -346,8 +347,17 @@ export default function EnforcementPage() {
             <section style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, padding: '14px 16px', background: '#fafafa', marginTop: 16 }}>
               <h3 className="bc-title" style={{ margin: '0 0 4px', fontSize: 15 }}>Eligible for voting suspension ({candidates.length})</h3>
               <p style={{ fontSize: 12.5, opacity: 0.72, margin: '0 0 10px' }}>
-                Owners more than {SUSPENSION_DELINQUENCY_DAYS.value} days delinquent with an open collection case and no
-                suspension on file. The board may suspend voting + use rights at a properly noticed meeting — no hearing required.
+                {community?.association_type === 'hoa' ? (
+                  <>Owners more than {SUSPENSION_DELINQUENCY_DAYS.value} days delinquent with an open collection case and no
+                  suspension on file. The board may suspend voting + use rights at a properly noticed meeting — no hearing required.</>
+                ) : (
+                  <>Owners more than ${VOTING_SUSPENSION_MONETARY_FLOOR.value.toLocaleString('en-US')} <strong>and</strong> more
+                  than {SUSPENSION_DELINQUENCY_DAYS.value} days delinquent, with an open collection case and no suspension on file.
+                  A condominium may suspend voting rights only above the ${VOTING_SUSPENSION_MONETARY_FLOOR.value.toLocaleString('en-US')} floor;
+                  proof of the obligation must reach the owner {VOTING_SUSPENSION_PROOF_DAYS.value} days before the suspension takes
+                  effect, and owners must be told at least {VOTING_SUSPENSION_ELECTION_NOTICE_DAYS.value} days before an election
+                  that nonpayment may suspend voting rights ({VOTING_SUSPENSION_MONETARY_FLOOR.citation}).</>
+                )}
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {candidates.map(c => (
