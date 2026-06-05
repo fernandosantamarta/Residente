@@ -174,7 +174,9 @@ function CalendarView() {
 
   return (
     <>
-      {/* Toolbar */}
+      {/* Toolbar — desktop keeps the horizontal strip; phones get today's
+          three stacked rows (see the .rsv-mob block below). */}
+      <div className="rsv-web">
       <div className="sched-toolbar">
         <button className="sched-today-btn" onClick={goToday}>
           {relativeDayLabel(selected, todayISO, t)} · {fmtFullDate(selected)}
@@ -226,6 +228,66 @@ function CalendarView() {
           <div className="sched-toolbar-today-label">{t('schedule.today')} · {fmtFullDate(todayISO)}</div>
           <div className="sched-toolbar-today-count">{t('schedule.eventsCount', { count: todayCount })}</div>
         </div>
+      </div>
+      </div>
+
+      {/* Phone toolbar — today's three stacked rows: month nav + Today,
+          view toggle + Filter, then the selected-day summary. */}
+      <div className="rsv-mob">
+      <div className="sched-toolbar">
+        <div className="sched-toolbar-row">
+          <div className="sched-monthnav">
+            <button className="sched-nav-btn" onClick={() => go(-1)} aria-label={t('schedule.prevMonth')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="15 18 9 12 15 6" />
+              </svg>
+            </button>
+            <button className="sched-monthnav-title" aria-label={t('schedule.pickMonth')}>
+              {fmtMonth(cursor.y, cursor.m)}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9" />
+              </svg>
+            </button>
+            <button className="sched-nav-btn" onClick={() => go(1)} aria-label={t('schedule.nextMonth')}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="9 18 15 12 9 6" />
+              </svg>
+            </button>
+          </div>
+          <button className="sched-today-btn" onClick={goToday}>{t('schedule.today')}</button>
+        </div>
+
+        <div className="sched-toolbar-row">
+          <div className="sched-views">
+            {[
+              { id: 'Month', label: t('schedule.viewMonth') },
+              { id: 'Week', label: t('schedule.viewWeek') },
+              { id: 'Day', label: t('schedule.viewDay') },
+            ].map(v => (
+              <button
+                key={v.id}
+                className={`sched-view-btn${v.id === 'Month' ? ' active' : ''}`}
+                disabled={v.id !== 'Month'}
+                title={v.id !== 'Month' ? t('schedule.comingSoon') : undefined}
+              >
+                {v.label}
+              </button>
+            ))}
+          </div>
+
+          <button className="sched-filter-btn" aria-label={t('schedule.filterEvents')}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 5h18l-7 9v6l-4-2v-4z" />
+            </svg>
+            {t('schedule.filter')}
+          </button>
+        </div>
+
+        <div className="sched-toolbar-today">
+          <div className="sched-toolbar-today-label">{relativeDayLabel(selected, todayISO, t)} · {fmtFullDate(selected)}</div>
+          <div className="sched-toolbar-today-count">{t('schedule.eventsCount', { count: selectedEvents.length })}</div>
+        </div>
+      </div>
       </div>
 
       <div className="sched-layout">

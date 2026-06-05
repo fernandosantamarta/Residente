@@ -498,13 +498,13 @@ button { font-family: inherit; }
 }
 .bell-row:last-child { border-bottom: 0; }
 .bell-row:hover { background: rgba(255,255,255,0.03); }
-.bell-row.unread { background: rgba(99,102,241,0.06); }
-.bell-row.unread:hover { background: rgba(99,102,241,0.1); }
+.bell-row.unread { background: rgba(225,73,9,0.07); }
+.bell-row.unread:hover { background: rgba(225,73,9,0.11); }
 .bell-row-kind {
   font-size: 10px; font-weight: 700; letter-spacing: 0.6px;
   text-transform: uppercase; color: var(--text-dim); margin-bottom: 4px;
 }
-.bell-row.unread .bell-row-kind { color: #a5b4fc; }
+.bell-row.unread .bell-row-kind { color: #C45F2A; }
 .bell-row-subject { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
 .bell-row-body {
   font-size: 12px; color: var(--text-dim);
@@ -2655,8 +2655,8 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   transition: border-color 0.15s ease, background 0.15s ease;
 }
 .inbox-row:hover { border-color: var(--border-hover); background: var(--bg-elev); }
-.inbox-row.unread { border-color: rgba(99,102,241,0.4); background: rgba(99,102,241,0.06); }
-.inbox-row.unread:hover { background: rgba(99,102,241,0.1); }
+.inbox-row.unread { border-color: rgba(225,73,9,0.40); background: rgba(225,73,9,0.07); }
+.inbox-row.unread:hover { background: rgba(225,73,9,0.11); }
 
 .inbox-row-meta {
   display: flex; align-items: center; justify-content: space-between;
@@ -2666,7 +2666,7 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   font-size: 10px; font-weight: 700; letter-spacing: 0.6px;
   text-transform: uppercase; color: var(--text-dim);
 }
-.inbox-row.unread .inbox-row-kind { color: #a5b4fc; }
+.inbox-row.unread .inbox-row-kind { color: #C45F2A; }
 .inbox-row-ts { font-size: 11px; color: var(--text-faint); font-variant-numeric: tabular-nums; }
 .inbox-row-subject { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
 .inbox-row-body {
@@ -9743,3 +9743,30 @@ textarea[disabled] {
   [data-theme="sketch"] .rep-row-action { grid-area: action; justify-self: start; margin-top: 2px; }
 }
 /* === end mobile section variants === */
+
+/* ===== Mobile calendar toolbar + polish (2026-06-05, phone <=767px) ===== */
+/* Phone calendar toolbar (the .rsv-mob variant) stacks into rows; the summary
+   gets a top border instead of the desktop left divider. */
+[data-theme="sketch"] .rsv-mob .sched-toolbar { flex-direction: column; gap: 12px; flex-wrap: nowrap; padding: 12px 14px; }
+.rsv-mob .sched-toolbar-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+[data-theme="sketch"] .rsv-mob .sched-toolbar-today {
+  flex-direction: row; align-items: baseline; justify-content: space-between; gap: 10px;
+  padding: 10px 0 0; border-left: none; border-top: 1px solid rgba(15, 28, 46, 0.10); min-width: 0;
+}
+@media (max-width: 767px) {
+  /* Full-width notification dropdown (was a fixed 360px box half-off the bell). */
+  .bell-panel { position: fixed; top: 58px; left: 10px; right: 10px; width: auto; max-height: 72vh; }
+  /* Square calendar day cells; events render as a row of colour dots. */
+  [data-theme="sketch"] .sched-cell { min-height: 58px; }
+  [data-theme="sketch"] .sched-cell-events { flex-direction: row; flex-wrap: wrap; gap: 3px; margin-top: 1px; }
+  [data-theme="sketch"] .sched-pill { padding: 2px 4px; background: none !important; border: none; font-size: 10px; }
+  [data-theme="sketch"] .sched-pill .sched-pill-title { display: none; }
+  [data-theme="sketch"] .sched-pill .sched-dot { width: 7px; height: 7px; }
+  [data-theme="sketch"] .sched-pill-more { font-size: 9px; padding: 0; color: rgba(10, 36, 64, 0.55); }
+  /* Tighter hero with a soft halo so the navy greeting reads over the sunset. */
+  [data-theme="sketch"] .hero-bleed-content { padding: 40px 18px 0; max-width: 100%; gap: 10px; }
+  [data-theme="sketch"] .hero-title { font-size: 33px; letter-spacing: -0.035em; text-shadow: 0 1px 14px rgba(255, 255, 255, 0.6); }
+  [data-theme="sketch"] .hero-sub { text-shadow: 0 1px 10px rgba(255, 255, 255, 0.65); }
+  [data-theme="sketch"] .hero-chips { flex-wrap: wrap; white-space: normal; gap: 8px; }
+  [data-theme="sketch"] .hero-chip { padding: 6px 12px; font-size: 12.5px; }
+}
