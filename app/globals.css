@@ -2403,6 +2403,19 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   image-rendering: -webkit-optimize-contrast;
 }
 [data-theme="sketch"] .rail-left .nav-item { color: #0A2440; font-weight: 500; }
+/* Admin + Platform Console are desktop-only. On phones the links hide and a
+   "open on desktop" note shows in their place. */
+.nav-desktop-note { display: none; }
+@media (max-width: 767px) {
+  .nav-desktop-only { display: none !important; }
+  [data-theme="sketch"] .rail-left .nav-desktop-note {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 14px; margin: 2px 6px;
+    font-size: 12.5px; font-weight: 600; line-height: 1.35;
+    color: rgba(10, 36, 64, 0.6);
+  }
+  [data-theme="sketch"] .rail-left .nav-desktop-note .ic { width: 18px; height: 18px; flex-shrink: 0; opacity: 0.7; }
+}
 [data-theme="sketch"] .rail-left .nav-item:hover {
   color: var(--sidebar-text); background: var(--sidebar-hover);
 }
@@ -6068,7 +6081,14 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   }
 }
 @media (max-width: 767px) {
-  [data-theme="sketch"] .sched-cell { min-height: 78px; }
+  /* Squarer day cells on phones (were tall 78px rectangles); events render as a
+     compact row of colour dots so they stay visible in the narrow column. */
+  [data-theme="sketch"] .sched-cell { min-height: 58px; }
+  [data-theme="sketch"] .sched-cell-events { flex-direction: row; flex-wrap: wrap; gap: 3px; margin-top: 1px; }
+  [data-theme="sketch"] .sched-pill { padding: 0; background: none !important; border: none; }
+  [data-theme="sketch"] .sched-pill .sched-pill-title { display: none; }
+  [data-theme="sketch"] .sched-pill .sched-dot { width: 7px; height: 7px; }
+  [data-theme="sketch"] .sched-pill-more { font-size: 9px; padding: 0; color: rgba(10, 36, 64, 0.55); }
   [data-theme="sketch"] .sched-pill { font-size: 10px; padding: 2px 4px; }
   [data-theme="sketch"] .sched-hero-title { font-size: 32px; }
 }

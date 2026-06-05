@@ -274,7 +274,7 @@ function CalendarView() {
           </div>
 
           <div className="sched-legend">
-            {ALL_KINDS.map(k => (
+            {ALL_KINDS.filter(k => enabledKinds.has(k)).map(k => (
               <span key={k} className="sched-legend-item">
                 <span className={`sched-dot kind-${k}`} />
                 {KIND_LABEL[k]}

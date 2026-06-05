@@ -172,29 +172,40 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
               {item.href === '/app' && homeHasAlert && <span className="pulse-dot"></span>}
             </Link>
           ))}
-          {showAdmin && (
+          {(showAdmin || isPlatformAdmin) && (
             <>
-              {/* Set the board-only Admin entry apart from the resident tabs. */}
+              {/* Board/platform tools — set apart from the resident tabs, and
+                  desktop-only: on phones we show a note instead of the links. */}
               <div aria-hidden="true" style={{ height: 1, background: 'var(--border)', margin: '14px 14px 6px' }} />
-              <Link
-                href="/admin"
-                className={`nav-item${pathname.startsWith('/admin') ? ' active' : ''}`}
-              >
+              {showAdmin && (
+                <Link
+                  href="/admin"
+                  className={`nav-item nav-desktop-only${pathname.startsWith('/admin') ? ' active' : ''}`}
+                >
+                  <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2 4 6v6c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6z"/>
+                  </svg>
+                  <span>{t('nav.admin')}</span>
+                </Link>
+              )}
+              {isPlatformAdmin && (
+                <Link href="/platform" className="nav-item nav-desktop-only" style={{ color: '#FF6B3D', fontWeight: 700 }}>
+                  <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
+                  </svg>
+                  <span>Platform Console</span>
+                </Link>
+              )}
+              <div className="nav-desktop-note">
                 <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2 4 6v6c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6z"/>
+                  <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
                 </svg>
-                <span>{t('nav.admin')}</span>
-              </Link>
+                <span>{isPlatformAdmin
+                  ? 'Open Admin & the Platform Console on a desktop.'
+                  : 'Open Admin on a desktop.'}</span>
+              </div>
             </>
-          )}
-          {isPlatformAdmin && (
-            <Link href="/platform" className="nav-item" style={{ color: '#FF6B3D', fontWeight: 700 }}>
-              <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
-                <rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>
-              </svg>
-              <span>Platform Console</span>
-            </Link>
           )}
         </nav>
 
@@ -293,15 +304,15 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
           <span>Home</span>
           {homeHasAlert && <span className="bn-dot" aria-hidden="true" />}
         </Link>
-        <Link href={isPreview ? '/app/track?preview=1' : '/app/track'} className={`bn-item${pathname.startsWith('/app/track') ? ' active' : ''}`}>
+        <Link href={isPreview ? '/app/track?preview=1#pay' : '/app/track#pay'} className={`bn-item${pathname.startsWith('/app/track') ? ' active' : ''}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
           <span>Pay</span>
         </Link>
-        <Link href={isPreview ? '/app/voice?preview=1' : '/app/voice'} className={`bn-item${pathname.startsWith('/app/voice') ? ' active' : ''}`}>
+        <Link href={isPreview ? '/app/voice?preview=1#board' : '/app/voice#board'} className={`bn-item${pathname.startsWith('/app/voice') ? ' active' : ''}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           <span>Requests</span>
         </Link>
-        <Link href={isPreview ? '/app/documents?preview=1' : '/app/documents'} className={`bn-item${(pathname.startsWith('/app/documents') || pathname.startsWith('/app/rules')) ? ' active' : ''}`}>
+        <Link href={isPreview ? '/app/documents?preview=1#documents' : '/app/documents#documents'} className={`bn-item${(pathname.startsWith('/app/documents') || pathname.startsWith('/app/rules')) ? ' active' : ''}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h12l4 4v12H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
           <span>Documents</span>
         </Link>
