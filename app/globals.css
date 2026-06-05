@@ -2081,6 +2081,26 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 .vd-propose-go { display: inline-flex; align-items: center; font-size: 13px; font-weight: 700; color: var(--vd-accent); flex-shrink: 0; }
 @media (max-width: 560px) { .vd-propose-notice { flex-wrap: wrap; } }
 
+/* Combined quick-links card — propose a rule / rule book / elections, as three
+   tidy rows in one panel (replaced three stacked gradient cards). */
+.vd-links {
+  margin-top: 30px; border-radius: 16px; overflow: hidden;
+  background: linear-gradient(135deg, var(--vd-accent-soft), rgba(232,116,62,0.04));
+  border: 1px solid rgba(232,116,62,0.22);
+}
+.vd-link {
+  display: flex; align-items: center; gap: 14px; padding: 15px 18px;
+  text-decoration: none; color: var(--vd-ink); transition: background-color .12s ease;
+}
+.vd-link + .vd-link { border-top: 1px solid rgba(232,116,62,0.18); }
+.vd-link:hover { background: rgba(232,116,62,0.06); }
+.vd-link-ic { display: grid; place-items: center; width: 40px; height: 40px; border-radius: 11px; background: var(--vd-card); color: var(--vd-accent); flex-shrink: 0; }
+.vd-link-ic svg { width: 20px; height: 20px; }
+.vd-link-body { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.vd-link-title { font-size: 15px; font-weight: 700; letter-spacing: -0.2px; }
+.vd-link-sub { font-size: 12.5px; color: var(--vd-dim); }
+.vd-link-go { font-size: 18px; font-weight: 700; color: var(--vd-accent); flex-shrink: 0; line-height: 1; }
+
 /* Responsive — rail drops below the main column */
 @media (max-width: 900px) {
   .vd-grid { grid-template-columns: 1fr; }
@@ -9212,7 +9232,8 @@ textarea[disabled] {
   }
   [data-theme="sketch"] .seg-tabs::-webkit-scrollbar { display: none; }
   [data-theme="sketch"] .seg-tab {
-    padding: 9px 16px;
+    padding: 9px 11px;
+    font-size: 13px;
     flex-shrink: 0;
   }
 
