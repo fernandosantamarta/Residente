@@ -48,10 +48,11 @@ const MAX_FILE = 10 * 1024 * 1024  // 10MB
 const EMPTY = { category: 'maintenance' as Category, subject: '', body: '' }
 
 export function RequestForm({
-  initialCategory = 'maintenance', onSubmitted,
+  initialCategory = 'maintenance', onSubmitted, focusMessage = false,
 }: {
   initialCategory?: Category
   onSubmitted?: (row: any) => void
+  focusMessage?: boolean
 }) {
   const t = useT()
   const catLabel = useCatLabel()
@@ -61,6 +62,20 @@ export function RequestForm({
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [ok, setOk] = useState('')
+
+  // Deep-linked from "Suggest a rule change" (Documents) / Home quick actions:
+  // after the #contact hash scroll settles, bring the form into view at the
+  // Subject field and focus it so the resident lands ready to start writing.
+  useEffect(() => {
+    if (!focusMessage) return
+    const id = setTimeout(() => {
+      const el = document.getElementById('con-subject') as HTMLInputElement | null
+      if (!el) return
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      el.focus({ preventScroll: true })
+    }, 350)
+    return () => clearTimeout(id)
+  }, [focusMessage])
 
   const setField = (k: keyof typeof EMPTY, v: any) => setForm(f => ({ ...f, [k]: v }))
 

@@ -266,16 +266,21 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
       <main className="center">
         <div className="topbar">
           <div className="kicker">
-            <button
-              className={`hamburger${navOpen ? ' open' : ''}`}
-              onClick={() => setNavOpen(v => !v)}
-              aria-label={navOpen ? 'Close menu' : 'Open menu'}
-              aria-expanded={navOpen}
-            >
-              <span /><span /><span />
-            </button>
-            <span className="live-dot" aria-label="Live" title="Live"></span>
-            <span className="kicker-text">{communityName} · {fyLabel}</span>
+            {/* Hide the menu button + community label while the drawer is open —
+                they otherwise overlap the drawer's "Residente" header. The drawer
+                closes via the backdrop or the More tab. */}
+            {!navOpen && (
+              <button
+                className="hamburger"
+                onClick={() => setNavOpen(true)}
+                aria-label="Open menu"
+                aria-expanded={false}
+              >
+                <span /><span /><span />
+              </button>
+            )}
+            {!navOpen && <span className="live-dot" aria-label="Live" title="Live"></span>}
+            {!navOpen && <span className="kicker-text">{communityName} · {fyLabel}</span>}
           </div>
           <div className="topbar-right">
             <NotificationBell />

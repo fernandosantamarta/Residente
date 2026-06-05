@@ -868,8 +868,8 @@ function MyViolationsPanel() {
     <section className="doc-card" style={{ gridColumn: '1 / -1' }}>
       <div className="doc-card-head">
         <h2 className="doc-card-title">{t('documents.yourViolations')}</h2>
-        <span style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(10,36,64,0.55)' }}>{t('documents.appealsNote')}</span>
       </div>
+      <p style={{ fontSize: 12.5, fontWeight: 600, color: 'rgba(10,36,64,0.55)', margin: '-2px 0 14px' }}>{t('documents.appealsNote')}</p>
       {payError && <div className="myv-pay-err">{payError}</div>}
       {data.length === 0 ? (
         <div className="doc-empty">{t('documents.noViolations')}</div>
