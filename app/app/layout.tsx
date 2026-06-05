@@ -16,7 +16,6 @@ import { usePlatformAdmin } from '@/hooks/usePlatform'
 import { usePreferences } from '@/lib/preferences'
 import { useT } from '@/lib/i18n'
 import { DUES_LABEL } from '@/lib/dues'
-import { CommunitySwitcher } from '../CommunitySwitcher'
 import { CommunitySvg, InteriorSvg } from '../page'
 
 // "Fernando Santamaria" → "FS". Safe on null/single-name.
@@ -157,8 +156,6 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
             <div className="brand-word">Residente</div>
           </div>
         )}
-
-        <CommunitySwitcher />
 
         <nav className="nav">
           {NAV.map(item => (
