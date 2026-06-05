@@ -64,12 +64,12 @@ export function RequestForm({
   const [ok, setOk] = useState('')
 
   // Deep-linked from "Suggest a rule change" (Documents) / Home quick actions:
-  // after the #contact hash scroll settles, bring the message box into view and
-  // focus it so the resident lands ready to write their proposal.
+  // after the #contact hash scroll settles, bring the form into view at the
+  // Subject field and focus it so the resident lands ready to start writing.
   useEffect(() => {
     if (!focusMessage) return
     const id = setTimeout(() => {
-      const el = document.getElementById('con-body') as HTMLTextAreaElement | null
+      const el = document.getElementById('con-subject') as HTMLInputElement | null
       if (!el) return
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
       el.focus({ preventScroll: true })

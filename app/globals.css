@@ -7850,6 +7850,11 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   font-size: 44px; font-weight: 600; line-height: 1; letter-spacing: -0.02em; margin: 0; color: #0A2440;
 }
 [data-theme="sketch"] .doc-hero-sub { font-size: 14px; font-weight: 500; color: #0A2440; max-width: 620px; text-wrap: balance; }
+/* Match the Rules hero on phones — the Documents title was stuck at 44px while
+   Rules dropped to 32px, so it dwarfed the other tabs. */
+@media (max-width: 599px) {
+  [data-theme="sketch"] .doc-hero-title { font-size: 32px; }
+}
 
 [data-theme="sketch"] .doc-toolbar {
   display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch;
