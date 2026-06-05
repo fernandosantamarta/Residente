@@ -9781,3 +9781,16 @@ textarea[disabled] {
   [data-theme="sketch"] .hero-chips { flex-wrap: wrap; white-space: normal; gap: 8px; }
   [data-theme="sketch"] .hero-chip { padding: 6px 12px; font-size: 12.5px; }
 }
+
+/* ===== Mobile spacing/layout tweaks (2026-06-05, phone <=767px) ===== */
+@media (max-width: 767px) {
+  /* Hub tabs/title were jammed under the status bar — drop them down. */
+  .easydocs-combined { padding-top: 40px; }
+  [data-theme="sketch"] .ev-hub-head { margin-top: 18px; }
+  /* Settings: Account summary aside moves to the TOP, and every row is one
+     line (ellipsis) so they're all the same height. */
+  [data-theme="sketch"] .set-aside { order: -1; }
+  [data-theme="sketch"] .set-row-title,
+  [data-theme="sketch"] .set-row-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  [data-theme="sketch"] .set-row-right { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
+}
