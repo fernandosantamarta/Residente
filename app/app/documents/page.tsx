@@ -9,6 +9,7 @@ import { useCommunityData } from '@/hooks/useCommunityData'
 import { useDocuments } from '@/hooks/useDocuments'
 import { supabase } from '@/lib/supabase'
 import { DetailDialog } from '../track/_sections/DetailDialog'
+import { ContestFineControl } from '../track/_sections/ContestFineControl'
 import { useT } from '@/lib/i18n'
 
 // ─── shared helpers ────────────────────────────────────────────────────────
@@ -846,8 +847,14 @@ function MyViolationsPanel() {
   const shown = data.slice(page * VIOL_PAGE, page * VIOL_PAGE + VIOL_PAGE)
 
   // Open, payable fine on a real (non-demo) row → resident can pay it online.
+  // A fine with a pending contest isn't payable until the committee rules.
   const payable = (v: any) =>
-    isReal && v.kind === 'fine' && v.status !== 'closed' && Number(v.amount) > 0
+    isReal && v.kind === 'fine' && v.status !== 'closed' && Number(v.amount) > 0 &&
+    v.dispute_status !== 'filed' && v.dispute_status !== 'under_review'
+
+  // What the resident actually pays — the reduced amount once a committee cut it.
+  const payAmount = (v: any) =>
+    v.dispute_status === 'reduced' && v.reduced_amount != null ? Number(v.reduced_amount) : Number(v.amount)
 
   // A settled fine — paid via Stripe or marked paid by the board.
   const isPaid = (v: any) =>
@@ -890,18 +897,22 @@ function MyViolationsPanel() {
                 <div className="myv-meta">{v.status === 'closed' ? resolvedLabel(v) : v.status} · {fmtDate(v.opened_at)}</div>
                 {v.notes && <div className="myv-meta">{v.notes}</div>}
               </div>
-              {payable(v) ? (
-                <button
-                  type="button"
-                  className="myv-pay-btn"
-                  onClick={() => onPay(v)}
-                  disabled={payingId === v.id}
-                >
-                  {payingId === v.id ? t('documents.payingFine') : t('documents.payFine', { amount: fmtMoney(v.amount) })}
-                </button>
-              ) : isPaid(v) ? (
-                <span className="myv-paid">✓ {t('documents.statusPaid')}</span>
-              ) : null}
+              <div className="myv-actions">
+                {payable(v) && (
+                  <button
+                    type="button"
+                    className="myv-pay-btn"
+                    onClick={() => onPay(v)}
+                    disabled={payingId === v.id}
+                  >
+                    {payingId === v.id ? t('documents.payingFine') : t('documents.payFine', { amount: fmtMoney(payAmount(v)) })}
+                  </button>
+                )}
+                {isPaid(v) && <span className="myv-paid">✓ {t('documents.statusPaid')}</span>}
+                {isReal && v.kind === 'fine' && v.status !== 'closed' && (
+                  <ContestFineControl violation={v} className="myv-pay-btn myv-contest-btn" />
+                )}
+              </div>
             </div>
           ))}
           {pages > 1 && (

@@ -49,6 +49,8 @@ const FIELDS = [
     note: 'Per delinquent month. Statute caps the late fee at the greater of $25 or 5% of the installment.' },
   { key: 'late_fee_pct', label: 'Admin late fee — percent', type: 'number', placeholder: '5',
     note: 'Per delinquent month, % of the installment. The platform applies the greater of the two.' },
+  { key: 'amenity_refund_cutoff_hours', label: 'Amenity cancellation window (hours)', type: 'number', placeholder: '24',
+    note: 'Residents who cancel a paid booking at least this many hours before the slot are refunded automatically. After it, the board can still refund manually. Default 24.' },
   { key: 'association_address', label: 'Association mailing address', type: 'text', placeholder: '123 Main St, Miramar, FL 33025',
     note: 'Used on liens, statutory notices, and estoppel certificates.' },
   { key: 'association_officer_name', label: 'Authorized officer', type: 'text', placeholder: 'Jane Doe, President',
@@ -103,6 +105,8 @@ export default function CommunitySettings() {
         interest_apr: numOrNull(form.interest_apr),
         late_fee_flat: numOrNull(form.late_fee_flat),
         late_fee_pct: numOrNull(form.late_fee_pct),
+        // Column is NOT NULL (default 24) — never write null.
+        amenity_refund_cutoff_hours: numOrNull(form.amenity_refund_cutoff_hours) ?? 24,
         association_address: (form.association_address || '').trim() || null,
         association_officer_name: (form.association_officer_name || '').trim() || null,
       }

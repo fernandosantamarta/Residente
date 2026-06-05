@@ -29,6 +29,8 @@ export type Amenity = {
   slotMinutes: number
 }
 
+export type RefundStatus = 'none' | 'pending' | 'refunded' | 'failed' | 'denied'
+
 export type Reservation = {
   id: string
   amenityId: string
@@ -40,6 +42,22 @@ export type Reservation = {
   note?: string
   priceCents: number
   paymentStatus: 'none' | 'pending' | 'paid'
+  refundStatus: RefundStatus
+}
+
+// Whether `now` is still before the refund cutoff (the slot start minus the
+// community's cancellation window, in hours). Mirrors the server-side check in
+// the refund-amenity edge function so the UI can label the cancel button — but
+// the function recomputes it authoritatively before issuing any refund.
+export function withinRefundWindow(
+  r: { reservedDate: string; startTime: string },
+  cutoffHours: number,
+  now: Date = new Date(),
+): boolean {
+  const t = /^\d{1,2}:\d{2}/.test(r.startTime || '') ? r.startTime : '00:00'
+  const slot = new Date(`${r.reservedDate}T${t}:00`)
+  if (isNaN(slot.getTime())) return false
+  return now.getTime() <= slot.getTime() - cutoffHours * 3600_000
 }
 
 export const KIND_LABEL: Record<AmenityKind, string> = {
@@ -135,6 +153,7 @@ const rowToReservation = (r: any): Reservation => ({
   note:         r.note ?? undefined,
   priceCents:   r.price_cents ?? 0,
   paymentStatus: r.payment_status ?? 'none',
+  refundStatus:  r.refund_status ?? 'none',
 })
 
 export type BookInput = {
@@ -159,6 +178,7 @@ export function useAmenityHub() {
   const [dbAmenities, setDbAmenities] = useState<Amenity[]>([])
   const [dbReservations, setDbReservations] = useState<Reservation[]>([])
   const [localReservations, setLocalReservations] = useState<Reservation[]>([])
+  const [refundCutoffHours, setRefundCutoffHours] = useState(24)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [channelId] = useState(() => Math.random().toString(36).slice(2))
@@ -166,7 +186,7 @@ export function useAmenityHub() {
   const load = useCallback(async () => {
     if (!canUseDb) { setLoading(false); return }
     try {
-      const [aRes, rRes] = await Promise.all([
+      const [aRes, rRes, cRes] = await Promise.all([
         supabase!
           .from('ev_amenities')
           .select('id, kind, name, description, location, capacity, hours, rules, image_url, price_cents, bookable, slot_minutes')
@@ -176,16 +196,24 @@ export function useAmenityHub() {
           .order('name', { ascending: true }),
         supabase!
           .from('ev_amenity_reservations')
-          .select('id, amenity_id, reserved_date, start_time, end_time, party_size, status, note, price_cents, payment_status')
+          .select('id, amenity_id, reserved_date, start_time, end_time, party_size, status, note, price_cents, payment_status, refund_status')
           .eq('community_id', communityId)
           .eq('profile_id', profileId)
           .neq('status', 'cancelled')
           .order('reserved_date', { ascending: true }),
+        supabase!
+          .from('communities')
+          .select('amenity_refund_cutoff_hours')
+          .eq('id', communityId)
+          .maybeSingle(),
       ])
       if (aRes.error) throw aRes.error
       if (rRes.error) throw rRes.error
       setDbAmenities((aRes.data ?? []).map(rowToAmenity))
       setDbReservations((rRes.data ?? []).map(rowToReservation))
+      if (!cRes.error && cRes.data?.amenity_refund_cutoff_hours != null) {
+        setRefundCutoffHours(Number(cRes.data.amenity_refund_cutoff_hours))
+      }
       setError(null)
     } catch (e: any) {
       setError(e?.message || 'Could not load amenities')
@@ -268,23 +296,39 @@ export function useAmenityHub() {
     setLocalReservations(prev =>
       prev.some(r => r.id === id)
         ? prev
-        : [...prev, { ...input, id, status: 'confirmed', paymentStatus: 'none' }],
+        : [...prev, { ...input, id, status: 'confirmed', paymentStatus: 'none', refundStatus: 'none' }],
     )
     return id
   }, [live, canUseDb, communityId, profileId, load])
 
-  const cancel = useCallback(async (id: string) => {
+  // Cancel a reservation. For a card-paid booking still inside the refund
+  // window we route through the refund-amenity function (full Stripe refund +
+  // it sets status='cancelled'); free bookings, past-window, or refund failures
+  // fall back to a plain cancel. Returns whether a refund was issued so the UI
+  // can confirm.
+  const cancel = useCallback(async (id: string): Promise<{ refunded: boolean }> => {
     if (live && canUseDb) {
+      const r = dbReservations.find(x => x.id === id)
+      const refundable = !!r && r.paymentStatus === 'paid' && r.refundStatus === 'none' && stripeEnabled
+      if (refundable && withinRefundWindow(r!, refundCutoffHours)) {
+        try {
+          const { data, error } = await supabase!.functions.invoke('refund-amenity', {
+            body: { reservation_id: id },
+          })
+          if (!error && (data as any)?.refunded) { await load(); return { refunded: true } }
+        } catch { /* fall through to a plain cancel below */ }
+      }
       const { error } = await supabase!
         .from('ev_amenity_reservations')
-        .update({ status: 'cancelled' })
+        .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
         .eq('id', id)
       if (error) throw error
       await load()
-      return
+      return { refunded: false }
     }
     setLocalReservations(prev => prev.filter(r => r.id !== id))
-  }, [live, canUseDb, load])
+    return { refunded: false }
+  }, [live, canUseDb, dbReservations, refundCutoffHours, load])
 
   // Slots already taken (by anyone, when live) for a given amenity + date, so
   // the booking popup can disable them. In demo mode we only know this
@@ -305,7 +349,7 @@ export function useAmenityHub() {
     return map
   }, [amenities])
 
-  return { amenities, reservations, byAmenity, loading, error, live, book, cancel, takenSlots }
+  return { amenities, reservations, byAmenity, loading, error, live, book, cancel, takenSlots, refundCutoffHours }
 }
 
 // ---------------------------------------------------------------
@@ -441,6 +485,7 @@ export type AdminReservation = {
   note?: string
   residentName: string
   paymentStatus: 'none' | 'pending' | 'paid'
+  refundStatus: RefundStatus
 }
 
 export type CommunityResident = { id: string; name: string }
@@ -464,7 +509,7 @@ export function useAmenityBookings() {
       const [rRes, pRes] = await Promise.all([
         supabase!
           .from('ev_amenity_reservations')
-          .select('id, amenity_id, reserved_date, start_time, party_size, status, note, payment_status, profiles(full_name)')
+          .select('id, amenity_id, reserved_date, start_time, party_size, status, note, payment_status, refund_status, profiles(full_name)')
           .eq('community_id', communityId)
           .neq('status', 'cancelled')
           .order('reserved_date', { ascending: true })
@@ -487,6 +532,7 @@ export function useAmenityBookings() {
         note:         r.note ?? undefined,
         residentName: r.profiles?.full_name || 'Resident',
         paymentStatus: r.payment_status ?? 'none',
+        refundStatus:  r.refund_status ?? 'none',
       })))
       setResidents((pRes.data ?? []).map((p: any) => ({ id: p.id, name: p.full_name || 'Resident' })))
       setError(null)
@@ -515,10 +561,25 @@ export function useAmenityBookings() {
     if (!canUseDb) return
     const { error } = await supabase!
       .from('ev_amenity_reservations')
-      .update({ status: 'cancelled' })
+      .update({ status: 'cancelled', cancelled_at: new Date().toISOString() })
       .eq('id', id)
     if (error) throw error
     await load()
+  }, [canUseDb, load])
+
+  // Board override refund: refunds a card-paid reservation regardless of the
+  // cancellation window (goodwill / post-cutoff). The refund-amenity function
+  // enforces that the caller is a board member of the reservation's community.
+  const refund = useCallback(async (id: string): Promise<{ refunded: boolean; error?: string }> => {
+    if (!canUseDb) return { refunded: false }
+    const { data, error } = await supabase!.functions.invoke('refund-amenity', {
+      body: { reservation_id: id, override: true },
+    })
+    if (error || !(data as any)?.refunded) {
+      return { refunded: false, error: (data as any)?.error || error?.message || 'Refund failed' }
+    }
+    await load()
+    return { refunded: true }
   }, [canUseDb, load])
 
   const bookFor = useCallback(async (input: BookForInput): Promise<string | null> => {
@@ -544,5 +605,5 @@ export function useAmenityBookings() {
     return data?.id ?? null
   }, [canUseDb, communityId, load])
 
-  return { reservations, residents, loading, error, canUseDb, cancel, bookFor }
+  return { reservations, residents, loading, error, canUseDb, cancel, refund, bookFor }
 }

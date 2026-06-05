@@ -11,6 +11,7 @@ import {
   fmtSlot,
   priceLabel,
   useAmenityHub,
+  withinRefundWindow,
 } from '@/lib/amenities'
 
 function todayISO() {
@@ -43,7 +44,7 @@ function KindIcon({ kind }: { kind: AmenityKind }) {
 
 export function AmenitiesSection() {
   const t = useT()
-  const { amenities, reservations, byAmenity, live, book, cancel, takenSlots } = useAmenityHub()
+  const { amenities, reservations, byAmenity, live, book, cancel, takenSlots, refundCutoffHours } = useAmenityHub()
 
   const [query, setQuery] = useState('')
   const [kindFilter, setKindFilter] = useState<AmenityKind | 'all'>('all')
@@ -173,14 +174,26 @@ export function AmenitiesSection() {
               <ul className="amen-res-list">
                 {upcoming.map(r => {
                   const a = byAmenity[r.amenityId]
+                  // A card-paid booking still inside the window refunds on cancel;
+                  // past the window it just frees the slot (board can refund).
+                  const refundable = r.paymentStatus === 'paid' && r.refundStatus === 'none'
+                  const inWindow = refundable && withinRefundWindow(r, refundCutoffHours)
+                  const cancelLabel = !refundable
+                    ? t('schedule.cancel')
+                    : inWindow
+                      ? t('schedule.cancelRefund')
+                      : t('schedule.cancelNoRefund', { hours: refundCutoffHours })
                   return (
                     <li key={r.id} className="amen-res">
                       <span className={`amen-res-dot kind-${a?.kind ?? 'other'}`} />
                       <div className="amen-res-body">
                         <div className="amen-res-name">
                           {a?.name ?? t('schedule.amenity')}
-                          {r.paymentStatus === 'paid' && <span className="amen-pay-tag paid">{t('schedule.paid')}</span>}
+                          {r.paymentStatus === 'paid' && r.refundStatus === 'none' && <span className="amen-pay-tag paid">{t('schedule.paid')}</span>}
                           {r.paymentStatus === 'pending' && <span className="amen-pay-tag pending">{t('schedule.paymentPending')}</span>}
+                          {r.refundStatus === 'refunded' && <span className="amen-pay-tag refunded">{t('schedule.refunded')}</span>}
+                          {r.refundStatus === 'pending' && <span className="amen-pay-tag pending">{t('schedule.refundPending')}</span>}
+                          {r.refundStatus === 'failed' && <span className="amen-pay-tag failed">{t('schedule.refundFailed')}</span>}
                         </div>
                         <div className="amen-res-meta">
                           {fmtDate(r.reservedDate)} · {fmtSlot(r.startTime)}
@@ -188,7 +201,7 @@ export function AmenitiesSection() {
                         </div>
                       </div>
                       <button className="amen-res-cancel" onClick={() => cancel(r.id)} aria-label={t('schedule.cancelReservation')}>
-                        {t('schedule.cancel')}
+                        {cancelLabel}
                       </button>
                     </li>
                   )

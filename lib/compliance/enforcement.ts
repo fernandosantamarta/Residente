@@ -170,6 +170,14 @@ export interface ViolationRow {
   // HOA post-hearing fining clock (FS 720.305(2)(d)/(f))
   findings_sent_at?: string | null   // written notice of the committee's findings
   fine_due_on?: string | null        // the payment deadline set for the owner
+  // Owner-filed dispute layer (fine-disputes.sql)
+  dispute_status?: 'filed' | 'under_review' | 'upheld' | 'dismissed' | 'reduced' | null
+  dispute_filed_at?: string | null
+  dispute_reason?: string | null
+  dispute_decision_note?: string | null
+  dispute_attachment_path?: string | null
+  dispute_attachment_name?: string | null
+  reduced_amount?: number | null
 }
 
 export interface HearingRow {
@@ -487,6 +495,49 @@ export function enforcementSignals(
     }
   }
 
+  return out
+}
+
+/**
+ * Owner-contest signals (HB 1021 / HB 1203): when an owner files a dispute the
+ * board must convene the independent fining committee BEFORE imposing the fine.
+ * Advisory — flags a filed contest with no scheduled hearing, and a reminder not
+ * to impose while a contest is pending. (Committee sufficiency + the 14-day
+ * hearing clock are already covered by enforcementSignals.)
+ */
+export function fineDisputeSignals(
+  violations: ViolationRow[] = [],
+  hearings: HearingRow[] = [],
+  now: Date = new Date(),
+): ComplianceSignal[] {
+  const out: ComplianceSignal[] = []
+  const noticedByViolation = new Set<string>()
+  for (const h of hearings) {
+    if (h.violation_id && h.notice_sent_at) noticedByViolation.add(String(h.violation_id))
+  }
+  for (const v of violations) {
+    if (v.dispute_status !== 'filed') continue
+    if (!noticedByViolation.has(String(v.id))) {
+      out.push(signal({
+        id: `enforcement:dispute-hearing-needed:${v.id}`,
+        domain: DOMAIN,
+        severity: 'overdue',
+        title: 'An owner is contesting a fine — schedule a committee hearing',
+        detail: `${v.resident_label || 'An owner'} contested a fine. Convene the independent fining committee and send the ${HEARING_NOTICE_DAYS.value}-day hearing notice before imposing it.`,
+        href: HREF,
+        citation: HEARING_NOTICE_DAYS.citation,
+      }))
+    }
+    out.push(signal({
+      id: `enforcement:dispute-hold:${v.id}`,
+      domain: DOMAIN,
+      severity: 'info',
+      title: 'Do not impose this fine while the contest is pending',
+      detail: 'The owner has exercised their statutory right to contest. The fine may not be imposed until the committee rules.',
+      href: HREF,
+      citation: HEARING_NOTICE_DAYS.citation,
+    }))
+  }
   return out
 }
 

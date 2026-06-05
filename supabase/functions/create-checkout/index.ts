@@ -30,7 +30,9 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
   try {
-    const { resident_id, amount } = await req.json()
+    // plan_id / installment_no / charge_type are optional — present when the
+    // resident is paying a payment-plan installment rather than ad-hoc dues.
+    const { resident_id, amount, plan_id, installment_no, charge_type } = await req.json()
 
     // Validate inputs before touching Stripe.
     if (!resident_id || typeof resident_id !== 'string') {
@@ -56,6 +58,23 @@ Deno.serve(async (req) => {
       .single()
     if (error || !resident) return json({ error: 'Resident not found' }, 404)
 
+    // If this is an installment payment, confirm the caller actually owns an
+    // ACTIVE plan with this id (RLS only returns plans on the caller's own case
+    // — or any in their community for the board). Prevents tagging a payment to
+    // someone else's plan via a forged plan_id.
+    let planId: string | null = null
+    if (plan_id) {
+      const { data: plan } = await supabase
+        .from('ev_payment_plans')
+        .select('id, status')
+        .eq('id', plan_id)
+        .maybeSingle()
+      if (!plan || plan.status !== 'active') {
+        return json({ error: 'Payment plan not found or not active' }, 404)
+      }
+      planId = plan.id
+    }
+
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items: [{
@@ -64,7 +83,7 @@ Deno.serve(async (req) => {
           currency: 'usd',
           unit_amount: cents,
           product_data: {
-            name: 'HOA dues',
+            name: planId ? 'HOA payment plan installment' : 'HOA dues',
             description: resident.unit_number
               ? `Unit ${resident.unit_number}`
               : (resident.full_name || 'HOA dues'),
@@ -74,10 +93,14 @@ Deno.serve(async (req) => {
       success_url: `${APP_URL}/app/track?paid=1#pay`,
       cancel_url: `${APP_URL}/app/track#pay`,
       // stripe-webhook reads these back to record the payment against the
-      // right household. The charged amount comes from Stripe itself.
+      // right household. The charged amount comes from Stripe itself. Stripe
+      // metadata values must be strings, so only include the plan keys when set.
       metadata: {
         resident_id: resident.id,
         community_id: resident.community_id,
+        ...(planId ? { plan_id: planId } : {}),
+        ...(installment_no != null ? { installment_no: String(installment_no) } : {}),
+        ...(charge_type ? { charge_type: String(charge_type) } : {}),
       },
     })
 

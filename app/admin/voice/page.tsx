@@ -604,6 +604,10 @@ export function VoteRow({ vote: v, meetingStatus, onChanged, onEdit }: any) {
   const [closeErr, setCloseErr] = useState<string | null>(null)
   const [closing, setClosing]   = useState(false)
   const [pwdPrompt, setPwdPrompt] = useState(false)
+  // For E2E-verifiable votes: the unwrapped secret key (base64) is held in
+  // memory between tally and publish so it can be revealed publicly at publish.
+  const [revealKeyB64, setRevealKeyB64] = useState<string | null>(null)
+  const [publishPrompt, setPublishPrompt] = useState(false)
 
   // Open vote: flip status to 'closed' first (no more ballots accepted),
   // then either tally (open ballot) or decrypt+tally (secret ballot).
@@ -611,16 +615,27 @@ export function VoteRow({ vote: v, meetingStatus, onChanged, onEdit }: any) {
     setActing(true); setCloseErr(null)
     try {
       if (v.ballot_type === 'secret') {
-        // Need the admin's tally password before we can decrypt. Move
-        // the vote to 'closed' first so no more ballots can come in,
-        // then surface the password prompt UI.
-        const { error: closeStatusErr } = await withTimeout(
-          supabase.from('ev_votes').update({
-            status: 'closed',
-            closes_at: new Date().toISOString(),
-          }).eq('id', v.id)
-        )
-        if (closeStatusErr) throw closeStatusErr
+        // Need the admin's tally password before we can decrypt. Move the vote
+        // to 'closed' first so no more ballots come in, then surface the prompt.
+        // For E2E-verifiable votes, ev_seal_vote does the close AND freezes the
+        // ballot set: it shuffles, builds the hash chain, and commits the head
+        // hash BEFORE any decryption (the ordering that makes it defensible).
+        if (v.verifiable) {
+          const { error: sealErr } = await withTimeout(supabase.rpc('ev_seal_vote', { p_vote_id: v.id }))
+          if (sealErr) throw sealErr
+          logAudit({
+            community_id: v.community_id, event_type: 'vote.closed', target_type: 'vote', target_id: v.id,
+            metadata: { sealed: true, verifiable: true },
+          })
+        } else {
+          const { error: closeStatusErr } = await withTimeout(
+            supabase.from('ev_votes').update({
+              status: 'closed',
+              closes_at: new Date().toISOString(),
+            }).eq('id', v.id)
+          )
+          if (closeStatusErr) throw closeStatusErr
+        }
         setPwdPrompt(true)
         onChanged()
         return
@@ -662,8 +677,10 @@ export function VoteRow({ vote: v, meetingStatus, onChanged, onEdit }: any) {
     setClosing(true); setCloseErr(null)
     try {
       const secretKey = await unwrapSecretKey(v.wrapped_secret_key, password)
+      // E2E-verifiable votes decrypt the ANONYMOUS box; legacy votes the ballots.
+      const table = v.verifiable ? 'ev_ballot_box' : 'ev_ballots'
       const { data: ballots, error: bErr } = await withTimeout(
-        supabase.from('ev_ballots')
+        supabase.from(table)
           .select('id, encrypted_answer')
           .eq('vote_id', v.id)
           .is('answer', null)
@@ -674,7 +691,7 @@ export function VoteRow({ vote: v, meetingStatus, onChanged, onEdit }: any) {
         if (!b.encrypted_answer) { failed++; continue }
         try {
           const ans = decryptAnswer(b.encrypted_answer, secretKey)
-          const { error: uErr } = await supabase.from('ev_ballots')
+          const { error: uErr } = await supabase.from(table)
             .update({ answer: ans }).eq('id', b.id)
           if (uErr) { failed++; continue }
           updated++
@@ -691,6 +708,7 @@ export function VoteRow({ vote: v, meetingStatus, onChanged, onEdit }: any) {
       if (tErr) throw tErr
       const yes = tallied?.yes_count ?? 0
       const no  = tallied?.no_count ?? 0
+      const abstain = tallied?.abstain_count ?? 0
       const total = yes + no
       const result = total === 0 ? null : yes >= no ? 'pass' : 'fail'
 
@@ -700,13 +718,22 @@ export function VoteRow({ vote: v, meetingStatus, onChanged, onEdit }: any) {
       }).eq('id', v.id)
       if (rErr) throw rErr
 
+      // Verifiable votes: record the tally on the public commitment and keep the
+      // key in memory so it can be revealed at publish (re-prompt if lost).
+      if (v.verifiable) {
+        await supabase.from('ev_vote_commitments')
+          .update({ tally_yes: yes, tally_no: no, tally_abstain: abstain, result })
+          .eq('vote_id', v.id)
+        setRevealKeyB64(bytesToBase64(secretKey))
+      }
+
       logAudit({
         community_id: v.community_id,
         event_type:   'vote.closed',
         target_type:  'vote',
         target_id:    v.id,
         metadata: {
-          yes, no, abstain: tallied?.abstain_count ?? 0,
+          yes, no, abstain,
           result, decrypted: updated, failed_decrypts: failed,
         },
       })
@@ -719,22 +746,53 @@ export function VoteRow({ vote: v, meetingStatus, onChanged, onEdit }: any) {
     }
   }
 
+  // Reveal the vote secret key publicly (verifiable votes) and flip to published.
+  // Revealing the key is what enables universal re-tally — safe ONLY because the
+  // ballots are anonymised (no stored identity↔ballot link).
+  const doPublish = async (keyB64: string | null) => {
+    if (v.verifiable) {
+      if (!keyB64) { setPublishPrompt(true); return }
+      const { error: cErr } = await withTimeout(
+        supabase.from('ev_vote_commitments')
+          .update({ revealed_secret_key: keyB64, revealed_at: new Date().toISOString(), result: v.result })
+          .eq('vote_id', v.id)
+      )
+      if (cErr) throw cErr
+    }
+    const { error } = await withTimeout(
+      supabase.from('ev_votes').update({ status: 'published' }).eq('id', v.id)
+    )
+    if (error) throw error
+    logAudit({
+      community_id: v.community_id,
+      event_type:   'vote.published',
+      target_type:  'vote',
+      target_id:    v.id,
+      metadata:     { result: v.result, verifiable: !!v.verifiable },
+    })
+    setPublishPrompt(false)
+    onChanged()
+  }
+
   const publishResult = async () => {
     setActing(true)
+    try { await doPublish(revealKeyB64) }
+    catch (e: any) { setCloseErr(e?.message ?? 'Could not publish the result.') }
+    finally { setActing(false) }
+  }
+
+  // If the in-memory key was lost (e.g. page reload between tally and publish),
+  // re-derive it from the tally password to reveal it.
+  const revealAndPublish = async (password: string) => {
+    setActing(true); setCloseErr(null)
     try {
-      const { error } = await withTimeout(
-        supabase.from('ev_votes').update({ status: 'published' }).eq('id', v.id)
-      )
-      if (error) throw error
-      logAudit({
-        community_id: v.community_id,
-        event_type:   'vote.published',
-        target_type:  'vote',
-        target_id:    v.id,
-        metadata:     { result: v.result },
-      })
-      onChanged()
-    } catch { /* keep */ } finally { setActing(false) }
+      const secretKey = await unwrapSecretKey(v.wrapped_secret_key, password)
+      const b64 = bytesToBase64(secretKey)
+      setRevealKeyB64(b64)
+      await doPublish(b64)
+    } catch (e: any) {
+      setCloseErr(e?.message ?? 'Wrong tally password.')
+    } finally { setActing(false) }
   }
 
   return (
@@ -790,6 +848,13 @@ export function VoteRow({ vote: v, meetingStatus, onChanged, onEdit }: any) {
           onCancel={() => { setPwdPrompt(false); setCloseErr(null) }}
           onSubmit={decryptAndTally}
           busy={closing}
+        />
+      )}
+      {publishPrompt && (
+        <TallyPasswordPrompt
+          onCancel={() => { setPublishPrompt(false); setCloseErr(null) }}
+          onSubmit={revealAndPublish}
+          busy={acting}
         />
       )}
     </div>
@@ -936,6 +1001,10 @@ export function VoteForm({ meetingId = null, communityId, onSaved, onCancel, exi
           public_key,
           wrapped_secret_key,
           key_created_by:     isSecret ? profile?.id : null,
+          // New secret votes are end-to-end verifiable (anonymous box + hash
+          // chain + tracking codes). Open votes stay non-verifiable (public by
+          // design). Existing votes are untouched (no retroactive anonymisation).
+          verifiable:         isSecret,
         })
       )
       if (error) throw error

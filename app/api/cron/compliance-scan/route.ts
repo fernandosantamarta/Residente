@@ -34,7 +34,7 @@ import {
   type BoardTermRow, type DirectorCertRow, type DirectorEligibilityRow, type ManagerRow, type ConflictDisclosureRow,
 } from '@/lib/compliance/governance'
 import {
-  enforcementSignals, suspensionSignals, votingSuspensionCandidates, votingSuspensionSignals,
+  enforcementSignals, suspensionSignals, fineDisputeSignals, votingSuspensionCandidates, votingSuspensionSignals,
   type ViolationRow, type HearingRow, type FiningCommitteeMemberRow, type SuspensionRow,
 } from '@/lib/compliance/enforcement'
 import { meetingsSignals, type MeetingRow } from '@/lib/compliance/meetings'
@@ -113,6 +113,7 @@ export async function GET(req: Request) {
       ...financialSignals(c, budgets, reserves, filings),
       ...governanceSignals(c, directors, boardTerms, directorCerts, directorElig, managers, govVendors, disclosures),
       ...enforcementSignals(c, violations, hearings, finingCommittee),
+      ...fineDisputeSignals(violations, hearings),
       ...suspensionSignals(suspensions, hearings),
       ...votingSuspensionSignals(votingSuspensionCandidates(cases, suspensions, c.association_type), c.association_type),
       ...meetingsSignals(meetings, c),
