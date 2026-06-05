@@ -53,7 +53,9 @@ export default function EasyVoice() {
         </p>
       </div>
 
-      <SegTabs tabs={TABS} active={tab} onChange={setTab} ariaLabel={t('voice.hubSectionsAria')} />
+      <div className="voice-segtabs">
+        <SegTabs tabs={TABS} active={tab} onChange={setTab} ariaLabel={t('voice.hubSectionsAria')} />
+      </div>
 
       {tab === 'board' && <BoardSection />}
       {tab === 'proposals' && (<>

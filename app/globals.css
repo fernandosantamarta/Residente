@@ -9482,21 +9482,23 @@ textarea[disabled] {
    clipped by the section's overflow. Rules are scoped to [data-theme="sketch"]
    to match (and override) the themed definitions above. */
 @media (max-width: 640px) {
-  /* Shrink the tabs so all four (Easy Voice: Board / Voting / Architectural /
-     Contact) fit on one row — no wrap, no scroll, nothing clipped. */
+  /* Default hubs (Easy Track / Documents — 3 tabs) keep the original behaviour:
+     scroll if they overflow (they don't, so no visible change). */
   [data-theme="sketch"] .seg-tabs {
     display: flex;
     max-width: 100%;
-    padding: 4px;
-    gap: 3px;
+    overflow-x: auto;
+    scrollbar-width: none;
   }
+  [data-theme="sketch"] .seg-tabs::-webkit-scrollbar { display: none; }
   [data-theme="sketch"] .seg-tab {
-    padding: 8px 9px;
-    font-size: 12px;
-    white-space: nowrap;
-    flex-shrink: 1;
-    min-width: 0;
+    padding: 9px 16px;
+    flex-shrink: 0;
   }
+  /* Easy Voice (Requests) ONLY: shrink Board/Voting/Architectural/Contact so all
+     four fit one row without scrolling or clipping. */
+  [data-theme="sketch"] .voice-segtabs .seg-tabs { overflow-x: visible; padding: 4px; gap: 3px; }
+  [data-theme="sketch"] .voice-segtabs .seg-tab { padding: 8px 9px; font-size: 12px; white-space: nowrap; flex-shrink: 1; min-width: 0; }
 
   /* Filter bar: stack the filters and let each dropdown go full width so the
      two pills don't fight for a single phone row. */
