@@ -1451,11 +1451,14 @@ button { font-family: inherit; }
 }
 
 @media (max-width: 767px) {
-  .comm-feature { padding: 20px 0 36px; gap: 24px; }
+  .comm-feature { padding: 20px 0 36px; gap: 16px; }
   .comm-feature-headline { font-size: 48px; letter-spacing: -1.8px; margin-bottom: 14px; }
   .comm-feature-dek { font-size: 16px; margin-bottom: 20px; }
-  .comm-rings-wrap, .comm-rings-svg { width: 240px; height: 240px; }
-  .comm-ring-pct { font-size: 44px; }
+  /* Drop the oversized concentric budget ring on phones — it collides with the
+     sunset hero and dominates the fold. The 76% figure still reads in the
+     "$47,200 · 76% spent" line below. Category mini-rings stay. */
+  .comm-rings-wrap { display: none; }
+  .comm-money { margin-top: 4px; }
   .comm-money-amt { font-size: 52px; letter-spacing: -1.5px; }
   .comm-byline { font-size: 9px; letter-spacing: 0.18em; gap: 8px; }
   .comm-divider { padding: 24px 0; gap: 16px; }

@@ -141,10 +141,28 @@ const DEMO_POPULAR = [
 
 // ─── Main page ─────────────────────────────────────────────────────────────
 
+// Category-chip carousel page size. Five boxes fit a desktop row, but on a
+// phone that squeezes each chip to ~24px of label width and the names shatter
+// mid-word ("Par / kin / g"). Drop to 3 on phones, 4 on small tablets.
+function useChipsPerPage() {
+  const [n, setN] = useState(5)
+  useEffect(() => {
+    const calc = () => {
+      const w = window.innerWidth
+      setN(w <= 480 ? 3 : w <= 768 ? 4 : 5)
+    }
+    calc()
+    window.addEventListener('resize', calc)
+    return () => window.removeEventListener('resize', calc)
+  }, [])
+  return n
+}
+
 export default function EasyDocs() {
   const t = useT()
   const { community } = useCommunityData()
   const communityName = community?.name || 'Sunset Lakes'
+  const chipsPerPage = useChipsPerPage()
 
   const DOC_TABS: SegTab[] = [
     { id: 'documents',  label: t('documents.tabDocuments') },
@@ -353,7 +371,7 @@ export default function EasyDocs() {
                     // Carousel: show one row of boxes; orange arrows below page
                     // through the rest. Keeps the boxes a comfortable size — no
                     // second row, no scrollbar.
-                    const PER_PAGE = 5
+                    const PER_PAGE = chipsPerPage
                     const pageCount = Math.ceil(chips.length / PER_PAGE)
                     const page = Math.min(chipPage, pageCount - 1)
                     const pageChips = chips.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE)
