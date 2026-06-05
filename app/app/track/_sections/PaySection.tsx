@@ -265,6 +265,11 @@ export function PaySection() {
         }
       })
 
+  // Paid in full — a real roster resident whose balance is cleared. Show it
+  // (with the date of their latest payment) so they know dues are settled.
+  const paidInFull = resident != null && currentBalance <= 0.005
+  const lastPaidIso = history[0]?.date
+
   const startCheckout = async () => {
     // Demo / no-Stripe: simulate a successful payment instead of dead-clicking,
     // mirroring the Home Quick-Pay popup.
@@ -308,6 +313,13 @@ export function PaySection() {
             )}
             {isLoading ? (
               <div className="pay-balance-due pay-skel pay-skel-due">&nbsp;</div>
+            ) : paidInFull ? (
+              <div className="pay-balance-paid">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/>
+                </svg>
+                {t('pay.paidInFull')}{lastPaidIso ? ` · ${fmtDate(lastPaidIso)}` : ''}
+              </div>
             ) : (
               <div className="pay-balance-due">{t('pay.dueOn', { date: fmtDate(dueDate) })}</div>
             )}

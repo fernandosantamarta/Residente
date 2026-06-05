@@ -7319,6 +7319,14 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   font-size: 56px; font-weight: 600; line-height: 1; letter-spacing: -0.02em; color: #0A2440;
 }
 [data-theme="sketch"] .pay-balance-due { font-size: 13px; font-weight: 600; color: #0A2440; margin-top: 2px; }
+/* Paid-in-full badge — green, with a check, replacing the due line. */
+[data-theme="sketch"] .pay-balance-paid {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 4px;
+  padding: 4px 11px 4px 8px; border-radius: 999px;
+  background: rgba(62, 155, 79, 0.12); border: 1px solid rgba(62, 155, 79, 0.32);
+  color: #2F7A3E; font-size: 13px; font-weight: 700;
+}
+[data-theme="sketch"] .pay-balance-paid svg { width: 15px; height: 15px; }
 [data-theme="sketch"] .pay-balance-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; max-width: 340px; }
 [data-theme="sketch"] .pay-breakdown {
   padding: 18px 26px; background: #FBF7F1; border-top: 1px solid rgba(15, 28, 46, 0.08);
