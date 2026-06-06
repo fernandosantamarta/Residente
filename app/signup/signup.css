@@ -361,7 +361,7 @@
   flex: 1; min-width: 0; text-align: left;
   display: flex; align-items: center; gap: 7px;
   padding: 0; border: none; background: none; cursor: pointer; font-family: inherit;
-  font-size: 13.5px; font-weight: 600; color: var(--o-ink); line-height: 1.35;
+  font-size: 13.5px; font-weight: 600; color: #E14909; line-height: 1.35;
 }
 .su-doc-name-text { min-width: 0; }
 .su-doc-name.done .su-doc-name-text { color: rgba(42, 18, 6, 0.4); text-decoration: line-through; }
