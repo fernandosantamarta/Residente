@@ -118,11 +118,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <Link href="/admin/support" style={{ textDecoration: 'none', fontSize: 13, fontWeight: 700, color: '#fff', background: 'rgba(255,255,255,0.16)', borderRadius: 999, padding: '7px 15px' }}>
             Contact Residente
           </Link>
-          <Link href="/app" className="admin-back">&larr; Back to app</Link>
         </div>
       </header>
 
       <nav className="admin-nav">
+        <Link href="/app" className="admin-nav-item" style={{ opacity: 0.7, marginRight: 2 }}>&larr; Back to app</Link>
         {ADMIN_NAV.filter(item => !item.anyPerm || permLoading || canAny(item.anyPerm)).map(item => (
           <Link
             key={item.href}

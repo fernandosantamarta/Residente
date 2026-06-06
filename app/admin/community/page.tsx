@@ -159,7 +159,7 @@ export default function CommunitySettings() {
       )}
 
       {form && (
-        <form onSubmit={save}>
+        <div>
           <div className="grid2">
             {/* ---- Association details ---- */}
             <div className="card">
@@ -191,7 +191,7 @@ export default function CommunitySettings() {
                 {field('annual_budget', 'Annual budget', { type: 'number', placeholder: '62000', prefix: '$' })}
               </div>
               <div className="card-cta">
-                <button type="submit" className="admin-primary-btn" disabled={status === 'saving'}>
+                <button type="button" onClick={save} className="admin-primary-btn" disabled={status === 'saving'}>
                   {status === 'saving' ? 'Saving…' : 'Save details'}
                 </button>
               </div>
@@ -217,7 +217,7 @@ export default function CommunitySettings() {
                 </div>
               </div>
               <div className="card-cta">
-                <button type="submit" className="admin-primary-btn" disabled={status === 'saving'}>
+                <button type="button" onClick={save} className="admin-primary-btn" disabled={status === 'saving'}>
                   {status === 'saving' ? 'Saving…' : 'Save dues'}
                 </button>
               </div>
@@ -259,7 +259,7 @@ export default function CommunitySettings() {
               hint: 'Signs liens and certificates.',
             })}
             <div className="card-cta">
-              <button type="submit" className="admin-primary-btn" disabled={status === 'saving'}>
+              <button type="button" onClick={save} className="admin-primary-btn" disabled={status === 'saving'}>
                 {status === 'saving' ? 'Saving…' : 'Save compliance'}
               </button>
               {status === 'error' && <span className="admin-err-inline" style={{ marginLeft: 12 }}>{error}</span>}
@@ -299,7 +299,7 @@ export default function CommunitySettings() {
               />
             </div>
           </div>
-        </form>
+        </div>
       )}
     </div>
   )
