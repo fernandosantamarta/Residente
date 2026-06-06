@@ -403,6 +403,7 @@
 /* Review-and-submit summary rows. */
 .su-doc-sum {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  width: 100%; border: none; cursor: pointer; font-family: inherit; text-align: left;
   background: var(--o-cream); color: var(--o-ink);
   border-radius: 14px; padding: 12px 15px; margin-bottom: 8px;
   box-shadow: 0 3px 0 rgba(120, 40, 0, 0.14);
