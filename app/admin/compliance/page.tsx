@@ -29,6 +29,7 @@ import {
   financialSignals,
   type BudgetCategoryRow, type ReserveComponentRow, type FinancialFilingRow,
 } from '@/lib/compliance/financials'
+import { fetchGlCurrentFyRevenue } from '@/lib/gl/liveRevenue'
 import {
   governanceSignals,
   type BoardTermRow, type DirectorCertRow, type DirectorEligibilityRow, type ManagerRow, type ConflictDisclosureRow,
@@ -124,6 +125,7 @@ function gatherSignals(
   arcRequests: ArcRequestRow[],
   insurancePolicies: InsurancePolicyRow[],
   contracts: ContractRow[],
+  liveRevenue: number | null = null,
 ): ComplianceSignal[] {
   const candidates = community ? delinquentOwnersWithoutCase({
     residents, paymentsByResident: payByResident, cases,
@@ -141,7 +143,7 @@ function gatherSignals(
     ...delinquencySignals(candidates),
     ...structuralSignals(buildings, assessments, sirsComponents, community), // condo-only (returns [] for HOA)
     ...officialRecordsSignals(community, documents, recordsRequests),
-    ...financialSignals(community, budgets, reserves, filings),
+    ...financialSignals(community, budgets, reserves, filings, undefined, liveRevenue ?? undefined),
     ...governanceSignals(community, (residents || []).filter((r: any) => r.is_board), boardTerms, directorCerts, directorElig, managers, vendors, disclosures),
     ...enforcementSignals(community, violations, hearings, finingCommittee),
     ...fineDisputeSignals(violations, hearings),
@@ -189,6 +191,7 @@ export default function CompliancePage() {
   const [arcRequests, setArcRequests] = useState<ArcRequestRow[]>([])
   const [insurancePolicies, setInsurancePolicies] = useState<InsurancePolicyRow[]>([])
   const [contracts, setContracts] = useState<ContractRow[]>([])
+  const [glRevenue, setGlRevenue] = useState<number | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError] = useState('')
 
@@ -233,6 +236,7 @@ export default function CompliancePage() {
       setArcRequests(await safeSelect('ev_arc_requests', communityId))
       setInsurancePolicies(await safeSelect('ev_insurance_policies', communityId))
       setContracts(await safeSelect('ev_contracts', communityId))
+      setGlRevenue(await fetchGlCurrentFyRevenue(supabase, communityId, Number(data?.fiscal_year_start_month) || 1))
       setStatus('ready')
     } catch (err: any) {
       setError(err?.message || 'Could not load compliance data'); setStatus('error')
@@ -240,7 +244,7 @@ export default function CompliancePage() {
   }, [communityId])
   useEffect(() => { load() }, [load])
 
-  const signals = useMemo(() => gatherSignals(community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests, budgets, reserves, filings, boardTerms, directorCerts, directorElig, managers, vendors, disclosures, violations, hearings, finingCommittee, suspensions, meetings, elections, recalls, arcRequests, insurancePolicies, contracts), [community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests, budgets, reserves, filings, boardTerms, directorCerts, directorElig, managers, vendors, disclosures, violations, hearings, finingCommittee, suspensions, meetings, elections, recalls, arcRequests, insurancePolicies, contracts])
+  const signals = useMemo(() => gatherSignals(community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests, budgets, reserves, filings, boardTerms, directorCerts, directorElig, managers, vendors, disclosures, violations, hearings, finingCommittee, suspensions, meetings, elections, recalls, arcRequests, insurancePolicies, contracts, glRevenue), [community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests, budgets, reserves, filings, boardTerms, directorCerts, directorElig, managers, vendors, disclosures, violations, hearings, finingCommittee, suspensions, meetings, elections, recalls, arcRequests, insurancePolicies, contracts, glRevenue])
   const counts = useMemo(() => {
     const c: Record<Severity, number> = { overdue: 0, soon: 0, info: 0 }
     for (const s of signals) c[s.severity]++

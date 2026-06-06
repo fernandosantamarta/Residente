@@ -14,6 +14,7 @@ import {
   requiredAuditTier, estimateAnnualRevenue, AUDIT_TIER_LABEL, financialSignals,
   type BudgetCategoryRow, type ReserveComponentRow, type FinancialFilingRow, type FilingType,
 } from '@/lib/compliance/financials'
+import { fetchGlCurrentFyRevenue } from '@/lib/gl/liveRevenue'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -38,6 +39,7 @@ export default function FinancialsPage() {
   const [budgets, setBudgets] = useState<BudgetCategoryRow[]>([])
   const [reserves, setReserves] = useState<ReserveComponentRow[]>([])
   const [filings, setFilings] = useState<FinancialFilingRow[]>([])
+  const [glRevenue, setGlRevenue] = useState<number | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError] = useState('')
   const [msg, setMsg] = useState('')
@@ -52,7 +54,9 @@ export default function FinancialsPage() {
       const { data: b } = (await withTimeout(supabase.from('budget_categories').select('*').eq('community_id', communityId).order('sort_order'))) as any
       const { data: r } = (await withTimeout(supabase.from('ev_reserve_components').select('*').eq('community_id', communityId).order('created_at'))) as any
       const { data: f } = (await withTimeout(supabase.from('ev_financial_filings').select('*').eq('community_id', communityId).order('fiscal_year', { ascending: false }))) as any
-      setCommunity(c || null); setBudgets(b || []); setReserves(r || []); setFilings(f || [])
+      // Live current-FY GL revenue for the audit tier (null until a ledger exists).
+      const live = await fetchGlCurrentFyRevenue(supabase, communityId, Number(c?.fiscal_year_start_month) || 1)
+      setCommunity(c || null); setBudgets(b || []); setReserves(r || []); setFilings(f || []); setGlRevenue(live)
       setStatus('ready')
     } catch (err: any) {
       setError(err?.message || 'Could not load financial data'); setStatus('error')
@@ -61,9 +65,9 @@ export default function FinancialsPage() {
   useEffect(() => { load() }, [load])
 
   const regime = community?.association_type === 'hoa' ? 'hoa' : 'condo'
-  const revenue = useMemo(() => estimateAnnualRevenue(community, budgets), [community, budgets])
+  const revenue = useMemo(() => estimateAnnualRevenue(community, budgets, glRevenue ?? undefined), [community, budgets, glRevenue])
   const required = useMemo(() => requiredAuditTier(revenue, regime as any, Number(community?.parcel_count) || 0), [revenue, regime, community])
-  const signals = useMemo(() => financialSignals(community, budgets, reserves, filings), [community, budgets, reserves, filings])
+  const signals = useMemo(() => financialSignals(community, budgets, reserves, filings, undefined, glRevenue ?? undefined), [community, budgets, reserves, filings, glRevenue])
 
   // ---- community financial settings ----
   const [cForm, setCForm] = useState<any>({})
@@ -174,7 +178,7 @@ export default function FinancialsPage() {
           <div className="admin-note admin-note-info" style={{ marginTop: 8 }}>
             <strong>Required financial statements:</strong> at ~{fmt$(revenue)} annual revenue
             {regime === 'hoa' ? ` (HOA, ${Number(community?.parcel_count) || 0} parcels)` : ' (condo)'}, the law requires <strong>{AUDIT_TIER_LABEL[required]}</strong>.
-            <span style={{ opacity: 0.7 }}> Revenue is your entered figure, else the sum of non-reserve budget lines.</span>
+            <span style={{ opacity: 0.7 }}> Revenue is your entered figure, else live current-year general-ledger revenue, else the sum of non-reserve budget lines.</span>
           </div>
 
           {/* Document artifacts — live statements first, then draft aids */}
@@ -182,6 +186,8 @@ export default function FinancialsPage() {
             {[
               { type: 'statement', label: 'Statement of cash receipts & expenditures', live: true },
               { type: 'budget_actual', label: 'Budget vs actual', live: true },
+              { type: 'rev_exp', label: 'Statement of revenue & expenses (GL)', live: true },
+              { type: 'balance_sheet', label: 'Balance sheet (GL)', live: true },
               { type: 'afr', label: 'Annual financial report + affidavit', live: false },
               { type: 'budget', label: 'Proposed-budget package', live: false },
               { type: 'reserve_worksheet', label: 'Reserve-funding worksheet', live: false },
