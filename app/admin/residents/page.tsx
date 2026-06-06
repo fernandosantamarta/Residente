@@ -39,6 +39,44 @@ function parseResidentsCsv(text) {
   return out
 }
 
+// Parse a roster pasted from Excel / Google Sheets. Those copy as TAB-separated
+// rows (we fall back to commas). Columns map by header when present (owner/name,
+// unit, email, phone, address, subdivision); otherwise the order is assumed to
+// be Owner, Unit, Email, Phone — matching the import card's column guide.
+function parsePastedRoster(text) {
+  const lines = String(text).split(/\r?\n/).filter(l => l.trim())
+  if (!lines.length) return []
+  const splitRow = (l) => (l.includes('\t') ? l.split('\t') : l.split(',')).map(c => c.trim())
+  const first = splitRow(lines[0]).map(c => c.toLowerCase())
+  const headerWords = ['owner', 'name', 'full name', 'unit', 'email', 'phone', 'address', 'subdivision']
+  const hasHeader = first.some(c => headerWords.includes(c))
+  let idx = { name: 0, unit: 1, email: 2, phone: 3, address: -1, subdivision: -1 }
+  if (hasHeader) {
+    idx = { name: -1, unit: -1, email: -1, phone: -1, address: -1, subdivision: -1 }
+    first.forEach((c, i) => {
+      if (idx.name < 0 && /owner|name/.test(c)) idx.name = i
+      else if (idx.unit < 0 && /unit/.test(c)) idx.unit = i
+      else if (idx.email < 0 && /email/.test(c)) idx.email = i
+      else if (idx.phone < 0 && /phone/.test(c)) idx.phone = i
+      else if (idx.address < 0 && /address/.test(c)) idx.address = i
+      else if (idx.subdivision < 0 && /subdiv/.test(c)) idx.subdivision = i
+    })
+    if (idx.name < 0) idx.name = 0
+  }
+  const out = []
+  for (let i = hasHeader ? 1 : 0; i < lines.length; i++) {
+    const c = splitRow(lines[i])
+    const get = (k) => (idx[k] >= 0 ? (c[idx[k]] || '') : '')
+    const full_name = get('name')
+    if (!full_name) continue
+    out.push({
+      full_name, unit_number: get('unit'), email: get('email'),
+      phone: get('phone'), address: get('address'), subdivision: get('subdivision'),
+    })
+  }
+  return out
+}
+
 // Sort by subdivision, then address (numeric-aware), then name.
 const sortRows = (rs) => [...rs].sort((a, b) => {
   const s = String(a.subdivision || '~').localeCompare(String(b.subdivision || '~'))
@@ -69,6 +107,7 @@ export default function Residents() {
   const [query, setQuery] = useState('')
   const [subFilter, setSubFilter] = useState('all')
   const [showAdd, setShowAdd] = useState(false)
+  const [pasteText, setPasteText] = useState('')
   const fileRef = useRef(null)
 
   // Auto-dismiss the green confirmation banner after 4 seconds.
@@ -213,6 +252,14 @@ export default function Residents() {
     }
   }
 
+  // "Paste & import" — parse the spreadsheet rows in the textarea into the same
+  // confirm flow the CSV upload uses (the green "Import all N" bar).
+  const importPaste = () => {
+    const parsed = parsePastedRoster(pasteText)
+    if (parsed.length) { setPending(parsed); setPasteText(''); setError('') }
+    else setError('No rows found — paste at least one household (Owner, Unit, Email, Phone).')
+  }
+
   const onPickFile = (e) => {
     const file = e.target.files && e.target.files[0]
     e.target.value = ''
@@ -238,6 +285,7 @@ export default function Residents() {
         address: p.address || null,
         email: p.email || null,
         phone: p.phone || null,
+        unit_number: p.unit_number || null,
       }))
       const { error } = await withTimeout(supabase.from('residents').insert(toInsert))
       if (error) throw error
@@ -300,6 +348,33 @@ export default function Residents() {
             ))}
           </div>
 
+          {/* Import your roster — paste straight from Excel / Google Sheets. */}
+          <div className="card import-card">
+            <div className="card-head">
+              <div>
+                <h2>Import your roster</h2>
+                <div className="sub">Paste straight from Excel or Google Sheets — we map the columns for you.</div>
+              </div>
+              <span className="pill dim">No CSV needed</span>
+            </div>
+            <div className="import-grid-head">
+              <span>Owner</span><span>Unit</span><span>Email</span><span>Phone</span>
+            </div>
+            <textarea className="import-paste" value={pasteText}
+              onChange={e => setPasteText(e.target.value)}
+              placeholder={'Jane Doe\t4B\tjane@palmgrove.io\t305-555-0142\nLuis Ortega\t12\tluis@gmail.com\t786-555-0199'} />
+            <div className="row-actions">
+              <button type="button" className="admin-primary-btn" onClick={importPaste} disabled={!pasteText.trim()}>
+                Paste &amp; import
+              </button>
+              <button type="button" className="admin-secondary-btn"
+                title="CSV columns: name, subdivision, address, email, phone"
+                onClick={() => fileRef.current && fileRef.current.click()}>
+                Upload CSV instead
+              </button>
+            </div>
+          </div>
+
           {/* Search / filter / add toolbar. */}
           <div className="toolbar">
             <div className="toolbar-left">
@@ -315,11 +390,6 @@ export default function Residents() {
               )}
             </div>
             <div className="admin-form-actions" style={{ marginTop: 0 }}>
-              <button type="button" className="admin-secondary-btn"
-                title="CSV columns: name, subdivision, address, email, phone"
-                onClick={() => fileRef.current && fileRef.current.click()}>
-                Import CSV
-              </button>
               <button type="button" className="admin-secondary-btn"
                 title="Download all households as CSV"
                 onClick={exportRoster} disabled={rows.length === 0}>

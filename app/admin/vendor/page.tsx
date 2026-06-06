@@ -161,7 +161,7 @@ export default function VendorAdmin() {
   const visible = paginate(filtered, page, VENDOR_PAGE_SIZE)
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
       <EasyTrackTabs active="vendors" />
       <div className="admin-kicker">Vendors</div>
       <h1 className="admin-h1">Trusted vendors</h1>
@@ -169,18 +169,6 @@ export default function VendorAdmin() {
         Curate the service providers residents see on their Vendors page.
         Feature the ones the board recommends.
       </p>
-
-      <div className="admin-note admin-note-info" style={{ marginBottom: 20 }}>
-        <strong>Vendor guidelines</strong>
-        <p style={{ margin: '6px 0 0', fontSize: 13, opacity: 0.85 }}>
-          The “View Guidelines” button on each resident’s Vendors page opens the
-          guidelines PDF you publish. To set or update it, go to{' '}
-          <a href="/admin/documents#documents">Documents</a>, upload a file with
-          “Guidelines” in the title under the <strong>Vendor &amp; Contracts</strong>{' '}
-          category, and it shows up automatically. Until then, residents see the
-          default policy text.
-        </p>
-      </div>
 
       {status === 'none' && (
         <div className="admin-note admin-note-warn">
@@ -204,121 +192,144 @@ export default function VendorAdmin() {
       )}
 
       {(status === 'ready' || status === 'loading') && (
-        <>
-          <form className="admin-form" onSubmit={add}>
+        <div>
+          {/* ---- Add a vendor ---- */}
+          <form className="card" onSubmit={add}>
+            <div className="card-head">
+              <div>
+                <h2>Add a vendor</h2>
+                <div className="sub">Add the provider, then feature it from the list below.</div>
+              </div>
+            </div>
             <label className="admin-field">
               <span className="admin-field-label">Vendor name</span>
               <input name="name" className="admin-input" placeholder="GreenScape Landscaping"
                 value={form.name} onChange={e => setField('name', e.target.value)} />
             </label>
-            <div className="admin-field" style={{ maxWidth: 260 }}>
-              <span className="admin-field-label">Category</span>
-              <Dropdown<VendorCat>
-                value={form.category}
-                onChange={v => setField('category', v)}
-                ariaLabel="Vendor category"
-                options={CATS}
-              />
+            <div className="grid2" style={{ gap: 12, marginBottom: 14 }}>
+              <label className="admin-field">
+                <span className="admin-field-label">Category</span>
+                <Dropdown<VendorCat>
+                  value={form.category}
+                  onChange={v => setField('category', v)}
+                  ariaLabel="Vendor category"
+                  options={CATS}
+                />
+              </label>
+              <label className="admin-field">
+                <span className="admin-field-label">Phone (optional)</span>
+                <input name="phone" className="admin-input" placeholder="(305) 555-0142"
+                  value={form.phone} onChange={e => setField('phone', e.target.value)} />
+              </label>
             </div>
-            <label className="admin-field">
-              <span className="admin-field-label">Phone (optional)</span>
-              <input name="phone" className="admin-input" placeholder="(305) 555-0142"
-                value={form.phone} onChange={e => setField('phone', e.target.value)} />
-            </label>
-            <label className="admin-field">
-              <span className="admin-field-label">Email (optional)</span>
-              <input name="email" type="email" className="admin-input" placeholder="hello@greenscape.com"
-                value={form.email} onChange={e => setField('email', e.target.value)} />
-            </label>
+            <div className="grid2" style={{ gap: 12, marginBottom: 14 }}>
+              <label className="admin-field">
+                <span className="admin-field-label">Email (optional)</span>
+                <input name="email" type="email" className="admin-input" placeholder="hello@greenscape.com"
+                  value={form.email} onChange={e => setField('email', e.target.value)} />
+              </label>
+              <label className="admin-field">
+                <span className="admin-field-label">Badge (optional)</span>
+                <input name="badge" className="admin-input" placeholder="Preferred"
+                  value={form.badge} onChange={e => setField('badge', e.target.value)} />
+              </label>
+            </div>
             <label className="admin-field">
               <span className="admin-field-label">Blurb (optional)</span>
               <textarea name="blurb" className="admin-input admin-textarea" rows={2}
                 placeholder="Lawn, planters, irrigation. Weekly visits."
                 value={form.blurb} onChange={e => setField('blurb', e.target.value)} />
             </label>
-            <label className="admin-field" style={{ maxWidth: 200 }}>
-              <span className="admin-field-label">Badge (optional)</span>
-              <input name="badge" className="admin-input" placeholder="Preferred"
-                value={form.badge} onChange={e => setField('badge', e.target.value)} />
-            </label>
-            <div className="admin-form-actions">
+            <div className="card-cta">
               <button type="submit" className="admin-primary-btn" disabled={saving}>
                 {saving ? 'Adding…' : 'Add vendor'}
               </button>
-              <span className="admin-field-hint" style={{ alignSelf: 'center' }}>
-                Add the vendor, then feature it from the list below.
-              </span>
-              {error && <span className="admin-err-inline">{error}</span>}
+              {error && <span className="admin-err-inline" style={{ marginLeft: 12 }}>{error}</span>}
             </div>
           </form>
 
-          <div className="bc-head" style={{ marginTop: 40, marginBottom: 14 }}>
-            <h2 className="bc-title">Vendor list</h2>
-            <span className="bc-sub">
-              {rows.length} {rows.length === 1 ? 'vendor' : 'vendors'} published.
-            </span>
-          </div>
-
-          <div className="admin-sched-filters" style={{ marginTop: 4, marginBottom: 12 }}>
-            <div className="admin-sched-filter">
-              <label>Category</label>
-              <Dropdown<'all' | VendorCat>
-                value={filterCategory}
-                onChange={v => { setFilterCategory(v); setPage(1) }}
-                ariaLabel="Filter vendors by category"
-                options={[
-                  { value: 'all', label: `All (${rows.length})` },
-                  ...CATS.map(c => ({
-                    value: c.value,
-                    label: `${c.label} (${rows.filter(r => r.category === c.value).length})`,
-                  })),
-                ]}
-              />
-            </div>
-          </div>
-
-          {status === 'loading' && <div className="admin-note">Loading…</div>}
-          {status === 'ready' && rows.length === 0 && (
-            <div className="bc-empty">No vendors yet — add the first one above.</div>
-          )}
-          {status === 'ready' && rows.length > 0 && filtered.length === 0 && (
-            <div className="bc-empty">No vendors in this category.</div>
-          )}
-
-          <div className="bd-list">
-            {visible.map(v => (
-              <div className="bd-row" key={v.id}>
-                <div className="bd-main">
-                  <div className="bd-title">{v.name}</div>
-                  <div className="bd-meta">
-                    {v.badge && <><span>{v.badge}</span><span className="bd-dot">·</span></>}
-                    <span>{CAT_LABEL[v.category] || v.category}</span>
-                    {v.phone && <><span className="bd-dot">·</span><span>{v.phone}</span></>}
-                    {v.email && <><span className="bd-dot">·</span><span>{v.email}</span></>}
-                    <span className="bd-dot">·</span>
-                    <span>Added {fmtPubDate(v.created_at) || '—'}</span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  className={`admin-btn-ghost${v.featured ? ' on' : ''}`}
-                  onClick={() => toggleFeatured(v)}
-                  title={v.featured ? 'Unfeature' : 'Feature on the resident page'}
-                >
-                  {v.featured ? '★ Featured' : '☆ Feature'}
-                </button>
-                <button type="button" className="bc-del" onClick={() => remove(v)}
-                  aria-label="Remove vendor">&times;</button>
+          {/* ---- Vendor list ---- */}
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <h2>Vendor list</h2>
+                <div className="sub">{rows.length} {rows.length === 1 ? 'vendor' : 'vendors'} published</div>
               </div>
-            ))}
+              <div style={{ minWidth: 200 }}>
+                <Dropdown<'all' | VendorCat>
+                  value={filterCategory}
+                  onChange={v => { setFilterCategory(v); setPage(1) }}
+                  ariaLabel="Filter vendors by category"
+                  options={[
+                    { value: 'all', label: `All (${rows.length})` },
+                    ...CATS.map(c => ({
+                      value: c.value,
+                      label: `${c.label} (${rows.filter(r => r.category === c.value).length})`,
+                    })),
+                  ]}
+                />
+              </div>
+            </div>
+
+            {status === 'loading' && <div className="admin-note">Loading…</div>}
+            {status === 'ready' && rows.length === 0 && (
+              <div className="bc-empty">No vendors yet — add the first one above.</div>
+            )}
+            {status === 'ready' && rows.length > 0 && filtered.length === 0 && (
+              <div className="bc-empty">No vendors in this category.</div>
+            )}
+
+            <div className="bd-list">
+              {visible.map(v => (
+                <div className="bd-row" key={v.id}>
+                  <div className="bd-main">
+                    <div className="bd-title">{v.name}</div>
+                    <div className="bd-meta">
+                      {v.badge && <><span>{v.badge}</span><span className="bd-dot">·</span></>}
+                      <span>{CAT_LABEL[v.category] || v.category}</span>
+                      {v.phone && <><span className="bd-dot">·</span><span>{v.phone}</span></>}
+                      {v.email && <><span className="bd-dot">·</span><span>{v.email}</span></>}
+                      <span className="bd-dot">·</span>
+                      <span>Added {fmtPubDate(v.created_at) || '—'}</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className={`admin-btn-ghost${v.featured ? ' on' : ''}`}
+                    onClick={() => toggleFeatured(v)}
+                    title={v.featured ? 'Unfeature' : 'Feature on the resident page'}
+                  >
+                    {v.featured ? '★ Featured' : '☆ Feature'}
+                  </button>
+                  <button type="button" className="bc-del" onClick={() => remove(v)}
+                    aria-label="Remove vendor">&times;</button>
+                </div>
+              ))}
+            </div>
+            <Pagination
+              page={page}
+              pageSize={VENDOR_PAGE_SIZE}
+              total={filtered.length}
+              onPageChange={setPage}
+            />
           </div>
-          <Pagination
-            page={page}
-            pageSize={VENDOR_PAGE_SIZE}
-            total={filtered.length}
-            onPageChange={setPage}
-          />
-        </>
+
+          {/* ---- Resident-facing guidelines ---- */}
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <h2>Vendor guidelines</h2>
+                <div className="sub">The “View Guidelines” link residents see on their Vendors page</div>
+              </div>
+            </div>
+            <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: 'var(--text-dim)' }}>
+              To set or update it, go to <a href="/admin/documents#documents">Documents</a>,
+              upload a file with “Guidelines” in the title under the{' '}
+              <strong>Vendor &amp; Contracts</strong> category, and it shows up
+              automatically. Until then, residents see the default policy text.
+            </p>
+          </div>
+        </div>
       )}
     </div>
   )
