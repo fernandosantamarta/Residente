@@ -21,19 +21,18 @@ import './signup.css'
 
 // Duolingo-style self-serve sign-up. Full-orange, one decision per screen, a
 // friendly house on every slide, account creation deferred to the end. Two
-// branches: board/management create a community (free trial) → /admin;
+// branches: board / HOA management create a community (free trial) → /admin;
 // residents join an existing community → /onboard (consent).
 
-type Who = 'resident' | 'board' | 'management'
+type Who = 'resident' | 'board'
 type Step =
   | 'property' | 'role'
   | 'community' | 'plan' | 'documents' | 'connect' | 'details' | 'account'
   | 'working' | 'confirm-email'
 
 const FLOW: Record<Who, Step[]> = {
-  resident:   ['property', 'role', 'connect', 'details', 'account'],
-  board:      ['property', 'role', 'community', 'plan', 'documents', 'details', 'account'],
-  management: ['property', 'role', 'community', 'plan', 'documents', 'details', 'account'],
+  resident: ['property', 'role', 'connect', 'details', 'account'],
+  board:    ['property', 'role', 'community', 'plan', 'documents', 'details', 'account'],
 }
 
 // The document-collection wizard (board / management only). Each section maps to
@@ -132,7 +131,7 @@ export default function SignupPage() {
           community_name: communityName.trim(),
           location: location.trim() || undefined,
           unit_count: unitCount.trim() ? Number(unitCount) : undefined,
-          role: who === 'management' ? 'admin' : 'board_member',
+          role: 'board_member',
           full_name: fullName.trim(),
           unit_number: unitNumber.trim() || undefined,
         }
@@ -375,12 +374,9 @@ function Role({ onPick }: { onPick: (w: Who) => void }) {
           <Tile icon={<IconPerson />} title="A resident / owner"
             desc="Join your community to see notices, docs, and vote."
             onClick={() => onPick('resident')} />
-          <Tile icon={<IconPeople />} title="Resident board or HOA management"
+          <Tile icon={<IconPeople />} title="Board or HOA management"
             desc="Set up your community and run it. Free trial."
             onClick={() => onPick('board')} />
-          <Tile icon={<IconBuilding />} title="Property management"
-            desc="Manage one or many associations. Free trial."
-            onClick={() => onPick('management')} />
         </div>
       </div>
     </>
@@ -404,7 +400,7 @@ function Community({
   const label = propertyType === 'condo' ? 'condo association' : 'community'
   return (
     <>
-      <div className="su-kicker">{who === 'management' ? 'Your first community' : 'Your community'}</div>
+      <div className="su-kicker">Your community</div>
       <h1 className="su-h1">Tell us about your {label}.</h1>
       <p className="su-sub">You can change all of this later.</p>
       <HouseArt />
@@ -876,8 +872,11 @@ function Details({
   unitNumber: string; setUnitNumber: (s: string) => void
   onNext: () => void
 }) {
-  const showUnit = who !== 'management'
-  const valid = fullName.trim().length > 1 && (!showUnit || unitNumber.trim().length > 0)
+  // Residents must give their unit — it's how they're matched to a home. Board /
+  // management can leave it blank: a property-management company has no unit of
+  // its own, and a board member's unit isn't needed to run the community.
+  const unitRequired = who === 'resident'
+  const valid = fullName.trim().length > 1 && (!unitRequired || unitNumber.trim().length > 0)
   return (
     <>
       <div className="su-kicker">About you</div>
@@ -893,15 +892,13 @@ function Details({
                 placeholder="e.g. Jane Doe" autoFocus required autoComplete="name" />
             </div>
           </label>
-          {showUnit && (
-            <label className="su-field">
-              <span className="su-label">Your unit / address</span>
-              <div className="su-input-wrap">
-                <input className="su-input" value={unitNumber} onChange={(e) => setUnitNumber(e.target.value)}
-                  placeholder="e.g. 4B or 1420 Palm St" required />
-              </div>
-            </label>
-          )}
+          <label className="su-field">
+            <span className="su-label">Your unit / address{unitRequired ? '' : ' (optional)'}</span>
+            <div className="su-input-wrap">
+              <input className="su-input" value={unitNumber} onChange={(e) => setUnitNumber(e.target.value)}
+                placeholder="e.g. 4B or 1420 Palm St" required={unitRequired} />
+            </div>
+          </label>
         </div>
         <div className="su-actions">
           <button className="su-btn" type="submit" disabled={!valid}>Continue</button>
