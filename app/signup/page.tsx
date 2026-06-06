@@ -17,7 +17,7 @@ import {
   type CollectedDoc,
 } from '@/lib/signup'
 import type { DocCategory } from '@/lib/compliance/official-records'
-import { parseRosterCsv, parseBudgetCsv, applySignupImport, extractSetupFromPdf, applyExtractedSetup, type RosterRow, type BudgetRow } from '@/lib/signupImport'
+import { parseRosterCsv, parseBudgetCsv, applySignupImport, extractSetupFromPdf, applyExtractedSetup } from '@/lib/signupImport'
 import './signup.css'
 
 // Duolingo-style self-serve sign-up. Full-orange, one decision per screen, a
@@ -136,14 +136,10 @@ export default function SignupPage() {
   // Onboarding "Upload your documents" fork (Phase 0). setupMode picks the path
   // at the documents step; the parsed roster + budget are stashed here and
   // applied to the live tables after provisioning (like the doc/notes upload).
-  // Documents step runs in three skippable sub-phases: 'upload' (drop the roster
-  // / budget / CC&Rs you have) → 'manual' (the doc wizard, to add/confirm the
-  // rest) → 'review' (confirm everything that will be set up).
-  const [setupMode, setSetupMode] = useState<'upload' | 'manual' | 'review'>('upload')
-  const [importRoster, setImportRoster] = useState<RosterRow[] | null>(null)
-  const [importBudget, setImportBudget] = useState<BudgetRow[] | null>(null)
-  // CC&Rs / governing-doc PDF, read by the AI extract step after provisioning.
-  const [importGovDoc, setImportGovDoc] = useState<File | null>(null)
+  // Documents step runs in two sub-phases: 'manual' (the doc wizard, where the
+  // roster / budget / CC&Rs items get smart processing on the file you attach) →
+  // 'review' (confirm what will be set up).
+  const [setupMode, setSetupMode] = useState<'manual' | 'review'>('manual')
 
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -160,9 +156,8 @@ export default function SignupPage() {
     // fork, then the fork → the previous step.
     if (step === 'documents') {
       if (setupMode === 'review') { setSetupMode('manual'); return }
-      if (setupMode === 'manual' && docSection > 0) { setDocSection(docSection - 1); return }
-      if (setupMode === 'manual') { setSetupMode('upload'); return }
-      // setupMode === 'upload' → fall through to leave the documents step
+      if (docSection > 0) { setDocSection(docSection - 1); return }
+      // first wizard category → fall through to leave the documents step
     }
     if (idx > 0) setStep(seq[idx - 1])
     else window.location.assign('/')
@@ -265,23 +260,27 @@ export default function SignupPage() {
         const notes = docState.map((sec, si) => ({ section: DOC_SECTIONS[si].label, note: sec.note }))
         try { await saveSignupNotes(res.community_id, notes) } catch { /* non-fatal */ }
 
-        // Apply the deterministic "Upload your documents" import (roster + budget)
-        // now the community exists. Best-effort; skips the signer's own roster row.
-        if (importRoster?.length || importBudget?.length) {
-          try {
-            await applySignupImport(res.community_id,
-              { roster: importRoster ?? undefined, budget: importBudget ?? undefined },
-              { skipName: fullName.trim() })
-          } catch { /* non-fatal */ }
-        }
+        // Smart processing of the wizard's own uploads — one place per document,
+        // no separate upload step. The homeowner-roster CSV → residents, the
+        // annual-budget CSV → budget categories, the CC&Rs PDF → AI fines/rules.
+        // Each runs IN ADDITION to vaulting the file above; all best-effort.
+        try {
+          const rosterFile = docState[2]?.items?.[0]?.file  // Ownership → Homeowner roster
+          const budgetFile = docState[1]?.items?.[0]?.file  // Financial → Current annual budget
+          const roster = rosterFile && /\.csv$/i.test(rosterFile.name) ? parseRosterCsv(await rosterFile.text()) : undefined
+          const budget = budgetFile && /\.csv$/i.test(budgetFile.name) ? parseBudgetCsv(await budgetFile.text()) : undefined
+          if (roster?.length || budget?.length) {
+            await applySignupImport(res.community_id, { roster, budget }, { skipName: fullName.trim() })
+          }
+        } catch { /* non-fatal */ }
 
-        // AI extraction (Phase 1): read the CC&Rs PDF now the board is
-        // authenticated, and pre-fill late-fee/interest settings + rules. Inert
-        // (no-op) until ANTHROPIC_API_KEY is set + extract-setup is deployed.
-        // Board reviews/edits the result in /admin. Best-effort, non-fatal.
-        if (importGovDoc) {
+        // CC&Rs (Governing documents → item 0) → AI extraction: pre-fills late-fee
+        // / interest settings + rules. PDF only. Inert (no-op) until ANTHROPIC_API_KEY
+        // is set + extract-setup is deployed. Board reviews in /admin. Non-fatal.
+        const ccrsFile = docState[0]?.items?.[0]?.file
+        if (ccrsFile && /\.pdf$/i.test(ccrsFile.name)) {
           try {
-            const extracted = await extractSetupFromPdf(importGovDoc)
+            const extracted = await extractSetupFromPdf(ccrsFile)
             if (extracted) await applyExtractedSetup(res.community_id, extracted)
           } catch { /* non-fatal */ }
         }
@@ -356,16 +355,7 @@ export default function SignupPage() {
         {step === 'plan' && (
           <Plan
             propertyType={propertyType!} unitCount={unitCount}
-            onNext={() => { setErr(null); setSetupMode('upload'); setDocSection(0); setStep('documents') }}
-          />
-        )}
-
-        {step === 'documents' && setupMode === 'upload' && (
-          <UploadSetup
-            roster={importRoster} setRoster={setImportRoster}
-            budget={importBudget} setBudget={setImportBudget}
-            govDoc={importGovDoc} setGovDoc={setImportGovDoc}
-            onNext={() => { setErr(null); setSetupMode('manual') }}
+            onNext={() => { setErr(null); setSetupMode('manual'); setDocSection(0); setStep('documents') }}
           />
         )}
 
@@ -378,11 +368,7 @@ export default function SignupPage() {
         )}
 
         {step === 'documents' && setupMode === 'review' && (
-          <SetupReview
-            roster={importRoster} budget={importBudget} govDoc={importGovDoc}
-            docState={docState}
-            onNext={() => { setErr(null); setStep('details') }}
-          />
+          <SetupReview docState={docState} onNext={() => { setErr(null); setStep('details') }} />
         )}
 
         {step === 'connect' && (
@@ -812,117 +798,24 @@ function Plan({ propertyType, unitCount, onNext }: {
   )
 }
 
-// Upload sub-phase: drop the roster / budget (parsed in-browser to counts) and
-// the CC&Rs PDF (read by AI after provisioning). All optional. Continuing always
-// leads into the document wizard so the board can add/confirm the rest by hand —
-// upload some, type the rest.
-function UploadSetup({ roster, setRoster, budget, setBudget, govDoc, setGovDoc, onNext }: {
-  roster: RosterRow[] | null; setRoster: (r: RosterRow[] | null) => void
-  budget: BudgetRow[] | null; setBudget: (b: BudgetRow[] | null) => void
-  govDoc: File | null; setGovDoc: (f: File | null) => void
-  onNext: () => void
-}) {
-  const [err, setErr] = useState<string | null>(null)
-  const money = (n: number) => '$' + Math.round(n).toLocaleString('en-US')
-  const numOf = (v: string) => { const n = Number(String(v).replace(/[^0-9.\-]/g, '')); return Number.isFinite(n) ? n : 0 }
-  const budgetTotal = (budget || []).reduce((s, b) => s + numOf(b.budget), 0)
-
-  const readFile = (file: File | null, parse: (t: string) => any[], set: (rows: any[] | null) => void, label: string) => {
-    if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      const rows = parse(String(reader.result))
-      if (rows.length) { set(rows); setErr(null) }
-      else { set(null); setErr(`No ${label} rows found in that file.`) }
-    }
-    reader.onerror = () => setErr('Could not read that file.')
-    reader.readAsText(file)
-  }
-
-  const fields = [
-    {
-      title: 'Owner roster',
-      hint: 'CSV / Excel export — columns: name, subdivision, address, email, phone',
-      done: roster ? `${roster.length} resident${roster.length === 1 ? '' : 's'} found` : null,
-      onFile: (f: File | null) => readFile(f, parseRosterCsv, setRoster as any, 'resident'),
-    },
-    {
-      title: 'Annual budget',
-      hint: 'CSV — columns: category, annual amount, spent',
-      done: budget ? `${budget.length} categor${budget.length === 1 ? 'y' : 'ies'} · ${money(budgetTotal)}` : null,
-      onFile: (f: File | null) => readFile(f, parseBudgetCsv, setBudget as any, 'budget'),
-    },
-  ]
-
-  return (
-    <>
-      <div className="su-kicker">Upload your documents</div>
-      <h1 className="su-h1">Drop your roster &amp; budget.</h1>
-      <p className="su-sub">
-        We read clean spreadsheets instantly. Drop your CC&amp;Rs too and we&rsquo;ll pre-fill your
-        fines, interest, and rules right after you finish — you review it in your dashboard.
-      </p>
-      <div className="su-content">
-        <div className="su-doc-card">
-          <div className="su-doc-items">
-            {fields.map(fl => (
-              <div className="su-doc-item" key={fl.title} style={{ alignItems: 'flex-start' }}>
-                <div className="su-doc-name-text" style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 600 }}>{fl.title}</div>
-                  <div style={{ fontSize: 12, color: 'rgba(42,18,6,0.55)', marginTop: 2 }}>{fl.done || fl.hint}</div>
-                </div>
-                <label className={`su-doc-up${fl.done ? ' done' : ''}`}>
-                  {fl.done ? '✓ Loaded' : 'Choose file'}
-                  <input className="su-doc-file" type="file" accept=".csv,text/csv"
-                    onChange={(e) => fl.onFile(e.target.files?.[0] ?? null)} />
-                </label>
-              </div>
-            ))}
-            {/* CC&Rs / governing-doc PDF — read by AI after provisioning. */}
-            <div className="su-doc-item" style={{ alignItems: 'flex-start' }}>
-              <div className="su-doc-name-text" style={{ flex: 1 }}>
-                <div style={{ fontWeight: 600 }}>CC&amp;Rs / governing documents</div>
-                <div style={{ fontSize: 12, color: 'rgba(42,18,6,0.55)', marginTop: 2 }}>
-                  {govDoc ? `${govDoc.name} — we’ll read it after you finish` : 'PDF — we pre-fill fines, interest & rules from it'}
-                </div>
-              </div>
-              <label className={`su-doc-up${govDoc ? ' done' : ''}`}>
-                {govDoc ? '✓ Added' : 'Choose file'}
-                <input className="su-doc-file" type="file" accept="application/pdf,.pdf"
-                  onChange={(e) => setGovDoc(e.target.files?.[0] ?? null)} />
-              </label>
-            </div>
-          </div>
-        </div>
-        {err && <div className="su-err">{err}</div>}
-        <div className="su-actions">
-          <button className="su-btn" type="button" onClick={onNext}>
-            {(roster || budget || govDoc) ? 'Continue →' : 'Continue without uploads →'}
-          </button>
-        </div>
-        <p className="su-foot">Next: add or confirm any other documents by hand.</p>
-      </div>
-    </>
-  )
-}
-
-// Review sub-phase: a single confirmation of everything the board set up —
-// residents, budget, CC&Rs, attached documents, notes — before continuing to
-// the account step. Read-only; "change it later" is the escape hatch.
-function SetupReview({ roster, budget, govDoc, docState, onNext }: {
-  roster: RosterRow[] | null; budget: BudgetRow[] | null; govDoc: File | null
+// Review sub-phase: a single confirmation of what will be set up — residents,
+// budget, CC&Rs, attached documents, notes — read from the wizard's own files,
+// before continuing to the account step. "Change it later" is the escape hatch.
+function SetupReview({ docState, onNext }: {
   docState: DocSectionState[]; onNext: () => void
 }) {
-  const money = (n: number) => '$' + Math.round(n).toLocaleString('en-US')
-  const numOf = (v: string) => { const n = Number(String(v).replace(/[^0-9.\-]/g, '')); return Number.isFinite(n) ? n : 0 }
-  const budgetTotal = (budget || []).reduce((s, b) => s + numOf(b.budget), 0)
+  // The smart items sit at fixed wizard positions (see DOC_SECTIONS):
+  // Governing→CC&Rs (0,0), Financial→annual budget (1,0), Ownership→roster (2,0).
+  const ccrsFile = docState[0]?.items?.[0]?.file
+  const budgetFile = docState[1]?.items?.[0]?.file
+  const rosterFile = docState[2]?.items?.[0]?.file
   const docCount = docState.reduce((s, sec) => s + sec.items.filter(it => it.file).length, 0)
   const noteCount = docState.filter(sec => sec.note.trim()).length
 
   const rows: { label: string; value: string; on: boolean }[] = [
-    { label: 'Residents', value: roster?.length ? `${roster.length} imported` : 'Add later', on: !!roster?.length },
-    { label: 'Budget', value: budget?.length ? `${budget.length} categories · ${money(budgetTotal)}` : 'Add later', on: !!budget?.length },
-    { label: 'CC&Rs / governing docs', value: govDoc ? `We’ll read ${govDoc.name}` : 'Add later', on: !!govDoc },
+    { label: 'Residents', value: rosterFile ? `From ${rosterFile.name}` : 'Add later', on: !!rosterFile },
+    { label: 'Budget', value: budgetFile ? `From ${budgetFile.name}` : 'Add later', on: !!budgetFile },
+    { label: 'CC&Rs / governing docs', value: ccrsFile ? `We’ll read ${ccrsFile.name}` : 'Add later', on: !!ccrsFile },
     { label: 'Documents attached', value: docCount ? `${docCount} file${docCount === 1 ? '' : 's'}` : 'None yet', on: docCount > 0 },
     { label: 'Notes', value: noteCount ? `${noteCount} note${noteCount === 1 ? '' : 's'}` : 'None', on: noteCount > 0 },
   ]
