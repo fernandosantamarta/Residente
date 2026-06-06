@@ -145,13 +145,14 @@ export function buildLedger(src: LedgerSources): GLEntry[] {
       }
     }
 
-    // Late interest + admin fee (snapshot, matching residentBalance()).
-    const interest = lateInterest(res as any, monthly, resPays as any, apr)
+    // Late interest + admin fee (snapshot, matching residentBalance()). asOf is
+    // threaded so accrual + interest/fee are all evaluated at the SAME instant.
+    const interest = lateInterest(res as any, monthly, resPays as any, apr, asOf)
     if (interest > 0) {
       post({ source_type: 'interest', source_key: `interest:${rid}`, entry_date: asOfISO, fund: 'operating',
         resident_id: rid, resident: rid, memo: 'Late interest', debitAccount: '1100', creditAccount: '4300', amount: interest })
     }
-    const fee = adminLateFees(res as any, monthly, resPays as any, cfg)
+    const fee = adminLateFees(res as any, monthly, resPays as any, cfg, asOf)
     if (fee > 0) {
       post({ source_type: 'late_fee', source_key: `fee:${rid}`, entry_date: asOfISO, fund: 'operating',
         resident_id: rid, resident: rid, memo: 'Administrative late fee', debitAccount: '1100', creditAccount: '4310', amount: fee })
