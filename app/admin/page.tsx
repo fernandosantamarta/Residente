@@ -198,6 +198,26 @@ export default function AdminHome() {
         ))}
       </div>
 
+      {/* Quick "ease" shortcuts — the fastest paths to a live community. Each
+          links to an existing flow; the checklist below tracks completion. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14, margin: '0 0 20px' }}>
+        {[
+          { tag: 'No CSV needed', title: 'Add your residents', blurb: 'Import your owner roster or add households one at a time.', href: '/admin/residents' },
+          { tag: 'Sets itself up', title: 'Upload your documents', blurb: 'Add your bylaws, declaration, budget, insurance, and minutes.', href: '/admin/documents' },
+          { tag: 'No emails? No problem', title: 'Invite your owners', blurb: 'Bulk-invite from your roster, or share the join code below.', href: '/admin/voice/roster' },
+        ].map(c => (
+          <Link key={c.title} href={c.href} style={{
+            display: 'flex', flexDirection: 'column', gap: 8, textDecoration: 'none', color: 'inherit',
+            border: '1px solid #e7d9c7', background: '#fffdfb', borderRadius: 14, padding: '16px 16px 15px',
+          }}>
+            <span style={{ alignSelf: 'flex-start', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#b5481f', background: 'rgba(229,96,31,0.12)', padding: '3px 9px', borderRadius: 999 }}>{c.tag}</span>
+            <span style={{ fontSize: 15.5, fontWeight: 700 }}>{c.title}</span>
+            <span style={{ fontSize: 12.5, color: '#6b5544', lineHeight: 1.45, flex: 1 }}>{c.blurb}</span>
+            <span style={{ fontSize: 13, fontWeight: 700, color: '#EB5507' }}>Open &rarr;</span>
+          </Link>
+        ))}
+      </div>
+
       <div className="admin-dash-card">
         <div className="admin-dash-card-head">
           <div>
