@@ -42,6 +42,7 @@ import { electionsSignals, recallSignals, type ElectionRow, type RecallRow } fro
 import { arcSignals, type ArcRequestRow } from '@/lib/compliance/arc'
 import { insuranceSignals, type InsurancePolicyRow } from '@/lib/compliance/insurance'
 import { contractsSignals, type ContractRow } from '@/lib/compliance/contracts'
+import { advisoriesSignals, type ComplianceEventRow, type ProxyRow } from '@/lib/compliance/advisories'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -75,6 +76,7 @@ const WORKSPACES: { href: string; label: string; desc: string; color: string; gr
   { href: '/admin/arc', label: 'Architectural review', desc: 'Owner ARC requests against the response deadline, written-reason denials, and material-alteration votes.', color: '#65A30D', group: 'Property & records' },
   { href: '/admin/documents#documents', label: 'Official records', desc: 'Post required records, track retention, and answer records-inspection requests on the clock.', color: '#7A5AF8', group: 'Property & records' },
   { href: '/admin/insurance', label: 'Insurance', desc: 'Property replacement-cost appraisal (every 36 months, condo) and the fidelity bond covering funds in custody.', color: '#DD2590', group: 'Property & records' },
+  { href: '/admin/advisories', label: 'Advisories & event clocks', desc: 'Developer turnover, board-vacancy receivership, invoice delivery-method changes, the HOA tiered-report petition, and proxy expiry.', color: '#1D4ED8', group: 'Governance' },
 ]
 const WORKSPACE_GROUPS = ['Money & assessments', 'Governance', 'Property & records']
 
@@ -124,6 +126,8 @@ function gatherSignals(
   arcRequests: ArcRequestRow[],
   insurancePolicies: InsurancePolicyRow[],
   contracts: ContractRow[],
+  complianceEvents: ComplianceEventRow[],
+  proxies: ProxyRow[],
 ): ComplianceSignal[] {
   const candidates = community ? delinquentOwnersWithoutCase({
     residents, paymentsByResident: payByResident, cases,
@@ -153,6 +157,7 @@ function gatherSignals(
     ...arcSignals(arcRequests, community),
     ...insuranceSignals(community, insurancePolicies, reserves), // property half condo-only; bond both regimes
     ...contractsSignals(community, contracts, budgets), // competitive-bid threshold uses budgets INCL reserves
+    ...advisoriesSignals(community, complianceEvents, proxies), // niche/event-driven clocks + proxy expiry
   ])
 }
 
@@ -189,6 +194,8 @@ export default function CompliancePage() {
   const [arcRequests, setArcRequests] = useState<ArcRequestRow[]>([])
   const [insurancePolicies, setInsurancePolicies] = useState<InsurancePolicyRow[]>([])
   const [contracts, setContracts] = useState<ContractRow[]>([])
+  const [complianceEvents, setComplianceEvents] = useState<ComplianceEventRow[]>([])
+  const [proxies, setProxies] = useState<ProxyRow[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError] = useState('')
 
@@ -233,6 +240,8 @@ export default function CompliancePage() {
       setArcRequests(await safeSelect('ev_arc_requests', communityId))
       setInsurancePolicies(await safeSelect('ev_insurance_policies', communityId))
       setContracts(await safeSelect('ev_contracts', communityId))
+      setComplianceEvents(await safeSelect('ev_compliance_events', communityId))
+      setProxies(await safeSelect('ev_proxies', communityId))
       setStatus('ready')
     } catch (err: any) {
       setError(err?.message || 'Could not load compliance data'); setStatus('error')
@@ -240,7 +249,7 @@ export default function CompliancePage() {
   }, [communityId])
   useEffect(() => { load() }, [load])
 
-  const signals = useMemo(() => gatherSignals(community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests, budgets, reserves, filings, boardTerms, directorCerts, directorElig, managers, vendors, disclosures, violations, hearings, finingCommittee, suspensions, meetings, elections, recalls, arcRequests, insurancePolicies, contracts), [community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests, budgets, reserves, filings, boardTerms, directorCerts, directorElig, managers, vendors, disclosures, violations, hearings, finingCommittee, suspensions, meetings, elections, recalls, arcRequests, insurancePolicies, contracts])
+  const signals = useMemo(() => gatherSignals(community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests, budgets, reserves, filings, boardTerms, directorCerts, directorElig, managers, vendors, disclosures, violations, hearings, finingCommittee, suspensions, meetings, elections, recalls, arcRequests, insurancePolicies, contracts, complianceEvents, proxies), [community, estoppel, cases, plans, residents, payByResident, buildings, assessments, sirsComponents, documents, recordsRequests, budgets, reserves, filings, boardTerms, directorCerts, directorElig, managers, vendors, disclosures, violations, hearings, finingCommittee, suspensions, meetings, elections, recalls, arcRequests, insurancePolicies, contracts, complianceEvents, proxies])
   const counts = useMemo(() => {
     const c: Record<Severity, number> = { overdue: 0, soon: 0, info: 0 }
     for (const s of signals) c[s.severity]++

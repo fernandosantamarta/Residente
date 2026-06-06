@@ -89,6 +89,9 @@ export type AuditEventType =
   // procurement — competitive bidding & contract terms (compliance: Procurement)
   | 'contract.recorded'
   | 'contract.updated'
+  // niche / event-driven advisories (compliance: Advisories)
+  | 'advisory.event_recorded'
+  | 'advisory.event_resolved'
 
 export type AuditTargetType =
   | 'vote' | 'ballot' | 'meeting' | 'document' | 'notice'
@@ -104,6 +107,7 @@ export type AuditTargetType =
   | 'arc_request'
   | 'insurance_policy'
   | 'contract'
+  | 'compliance_event'
 
 export interface LogAuditArgs {
   community_id: string
