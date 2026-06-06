@@ -228,7 +228,14 @@ export default function AdminHome() {
                 : `Follow these ${items.length} steps top to bottom. ${doneCount} of ${items.length} done.`}
             </span>
           </div>
-          <div className="admin-dash-ring" style={{ ['--pct' as any]: `${pct}%` }}>{pct}%</div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+            {doneCount < items.length && (
+              <Link href="/admin/setup" className="admin-primary-btn" style={{ textDecoration: 'none', whiteSpace: 'nowrap' }}>
+                Guided setup &rarr;
+              </Link>
+            )}
+            <div className="admin-dash-ring" style={{ ['--pct' as any]: `${pct}%` }}>{pct}%</div>
+          </div>
         </div>
         <ul className="admin-check-list">
           {items.map((i, idx) => (
