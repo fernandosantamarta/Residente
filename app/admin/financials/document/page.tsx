@@ -22,23 +22,29 @@ import {
   requiredAuditTier, estimateAnnualRevenue, AUDIT_TIER_LABEL,
 } from '@/lib/compliance/financials'
 import { currentFiscalYear, fiscalYearFor, inFiscalYear, fiscalYearEndInclusive } from '@/lib/fiscal'
+import { glCurrentFyRevenue, balanceSheetByFund, revExpByFund, type TBRow } from '@/lib/gl/statements'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
 
 const fmt$ = (n: any) => '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US')
 
-type DocType = 'statement' | 'budget_actual' | 'afr' | 'budget' | 'reserve_worksheet'
+type DocType = 'statement' | 'budget_actual' | 'balance_sheet' | 'rev_exp' | 'afr' | 'budget' | 'reserve_worksheet'
 const TITLES: Record<DocType, string> = {
   statement: 'Statement of Cash Receipts & Expenditures',
   budget_actual: 'Budget vs Actual',
+  balance_sheet: 'Balance Sheet',
+  rev_exp: 'Statement of Revenue & Expenses',
   afr: 'Annual Financial Report',
   budget: 'Proposed Budget Package',
   reserve_worksheet: 'Reserve Funding Worksheet',
 }
 const LIVE: Record<DocType, boolean> = {
-  statement: true, budget_actual: true, afr: false, budget: false, reserve_worksheet: false,
+  statement: true, budget_actual: true, balance_sheet: true, rev_exp: true, afr: false, budget: false, reserve_worksheet: false,
 }
+// The two GL-sourced reports are accrual (from the general ledger); the cash
+// statement + budget-vs-actual are cash basis. Drives the banner wording.
+const GL_SOURCED: Partial<Record<DocType, boolean>> = { balance_sheet: true, rev_exp: true }
 
 export default function FinancialDocumentPage() {
   return (
@@ -60,6 +66,8 @@ function DocInner() {
   const [expenses, setExpenses] = useState<any[]>([])
   const [payments, setPayments] = useState<any[]>([])
   const [duesSummary, setDuesSummary] = useState<any>(null)
+  const [glTB, setGlTB] = useState<TBRow[]>([])      // cumulative trial balance → Balance Sheet
+  const [glTBFy, setGlTBFy] = useState<TBRow[]>([])   // per-FY trial balance → Rev & Exp + live revenue
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState('')
 
@@ -82,9 +90,21 @@ function DocInner() {
           const { data: dsd } = (await withTimeout(supabase.rpc('community_dues_summary', { p_community: communityId }))) as any
           ds = Array.isArray(dsd) ? dsd[0] : dsd
         } catch { /* aggregate is a nicety; never block the report on it */ }
+        // GL trial balance (Phase 3): cumulative for the Balance Sheet, per-FY for
+        // Rev & Exp + live revenue. Best-effort — empty until the ledger is built.
+        let tb: any[] = [], tbFy: any[] = []
+        try {
+          const { data: t } = (await withTimeout(supabase.from('gl_trial_balance').select('*').eq('community_id', communityId))) as any
+          tb = t || []
+        } catch { /* no ledger yet → GL reports show a build prompt */ }
+        try {
+          const { data: tf } = (await withTimeout(supabase.from('gl_trial_balance_fy').select('*').eq('community_id', communityId))) as any
+          tbFy = tf || []
+        } catch { /* no ledger yet */ }
         if (cancelled) return
         setCommunity(c || null); setBudgets(b || []); setReserves(r || [])
         setExpenses(ex || []); setPayments(pays || []); setDuesSummary(ds)
+        setGlTB(tb); setGlTBFy(tbFy)
         setStatus('ready')
       } catch (err: any) {
         if (!cancelled) { setError(err?.message || 'Could not load'); setStatus('error') }
@@ -101,15 +121,27 @@ function DocInner() {
   const Em = ({ children }: { children: any }) => <em style={{ color: '#B54708' }}>{children}</em>
   const operating = budgets.filter((b: any) => !b.is_reserve)
   const reserveLines = budgets.filter((b: any) => b.is_reserve)
-  const revenue = estimateAnnualRevenue(community, budgets as any)
-  const required = requiredAuditTier(revenue, (isHoa ? 'hoa' : 'condo') as any, Number(community?.parcel_count) || 0)
-  const units = Number(community?.unit_count) || Number(community?.parcel_count) || 0
 
-  // ---- fiscal year + actuals (cash out) / receipts (cash in) ----
+  // ---- fiscal year (compute first; the GL revenue + reports are FY-scoped) ----
   const fyStartMonth = Number(community?.fiscal_year_start_month) || 1
   const fyParam = search?.get('fy')
   const fy = fyParam ? fiscalYearFor(fyStartMonth, Number(fyParam)) : currentFiscalYear(fyStartMonth)
   const fyEnd = fiscalYearEndInclusive(fy)
+
+  // ---- GL-sourced statements (Phase 3) ----
+  const hasLedger = glTB.length > 0
+  const liveRevenue = glCurrentFyRevenue(glTBFy, fy.year)      // accrual revenue for the displayed FY
+  const bsheet = balanceSheetByFund(glTB)                       // cumulative position, by fund
+  const revexp = revExpByFund(glTBFy, fy.year)                  // accrual rev/exp, displayed FY
+  const glArNet = hasLedger
+    ? Math.round(glTB.filter((r: any) => r.code === '1100' && r.fund === 'operating')
+        .reduce((s: number, r: any) => s + (Number(r.balance) || 0), 0) * 100) / 100
+    : null
+
+  // Live GL revenue drives the audit tier when a ledger exists (else budget estimate).
+  const revenue = estimateAnnualRevenue(community, budgets as any, liveRevenue || undefined)
+  const required = requiredAuditTier(revenue, (isHoa ? 'hoa' : 'condo') as any, Number(community?.parcel_count) || 0)
+  const units = Number(community?.unit_count) || Number(community?.parcel_count) || 0
 
   const actualByCat = new Map<string, number>()
   let uncategorizedActual = 0
@@ -144,7 +176,9 @@ function DocInner() {
       <div className="no-print" style={{ display: 'flex', gap: 10, justifyContent: 'space-between', marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
         <div style={{ fontSize: 12, background: LIVE[type] ? '#ECFDF3' : '#FEF3F2', color: LIVE[type] ? '#067647' : '#B42318', padding: '8px 12px', borderRadius: 8, maxWidth: 540 }}>
           {LIVE[type]
-            ? <>Computed from your recorded payments (cash in) and expenses (cash out) for {fy.label}, on a CASH basis. Above the statutory revenue tier, have your CPA prepare the required compiled/reviewed/audited statements.</>
+            ? GL_SOURCED[type]
+              ? <>Computed from your general ledger ({fy.label}, ACCRUAL basis) — a regenerable projection of your recorded activity. Above the statutory revenue tier, have your CPA prepare the required compiled/reviewed/audited statements.</>
+              : <>Computed from your recorded payments (cash in) and expenses (cash out) for {fy.label}, on a CASH basis. Above the statutory revenue tier, have your CPA prepare the required compiled/reviewed/audited statements.</>
             : <>⚠ DRAFT — an aid, not an official filing or accounting opinion. Figures are drawn from the budget you entered; have the report prepared/reviewed by your CPA and confirmed by counsel before relying on it or delivering it to members.</>}
         </div>
         <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', height: 'fit-content' }}>Print / Save as PDF</button>
@@ -197,12 +231,17 @@ function DocInner() {
             <tr><td style={{ ...totTd, fontSize: 14 }}>Net change in cash</td><td style={{ ...totTdR, fontSize: 14, color: netChange < 0 ? '#B42318' : '#067647' }}>{fmt$(netChange)}</td></tr>
           </tbody></table>
 
-          {duesSummary && (
+          {hasLedger ? (
+            <p style={cite}>
+              Accrual context (from the general ledger, as of {today}): assessments receivable {fmt$(glArNet)} in
+              the operating fund. See the Balance Sheet and Statement of Revenue &amp; Expenses for the full accrual picture.
+            </p>
+          ) : duesSummary ? (
             <p style={cite}>
               Accrual context (as of today, all years): assessments collected {fmt$(duesSummary.collected)},
               outstanding receivable {fmt$(duesSummary.outstanding)} ({Number(duesSummary.rate) || 0}% collected).
             </p>
-          )}
+          ) : null}
           <p style={cite}>
             Cash basis — receipts when received, expenditures when paid; the statutory "report of cash
             receipts and expenditures" under {isHoa ? 'FS 720.303(7)' : 'FS 718.111(13)'}. Operating and
@@ -228,6 +267,83 @@ function DocInner() {
             <p style={cite}>Plus {fmt$(uncategorizedActual)} of recorded spending not assigned to a budget category — categorize these in the Expenses log so they land in a fund above.</p>
           )}
           <p style={cite}>Actuals are recorded expenses dated within {fy.label}. Budget figures are what you entered per category; adopt the budget per {isHoa ? 'FS 720.303(6)' : 'FS 718.112(2)(f)'}.</p>
+        </Body>
+      )}
+
+      {/* ---------- Balance sheet (by fund, from the GL) ---------- */}
+      {type === 'balance_sheet' && (
+        <Body>
+          {!hasLedger ? (
+            <p><Em>No general ledger has been built yet. Once the ledger is built (Accounting → rebuild), this Balance Sheet populates from your double-entry books.</Em></p>
+          ) : (
+            <>
+              <p>Assets, liabilities and fund balance as of {today}, by fund — from your general ledger (accrual). Operating and reserve funds are shown separately (FS {isHoa ? '720.303(6)' : '718.111(14)'}).</p>
+              {bsheet.funds.map((f: any) => (
+                <div key={f.fund}>
+                  <h3 style={h3}>{f.fund === 'operating' ? 'Operating fund' : f.fund === 'reserve' ? 'Reserve fund' : f.fund}</h3>
+                  <table style={tbl}><tbody>
+                    <tr><td style={secTd} colSpan={2}>Assets</td></tr>
+                    {f.assets.map((a: any) => <tr key={a.code}><td style={td}>{a.name}</td><td style={tdR}>{fmt$(a.amount)}</td></tr>)}
+                    {f.assets.length === 0 && <tr><td style={td} colSpan={2}><Em>None</Em></td></tr>}
+                    <tr><td style={totTd}>Total assets</td><td style={totTdR}>{fmt$(f.totalAssets)}</td></tr>
+                    <tr><td style={secTd} colSpan={2}>Liabilities &amp; fund balance</td></tr>
+                    {f.liabilities.map((a: any) => <tr key={a.code}><td style={td}>{a.name}</td><td style={tdR}>{fmt$(a.amount)}</td></tr>)}
+                    {f.equity.map((a: any) => <tr key={a.code}><td style={td}>{a.name}</td><td style={tdR}>{fmt$(a.amount)}</td></tr>)}
+                    <tr><td style={td}>Accumulated surplus / (deficit)</td><td style={tdR}>{fmt$(f.netIncome)}</td></tr>
+                    <tr><td style={totTd}>Total liabilities &amp; fund balance</td><td style={totTdR}>{fmt$(f.totalLiabilities + f.totalEquity)}</td></tr>
+                  </tbody></table>
+                </div>
+              ))}
+              <table style={{ ...tbl, marginTop: 14 }}><tbody>
+                <tr><td style={{ ...totTd, fontSize: 14 }}>Total assets (all funds)</td><td style={{ ...totTdR, fontSize: 14 }}>{fmt$(bsheet.totalAssets)}</td></tr>
+                <tr><td style={totTd}>Total liabilities &amp; fund balance</td><td style={totTdR}>{fmt$(bsheet.totalLiabilities + bsheet.totalEquity)}</td></tr>
+              </tbody></table>
+              <p style={cite}>
+                {bsheet.balances
+                  ? 'Assets equal liabilities plus fund balance — the ledger is in balance.'
+                  : '⚠ Assets do not equal liabilities plus fund balance; rebuild the ledger.'}
+                {' '}Cumulative since inception, accrual basis. Reserve inter-fund transfers post once the bank feed is connected.
+              </p>
+            </>
+          )}
+        </Body>
+      )}
+
+      {/* ---------- Statement of revenue & expenses (accrual, by fund) ---------- */}
+      {type === 'rev_exp' && (
+        <Body>
+          {!hasLedger ? (
+            <p><Em>No general ledger has been built yet. Once the ledger is built (Accounting → rebuild), this statement populates from your double-entry books.</Em></p>
+          ) : (
+            <>
+              <p>Revenue earned and expenses incurred for {fy.label} ({fy.startISO} through {fyEnd}), accrual basis, by fund.</p>
+              {revexp.funds.length === 0 && <p><Em>No revenue or expense entries recorded for {fy.label}.</Em></p>}
+              {revexp.funds.map((f: any) => (
+                <div key={f.fund}>
+                  <h3 style={h3}>{f.fund === 'operating' ? 'Operating fund' : f.fund === 'reserve' ? 'Reserve fund' : f.fund}</h3>
+                  <table style={tbl}><tbody>
+                    <tr><td style={secTd} colSpan={2}>Revenue</td></tr>
+                    {f.revenue.map((a: any) => <tr key={a.code}><td style={td}>{a.name}</td><td style={tdR}>{fmt$(a.amount)}</td></tr>)}
+                    {f.revenue.length === 0 && <tr><td style={td} colSpan={2}><Em>None</Em></td></tr>}
+                    <tr><td style={totTd}>Total revenue</td><td style={totTdR}>{fmt$(f.totalRevenue)}</td></tr>
+                    <tr><td style={secTd} colSpan={2}>Expenses</td></tr>
+                    {f.expense.map((a: any) => <tr key={a.code}><td style={td}>{a.name}</td><td style={tdR}>{fmt$(a.amount)}</td></tr>)}
+                    {f.expense.length === 0 && <tr><td style={td} colSpan={2}><Em>None</Em></td></tr>}
+                    <tr><td style={totTd}>Total expenses</td><td style={totTdR}>{fmt$(f.totalExpense)}</td></tr>
+                    <tr><td style={{ ...totTd, fontSize: 14 }}>Net surplus / (deficit)</td><td style={{ ...totTdR, fontSize: 14, color: f.net < 0 ? '#B42318' : '#067647' }}>{fmt$(f.net)}</td></tr>
+                  </tbody></table>
+                </div>
+              ))}
+              {revexp.funds.length > 1 && (
+                <table style={{ ...tbl, marginTop: 14 }}><tbody>
+                  <tr><td style={totTd}>Total revenue (all funds)</td><td style={totTdR}>{fmt$(revexp.totalRevenue)}</td></tr>
+                  <tr><td style={totTd}>Total expenses (all funds)</td><td style={totTdR}>{fmt$(revexp.totalExpense)}</td></tr>
+                  <tr><td style={{ ...totTd, fontSize: 14 }}>Net surplus / (deficit)</td><td style={{ ...totTdR, fontSize: 14, color: revexp.net < 0 ? '#B42318' : '#067647' }}>{fmt$(revexp.net)}</td></tr>
+                </tbody></table>
+              )}
+              <p style={cite}>Accrual basis — revenue when earned (assessments accrued by installment), expenses when incurred — from the general ledger. {isHoa ? 'FS 720.303(7)' : 'FS 718.111(13)'}.</p>
+            </>
+          )}
         </Body>
       )}
 
@@ -362,6 +478,7 @@ const tbl: React.CSSProperties = { width: '100%', borderCollapse: 'collapse', fo
 const td: React.CSSProperties = { padding: '6px 10px', borderBottom: '1px solid #eee', verticalAlign: 'top' }
 const tdR: React.CSSProperties = { ...td, textAlign: 'right' }
 const tdC: React.CSSProperties = { ...td, textAlign: 'center' }
+const secTd: React.CSSProperties = { ...td, fontWeight: 700, background: '#FAFAFA', fontSize: 12 }
 const totTd: React.CSSProperties = { ...td, fontWeight: 800, borderTop: '2px solid #111' }
 const totTdR: React.CSSProperties = { ...totTd, textAlign: 'right' }
 const th: React.CSSProperties = { padding: '6px 10px', borderBottom: '2px solid #ccc', textAlign: 'left', fontSize: 12 }
