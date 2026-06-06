@@ -136,7 +136,10 @@ export default function SignupPage() {
   // Onboarding "Upload your documents" fork (Phase 0). setupMode picks the path
   // at the documents step; the parsed roster + budget are stashed here and
   // applied to the live tables after provisioning (like the doc/notes upload).
-  const [setupMode, setSetupMode] = useState<'choose' | 'manual' | 'upload'>('choose')
+  // Documents step runs in three skippable sub-phases: 'upload' (drop the roster
+  // / budget / CC&Rs you have) → 'manual' (the doc wizard, to add/confirm the
+  // rest) → 'review' (confirm everything that will be set up).
+  const [setupMode, setSetupMode] = useState<'upload' | 'manual' | 'review'>('upload')
   const [importRoster, setImportRoster] = useState<RosterRow[] | null>(null)
   const [importBudget, setImportBudget] = useState<BudgetRow[] | null>(null)
   // CC&Rs / governing-doc PDF, read by the AI extract step after provisioning.
@@ -156,8 +159,10 @@ export default function SignupPage() {
     // leaving: manual-wizard category → category, then any chosen path → the
     // fork, then the fork → the previous step.
     if (step === 'documents') {
+      if (setupMode === 'review') { setSetupMode('manual'); return }
       if (setupMode === 'manual' && docSection > 0) { setDocSection(docSection - 1); return }
-      if (setupMode !== 'choose') { setSetupMode('choose'); return }
+      if (setupMode === 'manual') { setSetupMode('upload'); return }
+      // setupMode === 'upload' → fall through to leave the documents step
     }
     if (idx > 0) setStep(seq[idx - 1])
     else window.location.assign('/')
@@ -351,15 +356,7 @@ export default function SignupPage() {
         {step === 'plan' && (
           <Plan
             propertyType={propertyType!} unitCount={unitCount}
-            onNext={() => { setErr(null); setStep('documents') }}
-          />
-        )}
-
-        {step === 'documents' && setupMode === 'choose' && (
-          <SetupFork
-            onUpload={() => { setErr(null); setSetupMode('upload') }}
-            onManual={() => { setErr(null); setSetupMode('manual') }}
-            onSkip={() => { setErr(null); setStep('details') }}
+            onNext={() => { setErr(null); setSetupMode('upload'); setDocSection(0); setStep('documents') }}
           />
         )}
 
@@ -368,7 +365,7 @@ export default function SignupPage() {
             roster={importRoster} setRoster={setImportRoster}
             budget={importBudget} setBudget={setImportBudget}
             govDoc={importGovDoc} setGovDoc={setImportGovDoc}
-            onNext={() => { setErr(null); setStep('details') }}
+            onNext={() => { setErr(null); setSetupMode('manual') }}
           />
         )}
 
@@ -376,6 +373,14 @@ export default function SignupPage() {
           <DocWizard
             section={docSection} setSection={setDocSection}
             state={docState} setState={setDocState}
+            onNext={() => { setErr(null); setSetupMode('review') }}
+          />
+        )}
+
+        {step === 'documents' && setupMode === 'review' && (
+          <SetupReview
+            roster={importRoster} budget={importBudget} govDoc={importGovDoc}
+            docState={docState}
             onNext={() => { setErr(null); setStep('details') }}
           />
         )}
@@ -807,40 +812,10 @@ function Plan({ propertyType, unitCount, onNext }: {
   )
 }
 
-// The "Getting started" fork at the documents step: upload docs and have us
-// pre-fill, or set it up by hand. Both paths are optional (skip → details).
-function SetupFork({ onUpload, onManual, onSkip }: {
-  onUpload: () => void; onManual: () => void; onSkip: () => void
-}) {
-  return (
-    <>
-      <div className="su-kicker">Get set up</div>
-      <h1 className="su-h1">Want us to fill it in for you?</h1>
-      <p className="su-sub">Drop your documents and we&rsquo;ll pre-fill your roster, budget, and settings — or set it up yourself.</p>
-      <HouseArt />
-      <div className="su-content">
-        <div className="su-choices">
-          <Tile
-            icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>}
-            title="Upload your documents"
-            desc="Add your owner roster and budget — we read them and fill it in. You just confirm."
-            onClick={onUpload} />
-          <Tile
-            icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>}
-            title="I&rsquo;ll set it up myself"
-            desc="Go step by step and add your documents and details by hand."
-            onClick={onManual} />
-        </div>
-        <button type="button" className="su-skip" onClick={onSkip}>Skip for now — I&rsquo;ll do this later</button>
-      </div>
-    </>
-  )
-}
-
-// Upload path (Phase 0): clean roster + budget spreadsheets, parsed in the
-// browser and shown back as counts before continuing. The parsed rows are
-// stashed in the parent and written after provisioning. CC&Rs → fines/rules is
-// Phase 1 (the extract-setup edge fn) — not wired yet.
+// Upload sub-phase: drop the roster / budget (parsed in-browser to counts) and
+// the CC&Rs PDF (read by AI after provisioning). All optional. Continuing always
+// leads into the document wizard so the board can add/confirm the rest by hand —
+// upload some, type the rest.
 function UploadSetup({ roster, setRoster, budget, setBudget, govDoc, setGovDoc, onNext }: {
   roster: RosterRow[] | null; setRoster: (r: RosterRow[] | null) => void
   budget: BudgetRow[] | null; setBudget: (b: BudgetRow[] | null) => void
@@ -922,10 +897,55 @@ function UploadSetup({ roster, setRoster, budget, setBudget, govDoc, setGovDoc, 
         {err && <div className="su-err">{err}</div>}
         <div className="su-actions">
           <button className="su-btn" type="button" onClick={onNext}>
-            {(roster || budget || govDoc) ? 'Looks good — continue' : 'Continue without uploads'}
+            {(roster || budget || govDoc) ? 'Continue →' : 'Continue without uploads →'}
           </button>
         </div>
-        <button type="button" className="su-skip" onClick={onNext}>Skip — I&rsquo;ll add these later</button>
+        <p className="su-foot">Next: add or confirm any other documents by hand.</p>
+      </div>
+    </>
+  )
+}
+
+// Review sub-phase: a single confirmation of everything the board set up —
+// residents, budget, CC&Rs, attached documents, notes — before continuing to
+// the account step. Read-only; "change it later" is the escape hatch.
+function SetupReview({ roster, budget, govDoc, docState, onNext }: {
+  roster: RosterRow[] | null; budget: BudgetRow[] | null; govDoc: File | null
+  docState: DocSectionState[]; onNext: () => void
+}) {
+  const money = (n: number) => '$' + Math.round(n).toLocaleString('en-US')
+  const numOf = (v: string) => { const n = Number(String(v).replace(/[^0-9.\-]/g, '')); return Number.isFinite(n) ? n : 0 }
+  const budgetTotal = (budget || []).reduce((s, b) => s + numOf(b.budget), 0)
+  const docCount = docState.reduce((s, sec) => s + sec.items.filter(it => it.file).length, 0)
+  const noteCount = docState.filter(sec => sec.note.trim()).length
+
+  const rows: { label: string; value: string; on: boolean }[] = [
+    { label: 'Residents', value: roster?.length ? `${roster.length} imported` : 'Add later', on: !!roster?.length },
+    { label: 'Budget', value: budget?.length ? `${budget.length} categories · ${money(budgetTotal)}` : 'Add later', on: !!budget?.length },
+    { label: 'CC&Rs / governing docs', value: govDoc ? `We’ll read ${govDoc.name}` : 'Add later', on: !!govDoc },
+    { label: 'Documents attached', value: docCount ? `${docCount} file${docCount === 1 ? '' : 's'}` : 'None yet', on: docCount > 0 },
+    { label: 'Notes', value: noteCount ? `${noteCount} note${noteCount === 1 ? '' : 's'}` : 'None', on: noteCount > 0 },
+  ]
+
+  return (
+    <>
+      <div className="su-kicker">Review</div>
+      <h1 className="su-h1">Here&rsquo;s what we&rsquo;ll set up.</h1>
+      <p className="su-sub">You can change any of this later in your dashboard.</p>
+      <div className="su-content">
+        <div className="su-doc-card">
+          <div className="su-doc-items">
+            {rows.map(r => (
+              <div className="su-doc-item" key={r.label}>
+                <span className="su-doc-name-text" style={{ flex: 1, fontWeight: 600 }}>{r.label}</span>
+                <span style={{ fontSize: 13, fontWeight: r.on ? 700 : 500, color: r.on ? '#E14909' : 'rgba(42,18,6,0.5)' }}>{r.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="su-actions">
+          <button className="su-btn" type="button" onClick={onNext}>Looks good — continue</button>
+        </div>
       </div>
     </>
   )
