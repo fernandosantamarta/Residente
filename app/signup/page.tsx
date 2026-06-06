@@ -41,10 +41,11 @@ const FLOW: Record<Who, Step[]> = {
 // community's vault (see lib/compliance/official-records.ts for the category set
 // and app/admin/documents for where they surface). The category is per-section;
 // the item label becomes each document's title.
-type DocItem = { name: string; desc: string }
-const DOC_SECTIONS: { emoji: string; label: string; category: DocCategory; items: DocItem[] }[] = [
+type DocItem = { name: string; desc: string; key?: 'ccrs' | 'budget' | 'roster' }
+type DocSection = { emoji: string; label: string; category: DocCategory; items: DocItem[] }
+const DOC_SECTIONS: DocSection[] = [
   { emoji: '📄', label: 'Governing documents', category: 'Governing Documents', items: [
-    { name: 'CC&Rs (Covenants, Conditions & Restrictions)', desc: 'The recorded legal rulebook that runs with the land and binds every owner — sets property restrictions, the power to charge assessments, and who maintains what.' },
+    { name: 'CC&Rs (Covenants, Conditions & Restrictions)', key: 'ccrs', desc: 'The recorded legal rulebook that runs with the land and binds every owner — sets property restrictions, the power to charge assessments, and who maintains what.' },
     { name: 'HOA Bylaws', desc: "The association's operating manual: how the board is elected, how meetings and votes work, and officer duties and terms." },
     { name: 'Articles of Incorporation', desc: 'The short charter filed with the state that legally creates the association as a corporation.' },
     { name: 'Rules & regulations', desc: 'Day-to-day rules the board adopts under the CC&Rs (pool hours, parking, noise) — easier to change than the CC&Rs themselves.' },
@@ -53,7 +54,7 @@ const DOC_SECTIONS: { emoji: string; label: string; category: DocCategory; items
     { name: 'Pet policy', desc: 'What pets are allowed, any size or breed limits, leash and waste rules, and registration requirements.' },
   ] },
   { emoji: '💰', label: 'Financial records', category: 'Financial Documents', items: [
-    { name: 'Current annual budget', desc: "The board-approved plan of income and expenses for the year — the basis for each owner's dues." },
+    { name: 'Current annual budget', key: 'budget', desc: "The board-approved plan of income and expenses for the year — the basis for each owner's dues." },
     { name: 'Reserve fund study', desc: 'A professional forecast of major future repairs (roof, paving) and how much to set aside each year for them.' },
     { name: 'Reserve fund balance statement', desc: 'How much is actually saved today in the reserve account for big-ticket repairs.' },
     { name: 'Delinquency report', desc: 'Owners behind on dues or assessments and how much each one owes.' },
@@ -64,7 +65,7 @@ const DOC_SECTIONS: { emoji: string; label: string; category: DocCategory; items
     { name: 'Tax returns (last 2 years)', desc: "The association's filed federal (and state) income tax returns." },
   ] },
   { emoji: '👥', label: 'Ownership & membership', category: 'Other', items: [
-    { name: 'Homeowner roster with contact info', desc: 'Master list of every owner with mailing address, email, and phone for official notices.' },
+    { name: 'Homeowner roster with contact info', key: 'roster', desc: 'Master list of every owner with mailing address, email, and phone for official notices.' },
     { name: 'Board member roster', desc: 'Names, roles, and terms of the current board of directors.' },
     { name: 'Committee member list', desc: 'Members serving on committees (architectural, social, finance) and what each covers.' },
     { name: 'Tenant directory', desc: 'List of renters and their units — where the community tracks non-owner occupants.' },
@@ -110,20 +111,55 @@ const DOC_SECTIONS: { emoji: string; label: string; category: DocCategory; items
 
 type DocItemState = { checked: boolean; file: File | null }
 type DocSectionState = { items: DocItemState[]; note: string }
-const emptyDocState = (): DocSectionState[] =>
-  DOC_SECTIONS.map((s) => ({ items: s.items.map(() => ({ checked: false, file: null })), note: '' }))
+const emptyDocState = (docs: DocSection[]): DocSectionState[] =>
+  docs.map((s) => ({ items: s.items.map(() => ({ checked: false, file: null })), note: '' }))
 
-// The three "smart" wizard items processed specially after provisioning
-// (roster → residents, budget → categories, CC&Rs → AI). Found by name, not
-// position, so reordering the lists by importance never breaks the wiring.
-const SMART_ITEMS = {
-  ccrs: 'CC&Rs (Covenants, Conditions & Restrictions)',
-  budget: 'Current annual budget',
-  roster: 'Homeowner roster with contact info',
+// Condos (FL Ch. 718) need a few documents HOAs (Ch. 720) don't, and call the
+// primary governing doc a "Declaration of Condominium" rather than CC&Rs. Build
+// the section list for the chosen property type from the HOA base above.
+function docSectionsFor(type: PropertyType | null): DocSection[] {
+  if (type !== 'condo') return DOC_SECTIONS
+  return DOC_SECTIONS.map((sec) => {
+    if (sec.label === 'Governing documents') {
+      const items = sec.items.map((it) =>
+        it.key === 'ccrs'
+          ? { ...it, name: 'Declaration of Condominium', desc: 'The recorded document that creates the condominium and binds every unit owner — unit boundaries, common elements, the assessment power, and use restrictions.' }
+          : it,
+      )
+      const at = items.findIndex((it) => it.name === 'Articles of Incorporation')
+      items.splice(at >= 0 ? at + 1 : items.length, 0, {
+        name: 'Q&A sheet (FS 718.504)',
+        desc: 'The condo’s required frequently-asked-questions sheet, kept current for prospective buyers.',
+      })
+      return { ...sec, items }
+    }
+    if (sec.label === 'Financial records') {
+      const items = [...sec.items]
+      const at = items.findIndex((it) => it.name === 'Reserve fund study')
+      items.splice(at >= 0 ? at + 1 : items.length, 0, {
+        name: 'Structural Integrity Reserve Study (SIRS)',
+        desc: 'The condo’s mandatory reserve study for structural components — roof, load-bearing walls, foundation, fireproofing, plumbing (FS 718.112).',
+      })
+      return { ...sec, items }
+    }
+    if (sec.label === 'Property & maintenance') {
+      return {
+        ...sec,
+        items: [
+          { name: 'Milestone inspection report', desc: 'Structural milestone inspection required for buildings three stories or higher (FS 553.899).' },
+          ...sec.items,
+        ],
+      }
+    }
+    return sec
+  })
 }
-function smartFile(docState: DocSectionState[], itemName: string): File | null {
-  for (let si = 0; si < DOC_SECTIONS.length; si++) {
-    const ii = DOC_SECTIONS[si].items.findIndex((it) => it.name === itemName)
+
+// Locate a "smart" wizard item's uploaded file by stable key (ccrs/budget/
+// roster) — independent of name (condo renames CC&Rs) and order.
+function smartFile(docState: DocSectionState[], docs: DocSection[], key: 'ccrs' | 'budget' | 'roster'): File | null {
+  for (let si = 0; si < docs.length; si++) {
+    const ii = docs[si].items.findIndex((it) => it.key === key)
     if (ii >= 0) return docState[si]?.items?.[ii]?.file ?? null
   }
   return null
@@ -147,15 +183,12 @@ export default function SignupPage() {
   // active category; `docState` holds every check + attached file + note so it
   // survives moving back and forth, then feeds the post-provision upload.
   const [docSection, setDocSection] = useState(0)
-  const [docState, setDocState] = useState<DocSectionState[]>(emptyDocState)
+  const [docState, setDocState] = useState<DocSectionState[]>(() => emptyDocState(docSectionsFor(null)))
 
-  // Onboarding "Upload your documents" fork (Phase 0). setupMode picks the path
-  // at the documents step; the parsed roster + budget are stashed here and
-  // applied to the live tables after provisioning (like the doc/notes upload).
-  // Documents step runs in two sub-phases: 'manual' (the doc wizard, where the
-  // roster / budget / CC&Rs items get smart processing on the file you attach) →
-  // 'review' (confirm what will be set up).
-  const [setupMode, setSetupMode] = useState<'manual' | 'review'>('manual')
+  // The document categories vary by property type (condos add SIRS, milestone,
+  // Q&A and rename CC&Rs → Declaration). Recomputed from propertyType, which is
+  // chosen at the very first step before the documents step is ever reached.
+  const docs = docSectionsFor(propertyType)
 
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -167,14 +200,9 @@ export default function SignupPage() {
 
   const goBack = () => {
     setErr(null)
-    // At the documents step the back button unwinds the setup flow before
-    // leaving: manual-wizard category → category, then any chosen path → the
-    // fork, then the fork → the previous step.
-    if (step === 'documents') {
-      if (setupMode === 'review') { setSetupMode('manual'); return }
-      if (docSection > 0) { setDocSection(docSection - 1); return }
-      // first wizard category → fall through to leave the documents step
-    }
+    // At the documents step the back button steps through the wizard categories
+    // first, then leaves the step.
+    if (step === 'documents' && docSection > 0) { setDocSection(docSection - 1); return }
     if (idx > 0) setStep(seq[idx - 1])
     else window.location.assign('/')
   }
@@ -260,8 +288,8 @@ export default function SignupPage() {
         docState.forEach((sec, si) => {
           sec.items.forEach((it, ii) => {
             if (it.file) collected.push({
-              title: DOC_SECTIONS[si].items[ii].name,
-              category: DOC_SECTIONS[si].category,
+              title: docs[si].items[ii].name,
+              category: docs[si].category,
               file: it.file,
             })
           })
@@ -273,7 +301,7 @@ export default function SignupPage() {
         // Persist the per-category notes too (board-only). A later AI slice
         // reads these to pre-fill settings / flag missing docs. Best-effort:
         // same non-fatal contract as the uploads above.
-        const notes = docState.map((sec, si) => ({ section: DOC_SECTIONS[si].label, note: sec.note }))
+        const notes = docState.map((sec, si) => ({ section: docs[si].label, note: sec.note }))
         try { await saveSignupNotes(res.community_id, notes) } catch { /* non-fatal */ }
 
         // Smart processing of the wizard's own uploads — one place per document,
@@ -281,8 +309,8 @@ export default function SignupPage() {
         // annual-budget CSV → budget categories, the CC&Rs PDF → AI fines/rules.
         // Each runs IN ADDITION to vaulting the file above; all best-effort.
         try {
-          const rosterFile = smartFile(docState, SMART_ITEMS.roster)
-          const budgetFile = smartFile(docState, SMART_ITEMS.budget)
+          const rosterFile = smartFile(docState, docs, 'roster')
+          const budgetFile = smartFile(docState, docs, 'budget')
           const roster = rosterFile && /\.csv$/i.test(rosterFile.name) ? parseRosterCsv(await rosterFile.text()) : undefined
           const budget = budgetFile && /\.csv$/i.test(budgetFile.name) ? parseBudgetCsv(await budgetFile.text()) : undefined
           if (roster?.length || budget?.length) {
@@ -293,7 +321,7 @@ export default function SignupPage() {
         // CC&Rs → AI extraction: pre-fills late-fee / interest settings + rules.
         // PDF only. Inert (no-op) until ANTHROPIC_API_KEY is set + extract-setup
         // is deployed. Board reviews in /admin. Non-fatal.
-        const ccrsFile = smartFile(docState, SMART_ITEMS.ccrs)
+        const ccrsFile = smartFile(docState, docs, 'ccrs')
         if (ccrsFile && /\.pdf$/i.test(ccrsFile.name)) {
           try {
             const extracted = await extractSetupFromPdf(ccrsFile)
@@ -352,7 +380,7 @@ export default function SignupPage() {
         {step === 'property' && (
           <Property
             value={propertyType}
-            onPick={(t) => { setPropertyType(t); setErr(null); setStep('role') }}
+            onPick={(t) => { setPropertyType(t); setDocState(emptyDocState(docSectionsFor(t))); setErr(null); setStep('role') }}
           />
         )}
 
@@ -371,20 +399,17 @@ export default function SignupPage() {
         {step === 'plan' && (
           <Plan
             propertyType={propertyType!} unitCount={unitCount}
-            onNext={() => { setErr(null); setSetupMode('manual'); setDocSection(0); setStep('documents') }}
+            onNext={() => { setErr(null); setDocSection(0); setStep('documents') }}
           />
         )}
 
-        {step === 'documents' && setupMode === 'manual' && (
+        {step === 'documents' && (
           <DocWizard
+            docs={docs}
             section={docSection} setSection={setDocSection}
             state={docState} setState={setDocState}
-            onNext={() => { setErr(null); setSetupMode('review') }}
+            onNext={() => { setErr(null); setStep('details') }}
           />
-        )}
-
-        {step === 'documents' && setupMode === 'review' && (
-          <SetupReview docState={docState} onNext={() => { setErr(null); setStep('details') }} />
         )}
 
         {step === 'connect' && (
@@ -814,63 +839,20 @@ function Plan({ propertyType, unitCount, onNext }: {
   )
 }
 
-// Review sub-phase: a single confirmation of what will be set up — residents,
-// budget, CC&Rs, attached documents, notes — read from the wizard's own files,
-// before continuing to the account step. "Change it later" is the escape hatch.
-function SetupReview({ docState, onNext }: {
-  docState: DocSectionState[]; onNext: () => void
-}) {
-  // Smart items located by name (order-independent).
-  const ccrsFile = smartFile(docState, SMART_ITEMS.ccrs)
-  const budgetFile = smartFile(docState, SMART_ITEMS.budget)
-  const rosterFile = smartFile(docState, SMART_ITEMS.roster)
-  const docCount = docState.reduce((s, sec) => s + sec.items.filter(it => it.file).length, 0)
-  const noteCount = docState.filter(sec => sec.note.trim()).length
-
-  const rows: { label: string; value: string; on: boolean }[] = [
-    { label: 'Residents', value: rosterFile ? `From ${rosterFile.name}` : 'Add later', on: !!rosterFile },
-    { label: 'Budget', value: budgetFile ? `From ${budgetFile.name}` : 'Add later', on: !!budgetFile },
-    { label: 'CC&Rs / governing docs', value: ccrsFile ? `We’ll read ${ccrsFile.name}` : 'Add later', on: !!ccrsFile },
-    { label: 'Documents attached', value: docCount ? `${docCount} file${docCount === 1 ? '' : 's'}` : 'None yet', on: docCount > 0 },
-    { label: 'Notes', value: noteCount ? `${noteCount} note${noteCount === 1 ? '' : 's'}` : 'None', on: noteCount > 0 },
-  ]
-
-  return (
-    <>
-      <div className="su-kicker">Review</div>
-      <h1 className="su-h1">Here&rsquo;s what we&rsquo;ll set up.</h1>
-      <p className="su-sub">You can change any of this later in your dashboard.</p>
-      <div className="su-content">
-        <div className="su-doc-card">
-          <div className="su-doc-items">
-            {rows.map(r => (
-              <div className="su-doc-item" key={r.label}>
-                <span className="su-doc-name-text" style={{ flex: 1, fontWeight: 600 }}>{r.label}</span>
-                <span style={{ fontSize: 13, fontWeight: r.on ? 700 : 500, color: r.on ? '#E14909' : 'rgba(42,18,6,0.5)' }}>{r.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div className="su-actions">
-          <button className="su-btn" type="button" onClick={onNext}>Looks good — continue</button>
-        </div>
-      </div>
-    </>
-  )
-}
-
 // Document-collection wizard (board / management). A self-contained mini-flow
 // inside one signup step: one category per slide with confirm/upload toggles +
 // notes, then a review summary. Everything is optional — every slide offers a
-// skip, and attachments persist to the community vault after provisioning.
+// skip, and attachments persist to the community vault after provisioning. The
+// `docs` it renders vary by property type (condo vs HOA).
 function DocWizard({
-  section, setSection, state, setState, onNext,
+  docs, section, setSection, state, setState, onNext,
 }: {
+  docs: DocSection[]
   section: number; setSection: (n: number) => void
   state: DocSectionState[]; setState: React.Dispatch<React.SetStateAction<DocSectionState[]>>
   onNext: () => void
 }) {
-  const total = DOC_SECTIONS.length
+  const total = docs.length
   const onSummary = section >= total
 
   // Which item's plain-English description is expanded. Keyed by `section-index`
@@ -878,7 +860,7 @@ function DocWizard({
   const [openKey, setOpenKey] = useState<string | null>(null)
 
   const doneCount = (i: number) => state[i].items.filter((it) => it.checked).length
-  const allDone = (i: number) => doneCount(i) === DOC_SECTIONS[i].items.length
+  const allDone = (i: number) => doneCount(i) === docs[i].items.length
 
   const patchSection = (fn: (s: DocSectionState) => DocSectionState) =>
     setState((prev) => prev.map((s, si) => (si === section ? fn(s) : s)))
@@ -894,7 +876,7 @@ function DocWizard({
   // Dots double as a jump nav across categories.
   const dots = (
     <div className="su-doc-dots">
-      {DOC_SECTIONS.map((sec, i) => (
+      {docs.map((sec, i) => (
         <button key={sec.label} type="button"
           className={`su-doc-dot${i === section ? ' active' : allDone(i) ? ' done' : ''}`}
           onClick={() => setSection(i)} aria-label={`Go to ${sec.label}`} />
@@ -910,7 +892,7 @@ function DocWizard({
         <p className="su-sub">Here&apos;s what you&apos;ve gathered. You can add the rest anytime from your dashboard.</p>
         {dots}
         <div className="su-content">
-          {DOC_SECTIONS.map((sec, i) => {
+          {docs.map((sec, i) => {
             const d = doneCount(i), t = sec.items.length
             const cls = d === t ? 'all' : d > 0 ? 'partial' : 'none'
             return (
@@ -931,7 +913,7 @@ function DocWizard({
     )
   }
 
-  const sec = DOC_SECTIONS[section]
+  const sec = docs[section]
   const s = state[section]
   const d = doneCount(section), t = sec.items.length
   const isLast = section === total - 1
