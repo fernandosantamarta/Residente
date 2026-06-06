@@ -40,23 +40,71 @@ const FLOW: Record<Who, Step[]> = {
 // community's vault (see lib/compliance/official-records.ts for the category set
 // and app/admin/documents for where they surface). The category is per-section;
 // the item label becomes each document's title.
-const DOC_SECTIONS: { emoji: string; label: string; category: DocCategory; items: string[] }[] = [
-  { emoji: '📄', label: 'Governing documents', category: 'Governing Documents',
-    items: ['CC&Rs (Covenants, Conditions & Restrictions)', 'HOA Bylaws', 'Articles of Incorporation', 'Rules & regulations', 'Architectural standards', 'Pet policy', 'Rental / leasing restrictions'] },
-  { emoji: '💰', label: 'Financial records', category: 'Financial Documents',
-    items: ['Current annual budget', 'Reserve fund study', 'Reserve fund balance statement', 'Income & expense statement', 'Bank statements (last 3 months)', 'Delinquency report', 'Most recent audit', 'Tax returns (last 2 years)', 'Insurance declarations'] },
-  { emoji: '👥', label: 'Ownership & membership', category: 'Other',
-    items: ['Homeowner roster with contact info', 'Tenant directory', 'Delinquency list', 'Board member roster', 'Committee member list'] },
-  { emoji: '📅', label: 'Meetings & governance', category: 'Reports & Meeting Minutes',
-    items: ['Board meeting minutes (last 12 mo.)', 'Annual meeting minutes (last 2 yr.)', 'Board resolution log', 'Election procedures', 'Proxy / ballot forms'] },
-  { emoji: '🏠', label: 'Property & maintenance', category: 'Vendor & Contracts',
-    items: ['Maintenance schedule', 'Landscape contract', 'Pool / amenity contracts', 'Inspection reports', 'Open work orders', 'Capital improvement list'] },
-  { emoji: '📋', label: 'Contracts & vendors', category: 'Vendor & Contracts',
-    items: ['Property management agreement', 'Active vendor contracts', 'Vendor insurance certificates', 'Utility account info', 'Waste removal contract'] },
-  { emoji: '⚖️', label: 'Compliance & legal', category: 'Other',
-    items: ['Open violations log', 'Pending litigation', 'State HOA registration', 'Prior violation notices', 'Fair housing records'] },
-  { emoji: '🔧', label: 'Operations', category: 'Other',
-    items: ['Emergency contact list', 'Key / fob inventory log', 'Gate / access codes', 'Move-in / move-out policy', 'Welcome packet'] },
+type DocItem = { name: string; desc: string }
+const DOC_SECTIONS: { emoji: string; label: string; category: DocCategory; items: DocItem[] }[] = [
+  { emoji: '📄', label: 'Governing documents', category: 'Governing Documents', items: [
+    { name: 'CC&Rs (Covenants, Conditions & Restrictions)', desc: 'The recorded legal rulebook that runs with the land and binds every owner — sets property restrictions, the power to charge assessments, and who maintains what.' },
+    { name: 'HOA Bylaws', desc: "The association's operating manual: how the board is elected, how meetings and votes work, and officer duties and terms." },
+    { name: 'Articles of Incorporation', desc: 'The short charter filed with the state that legally creates the association as a corporation.' },
+    { name: 'Rules & regulations', desc: 'Day-to-day rules the board adopts under the CC&Rs (pool hours, parking, noise) — easier to change than the CC&Rs themselves.' },
+    { name: 'Architectural standards', desc: 'Design rules for exterior changes — paint, fences, additions — and how owners get approval before building.' },
+    { name: 'Pet policy', desc: 'What pets are allowed, any size or breed limits, leash and waste rules, and registration requirements.' },
+    { name: 'Rental / leasing restrictions', desc: 'Limits on renting out units — minimum lease terms, caps on rentals, and tenant approval or registration.' },
+  ] },
+  { emoji: '💰', label: 'Financial records', category: 'Financial Documents', items: [
+    { name: 'Current annual budget', desc: "The board-approved plan of income and expenses for the year — the basis for each owner's dues." },
+    { name: 'Reserve fund study', desc: 'A professional forecast of major future repairs (roof, paving) and how much to set aside each year for them.' },
+    { name: 'Reserve fund balance statement', desc: 'How much is actually saved today in the reserve account for big-ticket repairs.' },
+    { name: 'Income & expense statement', desc: 'What the association earned and spent over a period — its profit-and-loss.' },
+    { name: 'Bank statements (last 3 months)', desc: 'Recent statements for the operating and reserve accounts.' },
+    { name: 'Delinquency report', desc: 'Owners behind on dues or assessments and how much each one owes.' },
+    { name: 'Most recent audit', desc: "An independent accountant's review confirming the financial statements are accurate." },
+    { name: 'Tax returns (last 2 years)', desc: "The association's filed federal (and state) income tax returns." },
+    { name: 'Insurance declarations', desc: "The summary pages of each policy showing what's covered, the limits, and deductibles." },
+  ] },
+  { emoji: '👥', label: 'Ownership & membership', category: 'Other', items: [
+    { name: 'Homeowner roster with contact info', desc: 'Master list of every owner with mailing address, email, and phone for official notices.' },
+    { name: 'Tenant directory', desc: 'List of renters and their units — where the community tracks non-owner occupants.' },
+    { name: 'Delinquency list', desc: 'Current list of accounts past due, used for collections and lien decisions.' },
+    { name: 'Board member roster', desc: 'Names, roles, and terms of the current board of directors.' },
+    { name: 'Committee member list', desc: 'Members serving on committees (architectural, social, finance) and what each covers.' },
+  ] },
+  { emoji: '📅', label: 'Meetings & governance', category: 'Reports & Meeting Minutes', items: [
+    { name: 'Board meeting minutes (last 12 mo.)', desc: 'Official written record of what the board discussed and decided at each meeting.' },
+    { name: 'Annual meeting minutes (last 2 yr.)', desc: 'Record of the yearly membership meeting — elections, budget ratification, and owner business.' },
+    { name: 'Board resolution log', desc: 'A running list of formal board decisions and policies adopted by vote.' },
+    { name: 'Election procedures', desc: 'The rules for nominating candidates, voting, and counting ballots for board elections.' },
+    { name: 'Proxy / ballot forms', desc: 'The forms owners use to vote, or to assign their vote to someone else.' },
+  ] },
+  { emoji: '🏠', label: 'Property & maintenance', category: 'Vendor & Contracts', items: [
+    { name: 'Maintenance schedule', desc: 'The plan and calendar for routine upkeep of common areas and equipment.' },
+    { name: 'Landscape contract', desc: 'The agreement with the lawn / landscaping vendor — scope, schedule, and cost.' },
+    { name: 'Pool / amenity contracts', desc: 'Service agreements for the pool, gym, gate, or other shared amenities.' },
+    { name: 'Inspection reports', desc: 'Results of structural, elevator, fire, or pest inspections of the property.' },
+    { name: 'Open work orders', desc: 'Repairs and service requests currently in progress or waiting.' },
+    { name: 'Capital improvement list', desc: 'Planned major upgrades or replacements beyond routine maintenance.' },
+  ] },
+  { emoji: '📋', label: 'Contracts & vendors', category: 'Vendor & Contracts', items: [
+    { name: 'Property management agreement', desc: 'The contract with your management company — services, fees, and term.' },
+    { name: 'Active vendor contracts', desc: 'All current service agreements (security, trash, elevator, and so on).' },
+    { name: 'Vendor insurance certificates', desc: "Proof that each vendor carries liability and workers' comp insurance." },
+    { name: 'Utility account info', desc: 'Account numbers and providers for shared electric, water, gas, and internet.' },
+    { name: 'Waste removal contract', desc: 'The trash and recycling pickup agreement — schedule and cost.' },
+  ] },
+  { emoji: '⚖️', label: 'Compliance & legal', category: 'Other', items: [
+    { name: 'Open violations log', desc: 'Owners currently cited for rule violations and the status of each case.' },
+    { name: 'Pending litigation', desc: 'Any active lawsuits the association is involved in, as plaintiff or defendant.' },
+    { name: 'State HOA registration', desc: 'Your filing or registration with the state agency that oversees associations.' },
+    { name: 'Prior violation notices', desc: 'Past warning and fine letters sent to owners for rule breaches.' },
+    { name: 'Fair housing records', desc: 'Documentation showing the association follows fair-housing and accommodation laws.' },
+  ] },
+  { emoji: '🔧', label: 'Operations', category: 'Other', items: [
+    { name: 'Emergency contact list', desc: 'Who to call for after-hours emergencies — vendors, board, utilities.' },
+    { name: 'Key / fob inventory log', desc: 'Record of who holds keys, fobs, and access cards to common areas.' },
+    { name: 'Gate / access codes', desc: 'Current codes and credentials for gates, doors, and shared spaces.' },
+    { name: 'Move-in / move-out policy', desc: 'Rules and fees for residents moving in or out — scheduling, deposits, elevator use.' },
+    { name: 'Welcome packet', desc: 'The intro materials given to new owners and residents.' },
+  ] },
 ]
 
 type DocItemState = { checked: boolean; file: File | null }
@@ -182,7 +230,7 @@ export default function SignupPage() {
         docState.forEach((sec, si) => {
           sec.items.forEach((it, ii) => {
             if (it.file) collected.push({
-              title: DOC_SECTIONS[si].items[ii],
+              title: DOC_SECTIONS[si].items[ii].name,
               category: DOC_SECTIONS[si].category,
               file: it.file,
             })
@@ -721,6 +769,10 @@ function DocWizard({
   const total = DOC_SECTIONS.length
   const onSummary = section >= total
 
+  // Which item's plain-English description is expanded. Keyed by `section-index`
+  // so the same row index in a different category doesn't stay open across jumps.
+  const [openKey, setOpenKey] = useState<string | null>(null)
+
   const doneCount = (i: number) => state[i].items.filter((it) => it.checked).length
   const allDone = (i: number) => doneCount(i) === DOC_SECTIONS[i].items.length
 
@@ -792,18 +844,29 @@ function DocWizard({
           <div className="su-doc-items">
             {sec.items.map((item, i) => {
               const it = s.items[i]
+              const dkey = `${section}-${i}`
+              const open = openKey === dkey
               return (
-                <div className="su-doc-item" key={item}>
-                  <button type="button" className={`su-doc-check${it.checked ? ' on' : ''}`}
-                    onClick={() => toggle(i)} aria-label={`${it.checked ? 'Uncheck' : 'Check'} ${item}`}>
-                    <IconCheck />
-                  </button>
-                  <span className={`su-doc-name${it.checked ? ' done' : ''}`}>{item}</span>
-                  <label className={`su-doc-up${it.file ? ' done' : ''}`}>
-                    {it.file ? '✓ Saved' : 'Upload'}
-                    <input className="su-doc-file" type="file"
-                      onChange={(e) => attach(i, e.target.files?.[0] ?? null)} />
-                  </label>
+                <div className="su-doc-row" key={item.name}>
+                  <div className="su-doc-item">
+                    <button type="button" className={`su-doc-check${it.checked ? ' on' : ''}`}
+                      onClick={() => toggle(i)} aria-label={`${it.checked ? 'Uncheck' : 'Check'} ${item.name}`}>
+                      <IconCheck />
+                    </button>
+                    {/* Tap the name to reveal a plain-English description of the
+                        document — the checkbox stays the confirm action. */}
+                    <button type="button" className={`su-doc-name${it.checked ? ' done' : ''}${open ? ' open' : ''}`}
+                      onClick={() => setOpenKey(open ? null : dkey)} aria-expanded={open}>
+                      <span className="su-doc-name-text">{item.name}</span>
+                      <span className="su-doc-caret" aria-hidden="true"><Chevron dir="right" /></span>
+                    </button>
+                    <label className={`su-doc-up${it.file ? ' done' : ''}`}>
+                      {it.file ? '✓ Saved' : 'Upload'}
+                      <input className="su-doc-file" type="file"
+                        onChange={(e) => attach(i, e.target.files?.[0] ?? null)} />
+                    </label>
+                  </div>
+                  {open && <div className="su-doc-desc">{item.desc}</div>}
                 </div>
               )
             })}
