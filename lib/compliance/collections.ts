@@ -194,6 +194,8 @@ export interface CollectionNoticeRow {
   dual_address_required?: boolean | null
 }
 
+export type PlanRequestStatus = 'requested' | 'approved' | 'modified' | 'denied' | 'withdrawn'
+
 export interface PaymentPlanRow {
   id: string
   community_id?: string
@@ -205,6 +207,16 @@ export interface PaymentPlanRow {
   frequency_days?: number | null   // e.g. 30 monthly
   next_due_at?: string | null
   paid_count?: number | null
+  // Resident-requested plan layer (payment-plan-requests.sql)
+  requested_by_owner?: boolean | null
+  request_status?: PlanRequestStatus | string | null
+  requested_amount?: number | null
+  requested_count?: number | null
+  requested_frequency_days?: number | null
+  decision_reason?: string | null
+  decided_at?: string | null
+  profile_id?: string | null
+  autopay_opt_in?: boolean | null
 }
 
 // ----------------------------------------------------------------------------
@@ -628,6 +640,19 @@ export function paymentPlanSignals(plans: PaymentPlanRow[] = [], now: Date = new
   const out: ComplianceSignal[] = []
   const nowMs = toDate(now)!.getTime()
   for (const p of plans) {
+    // An owner-requested plan awaiting board review — the board should act.
+    if (p.request_status === 'requested') {
+      out.push(signal({
+        id: `collections:plan-requested:${p.id}`,
+        domain: DOMAIN,
+        severity: 'soon',
+        title: 'An owner requested a payment plan',
+        detail: 'Review the proposed installment terms and approve, modify, or deny the request on the collection case.',
+        href: HREF,
+        citation: 'FS 718.116 / 720.3085',
+      }))
+      continue
+    }
     if (String(p.status ?? 'active') !== 'active') continue
     const due = toDate(p.next_due_at)
     if (due && due.getTime() < nowMs) {

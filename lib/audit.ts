@@ -43,6 +43,7 @@ export type AuditEventType =
   | 'collection.notice_logged'
   | 'collection.payment_plan_created'
   | 'collection.payment_plan_updated'
+  | 'collection.payment_plan_decided'
   | 'collection.resolved'
   // structural / SIRS (compliance domain A)
   | 'structural.building_added'

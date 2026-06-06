@@ -453,9 +453,14 @@ function PaymentPlanSection({ caseRow, plans, profileId, onChange, onError }: {
   caseRow: CollectionCaseRow; plans: PaymentPlanRow[]; profileId: string | null
   onChange: () => void; onError: (m: string) => void
 }) {
-  const active = plans.find(p => String(p.status) === 'active')
+  // A resident-requested plan awaiting review takes priority over the active
+  // panel (it still has status='active', so split it out by request_status).
+  const requested = plans.find(p => p.request_status === 'requested')
+  const active = plans.find(p => String(p.status) === 'active' && p.request_status !== 'requested')
   const [form, setForm] = useState<any>({ installment_amount: '', installment_count: '', frequency_days: 30, start_date: todayYmd() })
   const [busy, setBusy] = useState(false)
+  // Review sub-form for a resident request: null = show decision buttons.
+  const [review, setReview] = useState<any>({ mode: null, amount: '', count: '', freq: '', reason: '' })
 
   const create = async () => {
     setBusy(true)
@@ -509,10 +514,97 @@ function PaymentPlanSection({ caseRow, plans, profileId, onChange, onError }: {
     } catch (err: any) { onError(err?.message || 'Update failed') }
   }
 
+  // Decide a resident's plan request (ARC-style). 'modified' lets the board
+  // overwrite the proposed terms before approving; 'denied' requires a reason.
+  // The DB trigger fires the owner notice on the request_status change.
+  const decideRequest = async (
+    p: PaymentPlanRow,
+    decision: 'approved' | 'modified' | 'denied',
+    opts: { amount?: string; count?: string; freq?: string; reason?: string } = {},
+  ) => {
+    setBusy(true)
+    try {
+      const patch: any = { request_status: decision, decided_at: todayYmd(), decided_by: profileId }
+      if (decision === 'denied') {
+        patch.decision_reason = (opts.reason || '').trim() || null
+        patch.status = 'cancelled'
+      } else {
+        // Working terms = proposal, unless the board modified them.
+        patch.installment_amount = opts.amount != null && opts.amount !== '' ? Number(opts.amount) : Number(p.installment_amount)
+        patch.installment_count = opts.count != null && opts.count !== '' ? Number(opts.count) : Number(p.installment_count)
+        patch.frequency_days = opts.freq != null && opts.freq !== '' ? Number(opts.freq) : (Number(p.frequency_days) || 30)
+        // First installment is due at the plan start so the resident can pay now.
+        patch.start_date = p.start_date || todayYmd()
+        patch.next_due_at = p.start_date || todayYmd()
+      }
+      await withTimeout(supabase.from('ev_payment_plans').update(patch).eq('id', p.id))
+      if (decision !== 'denied') {
+        await withTimeout(supabase.from('ev_collection_cases').update({ on_payment_plan: true }).eq('id', caseRow.id))
+      }
+      await logAudit({
+        community_id: caseRow.community_id!, event_type: 'collection.payment_plan_decided',
+        target_type: 'payment_plan', target_id: p.id, metadata: { decision },
+      })
+      setReview({ mode: null, amount: '', count: '', freq: '', reason: '' })
+      onChange()
+    } catch (err: any) { onError(err?.message || 'Could not record the decision') }
+    finally { setBusy(false) }
+  }
+
   return (
     <section style={card}>
       <h2 className="bc-title" style={{ marginBottom: 10 }}>Payment plan</h2>
-      {active ? (
+      {requested ? (
+        <div style={{ border: '1px solid rgba(225,73,9,0.3)', borderRadius: 10, padding: '12px 14px', background: 'rgba(225,73,9,0.04)' }}>
+          <div style={{ fontWeight: 800, color: '#B54708', fontSize: 12.5, letterSpacing: 0.3, textTransform: 'uppercase' }}>Owner requested a plan</div>
+          <div style={{ fontWeight: 700, marginTop: 6 }}>
+            {fmt$(requested.requested_amount ?? requested.installment_amount)} × {requested.requested_count ?? requested.installment_count ?? '—'}
+            {' '}every {requested.requested_frequency_days ?? requested.frequency_days ?? 30} days
+          </div>
+          {requested.autopay_opt_in && <div style={{ fontSize: 12.5, opacity: 0.75, marginTop: 2 }}>Owner opted into autopay for installments.</div>}
+
+          {review.mode === 'modify' ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, alignItems: 'flex-end', marginTop: 10 }}>
+              <label className="admin-field"><span className="admin-field-label">Installment $</span>
+                <input className="admin-input" type="number" min="0" step="0.01"
+                  value={review.amount === '' ? (requested.requested_amount ?? requested.installment_amount ?? '') : review.amount}
+                  onChange={e => setReview((r: any) => ({ ...r, amount: e.target.value }))} /></label>
+              <label className="admin-field"><span className="admin-field-label"># of installments</span>
+                <input className="admin-input" type="number" min="1" step="1"
+                  value={review.count === '' ? (requested.requested_count ?? requested.installment_count ?? '') : review.count}
+                  onChange={e => setReview((r: any) => ({ ...r, count: e.target.value }))} /></label>
+              <label className="admin-field"><span className="admin-field-label">Every (days)</span>
+                <input className="admin-input" type="number" min="1" step="1"
+                  value={review.freq === '' ? (requested.requested_frequency_days ?? requested.frequency_days ?? 30) : review.freq}
+                  onChange={e => setReview((r: any) => ({ ...r, freq: e.target.value }))} /></label>
+              <button className="admin-primary-btn" disabled={busy}
+                onClick={() => decideRequest(requested, 'modified', { amount: review.amount, count: review.count, freq: review.freq })}>
+                {busy ? 'Saving…' : 'Approve with these terms'}
+              </button>
+              <button className="admin-btn-ghost" onClick={() => setReview({ mode: null, amount: '', count: '', freq: '', reason: '' })}>Back</button>
+            </div>
+          ) : review.mode === 'deny' ? (
+            <div style={{ marginTop: 10 }}>
+              <label className="admin-field"><span className="admin-field-label">Reason (shared with the owner)</span>
+                <textarea className="admin-input" rows={2} value={review.reason}
+                  onChange={e => setReview((r: any) => ({ ...r, reason: e.target.value }))} /></label>
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button className="admin-primary-btn" disabled={busy || !review.reason.trim()}
+                  onClick={() => decideRequest(requested, 'denied', { reason: review.reason })}>
+                  {busy ? 'Saving…' : 'Confirm denial'}
+                </button>
+                <button className="admin-btn-ghost" onClick={() => setReview({ mode: null, amount: '', count: '', freq: '', reason: '' })}>Back</button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+              <button className="admin-primary-btn" disabled={busy} onClick={() => decideRequest(requested, 'approved')}>Approve as proposed</button>
+              <button className="admin-btn-ghost" onClick={() => setReview((r: any) => ({ ...r, mode: 'modify' }))}>Modify terms</button>
+              <button className="admin-btn-ghost" onClick={() => setReview((r: any) => ({ ...r, mode: 'deny' }))}>Deny</button>
+            </div>
+          )}
+        </div>
+      ) : active ? (
         <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '12px 14px', background: '#fff' }}>
           <div style={{ fontWeight: 700 }}>
             {fmt$(active.installment_amount)} every {active.frequency_days} days

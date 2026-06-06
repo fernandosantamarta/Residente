@@ -6,7 +6,7 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { MEETING_TYPES, DOC_TYPES, VOTE_TYPES, OPEN_BALLOT_WAIVER_NOTICE } from '@/lib/voice'
 import { logAudit } from '@/lib/audit'
-import { encryptAnswer } from '@/lib/ballotCrypto'
+import { encryptAnswer, generateTrackingCode, receiptCommitment } from '@/lib/ballotCrypto'
 import { useT } from '@/lib/i18n'
 
 // Shared meeting-detail body. Rendered both by the standalone page
@@ -98,27 +98,59 @@ export function ResidentVoteCard({ vote: v, onVoted }) {
   const [casting, setCasting] = useState(false)
   const [castErr, setCastErr] = useState(null)
   const [myVote, setMyVote] = useState(null)
+  const [receipt, setReceipt] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
   const isOpen = v.status === 'open'
   const typeLabel = VOTE_TYPES.find(vt => vt.value === v.type)?.label ?? v.type
   const isSecret = v.ballot_type === 'secret'
   const total = (v.yes_count ?? 0) + (v.no_count ?? 0) + (v.abstain_count ?? 0)
+
+  // Map a cast error to the right UI state (shared by both paths below).
+  const handleCastError = (error: any): boolean => {
+    if (error?.code === '23505') { setCastErr(t('voice.errAlreadyVoted')); return true }
+    if (/consent required/i.test(error?.message ?? '')) { setCastErr('CONSENT_REQUIRED'); return true }
+    return false
+  }
 
   const cast = async (answer) => {
     if (!hasSupabase || !profile) return
     setCasting(true)
     setCastErr(null)
     try {
-      let row: any = {
-        vote_id:     v.id,
-        profile_id:  profile.id,
-        unit_number: profile.unit_number,
-        answer,
+      // E2E-verifiable secret vote → the decoupling RPC. Identity goes to
+      // ev_participation, the ciphertext to the anonymous ev_ballot_box, with no
+      // stored link. The voter gets a tracking code (receipt) to verify later.
+      if (isSecret && v.verifiable) {
+        if (!v.public_key) { setCastErr(t('voice.errMissingKey')); return }
+        const code = generateTrackingCode()
+        const commit = await receiptCommitment(code)
+        const { data, error } = await withTimeout(
+          supabase.rpc('ev_cast_ballot', {
+            p_vote_id:           v.id,
+            p_encrypted_answer:  encryptAnswer(answer, v.public_key),
+            p_candidate_ids_enc: null,
+            p_receipt_commit:    commit,
+          })
+        )
+        if (error) { if (handleCastError(error)) return; throw error }
+        logAudit({
+          community_id: v.community_id,
+          event_type:   'ballot.cast',
+          target_type:  'ballot',
+          target_id:    (data as any)?.box_id ?? null,
+          // No `answer` for a secret ballot — it must not sit next to the actor.
+          metadata:     { vote_id: v.id, ballot_type: 'secret', verifiable: true },
+        })
+        setMyVote(answer)
+        setReceipt(code)
+        onVoted()
+        return
       }
+
+      // Legacy path: open ballots, or secret votes created before E2E-V.
+      let row: any = { vote_id: v.id, profile_id: profile.id, unit_number: profile.unit_number, answer }
       if (isSecret) {
-        if (!v.public_key) {
-          setCastErr(t('voice.errMissingKey'))
-          return
-        }
+        if (!v.public_key) { setCastErr(t('voice.errMissingKey')); return }
         row = {
           vote_id:           v.id,
           profile_id:        profile.id,
@@ -131,23 +163,14 @@ export function ResidentVoteCard({ vote: v, onVoted }) {
       const { data: ballot, error } = await withTimeout(
         supabase.from('ev_ballots').insert(row).select('id').single()
       )
-      if (error) {
-        if (error.code === '23505') {
-          setCastErr(t('voice.errAlreadyVoted'))
-        } else if (/consent required/i.test(error.message ?? '')) {
-          // ev_ballot_consent_guard fired — the user hasn't consented yet.
-          setCastErr('CONSENT_REQUIRED')
-        } else {
-          throw error
-        }
-        return
-      }
+      if (error) { if (handleCastError(error)) return; throw error }
       logAudit({
         community_id: v.community_id,
         event_type:   'ballot.cast',
         target_type:  'ballot',
         target_id:    ballot?.id ?? null,
-        metadata:     { vote_id: v.id, answer, ballot_type: v.ballot_type },
+        // Don't log the choice for a secret ballot (it would link actor→answer).
+        metadata:     isSecret ? { vote_id: v.id, ballot_type: 'secret' } : { vote_id: v.id, answer, ballot_type: v.ballot_type },
       })
       setMyVote(answer)
       onVoted()
@@ -202,6 +225,25 @@ export function ResidentVoteCard({ vote: v, onVoted }) {
         <div>
           {myVote && (
             <div className="voice-my-vote">{t('voice.yourVotePrefix')} <strong>{t(`voice.answer_${myVote}`)}</strong> {t('voice.yourVoteRecorded')}</div>
+          )}
+          {receipt && (
+            <div className="voice-receipt">
+              <div className="voice-receipt-title">{t('voice.receiptTitle')}</div>
+              <div className="voice-receipt-row">
+                <code className="voice-receipt-code">{receipt}</code>
+                <button
+                  type="button"
+                  className="voice-receipt-copy"
+                  onClick={() => { navigator.clipboard?.writeText(receipt); setCopied(true); setTimeout(() => setCopied(false), 2000) }}
+                >
+                  {copied ? t('voice.receiptCopied') : t('voice.receiptCopy')}
+                </button>
+              </div>
+              <p className="voice-receipt-help">{t('voice.receiptHelp')}</p>
+              <Link href={`/verify/${v.id}`} target="_blank" rel="noopener" className="voice-receipt-link">
+                {t('voice.receiptVerifyLink')} &rarr;
+              </Link>
+            </div>
           )}
           {(v.status === 'tallied' || v.status === 'published') && (
             <div className="voice-results">

@@ -50,14 +50,18 @@ Deno.serve(async (req) => {
 
     const { data: v, error } = await supabase
       .from('ev_violations')
-      .select('id, community_id, kind, amount, status, rule_title, resident_label')
+      .select('id, community_id, kind, amount, status, rule_title, resident_label, dispute_status, reduced_amount')
       .eq('id', violation_id)
       .single()
     if (error || !v) return json({ error: 'Violation not found' }, 404)
     if (v.kind !== 'fine') return json({ error: 'Only fines can be paid' }, 400)
     if (v.status === 'closed') return json({ error: 'This fine is already settled' }, 400)
 
-    const cents = Math.round(Number(v.amount) * 100)
+    // If a fining committee reduced the fine, charge the reduced amount.
+    const payable = v.dispute_status === 'reduced' && v.reduced_amount != null
+      ? Number(v.reduced_amount)
+      : Number(v.amount)
+    const cents = Math.round(payable * 100)
     if (!Number.isFinite(cents) || cents <= 0 || cents > 1_000_000) {
       return json({ error: 'This fine has no payable amount' }, 400)
     }

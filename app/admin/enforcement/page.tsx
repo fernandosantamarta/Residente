@@ -22,6 +22,7 @@ import {
   type ViolationRow, type HearingRow, type FiningCommitteeMemberRow, type SuspensionRow,
   type EnforcementStage, type SuspensionBasis, type SuspensionRights,
 } from '@/lib/compliance/enforcement'
+import { decideDispute } from '@/lib/violations'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -173,6 +174,34 @@ export default function EnforcementPage() {
   const markLevied = (v: ViolationRow) =>
     patchViolation(v.id, { enforcement_stage: 'levied', levied_at: todayYmd() }, 'Fine recorded as levied.')
 
+  // ---- owner-contested fines (HB 1021 / HB 1203) ----
+  const contestedFines = useMemo(
+    () => violations.filter(v => v.dispute_status === 'filed' || v.dispute_status === 'under_review'),
+    [violations],
+  )
+
+  const decideContest = async (
+    v: ViolationRow,
+    decision: 'upheld' | 'dismissed' | 'reduced',
+    note: string,
+    reducedAmount?: number | null,
+  ) => {
+    setError('')
+    const err = await decideDispute(v.id, decision, note, reducedAmount)
+    if (err) { setError(err); return }
+    setMsg(decision === 'dismissed' ? 'Recorded — the fine was dismissed; the owner has been notified.'
+      : decision === 'reduced' ? 'Recorded — the reduced fine is now payable; the owner has been notified.'
+      : 'Recorded — the committee upheld the fine; the owner has been notified.')
+    await load()
+  }
+
+  const openEvidence = async (path: string) => {
+    try {
+      const { data } = await supabase.storage.from('request-attachments').createSignedUrl(path, 3600)
+      if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener')
+    } catch { setError('Could not open the evidence file.') }
+  }
+
   // ---- propose-fine intake ----
   const [form, setForm] = useState<any>({ resident_id: '', continuing: false, hearing_required: true })
   const setF = (k: string, val: any) => setForm((f: any) => ({ ...f, [k]: val }))
@@ -262,6 +291,34 @@ export default function EnforcementPage() {
 
       {status === 'ready' && (
         <>
+          {/* ---- Owner-contested fines (statutory right to contest) ---- */}
+          {contestedFines.length > 0 && (
+            <section style={{ marginTop: 18 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <h2 className="bc-title" style={{ margin: 0 }}>Contested fines ({contestedFines.length})</h2>
+                <span style={chip(committeeOk ? '#067647' : '#B42318')}>
+                  {committeeOk ? 'Committee ready ✓' : `Committee short — ${independents.length}/${FINING_COMMITTEE_MIN.value}`}
+                </span>
+              </div>
+              <p className="admin-dek" style={{ marginTop: 6 }}>
+                An owner has exercised their right to contest. Send the {HEARING_NOTICE_DAYS.value}-day hearing notice,
+                convene the independent committee, then record the decision. Do not impose the fine until the committee rules.
+              </p>
+              {contestedFines.map(v => (
+                <ContestedFineRow
+                  key={v.id}
+                  v={v}
+                  hearing={hearingByViolation.get(v.id)}
+                  committeeOk={committeeOk}
+                  onSendNotice={() => sendHearingNotice(v)}
+                  onScheduleHearing={(date) => scheduleHearing(v, hearingByViolation.get(v.id), date)}
+                  onOpenEvidence={openEvidence}
+                  onDecide={decideContest}
+                />
+              ))}
+            </section>
+          )}
+
           {/* ---- Fining committee ---- */}
           <section style={{ marginTop: 18 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
@@ -397,6 +454,98 @@ export default function EnforcementPage() {
 
 function chip(color: string): React.CSSProperties {
   return { fontSize: 11.5, fontWeight: 700, color, background: color + '14', padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap' }
+}
+
+// ----------------------------------------------------------------------------
+// Contested-fine row: owner's reason + evidence, the 14-day notice / hearing
+// controls, and the committee decision (uphold / reduce / dismiss).
+// ----------------------------------------------------------------------------
+function ContestedFineRow({ v, hearing, committeeOk, onSendNotice, onScheduleHearing, onOpenEvidence, onDecide }: {
+  v: ViolationRow
+  hearing: HearingRow | undefined
+  committeeOk: boolean
+  onSendNotice: () => void
+  onScheduleHearing: (date: string) => void
+  onOpenEvidence: (path: string) => void
+  onDecide: (v: ViolationRow, decision: 'upheld' | 'dismissed' | 'reduced', note: string, reducedAmount?: number | null) => void
+}) {
+  const [mode, setMode] = useState<null | 'uphold' | 'reduce' | 'dismiss'>(null)
+  const [note, setNote] = useState('')
+  const [reduced, setReduced] = useState('')
+  const [date, setDate] = useState('')
+  const noticed = !!hearing?.notice_sent_at
+  const ready = hearingReadyDate(hearing)
+
+  const submit = () => {
+    if (mode === 'reduce') onDecide(v, 'reduced', note, Number(reduced) || 0)
+    else if (mode === 'dismiss') onDecide(v, 'dismissed', note)
+    else if (mode === 'uphold') onDecide(v, 'upheld', note)
+    setMode(null); setNote(''); setReduced('')
+  }
+
+  return (
+    <div style={{ border: '1px solid rgba(0,0,0,0.1)', borderRadius: 12, padding: '14px 16px', background: '#fff', marginTop: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+        <div style={{ fontWeight: 700 }}>
+          {v.resident_label || 'Owner'} · {v.amount != null ? fmt$(v.amount) : '—'}
+          {v.rule_title ? ` · ${v.rule_title}` : ''}
+        </div>
+        <span style={chip('#B54708')}>Contested {v.dispute_filed_at || ''}</span>
+      </div>
+      {v.dispute_reason && (
+        <div style={{ marginTop: 8, fontSize: 13, color: '#0A2440', background: '#FAFAFA', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 8, padding: '8px 10px' }}>
+          <span style={{ fontWeight: 600 }}>Owner&rsquo;s reason: </span>{v.dispute_reason}
+        </div>
+      )}
+      {v.dispute_attachment_path && (
+        <button type="button" className="admin-btn-ghost" style={{ marginTop: 8 }}
+          onClick={() => onOpenEvidence(v.dispute_attachment_path!)}>
+          View evidence{v.dispute_attachment_name ? ` · ${v.dispute_attachment_name}` : ''}
+        </button>
+      )}
+
+      {/* Hearing notice / schedule */}
+      <div style={{ marginTop: 10, fontSize: 12.5, color: 'rgba(10,36,64,0.7)' }}>
+        {noticed
+          ? <>14-day notice sent {hearing?.notice_sent_at}{ready ? ` · hearing can be held on/after ${ymd(ready)}` : ''}{hearing?.scheduled_at ? ` · scheduled ${hearing.scheduled_at}` : ''}</>
+          : 'No hearing notice sent yet.'}
+      </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        {!noticed && <button type="button" className="admin-primary-btn" onClick={onSendNotice}>Send 14-day hearing notice</button>}
+        {noticed && !hearing?.scheduled_at && (
+          <>
+            <input className="admin-input" type="date" value={date} onChange={e => setDate(e.target.value)} style={{ maxWidth: 170 }} />
+            <button type="button" className="admin-btn-ghost" disabled={!date} onClick={() => onScheduleHearing(date)}>Schedule hearing</button>
+          </>
+        )}
+      </div>
+
+      {/* Committee decision */}
+      {!committeeOk && <div className="admin-note admin-note-warn" style={{ marginTop: 10, fontSize: 12.5 }}>Add at least {FINING_COMMITTEE_MIN.value} independent committee members before ruling.</div>}
+      {mode ? (
+        <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {mode === 'reduce' && (
+            <label className="admin-field"><span className="admin-field-label">Reduced amount ($)</span>
+              <input className="admin-input" type="number" min="0" step="0.01" value={reduced} onChange={e => setReduced(e.target.value)} /></label>
+          )}
+          <label className="admin-field"><span className="admin-field-label">Decision note (shared with the owner)</span>
+            <textarea className="admin-input" rows={2} value={note} onChange={e => setNote(e.target.value)} /></label>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" className="admin-primary-btn" disabled={mode === 'reduce' && !(Number(reduced) > 0)} onClick={submit}>
+              Confirm {mode === 'uphold' ? 'uphold' : mode === 'reduce' ? 'reduction' : 'dismissal'}
+            </button>
+            <button type="button" className="admin-btn-ghost" onClick={() => { setMode(null); setNote(''); setReduced('') }}>Back</button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+          <button type="button" className="admin-primary-btn" disabled={!committeeOk} onClick={() => setMode('uphold')}>Uphold fine</button>
+          <button type="button" className="admin-btn-ghost" disabled={!committeeOk} onClick={() => setMode('reduce')}>Reduce fine</button>
+          <button type="button" className="admin-btn-ghost" disabled={!committeeOk} onClick={() => setMode('dismiss')}>Dismiss fine</button>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ----------------------------------------------------------------------------

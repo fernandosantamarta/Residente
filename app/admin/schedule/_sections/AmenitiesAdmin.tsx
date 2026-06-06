@@ -69,7 +69,7 @@ function formToInput(f: FormState): AmenityInput {
 
 export function AmenitiesAdmin() {
   const { amenities, addAmenity, updateAmenity, removeAmenity, canUseDb } = useManageAmenities()
-  const { reservations, residents, cancel: cancelReservation, bookFor } = useAmenityBookings()
+  const { reservations, residents, cancel: cancelReservation, refund: refundReservation, bookFor } = useAmenityBookings()
 
   const [form, setForm] = useState<FormState>(EMPTY)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -123,6 +123,19 @@ export function AmenitiesAdmin() {
       setSuccessMsg('Reservation cancelled.')
     } catch (e: any) {
       setError(e?.message || 'Could not cancel the reservation.')
+    }
+  }
+
+  // Board override: refund a card-paid booking regardless of the cancellation
+  // window (goodwill / past-cutoff). Issues a full Stripe refund.
+  const onRefundRes = async (id: string, who: string) => {
+    if (!window.confirm(`Refund ${who}'s payment in full? This cannot be undone.`)) return
+    try {
+      const r = await refundReservation(id)
+      if (r.refunded) setSuccessMsg('Refund issued.')
+      else setError(r.error || 'Could not issue the refund.')
+    } catch (e: any) {
+      setError(e?.message || 'Could not issue the refund.')
     }
   }
 
@@ -404,8 +417,10 @@ export function AmenitiesAdmin() {
                   <div className="admin-sched-row-body">
                     <div className="admin-sched-row-title">
                       {r.residentName} · {amenityName[r.amenityId] || 'Amenity'}
-                      {r.paymentStatus === 'paid' && <span className="amen-pay-tag paid">Paid</span>}
+                      {r.paymentStatus === 'paid' && r.refundStatus === 'none' && <span className="amen-pay-tag paid">Paid</span>}
                       {r.paymentStatus === 'pending' && <span className="amen-pay-tag pending">Payment pending</span>}
+                      {r.refundStatus === 'refunded' && <span className="amen-pay-tag refunded">Refunded</span>}
+                      {r.refundStatus === 'failed' && <span className="amen-pay-tag failed">Refund failed</span>}
                     </div>
                     <div className="admin-sched-row-meta">
                       {fmtResDate(r.reservedDate)} · {fmtSlot(r.startTime)}
@@ -413,13 +428,24 @@ export function AmenitiesAdmin() {
                       {r.note && <> · “{r.note}”</>}
                     </div>
                   </div>
-                  <button
-                    className="admin-sched-row-del"
-                    onClick={() => onCancelRes(r.id, r.residentName)}
-                    aria-label={`Cancel ${r.residentName}'s reservation`}
-                  >
-                    Cancel
-                  </button>
+                  <div className="admin-sched-row-actions">
+                    {(r.paymentStatus === 'paid' && (r.refundStatus === 'none' || r.refundStatus === 'failed')) && (
+                      <button
+                        className="admin-btn-ghost"
+                        onClick={() => onRefundRes(r.id, r.residentName)}
+                        aria-label={`Refund ${r.residentName}'s payment`}
+                      >
+                        Refund
+                      </button>
+                    )}
+                    <button
+                      className="admin-sched-row-del"
+                      onClick={() => onCancelRes(r.id, r.residentName)}
+                      aria-label={`Cancel ${r.residentName}'s reservation`}
+                    >
+                      Cancel
+                    </button>
+                  </div>
                 </div>
               ))}
             </div>

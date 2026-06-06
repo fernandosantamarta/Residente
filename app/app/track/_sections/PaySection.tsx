@@ -9,6 +9,8 @@ import { fmtMoney, monthsCovered, monthsOwed } from '@/lib/dues'
 import { useMyViolations, payFine } from '@/lib/violations'
 import { useT } from '@/lib/i18n'
 import { DetailDialog } from './DetailDialog'
+import { PaymentPlanCard } from './PaymentPlanCard'
+import { ContestFineControl } from './ContestFineControl'
 
 const fmtDate = (d: string | Date | null | undefined) => {
   if (!d) return '—'
@@ -304,6 +306,10 @@ export function PaySection() {
           (matches the open-votes band). Each fine is its own Stripe charge that
           closes itself on payment, so the band vanishes once everything's paid. */}
       <FinesDueCard />
+
+      {/* Payment plan — request/track an installment plan on a collection case.
+          Only renders when the resident has an open case or a live plan. */}
+      <PaymentPlanCard resident={resident} />
 
       {/* Current Balance hero — full width: balance on the left, a divider,
           then the three progress rings on the right. */}
@@ -863,14 +869,17 @@ function FinesDueCard() {
               <div className="pay-fine-title">{v.rule_title || t('pay.fineGeneric')}</div>
               <div className="pay-fine-meta">{t('pay.fineIssued', { date: fmtDate(v.opened_at) })}</div>
             </div>
-            <button
-              type="button"
-              className="pay-cta-primary pay-fine-pay"
-              disabled={payingId === v.id}
-              onClick={() => onPay(v.id)}
-            >
-              {payingId === v.id ? t('pay.startingCheckout') : t('pay.payNow')}
-            </button>
+            <div className="pay-fine-actions">
+              <button
+                type="button"
+                className="pay-cta-primary pay-fine-pay"
+                disabled={payingId === v.id}
+                onClick={() => onPay(v.id)}
+              >
+                {payingId === v.id ? t('pay.startingCheckout') : t('pay.payNow')}
+              </button>
+              <ContestFineControl violation={v} className="pay-cta-secondary pay-fine-contest" />
+            </div>
           </div>
         ))}
       </div>

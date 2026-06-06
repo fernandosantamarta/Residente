@@ -22,10 +22,21 @@ verify_jwt = true
 [functions.create-fine-checkout]
 verify_jwt = true
 
+# refund-amenity is called by a signed-in resident cancelling their own paid
+# booking (within the window) or by a board member overriding the window — keep
+# JWT verification on so RLS scopes visibility to the caller before any refund.
+[functions.refund-amenity]
+verify_jwt = true
+
 # charge-autopay is the recurring-charge engine, called on a schedule (cron /
 # scheduled function), not by a browser. JWT verification MUST stay off —
 # authenticity is the CRON_SECRET header check inside the function.
 [functions.charge-autopay]
+verify_jwt = false
+
+# charge-plan-installment charges due payment-plan installments for residents who
+# opted into autopay. Same posture as charge-autopay: scheduled, CRON_SECRET-gated.
+[functions.charge-plan-installment]
 verify_jwt = false
 
 # stripe-webhook is called by Stripe, which has no Supabase JWT. JWT

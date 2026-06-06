@@ -12,6 +12,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 export type ViolationKind = 'warning' | 'fine'
 export type ViolationStatus = 'open' | 'appealed' | 'closed'
 export type ViolationResolution = 'stripe-paid' | 'manual-paid' | 'waived' | 'dismissed'
+export type DisputeStatus = 'filed' | 'under_review' | 'upheld' | 'dismissed' | 'reduced'
 
 export type Violation = {
   id: string
@@ -27,9 +28,18 @@ export type Violation = {
   notes: string | null
   opened_at: string
   closed_at: string | null
+  // Fine-dispute layer (fine-disputes.sql)
+  dispute_status: DisputeStatus | null
+  dispute_filed_at: string | null
+  dispute_reason: string | null
+  dispute_decided_at: string | null
+  dispute_decision_note: string | null
+  reduced_amount: number | null
+  dispute_attachment_path: string | null
+  dispute_attachment_name: string | null
 }
 
-const SELECT = 'id, profile_id, kind, rule_id, rule_title, resident_label, amount, status, resolution, stripe_invoice_id, notes, opened_at, closed_at'
+const SELECT = 'id, profile_id, kind, rule_id, rule_title, resident_label, amount, status, resolution, stripe_invoice_id, notes, opened_at, closed_at, dispute_status, dispute_filed_at, dispute_reason, dispute_decided_at, dispute_decision_note, reduced_amount, dispute_attachment_path, dispute_attachment_name'
 
 const rowTo = (r: any): Violation => ({
   id: r.id,
@@ -45,6 +55,14 @@ const rowTo = (r: any): Violation => ({
   notes: r.notes ?? null,
   opened_at: r.opened_at,
   closed_at: r.closed_at ?? null,
+  dispute_status: r.dispute_status ?? null,
+  dispute_filed_at: r.dispute_filed_at ?? null,
+  dispute_reason: r.dispute_reason ?? null,
+  dispute_decided_at: r.dispute_decided_at ?? null,
+  dispute_decision_note: r.dispute_decision_note ?? null,
+  reduced_amount: r.reduced_amount ?? null,
+  dispute_attachment_path: r.dispute_attachment_path ?? null,
+  dispute_attachment_name: r.dispute_attachment_name ?? null,
 })
 
 const today = () => new Date().toISOString().slice(0, 10)
@@ -177,6 +195,89 @@ export async function payFine(violationId: string): Promise<string | null> {
   } catch (err) {
     return (err as Error)?.message || 'Could not start checkout.'
   }
+}
+
+// ---------- fine disputes (statutory contest) ----------
+const MAX_EVIDENCE = 10 * 1024 * 1024  // 10MB, matches RequestForm
+
+// Resident contests their own fine. Optionally uploads photo/PDF evidence to the
+// existing 'request-attachments' bucket, then files the dispute via the
+// file_fine_dispute RPC (security definer — writes only the dispute_* fields).
+// Routes the fine onto the hearing track. Returns an error string, or null.
+export async function fileDispute(
+  violationId: string,
+  reason: string,
+  file?: File | null,
+): Promise<string | null> {
+  if (!hasSupabase || !supabase) return 'Not configured.'
+  const { data: auth } = await supabase.auth.getUser()
+  const user = auth?.user
+  if (!user) return 'Please sign in to contest a fine.'
+  if (file && file.size > MAX_EVIDENCE) return 'That file is too large (max 10MB).'
+
+  let attachment_path: string | null = null
+  let attachment_name: string | null = null
+  let uploadedPath: string | null = null
+  try {
+    if (file) {
+      // community comes from the caller's profile (same convention as RequestForm).
+      const { data: prof } = await supabase.from('profiles').select('community_id').eq('id', user.id).single()
+      const communityId = prof?.community_id
+      if (!communityId) return 'Could not resolve your community.'
+      const ext = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : 'bin'
+      const path = `${communityId}/${user.id}/${crypto.randomUUID()}.${ext}`
+      const up = await supabase.storage.from('request-attachments').upload(path, file)
+      if (up.error) return up.error.message || 'Could not upload your evidence.'
+      uploadedPath = path
+      attachment_path = path
+      attachment_name = file.name
+    }
+    const { error } = await supabase.rpc('file_fine_dispute', {
+      p_violation_id: violationId,
+      p_reason: reason,
+      p_attachment_path: attachment_path,
+      p_attachment_name: attachment_name,
+    })
+    if (error) {
+      if (uploadedPath) supabase.storage.from('request-attachments').remove([uploadedPath])
+      return error.message || 'Could not file the dispute.'
+    }
+    return null
+  } catch (err) {
+    if (uploadedPath) supabase.storage.from('request-attachments').remove([uploadedPath])
+    return (err as Error)?.message || 'Could not file the dispute.'
+  }
+}
+
+// Board records the fining committee's decision on a contested fine. 'dismissed'
+// closes the fine (waived); 'reduced' sets the payable amount; 'upheld' keeps the
+// fine open for payment. The DB trigger notifies the owner of the decision.
+export async function decideDispute(
+  id: string,
+  decision: 'upheld' | 'dismissed' | 'reduced',
+  note: string,
+  reducedAmount?: number | null,
+): Promise<string | null> {
+  if (!hasSupabase || !supabase) return 'Not configured.'
+  const patch: Record<string, any> = {
+    dispute_status: decision,
+    dispute_decided_at: today(),
+    dispute_decision_note: note || null,
+  }
+  if (decision === 'reduced') patch.reduced_amount = reducedAmount ?? null
+  if (decision === 'dismissed') {
+    // Contest upheld for the owner → the fine is waived and closed.
+    patch.status = 'closed'
+    patch.resolution = 'waived'
+    patch.closed_at = today()
+    patch.enforcement_stage = 'rejected'
+  } else {
+    // upheld / reduced → fine stands; reopen for payment, mark the committee result.
+    patch.status = 'open'
+    patch.enforcement_stage = 'upheld'
+  }
+  const { error } = await supabase.from('ev_violations').update(patch).eq('id', id)
+  return error ? (error.message || 'Could not record the decision.') : null
 }
 
 // ---------- admin management ----------
