@@ -198,6 +198,8 @@ export default function CompliancePage() {
   const [proxies, setProxies] = useState<ProxyRow[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError] = useState('')
+  // "Needs attention" filter toggle (mock parity): All / Overdue / Due soon.
+  const [seg, setSeg] = useState<'all' | 'overdue' | 'soon'>('all')
 
   const load = useCallback(async () => {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
@@ -269,6 +271,22 @@ export default function CompliancePage() {
     return m
   }, [signals])
 
+  // Mock-parity derived values: the deadline-sorted "needs attention" list
+  // (filtered by the seg toggle) and the on-track / compliant read for the tiles.
+  const attention = useMemo(
+    () => signals.filter(s => seg === 'all' || (seg === 'overdue' ? s.severity === 'overdue' : s.severity === 'soon')),
+    [signals, seg],
+  )
+  const visibleWs = useMemo(
+    () => WORKSPACES.filter(w => !(w.href === '/admin/structural' && community?.association_type === 'hoa')),
+    [community],
+  )
+  const clearWs = useMemo(
+    () => visibleWs.filter(w => { const c = wsCounts[wsBase(w.href)]; return !c || (!c.overdue && !c.soon) }).length,
+    [visibleWs, wsCounts],
+  )
+  const compliantPct = visibleWs.length ? Math.round((clearWs / visibleWs.length) * 100) : 100
+
   return (
     <div className="admin-page">
       <div className="admin-kicker">Florida compliance</div>
@@ -299,107 +317,115 @@ export default function CompliancePage() {
 
       {status === 'ready' && (
         <>
-          {/* Workspaces — overall status summarised inline in the header, and
-              each card badged with its own overdue/soon count (this combines the
-              former standalone Overdue / Due-soon / To-do count cards). */}
-          <section style={{ margin: '18px 0 22px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-              <h2 className="bc-title" style={{ margin: 0 }}>Workspaces</h2>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                {(['overdue', 'soon', 'info'] as Severity[]).map(sev => (
-                  <span key={sev} style={{ fontSize: 12, fontWeight: 700, color: SEVERITY_META[sev].color, background: SEVERITY_META[sev].bg, padding: '4px 11px', borderRadius: 999 }}>
-                    {counts[sev]} {SEVERITY_META[sev].label}
-                  </span>
+          {/* Stat tiles (mock parity) — flagged counts + an on-track / compliant read. */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14, margin: '18px 0 22px' }}>
+            {[
+              { v: counts.overdue, l: 'Overdue', c: '#B42318' },
+              { v: counts.soon, l: 'Due soon', c: '#B54708' },
+              { v: clearWs, l: 'On track', c: '#067647' },
+              { v: `${compliantPct}%`, l: 'Compliant', c: '#2A1206' },
+            ].map(s => (
+              <div key={s.l} style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, padding: '16px 18px' }}>
+                <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, color: s.c }}>{s.v}</div>
+                <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'rgba(0,0,0,0.45)', marginTop: 6 }}>{s.l}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Needs attention — one deadline-sorted list with a filter toggle. */}
+          <div className="card" style={{ marginBottom: 24 }}>
+            <div className="card-head">
+              <div><h2>Needs attention</h2><div className="sub">Sorted by deadline</div></div>
+              <div style={{ display: 'inline-flex', gap: 2, padding: 3, background: 'rgba(0,0,0,0.05)', borderRadius: 999 }}>
+                {(['all', 'overdue', 'soon'] as const).map(k => (
+                  <button key={k} type="button" onClick={() => setSeg(k)}
+                    style={{ border: 'none', cursor: 'pointer', borderRadius: 999, padding: '5px 13px', fontSize: 12.5, fontWeight: 700,
+                      background: seg === k ? '#fff' : 'transparent', color: seg === k ? '#2A1206' : 'rgba(0,0,0,0.5)',
+                      boxShadow: seg === k ? '0 1px 3px rgba(0,0,0,0.12)' : 'none' }}>
+                    {k === 'all' ? 'All' : k === 'overdue' ? 'Overdue' : 'Due soon'}
+                  </button>
                 ))}
               </div>
             </div>
-            {WORKSPACE_GROUPS.map(group => {
-              const items = WORKSPACES.filter(w => w.group === group && !(w.href === '/admin/structural' && community?.association_type === 'hoa'))
-              if (!items.length) return null
-              return (
-                <div key={group} style={{ marginTop: 16 }}>
-                  <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'rgba(0,0,0,0.4)', marginBottom: 8 }}>{group}</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 10 }}>
-                    {items.map(w => {
-                      const c = wsCounts[wsBase(w.href)] || { overdue: 0, soon: 0 }
-                      const badge = c.overdue
-                        ? { t: `${c.overdue} overdue`, col: '#B42318' }
-                        : c.soon
-                          ? { t: `${c.soon} due soon`, col: '#B54708' }
-                          : { t: 'Clear', col: '#067647' }
-                      return (
-                        <Link key={w.href} href={w.href} style={{ textDecoration: 'none', color: 'inherit' }}>
-                          <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${w.color}`, borderRadius: 12, padding: '14px 16px', background: '#fff', height: '100%' }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
-                              <div style={{ fontWeight: 700, fontSize: 14.5 }}>{w.label}</div>
-                              <span style={{ fontSize: 11, fontWeight: 700, color: badge.col, background: badge.col + '14', padding: '2px 9px', borderRadius: 999, whiteSpace: 'nowrap' }}>{badge.t}</span>
-                            </div>
-                            <div style={{ fontSize: 12.5, opacity: 0.72, marginTop: 4 }}>{w.desc}</div>
-                          </div>
-                        </Link>
-                      )
-                    })}
-                  </div>
-                </div>
-              )
-            })}
-          </section>
+            {attention.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '26px 16px', color: 'rgba(0,0,0,0.55)' }}>
+                <div style={{ fontSize: 22, marginBottom: 6 }}>✓</div>
+                {seg === 'all'
+                  ? 'Nothing flagged right now. As you add buildings, budgets, meetings, and records, this dashboard tracks the statutory deadlines for you.'
+                  : `No ${seg === 'overdue' ? 'overdue' : 'due-soon'} items.`}
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                {attention.map(s => <SignalRow key={s.id} signal={s} />)}
+              </div>
+            )}
+          </div>
 
-          <h2 className="bc-title" style={{ margin: '26px 0 2px' }}>Admin&apos;s regulatory to-dos</h2>
-          <p className="admin-dek" style={{ marginTop: 0 }}>Statutory items needing attention, grouped by urgency.</p>
-          {signals.length === 0 ? (
-            <div className="admin-note" style={{ textAlign: 'center', padding: '28px 16px' }}>
-              <div style={{ fontSize: 22, marginBottom: 6 }}>✓</div>
-              Nothing flagged right now. As you add buildings, budgets, meetings, and records,
-              this dashboard will track the statutory deadlines for you.
-            </div>
-          ) : (
-            (['overdue', 'soon', 'info'] as Severity[]).map(sev => {
-              const group = signals.filter(s => s.severity === sev)
-              if (!group.length) return null
-              const meta = SEVERITY_META[sev]
-              return (
-                <div key={sev} style={{ marginBottom: 18 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '0 0 8px' }}>
-                    <span style={{ width: 9, height: 9, borderRadius: 999, background: meta.color }} />
-                    <span style={{ fontSize: 12.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: meta.color }}>{meta.label}</span>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: meta.color, background: meta.bg, padding: '1px 8px', borderRadius: 999 }}>{group.length}</span>
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {group.map(s => <SignalCard key={s.id} signal={s} />)}
-                  </div>
+          {/* Workspaces — every compliance domain, badged with its own count. */}
+          <h2 className="bc-title" style={{ margin: '0 0 14px' }}>Workspaces</h2>
+          {WORKSPACE_GROUPS.map(group => {
+            const items = WORKSPACES.filter(w => w.group === group && !(w.href === '/admin/structural' && community?.association_type === 'hoa'))
+            if (!items.length) return null
+            return (
+              <div key={group} style={{ marginTop: 16 }}>
+                <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'rgba(0,0,0,0.4)', marginBottom: 8 }}>{group}</div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+                  {items.map(w => {
+                    const c = wsCounts[wsBase(w.href)] || { overdue: 0, soon: 0 }
+                    const badge = c.overdue ? { t: `${c.overdue} overdue`, col: '#B42318' }
+                      : c.soon ? { t: `${c.soon} due soon`, col: '#B54708' }
+                      : { t: 'On track', col: '#067647' }
+                    return (
+                      <Link key={w.href} href={w.href} style={{ textDecoration: 'none', color: 'inherit' }}>
+                        <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, padding: '16px', background: '#fff', height: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                          <span style={{ width: 36, height: 36, borderRadius: 10, display: 'grid', placeItems: 'center', color: w.color, background: w.color + '18' }}><WsGlyph /></span>
+                          <div style={{ fontWeight: 700, fontSize: 14.5 }}>{w.label}</div>
+                          <div style={{ fontSize: 12.5, opacity: 0.72, lineHeight: 1.45, flex: 1 }}>{w.desc}</div>
+                          <span style={{ alignSelf: 'flex-start', fontSize: 11, fontWeight: 700, color: badge.col, background: badge.col + '14', padding: '3px 10px', borderRadius: 999 }}>{badge.t}</span>
+                        </div>
+                      </Link>
+                    )
+                  })}
                 </div>
-              )
-            })
-          )}
+              </div>
+            )
+          })}
         </>
       )}
     </div>
   )
 }
 
-function SignalCard({ signal: s }: { signal: ComplianceSignal }) {
+// One row in the "Needs attention" list (mock .lrow): severity pill, title +
+// statute/detail meta, Review link. Rows are separated by a hairline top border.
+function SignalRow({ signal: s }: { signal: ComplianceSignal }) {
   const meta = SEVERITY_META[s.severity]
   const body = (
     <div style={{
-      display: 'flex', gap: 12, alignItems: 'flex-start',
-      padding: '14px 16px', borderRadius: 12, border: '1px solid rgba(0,0,0,0.08)',
-      borderLeft: `4px solid ${meta.color}`, background: '#fff',
+      display: 'flex', gap: 12, alignItems: 'center',
+      padding: '13px 2px', borderTop: '1px solid rgba(0,0,0,0.06)',
     }}>
-      <div style={{ flex: 1 }}>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 3 }}>
-          <span style={{
-            fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px',
-            color: meta.color, background: meta.bg, padding: '2px 8px', borderRadius: 999,
-          }}>{meta.label}</span>
-          <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.6 }}>{s.domain}</span>
-          {s.citation && <span style={{ fontSize: 11.5, opacity: 0.45, fontFamily: 'monospace' }}>{s.citation}</span>}
-        </div>
+      <span style={{
+        fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px',
+        color: meta.color, background: meta.bg, padding: '3px 10px', borderRadius: 999, whiteSpace: 'nowrap',
+      }}>{meta.label}</span>
+      <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14.5, fontWeight: 600 }}>{s.title}</div>
-        <div style={{ fontSize: 13, opacity: 0.75, marginTop: 2 }}>{s.detail}</div>
+        <div style={{ fontSize: 12.5, opacity: 0.62, marginTop: 1 }}>
+          {s.domain}{s.citation ? ` · ${s.citation}` : ''}{s.detail ? ` · ${s.detail}` : ''}
+        </div>
       </div>
       {s.href && <span style={{ fontSize: 13, color: meta.color, fontWeight: 700, whiteSpace: 'nowrap' }}>Review →</span>}
     </div>
   )
-  return s.href ? <Link href={s.href} style={{ textDecoration: 'none', color: 'inherit' }}>{body}</Link> : body
+  return s.href ? <Link href={s.href} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>{body}</Link> : body
+}
+
+// Generic workspace glyph — a shield-check, tinted per workspace color.
+function WsGlyph() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l8 4v6c0 5-3.5 7-8 8-4.5-1-8-3-8-8V7z" /><path d="M9 12l2 2 4-4" />
+    </svg>
+  )
 }
