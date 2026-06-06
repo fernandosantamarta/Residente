@@ -940,11 +940,14 @@ function DocWizard({
       <div className="su-kicker">Step {section + 1} of {total} · Your documents</div>
       <h1 className="su-h1">{sec.label}</h1>
       <p className="su-sub">
-        {d === t ? 'All set for this category ✓' : 'Confirm or upload each — or skip and add them later.'}
+        {d === t ? 'All set for this category ✓' : 'Confirm or upload each — listed most important first. Skip and add the rest later.'}
       </p>
       <div className="su-doc-emoji" aria-hidden="true">{sec.emoji}</div>
       <div className="su-content">
         <div className="su-doc-card">
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'rgba(42,18,6,0.45)', padding: '12px 16px 2px' }}>
+            Most important first ↓
+          </div>
           <div className="su-doc-items">
             {sec.items.map((item, i) => {
               const it = s.items[i]
