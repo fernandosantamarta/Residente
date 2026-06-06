@@ -977,7 +977,13 @@ function DocWizard({
                         onChange={(e) => attach(i, e.target.files?.[0] ?? null)} />
                     </label>
                   </div>
-                  {showDesc && <div className="su-doc-desc">{item.desc}</div>}
+                  {/* Smooth height+fade so revealing the description eases in
+                      instead of snapping the rows below it. */}
+                  <div style={{ display: 'grid', gridTemplateRows: showDesc ? '1fr' : '0fr', opacity: showDesc ? 1 : 0, transition: 'grid-template-rows 0.24s ease, opacity 0.2s ease' }}>
+                    <div style={{ overflow: 'hidden' }}>
+                      <div className="su-doc-desc">{item.desc}</div>
+                    </div>
+                  </div>
                 </div>
               )
             })}
