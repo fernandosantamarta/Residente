@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><meta name="robots" content="noindex"/>
+<title>Residente Admin · Easy Schedule (mock)</title>
+<link rel="stylesheet" href="admin-mock.css"/>
+<style>
+  .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .cal .dow{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);text-align:center;padding-bottom:4px}
+  .cal .cell{min-height:74px;border:1px solid var(--border);border-radius:10px;padding:6px 7px;font-size:12px}
+  .cal .cell .d{font-weight:700;color:var(--dim);font-size:11.5px}
+  .cal .cell.muted{background:var(--hover)}
+  .ev{margin-top:4px;font-size:10.5px;font-weight:600;padding:2px 6px;border-radius:6px;background:var(--accent-soft);color:var(--accent-deep);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ev.ok{background:var(--ok-soft);color:var(--ok)}.ev.warn{background:var(--warn-soft);color:var(--warn)}
+</style>
+</head><body>
+
+<div class="bar">
+  <div class="brand"><span class="brand-chip"><img src="../residente-logo.png" alt="Residente"/></span>Residente</div>
+  <div class="bar-right"><div class="viewas"><span class="viewas-lbl">View as</span><button data-view="founder">Founder</button><button data-view="onboarding">Onboarding</button><button data-view="support">Support</button><button data-view="billing">Billing</button><button data-view="client">Client</button></div><a class="bar-link" href="support.html">Contact Residente</a><a class="back" href="#">&larr; Back to app</a></div>
+</div>
+<nav class="nav">
+  <a href="index.html">Overview</a>
+  <a href="community.html">Community</a>
+  <a href="compliance.html">Compliance</a>
+  <a href="reports.html">Reports</a>
+  <a href="easy-track.html">Easy Track</a>
+  <a href="easy-voice.html">Easy Voice</a>
+  <a href="easy-documents.html">Easy Documents</a>
+  <a href="easy-schedule.html" class="active">Easy Schedule</a>
+  <a href="roles.html">Roles</a>
+  <a href="platform.html" class="plat">Platform</a>
+</nav>
+
+<main class="page">
+  <div class="kicker">Schedule</div>
+  <h1>Community calendar</h1>
+  <p class="dek">Events, meetings, and amenity bookings &mdash; everything residents see on their calendar.</p>
+
+  <div class="toolbar">
+    <div class="row-actions">
+      <div class="seg"><button class="on">Month</button><button>Week</button><button>Day</button></div>
+      <div class="dd">June 2026<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg></div>
+    </div>
+    <button class="btn">+ Add an event</button>
+  </div>
+
+  <div class="card">
+    <div class="cal">
+      <div class="dow">Sun</div><div class="dow">Mon</div><div class="dow">Tue</div><div class="dow">Wed</div><div class="dow">Thu</div><div class="dow">Fri</div><div class="dow">Sat</div>
+      <div class="cell muted"><span class="d">1</span></div>
+      <div class="cell"><span class="d">2</span></div>
+      <div class="cell"><span class="d">3</span><div class="ev">Notice sent</div></div>
+      <div class="cell"><span class="d">4</span></div>
+      <div class="cell"><span class="d">5</span><div class="ev warn">Today</div></div>
+      <div class="cell"><span class="d">6</span></div>
+      <div class="cell"><span class="d">7</span><div class="ev ok">Clubhouse booked</div></div>
+
+      <div class="cell"><span class="d">8</span><div class="ev">Pool closed</div></div>
+      <div class="cell"><span class="d">9</span><div class="ev">Pool closed</div></div>
+      <div class="cell"><span class="d">10</span><div class="ev">Pool closed</div></div>
+      <div class="cell"><span class="d">11</span></div>
+      <div class="cell"><span class="d">12</span><div class="ev warn">Vote closes</div></div>
+      <div class="cell"><span class="d">13</span></div>
+      <div class="cell"><span class="d">14</span><div class="ev ok">Tennis court</div></div>
+
+      <div class="cell"><span class="d">15</span></div>
+      <div class="cell"><span class="d">16</span></div>
+      <div class="cell"><span class="d">17</span></div>
+      <div class="cell"><span class="d">18</span><div class="ev">Board meeting</div></div>
+      <div class="cell"><span class="d">19</span></div>
+      <div class="cell"><span class="d">20</span><div class="ev ok">Clubhouse booked</div></div>
+      <div class="cell"><span class="d">21</span></div>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="card-head"><div><h2>Upcoming events</h2></div></div>
+      <div class="lrow"><span class="av">8</span><div class="body"><div class="ttl">Pool resurfacing</div><div class="meta">Jun 8&ndash;10 &middot; Pool deck closed</div></div><span class="go">Edit &rarr;</span></div>
+      <div class="lrow"><span class="av">18</span><div class="body"><div class="ttl">Monthly board meeting</div><div class="meta">Jun 18, 7:00 PM &middot; Clubhouse</div></div><span class="go">Edit &rarr;</span></div>
+    </div>
+    <div class="card">
+      <div class="card-head"><div><h2>Amenity bookings</h2><div class="sub">Resident reservations</div></div><button class="btn sm">Manage amenities</button></div>
+      <div class="lrow"><span class="av">RP</span><div class="body"><div class="ttl">Clubhouse &mdash; Rita Patel</div><div class="meta">Jun 7, 2&ndash;6 PM &middot; Birthday party</div></div><span class="pill ok">Confirmed</span></div>
+      <div class="lrow"><span class="av">SD</span><div class="body"><div class="ttl">Tennis court &mdash; Sofia Diaz</div><div class="meta">Jun 14, 9&ndash;11 AM</div></div><span class="pill ok">Confirmed</span></div>
+    </div>
+  </div>
+
+  <p class="note">Mock Mock &middot; sketch theme &middot; not wired to datamiddot; not wired to data</p>
+</main>
+<script src="admin-mock.js"></script>
+</body></html>

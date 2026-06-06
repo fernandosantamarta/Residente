@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><meta name="robots" content="noindex"/>
+<title>Residente Admin · Community (mock)</title>
+<link rel="stylesheet" href="admin-mock.css"/>
+</head><body>
+
+<div class="bar">
+  <div class="brand"><span class="brand-chip"><img src="../residente-logo.png" alt="Residente"/></span>Residente</div>
+  <div class="bar-right"><div class="viewas"><span class="viewas-lbl">View as</span><button data-view="founder">Founder</button><button data-view="onboarding">Onboarding</button><button data-view="support">Support</button><button data-view="billing">Billing</button><button data-view="client">Client</button></div><a class="bar-link" href="support.html">Contact Residente</a><a class="back" href="#">&larr; Back to app</a></div>
+</div>
+<nav class="nav">
+  <a href="index.html">Overview</a>
+  <a href="community.html" class="active">Community</a>
+  <a href="compliance.html">Compliance</a>
+  <a href="reports.html">Reports</a>
+  <a href="easy-track.html">Easy Track</a>
+  <a href="easy-voice.html">Easy Voice</a>
+  <a href="easy-documents.html">Easy Documents</a>
+  <a href="easy-schedule.html">Easy Schedule</a>
+  <a href="roles.html">Roles</a>
+  <a href="platform.html" class="plat">Platform</a>
+</nav>
+
+<main class="page">
+  <div class="kicker">Community</div>
+  <h1>Community settings</h1>
+  <p class="dek">Your association&rsquo;s details, dues, and operating budget. Changes here flow to every resident&rsquo;s cockpit.</p>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="card-head"><div><h2>Association details</h2><div class="sub">Shown across the app</div></div></div>
+      <div class="field"><span class="l">Community name</span><input class="inp" value="Palm Grove"/></div>
+      <div class="field"><span class="l">Location</span><input class="inp" value="Miami, FL"/></div>
+      <div class="grid2" style="gap:12px">
+        <div class="field"><span class="l">Type</span><div class="dd">Homeowners (Ch. 720)<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg></div></div>
+        <div class="field"><span class="l">Homes</span><input class="inp" value="120"/></div>
+      </div>
+      <button class="btn" style="margin-top:6px">Save details</button>
+    </div>
+
+    <div class="card money">
+      <div class="card-head"><div><h2>Monthly dues</h2><div class="sub">What each home pays</div></div></div>
+      <div class="field"><span class="l">Per-home monthly dues</span><input class="inp" value="$285"/></div>
+      <div class="stats" style="margin:6px 0 0;grid-template-columns:1fr 1fr">
+        <div class="stat"><div class="v">$34,200</div><div class="l">Billed / month</div></div>
+        <div class="stat"><div class="v">94%</div><div class="l">Collection rate</div></div>
+      </div>
+      <button class="btn" style="margin-top:14px">Save dues</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div><h2>Budget categories</h2><div class="sub">This year&rsquo;s operating budget</div></div>
+      <button class="btn sm">+ Add category</button>
+    </div>
+    <table class="tbl">
+      <thead><tr><th>Category</th><th>Annual amount</th><th>% of budget</th><th></th></tr></thead>
+      <tbody>
+        <tr><td class="strong">Landscaping &amp; grounds</td><td>$96,000</td><td class="muted">23%</td><td style="text-align:right"><span class="go">Edit &rarr;</span></td></tr>
+        <tr><td class="strong">Insurance</td><td>$84,000</td><td class="muted">20%</td><td style="text-align:right"><span class="go">Edit &rarr;</span></td></tr>
+        <tr><td class="strong">Reserves</td><td>$72,000</td><td class="muted">17%</td><td style="text-align:right"><span class="go">Edit &rarr;</span></td></tr>
+        <tr><td class="strong">Utilities &mdash; common areas</td><td>$54,000</td><td class="muted">13%</td><td style="text-align:right"><span class="go">Edit &rarr;</span></td></tr>
+        <tr><td class="strong">Management &amp; admin</td><td>$48,000</td><td class="muted">11%</td><td style="text-align:right"><span class="go">Edit &rarr;</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card" style="border-color:var(--due-soft)">
+    <div class="card-head"><div><h2 style="color:var(--due)">Danger zone</h2><div class="sub">Permanently deletes this community and all its data.</div></div>
+      <button class="btn ghost" style="color:var(--due);border-color:var(--due-soft)">Delete this community</button></div>
+  </div>
+
+  <p class="note">Mock Mock &middot; sketch theme &middot; not wired to datamiddot; not wired to data</p>
+</main>
+<script src="admin-mock.js"></script>
+</body></html>

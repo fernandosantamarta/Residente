@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><meta name="robots" content="noindex"/>
+<title>Residente · Guided Setup (mock)</title>
+<style>
+  /* Duolingo-style, lifted from app/signup/signup.css */
+  *{box-sizing:border-box}
+  .scr{--ink:#2A1206;--cream:#FFF5EC;--black:#17130E;
+    min-height:100vh;display:flex;flex-direction:column;color:#fff;position:relative;overflow:hidden;
+    background:linear-gradient(168deg,#FF8A3D 0%,#F4530E 52%,#DC440A 100%);
+    font-family:system-ui,'Segoe UI',Arial,sans-serif;margin:0}
+  body{margin:0}
+  .top{position:relative;z-index:1;width:100%;padding:18px clamp(20px,5vw,56px) 0}
+  .topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;height:40px}
+  .back{width:36px;height:36px;display:grid;place-items:center;border-radius:999px;border:none;cursor:pointer;
+    background:rgba(255,255,255,.18);color:#fff;transition:background .14s}
+  .back:hover{background:rgba(255,255,255,.3)}
+  .back svg{width:18px;height:18px}
+  .brand{display:inline-flex;align-items:center;gap:8px}
+  .brand-chip{width:28px;height:28px;border-radius:8px;background:#fff;display:grid;place-items:center;box-shadow:0 2px 8px rgba(120,40,0,.18);padding:4px}
+  .brand-chip img{width:100%;height:100%;object-fit:contain}
+  .brand-word{font-weight:700;color:#fff;font-size:16px;letter-spacing:-.3px}
+  .spacer{width:36px}
+  .progress{height:6px;border-radius:999px;background:rgba(255,255,255,.22);overflow:hidden;margin-bottom:18px}
+  .progress-fill{height:100%;border-radius:999px;background:#fff;width:16%;transition:width .35s cubic-bezier(.4,0,.2,1)}
+  .stage{position:relative;z-index:1;flex:1;display:flex;align-items:center;justify-content:center;padding:14px clamp(20px,5vw,56px) 44px}
+  .inner{width:100%;max-width:560px}
+  .kicker{font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:rgba(255,245,235,.85);margin-bottom:6px}
+  .h1{font-size:28px;font-weight:800;letter-spacing:-.6px;color:#fff;margin:0 0 8px;line-height:1.15}
+  .sub{font-size:15px;line-height:1.5;color:rgba(255,245,235,.9);margin:0 0 6px}
+  .house{display:flex;justify-content:center;margin:10px 0 22px}
+  .house svg{width:210px;height:auto;filter:drop-shadow(0 14px 24px rgba(120,35,0,.28));transform-origin:center bottom;animation:bob 3.4s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-7px)}}
+  .content{display:flex;flex-direction:column}
+  .choices{display:flex;flex-direction:column;gap:12px}
+  .tile{display:flex;align-items:center;gap:14px;background:#fff;border:2px solid #fff;border-radius:18px;
+    padding:16px 18px;cursor:pointer;text-align:left;box-shadow:0 4px 0 rgba(120,40,0,.18);transition:transform .1s,box-shadow .1s,border-color .1s}
+  .tile:hover{box-shadow:0 6px 0 rgba(120,40,0,.2)}
+  .tile:active{transform:translateY(2px);box-shadow:0 2px 0 rgba(120,40,0,.18)}
+  .tile.selected{border-color:var(--black)}
+  .tile-ic{width:42px;height:42px;border-radius:12px;flex-shrink:0;display:grid;place-items:center;background:rgba(225,73,9,.12);color:#E14909}
+  .tile-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+  .tile-ti{font-size:15.5px;font-weight:800;color:var(--ink)}
+  .tile-de{font-size:12.5px;color:rgba(42,18,6,.6);line-height:1.35}
+  .tile-tag{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.04em;color:#E14909;background:rgba(225,73,9,.12);padding:2px 8px;border-radius:999px;align-self:flex-start;margin-bottom:3px}
+  .tile-chev{color:rgba(42,18,6,.4);flex-shrink:0}
+  .field{display:flex;flex-direction:column;gap:7px;margin-bottom:14px}
+  .label{font-size:13px;font-weight:700;color:#fff}
+  .input{width:100%;background:#fff;border:2px solid #fff;border-radius:14px;padding:14px 16px;font-size:16px;font-weight:600;color:var(--ink);font-family:inherit}
+  .input::placeholder{color:rgba(42,18,6,.38)}
+  .input:focus{outline:none;border-color:var(--black)}
+  .drop{border:2px dashed rgba(255,255,255,.6);border-radius:16px;padding:26px;text-align:center;background:rgba(255,255,255,.12)}
+  .drop b{display:block;font-size:15px;margin-bottom:3px}
+  .drop span{font-size:13px;color:rgba(255,245,235,.85)}
+  .actions{margin-top:26px}
+  .btn{width:100%;border:none;cursor:pointer;font-family:inherit;font-size:16px;font-weight:800;
+    padding:16px;border-radius:999px;background:var(--black);color:#fff;transition:opacity .12s,transform .06s}
+  .btn:hover{opacity:.94}.btn:active{transform:translateY(1px)}
+  .skip{display:block;text-align:center;margin-top:14px;font-size:13.5px;color:rgba(255,245,235,.85);background:none;border:none;cursor:pointer;width:100%;font-family:inherit}
+  .skip:hover{color:#fff}
+  /* done step */
+  .code-card{background:#fff;border-radius:18px;padding:22px;text-align:center;box-shadow:0 4px 0 rgba(120,40,0,.18)}
+  .code-card .lbl{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:rgba(42,18,6,.55)}
+  .code-card .code{font-size:34px;font-weight:800;letter-spacing:.1em;color:#E14909;margin:6px 0 4px}
+  .code-card svg{margin:8px auto 0;display:block;border:1px solid rgba(42,18,6,.12);border-radius:10px;padding:6px;background:#fff}
+  .sparkles{position:absolute;inset:0;pointer-events:none;z-index:0}
+  .sparkle{position:absolute}
+  .hidden{display:none}
+</style>
+</head>
+<body>
+<div class="scr">
+  <!-- sparkles -->
+  <div class="sparkles" aria-hidden="true">
+    <span class="sparkle" style="top:12%;left:13%"><svg width="20" height="20" viewBox="0 0 24 24" fill="#fff" opacity=".85"><path d="M12 0c.8 6.4 4.8 10.4 12 11.2-7.2.8-11.2 4.8-12 12-.8-7.2-4.8-11.2-12-12C7.2 10.4 11.2 6.4 12 0Z"/></svg></span>
+    <span class="sparkle" style="top:24%;left:84%"><svg width="14" height="14" viewBox="0 0 24 24" fill="#fff" opacity=".6"><path d="M12 0c.8 6.4 4.8 10.4 12 11.2-7.2.8-11.2 4.8-12 12-.8-7.2-4.8-11.2-12-12C7.2 10.4 11.2 6.4 12 0Z"/></svg></span>
+    <span class="sparkle" style="top:70%;left:88%"><svg width="18" height="18" viewBox="0 0 24 24" fill="#fff" opacity=".7"><path d="M12 0c.8 6.4 4.8 10.4 12 11.2-7.2.8-11.2 4.8-12 12-.8-7.2-4.8-11.2-12-12C7.2 10.4 11.2 6.4 12 0Z"/></svg></span>
+    <span class="sparkle" style="top:80%;left:18%"><svg width="14" height="14" viewBox="0 0 24 24" fill="#fff" opacity=".6"><path d="M12 0c.8 6.4 4.8 10.4 12 11.2-7.2.8-11.2 4.8-12 12-.8-7.2-4.8-11.2-12-12C7.2 10.4 11.2 6.4 12 0Z"/></svg></span>
+  </div>
+
+  <div class="top">
+    <div class="topbar">
+      <button class="back" id="back" aria-label="Back"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg></button>
+      <span class="brand"><span class="brand-chip"><img src="../residente-logo.png" alt=""/></span><span class="brand-word">Residente</span></span>
+      <span class="spacer"></span>
+    </div>
+    <div class="progress"><div class="progress-fill" id="fill"></div></div>
+  </div>
+
+  <div class="stage"><div class="inner">
+    <div class="kicker" id="kicker">Get set up</div>
+    <h1 class="h1" id="h1">Let&rsquo;s set up Palm Grove.</h1>
+    <p class="sub" id="sub">Five quick steps and your community is live for every neighbor.</p>
+
+    <div class="house" aria-hidden="true">
+      <svg viewBox="0 0 240 206" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <ellipse cx="124" cy="190" rx="78" ry="10" fill="rgba(90,28,0,0.18)"/>
+        <ellipse cx="58" cy="180" rx="26" ry="18" fill="#4E9E33"/><ellipse cx="188" cy="182" rx="30" ry="19" fill="#4E9E33"/><ellipse cx="150" cy="188" rx="22" ry="14" fill="#5BB23E"/>
+        <circle cx="46" cy="171" r="11" fill="#6BC24C"/><circle cx="200" cy="172" r="12" fill="#6BC24C"/><circle cx="74" cy="174" r="9" fill="#6BC24C"/>
+        <rect x="76" y="98" width="104" height="84" rx="14" fill="#FFF4E4"/>
+        <path d="M152 98 h14 a14 14 0 0 1 14 14 v56 a14 14 0 0 1 -14 14 h-14 z" fill="#F1DFC6" opacity="0.55"/>
+        <path d="M66 106 L128 52 L190 106 a7 7 0 0 1 -5 3 H71 a7 7 0 0 1 -5 -3 Z" fill="#E5732A"/>
+        <path d="M128 52 L190 106 a7 7 0 0 1 -5 3 H128 Z" fill="#CF541A" opacity="0.5"/>
+        <rect x="160" y="62" width="14" height="26" rx="3" fill="#CF541A"/>
+        <rect x="112" y="110" width="30" height="20" rx="6" fill="#F4A23E"/><rect x="112" y="110" width="30" height="20" rx="6" fill="none" stroke="#E5732A" stroke-width="2.5"/>
+        <ellipse cx="108" cy="143" rx="4.6" ry="6.4" fill="#5A2A14"/><ellipse cx="144" cy="143" rx="4.6" ry="6.4" fill="#5A2A14"/>
+        <ellipse cx="98" cy="158" rx="8" ry="5" fill="#FFAE9A"/><ellipse cx="154" cy="158" rx="8" ry="5" fill="#FFAE9A"/>
+        <path d="M114 154 Q126 172 138 154 Z" fill="#8A2E1E"/><path d="M120 160 Q126 168 132 160 Z" fill="#FF7B6B"/>
+      </svg>
+    </div>
+
+    <div class="content">
+      <!-- STEP 0: welcome -->
+      <div class="wstep" data-step="0"></div>
+
+      <!-- STEP 1: board -->
+      <div class="wstep hidden" data-step="1">
+        <div class="field"><span class="label">President</span><input class="input" placeholder="e.g. Elena Marsh"/></div>
+        <div class="field"><span class="label">Treasurer</span><input class="input" placeholder="e.g. Tom Reyes"/></div>
+        <div class="field"><span class="label">Secretary</span><input class="input" placeholder="e.g. Nina Lowe"/></div>
+      </div>
+
+      <!-- STEP 2: residents -->
+      <div class="wstep hidden" data-step="2">
+        <div class="choices">
+          <button class="tile" data-select><span class="tile-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 3v18"/></svg></span><span class="tile-tx"><span class="tile-tag">Recommended</span><span class="tile-ti">Paste from Excel</span><span class="tile-de">Copy your owner list and paste &mdash; we map the columns.</span></span><span class="tile-chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="9 18 15 12 9 6"/></svg></span></button>
+          <button class="tile" data-select><span class="tile-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3v5h5"/><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg></span><span class="tile-tx"><span class="tile-ti">Upload a CSV</span><span class="tile-de">Have a CSV export? Drop it in.</span></span><span class="tile-chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="9 18 15 12 9 6"/></svg></span></button>
+          <button class="tile" data-select><span class="tile-ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 4-6 8-6s8 2 8 6"/></svg></span><span class="tile-tx"><span class="tile-ti">Add one at a time</span><span class="tile-de">Just a few owners? Type them in.</span></span><span class="tile-chev"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="9 18 15 12 9 6"/></svg></span></button>
+        </div>
+      </div>
+
+      <!-- STEP 3: dues -->
+      <div class="wstep hidden" data-step="3">
+        <div class="field"><span class="label">Monthly dues per home</span><input class="input" placeholder="$285" inputmode="numeric"/></div>
+        <div class="field"><span class="label">Billing day</span><input class="input" placeholder="1st of the month"/></div>
+      </div>
+
+      <!-- STEP 4: documents -->
+      <div class="wstep hidden" data-step="4">
+        <div class="drop"><b>Drop your governing docs</b><span>Declaration &middot; Bylaws &middot; Budget &middot; Insurance &middot; Minutes</span></div>
+      </div>
+
+      <!-- STEP 5: done -->
+      <div class="wstep hidden" data-step="5">
+        <div class="code-card">
+          <div class="lbl">Your resident join code</div>
+          <div class="code">PALM24</div>
+          <div style="font-size:12.5px;color:rgba(42,18,6,.55)">Share this so owners can join their homes.</div>
+          <svg width="84" height="84" viewBox="0 0 58 58" aria-hidden="true"><rect width="58" height="58" fill="#fff"/><g fill="#2A1206"><rect x="6" y="6" width="14" height="14"/><rect x="9" y="9" width="8" height="8" fill="#fff"/><rect x="11" y="11" width="4" height="4"/><rect x="38" y="6" width="14" height="14"/><rect x="41" y="9" width="8" height="8" fill="#fff"/><rect x="43" y="11" width="4" height="4"/><rect x="6" y="38" width="14" height="14"/><rect x="9" y="41" width="8" height="8" fill="#fff"/><rect x="11" y="43" width="4" height="4"/><rect x="26" y="6" width="4" height="4"/><rect x="26" y="14" width="4" height="4"/><rect x="26" y="26" width="4" height="4"/><rect x="34" y="26" width="4" height="4"/><rect x="42" y="26" width="4" height="4"/><rect x="30" y="34" width="4" height="4"/><rect x="38" y="38" width="4" height="4"/><rect x="46" y="42" width="4" height="4"/><rect x="30" y="46" width="4" height="4"/><rect x="38" y="48" width="4" height="4"/></g></svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button class="btn" id="next">Continue</button>
+      <button class="skip hidden" id="skip">Skip for now</button>
+    </div>
+  </div></div>
+</div>
+
+<script>
+(function(){
+  var steps = [
+    {kicker:'Get set up', h1:"Let’s set up Palm Grove.", sub:'Five quick steps and your community is live for every neighbor.', next:'Start setup', skip:false},
+    {kicker:'Step 1 of 5', h1:"Who’s on your board?", sub:'They get admin access too. You can add more later.', next:'Continue', skip:true},
+    {kicker:'Step 2 of 5', h1:'Add your residents', sub:'Pick the easiest way to get your owners in.', next:'Continue', skip:true},
+    {kicker:'Step 3 of 5', h1:'Set your monthly dues', sub:'What each home pays. Residents will see their balance.', next:'Continue', skip:true},
+    {kicker:'Step 4 of 5', h1:'Upload your documents', sub:'We’ll read your CC&Rs into your rules automatically.', next:'Continue', skip:true},
+    {kicker:'All done', h1:'Palm Grove is live! 🎉', sub:'Share your join code and your community is ready.', next:'Go to dashboard', skip:false}
+  ];
+  var i = 0, N = steps.length;
+  var fill=document.getElementById('fill'), kicker=document.getElementById('kicker'),
+      h1=document.getElementById('h1'), sub=document.getElementById('sub'),
+      next=document.getElementById('next'), skip=document.getElementById('skip'),
+      back=document.getElementById('back');
+
+  function render(){
+    var s = steps[i];
+    kicker.textContent = s.kicker; h1.innerHTML = s.h1; sub.innerHTML = s.sub;
+    next.textContent = s.next;
+    skip.classList.toggle('hidden', !s.skip);
+    fill.style.width = ((i+1)/N*100) + '%';
+    document.querySelectorAll('.wstep').forEach(function(w){
+      w.classList.toggle('hidden', Number(w.getAttribute('data-step')) !== i);
+    });
+    window.scrollTo(0,0);
+  }
+  function go(d){
+    var ni = i + d;
+    if(ni < 0){ window.location.href = 'index.html'; return; }
+    if(ni >= N){ window.location.href = 'index.html'; return; }
+    i = ni; render();
+  }
+  next.addEventListener('click', function(){ go(1); });
+  skip.addEventListener('click', function(){ go(1); });
+  back.addEventListener('click', function(){ go(-1); });
+
+  // tile selection (residents step) — pick auto-advances after a beat
+  document.addEventListener('click', function(e){
+    var t = e.target.closest('.tile[data-select]');
+    if(!t) return;
+    t.parentElement.querySelectorAll('.tile').forEach(function(x){ x.classList.remove('selected'); });
+    t.classList.add('selected');
+    setTimeout(function(){ go(1); }, 240);
+  });
+
+  render();
+})();
+</script>
+</body></html>

@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><meta name="robots" content="noindex"/>
+<title>Residente Admin · Overview (mock)</title>
+<link rel="stylesheet" href="admin-mock.css"/>
+</head><body>
+
+<div class="bar">
+  <div class="brand"><span class="brand-chip"><img src="../residente-logo.png" alt="Residente"/></span>Residente</div>
+  <div class="bar-right"><div class="viewas"><span class="viewas-lbl">View as</span><button data-view="founder">Founder</button><button data-view="onboarding">Onboarding</button><button data-view="support">Support</button><button data-view="billing">Billing</button><button data-view="client">Client</button></div><a class="bar-link" href="support.html">Contact Residente</a><a class="back" href="#">&larr; Back to app</a></div>
+</div>
+<nav class="nav">
+  <a href="index.html" class="active">Overview</a>
+  <a href="community.html">Community</a>
+  <a href="compliance.html">Compliance</a>
+  <a href="reports.html">Reports</a>
+  <a href="easy-track.html">Easy Track</a>
+  <a href="easy-voice.html">Easy Voice</a>
+  <a href="easy-documents.html">Easy Documents</a>
+  <a href="easy-schedule.html">Easy Schedule</a>
+  <a href="roles.html">Roles</a>
+  <a href="platform.html" class="plat">Platform</a>
+</nav>
+
+<main class="page">
+  <div class="kicker">Get started</div>
+  <h1>Let&rsquo;s get <span class="hl">Palm Grove</span> live.</h1>
+  <p class="dek">Three quick moves and your neighbors are in. Each step ticks off on its own as you go.</p>
+
+  <div style="display:flex;align-items:center;gap:18px;margin-bottom:28px">
+    <div class="ring" style="--p:40%"><span>40%</span></div>
+    <div style="flex:1"><b style="font-family:var(--serif);font-size:18px">2 of 5 steps done</b>
+      <p style="margin:2px 0 0;font-size:13.5px;color:var(--dim)">Finish the roster to unlock dues.</p></div>
+    <a class="btn" href="setup-wizard.html">Start guided setup &rarr;</a>
+  </div>
+
+  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:30px">
+    <div class="card" style="margin:0;display:flex;flex-direction:column;gap:9px">
+      <span class="pill">No CSV needed</span>
+      <h3 style="margin:0;font-size:16px">Paste your roster</h3>
+      <p style="margin:0;font-size:13px;color:var(--dim);line-height:1.5;flex:1">Copy owners straight from Excel &mdash; we match the columns.</p>
+      <a class="btn" href="easy-track.html">Paste &amp; import</a>
+    </div>
+    <div class="card" style="margin:0;display:flex;flex-direction:column;gap:9px">
+      <span class="pill">Sets itself up</span>
+      <h3 style="margin:0;font-size:16px">Upload your docs</h3>
+      <p style="margin:0;font-size:13px;color:var(--dim);line-height:1.5;flex:1">Drop your CC&amp;Rs &mdash; we pre-fill rules, fines &amp; reserves.</p>
+      <a class="btn ghost" href="easy-documents.html">Choose file</a>
+    </div>
+    <div class="card" style="margin:0;display:flex;flex-direction:column;gap:9px">
+      <span class="pill">No emails? No problem</span>
+      <h3 style="margin:0;font-size:16px">Print join poster</h3>
+      <p style="margin:0;font-size:13px;color:var(--dim);line-height:1.5;flex:1">A lobby flyer with a QR code. Residents scan to join.</p>
+      <a class="btn ghost" href="#">Download poster</a>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-head">
+      <div><h2>Set up your community</h2><div class="sub">Follow these 5 steps top to bottom. 2 of 5 done.</div></div>
+      <div class="ring" style="--p:40%;width:50px;height:50px;font-size:12px"><span style="width:36px;height:36px">40%</span></div>
+    </div>
+    <ul class="check">
+      <li class="done"><span class="dot">&#10003;</span><div class="body"><div class="lbl">Add your board members</div><div class="hint">President, Treasurer, Secretary added.</div></div><a class="go" href="easy-voice.html">Edit &rarr;</a></li>
+      <li class="done"><span class="dot">&#10003;</span><div class="body"><div class="lbl">Review your budget</div><div class="hint">Starter categories and amounts set.</div></div><a class="go" href="community.html">Edit &rarr;</a></li>
+      <li><span class="dot">3</span><div class="body"><div class="lbl">Add your residents</div><div class="hint">Paste your owner roster or add owners one at a time.</div></div><a class="go" href="easy-track.html">Start &rarr;</a></li>
+      <li><span class="dot">4</span><div class="body"><div class="lbl">Set your monthly dues</div><div class="hint">Enter what each home pays &mdash; residents then see their balance.</div></div><a class="go" href="community.html">Start &rarr;</a></li>
+      <li><span class="dot">5</span><div class="body"><div class="lbl">Upload key documents</div><div class="hint">Bylaws, declaration, budget, insurance, minutes.</div></div><a class="go" href="easy-documents.html">Start &rarr;</a></li>
+    </ul>
+  </div>
+
+  <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:16px">
+    <div>
+      <div class="sub" style="font-size:13px;color:var(--dim)">Resident join code</div>
+      <div style="font-family:var(--serif);font-weight:600;font-size:30px;letter-spacing:.08em;color:var(--accent-deep);margin:4px 0">PALM24</div>
+      <div class="sub" style="font-size:13px;color:var(--dim)">Residents enter this at the Get started page to join.</div>
+    </div>
+    <button class="btn ghost">Copy</button>
+  </div>
+
+  <p class="note">Mock &middot; not wired to data</p>
+</main>
+<script src="admin-mock.js"></script>
+</body></html>

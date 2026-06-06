@@ -1,0 +1,200 @@
+/* Shared sketch-theme styling for the Residente admin mocks.
+   Tokens lifted from app/globals.css [data-theme="sketch"]. */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&display=swap');
+
+:root{
+  /* palette lifted from residente.io/signup (app/signup/signup.css) */
+  --bg:#FFF5EC; --card:#FFFFFF;
+  --text:#2A1206; --dim:rgba(42,18,6,.55); --faint:rgba(42,18,6,.40);
+  --border:rgba(42,18,6,.10); --border-hover:rgba(42,18,6,.22);
+  --hover:rgba(42,18,6,.04); --track:rgba(42,18,6,.08);
+  --accent:#E14909; --accent-deep:#DC440A; --accent-soft:rgba(225,73,9,.12);
+  --grad:linear-gradient(168deg,#FF8A3D 0%,#F4530E 52%,#DC440A 100%);
+  /* status accents (warmed to sit on cream) */
+  --ok:#1F7A4D; --ok-soft:rgba(31,122,77,.12);
+  --warn:#B5713A; --warn-soft:rgba(181,113,58,.14);
+  --due:#C2360A; --due-soft:rgba(194,54,10,.12);
+  --sans:system-ui,'Segoe UI',Arial,sans-serif;
+  --serif:'Fraunces',Georgia,serif;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);
+     -webkit-font-smoothing:antialiased;}
+a{color:inherit}
+
+/* --- top brand bar (signup orange gradient) --- */
+.bar{display:flex;align-items:center;justify-content:space-between;
+     padding:12px 32px;background:var(--grad);color:#fff;}
+.brand{display:flex;align-items:center;gap:9px;font-weight:700;font-size:17px;letter-spacing:-.01em;color:#fff}
+.brand-chip{width:30px;height:30px;border-radius:9px;background:#fff;
+     display:grid;place-items:center;padding:4px;box-shadow:0 1px 3px rgba(90,28,0,.18)}
+.brand-chip img{width:100%;height:100%;object-fit:contain;display:block}
+.back{font-size:13px;color:rgba(255,245,235,.9);text-decoration:none}
+.back:hover{color:#fff}
+
+/* --- nav row (centered) --- */
+.nav{display:flex;justify-content:center;gap:24px;flex-wrap:wrap;
+     padding:0 32px;background:#fff;border-bottom:1px solid var(--border);}
+.nav a{padding:13px 2px;font-size:13.5px;color:var(--dim);text-decoration:none;
+     border-bottom:2px solid transparent;transition:color .15s;white-space:nowrap}
+.nav a:hover{color:var(--text)}
+.nav a.active{color:var(--text);border-bottom-color:var(--accent);font-weight:600}
+.nav a.plat{color:var(--accent);font-weight:700}
+.nav a.plat.active{border-bottom-color:var(--accent)}
+
+/* --- page shell --- */
+.page{max-width:980px;margin:0 auto;padding:34px 32px 80px}
+.kicker{font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+     color:var(--accent);margin-bottom:10px}
+h1{font-family:var(--serif);font-weight:500;font-size:34px;letter-spacing:-.01em;margin:0 0 8px}
+h1 .hl{color:var(--accent)}
+.dek{font-size:15px;color:var(--dim);line-height:1.6;max-width:640px;margin:0 0 26px}
+
+/* --- buttons --- */
+.btn{appearance:none;border:none;cursor:pointer;font-family:inherit;
+     border-radius:999px;font-weight:700;font-size:13.5px;padding:10px 18px;
+     background:var(--accent);color:#fff;transition:background .15s;text-decoration:none;display:inline-block}
+.btn:hover{background:var(--accent-deep)}
+.btn.ghost{background:#fff;color:var(--text);border:1px solid var(--border-hover)}
+.btn.ghost:hover{background:var(--hover)}
+.btn.sm{padding:7px 14px;font-size:12.5px}
+
+/* --- cards --- */
+.card{background:var(--card);border:1px solid var(--border);border-radius:18px;
+     padding:22px 24px;box-shadow:0 1px 2px rgba(10,36,64,.04);margin-bottom:18px}
+.card-head{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px}
+.card-head h2{margin:0;font-family:var(--serif);font-weight:500;font-size:20px}
+.card-head .sub{font-size:13px;color:var(--dim);margin-top:3px}
+.row-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+
+/* --- stat tiles --- */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-bottom:22px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:15px 16px}
+.stat .v{font-size:25px;font-weight:700;letter-spacing:-.5px}
+.stat .l{font-size:11.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--faint);margin-top:5px}
+
+/* --- table --- */
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+     color:var(--faint);padding:0 12px 10px;border-bottom:1px solid var(--border)}
+.tbl td{padding:13px 12px;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.tbl tr:last-child td{border-bottom:none}
+.tbl .muted{color:var(--dim)}
+.tbl .strong{font-weight:600}
+
+/* --- list rows --- */
+.lrow{display:flex;align-items:center;gap:14px;padding:14px 4px;border-bottom:1px solid var(--border)}
+.lrow:last-child{border-bottom:none}
+.lrow .ttl{font-size:14.5px;font-weight:600}
+.lrow .meta{font-size:12.5px;color:var(--dim);margin-top:2px}
+.lrow .body{flex:1;min-width:0}
+.av{width:34px;height:34px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;
+     background:var(--accent-soft);color:var(--accent-deep);font-weight:700;font-size:13px}
+
+/* --- pills / badges --- */
+.pill{font-size:11px;font-weight:700;letter-spacing:.03em;padding:3px 10px;border-radius:999px;
+     background:var(--accent-soft);color:var(--accent-deep);white-space:nowrap}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.due{background:var(--due-soft);color:var(--due)}
+.pill.dim{background:var(--track);color:var(--dim)}
+
+/* --- progress ring --- */
+.ring{--p:40%;width:56px;height:56px;border-radius:50%;flex-shrink:0;
+     background:conic-gradient(var(--accent) var(--p),var(--track) 0);
+     display:grid;place-items:center;font-weight:700;font-size:13px}
+.ring span{width:42px;height:42px;border-radius:50%;background:var(--card);display:grid;place-items:center;color:var(--text)}
+
+/* --- segmented tabs --- */
+.seg{display:inline-flex;background:var(--track);border-radius:999px;padding:3px}
+.seg button{border:none;background:none;font-family:inherit;font-size:13px;font-weight:600;
+     padding:7px 16px;border-radius:999px;cursor:pointer;color:var(--dim)}
+.seg button.on{background:#fff;color:var(--text);box-shadow:0 1px 2px rgba(10,36,64,.1)}
+
+/* --- themed dropdown (static) --- */
+.dd{display:inline-flex;align-items:center;gap:8px;justify-content:space-between;min-width:150px;
+     background:#fff;border:1px solid var(--border-hover);border-radius:10px;
+     padding:9px 13px;font-size:13px;font-weight:600;cursor:pointer}
+.dd svg{color:var(--dim)}
+.search{display:flex;align-items:center;gap:8px;background:#fff;border:1px solid var(--border-hover);
+     border-radius:10px;padding:9px 13px;font-size:13px;color:var(--dim);min-width:220px}
+
+/* --- workspace grid (compliance) --- */
+.wsgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+.ws{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;
+     display:flex;flex-direction:column;gap:8px;text-decoration:none;color:inherit;transition:border-color .15s,box-shadow .15s}
+.ws:hover{border-color:var(--border-hover);box-shadow:0 4px 14px rgba(10,36,64,.06)}
+.ws .ic{width:38px;height:38px;border-radius:11px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center}
+.ws h3{margin:0;font-size:15px;font-weight:700}
+.ws p{margin:0;font-size:12.5px;color:var(--dim);line-height:1.5;flex:1}
+
+/* --- checklist (overview) --- */
+.check{list-style:none;margin:0;padding:0;display:flex;flex-direction:column}
+.check li{display:flex;align-items:flex-start;gap:14px;padding:14px 4px;border-bottom:1px solid var(--border)}
+.check li:last-child{border-bottom:none}
+.dot{width:26px;height:26px;border-radius:50%;flex-shrink:0;display:grid;place-items:center;
+     font-size:13px;font-weight:700;border:1px solid var(--border-hover);color:var(--dim);background:#fff}
+.check li.done .dot{background:var(--accent);border-color:transparent;color:#fff}
+.check .body{flex:1;min-width:0}.check .lbl{font-size:14.5px;font-weight:600}
+.check li.done .lbl{color:var(--dim)}.check .hint{font-size:12.5px;color:var(--faint);margin-top:2px;line-height:1.5}
+.go{align-self:center;font-size:13px;font-weight:700;color:var(--accent);text-decoration:none;white-space:nowrap}
+.go:hover{color:var(--accent-deep)}
+
+/* --- misc --- */
+.foot{font-size:12.5px;color:var(--faint);margin:14px 2px 0}
+.note{font-size:11px;color:var(--faint);text-align:center;margin-top:30px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
+.field .l{font-size:12px;font-weight:600;letter-spacing:.02em;color:var(--dim)}
+.inp{background:#fff;border:1px solid var(--border-hover);border-radius:10px;padding:10px 13px;
+     font-size:14px;font-family:inherit;color:var(--text)}
+.toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+@media(max-width:780px){.grid2{grid-template-columns:1fr}h1{font-size:28px}}
+
+/* --- top-bar right cluster + Contact Residente --- */
+.bar-right{display:flex;align-items:center;gap:16px}
+.bar-link{font-size:13px;font-weight:700;color:#fff;text-decoration:none;
+     background:rgba(255,255,255,.20);padding:7px 14px;border-radius:999px;transition:background .15s}
+.bar-link:hover{background:rgba(255,255,255,.34)}
+
+/* "View as" role switch in the top bar */
+.viewas{display:flex;align-items:center;gap:3px;background:rgba(255,255,255,.16);border-radius:999px;padding:3px 4px 3px 11px}
+.viewas-lbl{font-size:10.5px;font-weight:700;color:rgba(255,245,235,.92);text-transform:uppercase;letter-spacing:.06em;margin-right:3px}
+.viewas button{border:none;background:none;cursor:pointer;font-family:inherit;font-size:12.5px;font-weight:700;color:#fff;padding:5px 12px;border-radius:999px;opacity:.72;transition:opacity .12s}
+.viewas button.on{background:#fff;color:var(--accent-deep);opacity:1}
+
+/* interactive affordances */
+.seg button{cursor:pointer}
+.dd{cursor:pointer}
+label.lrow{cursor:pointer}
+
+/* --- dropdown menu --- */
+.dd{position:relative}
+.dd.open{border-color:var(--accent)}
+.ddmenu{position:absolute;top:calc(100% + 6px);left:0;min-width:100%;z-index:120;
+     background:#fff;border:1px solid var(--border);border-radius:12px;padding:5px;
+     box-shadow:0 12px 30px rgba(42,18,6,.18);display:flex;flex-direction:column;gap:1px;white-space:nowrap}
+.ddmenu button{border:none;background:none;cursor:pointer;font-family:inherit;text-align:left;
+     font-size:13px;font-weight:600;color:var(--text);padding:9px 13px;border-radius:8px}
+.ddmenu button:hover{background:var(--accent-soft);color:var(--accent-deep)}
+
+/* --- modal --- */
+.modal-back{position:fixed;inset:0;z-index:300;background:rgba(42,18,6,.45);
+     display:grid;place-items:center;padding:24px;animation:fade .15s ease}
+@keyframes fade{from{opacity:0}to{opacity:1}}
+.modal{width:100%;max-width:480px;max-height:90vh;overflow-y:auto;background:#fff;border-radius:20px;
+     padding:26px 28px;box-shadow:0 24px 60px rgba(42,18,6,.32);position:relative;animation:pop .18s cubic-bezier(.34,1.56,.64,1)}
+@keyframes pop{from{transform:translateY(10px) scale(.98);opacity:.6}to{transform:none;opacity:1}}
+.modal h3{font-family:var(--serif);font-weight:500;font-size:22px;margin:0 0 16px;padding-right:30px}
+.modal-close{position:absolute;top:16px;right:18px;border:none;background:none;font-size:26px;line-height:1;
+     cursor:pointer;color:var(--faint)}
+.modal-close:hover{color:var(--text)}
+.modal-body textarea.inp{width:100%;resize:vertical;font-family:inherit}
+.modal-actions{margin-top:20px}
+.modal-actions .btn{width:100%;padding:13px;font-size:15px}
+
+/* --- toast --- */
+.toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,16px);opacity:0;
+     background:#2A1206;color:#fff;font-size:13.5px;font-weight:600;padding:11px 20px;border-radius:999px;
+     box-shadow:0 8px 26px rgba(42,18,6,.32);transition:opacity .25s,transform .25s;z-index:200;pointer-events:none}
+.toast.show{opacity:1;transform:translate(-50%,0)}
