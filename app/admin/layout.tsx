@@ -34,6 +34,17 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/roles',      label: 'Roles', anyPerm: ['roles.manage'] },
 ]
 
+// "View as" team previews — founder/platform-only. Founder = full access; the
+// rest are Residente staff lenses; Admin = how the customer's board sees it.
+// (Selection persists; per-team content scoping is a follow-up.)
+const VIEW_AS: { key: string; label: string }[] = [
+  { key: 'founder', label: 'Founder' },
+  { key: 'onboarding', label: 'Onboarding' },
+  { key: 'support', label: 'Support' },
+  { key: 'billing', label: 'Billing' },
+  { key: 'admin', label: 'Admin' },
+]
+
 const navActive = (pathname: string, item: AdminNavItem) => {
   // The Overview tab points at the admin root, which is a prefix of every other
   // admin route — match it exactly so it isn't perpetually "active".
@@ -48,6 +59,19 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname() || '/admin'
   const isPlatformAdmin = usePlatformAdmin()
   const { canAny, perms, loading: permLoading } = usePermissions()
+
+  // Founder/staff "View as" preview selection (persisted). Hidden for regular
+  // admins entirely (see the header — only platform admins get the switcher).
+  const [viewAs, setViewAs] = useState('founder')
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const v = window.localStorage.getItem('admin_view_as'); if (v) setViewAs(v)
+    }
+  }, [])
+  const chooseView = (v: string) => {
+    setViewAs(v)
+    if (typeof window !== 'undefined') window.localStorage.setItem('admin_view_as', v)
+  }
 
   // Auth + access gate. Access = platform admin, community owner (role 'admin'),
   // or a board member whose assigned role grants at least one permission. A
@@ -75,11 +99,27 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <span className="admin-tag">Admin</span>
           <CommunitySwitcher />
         </div>
-        {/* Account-level links live in the top bar (mock parity), so the nav
-            below holds only page tabs and no longer crams a Contact link in. */}
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 18 }}>
-          <Link href="/admin/billing" className="admin-back">Billing</Link>
-          <Link href="/admin/support" className="admin-back">Contact Residente</Link>
+        {/* Mock-parity bar: a founder/platform-only "View as" team switcher, then
+            Contact Residente (pill) + Back to app. Regular admins see no switcher. */}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          {isPlatformAdmin && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(255,255,255,0.16)', borderRadius: 999, padding: '4px 6px 4px 13px' }}>
+              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '1.2px', color: 'rgba(255,255,255,0.85)', marginRight: 3 }}>VIEW AS</span>
+              {VIEW_AS.map(v => {
+                const on = viewAs === v.key
+                return (
+                  <button key={v.key} type="button" onClick={() => chooseView(v.key)}
+                    style={{ border: 'none', cursor: 'pointer', borderRadius: 999, padding: '5px 13px', fontSize: 12.5, fontWeight: 700,
+                      background: on ? '#fff' : 'transparent', color: on ? '#E14909' : 'rgba(255,255,255,0.92)' }}>
+                    {v.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <Link href="/admin/support" style={{ textDecoration: 'none', fontSize: 13, fontWeight: 700, color: '#fff', background: 'rgba(255,255,255,0.16)', borderRadius: 999, padding: '7px 15px' }}>
+            Contact Residente
+          </Link>
           <Link href="/app" className="admin-back">&larr; Back to app</Link>
         </div>
       </header>

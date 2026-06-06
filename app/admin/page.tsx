@@ -204,6 +204,12 @@ export default function AdminHome() {
           <button className="admin-secondary-btn" onClick={copyCode}>{copied ? 'Copied ✓' : 'Copy'}</button>
         </div>
       )}
+
+      {/* Persistent entry to the subscription tab (the bar no longer carries it). */}
+      <p className="admin-dek" style={{ marginTop: 18 }}>
+        Manage your plan, payment, and invoices on the{' '}
+        <Link href="/admin/billing" style={{ color: '#E14909', fontWeight: 700 }}>Plan &amp; billing</Link> page.
+      </p>
     </div>
   )
 }
