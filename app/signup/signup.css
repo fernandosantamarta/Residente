@@ -28,7 +28,7 @@
 .su-top {
   position: relative; z-index: 1;
   width: 100%;
-  padding: 10px clamp(20px, 5vw, 56px) 0;
+  padding: 18px clamp(20px, 5vw, 56px) 0;
 }
 .su-stage {
   position: relative; z-index: 1;
@@ -41,7 +41,7 @@
 /* ---- top bar: back circle + brand ---- */
 .su-topbar {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 6px; height: 32px;
+  margin-bottom: 10px; height: 40px;
 }
 .su-back-circle {
   width: 36px; height: 36px; flex-shrink: 0;
