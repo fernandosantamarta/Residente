@@ -1291,11 +1291,13 @@ function BuiltForBoth() {
 
       <div className="ln-use-card" id="boards" data-stagger="1">
         <div className="ln-use-tag">For boards</div>
-        <h3>Run your community in 20 minutes a week.</h3>
+        <h3>The easy, simple way to self-manage your community.</h3>
+        <p className="ln-use-stat"><strong>Residente does 95% of the work.</strong> You stay in control.</p>
         <p>
           Roster with subdivisions, dues collection, decisions log, budget
-          editor, document vault. Imports your existing CSV. Replaces the
-          spreadsheet, the WhatsApp group, and the manila folder.
+          editor, document vault — about 20 minutes a week. Imports your
+          existing CSV. Replaces the spreadsheet, the WhatsApp group, and the
+          manila folder.
         </p>
         <Link href="/signup" className="ln-use-link">Set up your community <span aria-hidden="true">→</span></Link>
       </div>

@@ -1107,6 +1107,16 @@ body:has(.landing-screen) { min-width: 0; }
   margin: 0;
   line-height: 1.6;
 }
+.ln-use-card p.ln-use-stat {
+  font-size: 16.5px;
+  color: var(--ln-ink, #1F2233);
+  font-weight: 500;
+  line-height: 1.45;
+}
+.ln-use-card p.ln-use-stat strong {
+  color: var(--ln-accent);
+  font-weight: 700;
+}
 .ln-use-link {
   margin-top: 8px;
   font-size: 14px;
