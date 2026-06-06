@@ -128,9 +128,11 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
     const meta = document.querySelector('meta[name="theme-color"]')
     if (!meta) return
     const prev = meta.getAttribute('content')
-    meta.setAttribute('content', '#E2674A')
+    // Sunset to blend with the hero photo, but the drawer's cream while the More
+    // drawer is open — orange clashed with the cream menu behind the status bar.
+    meta.setAttribute('content', navOpen ? '#FDF7F5' : '#E2674A')
     return () => { if (prev) meta.setAttribute('content', prev) }
-  }, [])
+  }, [navOpen])
 
   if (hasSupabase && !session && !isPreview) return null  // don't flash cockpit during redirect
 
