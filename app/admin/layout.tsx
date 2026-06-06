@@ -75,12 +75,16 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <span className="admin-tag">Admin</span>
           <CommunitySwitcher />
         </div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 16 }}>
+        {/* Account-level links live in the top bar (mock parity), so the nav
+            below holds only page tabs and no longer crams a Contact link in. */}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 18 }}>
+          <Link href="/admin/billing" className="admin-back">Billing</Link>
+          <Link href="/admin/support" className="admin-back">Contact Residente</Link>
           <Link href="/app" className="admin-back">&larr; Back to app</Link>
         </div>
       </header>
 
-      <nav className="admin-nav" style={{ position: 'relative' }}>
+      <nav className="admin-nav">
         {ADMIN_NAV.filter(item => !item.anyPerm || permLoading || canAny(item.anyPerm)).map(item => (
           <Link
             key={item.href}
@@ -95,9 +99,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             Platform Console
           </Link>
         )}
-        <Link href="/admin/support" className="admin-nav-item" style={{ position: 'absolute', right: 32, top: 14 }}>
-          Contact Residente
-        </Link>
       </nav>
 
       <main className="admin-main">
