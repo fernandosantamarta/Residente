@@ -13,6 +13,21 @@ import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { downloadCsv, exportFilename, type CsvColumn } from '@/lib/exportCsv'
+import { Dropdown } from '@/components/Dropdown'
+
+// Period presets behind the "Year to date" dropdown. Each maps to a from/to
+// range; "custom" reveals the raw date inputs so any window is still reachable.
+type PeriodKey = 'ytd' | 'mtd' | 'last-month' | '30d' | '90d' | '12mo' | 'all' | 'custom'
+const PERIODS: { value: PeriodKey; label: string }[] = [
+  { value: 'ytd', label: 'Year to date' },
+  { value: 'mtd', label: 'This month' },
+  { value: 'last-month', label: 'Last month' },
+  { value: '30d', label: 'Last 30 days' },
+  { value: '90d', label: 'Last 90 days' },
+  { value: '12mo', label: 'Last 12 months' },
+  { value: 'all', label: 'All time' },
+  { value: 'custom', label: 'Custom range' },
+]
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -49,6 +64,32 @@ export default function ReportsPage() {
 
   const [from, setFrom] = useState(yearStartISO())
   const [to, setTo] = useState(todayISO())
+  const [period, setPeriod] = useState<PeriodKey>('ytd')
+  const [category, setCategory] = useState<string>('all')
+
+  // Picking a preset rewrites the from/to range the rest of the page reads;
+  // "custom" leaves the current range alone and surfaces the date inputs.
+  const onPeriod = (key: PeriodKey) => {
+    setPeriod(key)
+    if (key === 'custom') return
+    const now = new Date()
+    const y = now.getUTCFullYear(), m = now.getUTCMonth()
+    const iso = (d: Date) => d.toISOString().slice(0, 10)
+    const daysAgo = (n: number) => { const d = new Date(); d.setUTCDate(d.getUTCDate() - n); return iso(d) }
+    let f = yearStartISO(); let t = todayISO()
+    if (key === 'mtd') f = `${y}-${String(m + 1).padStart(2, '0')}-01`
+    else if (key === 'last-month') { f = iso(new Date(Date.UTC(y, m - 1, 1))); t = iso(new Date(Date.UTC(y, m, 0))) }
+    else if (key === '30d') f = daysAgo(30)
+    else if (key === '90d') f = daysAgo(90)
+    else if (key === '12mo') f = daysAgo(365)
+    else if (key === 'all') f = '2000-01-01'
+    setFrom(f); setTo(t)
+  }
+
+  const categoryOptions = useMemo(
+    () => [{ value: 'all', label: 'All categories' }, ...cats.map(c => ({ value: c.id, label: c.name }))],
+    [cats],
+  )
 
   const load = useCallback(async () => {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
@@ -84,7 +125,10 @@ export default function ReportsPage() {
   }, [residents])
 
   const paysInRange = useMemo(() => payments.filter(p => inRange(payDate(p), from, to)), [payments, from, to])
-  const expInRange = useMemo(() => expenses.filter(x => inRange(x.spent_on, from, to)), [expenses, from, to])
+  const expInRange = useMemo(
+    () => expenses.filter(x => inRange(x.spent_on, from, to) && (category === 'all' || x.category_id === category)),
+    [expenses, from, to, category],
+  )
 
   const collected = useMemo(() => paysInRange.reduce((s, p) => s + (Number(p.amount) || 0), 0), [paysInRange])
   const spent = useMemo(() => expInRange.reduce((s, x) => s + (Number(x.amount) || 0), 0), [expInRange])
@@ -204,8 +248,8 @@ export default function ReportsPage() {
       <div className="admin-kicker">Reporting</div>
       <h1 className="admin-h1">Reports</h1>
       <p className="admin-dek">
-        Financial reports for your board and owners. Filter the period, then export
-        to CSV or a QuickBooks-ready file.
+        Financial <span className="amp">&</span> operational reports for your board
+        and owners. Filter the period, then view or export.
       </p>
 
       {status === 'none' && <div className="admin-note admin-note-warn">No community is linked to your account yet.</div>}
@@ -216,13 +260,20 @@ export default function ReportsPage() {
 
       {status === 'ready' && (
         <>
-          {/* Toolbar — date range on the left, headline export on the right. */}
+          {/* Toolbar — period + category pickers on the left (mock parity), the
+              headline export on the right. "Custom range" reveals raw dates. */}
           <div className="toolbar">
             <div className="toolbar-filters">
-              <label className="admin-field"><span className="admin-field-label">From</span>
-                <input className="admin-input" type="date" value={from} max={to} onChange={e => setFrom(e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">To</span>
-                <input className="admin-input" type="date" value={to} min={from} max={todayISO()} onChange={e => setTo(e.target.value)} /></label>
+              <Dropdown value={period} onChange={onPeriod} options={PERIODS} ariaLabel="Period" />
+              <Dropdown value={category} onChange={setCategory} options={categoryOptions} ariaLabel="Expense category" />
+              {period === 'custom' && (
+                <>
+                  <label className="admin-field"><span className="admin-field-label">From</span>
+                    <input className="admin-input" type="date" value={from} max={to} onChange={e => setFrom(e.target.value)} /></label>
+                  <label className="admin-field"><span className="admin-field-label">To</span>
+                    <input className="admin-input" type="date" value={to} min={from} max={todayISO()} onChange={e => setTo(e.target.value)} /></label>
+                </>
+              )}
             </div>
             <button type="button" className="admin-primary-btn" onClick={exportPayments} disabled={paysInRange.length === 0}>
               Export CSV
