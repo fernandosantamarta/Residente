@@ -49,41 +49,41 @@ const DOC_SECTIONS: { emoji: string; label: string; category: DocCategory; items
     { name: 'Articles of Incorporation', desc: 'The short charter filed with the state that legally creates the association as a corporation.' },
     { name: 'Rules & regulations', desc: 'Day-to-day rules the board adopts under the CC&Rs (pool hours, parking, noise) — easier to change than the CC&Rs themselves.' },
     { name: 'Architectural standards', desc: 'Design rules for exterior changes — paint, fences, additions — and how owners get approval before building.' },
-    { name: 'Pet policy', desc: 'What pets are allowed, any size or breed limits, leash and waste rules, and registration requirements.' },
     { name: 'Rental / leasing restrictions', desc: 'Limits on renting out units — minimum lease terms, caps on rentals, and tenant approval or registration.' },
+    { name: 'Pet policy', desc: 'What pets are allowed, any size or breed limits, leash and waste rules, and registration requirements.' },
   ] },
   { emoji: '💰', label: 'Financial records', category: 'Financial Documents', items: [
     { name: 'Current annual budget', desc: "The board-approved plan of income and expenses for the year — the basis for each owner's dues." },
     { name: 'Reserve fund study', desc: 'A professional forecast of major future repairs (roof, paving) and how much to set aside each year for them.' },
     { name: 'Reserve fund balance statement', desc: 'How much is actually saved today in the reserve account for big-ticket repairs.' },
-    { name: 'Income & expense statement', desc: 'What the association earned and spent over a period — its profit-and-loss.' },
-    { name: 'Bank statements (last 3 months)', desc: 'Recent statements for the operating and reserve accounts.' },
     { name: 'Delinquency report', desc: 'Owners behind on dues or assessments and how much each one owes.' },
+    { name: 'Income & expense statement', desc: 'What the association earned and spent over a period — its profit-and-loss.' },
+    { name: 'Insurance declarations', desc: "The summary pages of each policy showing what's covered, the limits, and deductibles." },
+    { name: 'Bank statements (last 3 months)', desc: 'Recent statements for the operating and reserve accounts.' },
     { name: 'Most recent audit', desc: "An independent accountant's review confirming the financial statements are accurate." },
     { name: 'Tax returns (last 2 years)', desc: "The association's filed federal (and state) income tax returns." },
-    { name: 'Insurance declarations', desc: "The summary pages of each policy showing what's covered, the limits, and deductibles." },
   ] },
   { emoji: '👥', label: 'Ownership & membership', category: 'Other', items: [
     { name: 'Homeowner roster with contact info', desc: 'Master list of every owner with mailing address, email, and phone for official notices.' },
-    { name: 'Tenant directory', desc: 'List of renters and their units — where the community tracks non-owner occupants.' },
-    { name: 'Delinquency list', desc: 'Current list of accounts past due, used for collections and lien decisions.' },
     { name: 'Board member roster', desc: 'Names, roles, and terms of the current board of directors.' },
     { name: 'Committee member list', desc: 'Members serving on committees (architectural, social, finance) and what each covers.' },
+    { name: 'Tenant directory', desc: 'List of renters and their units — where the community tracks non-owner occupants.' },
+    { name: 'Delinquency list', desc: 'Current list of accounts past due, used for collections and lien decisions.' },
   ] },
   { emoji: '📅', label: 'Meetings & governance', category: 'Reports & Meeting Minutes', items: [
     { name: 'Board meeting minutes (last 12 mo.)', desc: 'Official written record of what the board discussed and decided at each meeting.' },
     { name: 'Annual meeting minutes (last 2 yr.)', desc: 'Record of the yearly membership meeting — elections, budget ratification, and owner business.' },
-    { name: 'Board resolution log', desc: 'A running list of formal board decisions and policies adopted by vote.' },
     { name: 'Election procedures', desc: 'The rules for nominating candidates, voting, and counting ballots for board elections.' },
+    { name: 'Board resolution log', desc: 'A running list of formal board decisions and policies adopted by vote.' },
     { name: 'Proxy / ballot forms', desc: 'The forms owners use to vote, or to assign their vote to someone else.' },
   ] },
   { emoji: '🏠', label: 'Property & maintenance', category: 'Vendor & Contracts', items: [
     { name: 'Maintenance schedule', desc: 'The plan and calendar for routine upkeep of common areas and equipment.' },
+    { name: 'Inspection reports', desc: 'Results of structural, elevator, fire, or pest inspections of the property.' },
+    { name: 'Capital improvement list', desc: 'Planned major upgrades or replacements beyond routine maintenance.' },
     { name: 'Landscape contract', desc: 'The agreement with the lawn / landscaping vendor — scope, schedule, and cost.' },
     { name: 'Pool / amenity contracts', desc: 'Service agreements for the pool, gym, gate, or other shared amenities.' },
-    { name: 'Inspection reports', desc: 'Results of structural, elevator, fire, or pest inspections of the property.' },
     { name: 'Open work orders', desc: 'Repairs and service requests currently in progress or waiting.' },
-    { name: 'Capital improvement list', desc: 'Planned major upgrades or replacements beyond routine maintenance.' },
   ] },
   { emoji: '📋', label: 'Contracts & vendors', category: 'Vendor & Contracts', items: [
     { name: 'Property management agreement', desc: 'The contract with your management company — services, fees, and term.' },
@@ -93,16 +93,16 @@ const DOC_SECTIONS: { emoji: string; label: string; category: DocCategory; items
     { name: 'Waste removal contract', desc: 'The trash and recycling pickup agreement — schedule and cost.' },
   ] },
   { emoji: '⚖️', label: 'Compliance & legal', category: 'Other', items: [
-    { name: 'Open violations log', desc: 'Owners currently cited for rule violations and the status of each case.' },
-    { name: 'Pending litigation', desc: 'Any active lawsuits the association is involved in, as plaintiff or defendant.' },
     { name: 'State HOA registration', desc: 'Your filing or registration with the state agency that oversees associations.' },
+    { name: 'Pending litigation', desc: 'Any active lawsuits the association is involved in, as plaintiff or defendant.' },
+    { name: 'Open violations log', desc: 'Owners currently cited for rule violations and the status of each case.' },
     { name: 'Prior violation notices', desc: 'Past warning and fine letters sent to owners for rule breaches.' },
     { name: 'Fair housing records', desc: 'Documentation showing the association follows fair-housing and accommodation laws.' },
   ] },
   { emoji: '🔧', label: 'Operations', category: 'Other', items: [
     { name: 'Emergency contact list', desc: 'Who to call for after-hours emergencies — vendors, board, utilities.' },
-    { name: 'Key / fob inventory log', desc: 'Record of who holds keys, fobs, and access cards to common areas.' },
     { name: 'Gate / access codes', desc: 'Current codes and credentials for gates, doors, and shared spaces.' },
+    { name: 'Key / fob inventory log', desc: 'Record of who holds keys, fobs, and access cards to common areas.' },
     { name: 'Move-in / move-out policy', desc: 'Rules and fees for residents moving in or out — scheduling, deposits, elevator use.' },
     { name: 'Welcome packet', desc: 'The intro materials given to new owners and residents.' },
   ] },
@@ -112,6 +112,22 @@ type DocItemState = { checked: boolean; file: File | null }
 type DocSectionState = { items: DocItemState[]; note: string }
 const emptyDocState = (): DocSectionState[] =>
   DOC_SECTIONS.map((s) => ({ items: s.items.map(() => ({ checked: false, file: null })), note: '' }))
+
+// The three "smart" wizard items processed specially after provisioning
+// (roster → residents, budget → categories, CC&Rs → AI). Found by name, not
+// position, so reordering the lists by importance never breaks the wiring.
+const SMART_ITEMS = {
+  ccrs: 'CC&Rs (Covenants, Conditions & Restrictions)',
+  budget: 'Current annual budget',
+  roster: 'Homeowner roster with contact info',
+}
+function smartFile(docState: DocSectionState[], itemName: string): File | null {
+  for (let si = 0; si < DOC_SECTIONS.length; si++) {
+    const ii = DOC_SECTIONS[si].items.findIndex((it) => it.name === itemName)
+    if (ii >= 0) return docState[si]?.items?.[ii]?.file ?? null
+  }
+  return null
+}
 
 export default function SignupPage() {
   const [step, setStep] = useState<Step>('property')
@@ -265,8 +281,8 @@ export default function SignupPage() {
         // annual-budget CSV → budget categories, the CC&Rs PDF → AI fines/rules.
         // Each runs IN ADDITION to vaulting the file above; all best-effort.
         try {
-          const rosterFile = docState[2]?.items?.[0]?.file  // Ownership → Homeowner roster
-          const budgetFile = docState[1]?.items?.[0]?.file  // Financial → Current annual budget
+          const rosterFile = smartFile(docState, SMART_ITEMS.roster)
+          const budgetFile = smartFile(docState, SMART_ITEMS.budget)
           const roster = rosterFile && /\.csv$/i.test(rosterFile.name) ? parseRosterCsv(await rosterFile.text()) : undefined
           const budget = budgetFile && /\.csv$/i.test(budgetFile.name) ? parseBudgetCsv(await budgetFile.text()) : undefined
           if (roster?.length || budget?.length) {
@@ -274,10 +290,10 @@ export default function SignupPage() {
           }
         } catch { /* non-fatal */ }
 
-        // CC&Rs (Governing documents → item 0) → AI extraction: pre-fills late-fee
-        // / interest settings + rules. PDF only. Inert (no-op) until ANTHROPIC_API_KEY
-        // is set + extract-setup is deployed. Board reviews in /admin. Non-fatal.
-        const ccrsFile = docState[0]?.items?.[0]?.file
+        // CC&Rs → AI extraction: pre-fills late-fee / interest settings + rules.
+        // PDF only. Inert (no-op) until ANTHROPIC_API_KEY is set + extract-setup
+        // is deployed. Board reviews in /admin. Non-fatal.
+        const ccrsFile = smartFile(docState, SMART_ITEMS.ccrs)
         if (ccrsFile && /\.pdf$/i.test(ccrsFile.name)) {
           try {
             const extracted = await extractSetupFromPdf(ccrsFile)
@@ -804,11 +820,10 @@ function Plan({ propertyType, unitCount, onNext }: {
 function SetupReview({ docState, onNext }: {
   docState: DocSectionState[]; onNext: () => void
 }) {
-  // The smart items sit at fixed wizard positions (see DOC_SECTIONS):
-  // Governing→CC&Rs (0,0), Financial→annual budget (1,0), Ownership→roster (2,0).
-  const ccrsFile = docState[0]?.items?.[0]?.file
-  const budgetFile = docState[1]?.items?.[0]?.file
-  const rosterFile = docState[2]?.items?.[0]?.file
+  // Smart items located by name (order-independent).
+  const ccrsFile = smartFile(docState, SMART_ITEMS.ccrs)
+  const budgetFile = smartFile(docState, SMART_ITEMS.budget)
+  const rosterFile = smartFile(docState, SMART_ITEMS.roster)
   const docCount = docState.reduce((s, sec) => s + sec.items.filter(it => it.file).length, 0)
   const noteCount = docState.filter(sec => sec.note.trim()).length
 
