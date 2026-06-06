@@ -129,6 +129,23 @@ function smartFile(docState: DocSectionState[], itemName: string): File | null {
   return null
 }
 
+// Documents Residente produces itself from the community's data (rosters,
+// minutes, statements, notices) — the board needn't hunt for/upload these. In
+// the wizard they get a "Residente creates this" button instead of Upload; the
+// live generators live in /admin (estoppel certs, meeting minutes, etc.).
+const GENERATED_DOCS = new Set<string>([
+  'Income & expense statement',
+  'Delinquency report',
+  'Board member roster',
+  'Committee member list',
+  'Delinquency list',
+  'Board meeting minutes (last 12 mo.)',
+  'Annual meeting minutes (last 2 yr.)',
+  'Proxy / ballot forms',
+  'Open violations log',
+  'Prior violation notices',
+])
+
 export default function SignupPage() {
   const [step, setStep] = useState<Step>('property')
   const [who, setWho] = useState<Who | null>(null)
@@ -953,6 +970,7 @@ function DocWizard({
               const it = s.items[i]
               const dkey = `${section}-${i}`
               const open = openKey === dkey
+              const generated = GENERATED_DOCS.has(item.name)
               return (
                 <div className="su-doc-row" key={item.name}>
                   <div className="su-doc-item">
@@ -965,13 +983,30 @@ function DocWizard({
                     <button type="button" className={`su-doc-name${it.checked ? ' done' : ''}${open ? ' open' : ''}`}
                       onClick={() => setOpenKey(open ? null : dkey)} aria-expanded={open}>
                       <span className="su-doc-name-text">{item.name}</span>
+                      {generated && (
+                        <span style={{ flexShrink: 0, fontSize: 9.5, fontWeight: 800, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#E14909', background: 'rgba(225,73,9,0.12)', padding: '2px 6px', borderRadius: 999, marginLeft: 6 }}>Auto</span>
+                      )}
                       <span className="su-doc-caret" aria-hidden="true"><Chevron dir="right" /></span>
                     </button>
-                    <label className={`su-doc-up${it.file ? ' done' : ''}`}>
-                      {it.file ? '✓ Saved' : 'Upload'}
-                      <input className="su-doc-file" type="file"
-                        onChange={(e) => attach(i, e.target.files?.[0] ?? null)} />
-                    </label>
+                    {generated ? (
+                      // Residente produces this from the community's data — the
+                      // board taps to have us create it instead of uploading. (At
+                      // signup this marks intent; the live generator is in /admin.)
+                      <button type="button" onClick={() => toggle(i)}
+                        style={{ flexShrink: 0, cursor: 'pointer', whiteSpace: 'nowrap', fontFamily: 'inherit', fontWeight: 700, fontSize: 12,
+                          padding: '6px 12px', borderRadius: 999, border: '1.5px solid',
+                          borderColor: it.checked ? '#E14909' : 'rgba(42,18,6,0.22)',
+                          background: it.checked ? 'rgba(225,73,9,0.12)' : 'transparent',
+                          color: it.checked ? '#E14909' : 'rgba(42,18,6,0.7)' }}>
+                        {it.checked ? '✓ Residente will create' : 'Residente creates it'}
+                      </button>
+                    ) : (
+                      <label className={`su-doc-up${it.file ? ' done' : ''}`}>
+                        {it.file ? '✓ Saved' : 'Upload'}
+                        <input className="su-doc-file" type="file"
+                          onChange={(e) => attach(i, e.target.files?.[0] ?? null)} />
+                      </label>
+                    )}
                   </div>
                   {open && <div className="su-doc-desc">{item.desc}</div>}
                 </div>
