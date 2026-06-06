@@ -66,6 +66,8 @@ update public.communities
 
 -- ---------- 3) DUES SUMMARY (statutory simple interest + admin late fee) ----------
 -- Same authz + shape as migrations/0002; only the interest/fee math changes.
+-- MIRRORED in supabase/migrations/0002_community_dues_summary.sql. The two MUST
+-- stay in sync with lib/dues.ts; `npm run verify:dues` is the parity guard.
 create or replace function public.community_dues_summary(p_community uuid)
 returns table (
   collected   numeric,
