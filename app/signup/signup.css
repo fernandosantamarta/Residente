@@ -8,12 +8,17 @@
   --o-cream: #FFF5EC;   /* tile + input surface */
   --o-black: #17130E;   /* primary button */
 
-  min-height: 100vh;
+  height: 100vh;
   display: flex; flex-direction: column;
   background: linear-gradient(168deg, #FF8A3D 0%, #F4530E 52%, #DC440A 100%);
-  position: relative; overflow: hidden;
+  position: relative;
+  /* The screen itself scrolls (long steps like Financial), but with no visible
+     scrollbar on the right — wheel/trackpad/keys still scroll. */
+  overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: none;       /* Firefox */
   color: #fff;
 }
+.su-screen::-webkit-scrollbar { display: none; }  /* Chrome / Safari / Edge */
 
 /* Decorative sparkles scattered behind the content. */
 .su-sparkles { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
