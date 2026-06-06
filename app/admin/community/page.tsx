@@ -5,6 +5,7 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase, signOut } from '@/lib/supabase'
 import { deleteCommunity } from '@/lib/signup'
 import { DangerAction } from '@/components/DangerAction'
+import { Dropdown } from '@/components/Dropdown'
 import { ExpensesLog } from './ExpensesLog'
 
 // Hardening (carried from Genie): wrap network promises, never .catch on Supabase.
@@ -32,30 +33,6 @@ function parseCsv(text) {
   }
   return out
 }
-
-const FIELDS = [
-  { key: 'name',          label: 'Community name', type: 'text',   placeholder: 'Sunset Lakes' },
-  { key: 'location',      label: 'Location',       type: 'text',   placeholder: 'Miramar, FL' },
-  { key: 'unit_count',    label: 'Homes / units',  type: 'number', placeholder: '166' },
-  { key: 'fiscal_year',   label: 'Fiscal year',    type: 'number', placeholder: '2026' },
-  { key: 'annual_budget', label: 'Annual budget',  type: 'number', placeholder: '62000', prefix: '$' },
-  { key: 'monthly_dues',  label: 'Dues per unit / month', type: 'number', placeholder: '38', prefix: '$' },
-  // ---- Florida late-payment config (FS 718.116(3) / 720.3085(3)) ----
-  // Interest is now expressed ANNUALLY (the statute's basis). Leave blank to
-  // charge no interest; the statutory cap is 18%/yr. Late fees are optional.
-  { key: 'interest_apr', label: 'Late-payment interest (% per year)', type: 'number', placeholder: '18',
-    note: 'Florida cap is 18%/year, simple interest. Leave blank to charge no interest.' },
-  { key: 'late_fee_flat', label: 'Admin late fee — flat', type: 'number', placeholder: '25', prefix: '$',
-    note: 'Per delinquent month. Statute caps the late fee at the greater of $25 or 5% of the installment.' },
-  { key: 'late_fee_pct', label: 'Admin late fee — percent', type: 'number', placeholder: '5',
-    note: 'Per delinquent month, % of the installment. The platform applies the greater of the two.' },
-  { key: 'amenity_refund_cutoff_hours', label: 'Amenity cancellation window (hours)', type: 'number', placeholder: '24',
-    note: 'Residents who cancel a paid booking at least this many hours before the slot are refunded automatically. After it, the board can still refund manually. Default 24.' },
-  { key: 'association_address', label: 'Association mailing address', type: 'text', placeholder: '123 Main St, Miramar, FL 33025',
-    note: 'Used on liens, statutory notices, and estoppel certificates.' },
-  { key: 'association_officer_name', label: 'Authorized officer', type: 'text', placeholder: 'Jane Doe, President',
-    note: 'Signs liens and certificates.' },
-]
 
 export default function CommunitySettings() {
   const { profile } = useAuth() || {}
@@ -96,6 +73,11 @@ export default function CommunitySettings() {
       const patch = {
         name: (form.name || '').trim() || 'My Community',
         location: (form.location || '').trim() || null,
+        // Only write association_type when the column actually exists in this
+        // DB (select('*') surfaces it as a key) — older schemas omit it.
+        ...('association_type' in (form || {})
+          ? { association_type: form.association_type === 'condo' ? 'condo' : 'hoa' }
+          : {}),
         unit_count: numOrNull(form.unit_count),
         fiscal_year: numOrNull(form.fiscal_year),
         annual_budget: numOrNull(form.annual_budget),
@@ -120,12 +102,38 @@ export default function CommunitySettings() {
     }
   }
 
+  // Shared field renderer — keeps every control on the page using the same
+  // admin-field / admin-input tokens the rest of the admin uses.
+  const field = (key, label, opts: { prefix?: string; type?: string; placeholder?: string; hint?: string } = {}) => (
+    <label className="admin-field">
+      <span className="admin-field-label">{label}</span>
+      <div className="admin-input-wrap">
+        {opts.prefix && <span className="admin-input-prefix">{opts.prefix}</span>}
+        <input
+          name={key}
+          type={opts.type || 'text'}
+          className="admin-input"
+          value={form[key] ?? ''}
+          placeholder={opts.placeholder}
+          onChange={e => setField(key, e.target.value)}
+        />
+      </div>
+      {opts.hint && <span className="field-hint">{opts.hint}</span>}
+    </label>
+  )
+
+  // Live dues math — drives the two stat tiles in the dues card.
+  const homes = Number(form?.unit_count) || 0
+  const dues = Number(form?.monthly_dues) || 0
+  const billedMonth = homes * dues
+  const money = (n) => '$' + Math.round(n).toLocaleString('en-US')
+
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
       <div className="admin-kicker">Community</div>
       <h1 className="admin-h1">Community settings</h1>
       <p className="admin-dek">
-        The community profile and budget behind the app — these numbers drive the Home dashboard.
+        Your association&rsquo;s details, dues, and operating budget. Changes here flow to every resident&rsquo;s cockpit.
       </p>
 
       {successMsg && (
@@ -151,53 +159,124 @@ export default function CommunitySettings() {
       )}
 
       {form && (
-        <>
-          <form className="admin-form" onSubmit={save}>
-            {FIELDS.map(f => (
-              <label key={f.key} className="admin-field">
-                <span className="admin-field-label">{f.label}</span>
-                <div className="admin-input-wrap">
-                  {f.prefix && <span className="admin-input-prefix">{f.prefix}</span>}
-                  <input
-                    name={f.key}
-                    type={f.type} className="admin-input"
-                    value={form[f.key] ?? ''} placeholder={f.placeholder}
-                    onChange={e => setField(f.key, e.target.value)}
-                  />
+        <form onSubmit={save}>
+          <div className="grid2">
+            {/* ---- Association details ---- */}
+            <div className="card">
+              <div className="card-head">
+                <div>
+                  <h2>Association details</h2>
+                  <div className="sub">Shown across the app</div>
                 </div>
-                {f.note && (
-                  <span className="admin-field-hint" style={{ fontSize: 12, opacity: 0.65, marginTop: 4 }}>
-                    {f.note}
-                  </span>
-                )}
-              </label>
-            ))}
-            <div className="admin-form-actions">
-              <button type="submit" className="admin-primary-btn"
-                disabled={status === 'saving'}>
-                {status === 'saving' ? 'Saving…' : 'Save changes'}
-              </button>
-              {status === 'error' && <span className="admin-err-inline">{error}</span>}
+              </div>
+              {field('name', 'Community name', { placeholder: 'Sunset Lakes' })}
+              {field('location', 'Location', { placeholder: 'Miramar, FL' })}
+              <div className="grid2" style={{ gap: 12 }}>
+                <label className="admin-field">
+                  <span className="admin-field-label">Type</span>
+                  <Dropdown
+                    value={form.association_type === 'condo' ? 'condo' : 'hoa'}
+                    onChange={v => setField('association_type', v)}
+                    ariaLabel="Association type"
+                    options={[
+                      { value: 'hoa', label: 'Homeowners (Ch. 720)' },
+                      { value: 'condo', label: 'Condominium (Ch. 718)' },
+                    ]}
+                  />
+                </label>
+                {field('unit_count', 'Homes / units', { type: 'number', placeholder: '120' })}
+              </div>
+              <div className="grid2" style={{ gap: 12 }}>
+                {field('fiscal_year', 'Fiscal year', { type: 'number', placeholder: '2026' })}
+                {field('annual_budget', 'Annual budget', { type: 'number', placeholder: '62000', prefix: '$' })}
+              </div>
+              <div className="card-cta">
+                <button type="submit" className="admin-primary-btn" disabled={status === 'saving'}>
+                  {status === 'saving' ? 'Saving…' : 'Save details'}
+                </button>
+              </div>
             </div>
-          </form>
 
+            {/* ---- Monthly dues ---- */}
+            <div className="card">
+              <div className="card-head">
+                <div>
+                  <h2>Monthly dues</h2>
+                  <div className="sub">What each home pays</div>
+                </div>
+              </div>
+              {field('monthly_dues', 'Per-home monthly dues', { type: 'number', placeholder: '38', prefix: '$' })}
+              <div className="stats">
+                <div className="stat">
+                  <div className="v">{billedMonth ? money(billedMonth) : '—'}</div>
+                  <div className="l">Billed / month</div>
+                </div>
+                <div className="stat">
+                  <div className="v">{billedMonth ? money(billedMonth * 12) : '—'}</div>
+                  <div className="l">Billed / year</div>
+                </div>
+              </div>
+              <div className="card-cta">
+                <button type="submit" className="admin-primary-btn" disabled={status === 'saving'}>
+                  {status === 'saving' ? 'Saving…' : 'Save dues'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* ---- Budget categories ---- */}
           <BudgetCategories communityId={communityId} onSaved={setSuccessMsg} />
+
+          {/* ---- Billing & compliance (Florida statutory settings) ---- */}
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <h2>Billing &amp; compliance</h2>
+                <div className="sub">Florida late-payment, amenity, and lien settings (FS 718 / 720)</div>
+              </div>
+            </div>
+            {field('interest_apr', 'Late-payment interest (% per year)', {
+              type: 'number', placeholder: '18',
+              hint: 'Florida cap is 18%/year, simple interest. Leave blank to charge no interest.',
+            })}
+            <div className="grid2" style={{ gap: 12 }}>
+              {field('late_fee_flat', 'Admin late fee — flat', { type: 'number', placeholder: '25', prefix: '$' })}
+              {field('late_fee_pct', 'Admin late fee — percent', { type: 'number', placeholder: '5' })}
+            </div>
+            <span className="field-hint" style={{ display: 'block', marginTop: 8 }}>
+              Per delinquent month. The statute caps the late fee at the greater of $25 or 5% of the installment; the platform applies the greater of the two values above.
+            </span>
+            {field('amenity_refund_cutoff_hours', 'Amenity cancellation window (hours)', {
+              type: 'number', placeholder: '24',
+              hint: 'Residents who cancel a paid booking at least this many hours before the slot are refunded automatically. After it, the board can still refund manually. Default 24.',
+            })}
+            {field('association_address', 'Association mailing address', {
+              placeholder: '123 Main St, Miramar, FL 33025',
+              hint: 'Used on liens, statutory notices, and estoppel certificates.',
+            })}
+            {field('association_officer_name', 'Authorized officer', {
+              placeholder: 'Jane Doe, President',
+              hint: 'Signs liens and certificates.',
+            })}
+            <div className="card-cta">
+              <button type="submit" className="admin-primary-btn" disabled={status === 'saving'}>
+                {status === 'saving' ? 'Saving…' : 'Save compliance'}
+              </button>
+              {status === 'error' && <span className="admin-err-inline" style={{ marginLeft: 12 }}>{error}</span>}
+            </div>
+          </div>
 
           <ExpensesLog communityId={communityId} />
 
-          <div style={{ marginTop: 34, borderTop: '1px solid #f0d9c8', paddingTop: 18 }}>
-            <h2 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 800, color: '#b5481f' }}>Danger zone</h2>
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16,
-              flexWrap: 'wrap', marginTop: 10, padding: '14px 18px',
-              border: '1px solid #e7b9ad', background: '#fdf3ef', borderRadius: 12,
-            }}>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <strong style={{ fontSize: 14.5 }}>Delete this community</strong>
-                <span style={{ fontSize: 13, color: '#6b5544' }}>
-                  Permanently deletes {form.name || 'the community'} and all its data, cancels the subscription, and removes every member. This can&apos;t be undone.{' '}
+          {/* ---- Danger zone ---- */}
+          <div className="card danger-card">
+            <div className="card-head">
+              <div>
+                <h2>Danger zone</h2>
+                <div className="sub">
+                  Permanently deletes {form.name || 'this community'} and all its data, cancels the subscription, and removes every member. This can&apos;t be undone.{' '}
                   Need help instead? <a href="/admin/support" style={{ color: '#E5601F', fontWeight: 700 }}>Contact Residente</a>.
-                </span>
+                </div>
               </div>
               <DangerAction
                 confirmWord="DELETE"
@@ -220,7 +299,7 @@ export default function CommunitySettings() {
               />
             </div>
           </div>
-        </>
+        </form>
       )}
     </div>
   )
@@ -231,6 +310,7 @@ function BudgetCategories({ communityId, onSaved }) {
   const [rows, setRows] = useState([])
   const [status, setStatus] = useState('loading') // loading | ready | error | saving | saved
   const [error, setError] = useState('')
+  const [editing, setEditing] = useState(false) // read-table by default; flip to edit on Edit →
 
   const load = useCallback(async () => {
     setStatus('loading'); setError('')
@@ -301,17 +381,32 @@ function BudgetCategories({ communityId, onSaved }) {
         }
         if (ins.error) throw ins.error
       }
-      setStatus('ready'); onSaved?.('Budget categories saved.')
+      setStatus('ready'); setEditing(false); onSaved?.('Budget categories saved.')
     } catch (err) {
       setError(err?.message || 'Save failed'); setStatus('error')
     }
   }
 
+  const cancel = () => { setEditing(false); setError(''); load() }
+  const startAdd = () => { setEditing(true); addRow() }
+
+  // Read-table figures.
+  const money = (n) => '$' + (Number(n) || 0).toLocaleString('en-US')
+  const totalBudget = rows.reduce((s, r) => s + (Number(r.budget) || 0), 0)
+  const pctOf = (r) => totalBudget > 0
+    ? Math.round(((Number(r.budget) || 0) / totalBudget) * 100) + '%'
+    : '—'
+
   return (
-    <div className="bc">
-      <div className="bc-head">
-        <h2 className="bc-title">Budget categories</h2>
-        <span className="bc-sub">Allocation and spend per category — feeds the Home cards &amp; rings.</span>
+    <div className="card">
+      <div className="card-head">
+        <div>
+          <h2>Budget categories</h2>
+          <div className="sub">This year&rsquo;s operating budget — feeds the Home cards &amp; rings.</div>
+        </div>
+        {!editing && status !== 'loading' && status !== 'error' && (
+          <button type="button" className="admin-btn-ghost" onClick={startAdd}>+ Add category</button>
+        )}
       </div>
 
       {status === 'loading' && <div className="admin-note">Loading categories…</div>}
@@ -323,8 +418,32 @@ function BudgetCategories({ communityId, onSaved }) {
         </div>
       )}
 
-      {status !== 'loading' && status !== 'error' && (
-        <>
+      {/* Read mode — the mock's clean table, no boxes. */}
+      {status !== 'loading' && status !== 'error' && !editing && (
+        rows.length === 0 ? (
+          <div className="bc-empty">No categories yet — use “+ Add category” to start your budget.</div>
+        ) : (
+          <table className="tbl">
+            <thead>
+              <tr><th>Category</th><th>Annual amount</th><th>% of budget</th><th /></tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={r.id || `row-${i}`}>
+                  <td className="strong">{r.name}</td>
+                  <td>{money(r.budget)}</td>
+                  <td className="muted">{pctOf(r)}</td>
+                  <td className="go-cell"><button type="button" className="go" onClick={() => setEditing(true)}>Edit &rarr;</button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )
+      )}
+
+      {/* Edit mode — borderless inline editor. */}
+      {status !== 'loading' && status !== 'error' && editing && (
+        <div className="bc">
           <div className="bc-row bc-row-head">
             <span>Category</span><span>Budget&nbsp;$</span><span>Spent&nbsp;$</span><span />
           </div>
@@ -352,12 +471,13 @@ function BudgetCategories({ communityId, onSaved }) {
             </button>
             <input name="categories-csv" ref={fileRef} type="file" accept=".csv,text/csv"
               onChange={onImport} style={{ display: 'none' }} />
+            <button type="button" className="admin-btn-ghost" onClick={cancel}>Cancel</button>
             <button type="button" className="admin-primary-btn" onClick={save}
               disabled={status === 'saving'}>
               {status === 'saving' ? 'Saving…' : 'Save categories'}
             </button>
           </div>
-        </>
+        </div>
       )}
     </div>
   )

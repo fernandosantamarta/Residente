@@ -821,3 +821,132 @@
 .admin .admin-note,
 .admin .admin-soon { border-radius: 18px; }
 .admin .admin-dash-card { box-shadow: 0 1px 2px rgba(42, 18, 6, 0.05); }
+
+/* ============================================================
+   COMMUNITY SETTINGS — mock card layout
+   Mirrors public/mocks/community.html: a 2-up card grid (details +
+   dues), stat tiles, a budget card, a compliance card, and a danger
+   card. Reuses the existing admin-field / admin-input / admin-primary-btn
+   tokens for the controls; only the structural shell is ported here.
+   Scoped to .cset so it can't leak into other admin pages.
+   ============================================================ */
+.cset { --due: #C2360A; --due-soft: rgba(194, 54, 10, 0.30); }
+
+.cset .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+
+.cset .card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 18px; padding: 22px 24px;
+  box-shadow: 0 1px 2px rgba(42, 18, 6, 0.05); margin-bottom: 18px;
+}
+.cset .card-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; margin-bottom: 18px;
+}
+.cset .card-head h2 {
+  margin: 0; font-family: 'AmpFix', 'Fraunces', Georgia, serif;
+  font-weight: 500; font-size: 20px; letter-spacing: -0.01em;
+}
+.cset .card-head .sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+
+/* Form fields sit flush inside cards (no max-width form column). */
+.cset .card .admin-field { margin-bottom: 14px; }
+.cset .card .admin-field:last-child { margin-bottom: 0; }
+.cset .card .grid2 .admin-field { margin-bottom: 0; }
+.cset .field-hint {
+  font-size: 12px; color: var(--text-faint); line-height: 1.5; margin-top: 5px;
+}
+.cset .card-cta { margin-top: 18px; }
+
+/* Stat tiles inside the dues card. */
+.cset .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+.cset .stat { background: var(--bg); border: 1px solid var(--border); border-radius: 14px; padding: 15px 16px; }
+.cset .stat .v { font-size: 25px; font-weight: 700; letter-spacing: -0.5px; }
+.cset .stat .l {
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--text-faint); margin-top: 5px;
+}
+
+/* Budget editor lives inside a card now — drop its own top margin/width. */
+.cset .card .bc { margin-top: 0; max-width: none; }
+.cset .card .bc-actions { margin-top: 16px; }
+
+/* Budget read-table — row dividers, no boxes, like the Overview checklist. */
+.cset .tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.cset .tbl th {
+  text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-faint);
+  padding: 0 12px 10px; border-bottom: 1px solid var(--border);
+}
+.cset .tbl th:nth-child(2), .cset .tbl td:nth-child(2),
+.cset .tbl th:nth-child(3), .cset .tbl td:nth-child(3) { text-align: right; }
+.cset .tbl td {
+  padding: 13px 12px; border-bottom: 1px solid var(--border);
+  color: var(--text); vertical-align: middle;
+}
+.cset .tbl tr:last-child td { border-bottom: none; }
+.cset .tbl .muted { color: var(--text-dim); }
+.cset .tbl .strong { font-weight: 600; }
+.cset .tbl .go-cell { text-align: right; width: 1%; white-space: nowrap; }
+.cset .go {
+  background: none; border: none; padding: 0; font-family: inherit;
+  font-size: 13px; font-weight: 700; color: var(--pink); cursor: pointer;
+}
+.cset .go:hover { color: #C53D06; }
+
+/* Danger card — soft red outline, red heading, matches the mock. */
+.cset .danger-card { border-color: var(--due-soft); }
+.cset .danger-card .card-head h2 { color: var(--due); }
+
+.cset .note { font-size: 11px; color: var(--text-faint); text-align: center; margin-top: 30px; }
+
+/* Controls match the MOCK exactly — flat white, 10px rounded rectangles, a
+   neutral-brown border, 42px tall so the Type dropdown and the Homes input
+   line up in the same row. The rest of the admin keeps its pill inputs; this
+   is scoped to .cset only. Specificity (.admin .cset .admin-field input = 4)
+   beats the [data-theme="sketch"] .admin-field input pill rule. */
+.admin .cset .admin-input,
+.admin .cset .ad-dd-trigger {
+  height: 42px;
+  padding: 0 13px;
+  background: #FBF7F1;            /* warm fill — reads as a field with no hard border */
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 14px; font-weight: 500; color: var(--text);
+  box-shadow: none;
+}
+.admin .cset .ad-dd-trigger,
+.admin .cset .ad-dd-trigger-label { font-size: 14px; font-weight: 500; color: var(--text); }
+.admin .cset .admin-input:hover,
+.admin .cset .ad-dd-trigger:hover { background: #F6EEE4; border-color: transparent; }
+.admin .cset .admin-input:focus,
+.admin .cset .ad-dd.open .ad-dd-trigger,
+.admin .cset .ad-dd-trigger:focus-visible {
+  border-color: var(--pink); background: #fff;
+  box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.14);
+}
+/* $ prefix box — same fill, joined to the input, no border. */
+.admin .cset .admin-input-prefix {
+  height: 42px;
+  border: 1px solid transparent; border-right: none;
+  border-radius: 10px 0 0 10px;
+  background: #FBF7F1; color: var(--text-dim);
+}
+.admin .cset .admin-input-prefix + .admin-input { border-radius: 0 10px 10px 0; }
+
+/* Sentence-case labels + hints + dropdown text, like the mock — overrides the
+   admin's tracked-uppercase [data-theme="sketch"] .admin-field span rule. */
+.admin .cset .admin-field > .admin-field-label {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  text-transform: none; color: var(--text-dim);
+}
+.admin .cset .field-hint {
+  font-size: 12px; font-weight: 400; letter-spacing: 0; text-transform: none;
+  color: var(--text-faint); line-height: 1.5; margin-top: 5px;
+}
+.admin .cset .ad-dd-trigger-label { text-transform: none; letter-spacing: 0; }
+
+@media (max-width: 780px) {
+  .cset .grid2 { grid-template-columns: 1fr; }
+  .cset .card .grid2 .admin-field { margin-bottom: 14px; }
+}
