@@ -772,3 +772,52 @@
   .voice-meeting-row { flex-direction: column; align-items: flex-start; gap: 10px; }
   .voice-meeting-row-right { align-self: flex-start; }
 }
+
+/* ============================================================
+   MOCK RESTYLE — make the whole admin match the signup/mock look.
+   Scoped to .admin only (re-tints the CSS variables the admin classes
+   already consume), so none of this leaks into the resident app.
+   ============================================================ */
+.admin {
+  --bg:            #FFF5EC;   /* warm cream page */
+  --bg-elev:       #FFFFFF;
+  --bg-card:       #FFFFFF;
+  --text:          #2A1206;   /* dark brown ink */
+  --text-dim:      rgba(42, 18, 6, 0.58);
+  --text-faint:    rgba(42, 18, 6, 0.42);
+  --border:        rgba(42, 18, 6, 0.10);
+  --border-hover:  rgba(42, 18, 6, 0.22);
+  --pink:          #E14909;   /* signup orange — nav underline, kicker, rings, dots */
+  --grad:          #E14909;
+  --grad-warn:     #B5713A;
+}
+
+/* Top bar → signup orange gradient with white text + a white logo chip
+   (the orange house mark would otherwise vanish on the orange bar). */
+.admin .admin-top {
+  background: linear-gradient(168deg, #FF8A3D 0%, #F4530E 52%, #DC440A 100%);
+  border-bottom: none;
+}
+[data-theme="sketch"] .admin-top .admin-brand-word,
+[data-theme="sketch"] .admin-top .admin-back { color: #fff; }
+.admin .admin-top .admin-back:hover { color: #fff; opacity: 0.85; }
+[data-theme="sketch"] .admin-top .admin-brand-logo {
+  width: 34px; height: 34px; padding: 4px; box-sizing: border-box;
+  background: #fff; border-radius: 9px;
+  box-shadow: 0 2px 8px rgba(120, 40, 0, 0.20);
+}
+[data-theme="sketch"] .admin-top .admin-tag {
+  background: rgba(255, 255, 255, 0.22); color: #fff;
+}
+
+/* Buttons → exact signup orange. */
+.admin .admin-btn,
+.admin .admin-primary-btn { background: #E14909; }
+.admin .admin-btn:hover,
+.admin .admin-primary-btn:hover { background: #C53D06; }
+
+/* Cards a touch rounder/softer, like the mock. */
+.admin .admin-dash-card,
+.admin .admin-note,
+.admin .admin-soon { border-radius: 18px; }
+.admin .admin-dash-card { box-shadow: 0 1px 2px rgba(42, 18, 6, 0.05); }
