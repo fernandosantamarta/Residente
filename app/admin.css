@@ -1059,3 +1059,99 @@
 @media (max-width: 600px) {
   .crep .tbl .period-col { display: none; }
 }
+
+/* ============================================================
+   EASY TRACK / RESIDENTS — mock parity (public/mocks/easy-track.html)
+   Stat tiles + a search/filter/add toolbar + an avatar + status-pill
+   roster table whose "Open" row expands the full household editor (so
+   inline balance/mailing/tenant editing is kept, not stripped).
+   Scoped to .etrack.
+   ============================================================ */
+.etrack { --due: #C2360A; --ok: #067647; --warn: #B54708; }
+
+.etrack .stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px; margin: 6px 0 22px;
+}
+.etrack .stat {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px 18px;
+}
+.etrack .stat .v { font-size: 27px; font-weight: 800; letter-spacing: -0.6px; line-height: 1; }
+.etrack .stat .l {
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-faint); margin-top: 7px;
+}
+
+/* Search / filter / add toolbar. */
+.etrack .toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin: 0 0 16px;
+}
+.etrack .toolbar-left { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; flex: 1; }
+.etrack .toolbar-left .ad-dd { width: auto; min-width: 168px; }
+.etrack .search {
+  display: inline-flex; align-items: center; gap: 9px; flex: 1; min-width: 220px; max-width: 360px;
+  padding: 9px 15px; border-radius: 999px;
+  background: #FBF7F1; border: 1.5px solid rgba(199, 111, 69, 0.30);
+  transition: border-color 0.12s, background 0.12s;
+}
+.etrack .search:focus-within { border-color: #E14909; background: #fff; box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.12); }
+.etrack .search svg { width: 15px; height: 15px; color: #C76F45; flex-shrink: 0; }
+.etrack .search input {
+  border: none; background: none; outline: none; width: 100%;
+  font-family: inherit; font-size: 13.5px; color: var(--text);
+}
+.etrack .search input::placeholder { color: var(--text-faint); }
+
+/* Roster table card. */
+.etrack .card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 18px; padding: 8px 20px; box-shadow: 0 1px 2px rgba(42, 18, 6, 0.05);
+}
+.etrack .tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.etrack .tbl th {
+  text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-faint);
+  padding: 14px 12px 10px; border-bottom: 1px solid var(--border);
+}
+.etrack .tbl td { padding: 13px 12px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+.etrack .tbl tr.tr:last-of-type td { border-bottom: none; }
+.etrack .tbl .muted { color: var(--text-dim); }
+.etrack .tbl .strong { font-weight: 600; }
+.etrack .tbl .due { color: var(--due); font-weight: 600; }
+.etrack .tbl .owner-cell { display: flex; align-items: center; gap: 11px; }
+.etrack .tbl .act { text-align: right; white-space: nowrap; width: 1%; }
+
+.etrack .av {
+  width: 30px; height: 30px; flex-shrink: 0; border-radius: 999px;
+  display: grid; place-items: center;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.02em;
+  background: rgba(225, 73, 9, 0.12); color: #B23A06;
+}
+.etrack .pill {
+  font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 999px;
+  white-space: nowrap;
+}
+.etrack .pill.ok  { color: var(--ok);   background: rgba(6, 118, 71, 0.12); }
+.etrack .pill.warn { color: var(--warn); background: rgba(181, 71, 8, 0.12); }
+.etrack .pill.dim { color: var(--text-dim); background: rgba(42, 18, 6, 0.07); }
+.etrack .go {
+  background: none; border: none; padding: 0; font-family: inherit;
+  font-size: 13px; font-weight: 700; color: var(--pink); cursor: pointer;
+}
+.etrack .go:hover { color: #C53D06; }
+
+/* Expanded household editor — sits in a full-width row under the household. */
+.etrack .tr-edit > td { background: rgba(42, 18, 6, 0.02); padding: 16px 12px 20px; }
+.etrack .edit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.etrack .edit-note { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin: 0 0 12px; }
+.etrack .edit-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+.etrack .edit-rented { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text); }
+
+.etrack .roster-empty { text-align: center; padding: 30px 16px; color: var(--text-dim); font-size: 13.5px; }
+.etrack .note { font-size: 12px; color: var(--text-faint); line-height: 1.6; margin-top: 16px; }
+
+@media (max-width: 640px) {
+  .etrack .tbl .contact-col { display: none; }
+}
