@@ -17,6 +17,7 @@ import {
   type CollectedDoc,
 } from '@/lib/signup'
 import type { DocCategory } from '@/lib/compliance/official-records'
+import { parseRosterCsv, parseBudgetCsv, applySignupImport, type RosterRow, type BudgetRow } from '@/lib/signupImport'
 import './signup.css'
 
 // Duolingo-style self-serve sign-up. Full-orange, one decision per screen, a
@@ -132,6 +133,13 @@ export default function SignupPage() {
   const [docSection, setDocSection] = useState(0)
   const [docState, setDocState] = useState<DocSectionState[]>(emptyDocState)
 
+  // Onboarding "Upload your documents" fork (Phase 0). setupMode picks the path
+  // at the documents step; the parsed roster + budget are stashed here and
+  // applied to the live tables after provisioning (like the doc/notes upload).
+  const [setupMode, setSetupMode] = useState<'choose' | 'manual' | 'upload'>('choose')
+  const [importRoster, setImportRoster] = useState<RosterRow[] | null>(null)
+  const [importBudget, setImportBudget] = useState<BudgetRow[] | null>(null)
+
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -142,9 +150,13 @@ export default function SignupPage() {
 
   const goBack = () => {
     setErr(null)
-    // Inside the document wizard the top-bar back steps through its categories
-    // first, then leaves the step — so one back button drives the whole flow.
-    if (step === 'documents' && docSection > 0) { setDocSection(docSection - 1); return }
+    // At the documents step the back button unwinds the setup flow before
+    // leaving: manual-wizard category → category, then any chosen path → the
+    // fork, then the fork → the previous step.
+    if (step === 'documents') {
+      if (setupMode === 'manual' && docSection > 0) { setDocSection(docSection - 1); return }
+      if (setupMode !== 'choose') { setSetupMode('choose'); return }
+    }
     if (idx > 0) setStep(seq[idx - 1])
     else window.location.assign('/')
   }
@@ -245,6 +257,16 @@ export default function SignupPage() {
         // same non-fatal contract as the uploads above.
         const notes = docState.map((sec, si) => ({ section: DOC_SECTIONS[si].label, note: sec.note }))
         try { await saveSignupNotes(res.community_id, notes) } catch { /* non-fatal */ }
+
+        // Apply the deterministic "Upload your documents" import (roster + budget)
+        // now the community exists. Best-effort; skips the signer's own roster row.
+        if (importRoster?.length || importBudget?.length) {
+          try {
+            await applySignupImport(res.community_id,
+              { roster: importRoster ?? undefined, budget: importBudget ?? undefined },
+              { skipName: fullName.trim() })
+          } catch { /* non-fatal */ }
+        }
       }
 
       // Paid band (26+ homes) → pay on the spot: redirect straight into Stripe
@@ -320,7 +342,23 @@ export default function SignupPage() {
           />
         )}
 
-        {step === 'documents' && (
+        {step === 'documents' && setupMode === 'choose' && (
+          <SetupFork
+            onUpload={() => { setErr(null); setSetupMode('upload') }}
+            onManual={() => { setErr(null); setSetupMode('manual') }}
+            onSkip={() => { setErr(null); setStep('details') }}
+          />
+        )}
+
+        {step === 'documents' && setupMode === 'upload' && (
+          <UploadSetup
+            roster={importRoster} setRoster={setImportRoster}
+            budget={importBudget} setBudget={setImportBudget}
+            onNext={() => { setErr(null); setStep('details') }}
+          />
+        )}
+
+        {step === 'documents' && setupMode === 'manual' && (
           <DocWizard
             section={docSection} setSection={setDocSection}
             state={docState} setState={setDocState}
@@ -750,6 +788,115 @@ function Plan({ propertyType, unitCount, onNext }: {
         {paid && (
           <p className="su-foot">You&apos;ll create your account first, then pay securely with Stripe.</p>
         )}
+      </div>
+    </>
+  )
+}
+
+// The "Getting started" fork at the documents step: upload docs and have us
+// pre-fill, or set it up by hand. Both paths are optional (skip → details).
+function SetupFork({ onUpload, onManual, onSkip }: {
+  onUpload: () => void; onManual: () => void; onSkip: () => void
+}) {
+  return (
+    <>
+      <div className="su-kicker">Get set up</div>
+      <h1 className="su-h1">Want us to fill it in for you?</h1>
+      <p className="su-sub">Drop your documents and we&rsquo;ll pre-fill your roster, budget, and settings — or set it up yourself.</p>
+      <HouseArt />
+      <div className="su-content">
+        <div className="su-choices">
+          <Tile
+            icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 16V4" /><path d="m7 9 5-5 5 5" /><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" /></svg>}
+            title="Upload your documents"
+            desc="Add your owner roster and budget — we read them and fill it in. You just confirm."
+            onClick={onUpload} />
+          <Tile
+            icon={<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 20h9" /><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" /></svg>}
+            title="I&rsquo;ll set it up myself"
+            desc="Go step by step and add your documents and details by hand."
+            onClick={onManual} />
+        </div>
+        <button type="button" className="su-skip" onClick={onSkip}>Skip for now — I&rsquo;ll do this later</button>
+      </div>
+    </>
+  )
+}
+
+// Upload path (Phase 0): clean roster + budget spreadsheets, parsed in the
+// browser and shown back as counts before continuing. The parsed rows are
+// stashed in the parent and written after provisioning. CC&Rs → fines/rules is
+// Phase 1 (the extract-setup edge fn) — not wired yet.
+function UploadSetup({ roster, setRoster, budget, setBudget, onNext }: {
+  roster: RosterRow[] | null; setRoster: (r: RosterRow[] | null) => void
+  budget: BudgetRow[] | null; setBudget: (b: BudgetRow[] | null) => void
+  onNext: () => void
+}) {
+  const [err, setErr] = useState<string | null>(null)
+  const money = (n: number) => '$' + Math.round(n).toLocaleString('en-US')
+  const numOf = (v: string) => { const n = Number(String(v).replace(/[^0-9.\-]/g, '')); return Number.isFinite(n) ? n : 0 }
+  const budgetTotal = (budget || []).reduce((s, b) => s + numOf(b.budget), 0)
+
+  const readFile = (file: File | null, parse: (t: string) => any[], set: (rows: any[] | null) => void, label: string) => {
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const rows = parse(String(reader.result))
+      if (rows.length) { set(rows); setErr(null) }
+      else { set(null); setErr(`No ${label} rows found in that file.`) }
+    }
+    reader.onerror = () => setErr('Could not read that file.')
+    reader.readAsText(file)
+  }
+
+  const fields = [
+    {
+      title: 'Owner roster',
+      hint: 'CSV / Excel export — columns: name, subdivision, address, email, phone',
+      done: roster ? `${roster.length} resident${roster.length === 1 ? '' : 's'} found` : null,
+      onFile: (f: File | null) => readFile(f, parseRosterCsv, setRoster as any, 'resident'),
+    },
+    {
+      title: 'Annual budget',
+      hint: 'CSV — columns: category, annual amount, spent',
+      done: budget ? `${budget.length} categor${budget.length === 1 ? 'y' : 'ies'} · ${money(budgetTotal)}` : null,
+      onFile: (f: File | null) => readFile(f, parseBudgetCsv, setBudget as any, 'budget'),
+    },
+  ]
+
+  return (
+    <>
+      <div className="su-kicker">Upload your documents</div>
+      <h1 className="su-h1">Drop your roster &amp; budget.</h1>
+      <p className="su-sub">
+        We read clean spreadsheets instantly. (Reading fines &amp; rules from your CC&amp;Rs is coming —
+        for now add those in the manual flow or later in your dashboard.)
+      </p>
+      <div className="su-content">
+        <div className="su-doc-card">
+          <div className="su-doc-items">
+            {fields.map(fl => (
+              <div className="su-doc-item" key={fl.title} style={{ alignItems: 'flex-start' }}>
+                <div className="su-doc-name-text" style={{ flex: 1 }}>
+                  <div style={{ fontWeight: 600 }}>{fl.title}</div>
+                  <div style={{ fontSize: 12, color: 'rgba(42,18,6,0.55)', marginTop: 2 }}>{fl.done || fl.hint}</div>
+                </div>
+                <label className={`su-doc-up${fl.done ? ' done' : ''}`}>
+                  {fl.done ? '✓ Loaded' : 'Choose file'}
+                  <input className="su-doc-file" type="file" accept=".csv,text/csv"
+                    onChange={(e) => fl.onFile(e.target.files?.[0] ?? null)} />
+                </label>
+              </div>
+            ))}
+          </div>
+        </div>
+        {err && <div className="su-err">{err}</div>}
+        <div className="su-actions">
+          <button className="su-btn" type="button" onClick={onNext}>
+            {(roster || budget) ? 'Looks good — continue' : 'Continue without uploads'}
+          </button>
+        </div>
+        <button type="button" className="su-skip" onClick={onNext}>Skip — I&rsquo;ll add these later</button>
       </div>
     </>
   )
