@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { Dropdown } from '@/components/Dropdown'
@@ -65,6 +65,12 @@ export default function VendorAdmin() {
   const [successMsg, setSuccessMsg] = useState('')
   const [filterCategory, setFilterCategory] = useState<'all' | VendorCat>('all')
   const [page, setPage] = useState(1)
+  // Vendor-guidelines doc — the PDF residents open from "View Guidelines".
+  // Stored as a normal library document (category "Vendor & Contracts", title
+  // containing "Guidelines") so the resident lookup in VendorSection resolves it.
+  const [guidelinesDoc, setGuidelinesDoc] = useState<any | null>(null)
+  const [guideBusy, setGuideBusy] = useState(false)
+  const guideFileRef = useRef<HTMLInputElement | null>(null)
 
   // Auto-dismiss the green confirmation banner after 4 seconds.
   useEffect(() => {
@@ -97,6 +103,92 @@ export default function VendorAdmin() {
     }
   }, [communityId])
   useEffect(() => { load() }, [load])
+
+  // Find the current vendor-guidelines doc (same lookup the resident page uses:
+  // newest doc whose title contains "guideline", preferring a vendor category).
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (!hasSupabase || !supabase || !communityId) return
+      try {
+        const { data, error } = await withTimeout(
+          supabase.from('documents').select('*')
+            .eq('community_id', communityId).ilike('title', '%guideline%')
+            .order('uploaded_at', { ascending: false })
+        )
+        if (cancelled || error || !data?.length) return
+        setGuidelinesDoc(data.find((d: any) => (d.category || '').toLowerCase().includes('vendor')) || data[0])
+      } catch { /* documents table/bucket not set up — no guidelines yet */ }
+    })()
+    return () => { cancelled = true }
+  }, [communityId])
+
+  // Upload (or replace) the guidelines file. Writes the same row shape the
+  // Documents page uses, then drops the previous vendor-guidelines doc so
+  // residents always open the latest.
+  const onPickGuide = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setGuideBusy(true); setError('')
+    try {
+      const ext = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : 'pdf'
+      const path = `${communityId}/${crypto.randomUUID()}.${ext}`
+      const up = await withTimeout(supabase!.storage.from('documents').upload(path, file))
+      if (up.error) throw up.error
+      const row = {
+        community_id: communityId, title: 'Vendor Guidelines',
+        category: 'Vendor & Contracts', storage_path: path, file_size: file.size,
+      }
+      const { data, error } = await withTimeout(supabase!.from('documents').insert(row).select().single())
+      if (error) { supabase!.storage.from('documents').remove([path]); throw error }
+      const prev = guidelinesDoc
+      setGuidelinesDoc(data)
+      setSuccessMsg('Vendor guidelines uploaded.')
+      // Tidy up the prior vendor-guidelines doc (only if it was ours).
+      if (prev && (prev.category || '').toLowerCase().includes('vendor')) {
+        try {
+          await supabase!.storage.from('documents').remove([prev.storage_path])
+          await supabase!.from('documents').delete().eq('id', prev.id)
+        } catch { /* leave the old one — the newest still wins the lookup */ }
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Could not upload the guidelines file')
+    } finally {
+      setGuideBusy(false)
+    }
+  }
+
+  const viewGuidelines = async () => {
+    if (!guidelinesDoc || !supabase) return
+    setGuideBusy(true); setError('')
+    try {
+      const { data, error } = await withTimeout(
+        supabase.storage.from('documents').createSignedUrl(guidelinesDoc.storage_path, 3600)
+      )
+      if (error || !data?.signedUrl) throw error || new Error('No link')
+      window.open(data.signedUrl, '_blank', 'noopener')
+    } catch {
+      setError('Could not open the guidelines file')
+    } finally {
+      setGuideBusy(false)
+    }
+  }
+
+  const removeGuidelines = async () => {
+    if (!guidelinesDoc) return
+    const doc = guidelinesDoc
+    setGuidelinesDoc(null)   // optimistic
+    try {
+      await withTimeout(supabase!.storage.from('documents').remove([doc.storage_path]))
+      const { error } = await withTimeout(supabase!.from('documents').delete().eq('id', doc.id))
+      if (error) throw error
+      setSuccessMsg('Vendor guidelines removed.')
+    } catch (err: any) {
+      setGuidelinesDoc(doc)   // roll back
+      setError(err?.message || 'Could not remove the guidelines file')
+    }
+  }
 
   const setField = (k: keyof typeof EMPTY, v: any) => setForm(f => ({ ...f, [k]: v }))
 
@@ -322,12 +414,41 @@ export default function VendorAdmin() {
                 <div className="sub">The “View Guidelines” link residents see on their Vendors page</div>
               </div>
             </div>
-            <p style={{ margin: 0, fontSize: 13.5, lineHeight: 1.6, color: 'var(--text-dim)' }}>
-              To set or update it, go to <a href="/admin/documents#documents">Documents</a>,
-              upload a file with “Guidelines” in the title under the{' '}
-              <strong>Vendor &amp; Contracts</strong> category, and it shows up
-              automatically. Until then, residents see the default policy text.
+            {guidelinesDoc ? (
+              <div className="bd-row">
+                <div className="bd-main">
+                  <div className="bd-title">{guidelinesDoc.title || 'Vendor Guidelines'}</div>
+                  <div className="bd-meta">
+                    <span>Published to residents</span>
+                    {guidelinesDoc.uploaded_at && <><span className="bd-dot">·</span><span>{fmtPubDate(guidelinesDoc.uploaded_at)}</span></>}
+                  </div>
+                </div>
+                <button type="button" className="admin-btn-ghost" onClick={viewGuidelines} disabled={guideBusy}>
+                  View
+                </button>
+                <button type="button" className="admin-btn-ghost" onClick={() => guideFileRef.current?.click()} disabled={guideBusy}>
+                  {guideBusy ? 'Working…' : 'Replace'}
+                </button>
+                <button type="button" className="bc-del" onClick={removeGuidelines}
+                  aria-label="Remove guidelines" disabled={guideBusy}>&times;</button>
+              </div>
+            ) : (
+              <>
+                <p style={{ margin: '0 0 14px', fontSize: 13.5, lineHeight: 1.6, color: 'var(--text-dim)' }}>
+                  Upload the PDF residents open from “View Guidelines”. Until you add
+                  one, they see the default policy text.
+                </p>
+                <button type="button" className="admin-primary-btn" onClick={() => guideFileRef.current?.click()} disabled={guideBusy}>
+                  {guideBusy ? 'Uploading…' : 'Upload guidelines'}
+                </button>
+              </>
+            )}
+            <p className="field-hint" style={{ marginTop: 12 }}>
+              Saved to your document library under <strong>Vendor &amp; Contracts</strong> —
+              you can also manage it from <a href="/admin/documents#documents">Documents</a>.
             </p>
+            <input ref={guideFileRef} type="file" accept=".pdf,.doc,.docx,application/pdf"
+              onChange={onPickGuide} style={{ display: 'none' }} />
           </div>
         </div>
       )}
