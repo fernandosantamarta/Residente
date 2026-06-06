@@ -43,6 +43,7 @@ import { electionsSignals, recallSignals, type ElectionRow, type RecallRow } fro
 import { arcSignals, type ArcRequestRow } from '@/lib/compliance/arc'
 import { insuranceSignals, type InsurancePolicyRow } from '@/lib/compliance/insurance'
 import { contractsSignals, type ContractRow } from '@/lib/compliance/contracts'
+import { advisoriesSignals, type ComplianceEventRow, type ProxyRow } from '@/lib/compliance/advisories'
 
 export const dynamic = 'force-dynamic'
 
@@ -113,6 +114,8 @@ export async function GET(req: Request) {
     // Live current-FY GL revenue drives the audit tier when a ledger exists
     // (null → financialSignals falls back to the budget estimate).
     const glRevenue = await fetchGlCurrentFyRevenue(admin, c.id, Number(c.fiscal_year_start_month) || 1)
+    const complianceEvents = (await safe('ev_compliance_events', c.id)) as ComplianceEventRow[]
+    const proxies = (await safe('ev_proxies', c.id)) as ProxyRow[]
     const signals = sortSignals([
       ...foundationSignals(c),
       ...estoppelSignals(estoppel),
@@ -130,6 +133,7 @@ export async function GET(req: Request) {
       ...arcSignals(arcRequests, c),
       ...insuranceSignals(c, insurancePolicies, reserves), // property half condo-only; bond both regimes
       ...contractsSignals(c, contracts, budgets), // competitive-bid threshold uses budgets INCL reserves
+      ...advisoriesSignals(c, complianceEvents, proxies), // niche/event-driven clocks + proxy expiry
     ])
     const actionable = signals.filter(s => s.severity === 'overdue' || s.severity === 'soon')
     if (!actionable.length) { summary.push({ community: c.id, actionable: 0 }); continue }
