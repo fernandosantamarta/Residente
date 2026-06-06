@@ -7,7 +7,6 @@ import { hasSupabase, supabase } from '@/lib/supabase'
 import { AdminErrorBoundary } from '@/components/AdminErrorBoundary'
 import { SiteFooterSlim } from '@/components/SiteFooter'
 import { useAuth } from '../providers'
-import { CommunitySwitcher } from '../CommunitySwitcher'
 import { usePlatformAdmin } from '@/hooks/usePlatform'
 import { usePermissions } from '@/hooks/usePermissions'
 import type { Permission } from '@/lib/permissions'
@@ -97,7 +96,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <span className="admin-brand-word">Residente</span>
           </Link>
           <span className="admin-tag">Admin</span>
-          <CommunitySwitcher />
         </div>
         {/* Mock-parity bar: a founder/platform-only "View as" team switcher, then
             Contact Residente (pill) + Back to app. Regular admins see no switcher. */}
