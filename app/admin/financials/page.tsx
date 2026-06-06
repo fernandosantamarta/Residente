@@ -177,14 +177,16 @@ export default function FinancialsPage() {
             <span style={{ opacity: 0.7 }}> Revenue is your entered figure, else the sum of non-reserve budget lines.</span>
           </div>
 
-          {/* Document artifacts */}
+          {/* Document artifacts — live statements first, then draft aids */}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '14px 0' }}>
             {[
-              { type: 'afr', label: 'Annual financial report + affidavit' },
-              { type: 'budget', label: 'Proposed-budget package' },
-              { type: 'reserve_worksheet', label: 'Reserve-funding worksheet' },
+              { type: 'statement', label: 'Statement of cash receipts & expenditures', live: true },
+              { type: 'budget_actual', label: 'Budget vs actual', live: true },
+              { type: 'afr', label: 'Annual financial report + affidavit', live: false },
+              { type: 'budget', label: 'Proposed-budget package', live: false },
+              { type: 'reserve_worksheet', label: 'Reserve-funding worksheet', live: false },
             ].map(d => (
-              <Link key={d.type} href={`/admin/financials/document?type=${d.type}`} className="admin-btn-ghost" style={{ textDecoration: 'none' }}>📄 {d.label}</Link>
+              <Link key={d.type} href={`/admin/financials/document?type=${d.type}`} className="admin-btn-ghost" style={{ textDecoration: 'none' }}>{d.live ? '📊' : '📄'} {d.label}</Link>
             ))}
           </div>
 
