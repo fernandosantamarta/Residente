@@ -110,29 +110,15 @@ export default function AdminHome() {
   // Paid band that isn't active yet → show the Activate banner (covers pending,
   // legacy 'trial', and past_due). Free communities never see it.
   const needsActivation = Boolean(isPaidPlan && sub !== 'active')
-  const subBadge =
-    sub === 'free'     ? 'Free plan' :
-    sub === 'active'   ? `${planForHomes(homes).label} plan` :
-    pastDue            ? 'Payment past due' :
-    isPaidPlan         ? 'Activation pending' : ''
 
-  const stats = [
-    { label: 'Units', value: community?.unit_count ?? '—' },
-    { label: 'Monthly dues', value: dues ? `$${dues}` : '—' },
-    { label: 'Residents', value: counts?.residents ?? 0 },
-    { label: 'Board', value: counts?.board ?? 0 },
-    { label: 'Documents', value: counts?.documents ?? 0 },
-  ]
+  // Hint under the progress ring — the next step still to do.
+  const nextStep = items.find(i => !i.done)?.label
 
   return (
     <div className="admin-page">
-      <div className="admin-kicker">Overview</div>
-      <h1 className="admin-h1">{community?.name || 'Your community'}</h1>
-      <p className="admin-dek">
-        {community?.location ? `${community.location} · ` : ''}
-        {community?.association_type === 'condo' ? 'Condominium association' : 'Homeowners association'}
-        {subBadge ? ` · ${subBadge}` : ''}
-      </p>
+      <div className="admin-kicker">Get started</div>
+      <h1 className="admin-h1">Let&rsquo;s get <span style={{ color: '#E14909' }}>{community?.name || 'your community'}</span> live.</h1>
+      <p className="admin-dek">Three quick moves and your neighbors are in. Each step ticks off on its own as you go.</p>
 
       {needsActivation && (
         <div style={{
@@ -189,32 +175,40 @@ export default function AdminHome() {
         />
       )}
 
-      <div className="admin-dash-stats">
-        {stats.map(s => (
-          <div key={s.label} className="admin-dash-stat">
-            <div className="admin-dash-stat-val">{s.value}</div>
-            <div className="admin-dash-stat-label">{s.label}</div>
+      {/* Progress + guided setup — the mock hero row. */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 18, margin: '6px 0 26px', flexWrap: 'wrap' }}>
+        <div className="admin-dash-ring" style={{ ['--pct' as any]: `${pct}%` }}>{pct}%</div>
+        <div style={{ flex: 1, minWidth: 180 }}>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>{doneCount} of {items.length} steps done</div>
+          <div style={{ fontSize: 13.5, color: '#6b5544', marginTop: 2 }}>
+            {doneCount === items.length ? 'All set — your community is live. 🎉' : `Next: ${nextStep || 'finish setup'}.`}
           </div>
-        ))}
+        </div>
+        {doneCount < items.length && (
+          <Link href="/admin/setup" className="admin-primary-btn" style={{ textDecoration: 'none', whiteSpace: 'nowrap' }}>
+            Start guided setup &rarr;
+          </Link>
+        )}
       </div>
 
-      {/* Quick "ease" shortcuts — the fastest paths to a live community. Each
-          links to an existing flow; the checklist below tracks completion. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14, margin: '0 0 20px' }}>
+      {/* The 3 "ease" cards — mock layout: pill, title, blurb, full-width button. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, margin: '0 0 22px' }}>
         {[
-          { tag: 'No CSV needed', title: 'Add your residents', blurb: 'Import your owner roster or add households one at a time.', href: '/admin/residents' },
-          { tag: 'Sets itself up', title: 'Upload your documents', blurb: 'Add your bylaws, declaration, budget, insurance, and minutes.', href: '/admin/documents' },
-          { tag: 'No emails? No problem', title: 'Invite your owners', blurb: 'Bulk-invite from your roster, or share the join code below.', href: '/admin/voice/roster' },
+          { tag: 'No CSV needed', title: 'Paste your roster', blurb: 'Copy owners straight from Excel — we match the columns.', href: '/admin/residents', cta: 'Paste & import', primary: true },
+          { tag: 'Sets itself up', title: 'Upload your docs', blurb: 'Drop your CC&Rs — we pre-fill rules, fines & reserves.', href: '/admin/documents', cta: 'Choose file', primary: false },
+          { tag: 'No emails? No problem', title: 'Print join poster', blurb: 'A lobby flyer with a QR code. Residents scan to join.', href: '/admin/voice/roster', cta: 'Download poster', primary: false },
         ].map(c => (
-          <Link key={c.title} href={c.href} style={{
-            display: 'flex', flexDirection: 'column', gap: 8, textDecoration: 'none', color: 'inherit',
-            border: '1px solid #e7d9c7', background: '#fffdfb', borderRadius: 14, padding: '16px 16px 15px',
-          }}>
+          <div key={c.title} style={{ display: 'flex', flexDirection: 'column', gap: 9, border: '1px solid #efe1d2', background: '#fff', borderRadius: 18, padding: '20px 18px 18px', boxShadow: '0 1px 2px rgba(42,18,6,0.05)' }}>
             <span style={{ alignSelf: 'flex-start', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#b5481f', background: 'rgba(229,96,31,0.12)', padding: '3px 9px', borderRadius: 999 }}>{c.tag}</span>
-            <span style={{ fontSize: 15.5, fontWeight: 700 }}>{c.title}</span>
-            <span style={{ fontSize: 12.5, color: '#6b5544', lineHeight: 1.45, flex: 1 }}>{c.blurb}</span>
-            <span style={{ fontSize: 13, fontWeight: 700, color: '#EB5507' }}>Open &rarr;</span>
-          </Link>
+            <span style={{ fontSize: 16, fontWeight: 700 }}>{c.title}</span>
+            <span style={{ fontSize: 13, color: '#6b5544', lineHeight: 1.45, flex: 1 }}>{c.blurb}</span>
+            <Link href={c.href} className={c.primary ? 'admin-primary-btn' : undefined}
+              style={c.primary
+                ? { textDecoration: 'none', textAlign: 'center' }
+                : { textDecoration: 'none', textAlign: 'center', padding: '10px 16px', borderRadius: 999, border: '1px solid #d8c3ad', color: '#2A1206', fontWeight: 700, fontSize: 13.5 }}>
+              {c.cta}
+            </Link>
+          </div>
         ))}
       </div>
 
@@ -228,14 +222,7 @@ export default function AdminHome() {
                 : `Follow these ${items.length} steps top to bottom. ${doneCount} of ${items.length} done.`}
             </span>
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-            {doneCount < items.length && (
-              <Link href="/admin/setup" className="admin-primary-btn" style={{ textDecoration: 'none', whiteSpace: 'nowrap' }}>
-                Guided setup &rarr;
-              </Link>
-            )}
-            <div className="admin-dash-ring" style={{ ['--pct' as any]: `${pct}%` }}>{pct}%</div>
-          </div>
+          <div className="admin-dash-ring" style={{ ['--pct' as any]: `${pct}%` }}>{pct}%</div>
         </div>
         <ul className="admin-check-list">
           {items.map((i, idx) => (
