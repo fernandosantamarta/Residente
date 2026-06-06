@@ -20,7 +20,9 @@ export type PlatformRequest = {
   from_community_id: string | null; subject: string; body: string | null
   status: 'open' | 'in_progress' | 'resolved'; created_at: string
 }
-export type OperatorRole = 'owner' | 'operator' | 'support'
+// owner = "Founder" (full access + manage team), operator = "Onboarding",
+// billing = "Billing" (financials), support = "Support" (inbox only).
+export type OperatorRole = 'owner' | 'operator' | 'support' | 'billing'
 export type PlatformOperator = {
   profile_id: string; name: string; email: string | null
   role: OperatorRole; added_by_name: string | null; added_at: string

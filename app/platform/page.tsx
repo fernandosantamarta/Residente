@@ -12,9 +12,10 @@ const fmtDateTime = (s: string) =>
   s ? new Date(s).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'
 
 // Self-contained palette — this page lives outside the themed app layout.
+// Signup/mock look: warm cream surfaces, dark-brown ink, signup-orange accent.
 const C = {
-  bg: '#0b0d12', card: '#16191f', border: '#272c36',
-  text: '#eceef2', muted: '#8b929e', accent: '#FF6B3D', accentSoft: 'rgba(255,107,61,0.14)',
+  bg: '#FFF5EC', card: '#FFFFFF', border: 'rgba(42,18,6,0.12)',
+  text: '#2A1206', muted: 'rgba(42,18,6,0.55)', accent: '#E14909', accentSoft: 'rgba(225,73,9,0.12)',
 }
 
 const card: React.CSSProperties = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: '20px 22px' }
@@ -38,6 +39,16 @@ const TABS: { key: Tab; label: string }[] = [
   { key: 'activity', label: 'Activity' },
 ]
 
+// Which tabs each operator role may see — the mock's role-views. Money lives only
+// in Overview + Subscriptions, so omitting those from a role hides all revenue
+// from it. Founder (owner) manages the team, so only Founder gets Operators.
+const ROLE_TABS: Record<OperatorRole, Tab[]> = {
+  owner:    ['overview', 'communities', 'subscriptions', 'support', 'operators', 'activity'],
+  billing:  ['overview', 'subscriptions', 'communities', 'activity'],
+  operator: ['communities', 'support', 'activity'],
+  support:  ['support', 'activity'],
+}
+
 // Per-home monthly rate (cents) by plan tier — mirrors lib/plan.ts. Uses the
 // community's stored plan (respects manual tier overrides), not a recompute.
 const PLAN_RATE_CENTS: Record<string, number> = { free: 0, pro: 200, premium: 500, enterprise: 1000 }
@@ -46,14 +57,15 @@ const communityMonthlyCents = (c: { plan: string | null; home_count: number | nu
 const fmtMoney = (cents: number) => `$${Math.round(cents / 100).toLocaleString('en-US')}`
 
 const ROLES: { key: OperatorRole; label: string; blurb: string }[] = [
-  { key: 'owner', label: 'Owner', blurb: 'Full control + manage operators' },
-  { key: 'operator', label: 'Operator', blurb: 'Manage communities + support' },
+  { key: 'owner', label: 'Founder', blurb: 'Everything + manage the team' },
+  { key: 'operator', label: 'Onboarding', blurb: 'Communities + support, no billing' },
+  { key: 'billing', label: 'Billing', blurb: 'Subscriptions & invoices' },
   { key: 'support', label: 'Support', blurb: 'Support inbox only' },
 ]
 const roleColor = (r: OperatorRole) =>
-  r === 'owner' ? '#FF6B3D' : r === 'operator' ? '#6BA6F5' : '#4AC99B'
+  r === 'owner' ? '#E14909' : r === 'operator' ? '#2F6BD6' : r === 'billing' ? '#8A5CF0' : '#1F7A4D'
 const roleBg = (r: OperatorRole) =>
-  r === 'owner' ? 'rgba(255,107,61,0.14)' : r === 'operator' ? 'rgba(78,140,221,0.15)' : 'rgba(74,201,155,0.15)'
+  r === 'owner' ? 'rgba(225,73,9,0.12)' : r === 'operator' ? 'rgba(47,107,214,0.14)' : r === 'billing' ? 'rgba(138,92,240,0.14)' : 'rgba(31,122,77,0.14)'
 const ROLE_OPTIONS = ROLES.map(r => ({ value: r.key, label: r.label, color: roleColor(r.key), hint: r.blurb }))
 
 // Human-readable line for one audit entry.
@@ -134,7 +146,13 @@ export default function PlatformConsole() {
   const [tab, setTab] = useState<Tab>('overview')
   const [entering, setEntering] = useState<string | null>(null)
   const isOwner = myRole === 'owner'
-  const canEnter = myRole === 'owner' || myRole === 'operator'
+  // Role-scoped views (mock parity). Unknown/legacy role → treat as full access
+  // (owner) so an admin never lands on a blank console. Money lives only in the
+  // Overview + Subscriptions tabs, so omitting those hides revenue from a role.
+  const effectiveRole: OperatorRole = (myRole && ROLE_TABS[myRole]) ? myRole : 'owner'
+  const allowedTabs = ROLE_TABS[effectiveRole]
+  const curTab: Tab = allowedTabs.includes(tab) ? tab : allowedTabs[0]
+  const canEnter = effectiveRole !== 'support'
   // Residents roster modal (per community)
   const [rosterFor, setRosterFor] = useState<{ id: string; name: string } | null>(null)
   const [roster, setRoster] = useState<PlatformResident[]>([])
@@ -359,7 +377,7 @@ export default function PlatformConsole() {
           </button>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontWeight: 700, fontSize: 14.5 }}>{r.subject}</div>
-            {r.body && <div style={{ color: '#c2c7d0', fontSize: 13.5, marginTop: 3 }}>{r.body}</div>}
+            {r.body && <div style={{ color: C.muted, fontSize: 13.5, marginTop: 3 }}>{r.body}</div>}
             <div style={{ color: C.muted, fontSize: 12.5, marginTop: 6 }}>
               {r.from_name || 'A board member'}{r.from_email ? ` · ${r.from_email}` : ''} · {fmtDate(r.created_at)}
             </div>
@@ -381,8 +399,8 @@ export default function PlatformConsole() {
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 4, margin: '22px 0 22px', borderBottom: `1px solid ${C.border}`, flexWrap: 'wrap' }}>
-        {TABS.map(t => {
-          const active = tab === t.key
+        {TABS.filter(t => allowedTabs.includes(t.key)).map(t => {
+          const active = curTab === t.key
           const badge = t.key === 'support' && openCount > 0 ? ` · ${openCount}` : ''
           return (
             <button key={t.key} onClick={() => setTab(t.key)}
@@ -398,19 +416,19 @@ export default function PlatformConsole() {
       </div>
 
       {/* OVERVIEW — everything on one page */}
-      {tab === 'overview' && (<>{statsGrid}{subscriptionsSection}{communitiesSection}{supportSection}</>)}
+      {curTab === 'overview' && (<>{statsGrid}{subscriptionsSection}{communitiesSection}{supportSection}</>)}
 
       {/* COMMUNITIES */}
-      {tab === 'communities' && communitiesSection}
+      {curTab === 'communities' && communitiesSection}
 
       {/* SUBSCRIPTIONS */}
-      {tab === 'subscriptions' && subscriptionsSection}
+      {curTab === 'subscriptions' && subscriptionsSection}
 
       {/* SUPPORT */}
-      {tab === 'support' && supportSection}
+      {curTab === 'support' && supportSection}
 
       {/* OPERATORS */}
-      {tab === 'operators' && (
+      {curTab === 'operators' && (
         <section style={card}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
             <h2 style={{ fontSize: 15, fontWeight: 700 }}>Residente operators</h2>
@@ -488,7 +506,7 @@ export default function PlatformConsole() {
       )}
 
       {/* ACTIVITY (audit log) */}
-      {tab === 'activity' && (
+      {curTab === 'activity' && (
         <section style={card}>
           <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Activity</h2>
           <p style={{ color: C.muted, fontSize: 12.5, marginBottom: 8 }}>Every operator action on the platform, newest first.</p>
@@ -498,7 +516,7 @@ export default function PlatformConsole() {
             <div key={e.id} style={{ borderTop: `1px solid ${C.border}`, padding: '12px 0', display: 'flex', gap: 12, alignItems: 'baseline', flexWrap: 'wrap' }}>
               <div style={{ flex: 1, minWidth: 220, fontSize: 13.5 }}>
                 <strong style={{ color: C.text }}>{e.actor_name || 'An operator'}</strong>
-                <span style={{ color: '#c2c7d0' }}> {auditText(e)}</span>
+                <span style={{ color: C.muted }}> {auditText(e)}</span>
               </div>
               <div style={{ color: C.muted, fontSize: 12 }}>{fmtDateTime(e.created_at)}</div>
             </div>
