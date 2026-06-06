@@ -838,9 +838,10 @@ button { font-family: inherit; }
   padding: 24px;
 }
 /* Paint the page + body the same warm tone so there's no squared cream/white
-   band at the top or bottom where the login screen meets the browser chrome. */
+   band at the top or bottom where the login screen meets the browser chrome.
+   Also lock the page so the sign-in screen doesn't scroll / rubber-band. */
 body:has(.login-screen),
-html:has(.login-screen) { background: #FFF5EE; }
+html:has(.login-screen) { background: #FFF5EE; overflow: hidden; height: 100%; }
 
 .login-glow {
   position: absolute;
