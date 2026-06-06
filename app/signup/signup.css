@@ -28,7 +28,7 @@
 .su-top {
   position: relative; z-index: 1;
   width: 100%;
-  padding: 18px clamp(20px, 5vw, 56px) 0;
+  padding: 10px clamp(20px, 5vw, 56px) 0;
 }
 .su-stage {
   position: relative; z-index: 1;
@@ -41,7 +41,7 @@
 /* ---- top bar: back circle + brand ---- */
 .su-topbar {
   display: flex; align-items: center; justify-content: space-between;
-  margin-bottom: 10px; height: 40px;
+  margin-bottom: 6px; height: 32px;
 }
 .su-back-circle {
   width: 36px; height: 36px; flex-shrink: 0;
@@ -338,8 +338,9 @@
 .su-doc-dot.active { width: 22px; background: #fff; }
 .su-doc-dot.done { background: rgba(255, 255, 255, 0.72); }
 
-/* The big category mascot emoji, in place of the house on these slides. */
-.su-doc-emoji { font-size: 52px; line-height: 1; text-align: center; margin: 4px 0 18px; }
+/* The big category mascot emoji, in place of the house on these slides. Kept
+   compact so long categories (Financial records) need less scrolling. */
+.su-doc-emoji { font-size: 38px; line-height: 1; text-align: center; margin: 2px 0 12px; }
 
 /* Checklist sits on a cream card like the plan card, so it reads as part of the
    signup rather than the standalone mockup. */
@@ -348,10 +349,10 @@
   border-radius: 20px; overflow: hidden;
   box-shadow: 0 6px 0 rgba(120, 40, 0, 0.18);
 }
-.su-doc-items { padding: 6px 0; }
+.su-doc-items { padding: 2px 0; }
 .su-doc-item {
   display: flex; align-items: center; gap: 11px;
-  padding: 10px 16px; transition: background 0.12s;
+  padding: 7px 16px; transition: background 0.12s;
 }
 .su-doc-row + .su-doc-row { border-top: 1px solid rgba(42, 18, 6, 0.07); }
 .su-doc-check {
@@ -378,8 +379,8 @@
 .su-doc-caret svg { width: 13px; height: 13px; }
 .su-doc-name.open .su-doc-caret { transform: rotate(90deg); color: #E14909; }
 .su-doc-desc {
-  padding: 0 16px 12px 49px;
-  font-size: 12.5px; line-height: 1.5; color: rgba(42, 18, 6, 0.62);
+  padding: 0 16px 10px 49px;
+  font-size: 12px; line-height: 1.45; color: rgba(42, 18, 6, 0.62);
 }
 .su-doc-up {
   flex-shrink: 0; cursor: pointer; white-space: nowrap;
@@ -391,7 +392,7 @@
 .su-doc-up:hover { border-color: #E14909; color: #E14909; }
 .su-doc-up.done { border-color: #E14909; background: rgba(225, 73, 9, 0.12); color: #E14909; }
 .su-doc-file { display: none; }
-.su-doc-notes { padding: 12px 16px 14px; border-top: 1px solid rgba(42, 18, 6, 0.1); }
+.su-doc-notes { padding: 10px 16px 12px; border-top: 1px solid rgba(42, 18, 6, 0.1); }
 .su-doc-notes-label {
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
   color: rgba(42, 18, 6, 0.5); margin-bottom: 6px;

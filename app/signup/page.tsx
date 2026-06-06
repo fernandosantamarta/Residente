@@ -929,7 +929,7 @@ function DocWizard({
       <div className="su-doc-emoji" aria-hidden="true">{sec.emoji}</div>
       <div className="su-content">
         <div className="su-doc-card">
-          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'rgba(42,18,6,0.45)', padding: '12px 16px 2px' }}>
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'rgba(42,18,6,0.45)', padding: '9px 16px 1px' }}>
             Most important first ↓
           </div>
           <div className="su-doc-items">
