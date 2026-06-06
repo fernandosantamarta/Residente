@@ -9,6 +9,7 @@
 // there's nothing to mutate and no edge function to call.
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { downloadCsv, exportFilename, type CsvColumn } from '@/lib/exportCsv'
@@ -88,6 +89,36 @@ export default function ReportsPage() {
   const collected = useMemo(() => paysInRange.reduce((s, p) => s + (Number(p.amount) || 0), 0), [paysInRange])
   const spent = useMemo(() => expInRange.reduce((s, x) => s + (Number(x.amount) || 0), 0), [expInRange])
 
+  // Outstanding = the total still owed across the roster, from each household's
+  // recorded balance on file (opening_balance). Credits (negative) don't reduce
+  // the figure — only positive balances count toward what's owed.
+  const outstanding = useMemo(
+    () => residents.reduce((s, r) => s + Math.max(0, Number(r.opening_balance) || 0), 0),
+    [residents],
+  )
+
+  // Collections snapshot — owners bucketed by their balance on file. We have no
+  // aging dates here, so the brackets are by amount (not days late); the real
+  // aging workflow lives in Compliance → Collections.
+  const brackets = useMemo(() => {
+    const defs = [
+      { label: 'Current', pill: 'ok' as const, hit: (b: number) => b <= 0 },
+      { label: '< $500', pill: 'warn' as const, hit: (b: number) => b > 0 && b < 500 },
+      { label: '$500–$2k', pill: 'due' as const, hit: (b: number) => b >= 500 && b < 2000 },
+      { label: '$2k+', pill: 'due' as const, hit: (b: number) => b >= 2000 },
+    ]
+    const rows = defs.map(d => ({ ...d, count: 0, owed: 0 }))
+    for (const r of residents) {
+      const b = Number(r.opening_balance) || 0
+      const row = rows.find(x => x.hit(b))
+      if (row) { row.count++; row.owed += Math.max(0, b) }
+    }
+    const total = residents.length || 1
+    return rows.map(r => ({ ...r, pct: Math.round((r.count / total) * 100) }))
+  }, [residents])
+
+  const rangeLabel = `${from} → ${to}`
+
   // ---- exports ----
   const exportPayments = () => {
     const cols: CsvColumn<Payment>[] = [
@@ -142,14 +173,39 @@ export default function ReportsPage() {
     downloadCsv(exportFilename('residente-roster', todayISO()), residents, cols)
   }
 
+  // The board-facing report list. Each row fronts the real CSV exporters above;
+  // QuickBooks variants ride along as a secondary action where one exists.
+  const REPORTS: {
+    name: string; period: string; count: number
+    actions: { label: string; onClick: () => void; dim?: boolean }[]
+  }[] = [
+    {
+      name: 'Payment ledger (dues & fines)', period: rangeLabel, count: paysInRange.length,
+      actions: [
+        { label: 'Export CSV', onClick: exportPayments },
+        { label: 'QuickBooks', onClick: exportPaymentsQbo, dim: true },
+      ],
+    },
+    {
+      name: 'Expense ledger', period: rangeLabel, count: expInRange.length,
+      actions: [
+        { label: 'Export CSV', onClick: exportExpenses },
+        { label: 'QuickBooks', onClick: exportExpensesQbo, dim: true },
+      ],
+    },
+    {
+      name: 'Household roster', period: 'Full roster', count: residents.length,
+      actions: [{ label: 'Export CSV', onClick: exportRoster }],
+    },
+  ]
+
   return (
-    <div className="admin-page">
+    <div className="admin-page crep">
       <div className="admin-kicker">Reporting</div>
-      <h1 className="admin-h1">Reports <span className="amp">&</span> exports</h1>
+      <h1 className="admin-h1">Reports</h1>
       <p className="admin-dek">
-        Download your community&rsquo;s dues, fines, expenses, and roster as CSV —
-        ready for a spreadsheet or to import into QuickBooks. Payments and expenses
-        respect the date range below; the roster exports in full.
+        Financial reports for your board and owners. Filter the period, then export
+        to CSV or a QuickBooks-ready file.
       </p>
 
       {status === 'none' && <div className="admin-note admin-note-warn">No community is linked to your account yet.</div>}
@@ -160,97 +216,101 @@ export default function ReportsPage() {
 
       {status === 'ready' && (
         <>
-          {/* Date range */}
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end', margin: '8px 0 18px' }}>
-            <label className="admin-field"><span className="admin-field-label">From</span>
-              <input className="admin-input" type="date" value={from} max={to} onChange={e => setFrom(e.target.value)} /></label>
-            <label className="admin-field"><span className="admin-field-label">To</span>
-              <input className="admin-input" type="date" value={to} min={from} max={todayISO()} onChange={e => setTo(e.target.value)} /></label>
+          {/* Toolbar — date range on the left, headline export on the right. */}
+          <div className="toolbar">
+            <div className="toolbar-filters">
+              <label className="admin-field"><span className="admin-field-label">From</span>
+                <input className="admin-input" type="date" value={from} max={to} onChange={e => setFrom(e.target.value)} /></label>
+              <label className="admin-field"><span className="admin-field-label">To</span>
+                <input className="admin-input" type="date" value={to} min={from} max={todayISO()} onChange={e => setTo(e.target.value)} /></label>
+            </div>
+            <button type="button" className="admin-primary-btn" onClick={exportPayments} disabled={paysInRange.length === 0}>
+              Export CSV
+            </button>
           </div>
 
-          {/* Summary */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 22 }}>
+          {/* Stat tiles. */}
+          <div className="stats">
             {[
-              { l: 'Collected', v: fmt$(collected), n: `${paysInRange.length} payments` },
-              { l: 'Spent', v: fmt$(spent), n: `${expInRange.length} expenses` },
-              { l: 'Net', v: fmt$(collected - spent), n: 'collected − spent' },
-              { l: 'Households', v: String(residents.length), n: 'in roster' },
+              { v: fmt$(collected), l: 'Collected' },
+              { v: fmt$(outstanding), l: 'Outstanding', c: 'var(--due)' },
+              { v: fmt$(spent), l: 'Expenses' },
+              { v: fmt$(collected - spent), l: 'Net', c: 'var(--ok)' },
             ].map(s => (
-              <div key={s.l} style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
-                <div style={{ fontSize: 12.5, textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.6, fontWeight: 600 }}>{s.l}</div>
-                <div style={{ fontSize: 24, fontWeight: 700, margin: '2px 0' }}>{s.v}</div>
-                <div style={{ fontSize: 12.5, opacity: 0.65 }}>{s.n}</div>
+              <div key={s.l} className="stat">
+                <div className="v" style={s.c ? { color: s.c } : undefined}>{s.v}</div>
+                <div className="l">{s.l}</div>
               </div>
             ))}
           </div>
 
-          {/* Export cards */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-            <ExportCard
-              title="Payments ledger"
-              sub={`${paysInRange.length} dues & fines payments in range · ${fmt$(collected)}`}
-              disabled={paysInRange.length === 0}
-              actions={[
-                { label: 'Export CSV', onClick: exportPayments, primary: true },
-                { label: 'QuickBooks CSV', onClick: exportPaymentsQbo },
-              ]}
-            />
-            <ExportCard
-              title="Expense ledger"
-              sub={`${expInRange.length} expenses in range · ${fmt$(spent)}`}
-              disabled={expInRange.length === 0}
-              actions={[
-                { label: 'Export CSV', onClick: exportExpenses, primary: true },
-                { label: 'QuickBooks CSV', onClick: exportExpensesQbo },
-              ]}
-            />
-            <ExportCard
-              title="Household roster"
-              sub={`${residents.length} households · name, unit, address, opening balance`}
-              disabled={residents.length === 0}
-              actions={[{ label: 'Export CSV', onClick: exportRoster, primary: true }]}
-            />
+          {/* Available reports — the mock's table, wired to the real exporters. */}
+          <div className="card">
+            <div className="card-head">
+              <div><h2>Available reports</h2><div className="sub">Export to CSV or a QuickBooks-ready file</div></div>
+            </div>
+            <table className="tbl">
+              <thead>
+                <tr>
+                  <th>Report</th>
+                  <th className="period-col">Period</th>
+                  <th>Rows</th>
+                  <th className="act"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {REPORTS.map(r => (
+                  <tr key={r.name}>
+                    <td className="strong">{r.name}</td>
+                    <td className="muted period-col">{r.period}</td>
+                    <td className="muted">{r.count}</td>
+                    <td className="act">
+                      {r.actions.map(a => (
+                        <button key={a.label} type="button" className={`go${a.dim ? ' dim' : ''}`}
+                          onClick={a.onClick} disabled={r.count === 0}>
+                          {a.label}
+                        </button>
+                      ))}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
 
-          <p className="admin-note" style={{ marginTop: 18, fontSize: 12.5 }}>
+          {/* Collections snapshot — owners by balance on file. */}
+          <div className="card">
+            <div className="card-head">
+              <div><h2>Collections snapshot</h2><div className="sub">Owners by balance on file</div></div>
+            </div>
+            {residents.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '22px 16px', color: 'var(--text-dim)', fontSize: 13.5 }}>
+                No households in the roster yet. Import or add residents to see collections at a glance.
+              </div>
+            ) : brackets.map((b, i) => {
+              const isLast = i === brackets.length - 1
+              return (
+                <div className="lrow" key={b.label}>
+                  <span className={`pill ${b.pill}`}>{b.label}</span>
+                  <div className="body">
+                    <div className="ttl">{b.count} {b.count === 1 ? 'owner' : 'owners'}</div>
+                    <div className="meta">{b.owed > 0 ? `${fmt$(b.owed)} on file` : '$0 balance'}</div>
+                  </div>
+                  {isLast && b.count > 0
+                    ? <Link href="/admin/compliance" className="go" style={{ textDecoration: 'none' }}>Collections &rarr;</Link>
+                    : <span className="pct">{b.pct}%</span>}
+                </div>
+              )
+            })}
+          </div>
+
+          <p className="note">
             QuickBooks files use the Date / Description / Amount bank-import format
             (expenses as negative amounts). Figures come straight from your ledgers —
             review before filing.
           </p>
         </>
       )}
-    </div>
-  )
-}
-
-function ExportCard({
-  title, sub, actions, disabled,
-}: {
-  title: string
-  sub: string
-  disabled?: boolean
-  actions: { label: string; onClick: () => void; primary?: boolean }[]
-}) {
-  return (
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 14, flexWrap: 'wrap', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: '16px 18px', background: '#fff' }}>
-      <div>
-        <div style={{ fontWeight: 700, fontSize: 15.5 }}>{title}</div>
-        <div style={{ fontSize: 13, opacity: 0.7, marginTop: 2 }}>{sub}</div>
-      </div>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-        {actions.map(a => (
-          <button
-            key={a.label}
-            type="button"
-            className={a.primary ? 'admin-primary-btn' : 'admin-btn-ghost'}
-            onClick={a.onClick}
-            disabled={disabled}
-            style={disabled ? { opacity: 0.5, cursor: 'not-allowed' } : undefined}
-          >
-            {a.label}
-          </button>
-        ))}
-      </div>
     </div>
   )
 }

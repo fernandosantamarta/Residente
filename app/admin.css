@@ -24,11 +24,17 @@
 .admin-back:hover { color: var(--text); }
 
 .admin-nav {
+  position: relative;
   display: flex; gap: 4px;
   justify-content: center;
   padding: 14px 32px 0;
   background: var(--bg-elev);
   border-bottom: 1px solid var(--border);
+}
+/* "Back to app" hugs the far-left edge while the tabs stay centered — pulled out
+   of the flex flow so it never shifts the centered group. */
+.admin-nav-back {
+  position: absolute; left: 32px; top: 14px;
 }
 .admin-nav-item {
   padding: 10px 16px;
@@ -737,6 +743,8 @@
   }
   .admin-nav::-webkit-scrollbar { display: none; }
   .admin-nav-item { padding: 10px 13px; white-space: nowrap; flex-shrink: 0; }
+  /* Back in the scroll flow on mobile — it leads the scrollable tab strip. */
+  .admin-nav-back { position: static; left: auto; top: auto; }
 
   .admin-main { padding: 32px 16px 64px; }
 }
@@ -949,4 +957,103 @@
 @media (max-width: 780px) {
   .cset .grid2 { grid-template-columns: 1fr; }
   .cset .card .grid2 .admin-field { margin-bottom: 14px; }
+}
+
+/* ============================================================
+   REPORTS — mock parity (public/mocks/reports.html)
+   A filter toolbar (date range + Export), four stat tiles, an
+   "Available reports" table that fronts the real CSV exports, and
+   a collections snapshot. Reuses admin tokens; structural shell
+   only, scoped to .crep so it can't leak into other pages.
+   ============================================================ */
+.crep { --due: #C2360A; --ok: #067647; }
+
+/* Toolbar: filters on the left, primary export on the right. */
+.crep .toolbar {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap; margin: 6px 0 20px;
+}
+.crep .toolbar-filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+
+/* Stat tiles. */
+.crep .stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px; margin-bottom: 22px;
+}
+.crep .stat {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px 18px;
+}
+.crep .stat .v { font-size: 27px; font-weight: 800; letter-spacing: -0.6px; line-height: 1; }
+.crep .stat .l {
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-faint); margin-top: 7px;
+}
+
+/* Cards (Available reports, Collections snapshot). */
+.crep .card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 18px; padding: 22px 24px;
+  box-shadow: 0 1px 2px rgba(42, 18, 6, 0.05); margin-bottom: 18px;
+}
+.crep .card-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; margin-bottom: 14px;
+}
+.crep .card-head h2 {
+  margin: 0; font-family: 'AmpFix', 'Fraunces', Georgia, serif;
+  font-weight: 500; font-size: 20px; letter-spacing: -0.01em;
+}
+.crep .card-head .sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+
+/* Available-reports table — row dividers, no boxes (matches the mock + the
+   .cset budget table). */
+.crep .tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.crep .tbl th {
+  text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-faint);
+  padding: 0 12px 10px; border-bottom: 1px solid var(--border);
+}
+.crep .tbl td {
+  padding: 14px 12px; border-bottom: 1px solid var(--border);
+  color: var(--text); vertical-align: middle;
+}
+.crep .tbl tr:last-child td { border-bottom: none; }
+.crep .tbl .muted { color: var(--text-dim); }
+.crep .tbl .strong { font-weight: 600; }
+.crep .tbl .act { text-align: right; white-space: nowrap; width: 1%; }
+.crep .tbl .act .go + .go { margin-left: 18px; }
+
+/* Text-link actions, like the mock's "View →". */
+.crep .go {
+  background: none; border: none; padding: 0; font-family: inherit;
+  font-size: 13px; font-weight: 700; color: var(--pink); cursor: pointer;
+}
+.crep .go:hover { color: #C53D06; }
+.crep .go:disabled { opacity: 0.4; cursor: default; }
+.crep .go.dim { color: var(--text-dim); }
+.crep .go.dim:not(:disabled):hover { color: var(--pink); }
+
+/* Collections snapshot rows. */
+.crep .lrow {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 2px; border-top: 1px solid var(--border);
+}
+.crep .lrow:first-of-type { border-top: none; }
+.crep .lrow .body { flex: 1; min-width: 0; }
+.crep .lrow .ttl { font-size: 14.5px; font-weight: 600; }
+.crep .lrow .meta { font-size: 12.5px; color: var(--text-dim); margin-top: 1px; }
+.crep .pill {
+  font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 999px;
+  min-width: 70px; text-align: center; white-space: nowrap;
+}
+.crep .pill.ok   { color: var(--ok);   background: rgba(6, 118, 71, 0.12); }
+.crep .pill.warn { color: #B54708;     background: rgba(181, 71, 8, 0.12); }
+.crep .pill.due  { color: var(--due);  background: rgba(194, 54, 10, 0.12); }
+.crep .pct { font-size: 13px; color: var(--text-dim); font-weight: 600; }
+
+.crep .note { font-size: 12px; color: var(--text-faint); line-height: 1.6; margin-top: 18px; }
+
+@media (max-width: 600px) {
+  .crep .tbl .period-col { display: none; }
 }
