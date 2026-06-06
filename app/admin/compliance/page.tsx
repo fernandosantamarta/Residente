@@ -205,45 +205,54 @@ export default function CompliancePage() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const { data, error } = (await withTimeout(
-        supabase.from('communities').select('*').eq('id', communityId).single(),
-      )) as any
+      // Every compliance domain reads its own table, all keyed only by
+      // community_id with no dependency between them. Fire them in ONE parallel
+      // batch instead of awaiting ~30 selects in series — the page used to wait
+      // for the SUM of every round-trip (several seconds); now it waits for the
+      // slowest single query. setState calls below land in one render pass.
+      const sel = (table: string) => safeSelect(table, communityId)
+      const [
+        communityRes,
+        estoppelRows, casesRows, plansRows, residentsRows, paysRows,
+        buildingsRows, assessmentsRows, sirsRows, documentsRows, recordsRows,
+        budgetsRows, reservesRows, filingsRows, boardTermsRows, certsRows,
+        eligRows, managersRows, vendorsRows, disclosuresRows, violationsRows,
+        hearingsRows, finingRows, suspensionsRows, meetingsRows, electionsRows,
+        recallsRows, arcRows, insuranceRows, contractsRows, eventsRows, proxiesRows,
+      ] = await Promise.all([
+        withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
+        sel('ev_estoppel_requests'), sel('ev_collection_cases'), sel('ev_payment_plans'),
+        sel('residents'), sel('payments'),
+        sel('ev_buildings'), sel('ev_structural_assessments'), sel('ev_sirs_components'),
+        sel('documents'), sel('resident_requests'),
+        sel('budget_categories'), sel('ev_reserve_components'), sel('ev_financial_filings'),
+        sel('ev_board_terms'), sel('ev_director_certifications'), sel('ev_director_eligibility'),
+        sel('ev_managers'), sel('vendors'), sel('ev_conflict_disclosures'),
+        sel('ev_violations'), sel('ev_violation_hearings'), sel('ev_fining_committee_members'),
+        sel('ev_suspensions'), sel('ev_meetings'), sel('ev_elections'),
+        sel('ev_recalls'), sel('ev_arc_requests'), sel('ev_insurance_policies'),
+        sel('ev_contracts'), sel('ev_compliance_events'), sel('ev_proxies'),
+      ])
+
+      const { data, error } = communityRes as any
       if (error) throw error
       setCommunity(data)
-      setEstoppel(await safeSelect('ev_estoppel_requests', communityId))
-      setCases(await safeSelect('ev_collection_cases', communityId))
-      setPlans(await safeSelect('ev_payment_plans', communityId))
-      setResidents(await safeSelect('residents', communityId))
-      const pays = await safeSelect('payments', communityId)
+
       const map: Record<string, { amount: number }[]> = {}
-      for (const p of pays) { (map[p.resident_id] ||= []).push({ amount: Number(p.amount) || 0 }) }
+      for (const p of paysRows) { (map[p.resident_id] ||= []).push({ amount: Number(p.amount) || 0 }) }
       setPayByResident(map)
-      setBuildings(await safeSelect('ev_buildings', communityId))
-      setAssessments(await safeSelect('ev_structural_assessments', communityId))
-      setSirsComponents(await safeSelect('ev_sirs_components', communityId))
-      setDocuments(await safeSelect('documents', communityId))
-      setRecordsRequests(await safeSelect('resident_requests', communityId))
-      setBudgets(await safeSelect('budget_categories', communityId))
-      setReserves(await safeSelect('ev_reserve_components', communityId))
-      setFilings(await safeSelect('ev_financial_filings', communityId))
-      setBoardTerms(await safeSelect('ev_board_terms', communityId))
-      setDirectorCerts(await safeSelect('ev_director_certifications', communityId))
-      setDirectorElig(await safeSelect('ev_director_eligibility', communityId))
-      setManagers(await safeSelect('ev_managers', communityId))
-      setVendors(await safeSelect('vendors', communityId))
-      setDisclosures(await safeSelect('ev_conflict_disclosures', communityId))
-      setViolations(await safeSelect('ev_violations', communityId))
-      setHearings(await safeSelect('ev_violation_hearings', communityId))
-      setFiningCommittee(await safeSelect('ev_fining_committee_members', communityId))
-      setSuspensions(await safeSelect('ev_suspensions', communityId))
-      setMeetings(await safeSelect('ev_meetings', communityId))
-      setElections(await safeSelect('ev_elections', communityId))
-      setRecalls(await safeSelect('ev_recalls', communityId))
-      setArcRequests(await safeSelect('ev_arc_requests', communityId))
-      setInsurancePolicies(await safeSelect('ev_insurance_policies', communityId))
-      setContracts(await safeSelect('ev_contracts', communityId))
-      setComplianceEvents(await safeSelect('ev_compliance_events', communityId))
-      setProxies(await safeSelect('ev_proxies', communityId))
+
+      setEstoppel(estoppelRows); setCases(casesRows); setPlans(plansRows)
+      setResidents(residentsRows)
+      setBuildings(buildingsRows); setAssessments(assessmentsRows); setSirsComponents(sirsRows)
+      setDocuments(documentsRows); setRecordsRequests(recordsRows)
+      setBudgets(budgetsRows); setReserves(reservesRows); setFilings(filingsRows)
+      setBoardTerms(boardTermsRows); setDirectorCerts(certsRows); setDirectorElig(eligRows)
+      setManagers(managersRows); setVendors(vendorsRows); setDisclosures(disclosuresRows)
+      setViolations(violationsRows); setHearings(hearingsRows); setFiningCommittee(finingRows)
+      setSuspensions(suspensionsRows); setMeetings(meetingsRows); setElections(electionsRows)
+      setRecalls(recallsRows); setArcRequests(arcRows); setInsurancePolicies(insuranceRows)
+      setContracts(contractsRows); setComplianceEvents(eventsRows); setProxies(proxiesRows)
       setStatus('ready')
     } catch (err: any) {
       setError(err?.message || 'Could not load compliance data'); setStatus('error')
