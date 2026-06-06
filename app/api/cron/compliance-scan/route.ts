@@ -40,6 +40,7 @@ import {
 import { meetingsSignals, type MeetingRow } from '@/lib/compliance/meetings'
 import { electionsSignals, recallSignals, type ElectionRow, type RecallRow } from '@/lib/compliance/elections'
 import { arcSignals, type ArcRequestRow } from '@/lib/compliance/arc'
+import { insuranceSignals, type InsurancePolicyRow } from '@/lib/compliance/insurance'
 
 export const dynamic = 'force-dynamic'
 
@@ -105,6 +106,7 @@ export async function GET(req: Request) {
     const elections = (await safe('ev_elections', c.id)) as ElectionRow[]
     const recalls = (await safe('ev_recalls', c.id)) as RecallRow[]
     const arcRequests = (await safe('ev_arc_requests', c.id)) as ArcRequestRow[]
+    const insurancePolicies = (await safe('ev_insurance_policies', c.id)) as InsurancePolicyRow[]
     const signals = sortSignals([
       ...foundationSignals(c),
       ...estoppelSignals(estoppel),
@@ -120,6 +122,7 @@ export async function GET(req: Request) {
       ...electionsSignals(elections, c),
       ...recallSignals(recalls),
       ...arcSignals(arcRequests, c),
+      ...insuranceSignals(c, insurancePolicies, reserves), // property half condo-only; bond both regimes
     ])
     const actionable = signals.filter(s => s.severity === 'overdue' || s.severity === 'soon')
     if (!actionable.length) { summary.push({ community: c.id, actionable: 0 }); continue }

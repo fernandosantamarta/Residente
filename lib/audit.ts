@@ -83,6 +83,9 @@ export type AuditEventType =
   // architectural review / ARC (compliance domain J)
   | 'arc.request_submitted'
   | 'arc.decided'
+  // insurance — property appraisal & fidelity bond (compliance: Insurance)
+  | 'insurance.policy_recorded'
+  | 'insurance.waiver_recorded'
 
 export type AuditTargetType =
   | 'vote' | 'ballot' | 'meeting' | 'document' | 'notice'
@@ -96,6 +99,7 @@ export type AuditTargetType =
   | 'violation' | 'fining_committee_member' | 'violation_hearing' | 'suspension'
   | 'election' | 'recall'
   | 'arc_request'
+  | 'insurance_policy'
 
 export interface LogAuditArgs {
   community_id: string
