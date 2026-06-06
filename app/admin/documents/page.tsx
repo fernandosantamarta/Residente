@@ -636,6 +636,8 @@ export default function AdminEasyDocs() {
             </div>
           )}
 
+          <SetupNotesPanel communityId={communityId} />
+
           {docStatus === 'loading' && <div className="admin-note">Loading…</div>}
           {docStatus === 'ready' && (
             <>
@@ -861,6 +863,56 @@ function AmendmentControl({ doc, onPatch }: { doc: any; onPatch: (id: string, pa
         </>
       )}
       <button type="button" className="admin-btn-ghost" style={{ fontSize: 12, marginTop: 8 }} onClick={() => setOpen(false)}>Close</button>
+    </div>
+  )
+}
+
+// Read-only panel for the notes the board typed in the /signup document wizard.
+// Renders nothing unless there are notes, so it's invisible for communities that
+// skipped them. Board-only by RLS (community_setup_notes); a later AI slice will
+// consume the same rows to pre-fill settings — here they're just shown back.
+type SetupNote = { id: string; section: string; note: string; created_at?: string | null }
+
+function SetupNotesPanel({ communityId }: { communityId?: string | null }) {
+  const [notes, setNotes] = useState<SetupNote[]>([])
+
+  useEffect(() => {
+    if (!hasSupabase || !supabase || !communityId) return
+    let active = true
+    ;(async () => {
+      try {
+        const { data, error } = await supabase
+          .from('community_setup_notes')
+          .select('id, section, note, created_at')
+          .eq('community_id', communityId)
+          .order('created_at', { ascending: true })
+        if (!active || error || !data) return
+        setNotes(data as SetupNote[])
+      } catch { /* table may not exist yet — stay hidden */ }
+    })()
+    return () => { active = false }
+  }, [communityId])
+
+  if (!notes.length) return null
+
+  return (
+    <div className="admin-note admin-note-info" style={{ marginBottom: 24 }}>
+      <strong>Notes from your onboarding</strong>
+      <p style={{ margin: '8px 0 12px', fontSize: 13, opacity: 0.85 }}>
+        What you jotted down while gathering documents at sign-up. For your reference —
+        residents don&apos;t see these.
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {notes.map((n) => (
+          <div key={n.id} style={{
+            padding: '10px 12px', borderRadius: 10,
+            background: 'rgba(0,0,0,0.04)', border: '1px solid rgba(0,0,0,0.08)',
+          }}>
+            <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 4, opacity: 0.8 }}>{n.section}</div>
+            <div style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{n.note}</div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

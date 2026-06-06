@@ -9,10 +9,14 @@ import {
   startSubscriptionCheckout,
   stashPendingProvision,
   clearPendingProvision,
+  uploadSignupDocuments,
+  saveSignupNotes,
   ProvisionError,
   type ProvisionInput,
   type PropertyType,
+  type CollectedDoc,
 } from '@/lib/signup'
+import type { DocCategory } from '@/lib/compliance/official-records'
 import './signup.css'
 
 // Duolingo-style self-serve sign-up. Full-orange, one decision per screen, a
@@ -23,14 +27,43 @@ import './signup.css'
 type Who = 'resident' | 'board' | 'management'
 type Step =
   | 'property' | 'role'
-  | 'community' | 'plan' | 'connect' | 'details' | 'account'
+  | 'community' | 'plan' | 'documents' | 'connect' | 'details' | 'account'
   | 'working' | 'confirm-email'
 
 const FLOW: Record<Who, Step[]> = {
   resident:   ['property', 'role', 'connect', 'details', 'account'],
-  board:      ['property', 'role', 'community', 'plan', 'details', 'account'],
-  management: ['property', 'role', 'community', 'plan', 'details', 'account'],
+  board:      ['property', 'role', 'community', 'plan', 'documents', 'details', 'account'],
+  management: ['property', 'role', 'community', 'plan', 'documents', 'details', 'account'],
 }
+
+// The document-collection wizard (board / management only). Each section maps to
+// a canonical DocCategory so attached files land in the right shelf of the
+// community's vault (see lib/compliance/official-records.ts for the category set
+// and app/admin/documents for where they surface). The category is per-section;
+// the item label becomes each document's title.
+const DOC_SECTIONS: { emoji: string; label: string; category: DocCategory; items: string[] }[] = [
+  { emoji: '📄', label: 'Governing documents', category: 'Governing Documents',
+    items: ['CC&Rs (Covenants, Conditions & Restrictions)', 'HOA Bylaws', 'Articles of Incorporation', 'Rules & regulations', 'Architectural standards', 'Pet policy', 'Rental / leasing restrictions'] },
+  { emoji: '💰', label: 'Financial records', category: 'Financial Documents',
+    items: ['Current annual budget', 'Reserve fund study', 'Reserve fund balance statement', 'Income & expense statement', 'Bank statements (last 3 months)', 'Delinquency report', 'Most recent audit', 'Tax returns (last 2 years)', 'Insurance declarations'] },
+  { emoji: '👥', label: 'Ownership & membership', category: 'Other',
+    items: ['Homeowner roster with contact info', 'Tenant directory', 'Delinquency list', 'Board member roster', 'Committee member list'] },
+  { emoji: '📅', label: 'Meetings & governance', category: 'Reports & Meeting Minutes',
+    items: ['Board meeting minutes (last 12 mo.)', 'Annual meeting minutes (last 2 yr.)', 'Board resolution log', 'Election procedures', 'Proxy / ballot forms'] },
+  { emoji: '🏠', label: 'Property & maintenance', category: 'Vendor & Contracts',
+    items: ['Maintenance schedule', 'Landscape contract', 'Pool / amenity contracts', 'Inspection reports', 'Open work orders', 'Capital improvement list'] },
+  { emoji: '📋', label: 'Contracts & vendors', category: 'Vendor & Contracts',
+    items: ['Property management agreement', 'Active vendor contracts', 'Vendor insurance certificates', 'Utility account info', 'Waste removal contract'] },
+  { emoji: '⚖️', label: 'Compliance & legal', category: 'Other',
+    items: ['Open violations log', 'Pending litigation', 'State HOA registration', 'Prior violation notices', 'Fair housing records'] },
+  { emoji: '🔧', label: 'Operations', category: 'Other',
+    items: ['Emergency contact list', 'Key / fob inventory log', 'Gate / access codes', 'Move-in / move-out policy', 'Welcome packet'] },
+]
+
+type DocItemState = { checked: boolean; file: File | null }
+type DocSectionState = { items: DocItemState[]; note: string }
+const emptyDocState = (): DocSectionState[] =>
+  DOC_SECTIONS.map((s) => ({ items: s.items.map(() => ({ checked: false, file: null })), note: '' }))
 
 export default function SignupPage() {
   const [step, setStep] = useState<Step>('property')
@@ -46,6 +79,12 @@ export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
+  // Document-collection wizard state (board / management). `docSection` is the
+  // active category; `docState` holds every check + attached file + note so it
+  // survives moving back and forth, then feeds the post-provision upload.
+  const [docSection, setDocSection] = useState(0)
+  const [docState, setDocState] = useState<DocSectionState[]>(emptyDocState)
+
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -56,6 +95,9 @@ export default function SignupPage() {
 
   const goBack = () => {
     setErr(null)
+    // Inside the document wizard the top-bar back steps through its categories
+    // first, then leaves the step — so one back button drives the whole flow.
+    if (step === 'documents' && docSection > 0) { setDocSection(docSection - 1); return }
     if (idx > 0) setStep(seq[idx - 1])
     else window.location.assign('/')
   }
@@ -130,6 +172,34 @@ export default function SignupPage() {
       const res = await provisionAccount(input, session.access_token)
       // Inline path succeeded — make sure no stale stash lingers to re-run later.
       clearPendingProvision()
+
+      // Persist any documents the board attached in the wizard now that the
+      // community (and their admin membership) exists. Best-effort: a failed
+      // upload must never block finishing signup — they can re-add in /admin.
+      // (Skipped on the confirm-email branch above, which has no live session —
+      // binary files can't be stashed, so those attachments are simply dropped.)
+      if (who !== 'resident') {
+        const collected: CollectedDoc[] = []
+        docState.forEach((sec, si) => {
+          sec.items.forEach((it, ii) => {
+            if (it.file) collected.push({
+              title: DOC_SECTIONS[si].items[ii],
+              category: DOC_SECTIONS[si].category,
+              file: it.file,
+            })
+          })
+        })
+        if (collected.length) {
+          try { await uploadSignupDocuments(res.community_id, collected) } catch { /* non-fatal */ }
+        }
+
+        // Persist the per-category notes too (board-only). A later AI slice
+        // reads these to pre-fill settings / flag missing docs. Best-effort:
+        // same non-fatal contract as the uploads above.
+        const notes = docState.map((sec, si) => ({ section: DOC_SECTIONS[si].label, note: sec.note }))
+        try { await saveSignupNotes(res.community_id, notes) } catch { /* non-fatal */ }
+      }
+
       // Paid band (26+ homes) → pay on the spot: redirect straight into Stripe
       // subscription checkout. On failure we fall through to /admin, where the
       // Activate banner lets them complete payment. ≤25 homes is free → /admin.
@@ -199,6 +269,14 @@ export default function SignupPage() {
         {step === 'plan' && (
           <Plan
             propertyType={propertyType!} unitCount={unitCount}
+            onNext={() => { setErr(null); setStep('documents') }}
+          />
+        )}
+
+        {step === 'documents' && (
+          <DocWizard
+            section={docSection} setSection={setDocSection}
+            state={docState} setState={setDocState}
             onNext={() => { setErr(null); setStep('details') }}
           />
         )}
@@ -628,6 +706,127 @@ function Plan({ propertyType, unitCount, onNext }: {
         {paid && (
           <p className="su-foot">You&apos;ll create your account first, then pay securely with Stripe.</p>
         )}
+      </div>
+    </>
+  )
+}
+
+// Document-collection wizard (board / management). A self-contained mini-flow
+// inside one signup step: one category per slide with confirm/upload toggles +
+// notes, then a review summary. Everything is optional — every slide offers a
+// skip, and attachments persist to the community vault after provisioning.
+function DocWizard({
+  section, setSection, state, setState, onNext,
+}: {
+  section: number; setSection: (n: number) => void
+  state: DocSectionState[]; setState: React.Dispatch<React.SetStateAction<DocSectionState[]>>
+  onNext: () => void
+}) {
+  const total = DOC_SECTIONS.length
+  const onSummary = section >= total
+
+  const doneCount = (i: number) => state[i].items.filter((it) => it.checked).length
+  const allDone = (i: number) => doneCount(i) === DOC_SECTIONS[i].items.length
+
+  const patchSection = (fn: (s: DocSectionState) => DocSectionState) =>
+    setState((prev) => prev.map((s, si) => (si === section ? fn(s) : s)))
+
+  const toggle = (i: number) =>
+    patchSection((s) => ({ ...s, items: s.items.map((it, ii) => (ii === i ? { ...it, checked: !it.checked } : it)) }))
+  const attach = (i: number, file: File | null) => {
+    if (!file) return
+    patchSection((s) => ({ ...s, items: s.items.map((it, ii) => (ii === i ? { checked: true, file } : it)) }))
+  }
+  const setNote = (note: string) => patchSection((s) => ({ ...s, note }))
+
+  // Dots double as a jump nav across categories.
+  const dots = (
+    <div className="su-doc-dots">
+      {DOC_SECTIONS.map((sec, i) => (
+        <button key={sec.label} type="button"
+          className={`su-doc-dot${i === section ? ' active' : allDone(i) ? ' done' : ''}`}
+          onClick={() => setSection(i)} aria-label={`Go to ${sec.label}`} />
+      ))}
+    </div>
+  )
+
+  if (onSummary) {
+    return (
+      <>
+        <div className="su-kicker">Almost done</div>
+        <h1 className="su-h1">Review your documents</h1>
+        <p className="su-sub">Here&apos;s what you&apos;ve gathered. You can add the rest anytime from your dashboard.</p>
+        {dots}
+        <div className="su-content">
+          {DOC_SECTIONS.map((sec, i) => {
+            const d = doneCount(i), t = sec.items.length
+            const cls = d === t ? 'all' : d > 0 ? 'partial' : 'none'
+            return (
+              <button key={sec.label} type="button" className="su-doc-sum" onClick={() => setSection(i)}>
+                <span className="su-doc-sum-id">
+                  <span className="su-doc-sum-emoji" aria-hidden="true">{sec.emoji}</span>
+                  <span className="su-doc-sum-name">{sec.label}</span>
+                </span>
+                <span className={`su-doc-pill ${cls}`}>{d === t ? 'All done' : `${d}/${t}`}</span>
+              </button>
+            )
+          })}
+          <div className="su-actions">
+            <button className="su-btn" type="button" onClick={onNext}>Continue</button>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  const sec = DOC_SECTIONS[section]
+  const s = state[section]
+  const d = doneCount(section), t = sec.items.length
+  const isLast = section === total - 1
+  return (
+    <>
+      <div className="su-kicker">Step {section + 1} of {total} · Your documents</div>
+      <h1 className="su-h1">{sec.label}</h1>
+      <p className="su-sub">
+        {d === t ? 'All set for this category ✓' : 'Confirm or upload each — or skip and add them later.'}
+      </p>
+      <div className="su-doc-emoji" aria-hidden="true">{sec.emoji}</div>
+      <div className="su-content">
+        <div className="su-doc-card">
+          <div className="su-doc-items">
+            {sec.items.map((item, i) => {
+              const it = s.items[i]
+              return (
+                <div className="su-doc-item" key={item}>
+                  <button type="button" className={`su-doc-check${it.checked ? ' on' : ''}`}
+                    onClick={() => toggle(i)} aria-label={`${it.checked ? 'Uncheck' : 'Check'} ${item}`}>
+                    <IconCheck />
+                  </button>
+                  <span className={`su-doc-name${it.checked ? ' done' : ''}`}>{item}</span>
+                  <label className={`su-doc-up${it.file ? ' done' : ''}`}>
+                    {it.file ? '✓ Saved' : 'Upload'}
+                    <input className="su-doc-file" type="file"
+                      onChange={(e) => attach(i, e.target.files?.[0] ?? null)} />
+                  </label>
+                </div>
+              )
+            })}
+          </div>
+          <div className="su-doc-notes">
+            <div className="su-doc-notes-label">Notes</div>
+            <textarea className="su-doc-textarea" value={s.note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Missing items, context, or questions…" />
+          </div>
+        </div>
+        <div className="su-actions">
+          <button className="su-btn" type="button" onClick={() => setSection(section + 1)}>
+            {isLast ? 'Review →' : 'Next →'}
+          </button>
+        </div>
+        <button type="button" className="su-skip" onClick={onNext}>
+          Skip — I&apos;ll add documents later
+        </button>
       </div>
     </>
   )

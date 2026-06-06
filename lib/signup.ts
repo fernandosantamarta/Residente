@@ -238,6 +238,77 @@ export async function resumePendingProvision(): Promise<string | null> {
   }
 }
 
+// A document the board attached during the /signup document-collection wizard,
+// ready to land in the community's vault once provisioning has created it.
+export interface CollectedDoc {
+  title: string
+  category: string
+  file: File
+}
+
+// A free-text note the board typed against one wizard category.
+export interface CollectedNote {
+  section: string
+  note: string
+}
+
+// Persist the per-category notes the board typed in the signup wizard. One row
+// per non-empty note in community_setup_notes (board-only RLS). Best-effort and
+// non-fatal: a failure must never block finishing signup. A later AI slice reads
+// these by community to pre-fill settings / flag missing docs. Returns the count
+// actually saved.
+export async function saveSignupNotes(
+  communityId: string,
+  notes: CollectedNote[],
+): Promise<number> {
+  if (!hasSupabase || !supabase || !communityId) return 0
+  const rows = notes
+    .map((n) => ({ community_id: communityId, section: n.section, note: n.note.trim() }))
+    .filter((n) => n.note.length > 0)
+  if (!rows.length) return 0
+  try {
+    const { error } = await supabase.from('community_setup_notes').insert(rows)
+    return error ? 0 : rows.length
+  } catch { return 0 }
+}
+
+// Persist documents gathered in the signup wizard to the new community's vault.
+// Mirrors the admin Documents upload exactly (same `documents` bucket + table,
+// same `${communityId}/${uuid}.${ext}` path) so they appear in /admin/documents
+// like any other upload. Best-effort and per-file isolated: a single failed
+// upload never aborts the rest, and the caller treats a total failure as
+// non-fatal — the board can always re-add documents in /admin. Returns the
+// count actually saved.
+export async function uploadSignupDocuments(
+  communityId: string,
+  docs: CollectedDoc[],
+): Promise<number> {
+  if (!hasSupabase || !supabase || !communityId || !docs.length) return 0
+  let saved = 0
+  for (const d of docs) {
+    try {
+      const ext = d.file.name.includes('.') ? d.file.name.split('.').pop()!.toLowerCase() : 'bin'
+      const path = `${communityId}/${crypto.randomUUID()}.${ext}`
+      const up = await supabase.storage.from('documents').upload(path, d.file)
+      if (up.error) continue
+      const { error } = await supabase.from('documents').insert({
+        community_id: communityId,
+        title: d.title,
+        category: d.category,
+        storage_path: path,
+        file_size: d.file.size,
+      })
+      if (error) {
+        // Roll back the orphaned object so a failed row-insert leaves no litter.
+        await supabase.storage.from('documents').remove([path])
+        continue
+      }
+      saved++
+    } catch { /* per-file best-effort — keep going */ }
+  }
+  return saved
+}
+
 export async function provisionAccount(
   input: ProvisionInput,
   accessToken?: string,

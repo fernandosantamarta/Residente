@@ -317,3 +317,96 @@
 @media (max-width: 380px) {
   .su-plan-feats { grid-template-columns: 1fr; }
 }
+
+/* ---- document-collection wizard (board / management) ---- */
+/* Section dots — same language as the password checklist / progress bar, but a
+   compact per-category tracker the board can tap to jump around. */
+.su-doc-dots {
+  display: flex; justify-content: center; flex-wrap: wrap; gap: 6px;
+  margin: 0 0 16px;
+}
+.su-doc-dot {
+  width: 8px; height: 8px; border-radius: 999px; padding: 0; border: none;
+  background: rgba(255, 255, 255, 0.32); cursor: pointer;
+  transition: width 0.2s, background 0.2s;
+}
+.su-doc-dot.active { width: 22px; background: #fff; }
+.su-doc-dot.done { background: rgba(255, 255, 255, 0.72); }
+
+/* The big category mascot emoji, in place of the house on these slides. */
+.su-doc-emoji { font-size: 52px; line-height: 1; text-align: center; margin: 4px 0 18px; }
+
+/* Checklist sits on a cream card like the plan card, so it reads as part of the
+   signup rather than the standalone mockup. */
+.su-doc-card {
+  background: var(--o-cream); color: var(--o-ink);
+  border-radius: 20px; overflow: hidden;
+  box-shadow: 0 6px 0 rgba(120, 40, 0, 0.18);
+}
+.su-doc-items { padding: 6px 0; }
+.su-doc-item {
+  display: flex; align-items: center; gap: 11px;
+  padding: 10px 16px; transition: background 0.12s;
+}
+.su-doc-item + .su-doc-item { border-top: 1px solid rgba(42, 18, 6, 0.07); }
+.su-doc-check {
+  width: 22px; height: 22px; flex-shrink: 0; padding: 0;
+  display: grid; place-items: center; cursor: pointer;
+  border-radius: 7px; border: 2px solid rgba(42, 18, 6, 0.28);
+  background: transparent; color: transparent; transition: all 0.14s;
+}
+.su-doc-check.on { background: #E14909; border-color: #E14909; color: #fff; }
+.su-doc-check svg { width: 12px; height: 12px; }
+.su-doc-name {
+  flex: 1; min-width: 0; text-align: left;
+  font-size: 13.5px; font-weight: 600; color: var(--o-ink); line-height: 1.35;
+}
+.su-doc-name.done { color: rgba(42, 18, 6, 0.4); text-decoration: line-through; }
+.su-doc-up {
+  flex-shrink: 0; cursor: pointer; white-space: nowrap;
+  font-size: 12px; font-weight: 700; font-family: inherit;
+  padding: 6px 12px; border-radius: 999px;
+  border: 1.5px solid rgba(42, 18, 6, 0.22); background: transparent;
+  color: rgba(42, 18, 6, 0.7); transition: all 0.14s;
+}
+.su-doc-up:hover { border-color: #E14909; color: #E14909; }
+.su-doc-up.done { border-color: #E14909; background: rgba(225, 73, 9, 0.12); color: #E14909; }
+.su-doc-file { display: none; }
+.su-doc-notes { padding: 12px 16px 14px; border-top: 1px solid rgba(42, 18, 6, 0.1); }
+.su-doc-notes-label {
+  font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+  color: rgba(42, 18, 6, 0.5); margin-bottom: 6px;
+}
+.su-doc-textarea {
+  width: 100%; resize: none; min-height: 56px;
+  border: 1.5px solid rgba(42, 18, 6, 0.18); border-radius: 12px;
+  padding: 9px 11px; font-size: 13px; font-family: inherit;
+  color: var(--o-ink); background: #fff; outline: none; transition: border-color 0.14s;
+}
+.su-doc-textarea:focus { border-color: #E14909; }
+.su-doc-textarea::placeholder { color: rgba(42, 18, 6, 0.38); }
+
+/* Review-and-submit summary rows. */
+.su-doc-sum {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: var(--o-cream); color: var(--o-ink);
+  border-radius: 14px; padding: 12px 15px; margin-bottom: 8px;
+  box-shadow: 0 3px 0 rgba(120, 40, 0, 0.14);
+}
+.su-doc-sum-id { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.su-doc-sum-emoji { font-size: 20px; flex-shrink: 0; }
+.su-doc-sum-name { font-size: 13.5px; font-weight: 700; color: var(--o-ink); }
+.su-doc-pill {
+  flex-shrink: 0; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px;
+}
+.su-doc-pill.all { background: #E14909; color: #fff; }
+.su-doc-pill.partial { background: rgba(225, 73, 9, 0.16); color: #E14909; }
+.su-doc-pill.none { background: rgba(42, 18, 6, 0.08); color: rgba(42, 18, 6, 0.45); }
+
+.su-skip {
+  margin-top: 14px; text-align: center;
+  background: none; border: none; cursor: pointer; width: 100%;
+  font-size: 13px; font-weight: 600; font-family: inherit;
+  color: rgba(255, 245, 235, 0.85); text-decoration: underline;
+}
+.su-skip:hover { color: #fff; }
