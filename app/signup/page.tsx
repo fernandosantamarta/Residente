@@ -17,7 +17,7 @@ import {
   type CollectedDoc,
 } from '@/lib/signup'
 import type { DocCategory } from '@/lib/compliance/official-records'
-import { parseRosterCsv, parseBudgetCsv, applySignupImport, type RosterRow, type BudgetRow } from '@/lib/signupImport'
+import { parseRosterCsv, parseBudgetCsv, applySignupImport, extractSetupFromPdf, applyExtractedSetup, type RosterRow, type BudgetRow } from '@/lib/signupImport'
 import './signup.css'
 
 // Duolingo-style self-serve sign-up. Full-orange, one decision per screen, a
@@ -139,6 +139,8 @@ export default function SignupPage() {
   const [setupMode, setSetupMode] = useState<'choose' | 'manual' | 'upload'>('choose')
   const [importRoster, setImportRoster] = useState<RosterRow[] | null>(null)
   const [importBudget, setImportBudget] = useState<BudgetRow[] | null>(null)
+  // CC&Rs / governing-doc PDF, read by the AI extract step after provisioning.
+  const [importGovDoc, setImportGovDoc] = useState<File | null>(null)
 
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
@@ -267,6 +269,17 @@ export default function SignupPage() {
               { skipName: fullName.trim() })
           } catch { /* non-fatal */ }
         }
+
+        // AI extraction (Phase 1): read the CC&Rs PDF now the board is
+        // authenticated, and pre-fill late-fee/interest settings + rules. Inert
+        // (no-op) until ANTHROPIC_API_KEY is set + extract-setup is deployed.
+        // Board reviews/edits the result in /admin. Best-effort, non-fatal.
+        if (importGovDoc) {
+          try {
+            const extracted = await extractSetupFromPdf(importGovDoc)
+            if (extracted) await applyExtractedSetup(res.community_id, extracted)
+          } catch { /* non-fatal */ }
+        }
       }
 
       // Paid band (26+ homes) → pay on the spot: redirect straight into Stripe
@@ -354,6 +367,7 @@ export default function SignupPage() {
           <UploadSetup
             roster={importRoster} setRoster={setImportRoster}
             budget={importBudget} setBudget={setImportBudget}
+            govDoc={importGovDoc} setGovDoc={setImportGovDoc}
             onNext={() => { setErr(null); setStep('details') }}
           />
         )}
@@ -827,9 +841,10 @@ function SetupFork({ onUpload, onManual, onSkip }: {
 // browser and shown back as counts before continuing. The parsed rows are
 // stashed in the parent and written after provisioning. CC&Rs → fines/rules is
 // Phase 1 (the extract-setup edge fn) — not wired yet.
-function UploadSetup({ roster, setRoster, budget, setBudget, onNext }: {
+function UploadSetup({ roster, setRoster, budget, setBudget, govDoc, setGovDoc, onNext }: {
   roster: RosterRow[] | null; setRoster: (r: RosterRow[] | null) => void
   budget: BudgetRow[] | null; setBudget: (b: BudgetRow[] | null) => void
+  govDoc: File | null; setGovDoc: (f: File | null) => void
   onNext: () => void
 }) {
   const [err, setErr] = useState<string | null>(null)
@@ -869,8 +884,8 @@ function UploadSetup({ roster, setRoster, budget, setBudget, onNext }: {
       <div className="su-kicker">Upload your documents</div>
       <h1 className="su-h1">Drop your roster &amp; budget.</h1>
       <p className="su-sub">
-        We read clean spreadsheets instantly. (Reading fines &amp; rules from your CC&amp;Rs is coming —
-        for now add those in the manual flow or later in your dashboard.)
+        We read clean spreadsheets instantly. Drop your CC&amp;Rs too and we&rsquo;ll pre-fill your
+        fines, interest, and rules right after you finish — you review it in your dashboard.
       </p>
       <div className="su-content">
         <div className="su-doc-card">
@@ -888,12 +903,26 @@ function UploadSetup({ roster, setRoster, budget, setBudget, onNext }: {
                 </label>
               </div>
             ))}
+            {/* CC&Rs / governing-doc PDF — read by AI after provisioning. */}
+            <div className="su-doc-item" style={{ alignItems: 'flex-start' }}>
+              <div className="su-doc-name-text" style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600 }}>CC&amp;Rs / governing documents</div>
+                <div style={{ fontSize: 12, color: 'rgba(42,18,6,0.55)', marginTop: 2 }}>
+                  {govDoc ? `${govDoc.name} — we’ll read it after you finish` : 'PDF — we pre-fill fines, interest & rules from it'}
+                </div>
+              </div>
+              <label className={`su-doc-up${govDoc ? ' done' : ''}`}>
+                {govDoc ? '✓ Added' : 'Choose file'}
+                <input className="su-doc-file" type="file" accept="application/pdf,.pdf"
+                  onChange={(e) => setGovDoc(e.target.files?.[0] ?? null)} />
+              </label>
+            </div>
           </div>
         </div>
         {err && <div className="su-err">{err}</div>}
         <div className="su-actions">
           <button className="su-btn" type="button" onClick={onNext}>
-            {(roster || budget) ? 'Looks good — continue' : 'Continue without uploads'}
+            {(roster || budget || govDoc) ? 'Looks good — continue' : 'Continue without uploads'}
           </button>
         </div>
         <button type="button" className="su-skip" onClick={onNext}>Skip — I&rsquo;ll add these later</button>

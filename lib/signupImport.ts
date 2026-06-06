@@ -122,3 +122,81 @@ export async function applySignupImport(
 
   return result
 }
+
+// ---------------------------------------------------------------------------
+// Phase 1: AI extraction from a governing-document PDF (CC&Rs / declaration).
+// Calls the extract-setup edge function (Claude). Inert until ANTHROPIC_API_KEY
+// is set + the function is deployed — every failure returns null and the caller
+// falls back to manual entry. The board reviews/edits the result in /admin.
+// ---------------------------------------------------------------------------
+
+export interface ExtractedRule { section?: string; title: string; body?: string; fine?: number }
+export interface ExtractedSetup {
+  late_fee_flat?: number
+  late_fee_pct?: number
+  interest_apr?: number
+  rules?: ExtractedRule[]
+  reserves?: { name: string; target?: number }[]
+}
+
+const fileToBase64 = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => {
+      const s = String(reader.result || '')
+      const comma = s.indexOf(',')
+      resolve(comma >= 0 ? s.slice(comma + 1) : s) // strip the data: URI prefix
+    }
+    reader.onerror = () => reject(new Error('read failed'))
+    reader.readAsDataURL(file)
+  })
+
+// Send a governing-doc PDF to the extract-setup edge fn. Returns the structured
+// fields, or null if AI isn't configured / the call failed (caller falls back).
+export async function extractSetupFromPdf(file: File): Promise<ExtractedSetup | null> {
+  if (!hasSupabase || !supabase || !file) return null
+  try {
+    const pdf_base64 = await fileToBase64(file)
+    const { data, error } = await supabase.functions.invoke('extract-setup', { body: { pdf_base64 } })
+    if (error || !data?.ok || !data?.extracted) return null
+    return data.extracted as ExtractedSetup
+  } catch { return null }
+}
+
+// Apply extracted billing settings + rules to the provisioned community.
+// Best-effort and field-isolated. Returns the number of rules written.
+export async function applyExtractedSetup(communityId: string, ex: ExtractedSetup): Promise<{ settings: boolean; rules: number }> {
+  const out = { settings: false, rules: 0 }
+  if (!hasSupabase || !supabase || !communityId || !ex) return out
+
+  // Billing settings — only write fields the document actually stated.
+  const patch: Record<string, number> = {}
+  if (typeof ex.late_fee_flat === 'number') patch.late_fee_flat = ex.late_fee_flat
+  if (typeof ex.late_fee_pct === 'number') patch.late_fee_pct = ex.late_fee_pct
+  if (typeof ex.interest_apr === 'number') patch.interest_apr = ex.interest_apr
+  if (Object.keys(patch).length) {
+    try {
+      const { error } = await supabase.from('communities').update(patch).eq('id', communityId)
+      if (!error) out.settings = true
+    } catch { /* non-fatal */ }
+  }
+
+  // Rules — append to the rule book (same table the Rules tab reads).
+  const rules = (ex.rules || []).filter(r => r.title && r.title.trim())
+  if (rules.length) {
+    try {
+      const rows = rules.map((r, i) => ({
+        community_id: communityId,
+        section: r.section?.trim() || null,
+        title: r.title.trim(),
+        body: r.body?.trim() || null,
+        fine: typeof r.fine === 'number' ? r.fine : null,
+        sort_order: i + 1,
+      }))
+      const { error } = await supabase.from('rules').insert(rows)
+      if (!error) out.rules = rows.length
+    } catch { /* non-fatal */ }
+  }
+
+  return out
+}
