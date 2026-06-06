@@ -86,6 +86,9 @@ export type AuditEventType =
   // insurance — property appraisal & fidelity bond (compliance: Insurance)
   | 'insurance.policy_recorded'
   | 'insurance.waiver_recorded'
+  // procurement — competitive bidding & contract terms (compliance: Procurement)
+  | 'contract.recorded'
+  | 'contract.updated'
 
 export type AuditTargetType =
   | 'vote' | 'ballot' | 'meeting' | 'document' | 'notice'
@@ -100,6 +103,7 @@ export type AuditTargetType =
   | 'election' | 'recall'
   | 'arc_request'
   | 'insurance_policy'
+  | 'contract'
 
 export interface LogAuditArgs {
   community_id: string

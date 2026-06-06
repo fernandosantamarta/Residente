@@ -25,7 +25,7 @@ type AdminNavItem = { href: string; label: string; match?: string[]; exact?: boo
 const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin',            label: 'Overview', exact: true },
   { href: '/admin/community',  label: 'Community', anyPerm: ['community.manage'] },
-  { href: '/admin/compliance', label: 'Compliance', anyPerm: ['compliance.manage', 'financials.view', 'payments.view', 'violations.manage'], match: ['/admin/estoppel', '/admin/collections', '/admin/structural', '/admin/financials', '/admin/governance', '/admin/enforcement', '/admin/meetings', '/admin/elections', '/admin/arc', '/admin/insurance'] },
+  { href: '/admin/compliance', label: 'Compliance', anyPerm: ['compliance.manage', 'financials.view', 'payments.view', 'violations.manage'], match: ['/admin/estoppel', '/admin/collections', '/admin/structural', '/admin/financials', '/admin/governance', '/admin/enforcement', '/admin/meetings', '/admin/elections', '/admin/arc', '/admin/insurance', '/admin/contracts'] },
   { href: '/admin/reports',    label: 'Reports', anyPerm: ['financials.view', 'payments.view'] },
   { href: '/admin/residents',  label: 'Easy Track', anyPerm: ['residents.view', 'residents.manage'], match: ['/admin/vendor'] },
   { href: '/admin/voice',      label: 'Easy Voice', anyPerm: ['voice.manage'], match: ['/admin/board', '/admin/requests'] },
