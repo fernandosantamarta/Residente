@@ -957,7 +957,7 @@ function DocWizard({
               const open = openKey === dkey
               const showDesc = open || hoverKey === dkey
               return (
-                <div className="su-doc-row" key={item.name}
+                <div className="su-doc-row" key={item.name} style={{ position: 'relative' }}
                   onMouseEnter={() => setHoverKey(dkey)} onMouseLeave={() => setHoverKey(null)}>
                   <div className="su-doc-item">
                     <button type="button" className={`su-doc-check${it.checked ? ' on' : ''}`}
@@ -977,13 +977,17 @@ function DocWizard({
                         onChange={(e) => attach(i, e.target.files?.[0] ?? null)} />
                     </label>
                   </div>
-                  {/* Smooth height+fade so revealing the description eases in
-                      instead of snapping the rows below it. */}
-                  <div style={{ display: 'grid', gridTemplateRows: showDesc ? '1fr' : '0fr', opacity: showDesc ? 1 : 0, transition: 'grid-template-rows 0.24s ease, opacity 0.2s ease' }}>
-                    <div style={{ overflow: 'hidden' }}>
-                      <div className="su-doc-desc">{item.desc}</div>
-                    </div>
-                  </div>
+                  {/* Description floats in as an overlay so revealing it never
+                      shifts the rows below — just a gentle fade + slide. */}
+                  <div className="su-doc-desc" style={{
+                    position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 5,
+                    background: 'var(--o-cream)', borderRadius: 12, paddingTop: 10,
+                    boxShadow: '0 10px 24px -10px rgba(42,18,6,0.30)',
+                    pointerEvents: 'none',
+                    opacity: showDesc ? 1 : 0,
+                    transform: showDesc ? 'translateY(0)' : 'translateY(-4px)',
+                    transition: 'opacity 0.16s ease, transform 0.16s ease',
+                  }}>{item.desc}</div>
                 </div>
               )
             })}
