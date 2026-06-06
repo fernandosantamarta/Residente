@@ -348,58 +348,59 @@ export default function Residents() {
             ))}
           </div>
 
-          {/* Import your roster — paste straight from Excel / Google Sheets. */}
+          {/* Import your roster — three ways, side by side: paste from a
+              spreadsheet, type households in, or upload a CSV. */}
           <div className="card import-card">
             <div className="card-head">
               <div>
                 <h2>Import your roster</h2>
-                <div className="sub">Paste straight from Excel or Google Sheets — we map the columns for you.</div>
+                <div className="sub">Three ways to build it — paste from a spreadsheet, type it in, or upload a file.</div>
               </div>
               <span className="pill dim">No CSV needed</span>
             </div>
-            <div className="import-grid-head">
-              <span>Owner</span><span>Unit</span><span>Email</span><span>Phone</span>
-            </div>
-            <textarea className="import-paste" value={pasteText}
-              onChange={e => setPasteText(e.target.value)}
-              placeholder={'Jane Doe\t4B\tjane@palmgrove.io\t305-555-0142\nLuis Ortega\t12\tluis@gmail.com\t786-555-0199'} />
-            <div className="row-actions">
-              <button type="button" className="admin-primary-btn" onClick={importPaste} disabled={!pasteText.trim()}>
-                Paste &amp; import
-              </button>
-              <button type="button" className="admin-secondary-btn"
-                title="CSV columns: name, subdivision, address, email, phone"
-                onClick={() => fileRef.current && fileRef.current.click()}>
-                Upload CSV instead
-              </button>
-            </div>
-          </div>
-
-          {/* Search / filter / add toolbar. */}
-          <div className="toolbar">
-            <div className="toolbar-left">
-              <div className="search">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
-                  <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
-                </svg>
-                <input value={query} onChange={e => setQuery(e.target.value)}
-                  placeholder="Search owners or units…" aria-label="Search roster" />
+            <div className="import-methods">
+              {/* Paste */}
+              <div className="import-method">
+                <h3>Paste from a spreadsheet</h3>
+                <p className="m-sub">Copy rows from Excel or Google Sheets — we map the columns for you.</p>
+                <div className="import-grid-head">
+                  <span>Owner</span><span>Unit</span><span>Email</span><span>Phone</span>
+                </div>
+                <textarea className="import-paste" value={pasteText}
+                  onChange={e => setPasteText(e.target.value)}
+                  placeholder={'Jane Doe\t4B\tjane@palmgrove.io\t305-555-0142\nLuis Ortega\t12\tluis@gmail.com\t786-555-0199'} />
+                <div className="m-cta">
+                  <button type="button" className="admin-primary-btn" onClick={importPaste} disabled={!pasteText.trim()}>
+                    Paste &amp; import
+                  </button>
+                </div>
               </div>
-              {subOptions.length > 1 && (
-                <Dropdown value={subFilter} onChange={setSubFilter} options={subOptions} ariaLabel="Subdivision" />
-              )}
-            </div>
-            <div className="admin-form-actions" style={{ marginTop: 0 }}>
-              <button type="button" className="admin-secondary-btn"
-                title="Download all households as CSV"
-                onClick={exportRoster} disabled={rows.length === 0}>
-                Export CSV
-              </button>
-              <button type="button" className="admin-primary-btn" onClick={() => setShowAdd(s => !s)}>
-                {showAdd ? 'Close' : '+ Add household'}
-              </button>
-              <input name="residents-csv" ref={fileRef} type="file" accept=".csv,text/csv"
-                onChange={onPickFile} style={{ display: 'none' }} />
+
+              {/* Type */}
+              <div className="import-method">
+                <h3>Type it in</h3>
+                <p className="m-sub">Enter one home at a time with a quick form.</p>
+                <div className="m-cta">
+                  <button type="button" className="admin-secondary-btn" onClick={() => setShowAdd(s => !s)}>
+                    {showAdd ? 'Close form' : 'Type it in'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Upload */}
+              <div className="import-method">
+                <h3>Upload a file</h3>
+                <p className="m-sub">Import a .csv exported from your spreadsheet.</p>
+                <div className="m-cta">
+                  <button type="button" className="admin-secondary-btn"
+                    title="CSV columns: name, subdivision, address, email, phone"
+                    onClick={() => fileRef.current && fileRef.current.click()}>
+                    Upload CSV
+                  </button>
+                </div>
+                <input name="residents-csv" ref={fileRef} type="file" accept=".csv,text/csv"
+                  onChange={onPickFile} style={{ display: 'none' }} />
+              </div>
             </div>
           </div>
 
@@ -463,6 +464,29 @@ export default function Residents() {
                 {error && <span className="admin-err-inline">{error}</span>}
               </div>
             </form>
+          )}
+
+          {/* Search / filter / export toolbar over the roster table. */}
+          {status === 'ready' && rows.length > 0 && (
+            <div className="toolbar">
+              <div className="toolbar-left">
+                <div className="search">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
+                  </svg>
+                  <input value={query} onChange={e => setQuery(e.target.value)}
+                    placeholder="Search owners or units…" aria-label="Search roster" />
+                </div>
+                {subOptions.length > 1 && (
+                  <Dropdown value={subFilter} onChange={setSubFilter} options={subOptions} ariaLabel="Subdivision" />
+                )}
+              </div>
+              <button type="button" className="admin-secondary-btn"
+                title="Download all households as CSV"
+                onClick={exportRoster} disabled={rows.length === 0}>
+                Export CSV
+              </button>
+            </div>
           )}
 
           {status === 'loading' && <div className="admin-note">Loading…</div>}

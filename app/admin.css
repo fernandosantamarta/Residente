@@ -1120,9 +1120,27 @@
 }
 .etrack .card-head .sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
 
-/* "Import your roster" card — paste straight from a spreadsheet. */
+/* "Import your roster" card — three side-by-side ways to build the roster:
+   paste from a spreadsheet, type households in, or upload a CSV. */
 .etrack .import-card { border-color: rgba(225, 73, 9, 0.28); background: #FFFDFB; }
 .etrack .import-card .card-head .pill { flex-shrink: 0; }
+.etrack .import-methods {
+  display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 14px; align-items: stretch;
+}
+.etrack .import-method {
+  display: flex; flex-direction: column;
+  border: 1px solid var(--border); border-radius: 12px; padding: 14px 15px; background: #fff;
+}
+.etrack .import-method h3 {
+  margin: 0 0 3px; font-family: inherit; font-size: 13.5px; font-weight: 700; color: var(--text);
+}
+.etrack .import-method .m-sub { font-size: 12px; line-height: 1.5; color: var(--text-dim); margin: 0 0 11px; }
+.etrack .import-method .m-cta { margin-top: auto; padding-top: 12px; }
+.etrack .import-method .m-cta .admin-primary-btn,
+.etrack .import-method .m-cta .admin-secondary-btn { width: 100%; }
+@media (max-width: 760px) {
+  .etrack .import-methods { grid-template-columns: 1fr; }
+}
 .etrack .import-grid-head {
   display: grid; grid-template-columns: 1.4fr 0.7fr 1.3fr 1fr;
   background: rgba(225, 73, 9, 0.10); color: #B23A06;
@@ -1131,7 +1149,7 @@
 }
 .etrack .import-grid-head span { padding: 8px 12px; }
 .etrack .import-paste {
-  width: 100%; min-height: 84px; resize: vertical; display: block;
+  width: 100%; min-height: 66px; resize: vertical; display: block;
   border: 1px solid var(--border); border-radius: 0 0 10px 10px;
   padding: 10px 12px; font-family: ui-monospace, Menlo, Consolas, monospace;
   font-size: 12.5px; line-height: 1.6; color: var(--text); background: #fff;
