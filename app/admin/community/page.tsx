@@ -224,9 +224,6 @@ export default function CommunitySettings() {
             </div>
           </div>
 
-          {/* ---- Budget categories ---- */}
-          <BudgetCategories communityId={communityId} onSaved={setSuccessMsg} />
-
           {/* ---- Billing & compliance (Florida statutory settings) ---- */}
           <div className="card">
             <div className="card-head">
@@ -265,6 +262,9 @@ export default function CommunitySettings() {
               {status === 'error' && <span className="admin-err-inline" style={{ marginLeft: 12 }}>{error}</span>}
             </div>
           </div>
+
+          {/* ---- Budget categories ---- */}
+          <BudgetCategories communityId={communityId} onSaved={setSuccessMsg} />
 
           <ExpensesLog communityId={communityId} />
 
