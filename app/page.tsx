@@ -1274,7 +1274,9 @@ function BuiltForBoth() {
           The board gets the back-office they actually wanted — a household
           roster, dues collection, a vote-by-vote decisions log, a budget
           editor that doesn&apos;t require QuickBooks, and a document vault
-          that finally replaces the email thread.
+          that finally replaces the email thread. Residente does about 95% of
+          the busywork, so a volunteer board can self-manage the whole
+          community in minutes a week.
         </p>
         <p className="ln-uses-body">
           Residents get the transparency they&apos;d been quietly hoping
@@ -1305,10 +1307,11 @@ function BuiltForBoth() {
       <div className="ln-use-card ln-use-card-soft" id="residents" data-stagger="2">
         <div className="ln-use-tag">For residents</div>
         <h3>Finally know what your HOA is doing.</h3>
+        <p className="ln-use-stat"><strong>Everything in one place.</strong> Nothing to chase.</p>
         <p>
           Your balance, your share of the budget, every board decision since
-          you moved in — visible the second you log in. No more chasing the
-          treasurer for a PDF.
+          you moved in — visible the second you log in. Pay dues, book
+          amenities, and raise an issue without sending a single email.
         </p>
         <Link href="/signup" className="ln-use-link">Join your community <span aria-hidden="true">→</span></Link>
       </div>
