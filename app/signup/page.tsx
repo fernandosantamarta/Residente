@@ -875,9 +875,7 @@ function DocWizard({
 
   // Which item's plain-English description is expanded. Keyed by `section-index`
   // so the same row index in a different category doesn't stay open across jumps.
-  // Click pins (openKey); hover reveals transiently (hoverKey).
   const [openKey, setOpenKey] = useState<string | null>(null)
-  const [hoverKey, setHoverKey] = useState<string | null>(null)
 
   const doneCount = (i: number) => state[i].items.filter((it) => it.checked).length
   const allDone = (i: number) => doneCount(i) === DOC_SECTIONS[i].items.length
@@ -955,19 +953,17 @@ function DocWizard({
               const it = s.items[i]
               const dkey = `${section}-${i}`
               const open = openKey === dkey
-              const showDesc = open || hoverKey === dkey
               return (
-                <div className="su-doc-row" key={item.name} style={{ position: 'relative' }}
-                  onMouseEnter={() => setHoverKey(dkey)} onMouseLeave={() => setHoverKey(null)}>
+                <div className="su-doc-row" key={item.name}>
                   <div className="su-doc-item">
                     <button type="button" className={`su-doc-check${it.checked ? ' on' : ''}`}
                       onClick={() => toggle(i)} aria-label={`${it.checked ? 'Uncheck' : 'Check'} ${item.name}`}>
                       <IconCheck />
                     </button>
-                    {/* Hover reveals the plain-English description; tap pins it
-                        open. The checkbox stays the confirm action. */}
-                    <button type="button" className={`su-doc-name${it.checked ? ' done' : ''}${showDesc ? ' open' : ''}`}
-                      onClick={() => setOpenKey(open ? null : dkey)} aria-expanded={showDesc}>
+                    {/* Tap the name to reveal a plain-English description of the
+                        document — the checkbox stays the confirm action. */}
+                    <button type="button" className={`su-doc-name${it.checked ? ' done' : ''}${open ? ' open' : ''}`}
+                      onClick={() => setOpenKey(open ? null : dkey)} aria-expanded={open}>
                       <span className="su-doc-name-text">{item.name}</span>
                       <span className="su-doc-caret" aria-hidden="true"><Chevron dir="right" /></span>
                     </button>
@@ -977,17 +973,7 @@ function DocWizard({
                         onChange={(e) => attach(i, e.target.files?.[0] ?? null)} />
                     </label>
                   </div>
-                  {/* Description floats in as an overlay so revealing it never
-                      shifts the rows below — just a gentle fade + slide. */}
-                  <div className="su-doc-desc" style={{
-                    position: 'absolute', left: 0, right: 0, top: '100%', zIndex: 5,
-                    background: 'var(--o-cream)', borderRadius: 12, paddingTop: 10,
-                    boxShadow: '0 10px 24px -10px rgba(42,18,6,0.30)',
-                    pointerEvents: 'none',
-                    opacity: showDesc ? 1 : 0,
-                    transform: showDesc ? 'translateY(0)' : 'translateY(-4px)',
-                    transition: 'opacity 0.16s ease, transform 0.16s ease',
-                  }}>{item.desc}</div>
+                  {open && <div className="su-doc-desc">{item.desc}</div>}
                 </div>
               )
             })}
