@@ -128,9 +128,9 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
     const meta = document.querySelector('meta[name="theme-color"]')
     if (!meta) return
     const prev = meta.getAttribute('content')
-    // Sunset to blend with the hero photo, but the drawer's cream while the More
-    // drawer is open — orange clashed with the cream menu behind the status bar.
-    meta.setAttribute('content', navOpen ? '#FDF7F5' : '#E2674A')
+    // Cream status bar across the cockpit (Fernando didn't want the orange/sunset
+    // tint). Reads as a clean cream top strip above the hero photo / content.
+    meta.setAttribute('content', '#FDF7F5')
     return () => { if (prev) meta.setAttribute('content', prev) }
   }, [navOpen])
 
