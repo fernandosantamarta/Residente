@@ -905,6 +905,17 @@
 }
 .vlist .vdel:hover { color: var(--due); background: rgba(194, 54, 10, 0.10); }
 .vlist .admin-btn-on { border-color: var(--pink); color: var(--pink); background: rgba(225, 73, 9, 0.09); }
+
+/* Day chips — click to toggle several days a vendor comes. */
+.cset .vdaychips { display: flex; flex-wrap: wrap; gap: 8px; }
+.cset .vchip {
+  min-width: 48px; padding: 9px 12px; cursor: pointer;
+  font-family: inherit; font-size: 13px; font-weight: 600; color: var(--text-dim);
+  background: #FBF7F1; border: 1.5px solid transparent; border-radius: 10px;
+  transition: all 0.12s;
+}
+.cset .vchip:hover { background: #F6EEE4; }
+.cset .vchip.on { background: #fff; border-color: var(--pink); color: var(--pink); }
 .cset .card .bc-actions { margin-top: 16px; }
 
 /* Budget read-table — row dividers, no boxes, like the Overview checklist. */

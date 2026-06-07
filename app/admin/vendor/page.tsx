@@ -27,17 +27,10 @@ const CATS: { value: VendorCat; label: string }[] = [
 ]
 const CAT_LABEL: Record<string, string> = Object.fromEntries(CATS.map(c => [c.value, c.label]))
 
-// "When they come" is captured as a day + a time, combined into the schedule
-// string (e.g. "Monday · Morning"). Empty values mean "any".
-const VENDOR_DAYS: { value: string; label: string }[] = [
-  { value: '', label: 'Any day' },
-  { value: 'Monday', label: 'Monday' }, { value: 'Tuesday', label: 'Tuesday' },
-  { value: 'Wednesday', label: 'Wednesday' }, { value: 'Thursday', label: 'Thursday' },
-  { value: 'Friday', label: 'Friday' }, { value: 'Saturday', label: 'Saturday' },
-  { value: 'Sunday', label: 'Sunday' },
-  { value: 'Weekdays', label: 'Weekdays' }, { value: 'Weekends', label: 'Weekends' },
-  { value: 'Daily', label: 'Daily' },
-]
+// "When they come" is captured as one or more days + a time, combined into the
+// schedule string (e.g. "Mon, Wed, Fri · Morning"). Days are click-to-toggle
+// chips so several can be selected; an empty time means "any".
+const DAY_CHIPS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 const VENDOR_TIMES: { value: string; label: string }[] = [
   { value: '', label: 'Any time' },
   { value: 'Early morning', label: 'Early morning' }, { value: 'Morning', label: 'Morning' },
@@ -59,7 +52,7 @@ const fmtPubDate = (iso: string | null | undefined) => {
 const EMPTY = {
   name: '', category: 'property' as VendorCat,
   phone: '', email: '', blurb: '', badge: '', featured: false,
-  cost: '', scheduleDay: '', scheduleTime: '',
+  cost: '', scheduleDays: [] as string[], scheduleTime: '',
 }
 
 const fmtCost = (n: any) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
@@ -218,6 +211,10 @@ export default function VendorAdmin() {
   }
 
   const setField = (k: keyof typeof EMPTY, v: any) => setForm(f => ({ ...f, [k]: v }))
+  const toggleDay = (d: string) => setForm(f => ({
+    ...f,
+    scheduleDays: f.scheduleDays.includes(d) ? f.scheduleDays.filter(x => x !== d) : [...f.scheduleDays, d],
+  }))
 
   const add = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -234,7 +231,10 @@ export default function VendorAdmin() {
         badge: form.badge.trim() || null,
         featured: form.featured,
         cost: form.cost.trim() ? Number(form.cost) : null,
-        schedule: [form.scheduleDay, form.scheduleTime].filter(Boolean).join(' · ') || null,
+        schedule: [
+          DAY_CHIPS.filter(d => form.scheduleDays.includes(d)).join(', '),
+          form.scheduleTime,
+        ].filter(Boolean).join(' · ') || null,
         sort_order: rows.length,
       }
       const { data, error } = await withTimeout(
@@ -322,12 +322,12 @@ export default function VendorAdmin() {
                 <div className="sub">Add the provider, then feature it from the list below.</div>
               </div>
             </div>
-            <label className="admin-field">
-              <span className="admin-field-label">Vendor name</span>
-              <input name="name" className="admin-input" placeholder="GreenScape Landscaping"
-                value={form.name} onChange={e => setField('name', e.target.value)} />
-            </label>
             <div className="grid2" style={{ gap: 12, marginBottom: 14 }}>
+              <label className="admin-field">
+                <span className="admin-field-label">Vendor name</span>
+                <input name="name" className="admin-input" placeholder="GreenScape Landscaping"
+                  value={form.name} onChange={e => setField('name', e.target.value)} />
+              </label>
               <label className="admin-field">
                 <span className="admin-field-label">Category</span>
                 <Dropdown<VendorCat>
@@ -337,25 +337,25 @@ export default function VendorAdmin() {
                   options={CATS}
                 />
               </label>
+            </div>
+            <div className="grid2" style={{ gap: 12, marginBottom: 14 }}>
               <label className="admin-field">
                 <span className="admin-field-label">Phone (optional)</span>
                 <input name="phone" className="admin-input" placeholder="(305) 555-0142"
                   value={form.phone} onChange={e => setField('phone', e.target.value)} />
               </label>
-            </div>
-            <div className="grid2" style={{ gap: 12, marginBottom: 14 }}>
               <label className="admin-field">
                 <span className="admin-field-label">Email (optional)</span>
                 <input name="email" type="email" className="admin-input" placeholder="hello@greenscape.com"
                   value={form.email} onChange={e => setField('email', e.target.value)} />
               </label>
+            </div>
+            <div className="grid2" style={{ gap: 12, marginBottom: 14 }}>
               <label className="admin-field">
                 <span className="admin-field-label">Badge (optional)</span>
                 <input name="badge" className="admin-input" placeholder="Preferred"
                   value={form.badge} onChange={e => setField('badge', e.target.value)} />
               </label>
-            </div>
-            <div className="grid2" style={{ gap: 12, marginBottom: 14 }}>
               <label className="admin-field">
                 <span className="admin-field-label">Monthly cost (optional)</span>
                 <div className="admin-input-wrap">
@@ -364,14 +364,25 @@ export default function VendorAdmin() {
                     value={form.cost} onChange={e => setField('cost', e.target.value)} />
                 </div>
               </label>
+            </div>
+            <div className="grid2" style={{ gap: 12, marginBottom: 14 }}>
               <div className="admin-field">
-                <span className="admin-field-label">When they come (optional)</span>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <Dropdown value={form.scheduleDay} onChange={v => setField('scheduleDay', v)}
-                    ariaLabel="Day they come" options={VENDOR_DAYS} />
-                  <Dropdown value={form.scheduleTime} onChange={v => setField('scheduleTime', v)}
-                    ariaLabel="Time they come" options={VENDOR_TIMES} />
-                </div>
+                <span className="admin-field-label">Time they come (optional)</span>
+                <Dropdown value={form.scheduleTime} onChange={v => setField('scheduleTime', v)}
+                  ariaLabel="Time they come" options={VENDOR_TIMES} />
+              </div>
+              <div />
+            </div>
+            <div className="admin-field" style={{ marginBottom: 14 }}>
+              <span className="admin-field-label">Days they come (optional)</span>
+              <div className="vdaychips">
+                {DAY_CHIPS.map(d => (
+                  <button key={d} type="button"
+                    className={`vchip${form.scheduleDays.includes(d) ? ' on' : ''}`}
+                    onClick={() => toggleDay(d)} aria-pressed={form.scheduleDays.includes(d)}>
+                    {d}
+                  </button>
+                ))}
               </div>
             </div>
             <label className="admin-field">
