@@ -173,11 +173,11 @@ export default function RolesPage() {
             </div>
 
             {!editingProtected && (
-              <div style={{ display: 'flex', gap: 10 }}>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+                {editId && <button className="admin-btn-ghost" type="button" onClick={startNew}>Cancel</button>}
                 <button className="admin-primary-btn" disabled={saving} onClick={saveRole}>
                   {saving ? 'Saving…' : editId ? 'Save changes' : 'Create role'}
                 </button>
-                {editId && <button className="admin-btn-ghost" type="button" onClick={startNew}>Cancel</button>}
               </div>
             )}
             {editingProtected && <button className="admin-btn-ghost" type="button" onClick={startNew}>Back to new role</button>}
