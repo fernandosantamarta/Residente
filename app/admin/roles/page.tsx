@@ -18,7 +18,7 @@ import { EasyTrackTabs } from '../EasyTrackTabs'
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
 
-type Role = { id: string; name: string; permissions: string[]; is_admin: boolean; is_system: boolean }
+type Role = { id: string; name: string; permissions: string[]; is_admin: boolean; is_system: boolean; allow_multiple?: boolean }
 type Member = { id: string; full_name: string | null; board_position: string | null; role_id: string | null }
 
 export default function RolesPage() {
@@ -36,6 +36,7 @@ export default function RolesPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [perms, setPerms] = useState<Set<string>>(new Set())
+  const [allowMulti, setAllowMulti] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savedId, setSavedId] = useState<string | null>(null) // member row that just saved
 
@@ -46,7 +47,7 @@ export default function RolesPage() {
     setStatus('loading'); setError('')
     try {
       const [{ data: r }, { data: m }] = (await Promise.all([
-        withTimeout(supabase!.from('ev_roles').select('id, name, permissions, is_admin, is_system')
+        withTimeout(supabase!.from('ev_roles').select('*')
           .eq('community_id', communityId).order('is_admin', { ascending: false }).order('name')),
         withTimeout(supabase!.from('residents').select('id, full_name, board_position, role_id')
           .eq('community_id', communityId).order('full_name')),
@@ -61,9 +62,9 @@ export default function RolesPage() {
 
   const roleName = useCallback((id: string | null) => roles.find(x => x.id === id)?.name || '—', [roles])
 
-  const startNew = () => { setEditId(null); setName(''); setPerms(new Set()) }
+  const startNew = () => { setEditId(null); setName(''); setPerms(new Set()); setAllowMulti(false) }
   const startEdit = (r: Role) => {
-    setEditId(r.id); setName(r.name); setPerms(new Set(r.permissions || []))
+    setEditId(r.id); setName(r.name); setPerms(new Set(r.permissions || [])); setAllowMulti(!!r.allow_multiple)
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
   }
   const togglePerm = (k: string) => setPerms(prev => {
@@ -74,9 +75,16 @@ export default function RolesPage() {
     if (!name.trim()) { setError('Name the role.'); return }
     setSaving(true); setError('')
     try {
-      const { error } = (await withTimeout(supabase!.rpc('ev_role_save', {
-        p_id: editId, p_name: name.trim(), p_perms: Array.from(perms),
+      let { error } = (await withTimeout(supabase!.rpc('ev_role_save', {
+        p_id: editId, p_name: name.trim(), p_perms: Array.from(perms), p_multi: allowMulti,
       }))) as any
+      // Until the allow-multiple migration is applied the 4-arg function doesn't
+      // exist — fall back to the original 3-arg signature so saving still works.
+      if (error && /function|schema cache|p_multi/i.test(error.message || '')) {
+        ;({ error } = (await withTimeout(supabase!.rpc('ev_role_save', {
+          p_id: editId, p_name: name.trim(), p_perms: Array.from(perms),
+        }))) as any)
+      }
       if (error) throw error
       setMsg(editId ? 'Role updated.' : 'Role created.')
       startNew(); load()
@@ -138,7 +146,7 @@ export default function RolesPage() {
   // give two people the same access, create another role.
   const rolesForMember = useCallback((memberId: string, currentRoleId: string | null) =>
     roles.filter(r =>
-      r.is_admin || r.is_system ||
+      r.is_admin || r.is_system || r.allow_multiple ||
       r.id === currentRoleId ||
       !boardMembers.some(o => o.id !== memberId && o.role_id === r.id),
     ), [roles, boardMembers])
@@ -206,11 +214,17 @@ export default function RolesPage() {
             </div>
 
             {!editingProtected && (
-              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-                {editId && <button className="admin-btn-ghost" type="button" onClick={startNew}>Cancel</button>}
-                <button className="admin-primary-btn" disabled={saving} onClick={saveRole}>
-                  {saving ? 'Saving…' : editId ? 'Save changes' : 'Create role'}
-                </button>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5 }}>
+                  <input type="checkbox" checked={allowMulti} onChange={e => setAllowMulti(e.target.checked)} />
+                  Allow several board members to hold this role
+                </label>
+                <div style={{ display: 'flex', gap: 10 }}>
+                  {editId && <button className="admin-btn-ghost" type="button" onClick={startNew}>Cancel</button>}
+                  <button className="admin-primary-btn" disabled={saving} onClick={saveRole}>
+                    {saving ? 'Saving…' : editId ? 'Save changes' : 'Create role'}
+                  </button>
+                </div>
               </div>
             )}
             {editingProtected && <button className="admin-btn-ghost" type="button" onClick={startNew}>Back to new role</button>}
