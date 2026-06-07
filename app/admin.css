@@ -1120,43 +1120,29 @@
 }
 .etrack .card-head .sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
 
-/* "Import your roster" card — three side-by-side ways to build the roster:
-   paste from a spreadsheet, type households in, or upload a CSV. */
+/* "Import your roster" card — one editable spreadsheet: type into the cells,
+   paste a block from Excel / Google Sheets straight into it, or upload a CSV.
+   Header + rows styled to match the mock (peach header, hairline rows, dashed
+   outer border). */
 .etrack .import-card { border-color: rgba(225, 73, 9, 0.28); background: #FFFDFB; }
 .etrack .import-card .card-head .pill { flex-shrink: 0; }
-.etrack .import-methods {
-  display: grid; grid-template-columns: 1.5fr 1fr 1fr; gap: 14px; align-items: stretch;
+.etrack .import-sheet {
+  border: 1px dashed rgba(199, 111, 69, 0.45); border-radius: 12px;
+  overflow: hidden; background: #fff; margin-bottom: 14px;
 }
-.etrack .import-method {
-  display: flex; flex-direction: column;
-  border: 1px solid var(--border); border-radius: 12px; padding: 14px 15px; background: #fff;
+.etrack .import-sheet-row { display: grid; grid-template-columns: 1.4fr 0.7fr 1.3fr 1fr; }
+.etrack .import-sheet-head {
+  background: rgba(225, 73, 9, 0.10); color: #B23A06; font-weight: 700; font-size: 11.5px;
 }
-.etrack .import-method h3 {
-  margin: 0 0 3px; font-family: inherit; font-size: 13.5px; font-weight: 700; color: var(--text);
+.etrack .import-sheet-head span { padding: 9px 12px; }
+.etrack .import-cell {
+  width: 100%; border: none; outline: none; background: transparent;
+  font-family: inherit; font-size: 13px; color: var(--text);
+  padding: 9px 12px; border-top: 1px solid var(--border);
 }
-.etrack .import-method .m-sub { font-size: 12px; line-height: 1.5; color: var(--text-dim); margin: 0 0 11px; }
-.etrack .import-method .m-cta { margin-top: auto; padding-top: 12px; }
-.etrack .import-method .m-cta .admin-primary-btn,
-.etrack .import-method .m-cta .admin-secondary-btn { width: 100%; }
-@media (max-width: 760px) {
-  .etrack .import-methods { grid-template-columns: 1fr; }
-}
-.etrack .import-grid-head {
-  display: grid; grid-template-columns: 1.4fr 0.7fr 1.3fr 1fr;
-  background: rgba(225, 73, 9, 0.10); color: #B23A06;
-  font-weight: 700; font-size: 11.5px;
-  border: 1px solid var(--border); border-bottom: none; border-radius: 10px 10px 0 0;
-}
-.etrack .import-grid-head span { padding: 8px 12px; }
-.etrack .import-paste {
-  width: 100%; min-height: 66px; resize: vertical; display: block;
-  border: 1px solid var(--border); border-radius: 0 0 10px 10px;
-  padding: 10px 12px; font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: 12.5px; line-height: 1.6; color: var(--text); background: #fff;
-  outline: none; white-space: pre; overflow-x: auto;
-}
-.etrack .import-paste:focus { border-color: #E14909; box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.12); }
-.etrack .import-paste::placeholder { color: var(--text-faint); }
+.etrack .import-sheet-row .import-cell + .import-cell { border-left: 1px solid var(--border); }
+.etrack .import-cell:focus { background: rgba(225, 73, 9, 0.06); }
+.etrack .import-cell::placeholder { color: var(--text-faint); }
 .etrack .row-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
 
 .etrack .tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }

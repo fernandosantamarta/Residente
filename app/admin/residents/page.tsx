@@ -39,44 +39,6 @@ function parseResidentsCsv(text) {
   return out
 }
 
-// Parse a roster pasted from Excel / Google Sheets. Those copy as TAB-separated
-// rows (we fall back to commas). Columns map by header when present (owner/name,
-// unit, email, phone, address, subdivision); otherwise the order is assumed to
-// be Owner, Unit, Email, Phone — matching the import card's column guide.
-function parsePastedRoster(text) {
-  const lines = String(text).split(/\r?\n/).filter(l => l.trim())
-  if (!lines.length) return []
-  const splitRow = (l) => (l.includes('\t') ? l.split('\t') : l.split(',')).map(c => c.trim())
-  const first = splitRow(lines[0]).map(c => c.toLowerCase())
-  const headerWords = ['owner', 'name', 'full name', 'unit', 'email', 'phone', 'address', 'subdivision']
-  const hasHeader = first.some(c => headerWords.includes(c))
-  let idx = { name: 0, unit: 1, email: 2, phone: 3, address: -1, subdivision: -1 }
-  if (hasHeader) {
-    idx = { name: -1, unit: -1, email: -1, phone: -1, address: -1, subdivision: -1 }
-    first.forEach((c, i) => {
-      if (idx.name < 0 && /owner|name/.test(c)) idx.name = i
-      else if (idx.unit < 0 && /unit/.test(c)) idx.unit = i
-      else if (idx.email < 0 && /email/.test(c)) idx.email = i
-      else if (idx.phone < 0 && /phone/.test(c)) idx.phone = i
-      else if (idx.address < 0 && /address/.test(c)) idx.address = i
-      else if (idx.subdivision < 0 && /subdiv/.test(c)) idx.subdivision = i
-    })
-    if (idx.name < 0) idx.name = 0
-  }
-  const out = []
-  for (let i = hasHeader ? 1 : 0; i < lines.length; i++) {
-    const c = splitRow(lines[i])
-    const get = (k) => (idx[k] >= 0 ? (c[idx[k]] || '') : '')
-    const full_name = get('name')
-    if (!full_name) continue
-    out.push({
-      full_name, unit_number: get('unit'), email: get('email'),
-      phone: get('phone'), address: get('address'), subdivision: get('subdivision'),
-    })
-  }
-  return out
-}
-
 // Sort by subdivision, then address (numeric-aware), then name.
 const sortRows = (rs) => [...rs].sort((a, b) => {
   const s = String(a.subdivision || '~').localeCompare(String(b.subdivision || '~'))
@@ -86,7 +48,11 @@ const sortRows = (rs) => [...rs].sort((a, b) => {
   return ad !== 0 ? ad : String(a.full_name || '').localeCompare(String(b.full_name || ''))
 })
 
-const EMPTY = { full_name: '', subdivision: '', address: '', email: '', phone: '', unit_number: '' }
+// Editable import spreadsheet — one row per household, four columns matching the
+// header. Always keeps a trailing blank row so there's somewhere to type next.
+const GRID_COLS = ['name', 'unit', 'email', 'phone']
+const blankGridRow = () => ({ name: '', unit: '', email: '', phone: '' })
+const gridRowHasData = (r) => !!(r.name || r.unit || r.email || r.phone)
 
 // Residents page — the community roster, grouped by subdivision. Each
 // household's balance accrues monthly_dues automatically; the board sets the
@@ -99,15 +65,12 @@ export default function Residents() {
   const [community, setCommunity] = useState(null)
   const [status, setStatus] = useState('loading') // loading | ready | none | error
   const [error, setError] = useState('')
-  const [form, setForm] = useState(EMPTY)
-  const [saving, setSaving] = useState(false)
-  const [pending, setPending] = useState(null) // parsed CSV rows awaiting confirm
+  const [pending, setPending] = useState(null) // parsed CSV / pasted rows awaiting confirm
   const [importing, setImporting] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
   const [query, setQuery] = useState('')
   const [subFilter, setSubFilter] = useState('all')
-  const [showAdd, setShowAdd] = useState(false)
-  const [pasteText, setPasteText] = useState('')
+  const [grid, setGrid] = useState(() => [blankGridRow(), blankGridRow(), blankGridRow()])
   const fileRef = useRef(null)
 
   // Auto-dismiss the green confirmation banner after 4 seconds.
@@ -194,34 +157,6 @@ export default function Residents() {
     })
   }, [rows, query, subFilter])
 
-  const setField = (k, v) => setForm(f => ({ ...f, [k]: v }))
-
-  const add = async (e) => {
-    e.preventDefault()
-    if (!form.full_name.trim()) { setError('Enter the resident name'); return }
-    setSaving(true); setError('')
-    try {
-      const row = {
-        community_id: communityId,
-        full_name: form.full_name.trim(),
-        subdivision: form.subdivision.trim() || null,
-        address: form.address.trim() || null,
-        email: form.email.trim() || null,
-        phone: form.phone.trim() || null,
-        unit_number: form.unit_number.trim() || null,
-      }
-      const { data, error } = await withTimeout(
-        supabase.from('residents').insert(row).select().single()
-      )
-      if (error) throw error
-      setRows(rs => sortRows([data, ...rs]))
-      setForm(EMPTY)
-      setSuccessMsg(`Added ${row.full_name}.`)
-    } catch (err) {
-      setError(err?.message || 'Could not add the resident')
-    } finally { setSaving(false) }
-  }
-
   const remove = async (id) => {
     const prev = rows
     setRows(rs => rs.filter(r => r.id !== id)) // optimistic
@@ -252,13 +187,52 @@ export default function Residents() {
     }
   }
 
-  // "Paste & import" — parse the spreadsheet rows in the textarea into the same
-  // confirm flow the CSV upload uses (the green "Import all N" bar).
-  const importPaste = () => {
-    const parsed = parsePastedRoster(pasteText)
-    if (parsed.length) { setPending(parsed); setPasteText(''); setError('') }
-    else setError('No rows found — paste at least one household (Owner, Unit, Email, Phone).')
+  // Keep a trailing blank row so the spreadsheet always has room to type/paste.
+  const withTrailingRow = (rows) => {
+    const last = rows[rows.length - 1]
+    if (!last || gridRowHasData(last)) rows.push(blankGridRow())
+    return rows
   }
+
+  const setCell = (ri, key, val) => setGrid(g => {
+    const next = g.map(r => ({ ...r }))
+    next[ri][key] = val
+    return withTrailingRow(next)
+  })
+
+  // Paste a block (from Excel / Sheets) straight into the grid, spreading the
+  // tab/newline-delimited cells from the focused cell down and to the right.
+  const onPasteCell = (e, ri, ci) => {
+    const text = e.clipboardData.getData('text')
+    if (!text || !/[\t\n]/.test(text)) return   // single value — let it paste normally
+    e.preventDefault()
+    const lines = text.replace(/\r/g, '').replace(/\n+$/, '').split('\n')
+    setGrid(g => {
+      const next = g.map(r => ({ ...r }))
+      lines.forEach((line, li) => {
+        const cells = line.split('\t')
+        const tr = ri + li
+        while (next.length <= tr) next.push(blankGridRow())
+        cells.forEach((cell, cj) => {
+          const col = GRID_COLS[ci + cj]
+          if (col) next[tr][col] = cell.trim()
+        })
+      })
+      return withTrailingRow(next)
+    })
+  }
+
+  // "Paste & import" — turn the filled grid rows into the same confirm flow the
+  // CSV upload uses (the green "Import all N" bar). Owner (name) is required.
+  const importGrid = () => {
+    const parsed = grid.filter(r => r.name.trim()).map(r => ({
+      full_name: r.name.trim(), unit_number: r.unit.trim(),
+      email: r.email.trim(), phone: r.phone.trim(), address: '', subdivision: '',
+    }))
+    if (parsed.length) { setPending(parsed); setError('') }
+    else setError('Type or paste at least one row — Owner is required.')
+  }
+  const gridHasData = grid.some(gridRowHasData)
 
   const onPickFile = (e) => {
     const file = e.target.files && e.target.files[0]
@@ -291,6 +265,7 @@ export default function Residents() {
       if (error) throw error
       const n = toInsert.length
       setPending(null)
+      setGrid([blankGridRow(), blankGridRow(), blankGridRow()])
       await load()
       setSuccessMsg(`Imported ${n} resident${n === 1 ? '' : 's'}.`)
     } catch (err) {
@@ -348,60 +323,47 @@ export default function Residents() {
             ))}
           </div>
 
-          {/* Import your roster — three ways, side by side: paste from a
-              spreadsheet, type households in, or upload a CSV. */}
+          {/* Import your roster — one editable spreadsheet. Type into the cells,
+              paste a block straight from Excel / Google Sheets, or upload a CSV. */}
           <div className="card import-card">
             <div className="card-head">
               <div>
                 <h2>Import your roster</h2>
-                <div className="sub">Three ways to build it — paste from a spreadsheet, type it in, or upload a file.</div>
+                <div className="sub">Type it in, paste straight from Excel or Google Sheets, or upload a file — we map the columns for you.</div>
               </div>
               <span className="pill dim">No CSV needed</span>
             </div>
-            <div className="import-methods">
-              {/* Paste */}
-              <div className="import-method">
-                <h3>Paste from a spreadsheet</h3>
-                <p className="m-sub">Copy rows from Excel or Google Sheets — we map the columns for you.</p>
-                <div className="import-grid-head">
-                  <span>Owner</span><span>Unit</span><span>Email</span><span>Phone</span>
-                </div>
-                <textarea className="import-paste" value={pasteText}
-                  onChange={e => setPasteText(e.target.value)}
-                  placeholder={'Jane Doe\t4B\tjane@palmgrove.io\t305-555-0142\nLuis Ortega\t12\tluis@gmail.com\t786-555-0199'} />
-                <div className="m-cta">
-                  <button type="button" className="admin-primary-btn" onClick={importPaste} disabled={!pasteText.trim()}>
-                    Paste &amp; import
-                  </button>
-                </div>
+            <div className="import-sheet">
+              <div className="import-sheet-row import-sheet-head">
+                <span>Owner</span><span>Unit</span><span>Email</span><span>Phone</span>
               </div>
-
-              {/* Type */}
-              <div className="import-method">
-                <h3>Type it in</h3>
-                <p className="m-sub">Enter one home at a time with a quick form.</p>
-                <div className="m-cta">
-                  <button type="button" className="admin-secondary-btn" onClick={() => setShowAdd(s => !s)}>
-                    {showAdd ? 'Close form' : 'Type it in'}
-                  </button>
-                </div>
-              </div>
-
-              {/* Upload */}
-              <div className="import-method">
-                <h3>Upload a file</h3>
-                <p className="m-sub">Import a .csv exported from your spreadsheet.</p>
-                <div className="m-cta">
-                  <button type="button" className="admin-secondary-btn"
-                    title="CSV columns: name, subdivision, address, email, phone"
-                    onClick={() => fileRef.current && fileRef.current.click()}>
-                    Upload CSV
-                  </button>
-                </div>
-                <input name="residents-csv" ref={fileRef} type="file" accept=".csv,text/csv"
-                  onChange={onPickFile} style={{ display: 'none' }} />
+              <div>
+                {grid.map((row, ri) => (
+                  <div className="import-sheet-row" key={ri}>
+                    {GRID_COLS.map((key, ci) => (
+                      <input key={key} className="import-cell" value={row[key]}
+                        placeholder={ri === 0 ? ['Jane Doe', '4B', 'jane@email.com', '305-555-0142'][ci] : ''}
+                        aria-label={`${['Owner', 'Unit', 'Email', 'Phone'][ci]} row ${ri + 1}`}
+                        onChange={e => setCell(ri, key, e.target.value)}
+                        onPaste={e => onPasteCell(e, ri, ci)} />
+                    ))}
+                  </div>
+                ))}
               </div>
             </div>
+            <div className="row-actions">
+              <button type="button" className="admin-primary-btn" onClick={importGrid} disabled={!gridHasData}>
+                Paste &amp; import
+              </button>
+              <button type="button" className="admin-secondary-btn"
+                title="CSV columns: name, subdivision, address, email, phone"
+                onClick={() => fileRef.current && fileRef.current.click()}>
+                Upload CSV instead
+              </button>
+              {error && <span className="admin-err-inline">{error}</span>}
+            </div>
+            <input name="residents-csv" ref={fileRef} type="file" accept=".csv,text/csv"
+              onChange={onPickFile} style={{ display: 'none' }} />
           </div>
 
           {pending && (
@@ -416,54 +378,6 @@ export default function Residents() {
                 Cancel
               </button>
             </div>
-          )}
-
-          {showAdd && (
-            <form className="admin-form" onSubmit={add} style={{ marginBottom: 18 }}>
-              <label className="admin-field">
-                <span className="admin-field-label">Resident name</span>
-                <input name="full_name" className="admin-input" placeholder="Jane Doe"
-                  value={form.full_name} onChange={e => setField('full_name', e.target.value)} />
-              </label>
-              <div className="admin-2col">
-                <label className="admin-field">
-                  <span className="admin-field-label">Subdivision</span>
-                  <input name="subdivision" className="admin-input" placeholder="Lakeside"
-                    value={form.subdivision} onChange={e => setField('subdivision', e.target.value)} />
-                </label>
-                <label className="admin-field">
-                  <span className="admin-field-label">Address / unit</span>
-                  <input name="address" className="admin-input" placeholder="1247 Oak Street"
-                    value={form.address} onChange={e => setField('address', e.target.value)} />
-                </label>
-              </div>
-              <div className="admin-2col">
-                <label className="admin-field">
-                  <span className="admin-field-label">Email</span>
-                  <input name="email" className="admin-input" type="email" placeholder="jane@email.com"
-                    value={form.email} onChange={e => setField('email', e.target.value)} />
-                </label>
-                <label className="admin-field">
-                  <span className="admin-field-label">Phone</span>
-                  <input name="phone" className="admin-input" placeholder="(555) 123-4567"
-                    value={form.phone} onChange={e => setField('phone', e.target.value)} />
-                </label>
-              </div>
-              <div className="admin-2col">
-                <label className="admin-field">
-                  <span className="admin-field-label">Unit number</span>
-                  <input name="unit_number" className="admin-input" placeholder="e.g. 11"
-                    value={form.unit_number} onChange={e => setField('unit_number', e.target.value)} />
-                </label>
-                <div />
-              </div>
-              <div className="admin-form-actions">
-                <button type="submit" className="admin-primary-btn" disabled={saving}>
-                  {saving ? 'Adding…' : 'Add resident'}
-                </button>
-                {error && <span className="admin-err-inline">{error}</span>}
-              </div>
-            </form>
           )}
 
           {/* Search / filter / export toolbar over the roster table. */}
