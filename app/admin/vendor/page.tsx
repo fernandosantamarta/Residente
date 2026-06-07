@@ -332,11 +332,11 @@ export default function VendorAdmin() {
                 placeholder="Lawn, planters, irrigation. Weekly visits."
                 value={form.blurb} onChange={e => setField('blurb', e.target.value)} />
             </label>
-            <div className="card-cta">
+            <div className="card-cta" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
+              {error && <span className="admin-err-inline">{error}</span>}
               <button type="submit" className="admin-primary-btn" disabled={saving}>
                 {saving ? 'Adding…' : 'Add vendor'}
               </button>
-              {error && <span className="admin-err-inline" style={{ marginLeft: 12 }}>{error}</span>}
             </div>
           </form>
 
