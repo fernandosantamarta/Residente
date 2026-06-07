@@ -497,22 +497,23 @@ export default function VendorAdmin() {
               </div>
             </div>
             {guidelinesDoc ? (
-              <div className="bd-row">
-                <div className="bd-main">
-                  <div className="bd-title">{guidelinesDoc.title || 'Vendor Guidelines'}</div>
-                  <div className="bd-meta">
-                    <span>Published to residents</span>
-                    {guidelinesDoc.uploaded_at && <><span className="bd-dot">·</span><span>{fmtPubDate(guidelinesDoc.uploaded_at)}</span></>}
+              <div className="vguide-row">
+                <div style={{ minWidth: 0 }}>
+                  <div className="vguide-title">{guidelinesDoc.title || 'Vendor Guidelines'}</div>
+                  <div className="vguide-meta">
+                    Published to residents{guidelinesDoc.uploaded_at ? ` · ${fmtPubDate(guidelinesDoc.uploaded_at)}` : ''}
                   </div>
                 </div>
-                <button type="button" className="admin-btn-ghost" onClick={viewGuidelines} disabled={guideBusy}>
-                  View
-                </button>
-                <button type="button" className="admin-btn-ghost" onClick={() => guideFileRef.current?.click()} disabled={guideBusy}>
-                  {guideBusy ? 'Working…' : 'Replace'}
-                </button>
-                <button type="button" className="bc-del" onClick={removeGuidelines}
-                  aria-label="Remove guidelines" disabled={guideBusy}>&times;</button>
+                <div className="vguide-actions">
+                  <button type="button" className="admin-btn-sm" onClick={viewGuidelines} disabled={guideBusy}>
+                    View
+                  </button>
+                  <button type="button" className="admin-btn-sm" onClick={() => guideFileRef.current?.click()} disabled={guideBusy}>
+                    {guideBusy ? 'Working…' : 'Replace'}
+                  </button>
+                  <button type="button" className="vdel" onClick={removeGuidelines}
+                    aria-label="Remove guidelines" disabled={guideBusy}>&times;</button>
+                </div>
               </div>
             ) : (
               <>
