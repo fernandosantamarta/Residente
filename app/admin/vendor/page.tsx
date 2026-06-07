@@ -367,22 +367,21 @@ export default function VendorAdmin() {
             </div>
             <div className="grid2" style={{ gap: 12, marginBottom: 14 }}>
               <div className="admin-field">
+                <span className="admin-field-label">Days they come (optional)</span>
+                <div className="vdaychips">
+                  {DAY_CHIPS.map(d => (
+                    <button key={d} type="button"
+                      className={`vchip${form.scheduleDays.includes(d) ? ' on' : ''}`}
+                      onClick={() => toggleDay(d)} aria-pressed={form.scheduleDays.includes(d)}>
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="admin-field">
                 <span className="admin-field-label">Time they come (optional)</span>
                 <Dropdown value={form.scheduleTime} onChange={v => setField('scheduleTime', v)}
                   ariaLabel="Time they come" options={VENDOR_TIMES} />
-              </div>
-              <div />
-            </div>
-            <div className="admin-field" style={{ marginBottom: 14 }}>
-              <span className="admin-field-label">Days they come (optional)</span>
-              <div className="vdaychips">
-                {DAY_CHIPS.map(d => (
-                  <button key={d} type="button"
-                    className={`vchip${form.scheduleDays.includes(d) ? ' on' : ''}`}
-                    onClick={() => toggleDay(d)} aria-pressed={form.scheduleDays.includes(d)}>
-                    {d}
-                  </button>
-                ))}
               </div>
             </div>
             <label className="admin-field">
