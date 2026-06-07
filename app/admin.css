@@ -841,6 +841,10 @@
 .cset { --due: #C2360A; --due-soft: rgba(194, 54, 10, 0.30); }
 
 .cset .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+/* The two top cards stretch to equal height — make each a column and pin its
+   action to the bottom so both Save buttons line up at the card's bottom-right. */
+.cset .grid2 > .card { display: flex; flex-direction: column; }
+.cset .grid2 > .card .card-cta { margin-top: auto; }
 
 .cset .card {
   background: var(--bg-card); border: 1px solid var(--border);
@@ -880,6 +884,9 @@
 
 /* Budget editor lives inside a card now — drop its own top margin/width. */
 .cset .card .bc { margin-top: 0; max-width: none; }
+/* Forms inside cset cards fill the card (not the default 480px column) so their
+   bottom-right action lands at the card's right edge, like the other cards. */
+.cset .card .admin-form { max-width: none; margin-top: 0; }
 .cset .card .bc-actions { margin-top: 16px; }
 
 /* Budget read-table — row dividers, no boxes, like the Overview checklist. */

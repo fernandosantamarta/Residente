@@ -128,11 +128,11 @@ export function ExpensesLog({ communityId }: { communityId: string | undefined }
           <input name="description" className="admin-input" placeholder="Quarterly landscaping invoice"
             value={form.description} onChange={e => setField('description', e.target.value)} />
         </label>
-        <div className="admin-form-actions">
+        <div className="admin-form-actions" style={{ justifyContent: 'flex-end' }}>
+          {error && <span className="admin-err-inline">{error}</span>}
           <button type="submit" className="admin-primary-btn" disabled={saving}>
             {saving ? 'Logging…' : 'Log expense'}
           </button>
-          {error && <span className="admin-err-inline">{error}</span>}
         </div>
       </form>
 
