@@ -889,6 +889,18 @@
 /* Forms inside cset cards fill the card (not the default 480px column) so their
    bottom-right action lands at the card's right edge, like the other cards. */
 .cset .card .admin-form { max-width: none; margin-top: 0; }
+
+/* Vendor list rows — full-width clean divider rows inside the card (drop the
+   620px cap + boxed look so they match the rest of the admin aesthetic). */
+.cset .bd-list { max-width: none; }
+.cset .bd-row {
+  background: transparent; border: none; border-radius: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 14px 2px; margin-bottom: 0;
+}
+.cset .bd-list .bd-row:last-child { border-bottom: none; }
+.cset .bd-amount { font-size: 14.5px; font-weight: 700; color: var(--text); white-space: nowrap; }
+.cset .bd-amount-per { font-size: 11.5px; font-weight: 600; color: var(--text-faint); margin-left: 1px; }
 .cset .card .bc-actions { margin-top: 16px; }
 
 /* Budget read-table — row dividers, no boxes, like the Overview checklist. */

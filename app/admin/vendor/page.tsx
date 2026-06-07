@@ -37,7 +37,10 @@ const fmtPubDate = (iso: string | null | undefined) => {
 const EMPTY = {
   name: '', category: 'property' as VendorCat,
   phone: '', email: '', blurb: '', badge: '', featured: false,
+  cost: '', schedule: '',
 }
+
+const fmtCost = (n: any) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
 
 type Vendor = {
   id: string
@@ -48,6 +51,8 @@ type Vendor = {
   blurb: string | null
   badge: string | null
   featured: boolean
+  cost: number | null
+  schedule: string | null
   created_at?: string
 }
 
@@ -206,6 +211,8 @@ export default function VendorAdmin() {
         blurb: form.blurb.trim() || null,
         badge: form.badge.trim() || null,
         featured: form.featured,
+        cost: form.cost.trim() ? Number(form.cost) : null,
+        schedule: form.schedule.trim() || null,
         sort_order: rows.length,
       }
       const { data, error } = await withTimeout(
@@ -326,6 +333,21 @@ export default function VendorAdmin() {
                   value={form.badge} onChange={e => setField('badge', e.target.value)} />
               </label>
             </div>
+            <div className="grid2" style={{ gap: 12, marginBottom: 14 }}>
+              <label className="admin-field">
+                <span className="admin-field-label">Monthly cost (optional)</span>
+                <div className="admin-input-wrap">
+                  <span className="admin-input-prefix">$</span>
+                  <input name="cost" className="admin-input" type="number" placeholder="500"
+                    value={form.cost} onChange={e => setField('cost', e.target.value)} />
+                </div>
+              </label>
+              <label className="admin-field">
+                <span className="admin-field-label">When they come (optional)</span>
+                <input name="schedule" className="admin-input" placeholder="e.g. Mondays 8–10am"
+                  value={form.schedule} onChange={e => setField('schedule', e.target.value)} />
+              </label>
+            </div>
             <label className="admin-field">
               <span className="admin-field-label">Blurb (optional)</span>
               <textarea name="blurb" className="admin-input admin-textarea" rows={2}
@@ -379,12 +401,14 @@ export default function VendorAdmin() {
                     <div className="bd-meta">
                       {v.badge && <><span>{v.badge}</span><span className="bd-dot">·</span></>}
                       <span>{CAT_LABEL[v.category] || v.category}</span>
+                      {v.schedule && <><span className="bd-dot">·</span><span>{v.schedule}</span></>}
                       {v.phone && <><span className="bd-dot">·</span><span>{v.phone}</span></>}
                       {v.email && <><span className="bd-dot">·</span><span>{v.email}</span></>}
-                      <span className="bd-dot">·</span>
-                      <span>Added {fmtPubDate(v.created_at) || '—'}</span>
                     </div>
                   </div>
+                  {v.cost != null && (
+                    <div className="bd-amount">{fmtCost(v.cost)}<span className="bd-amount-per">/mo</span></div>
+                  )}
                   <button
                     type="button"
                     className={`admin-btn-ghost${v.featured ? ' on' : ''}`}
