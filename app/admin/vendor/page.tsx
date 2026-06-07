@@ -438,9 +438,11 @@ export default function VendorAdmin() {
                   Upload the PDF residents open from “View Guidelines”. Until you add
                   one, they see the default policy text.
                 </p>
-                <button type="button" className="admin-primary-btn" onClick={() => guideFileRef.current?.click()} disabled={guideBusy}>
-                  {guideBusy ? 'Uploading…' : 'Upload guidelines'}
-                </button>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="button" className="admin-primary-btn" onClick={() => guideFileRef.current?.click()} disabled={guideBusy}>
+                    {guideBusy ? 'Uploading…' : 'Upload guidelines'}
+                  </button>
+                </div>
               </>
             )}
             <p className="field-hint" style={{ marginTop: 12 }}>

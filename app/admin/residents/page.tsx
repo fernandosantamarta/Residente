@@ -223,6 +223,10 @@ export default function Residents() {
   }
 
   const addRow = () => setGrid(g => [...g, blankGridRow()])
+  const removeRow = (ri) => setGrid(g => {
+    const next = g.filter((_, i) => i !== ri)
+    return withTrailingRow(next.length ? next : [blankGridRow()])
+  })
 
   // "Paste & import" — turn the filled grid rows into the same confirm flow the
   // CSV upload uses (the green "Import all N" bar). Owner (name) is required.
@@ -351,6 +355,8 @@ export default function Residents() {
                         onChange={e => setCell(ri, key, e.target.value)}
                         onPaste={e => onPasteCell(e, ri, ci)} />
                     ))}
+                    <button type="button" className="import-del" onClick={() => removeRow(ri)}
+                      tabIndex={-1} aria-label={`Delete row ${ri + 1}`}>&times;</button>
                   </div>
                 ))}
               </div>

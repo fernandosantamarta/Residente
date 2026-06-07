@@ -1131,9 +1131,21 @@
 .etrack .import-card .card-head .pill { flex-shrink: 0; }
 .etrack .import-sheet {
   border: 1px dashed rgba(199, 111, 69, 0.45); border-radius: 12px;
-  overflow: hidden; background: #fff; margin-bottom: 14px;
+  overflow: hidden; background: #fff; margin-bottom: 0;
 }
-.etrack .import-sheet-row { display: grid; grid-template-columns: 1.3fr 1.1fr 1.3fr 1fr; }
+.etrack .import-sheet-row { position: relative; display: grid; grid-template-columns: 1.3fr 1.1fr 1.3fr 1fr; }
+/* Reserve room on the right so the hover delete never sits over typed text. */
+.etrack .import-sheet-row .import-cell:last-of-type { padding-right: 26px; }
+/* Hover a row to reveal a delete button at its right edge. */
+.etrack .import-del {
+  position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+  width: 20px; height: 20px; display: grid; place-items: center;
+  border: none; border-radius: 6px; cursor: pointer;
+  background: rgba(194, 54, 10, 0.10); color: var(--due);
+  font-size: 15px; line-height: 1; opacity: 0; transition: opacity 0.12s;
+}
+.etrack .import-sheet-row:hover .import-del { opacity: 1; }
+.etrack .import-del:hover { background: var(--due); color: #fff; }
 .etrack .import-sheet-head {
   background: rgba(225, 73, 9, 0.10); color: #B23A06; font-weight: 700; font-size: 11.5px;
 }
@@ -1148,7 +1160,7 @@
 .etrack .import-cell::placeholder { color: var(--text-faint); }
 /* "+ Add row" — appends a blank row (the grid also grows on its own as you type). */
 .etrack .import-addrow {
-  margin: 9px 0 0; padding: 4px 2px;
+  margin: 6px 0 0; padding: 3px 2px;
   background: none; border: none; cursor: pointer;
   font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--pink);
 }
