@@ -14,14 +14,15 @@ export type Permission =
   | 'schedule.manage'
   | 'roles.manage'
 
-// Grouped for the role-builder UI checkboxes.
+// Grouped for the role-builder UI checkboxes. Ordered most-options-first so the
+// checkbox columns fill evenly (the densest group anchors the first column).
 export const PERMISSION_GROUPS: { label: string; perms: { key: Permission; label: string }[] }[] = [
-  { label: 'Community', perms: [
-    { key: 'community.manage', label: 'Manage community settings' },
-  ] },
-  { label: 'Roster', perms: [
-    { key: 'residents.view', label: 'View residents' },
-    { key: 'residents.manage', label: 'Add & edit residents' },
+  { label: 'Operations', perms: [
+    { key: 'documents.manage', label: 'Documents & rules' },
+    { key: 'violations.manage', label: 'Violations' },
+    { key: 'compliance.manage', label: 'Compliance: estoppel, governance, elections, enforcement, collections' },
+    { key: 'voice.manage', label: 'Meetings & voting' },
+    { key: 'schedule.manage', label: 'Calendar & amenities' },
   ] },
   { label: 'Money', perms: [
     { key: 'financials.view', label: 'View budgets & financials' },
@@ -29,12 +30,12 @@ export const PERMISSION_GROUPS: { label: string; perms: { key: Permission; label
     { key: 'payments.view', label: 'View dues & collections' },
     { key: 'payments.manage', label: 'Manage dues & collections' },
   ] },
-  { label: 'Operations', perms: [
-    { key: 'documents.manage', label: 'Documents & rules' },
-    { key: 'violations.manage', label: 'Violations' },
-    { key: 'compliance.manage', label: 'Compliance: estoppel, governance, elections, enforcement, collections' },
-    { key: 'voice.manage', label: 'Meetings & voting' },
-    { key: 'schedule.manage', label: 'Calendar & amenities' },
+  { label: 'Roster', perms: [
+    { key: 'residents.view', label: 'View residents' },
+    { key: 'residents.manage', label: 'Add & edit residents' },
+  ] },
+  { label: 'Community', perms: [
+    { key: 'community.manage', label: 'Manage community settings' },
   ] },
   { label: 'Administration', perms: [
     { key: 'roles.manage', label: 'Manage roles & permissions' },
