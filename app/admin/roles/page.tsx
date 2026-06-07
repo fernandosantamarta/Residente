@@ -132,6 +132,17 @@ export default function RolesPage() {
     }
   }
 
+  // A custom role can be held by only one board member; the Admin role and any
+  // seeded system roles are shareable. So a member's dropdown hides custom roles
+  // already taken by someone else (their own current role stays selectable). To
+  // give two people the same access, create another role.
+  const rolesForMember = useCallback((memberId: string, currentRoleId: string | null) =>
+    roles.filter(r =>
+      r.is_admin || r.is_system ||
+      r.id === currentRoleId ||
+      !boardMembers.some(o => o.id !== memberId && o.role_id === r.id),
+    ), [roles, boardMembers])
+
   const editingRole = useMemo(() => roles.find(r => r.id === editId) || null, [roles, editId])
   const editingProtected = !!editingRole?.is_admin
 
@@ -262,7 +273,7 @@ export default function RolesPage() {
                           value={m.role_id || ''}
                           onChange={v => assignRole(m.id, v || null)}
                           ariaLabel={`Role for ${m.full_name || 'resident'}`}
-                          options={[{ value: '', label: 'No role' }, ...roles.map(r => ({ value: r.id, label: r.name }))]}
+                          options={[{ value: '', label: 'No role' }, ...rolesForMember(m.id, m.role_id).map(r => ({ value: r.id, label: r.name }))]}
                         />
                       </div>
                     </div>
