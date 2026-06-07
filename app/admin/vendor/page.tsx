@@ -27,6 +27,28 @@ const CATS: { value: VendorCat; label: string }[] = [
 ]
 const CAT_LABEL: Record<string, string> = Object.fromEntries(CATS.map(c => [c.value, c.label]))
 
+// "When they come" is captured as a day + a time, combined into the schedule
+// string (e.g. "Monday · Morning"). Empty values mean "any".
+const VENDOR_DAYS: { value: string; label: string }[] = [
+  { value: '', label: 'Any day' },
+  { value: 'Monday', label: 'Monday' }, { value: 'Tuesday', label: 'Tuesday' },
+  { value: 'Wednesday', label: 'Wednesday' }, { value: 'Thursday', label: 'Thursday' },
+  { value: 'Friday', label: 'Friday' }, { value: 'Saturday', label: 'Saturday' },
+  { value: 'Sunday', label: 'Sunday' },
+  { value: 'Weekdays', label: 'Weekdays' }, { value: 'Weekends', label: 'Weekends' },
+  { value: 'Daily', label: 'Daily' },
+]
+const VENDOR_TIMES: { value: string; label: string }[] = [
+  { value: '', label: 'Any time' },
+  { value: 'Early morning', label: 'Early morning' }, { value: 'Morning', label: 'Morning' },
+  { value: 'Midday', label: 'Midday' }, { value: 'Afternoon', label: 'Afternoon' },
+  { value: 'Evening', label: 'Evening' },
+]
+
+// Avatar initials from a vendor name — first letters of the first two words.
+const vInitials = (name: string) =>
+  String(name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
+
 const fmtPubDate = (iso: string | null | undefined) => {
   if (!iso) return ''
   try {
@@ -37,7 +59,7 @@ const fmtPubDate = (iso: string | null | undefined) => {
 const EMPTY = {
   name: '', category: 'property' as VendorCat,
   phone: '', email: '', blurb: '', badge: '', featured: false,
-  cost: '', schedule: '',
+  cost: '', scheduleDay: '', scheduleTime: '',
 }
 
 const fmtCost = (n: any) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
@@ -212,7 +234,7 @@ export default function VendorAdmin() {
         badge: form.badge.trim() || null,
         featured: form.featured,
         cost: form.cost.trim() ? Number(form.cost) : null,
-        schedule: form.schedule.trim() || null,
+        schedule: [form.scheduleDay, form.scheduleTime].filter(Boolean).join(' · ') || null,
         sort_order: rows.length,
       }
       const { data, error } = await withTimeout(
@@ -342,11 +364,15 @@ export default function VendorAdmin() {
                     value={form.cost} onChange={e => setField('cost', e.target.value)} />
                 </div>
               </label>
-              <label className="admin-field">
+              <div className="admin-field">
                 <span className="admin-field-label">When they come (optional)</span>
-                <input name="schedule" className="admin-input" placeholder="e.g. Mondays 8–10am"
-                  value={form.schedule} onChange={e => setField('schedule', e.target.value)} />
-              </label>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <Dropdown value={form.scheduleDay} onChange={v => setField('scheduleDay', v)}
+                    ariaLabel="Day they come" options={VENDOR_DAYS} />
+                  <Dropdown value={form.scheduleTime} onChange={v => setField('scheduleTime', v)}
+                    ariaLabel="Time they come" options={VENDOR_TIMES} />
+                </div>
+              </div>
             </div>
             <label className="admin-field">
               <span className="admin-field-label">Blurb (optional)</span>
@@ -393,35 +419,56 @@ export default function VendorAdmin() {
               <div className="bc-empty">No vendors in this category.</div>
             )}
 
-            <div className="bd-list">
-              {visible.map(v => (
-                <div className="bd-row" key={v.id}>
-                  <div className="bd-main">
-                    <div className="bd-title">{v.name}</div>
-                    <div className="bd-meta">
-                      {v.badge && <><span>{v.badge}</span><span className="bd-dot">·</span></>}
-                      <span>{CAT_LABEL[v.category] || v.category}</span>
-                      {v.schedule && <><span className="bd-dot">·</span><span>{v.schedule}</span></>}
-                      {v.phone && <><span className="bd-dot">·</span><span>{v.phone}</span></>}
-                      {v.email && <><span className="bd-dot">·</span><span>{v.email}</span></>}
-                    </div>
-                  </div>
-                  {v.cost != null && (
-                    <div className="bd-amount">{fmtCost(v.cost)}<span className="bd-amount-per">/mo</span></div>
-                  )}
-                  <button
-                    type="button"
-                    className={`admin-btn-ghost${v.featured ? ' on' : ''}`}
-                    onClick={() => toggleFeatured(v)}
-                    title={v.featured ? 'Unfeature' : 'Feature on the resident page'}
-                  >
-                    {v.featured ? '★ Featured' : '☆ Feature'}
-                  </button>
-                  <button type="button" className="bc-del" onClick={() => remove(v)}
-                    aria-label="Remove vendor">&times;</button>
-                </div>
-              ))}
-            </div>
+            {status === 'ready' && filtered.length > 0 && (
+              <div className="etrack vlist">
+                <table className="tbl">
+                  <thead>
+                    <tr>
+                      <th>Vendor</th><th>Category</th>
+                      <th className="contact-col">When they come</th><th>Cost</th>
+                      <th className="act"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visible.map(v => (
+                      <tr className="tr" key={v.id}>
+                        <td>
+                          <div className="owner-cell">
+                            <span className="av" aria-hidden="true">{vInitials(v.name)}</span>
+                            <span style={{ minWidth: 0 }}>
+                              <span className="strong">{v.name}</span>
+                              {v.badge && <span className="vbadge">{v.badge}</span>}
+                              {(v.phone || v.email) && (
+                                <div className="muted" style={{ fontSize: 12, marginTop: 1 }}>
+                                  {[v.phone, v.email].filter(Boolean).join(' · ')}
+                                </div>
+                              )}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="muted">{CAT_LABEL[v.category] || v.category}</td>
+                        <td className="muted contact-col">{v.schedule || '—'}</td>
+                        <td>
+                          {v.cost != null
+                            ? <span className="strong">{fmtCost(v.cost)}<span className="bd-amount-per">/mo</span></span>
+                            : <span className="muted">—</span>}
+                        </td>
+                        <td className="act">
+                          <button type="button"
+                            className={`admin-btn-sm${v.featured ? ' admin-btn-on' : ''}`}
+                            onClick={() => toggleFeatured(v)}
+                            title={v.featured ? 'Unfeature' : 'Feature on the resident page'}>
+                            {v.featured ? '★ Featured' : '☆ Feature'}
+                          </button>
+                          <button type="button" className="vdel" onClick={() => remove(v)}
+                            aria-label="Remove vendor">&times;</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
             <Pagination
               page={page}
               pageSize={VENDOR_PAGE_SIZE}
