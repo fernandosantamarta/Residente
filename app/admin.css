@@ -899,11 +899,13 @@
   background: rgba(225, 73, 9, 0.12); color: #B23A06;
 }
 .vlist .tbl .act { white-space: nowrap; }
-.vlist .vdel {
-  border: none; background: none; cursor: pointer; margin-left: 10px;
-  font-size: 17px; line-height: 1; color: var(--text-faint); padding: 2px 4px; border-radius: 6px;
+/* Plain orange × — no circle/border/background, used in the vendor table and
+   the guidelines row. */
+.cset .vdel {
+  border: none; background: none; outline: none; cursor: pointer; margin-left: 10px;
+  font-size: 18px; line-height: 1; color: var(--pink); padding: 2px 4px;
 }
-.vlist .vdel:hover { color: var(--due); background: rgba(194, 54, 10, 0.10); }
+.cset .vdel:hover { color: #C53D06; }
 .vlist .admin-btn-on { border-color: var(--pink); color: var(--pink); background: rgba(225, 73, 9, 0.09); }
 
 /* Day chips — click to toggle several days a vendor comes. */
