@@ -49,7 +49,7 @@ export default function RolesPage() {
         withTimeout(supabase!.from('ev_roles').select('id, name, permissions, is_admin, is_system')
           .eq('community_id', communityId).order('is_admin', { ascending: false }).order('name')),
         withTimeout(supabase!.from('residents').select('id, full_name, board_position, role_id')
-          .eq('community_id', communityId).not('board_position', 'is', null).order('full_name')),
+          .eq('community_id', communityId).order('full_name')),
       ])) as any
       setRoles(r || []); setMembers(m || [])
       setStatus('ready')
@@ -108,6 +108,28 @@ export default function RolesPage() {
       setSavedId(residentId)
       setTimeout(() => setSavedId(s => (s === residentId ? null : s)), 2500)
     } catch (err: any) { setError(err?.message || 'Could not assign the role.'); load() }
+  }
+
+  // `members` now holds the whole roster; the board is those with a position,
+  // and anyone without one can be searched in and added to the board here.
+  const boardMembers = useMemo(() => members.filter(m => m.board_position), [members])
+  const addableResidents = useMemo(() => members.filter(m => !m.board_position), [members])
+
+  // Put a resident on the board (gives them a default position) so they show up
+  // here to assign a role. They can refine the exact title in Easy Voice → Board.
+  const addBoardMember = async (residentId: string) => {
+    if (!residentId) return
+    setError('')
+    setMembers(ms => ms.map(m => m.id === residentId ? { ...m, board_position: 'Board member' } : m))   // optimistic
+    try {
+      const { error } = (await withTimeout(
+        supabase!.from('residents').update({ board_position: 'Board member' }).eq('id', residentId),
+      )) as any
+      if (error) throw error
+      setMsg('Added to the board.')
+    } catch (err: any) {
+      setError(err?.message || 'Could not add that member.'); load()
+    }
   }
 
   const editingRole = useMemo(() => roles.find(r => r.id === editId) || null, [roles, editId])
@@ -209,12 +231,23 @@ export default function RolesPage() {
 
           {/* Assign */}
           <section className="admin-sched-card">
-            <div className="admin-sched-card-head"><h2>Board members</h2><span className="admin-sched-card-sub">Assign a role to each.</span></div>
-            {members.length === 0 ? (
-              <div className="admin-sched-empty">No board members yet. Set a board position on a resident in Easy Track.</div>
+            <div className="admin-sched-card-head"><h2>Board members</h2><span className="admin-sched-card-sub">Add residents to the board, then assign a role to each.</span></div>
+            {/* Search any resident in to the board (they need a position to get a role). */}
+            <div style={{ maxWidth: 340, marginBottom: boardMembers.length ? 14 : 0 }}>
+              <Dropdown<string>
+                value=""
+                onChange={(id) => addBoardMember(id)}
+                ariaLabel="Add a board member"
+                placeholder={addableResidents.length ? 'Search residents to add…' : 'Everyone is already on the board'}
+                searchable
+                options={addableResidents.map(r => ({ value: r.id, label: r.full_name || 'Resident' }))}
+              />
+            </div>
+            {boardMembers.length === 0 ? (
+              <div className="admin-sched-empty">No board members yet — search a resident above to add them.</div>
             ) : (
               <div className="admin-sched-list">
-                {members.map(m => (
+                {boardMembers.map(m => (
                   <div key={m.id} className="admin-sched-row">
                     <div className="admin-sched-row-body">
                       <div className="admin-sched-row-title">{m.full_name || 'Resident'}</div>
