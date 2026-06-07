@@ -844,7 +844,9 @@
 /* The two top cards stretch to equal height — make each a column and pin its
    action to the bottom so both Save buttons line up at the card's bottom-right. */
 .cset .grid2 > .card { display: flex; flex-direction: column; }
-.cset .grid2 > .card .card-cta { margin-top: auto; }
+/* margin-top:auto pins the action to the card bottom; padding-top keeps a gap
+   above it so it never crowds the last field on the taller card. */
+.cset .grid2 > .card .card-cta { margin-top: auto; padding-top: 22px; }
 
 .cset .card {
   background: var(--bg-card); border: 1px solid var(--border);
