@@ -988,6 +988,10 @@
 .admin .cset .admin-input,
 .admin .cset .ad-dd-trigger {
   height: 42px;
+  /* The base .admin-input is `flex: 1 1 0%`; in a column-flex .admin-field that
+     collapses the input to one line (19px) unless a taller sibling forces the
+     grid row taller. Pin flex off so the 42px height always holds. */
+  flex: none;
   padding: 0 13px;
   background: #FBF7F1;            /* warm fill — reads as a field with no hard border */
   border: 1px solid transparent;
