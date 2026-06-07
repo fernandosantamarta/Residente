@@ -926,6 +926,27 @@
 .cset .vguide-title { font-size: 14.5px; font-weight: 600; color: var(--text); }
 .cset .vguide-meta { font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
 .cset .vguide-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* Compliance workspaces — a clean row list inside a card (glyph + title + desc
+   left, status badge + arrow right), matching the Needs-attention rows. */
+.cset .wsrow {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 2px; border-top: 1px solid var(--border);
+  text-decoration: none; color: inherit;
+}
+.cset .wslist .wsrow:first-child { border-top: none; }
+.cset .wsrow-glyph {
+  width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px; display: grid; place-items: center;
+}
+.cset .wsrow-main { flex: 1; min-width: 0; }
+.cset .wsrow-title { font-size: 14.5px; font-weight: 600; color: var(--text); }
+.cset .wsrow-desc { font-size: 12.5px; color: var(--text-dim); line-height: 1.45; margin-top: 2px; }
+.cset .wsrow-badge {
+  flex-shrink: 0; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+}
+.cset .wsrow-arrow { flex-shrink: 0; color: var(--text-faint); font-weight: 700; transition: transform 0.12s, color 0.12s; }
+.cset .wsrow:hover .wsrow-arrow { color: var(--pink); transform: translateX(2px); }
+.cset .wsrow:hover .wsrow-title { color: var(--pink); }
 .cset .card .bc-actions { margin-top: 16px; }
 
 /* Budget read-table — row dividers, no boxes, like the Overview checklist. */

@@ -297,7 +297,7 @@ export default function CompliancePage() {
   const compliantPct = visibleWs.length ? Math.round((clearWs / visibleWs.length) * 100) : 100
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Compliance dashboard</h1>
       <p className="admin-dek">
@@ -370,28 +370,30 @@ export default function CompliancePage() {
             )}
           </div>
 
-          {/* Workspaces — every compliance domain, badged with its own count. */}
-          <h2 className="bc-title" style={{ margin: '0 0 14px' }}>Workspaces</h2>
+          {/* Workspaces — every compliance domain as a clean row list, grouped
+              and badged with its own count (matches the Needs-attention rows). */}
+          <h2 className="bc-title" style={{ margin: '4px 0 14px' }}>Workspaces</h2>
           {WORKSPACE_GROUPS.map(group => {
             const items = WORKSPACES.filter(w => w.group === group && !(w.href === '/admin/structural' && community?.association_type === 'hoa'))
             if (!items.length) return null
             return (
-              <div key={group} style={{ marginTop: 16 }}>
-                <div style={{ fontSize: 11.5, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.5px', color: 'rgba(0,0,0,0.4)', marginBottom: 8 }}>{group}</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: 12 }}>
+              <div className="card" key={group} style={{ marginBottom: 16 }}>
+                <div className="card-head"><div><h2>{group}</h2></div></div>
+                <div className="wslist">
                   {items.map(w => {
                     const c = wsCounts[wsBase(w.href)] || { overdue: 0, soon: 0 }
                     const badge = c.overdue ? { t: `${c.overdue} overdue`, col: '#B42318' }
                       : c.soon ? { t: `${c.soon} due soon`, col: '#B54708' }
                       : { t: 'On track', col: '#067647' }
                     return (
-                      <Link key={w.href} href={w.href} style={{ textDecoration: 'none', color: 'inherit' }}>
-                        <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, padding: '16px', background: '#fff', height: '100%', display: 'flex', flexDirection: 'column', gap: 8 }}>
-                          <span style={{ width: 36, height: 36, borderRadius: 10, display: 'grid', placeItems: 'center', color: w.color, background: w.color + '18' }}><WsGlyph /></span>
-                          <div style={{ fontWeight: 700, fontSize: 14.5 }}>{w.label}</div>
-                          <div style={{ fontSize: 12.5, opacity: 0.72, lineHeight: 1.45, flex: 1 }}>{w.desc}</div>
-                          <span style={{ alignSelf: 'flex-start', fontSize: 11, fontWeight: 700, color: badge.col, background: badge.col + '14', padding: '3px 10px', borderRadius: 999 }}>{badge.t}</span>
+                      <Link key={w.href} href={w.href} className="wsrow">
+                        <span className="wsrow-glyph" style={{ color: w.color, background: w.color + '18' }}><WsGlyph /></span>
+                        <div className="wsrow-main">
+                          <div className="wsrow-title">{w.label}</div>
+                          <div className="wsrow-desc">{w.desc}</div>
                         </div>
+                        <span className="wsrow-badge" style={{ color: badge.col, background: badge.col + '14' }}>{badge.t}</span>
+                        <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
                       </Link>
                     )
                   })}
