@@ -222,12 +222,16 @@ export default function Residents() {
     })
   }
 
+  const addRow = () => setGrid(g => [...g, blankGridRow()])
+
   // "Paste & import" — turn the filled grid rows into the same confirm flow the
   // CSV upload uses (the green "Import all N" bar). Owner (name) is required.
+  // The Unit value doubles as the household address so notices/exports have one.
   const importGrid = () => {
     const parsed = grid.filter(r => r.name.trim()).map(r => ({
       full_name: r.name.trim(), unit_number: r.unit.trim(),
-      email: r.email.trim(), phone: r.phone.trim(), address: '', subdivision: '',
+      email: r.email.trim(), phone: r.phone.trim(),
+      address: r.unit.trim(), subdivision: '',
     }))
     if (parsed.length) { setPending(parsed); setError('') }
     else setError('Type or paste at least one row — Owner is required.')
@@ -335,15 +339,15 @@ export default function Residents() {
             </div>
             <div className="import-sheet">
               <div className="import-sheet-row import-sheet-head">
-                <span>Owner</span><span>Unit</span><span>Email</span><span>Phone</span>
+                <span>Owner</span><span>Unit / Address</span><span>Email</span><span>Phone</span>
               </div>
               <div>
                 {grid.map((row, ri) => (
                   <div className="import-sheet-row" key={ri}>
                     {GRID_COLS.map((key, ci) => (
                       <input key={key} className="import-cell" value={row[key]}
-                        placeholder={ri === 0 ? ['Jane Doe', '4B', 'jane@email.com', '305-555-0142'][ci] : ''}
-                        aria-label={`${['Owner', 'Unit', 'Email', 'Phone'][ci]} row ${ri + 1}`}
+                        placeholder={ri === 0 ? ['Jane Doe', '4B or 1247 Oak St', 'jane@email.com', '305-555-0142'][ci] : ''}
+                        aria-label={`${['Owner', 'Unit / Address', 'Email', 'Phone'][ci]} row ${ri + 1}`}
                         onChange={e => setCell(ri, key, e.target.value)}
                         onPaste={e => onPasteCell(e, ri, ci)} />
                     ))}
@@ -351,6 +355,7 @@ export default function Residents() {
                 ))}
               </div>
             </div>
+            <button type="button" className="import-addrow" onClick={addRow}>+ Add row</button>
             <div className="row-actions">
               <button type="button" className="admin-primary-btn" onClick={importGrid} disabled={!gridHasData}>
                 Paste &amp; import
