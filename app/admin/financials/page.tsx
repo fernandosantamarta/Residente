@@ -21,6 +21,27 @@ const withTimeout = (p: any, ms = 10000) =>
 const fmt$ = (n: any) => '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US')
 const thisYear = new Date().getUTCFullYear()
 
+// Plaid Link is loaded on demand (only when an admin clicks "Link bank") so the
+// CDN script never costs the rest of the app. Resolves to window.Plaid once ready.
+const PLAID_SDK = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js'
+function loadPlaid(): Promise<any> {
+  return new Promise((resolve, reject) => {
+    const w = window as any
+    if (w.Plaid) { resolve(w.Plaid); return }
+    const existing = document.querySelector(`script[src="${PLAID_SDK}"]`)
+    if (existing) {
+      existing.addEventListener('load', () => resolve(w.Plaid))
+      existing.addEventListener('error', () => reject(new Error('Could not load Plaid')))
+      return
+    }
+    const s = document.createElement('script')
+    s.src = PLAID_SDK; s.async = true
+    s.onload = () => resolve(w.Plaid)
+    s.onerror = () => reject(new Error('Could not load Plaid'))
+    document.head.appendChild(s)
+  })
+}
+
 const FILING_TYPES: { value: FilingType; label: string }[] = [
   { value: 'annual_financial_report', label: 'Annual financial report' },
   { value: 'budget_adoption', label: 'Budget adoption' },
@@ -44,6 +65,9 @@ export default function FinancialsPage() {
   const [msg, setMsg] = useState('')
   const [connectBusy, setConnectBusy] = useState(false)
   const [connectErr, setConnectErr] = useState('')
+  const [plaidBusy, setPlaidBusy] = useState(false)
+  const [plaidErr, setPlaidErr] = useState('')
+  const [syncBusy, setSyncBusy] = useState(false)
 
   useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(''), 4000); return () => clearTimeout(t) }, [msg])
 
@@ -129,6 +153,55 @@ export default function FinancialsPage() {
     } catch (err: any) {
       setConnectErr(err?.message || 'Could not start Stripe onboarding'); setConnectBusy(false)
     }
+  }
+
+  // ---- Plaid ("link your bank", read-only) ----
+  // Mint a link_token, open Plaid Link, then exchange the public_token for an
+  // access_token (stored server-side only). Residente reads the feed; never moves money.
+  const linkBank = async () => {
+    setPlaidBusy(true); setPlaidErr('')
+    try {
+      const { data, error } = await supabase.functions.invoke('plaid-link-token', { body: {} })
+      if (error) throw error
+      const linkToken = data?.link_token
+      if (!linkToken) throw new Error(data?.error || 'Could not start bank linking')
+
+      const Plaid = await loadPlaid()
+      const handler = Plaid.create({
+        token: linkToken,
+        onSuccess: async (public_token: string, metadata: any) => {
+          try {
+            const { error: exErr } = await supabase.functions.invoke('plaid-link-exchange', {
+              body: { public_token, institution_name: metadata?.institution?.name ?? null },
+            })
+            if (exErr) throw exErr
+            setMsg('Bank linked. Syncing transactions…')
+            await syncBank()
+          } catch (err: any) {
+            setPlaidErr(err?.message || 'Could not finish bank linking')
+          } finally { setPlaidBusy(false) }
+        },
+        onExit: (err: any) => {
+          if (err) setPlaidErr(err?.display_message || err?.error_message || 'Bank linking cancelled')
+          setPlaidBusy(false)
+        },
+      })
+      handler.open()
+    } catch (err: any) {
+      setPlaidErr(err?.message || 'Could not start bank linking'); setPlaidBusy(false)
+    }
+  }
+
+  // Pull the latest bank activity on demand (admin mode). Read-only.
+  const syncBank = async () => {
+    setSyncBusy(true); setPlaidErr('')
+    try {
+      const { error } = await supabase.functions.invoke('plaid-sync-transactions', { body: {} })
+      if (error) throw error
+      setMsg('Bank feed synced.'); await load()
+    } catch (err: any) {
+      setPlaidErr(err?.message || 'Could not sync the bank feed')
+    } finally { setSyncBusy(false) }
   }
 
   // ---- reserve component intake ----
@@ -236,10 +309,25 @@ export default function FinancialsPage() {
           <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: 16, background: '#fff', margin: '0 0 18px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
               <h2 className="bc-title" style={{ margin: 0 }}>Budget vs actual</h2>
-              <span style={{ fontSize: 12, opacity: 0.65 }}>
-                {bankTx.length > 0 ? `${bankTx.length} bank transactions synced` : 'no bank feed yet'}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 12, opacity: 0.65 }}>
+                  {bankTx.length > 0 ? `${bankTx.length} bank transactions synced` : 'no bank feed yet'}
+                </span>
+                {community?.plaid_status === 'active' ? (
+                  <>
+                    <span className="admin-success" style={{ margin: 0, fontSize: 12 }}><span className="admin-success-check" aria-hidden>✓</span>Bank linked</span>
+                    <button className="admin-btn-ghost" disabled={syncBusy} onClick={syncBank}>
+                      {syncBusy ? 'Syncing…' : 'Sync now'}
+                    </button>
+                  </>
+                ) : (
+                  <button className="admin-primary-btn" disabled={plaidBusy} onClick={linkBank}>
+                    {plaidBusy ? 'Opening…' : 'Link bank account'}
+                  </button>
+                )}
+              </div>
             </div>
+            {plaidErr && <div className="admin-note admin-note-err" style={{ marginTop: 10 }}>{plaidErr}</div>}
 
             {community?.plaid_status !== 'active' && bankTx.length === 0 && (
               <p style={{ fontSize: 13, opacity: 0.75, margin: '8px 0 0' }}>

@@ -28,6 +28,28 @@ verify_jwt = true
 [functions.refund-amenity]
 verify_jwt = true
 
+# connect-onboard is called by a signed-in board/admin to link the community's
+# own Stripe account — keep JWT verification on; the function also re-checks the
+# caller is a non-resident (or platform operator) before creating the account.
+[functions.connect-onboard]
+verify_jwt = true
+
+# plaid-link-token / plaid-link-exchange are called by a signed-in board/admin to
+# link the community's OWN bank (read-only). Keep JWT verification on; the function
+# also re-checks the caller is a non-resident before minting/exchanging tokens.
+[functions.plaid-link-token]
+verify_jwt = true
+
+[functions.plaid-link-exchange]
+verify_jwt = true
+
+# plaid-sync-transactions has two callers: a CRON_SECRET-gated scheduler (syncs all
+# plaid-active communities) and a signed-in admin (own community). JWT verification
+# MUST stay off so the cron path works; the function validates the user JWT itself
+# in admin mode. Equivalent deploy flag: --no-verify-jwt
+[functions.plaid-sync-transactions]
+verify_jwt = false
+
 # charge-autopay is the recurring-charge engine, called on a schedule (cron /
 # scheduled function), not by a browser. JWT verification MUST stay off —
 # authenticity is the CRON_SECRET header check inside the function.
