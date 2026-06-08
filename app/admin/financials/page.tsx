@@ -23,27 +23,6 @@ const withTimeout = (p: any, ms = 10000) =>
 const fmt$ = (n: any) => '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US')
 const thisYear = new Date().getUTCFullYear()
 
-// Plaid Link is loaded on demand (only when an admin clicks "Link bank") so the
-// CDN script never costs the rest of the app. Resolves to window.Plaid once ready.
-const PLAID_SDK = 'https://cdn.plaid.com/link/v2/stable/link-initialize.js'
-function loadPlaid(): Promise<any> {
-  return new Promise((resolve, reject) => {
-    const w = window as any
-    if (w.Plaid) { resolve(w.Plaid); return }
-    const existing = document.querySelector(`script[src="${PLAID_SDK}"]`)
-    if (existing) {
-      existing.addEventListener('load', () => resolve(w.Plaid))
-      existing.addEventListener('error', () => reject(new Error('Could not load Plaid')))
-      return
-    }
-    const s = document.createElement('script')
-    s.src = PLAID_SDK; s.async = true
-    s.onload = () => resolve(w.Plaid)
-    s.onerror = () => reject(new Error('Could not load Plaid'))
-    document.head.appendChild(s)
-  })
-}
-
 const FILING_TYPES: { value: FilingType; label: string }[] = [
   { value: 'annual_financial_report', label: 'Annual financial report' },
   { value: 'budget_adoption', label: 'Budget adoption' },
@@ -61,15 +40,11 @@ export default function FinancialsPage() {
   const [budgets, setBudgets] = useState<BudgetCategoryRow[]>([])
   const [reserves, setReserves] = useState<ReserveComponentRow[]>([])
   const [filings, setFilings] = useState<FinancialFilingRow[]>([])
-  const [bankTx, setBankTx] = useState<any[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError] = useState('')
   const [msg, setMsg] = useState('')
   const [connectBusy, setConnectBusy] = useState(false)
   const [connectErr, setConnectErr] = useState('')
-  const [plaidBusy, setPlaidBusy] = useState(false)
-  const [plaidErr, setPlaidErr] = useState('')
-  const [syncBusy, setSyncBusy] = useState(false)
 
   useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(''), 4000); return () => clearTimeout(t) }, [msg])
 
@@ -77,23 +52,21 @@ export default function FinancialsPage() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      // Fire every read in ONE parallel batch instead of awaiting five round-trips
-      // in series — the page used to wait for the SUM of all five; now it waits for
-      // the slowest single query. The bank feed is tolerant (returns an error object,
-      // not a throw, if the table isn't created yet) so it never blocks the rest.
-      const [cRes, bRes, rRes, fRes, btRes] = await Promise.all([
+      // Fire every read in ONE parallel batch instead of awaiting four round-trips
+      // in series — the page used to wait for the SUM of all four; now it waits for
+      // the slowest single query. (budget_categories still feeds the audit-tier
+      // revenue estimate; the bank feed itself lives on the Budget page now.)
+      const [cRes, bRes, rRes, fRes] = await Promise.all([
         withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
         withTimeout(supabase.from('budget_categories').select('*').eq('community_id', communityId).order('sort_order')),
         withTimeout(supabase.from('ev_reserve_components').select('*').eq('community_id', communityId).order('created_at')),
         withTimeout(supabase.from('ev_financial_filings').select('*').eq('community_id', communityId).order('fiscal_year', { ascending: false })),
-        withTimeout(supabase.from('bank_transactions').select('id, amount, mapped_budget_category_id, posted_date, name, merchant_name, plaid_category').eq('community_id', communityId).order('posted_date', { ascending: false })),
       ])
       const { data: c } = cRes as any
       const { data: b } = bRes as any
       const { data: r } = rRes as any
       const { data: f } = fRes as any
-      const { data: bt } = btRes as any
-      setCommunity(c || null); setBudgets(b || []); setReserves(r || []); setFilings(f || []); setBankTx(bt || [])
+      setCommunity(c || null); setBudgets(b || []); setReserves(r || []); setFilings(f || [])
       setStatus('ready')
     } catch (err: any) {
       setError(err?.message || 'Could not load financial data'); setStatus('error')
@@ -105,21 +78,6 @@ export default function FinancialsPage() {
   const revenue = useMemo(() => estimateAnnualRevenue(community, budgets), [community, budgets])
   const required = useMemo(() => requiredAuditTier(revenue, regime as any, Number(community?.parcel_count) || 0), [revenue, regime, community])
   const signals = useMemo(() => financialSignals(community, budgets, reserves, filings), [community, budgets, reserves, filings])
-
-  // ---- Budget vs Actual (actuals come from the Plaid bank feed) ----
-  // Plaid sign: positive amount = money OUT of the account, i.e. spending.
-  const actuals = useMemo(() => {
-    const byCat = new Map<string, number>()
-    let unmapped = 0
-    for (const t of bankTx) {
-      const amt = Number(t.amount) || 0
-      if (amt <= 0) continue // ignore deposits/credits here — this view is spend
-      if (t.mapped_budget_category_id) byCat.set(t.mapped_budget_category_id, (byCat.get(t.mapped_budget_category_id) || 0) + amt)
-      else unmapped += amt
-    }
-    return { byCat, unmapped }
-  }, [bankTx])
-  const opBudgets = useMemo(() => budgets.filter(b => !b.is_reserve), [budgets])
 
   // ---- community financial settings ----
   const [cForm, setCForm] = useState<any>({})
@@ -162,55 +120,6 @@ export default function FinancialsPage() {
     } catch (err: any) {
       setConnectErr(err?.message || 'Could not start Stripe onboarding'); setConnectBusy(false)
     }
-  }
-
-  // ---- Plaid ("link your bank", read-only) ----
-  // Mint a link_token, open Plaid Link, then exchange the public_token for an
-  // access_token (stored server-side only). Residente reads the feed; never moves money.
-  const linkBank = async () => {
-    setPlaidBusy(true); setPlaidErr('')
-    try {
-      const { data, error } = await supabase.functions.invoke('plaid-link-token', { body: {} })
-      if (error) throw error
-      const linkToken = data?.link_token
-      if (!linkToken) throw new Error(data?.error || 'Could not start bank linking')
-
-      const Plaid = await loadPlaid()
-      const handler = Plaid.create({
-        token: linkToken,
-        onSuccess: async (public_token: string, metadata: any) => {
-          try {
-            const { error: exErr } = await supabase.functions.invoke('plaid-link-exchange', {
-              body: { public_token, institution_name: metadata?.institution?.name ?? null },
-            })
-            if (exErr) throw exErr
-            setMsg('Bank linked. Syncing transactions…')
-            await syncBank()
-          } catch (err: any) {
-            setPlaidErr(err?.message || 'Could not finish bank linking')
-          } finally { setPlaidBusy(false) }
-        },
-        onExit: (err: any) => {
-          if (err) setPlaidErr(err?.display_message || err?.error_message || 'Bank linking cancelled')
-          setPlaidBusy(false)
-        },
-      })
-      handler.open()
-    } catch (err: any) {
-      setPlaidErr(err?.message || 'Could not start bank linking'); setPlaidBusy(false)
-    }
-  }
-
-  // Pull the latest bank activity on demand (admin mode). Read-only.
-  const syncBank = async () => {
-    setSyncBusy(true); setPlaidErr('')
-    try {
-      const { error } = await supabase.functions.invoke('plaid-sync-transactions', { body: {} })
-      if (error) throw error
-      setMsg('Bank feed synced.'); await load()
-    } catch (err: any) {
-      setPlaidErr(err?.message || 'Could not sync the bank feed')
-    } finally { setSyncBusy(false) }
   }
 
   // ---- reserve component intake ----
@@ -347,68 +256,20 @@ export default function FinancialsPage() {
             {connectErr && <div className="admin-note admin-note-err" style={{ marginTop: 10 }}>{connectErr}</div>}
           </div>
 
-          {/* 5 — Budget vs actual: actuals auto-tracked from the Plaid bank feed */}
+          {/* 5 — Budget & spending: lives on the dedicated Budget page now. */}
           <div className="card">
-            <div className="card-head">
-              <div><h2>Budget vs actual</h2>
-                <div className="sub">Budget is set in <Link href="/admin/community" style={{ color: 'var(--pink)', fontWeight: 600 }}>Community settings</Link>; this compares it to your bank feed.</div></div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 12, opacity: 0.65 }}>
-                  {bankTx.length > 0 ? `${bankTx.length} bank transactions synced` : 'no bank feed yet'}
+            <div className="wslist">
+              <Link href="/admin/budget" className="wsrow">
+                <span className="wsrow-glyph" style={{ color: '#0E7490', background: '#0E749018' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><rect x="7" y="11" width="3" height="6" /><rect x="12" y="7" width="3" height="10" /><rect x="17" y="13" width="3" height="4" /></svg>
                 </span>
-                {community?.plaid_status === 'active' ? (
-                  <>
-                    <span className="admin-success" style={{ margin: 0, fontSize: 12 }}><span className="admin-success-check" aria-hidden>✓</span>Bank linked</span>
-                    <button className="admin-btn-ghost" disabled={syncBusy} onClick={syncBank}>{syncBusy ? 'Syncing…' : 'Sync now'}</button>
-                  </>
-                ) : (
-                  <button className="admin-primary-btn" disabled={plaidBusy} onClick={linkBank}>{plaidBusy ? 'Opening…' : 'Link bank account'}</button>
-                )}
-              </div>
+                <div className="wsrow-main">
+                  <div className="wsrow-title">Budget <span className="amp">&</span> spending</div>
+                  <div className="wsrow-desc">Operating budget, categories, bank tracking (budget-vs-actual) &amp; expenses live on the Budget page.</div>
+                </div>
+                <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
+              </Link>
             </div>
-            {plaidErr && <div className="admin-note admin-note-err" style={{ marginTop: 10 }}>{plaidErr}</div>}
-
-            {community?.plaid_status !== 'active' && bankTx.length === 0 && (
-              <p style={{ fontSize: 13, opacity: 0.75, margin: '8px 0 0' }}>
-                Link your association&rsquo;s bank to track actual spending automatically against each budget line —
-                no spreadsheets. Residente reads the feed only; it never moves money.
-              </p>
-            )}
-
-            {opBudgets.length === 0 ? (
-              <p style={{ fontSize: 13, opacity: 0.7, margin: '8px 0 0' }}>Add budget categories in <Link href="/admin/community" style={{ color: 'var(--pink)', fontWeight: 600 }}>Community settings</Link> to see budget-vs-actual.</p>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
-                {opBudgets.map(b => {
-                  const budgeted = Number(b.budget) || 0
-                  const actual = actuals.byCat.get(b.id) || 0
-                  const pct = budgeted > 0 ? Math.round(actual / budgeted * 100) : null
-                  const over = budgeted > 0 && actual > budgeted
-                  const barColor = over ? '#B42318' : pct != null && pct >= 85 ? '#B54708' : '#067647'
-                  return (
-                    <div key={b.id} style={{ border: '1px solid rgba(0,0,0,0.06)', borderRadius: 10, padding: '10px 12px' }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13.5 }}>
-                        <span style={{ fontWeight: 600 }}>{b.name || 'Untitled'}</span>
-                        <span style={{ opacity: 0.8 }}>
-                          {fmt$(actual)} <span style={{ opacity: 0.5 }}>/ {fmt$(budgeted)}</span>
-                          {pct != null && <span style={{ color: barColor, fontWeight: 600 }}> · {pct}%</span>}
-                        </span>
-                      </div>
-                      <div style={{ height: 6, borderRadius: 4, background: 'rgba(0,0,0,0.06)', marginTop: 6, overflow: 'hidden' }}>
-                        <div style={{ height: '100%', width: `${Math.min(100, pct ?? 0)}%`, background: barColor }} />
-                      </div>
-                      {over && <div style={{ fontSize: 11.5, color: '#B42318', marginTop: 4 }}>Over budget by {fmt$(actual - budgeted)}</div>}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-
-            {actuals.unmapped > 0 && (
-              <div className="admin-note admin-note-warn" style={{ marginTop: 10, fontSize: 12.5 }}>
-                {fmt$(actuals.unmapped)} of synced spending isn&rsquo;t mapped to a budget line yet — map those categories so it counts.
-              </div>
-            )}
           </div>
 
           {/* 6 — Reserve components */}

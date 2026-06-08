@@ -24,6 +24,7 @@ type AdminNavItem = { href: string; label: string; match?: string[]; exact?: boo
 const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin',            label: 'Overview', exact: true },
   { href: '/admin/community',  label: 'Community', anyPerm: ['community.manage'] },
+  { href: '/admin/budget',     label: 'Budget', anyPerm: ['community.manage', 'financials.view'] },
   { href: '/admin/compliance', label: 'Compliance', anyPerm: ['compliance.manage', 'financials.view', 'payments.view', 'violations.manage'], match: ['/admin/estoppel', '/admin/collections', '/admin/structural', '/admin/financials', '/admin/governance', '/admin/enforcement', '/admin/meetings', '/admin/elections', '/admin/arc', '/admin/insurance', '/admin/contracts', '/admin/advisories'] },
   { href: '/admin/reports',    label: 'Reports', anyPerm: ['financials.view', 'payments.view'] },
   { href: '/admin/residents',  label: 'Easy Track', anyPerm: ['residents.view', 'residents.manage', 'roles.manage'], match: ['/admin/vendor', '/admin/roles'] },
