@@ -11,6 +11,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
 import { AttorneyNote } from '../AttorneyNote'
+import { SignalRow } from '../SignalRow'
 import {
   requiredAuditTier, estimateAnnualRevenue, AUDIT_TIER_LABEL, financialSignals,
   type BudgetCategoryRow, type ReserveComponentRow, type FinancialFilingRow, type FilingType,
@@ -396,12 +397,7 @@ export default function FinancialsPage() {
           {/* Open signals for this domain */}
           {signals.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
-              {signals.map(s => (
-                <div key={s.id} style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${s.severity === 'overdue' ? '#B42318' : s.severity === 'soon' ? '#B54708' : '#175CD3'}`, borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
-                  <div style={{ fontWeight: 700, fontSize: 13.5 }}>{s.title}</div>
-                  <div style={{ fontSize: 12.5, opacity: 0.75 }}>{s.detail}</div>
-                </div>
-              ))}
+              {signals.map(s => <SignalRow key={s.id} signal={s} />)}
             </div>
           )}
 

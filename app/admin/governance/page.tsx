@@ -12,6 +12,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
 import { AttorneyNote } from '../AttorneyNote'
+import { SignalRow } from '../SignalRow'
 import {
   governanceSignals, consecutiveServiceYears, certExpiry, camRequired,
   CONDO_TERM_LIMIT_YEARS, TERM_LIMIT_EXCEPTION_LABELS,
@@ -22,8 +23,6 @@ import {
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
 const todayYmd = () => ymd(new Date())
-
-const SEV_COLOR: Record<string, string> = { overdue: '#B42318', soon: '#B54708', info: '#175CD3' }
 
 export default function GovernancePage() {
   const { profile } = useAuth() || {}
@@ -187,12 +186,7 @@ export default function GovernancePage() {
 
           {signals.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
-              {signals.map(s => (
-                <div key={s.id} style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${SEV_COLOR[s.severity]}`, borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
-                  <div style={{ fontWeight: 700, fontSize: 13.5 }}>{s.title}</div>
-                  <div style={{ fontSize: 12.5, opacity: 0.75 }}>{s.detail}</div>
-                </div>
-              ))}
+              {signals.map(s => <SignalRow key={s.id} signal={s} />)}
             </div>
           )}
 

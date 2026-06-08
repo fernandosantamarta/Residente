@@ -863,6 +863,15 @@
 }
 .cset .card-head .sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
 
+/* Info/warn/err notes on the clean pages drop the colored left-accent stripe and
+   pick up the card radius + soft shadow, so they read as clean cards rather than
+   banners. White background kept (no tint) — severity is carried by the text /
+   pill, not a stripe. */
+.cset .admin-note { border-radius: 18px; box-shadow: 0 1px 2px rgba(42, 18, 6, 0.05); }
+.cset .admin-note-info,
+.cset .admin-note-warn,
+.cset .admin-note-err { border-left: 1px solid var(--border); }
+
 /* Form fields sit flush inside cards (no max-width form column). */
 .cset .card .admin-field { margin-bottom: 14px; }
 .cset .card .admin-field:last-child { margin-bottom: 0; }
