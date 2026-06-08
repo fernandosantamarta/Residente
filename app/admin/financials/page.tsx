@@ -281,15 +281,50 @@ export default function FinancialsPage() {
 
       {status === 'ready' && (
         <>
-          {/* Payments — Connect ("link, don't hold") */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: 16, background: '#fff', margin: '8px 0 18px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          {/* 1 — Required financial statements: what the law requires at this revenue */}
+          <div className="admin-note admin-note-info" style={{ marginBottom: 18 }}>
+            <strong>Required financial statements:</strong> at ~{fmt$(revenue)} annual revenue
+            {regime === 'hoa' ? ` (HOA, ${Number(community?.parcel_count) || 0} parcels)` : ' (condo)'}, the law requires <strong>{AUDIT_TIER_LABEL[required]}</strong>.
+            <span style={{ opacity: 0.7 }}> Revenue is your entered figure, else the sum of non-reserve budget lines.</span>
+          </div>
+
+          {/* 2 — Open signals: statutory deadlines that need attention */}
+          {signals.length > 0 && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
+              {signals.map(s => <SignalRow key={s.id} signal={s} />)}
+            </div>
+          )}
+
+          {/* 3 — Financial settings */}
+          <div className="card">
+            <div className="card-head"><div><h2>Financial settings</h2></div></div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 10 }}>
+              <label className="admin-field"><span className="admin-field-label">Annual revenue ($)</span>
+                <input className="admin-input" type="number" min="0" step="1000" value={cForm.annual_revenue ?? ''} placeholder="auto from budget" onChange={e => setCForm((f: any) => ({ ...f, annual_revenue: e.target.value }))} /></label>
+              <label className="admin-field"><span className="admin-field-label">Fiscal year start month (1–12)</span>
+                <input className="admin-input" type="number" min="1" max="12" step="1" value={cForm.fiscal_year_start_month ?? 1} onChange={e => setCForm((f: any) => ({ ...f, fiscal_year_start_month: e.target.value }))} /></label>
+              <label className="admin-field"><span className="admin-field-label">Last reserve study</span>
+                <input className="admin-input" type="date" value={cForm.reserve_study_last_completed ?? ''} onChange={e => setCForm((f: any) => ({ ...f, reserve_study_last_completed: e.target.value }))} /></label>
+              <label className="admin-field"><span className="admin-field-label">Reserve study type</span>
+                <select className="admin-input" value={cForm.reserve_study_type ?? ''} onChange={e => setCForm((f: any) => ({ ...f, reserve_study_type: e.target.value }))}>
+                  <option value="">—</option><option value="sirs">SIRS</option><option value="general">General</option>
+                </select></label>
+            </div>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '4px 0 10px' }}>
+              <input type="checkbox" checked={!!cForm.reserves_established} onChange={e => setCForm((f: any) => ({ ...f, reserves_established: e.target.checked }))} />
+              Reserves established
+            </label>
+            <div className="card-cta">
+              <button className="admin-primary-btn" disabled={cSaving} onClick={saveCommunity}>{cSaving ? 'Saving…' : 'Save settings'}</button>
+            </div>
+          </div>
+
+          {/* 4 — Collect payments: Stripe Connect ("link, don't hold") */}
+          <div className="card">
+            <div className="card-head">
               <div>
-                <h2 className="bc-title" style={{ margin: 0 }}>Collect payments</h2>
-                <p style={{ fontSize: 13, opacity: 0.75, margin: '4px 0 0', maxWidth: 540 }}>
-                  Link your association&rsquo;s own Stripe account. Dues and fines are paid directly into it —
-                  Residente never holds or moves your money.
-                </p>
+                <h2>Collect payments</h2>
+                <div className="sub" style={{ maxWidth: 540 }}>Link your association&rsquo;s own Stripe account. Dues and fines are paid directly into it — Residente never holds or moves your money.</div>
               </div>
               {community?.stripe_connect_status === 'active' ? (
                 <span className="admin-success" style={{ margin: 0 }}><span className="admin-success-check" aria-hidden>✓</span>Connected</span>
@@ -307,10 +342,10 @@ export default function FinancialsPage() {
             {connectErr && <div className="admin-note admin-note-err" style={{ marginTop: 10 }}>{connectErr}</div>}
           </div>
 
-          {/* Budget vs Actual — actuals auto-tracked from the Plaid bank feed */}
-          <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: 16, background: '#fff', margin: '0 0 18px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 12, flexWrap: 'wrap' }}>
-              <h2 className="bc-title" style={{ margin: 0 }}>Budget vs actual</h2>
+          {/* 5 — Budget vs actual: actuals auto-tracked from the Plaid bank feed */}
+          <div className="card">
+            <div className="card-head">
+              <div><h2>Budget vs actual</h2></div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 12, opacity: 0.65 }}>
                   {bankTx.length > 0 ? `${bankTx.length} bank transactions synced` : 'no bank feed yet'}
@@ -318,14 +353,10 @@ export default function FinancialsPage() {
                 {community?.plaid_status === 'active' ? (
                   <>
                     <span className="admin-success" style={{ margin: 0, fontSize: 12 }}><span className="admin-success-check" aria-hidden>✓</span>Bank linked</span>
-                    <button className="admin-btn-ghost" disabled={syncBusy} onClick={syncBank}>
-                      {syncBusy ? 'Syncing…' : 'Sync now'}
-                    </button>
+                    <button className="admin-btn-ghost" disabled={syncBusy} onClick={syncBank}>{syncBusy ? 'Syncing…' : 'Sync now'}</button>
                   </>
                 ) : (
-                  <button className="admin-primary-btn" disabled={plaidBusy} onClick={linkBank}>
-                    {plaidBusy ? 'Opening…' : 'Link bank account'}
-                  </button>
+                  <button className="admin-primary-btn" disabled={plaidBusy} onClick={linkBank}>{plaidBusy ? 'Opening…' : 'Link bank account'}</button>
                 )}
               </div>
             </div>
@@ -374,78 +405,7 @@ export default function FinancialsPage() {
             )}
           </div>
 
-          {/* Required tier banner */}
-          <div className="admin-note admin-note-info" style={{ marginTop: 8 }}>
-            <strong>Required financial statements:</strong> at ~{fmt$(revenue)} annual revenue
-            {regime === 'hoa' ? ` (HOA, ${Number(community?.parcel_count) || 0} parcels)` : ' (condo)'}, the law requires <strong>{AUDIT_TIER_LABEL[required]}</strong>.
-            <span style={{ opacity: 0.7 }}> Revenue is your entered figure, else the sum of non-reserve budget lines.</span>
-          </div>
-
-          {/* Documents — live statements first, then draft aids. Each artifact is
-              its own wsrow (glyph + label + arrow), matching the workspace cards. */}
-          <div className="card">
-            <div className="card-head"><div><h2>Documents</h2><div className="sub">Generate or view each statutory artifact</div></div></div>
-            <div className="wslist">
-              {[
-                { type: 'statement', label: 'Statement of cash receipts & expenditures', live: true },
-                { type: 'budget_actual', label: 'Budget vs actual', live: true },
-                { type: 'afr', label: 'Annual financial report + affidavit', live: false },
-                { type: 'budget', label: 'Proposed-budget package', live: false },
-                { type: 'reserve_worksheet', label: 'Reserve-funding worksheet', live: false },
-              ].map(d => {
-                const col = d.live ? '#0E7490' : '#7A5AF8'
-                return (
-                  <Link key={d.type} href={`/admin/financials/document?type=${d.type}`} className="wsrow">
-                    <span className="wsrow-glyph" style={{ color: col, background: col + '18' }}>
-                      {d.live ? (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><rect x="7" y="11" width="3" height="6" /><rect x="12" y="7" width="3" height="10" /><rect x="17" y="13" width="3" height="4" /></svg>
-                      ) : (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="16" y2="17" /></svg>
-                      )}
-                    </span>
-                    <div className="wsrow-main">
-                      <div className="wsrow-title">{d.label}</div>
-                      <div className="wsrow-desc">{d.live ? 'Live statement' : 'Draft template'}</div>
-                    </div>
-                    <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
-                  </Link>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* Open signals for this domain */}
-          {signals.length > 0 && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
-              {signals.map(s => <SignalRow key={s.id} signal={s} />)}
-            </div>
-          )}
-
-          {/* Financial settings */}
-          <div className="card">
-            <div className="card-head"><div><h2>Financial settings</h2></div></div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 10 }}>
-              <label className="admin-field"><span className="admin-field-label">Annual revenue ($)</span>
-                <input className="admin-input" type="number" min="0" step="1000" value={cForm.annual_revenue ?? ''} placeholder="auto from budget" onChange={e => setCForm((f: any) => ({ ...f, annual_revenue: e.target.value }))} /></label>
-              <label className="admin-field"><span className="admin-field-label">Fiscal year start month (1–12)</span>
-                <input className="admin-input" type="number" min="1" max="12" step="1" value={cForm.fiscal_year_start_month ?? 1} onChange={e => setCForm((f: any) => ({ ...f, fiscal_year_start_month: e.target.value }))} /></label>
-              <label className="admin-field"><span className="admin-field-label">Last reserve study</span>
-                <input className="admin-input" type="date" value={cForm.reserve_study_last_completed ?? ''} onChange={e => setCForm((f: any) => ({ ...f, reserve_study_last_completed: e.target.value }))} /></label>
-              <label className="admin-field"><span className="admin-field-label">Reserve study type</span>
-                <select className="admin-input" value={cForm.reserve_study_type ?? ''} onChange={e => setCForm((f: any) => ({ ...f, reserve_study_type: e.target.value }))}>
-                  <option value="">—</option><option value="sirs">SIRS</option><option value="general">General</option>
-                </select></label>
-            </div>
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '4px 0 10px' }}>
-              <input type="checkbox" checked={!!cForm.reserves_established} onChange={e => setCForm((f: any) => ({ ...f, reserves_established: e.target.checked }))} />
-              Reserves established
-            </label>
-            <div className="card-cta">
-              <button className="admin-primary-btn" disabled={cSaving} onClick={saveCommunity}>{cSaving ? 'Saving…' : 'Save settings'}</button>
-            </div>
-          </div>
-
-          {/* Reserve components */}
+          {/* 6 — Reserve components */}
           <div className="card">
             <div className="card-head"><div><h2>Reserve components <span style={{ opacity: 0.55, fontWeight: 400 }}>({reserves.length})</span></h2></div></div>
             <form className="admin-form" onSubmit={addReserve}>
@@ -520,6 +480,38 @@ export default function FinancialsPage() {
                 </select>
               </div>
             ))}
+            </div>
+          </div>
+
+          {/* 8 — Documents: generate or view each statutory artifact (one wsrow each) */}
+          <div className="card">
+            <div className="card-head"><div><h2>Documents</h2><div className="sub">Generate or view each statutory artifact</div></div></div>
+            <div className="wslist">
+              {[
+                { type: 'statement', label: 'Statement of cash receipts & expenditures', live: true },
+                { type: 'budget_actual', label: 'Budget vs actual', live: true },
+                { type: 'afr', label: 'Annual financial report + affidavit', live: false },
+                { type: 'budget', label: 'Proposed-budget package', live: false },
+                { type: 'reserve_worksheet', label: 'Reserve-funding worksheet', live: false },
+              ].map(d => {
+                const col = d.live ? '#0E7490' : '#7A5AF8'
+                return (
+                  <Link key={d.type} href={`/admin/financials/document?type=${d.type}`} className="wsrow">
+                    <span className="wsrow-glyph" style={{ color: col, background: col + '18' }}>
+                      {d.live ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><rect x="7" y="11" width="3" height="6" /><rect x="12" y="7" width="3" height="10" /><rect x="17" y="13" width="3" height="4" /></svg>
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="16" y2="17" /></svg>
+                      )}
+                    </span>
+                    <div className="wsrow-main">
+                      <div className="wsrow-title">{d.label}</div>
+                      <div className="wsrow-desc">{d.live ? 'Live statement' : 'Draft template'}</div>
+                    </div>
+                    <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
+                  </Link>
+                )
+              })}
             </div>
           </div>
         </>
