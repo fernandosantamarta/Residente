@@ -186,7 +186,7 @@ export default function InsurancePage() {
             />
           )}
           {regime === 'hoa' && (
-            <div className="admin-note">
+            <div className="admin-note" style={{ margin: '0 0 18px' }}>
               The master property-insurance and replacement-cost-appraisal duty (FS 718.111(11)(a)) is a
               condominium obligation and does not apply to this homeowners&apos; association — only the
               fidelity bond below is tracked here.
@@ -237,19 +237,34 @@ export default function InsurancePage() {
             onDelete={deletePolicy}
           />
 
-          {/* Documents — generate or view each statutory artifact */}
+          {/* Documents — generate or view each statutory artifact (one wsrow each,
+              matching the financials Documents card). */}
           <div className="card">
             <div className="card-head"><div><h2>Documents</h2><div className="sub">Generate or view each statutory artifact</div></div></div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <div className="wslist">
               {[
-                { type: 'summary', label: 'Insurance compliance summary' },
-                ...(regime === 'condo' ? [{ type: 'appraisal_request', label: 'Replacement-cost appraisal request (draft)' }] : []),
-                { type: 'bond_worksheet', label: 'Fidelity-bond adequacy worksheet' },
-              ].map(d => (
-                <Link key={d.type} href={`/admin/insurance/document?type=${d.type}`} className="admin-btn-ghost" style={{ textDecoration: 'none' }}>
-                  📄 {d.label}
-                </Link>
-              ))}
+                { type: 'summary', label: 'Insurance compliance summary', live: true },
+                ...(regime === 'condo' ? [{ type: 'appraisal_request', label: 'Replacement-cost appraisal request', live: false }] : []),
+                { type: 'bond_worksheet', label: 'Fidelity-bond adequacy worksheet', live: false },
+              ].map(d => {
+                const col = d.live ? '#0E7490' : '#7A5AF8'
+                return (
+                  <Link key={d.type} href={`/admin/insurance/document?type=${d.type}`} className="wsrow">
+                    <span className="wsrow-glyph" style={{ color: col, background: col + '18' }}>
+                      {d.live ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><rect x="7" y="11" width="3" height="6" /><rect x="12" y="7" width="3" height="10" /><rect x="17" y="13" width="3" height="4" /></svg>
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="16" y2="17" /></svg>
+                      )}
+                    </span>
+                    <div className="wsrow-main">
+                      <div className="wsrow-title">{d.label}</div>
+                      <div className="wsrow-desc">{d.live ? 'Live summary' : 'Draft template'}</div>
+                    </div>
+                    <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
+                  </Link>
+                )
+              })}
             </div>
           </div>
         </>
