@@ -49,16 +49,29 @@ export default function GovernancePage() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const { data: c } = (await withTimeout(supabase.from('communities').select('*').eq('id', communityId).single())) as any
-      const res = (await safe('residents')) as DirectorRow[]
+      // Fire every read in ONE parallel batch instead of awaiting eight round-trips
+      // in series — the page used to wait for the SUM of all eight; now it waits for
+      // the slowest single query. None of these reads depend on another's result, and
+      // safe() is tolerant (returns [] on error) so a missing table never blocks the rest.
+      const [cRes, res, termRows, certRows, eligRows, mgrRows, vendRows, discRows] = await Promise.all([
+        withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
+        safe('residents'),
+        safe('ev_board_terms'),
+        safe('ev_director_certifications'),
+        safe('ev_director_eligibility'),
+        safe('ev_managers'),
+        safe('vendors'),
+        safe('ev_conflict_disclosures'),
+      ])
+      const { data: c } = cRes as any
       setCommunity(c || null)
-      setDirectors((res || []).filter(r => r.is_board))
-      setTerms(await safe('ev_board_terms'))
-      setCerts(await safe('ev_director_certifications'))
-      setEligibility(await safe('ev_director_eligibility'))
-      setManagers(await safe('ev_managers'))
-      setVendors(await safe('vendors'))
-      setDisclosures(await safe('ev_conflict_disclosures'))
+      setDirectors(((res || []) as DirectorRow[]).filter(r => r.is_board))
+      setTerms(termRows)
+      setCerts(certRows)
+      setEligibility(eligRows)
+      setManagers(mgrRows)
+      setVendors(vendRows)
+      setDisclosures(discRows)
       setStatus('ready')
     } catch (err: any) {
       setError(err?.message || 'Could not load governance data'); setStatus('error')
@@ -173,17 +186,6 @@ export default function GovernancePage() {
 
       {status === 'ready' && (
         <>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '14px 0' }}>
-            {[
-              { type: 'acknowledgement', label: 'Fiduciary acknowledgement / written certification' },
-              { type: 'cert_status', label: 'Certification-status report' },
-              { type: 'conflict_register', label: 'Conflict register' },
-              { type: 'cam_disclosure', label: 'CAM transparency disclosure' },
-            ].map(d => (
-              <Link key={d.type} href={`/admin/governance/document?type=${d.type}`} className="admin-btn-ghost" style={{ textDecoration: 'none' }}>📄 {d.label}</Link>
-            ))}
-          </div>
-
           {signals.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
               {signals.map(s => <SignalRow key={s.id} signal={s} />)}
@@ -277,6 +279,21 @@ export default function GovernancePage() {
                   <div style={{ fontWeight: 700, fontSize: 14 }}>{(x as any).subject}</div>
                   <div style={{ fontSize: 12.5, opacity: 0.75 }}>{(x as any).disclosed_at ? `disclosed ${(x as any).disclosed_at}` : ''} · {x.approved ? '✓ approved' : 'not approved'}</div>
                 </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Documents: generate or view each statutory artifact */}
+          <div className="card">
+            <div className="card-head"><div><h2>Documents</h2><div className="sub">Generate or view each statutory artifact</div></div></div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {[
+                { type: 'acknowledgement', label: 'Fiduciary acknowledgement / written certification' },
+                { type: 'cert_status', label: 'Certification-status report' },
+                { type: 'conflict_register', label: 'Conflict register' },
+                { type: 'cam_disclosure', label: 'CAM transparency disclosure' },
+              ].map(d => (
+                <Link key={d.type} href={`/admin/governance/document?type=${d.type}`} className="admin-btn-ghost" style={{ textDecoration: 'none' }}>📄 {d.label}</Link>
               ))}
             </div>
           </div>

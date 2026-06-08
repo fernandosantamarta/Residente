@@ -52,6 +52,8 @@ export default function ElectionsPage() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
+      // grab() is tolerant — a missing table or query error resolves to [] instead
+      // of throwing, so one unbuilt feed never blocks the rest.
       const grab = async (table: string, order?: string) => {
         try {
           let q = supabase.from(table).select('*').eq('community_id', communityId)
@@ -61,12 +63,17 @@ export default function ElectionsPage() {
           return data || []
         } catch { return [] }
       }
-      const { data: c } = (await withTimeout(
-        supabase.from('communities').select('*').eq('id', communityId).single()
-      )) as any
+      // Fire all three reads in ONE parallel batch — they're independent (each just
+      // filters by community_id), so the page waits for the slowest query, not the sum.
+      const [cRes, elx, rec] = await Promise.all([
+        withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
+        grab('ev_elections', 'election_date'),
+        grab('ev_recalls', 'served_at'),
+      ])
+      const { data: c } = cRes as any
       setCommunity(c || null)
-      setElections(await grab('ev_elections', 'election_date'))
-      setRecalls(await grab('ev_recalls', 'served_at'))
+      setElections(elx)
+      setRecalls(rec)
       setStatus('ready')
     } catch (err: any) {
       setError(err?.message || 'Could not load elections data'); setStatus('error')

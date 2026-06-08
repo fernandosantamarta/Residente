@@ -55,15 +55,22 @@ export default function EstoppelPage() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const { data, error } = (await withTimeout(
-        supabase.from('ev_estoppel_requests').select('*')
-          .eq('community_id', communityId).order('received_at', { ascending: false }),
-      )) as any
+      // Fire both independent reads in ONE parallel batch instead of awaiting two
+      // round-trips in series — the page now waits for the slower single query
+      // rather than the sum of both.
+      const [reqRes, resRes] = await Promise.all([
+        withTimeout(
+          supabase.from('ev_estoppel_requests').select('*')
+            .eq('community_id', communityId).order('received_at', { ascending: false }),
+        ),
+        withTimeout(
+          supabase.from('residents').select('id, full_name, unit_number, address, profile_id')
+            .eq('community_id', communityId).order('unit_number', { ascending: true }),
+        ),
+      ])
+      const { data, error } = reqRes as any
       if (error) throw error
-      const { data: res } = (await withTimeout(
-        supabase.from('residents').select('id, full_name, unit_number, address, profile_id')
-          .eq('community_id', communityId).order('unit_number', { ascending: true }),
-      )) as any
+      const { data: res } = resRes as any
       setResidents(res || [])
       setRows(data || []); setStatus('ready')
     } catch (err: any) {

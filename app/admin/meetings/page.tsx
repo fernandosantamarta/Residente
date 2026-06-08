@@ -55,11 +55,15 @@ export default function MeetingsPage() {
           return data || []
         } catch { return [] }
       }
-      const { data: c } = (await withTimeout(
-        supabase.from('communities').select('*').eq('id', communityId).single(),
-      )) as any
+      // The community row and the meetings list are independent reads — fire them
+      // in ONE parallel batch so the page waits for the slower query, not the sum.
+      const [cRes, meetingsData] = await Promise.all([
+        withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
+        grab('ev_meetings', 'scheduled_at'),
+      ])
+      const { data: c } = cRes as any
       setCommunity(c || null)
-      setMeetings(await grab('ev_meetings', 'scheduled_at'))
+      setMeetings(meetingsData)
       setStatus('ready')
     } catch (err: any) {
       setError(err?.message || 'Could not load meetings data'); setStatus('error')

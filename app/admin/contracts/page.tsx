@@ -54,16 +54,18 @@ export default function ContractsPage() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const { data: c } = (await withTimeout(
-        supabase.from('communities').select('*').eq('id', communityId).single(),
-      )) as any
-      const { data: k, error: kErr } = (await withTimeout(
-        supabase.from('ev_contracts').select('*').eq('community_id', communityId).order('created_at', { ascending: false }),
-      )) as any
+      // Fire every read in ONE parallel batch instead of three serial round-trips —
+      // the queries are independent, so the page now waits for the slowest single
+      // query rather than the sum of all three.
+      const [cRes, kRes, bRes] = await Promise.all([
+        withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
+        withTimeout(supabase.from('ev_contracts').select('*').eq('community_id', communityId).order('created_at', { ascending: false })),
+        withTimeout(supabase.from('budget_categories').select('budget, fiscal_year, is_reserve').eq('community_id', communityId)),
+      ])
+      const { data: c } = cRes as any
+      const { data: k, error: kErr } = kRes as any
       if (kErr) throw kErr
-      const { data: b } = (await withTimeout(
-        supabase.from('budget_categories').select('budget, fiscal_year, is_reserve').eq('community_id', communityId),
-      )) as any
+      const { data: b } = bRes as any
       setCommunity(c || null)
       setContracts(k || [])
       setBudgets(b || [])
@@ -157,19 +159,6 @@ export default function ContractsPage() {
 
       {status === 'ready' && (
         <>
-          {/* Documents */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '16px 0' }}>
-            {[
-              { type: 'summary', label: 'Procurement summary' },
-              { type: 'bid_log', label: 'Competitive-bid solicitation log' },
-              ...(regime === 'condo' ? [{ type: 'mgmt_checklist', label: 'Management-agreement required-terms checklist' }] : []),
-            ].map(d => (
-              <Link key={d.type} href={`/admin/contracts/document?type=${d.type}`} className="admin-btn-ghost" style={{ textDecoration: 'none' }}>
-                📄 {d.label}
-              </Link>
-            ))}
-          </div>
-
           {/* Threshold banner */}
           <div className="card">
             <div className="card-head"><div><h2>Competitive-bid threshold</h2></div></div>
@@ -247,6 +236,22 @@ export default function ContractsPage() {
                   onUpdate={updateContract}
                   onDelete={deleteContract}
                 />
+              ))}
+            </div>
+          </div>
+
+          {/* Documents */}
+          <div className="card">
+            <div className="card-head"><div><h2>Documents</h2><div className="sub">Generate or view each procurement artifact</div></div></div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {[
+                { type: 'summary', label: 'Procurement summary' },
+                { type: 'bid_log', label: 'Competitive-bid solicitation log' },
+                ...(regime === 'condo' ? [{ type: 'mgmt_checklist', label: 'Management-agreement required-terms checklist' }] : []),
+              ].map(d => (
+                <Link key={d.type} href={`/admin/contracts/document?type=${d.type}`} className="admin-btn-ghost" style={{ textDecoration: 'none' }}>
+                  📄 {d.label}
+                </Link>
               ))}
             </div>
           </div>

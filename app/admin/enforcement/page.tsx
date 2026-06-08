@@ -65,17 +65,30 @@ export default function EnforcementPage() {
           return data || []
         } catch { return [] }
       }
-      const { data: c } = (await withTimeout(supabase.from('communities').select('*').eq('id', communityId).single())) as any
+      // Every read here is independent (each only filters by community_id), so fire
+      // them in ONE parallel batch instead of awaiting seven round-trips in series —
+      // the page now waits for the slowest single query, not the sum of all of them.
+      const [c, vio, hear, comm, susp, cas, res] = await Promise.all([
+        (async () => { const { data } = (await withTimeout(supabase.from('communities').select('*').eq('id', communityId).single())) as any; return data })(),
+        grab('ev_violations', 'opened_at'),
+        grab('ev_violation_hearings'),
+        grab('ev_fining_committee_members'),
+        grab('ev_suspensions', 'created_at'),
+        grab('ev_collection_cases', 'opened_at'),
+        (async () => {
+          const { data } = (await withTimeout(
+            supabase.from('residents').select('id, full_name, unit_number, address, profile_id')
+              .eq('community_id', communityId).order('unit_number', { ascending: true }),
+          )) as any
+          return data
+        })(),
+      ])
       setCommunity(c || null)
-      setViolations(await grab('ev_violations', 'opened_at'))
-      setHearings(await grab('ev_violation_hearings'))
-      setCommittee(await grab('ev_fining_committee_members'))
-      setSuspensions(await grab('ev_suspensions', 'created_at'))
-      setCases(await grab('ev_collection_cases', 'opened_at'))
-      const { data: res } = (await withTimeout(
-        supabase.from('residents').select('id, full_name, unit_number, address, profile_id')
-          .eq('community_id', communityId).order('unit_number', { ascending: true }),
-      )) as any
+      setViolations(vio)
+      setHearings(hear)
+      setCommittee(comm)
+      setSuspensions(susp)
+      setCases(cas)
       setResidents(res || [])
       setStatus('ready')
     } catch (err: any) {

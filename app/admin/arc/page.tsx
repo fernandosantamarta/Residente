@@ -65,20 +65,25 @@ export default function ArcPage() {
         } catch { return [] }
       }
 
-      const { data: c } = (await withTimeout(
-        supabase.from('communities').select('*').eq('id', communityId).single(),
-      )) as any
+      // Fire every read in ONE parallel batch instead of awaiting three round-trips
+      // in series — these queries are independent, so the page now waits for the
+      // slowest single query rather than the sum. The arc-request read keeps its own
+      // tolerant grab() wrapper (returns [] on a missing table) so it never blocks.
+      const [cRes, reqRows, resRes] = await Promise.all([
+        withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
+        grab('ev_arc_requests', 'submitted_at'),
+        withTimeout(
+          supabase
+            .from('residents')
+            .select('id, full_name, unit_number, address, profile_id')
+            .eq('community_id', communityId)
+            .order('unit_number', { ascending: true }),
+        ),
+      ])
+      const { data: c } = cRes as any
+      const { data: res } = resRes as any
       setCommunity(c || null)
-
-      setRequests(await grab('ev_arc_requests', 'submitted_at'))
-
-      const { data: res } = (await withTimeout(
-        supabase
-          .from('residents')
-          .select('id, full_name, unit_number, address, profile_id')
-          .eq('community_id', communityId)
-          .order('unit_number', { ascending: true }),
-      )) as any
+      setRequests(reqRows)
       setResidents(res || [])
 
       setStatus('ready')

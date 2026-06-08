@@ -42,17 +42,19 @@ export default function InsurancePage() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const { data: c } = (await withTimeout(
-        supabase.from('communities').select('*').eq('id', communityId).single(),
-      )) as any
-      const { data: p, error: pErr } = (await withTimeout(
-        supabase.from('ev_insurance_policies').select('*').eq('community_id', communityId).order('created_at', { ascending: false }),
-      )) as any
+      // Fire all three reads in ONE parallel batch instead of awaiting three
+      // round-trips in series — the page now waits for the slowest single query
+      // rather than the sum. Reserve balances feed the fidelity-bond "max funds
+      // in custody" estimate. The queries are independent (none uses another's result).
+      const [cRes, pRes, rRes] = await Promise.all([
+        withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
+        withTimeout(supabase.from('ev_insurance_policies').select('*').eq('community_id', communityId).order('created_at', { ascending: false })),
+        withTimeout(supabase.from('ev_reserve_components').select('current_balance').eq('community_id', communityId)),
+      ])
+      const { data: c } = cRes as any
+      const { data: p, error: pErr } = pRes as any
+      const { data: r } = rRes as any
       if (pErr) throw pErr
-      // Reserve balances feed the fidelity-bond "max funds in custody" estimate.
-      const { data: r } = (await withTimeout(
-        supabase.from('ev_reserve_components').select('current_balance').eq('community_id', communityId),
-      )) as any
       setCommunity(c || null)
       setPolicies(p || [])
       setReserves(r || [])
@@ -170,19 +172,6 @@ export default function InsurancePage() {
 
       {status === 'ready' && (
         <>
-          {/* Documents */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '16px 0' }}>
-            {[
-              { type: 'summary', label: 'Insurance compliance summary' },
-              ...(regime === 'condo' ? [{ type: 'appraisal_request', label: 'Replacement-cost appraisal request (draft)' }] : []),
-              { type: 'bond_worksheet', label: 'Fidelity-bond adequacy worksheet' },
-            ].map(d => (
-              <Link key={d.type} href={`/admin/insurance/document?type=${d.type}`} className="admin-btn-ghost" style={{ textDecoration: 'none' }}>
-                📄 {d.label}
-              </Link>
-            ))}
-          </div>
-
           {/* ---------- PROPERTY INSURANCE (condo only) ---------- */}
           {regime === 'condo' && (
             <PolicySection
@@ -197,7 +186,7 @@ export default function InsurancePage() {
             />
           )}
           {regime === 'hoa' && (
-            <div className="admin-note" style={{ marginTop: 14 }}>
+            <div className="admin-note">
               The master property-insurance and replacement-cost-appraisal duty (FS 718.111(11)(a)) is a
               condominium obligation and does not apply to this homeowners&apos; association — only the
               fidelity bond below is tracked here.
@@ -247,6 +236,22 @@ export default function InsurancePage() {
             onUpdate={updatePolicy}
             onDelete={deletePolicy}
           />
+
+          {/* Documents — generate or view each statutory artifact */}
+          <div className="card">
+            <div className="card-head"><div><h2>Documents</h2><div className="sub">Generate or view each statutory artifact</div></div></div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {[
+                { type: 'summary', label: 'Insurance compliance summary' },
+                ...(regime === 'condo' ? [{ type: 'appraisal_request', label: 'Replacement-cost appraisal request (draft)' }] : []),
+                { type: 'bond_worksheet', label: 'Fidelity-bond adequacy worksheet' },
+              ].map(d => (
+                <Link key={d.type} href={`/admin/insurance/document?type=${d.type}`} className="admin-btn-ghost" style={{ textDecoration: 'none' }}>
+                  📄 {d.label}
+                </Link>
+              ))}
+            </div>
+          </div>
         </>
       )}
     </div>

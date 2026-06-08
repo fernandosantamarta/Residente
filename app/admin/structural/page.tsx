@@ -56,19 +56,20 @@ export default function StructuralPage() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const { data: c } = (await withTimeout(
-        supabase.from('communities').select('*').eq('id', communityId).single(),
-      )) as any
-      const { data: b, error: bErr } = (await withTimeout(
-        supabase.from('ev_buildings').select('*').eq('community_id', communityId).order('created_at', { ascending: true }),
-      )) as any
+      // Fire every read in ONE parallel batch instead of awaiting four round-trips
+      // in series — the page now waits for the slowest single query, not the sum.
+      // These reads are independent (none uses another's result).
+      const [cRes, bRes, aRes, compRes] = await Promise.all([
+        withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
+        withTimeout(supabase.from('ev_buildings').select('*').eq('community_id', communityId).order('created_at', { ascending: true })),
+        withTimeout(supabase.from('ev_structural_assessments').select('*').eq('community_id', communityId).order('created_at', { ascending: false })),
+        withTimeout(supabase.from('ev_sirs_components').select('*').eq('community_id', communityId)),
+      ])
+      const { data: c } = cRes as any
+      const { data: b, error: bErr } = bRes as any
       if (bErr) throw bErr
-      const { data: a } = (await withTimeout(
-        supabase.from('ev_structural_assessments').select('*').eq('community_id', communityId).order('created_at', { ascending: false }),
-      )) as any
-      const { data: comp } = (await withTimeout(
-        supabase.from('ev_sirs_components').select('*').eq('community_id', communityId),
-      )) as any
+      const { data: a } = aRes as any
+      const { data: comp } = compRes as any
       setCommunity(c || null)
       setBuildings(b || [])
       setAssessments(a || [])
@@ -246,20 +247,6 @@ export default function StructuralPage() {
 
       {status === 'ready' && (
         <>
-          {/* Documents */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '16px 0' }}>
-            {[
-              { type: 'summary', label: 'Structural-compliance summary' },
-              { type: 'sirs_notice', label: 'SIRS owner-notification letter' },
-              { type: 'dbpr_packet', label: 'DBPR reporting data packet (draft)' },
-              { type: 'reserve_worksheet', label: 'Reserve baseline-funding worksheet' },
-            ].map(d => (
-              <Link key={d.type} href={`/admin/structural/document?type=${d.type}`} className="admin-btn-ghost" style={{ textDecoration: 'none' }}>
-                📄 {d.label}
-              </Link>
-            ))}
-          </div>
-
           {/* DBPR (Division of Florida Condominiums) settings */}
           <div className="card">
             <div className="card-head"><div>
@@ -396,6 +383,30 @@ export default function StructuralPage() {
                   onChanged={load}
                   onError={setError}
                 />
+              ))}
+            </div>
+          </div>
+
+          {/* Documents: generate or view each statutory artifact */}
+          <div className="card">
+            <div className="card-head"><div><h2>Documents</h2><div className="sub">Generate or view each statutory artifact</div></div></div>
+            <div className="wslist">
+              {[
+                { type: 'summary', label: 'Structural-compliance summary' },
+                { type: 'sirs_notice', label: 'SIRS owner-notification letter' },
+                { type: 'dbpr_packet', label: 'DBPR reporting data packet (draft)' },
+                { type: 'reserve_worksheet', label: 'Reserve baseline-funding worksheet' },
+              ].map(d => (
+                <Link key={d.type} href={`/admin/structural/document?type=${d.type}`} className="wsrow">
+                  <span className="wsrow-glyph" style={{ color: '#7A5AF8', background: '#7A5AF8' + '18' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="16" y2="17" /></svg>
+                  </span>
+                  <div className="wsrow-main">
+                    <div className="wsrow-title">{d.label}</div>
+                    <div className="wsrow-desc">Draft template</div>
+                  </div>
+                  <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
+                </Link>
               ))}
             </div>
           </div>

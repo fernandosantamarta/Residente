@@ -49,17 +49,19 @@ export default function AdvisoriesPage() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const { data: c } = (await withTimeout(
-        supabase.from('communities').select('*').eq('id', communityId).single(),
-      )) as any
-      const { data: e, error: eErr } = (await withTimeout(
-        supabase.from('ev_compliance_events').select('*').eq('community_id', communityId).order('event_date', { ascending: false }),
-      )) as any
-      if (eErr) throw eErr
+      // Fire all three reads in ONE parallel batch instead of three serial
+      // round-trips — they only depend on communityId, never on each other, so
+      // the page now waits for the slowest single query, not their sum.
       // ev_proxies powers the proxy-expiry advisory (read-only).
-      const { data: p } = (await withTimeout(
-        supabase.from('ev_proxies').select('id, status, type, submitted_at').eq('community_id', communityId),
-      )) as any
+      const [cRes, eRes, pRes] = await Promise.all([
+        withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
+        withTimeout(supabase.from('ev_compliance_events').select('*').eq('community_id', communityId).order('event_date', { ascending: false })),
+        withTimeout(supabase.from('ev_proxies').select('id, status, type, submitted_at').eq('community_id', communityId)),
+      ])
+      const { data: c } = cRes as any
+      const { data: e, error: eErr } = eRes as any
+      const { data: p } = pRes as any
+      if (eErr) throw eErr
       setCommunity(c || null)
       setEvents(e || [])
       setProxies(p || [])
@@ -147,19 +149,6 @@ export default function AdvisoriesPage() {
 
       {status === 'ready' && (
         <>
-          {/* Documents */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '16px 0' }}>
-            {[
-              { type: 'turnover_checklist', label: regime === 'hoa' ? 'Developer-turnover document checklist' : 'Turnover transition summary' },
-              { type: 'receivership_notice', label: 'Receivership notice of intent (draft)' },
-              { type: 'mediation_demand', label: 'Presuit mediation demand (draft)' },
-            ].map(d => (
-              <Link key={d.type} href={`/admin/advisories/document?type=${d.type}`} className="admin-btn-ghost" style={{ textDecoration: 'none' }}>
-                📄 {d.label}
-              </Link>
-            ))}
-          </div>
-
           {/* Event intake */}
           <div className="card">
             <div className="card-head"><div><h2>Record an event</h2></div></div>
@@ -244,6 +233,22 @@ export default function AdvisoriesPage() {
             <RefCard title="Presuit mediation / arbitration" cite={PRESUIT_ADR_NOTE.citation}>
               {PRESUIT_ADR_NOTE.value} This is a process reminder, not a deadline.
             </RefCard>
+            </div>
+          </div>
+
+          {/* Documents */}
+          <div className="card">
+            <div className="card-head"><div><h2>Documents</h2><div className="sub">Generate or view each advisory artifact</div></div></div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              {[
+                { type: 'turnover_checklist', label: regime === 'hoa' ? 'Developer-turnover document checklist' : 'Turnover transition summary' },
+                { type: 'receivership_notice', label: 'Receivership notice of intent (draft)' },
+                { type: 'mediation_demand', label: 'Presuit mediation demand (draft)' },
+              ].map(d => (
+                <Link key={d.type} href={`/admin/advisories/document?type=${d.type}`} className="admin-btn-ghost" style={{ textDecoration: 'none' }}>
+                  📄 {d.label}
+                </Link>
+              ))}
             </div>
           </div>
         </>

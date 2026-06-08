@@ -48,21 +48,21 @@ export default function CollectionsPage() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const { data: c } = (await withTimeout(
-        supabase.from('communities').select('*').eq('id', communityId).single(),
-      )) as any
-      const { data, error } = (await withTimeout(
-        supabase.from('ev_collection_cases').select('*')
-          .eq('community_id', communityId).order('opened_at', { ascending: false }),
-      )) as any
+      // Fire all four reads in ONE parallel batch — they're independent, so the
+      // page waits for the slowest single query instead of the sum of four.
+      const [cRes, casesRes, resRes, paysRes] = await Promise.all([
+        withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
+        withTimeout(supabase.from('ev_collection_cases').select('*')
+          .eq('community_id', communityId).order('opened_at', { ascending: false })),
+        withTimeout(supabase.from('residents').select('id, full_name, unit_number, address, profile_id, opening_balance, created_at')
+          .eq('community_id', communityId).order('unit_number', { ascending: true })),
+        withTimeout(supabase.from('payments').select('resident_id, amount').eq('community_id', communityId)),
+      ])
+      const { data: c } = cRes as any
+      const { data, error } = casesRes as any
       if (error) throw error
-      const { data: res } = (await withTimeout(
-        supabase.from('residents').select('id, full_name, unit_number, address, profile_id, opening_balance, created_at')
-          .eq('community_id', communityId).order('unit_number', { ascending: true }),
-      )) as any
-      const { data: pays } = (await withTimeout(
-        supabase.from('payments').select('resident_id, amount').eq('community_id', communityId),
-      )) as any
+      const { data: res } = resRes as any
+      const { data: pays } = paysRes as any
       const map: Record<string, { amount: number }[]> = {}
       for (const p of pays || []) { (map[p.resident_id] ||= []).push({ amount: Number(p.amount) || 0 }) }
       setCommunity(c || null)
@@ -247,25 +247,27 @@ export default function CollectionsPage() {
       )}
 
       {/* Open cases */}
-      <h2 className="bc-title" style={{ margin: '22px 0 10px' }}>Open cases</h2>
-      {status === 'loading' && <div className="admin-note">Loading…</div>}
-      {status === 'ready' && open.length === 0 && <div className="admin-note">No open collection cases.</div>}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {open.map(r => <CaseRow key={r.id} r={r} regime={regime} />)}
-      </div>
-
-      {closed.length > 0 && (
-        <div style={{ marginTop: 18 }}>
-          <button className="admin-btn-ghost" onClick={() => setShowClosed(s => !s)}>
-            {showClosed ? 'Hide' : 'Show'} resolved / cancelled ({closed.length})
-          </button>
-          {showClosed && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
-              {closed.map(r => <CaseRow key={r.id} r={r} regime={regime} />)}
-            </div>
-          )}
+      <div className="card">
+        <div className="card-head"><div><h2>Open cases</h2></div></div>
+        {status === 'loading' && <div className="admin-note">Loading…</div>}
+        {status === 'ready' && open.length === 0 && <div className="admin-note">No open collection cases.</div>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {open.map(r => <CaseRow key={r.id} r={r} regime={regime} />)}
         </div>
-      )}
+
+        {closed.length > 0 && (
+          <div style={{ marginTop: 18 }}>
+            <button className="admin-btn-ghost" onClick={() => setShowClosed(s => !s)}>
+              {showClosed ? 'Hide' : 'Show'} resolved / cancelled ({closed.length})
+            </button>
+            {showClosed && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+                {closed.map(r => <CaseRow key={r.id} r={r} regime={regime} />)}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
