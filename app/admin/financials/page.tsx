@@ -126,7 +126,6 @@ export default function FinancialsPage() {
   useEffect(() => {
     if (!community) return
     setCForm({
-      annual_revenue: community.annual_revenue ?? '',
       fiscal_year_start_month: community.fiscal_year_start_month ?? 1,
       reserves_established: !!community.reserves_established,
       reserve_study_last_completed: community.reserve_study_last_completed ?? '',
@@ -138,7 +137,6 @@ export default function FinancialsPage() {
     setCSaving(true); setError('')
     try {
       const patch = {
-        annual_revenue: cForm.annual_revenue === '' ? null : Number(cForm.annual_revenue),
         fiscal_year_start_month: Number(cForm.fiscal_year_start_month) || 1,
         reserves_established: !!cForm.reserves_established,
         reserve_study_last_completed: (cForm.reserve_study_last_completed || '').trim() || null,
@@ -308,8 +306,6 @@ export default function FinancialsPage() {
           <div className="card">
             <div className="card-head"><div><h2>Financial settings</h2></div></div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 10 }}>
-              <label className="admin-field"><span className="admin-field-label">Annual revenue ($)</span>
-                <input className="admin-input" type="number" min="0" step="1000" value={cForm.annual_revenue ?? ''} placeholder="auto from budget" onChange={e => setCForm((f: any) => ({ ...f, annual_revenue: e.target.value }))} /></label>
               <label className="admin-field"><span className="admin-field-label">Fiscal year start month (1–12)</span>
                 <input className="admin-input" type="number" min="1" max="12" step="1" value={cForm.fiscal_year_start_month ?? 1} onChange={e => setCForm((f: any) => ({ ...f, fiscal_year_start_month: e.target.value }))} /></label>
               <label className="admin-field"><span className="admin-field-label">Last reserve study</span>
@@ -354,7 +350,8 @@ export default function FinancialsPage() {
           {/* 5 — Budget vs actual: actuals auto-tracked from the Plaid bank feed */}
           <div className="card">
             <div className="card-head">
-              <div><h2>Budget vs actual</h2></div>
+              <div><h2>Budget vs actual</h2>
+                <div className="sub">Budget is set in <Link href="/admin/community" style={{ color: 'var(--pink)', fontWeight: 600 }}>Community settings</Link>; this compares it to your bank feed.</div></div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 12, opacity: 0.65 }}>
                   {bankTx.length > 0 ? `${bankTx.length} bank transactions synced` : 'no bank feed yet'}
@@ -379,7 +376,7 @@ export default function FinancialsPage() {
             )}
 
             {opBudgets.length === 0 ? (
-              <p style={{ fontSize: 13, opacity: 0.7, margin: '8px 0 0' }}>Add budget categories below to see budget-vs-actual.</p>
+              <p style={{ fontSize: 13, opacity: 0.7, margin: '8px 0 0' }}>Add budget categories in <Link href="/admin/community" style={{ color: 'var(--pink)', fontWeight: 600 }}>Community settings</Link> to see budget-vs-actual.</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
                 {opBudgets.map(b => {
