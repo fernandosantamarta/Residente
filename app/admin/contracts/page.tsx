@@ -243,16 +243,30 @@ export default function ContractsPage() {
           {/* Documents */}
           <div className="card">
             <div className="card-head"><div><h2>Documents</h2><div className="sub">Generate or view each procurement artifact</div></div></div>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <div className="wslist">
               {[
-                { type: 'summary', label: 'Procurement summary' },
-                { type: 'bid_log', label: 'Competitive-bid solicitation log' },
-                ...(regime === 'condo' ? [{ type: 'mgmt_checklist', label: 'Management-agreement required-terms checklist' }] : []),
-              ].map(d => (
-                <Link key={d.type} href={`/admin/contracts/document?type=${d.type}`} className="admin-btn-ghost" style={{ textDecoration: 'none' }}>
-                  📄 {d.label}
-                </Link>
-              ))}
+                { type: 'summary', label: 'Procurement summary', live: true },
+                { type: 'bid_log', label: 'Competitive-bid solicitation log', live: true },
+                ...(regime === 'condo' ? [{ type: 'mgmt_checklist', label: 'Management-agreement required-terms checklist', live: false }] : []),
+              ].map(d => {
+                const col = d.live ? '#0E7490' : '#7A5AF8'
+                return (
+                  <Link key={d.type} href={`/admin/contracts/document?type=${d.type}`} className="wsrow">
+                    <span className="wsrow-glyph" style={{ color: col, background: col + '18' }}>
+                      {d.live ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><rect x="7" y="11" width="3" height="6" /><rect x="12" y="7" width="3" height="10" /><rect x="17" y="13" width="3" height="4" /></svg>
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="16" y2="17" /></svg>
+                      )}
+                    </span>
+                    <div className="wsrow-main">
+                      <div className="wsrow-title">{d.label}</div>
+                      <div className="wsrow-desc">{d.live ? 'Live document' : 'Draft template'}</div>
+                    </div>
+                    <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
+                  </Link>
+                )
+              })}
             </div>
           </div>
         </>
