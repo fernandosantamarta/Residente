@@ -123,9 +123,9 @@ export default function AdvisoriesPage() {
   }
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
       <div className="admin-kicker">Florida compliance</div>
-      <h1 className="admin-h1">Advisories &amp; event clocks</h1>
+      <h1 className="admin-h1">Advisories <span className="amp">&</span> event clocks</h1>
       <p className="admin-dek">
         The long tail of Florida duties: developer turnover, board-vacancy receivership, invoice delivery-method
         changes, the HOA tiered-report petition, and proxy expiry. Log the date an event happens and we track the
@@ -160,30 +160,33 @@ export default function AdvisoriesPage() {
           </div>
 
           {/* Event intake */}
-          <form className="admin-form" onSubmit={createEvent} style={{ marginTop: 8 }}>
-            <h2 className="bc-title" style={{ marginBottom: 8 }}>Record an event</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-              <label className="admin-field"><span className="admin-field-label">Event type</span>
-                <select className="admin-input" value={form.kind ?? ''} onChange={e => setF('kind', e.target.value)}>
-                  <option value="">— choose —</option>
-                  {kindOptions.map(k => <option key={k} value={k}>{KIND_META[k].label}</option>)}
-                </select></label>
-              <label className="admin-field"><span className="admin-field-label">Event date</span>
-                <input className="admin-input" type="date" value={form.event_date ?? ''} onChange={e => setF('event_date', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">Notes</span>
-                <input className="admin-input" value={form.notes ?? ''} onChange={e => setF('notes', e.target.value)} /></label>
-            </div>
-            {form.kind && <div style={{ fontSize: 12.5, opacity: 0.7, marginTop: 6 }}>{KIND_META[form.kind as ComplianceEventKind]?.help}</div>}
-            <div className="admin-form-actions">
-              <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Saving…' : 'Record event'}</button>
-              {error && <span className="admin-err-inline">{error}</span>}
-            </div>
-          </form>
+          <div className="card">
+            <div className="card-head"><div><h2>Record an event</h2></div></div>
+            <form className="admin-form" onSubmit={createEvent}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+                <label className="admin-field"><span className="admin-field-label">Event type</span>
+                  <select className="admin-input" value={form.kind ?? ''} onChange={e => setF('kind', e.target.value)}>
+                    <option value="">— choose —</option>
+                    {kindOptions.map(k => <option key={k} value={k}>{KIND_META[k].label}</option>)}
+                  </select></label>
+                <label className="admin-field"><span className="admin-field-label">Event date</span>
+                  <input className="admin-input" type="date" value={form.event_date ?? ''} onChange={e => setF('event_date', e.target.value)} /></label>
+                <label className="admin-field"><span className="admin-field-label">Notes</span>
+                  <input className="admin-input" value={form.notes ?? ''} onChange={e => setF('notes', e.target.value)} /></label>
+              </div>
+              {form.kind && <div style={{ fontSize: 12.5, opacity: 0.7, marginTop: 6 }}>{KIND_META[form.kind as ComplianceEventKind]?.help}</div>}
+              <div className="card-cta">
+                {error && <span className="admin-err-inline">{error}</span>}
+                <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Saving…' : 'Record event'}</button>
+              </div>
+            </form>
+          </div>
 
           {/* Event list */}
-          <h2 className="bc-title" style={{ margin: '22px 0 10px' }}>Tracked events ({events.length})</h2>
-          {events.length === 0 && <div className="admin-note">No events recorded. Log a turnover, receivership notice, delivery-method change, or petition above to start a clock.</div>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="card">
+            <div className="card-head"><div><h2>Tracked events <span style={{ opacity: 0.55, fontWeight: 400 }}>({events.length})</span></h2></div></div>
+            {events.length === 0 && <div className="admin-note">No events recorded. Log a turnover, receivership notice, delivery-method change, or petition above to start a clock.</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {events.map(ev => {
               const meta = KIND_META[String(ev.kind) as ComplianceEventKind]
               const resolved = !!ev.resolved_at
@@ -204,19 +207,23 @@ export default function AdvisoriesPage() {
                 </div>
               )
             })}
+            </div>
           </div>
 
           {/* Proxy expiry */}
-          <h2 className="bc-title" style={{ margin: '26px 0 8px' }}>Proxy expiry</h2>
-          <div className="admin-note" style={{ fontSize: 13 }}>
-            {stale.length === 0
-              ? `No open proxies older than ${PROXY_EXPIRY_DAYS.value} days.`
-              : `${stale.length} open prox${stale.length === 1 ? 'y appears' : 'ies appear'} to have expired — a proxy is generally valid only for its meeting and (HOA) expires ${PROXY_EXPIRY_DAYS.value} days after it (FS 720.306(8) / 718.112(2)(b)). Clear or archive them in Easy Voice.`}
+          <div className="card">
+            <div className="card-head"><div><h2>Proxy expiry</h2></div></div>
+            <div className="admin-note" style={{ fontSize: 13 }}>
+              {stale.length === 0
+                ? `No open proxies older than ${PROXY_EXPIRY_DAYS.value} days.`
+                : `${stale.length} open prox${stale.length === 1 ? 'y appears' : 'ies appear'} to have expired — a proxy is generally valid only for its meeting and (HOA) expires ${PROXY_EXPIRY_DAYS.value} days after it (FS 720.306(8) / 718.112(2)(b)). Clear or archive them in Easy Voice.`}
+            </div>
           </div>
 
           {/* Standing-right reference */}
-          <h2 className="bc-title" style={{ margin: '26px 0 8px' }}>Standing rights &amp; processes (reference)</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
+          <div className="card">
+            <div className="card-head"><div><h2>Standing rights <span className="amp">&</span> processes <span style={{ opacity: 0.55, fontWeight: 400 }}>(reference)</span></h2></div></div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
             <RefCard title="Board-vacancy receivership" cite="FS 718.1124 / 720.3053">
               If the board cannot fill vacancies to make a quorum, an owner/member may serve a notice of intent and,
               after a {RECEIVERSHIP_CURE_DAYS.value}-day cure window, petition a circuit court to appoint a receiver.
@@ -236,6 +243,7 @@ export default function AdvisoriesPage() {
             <RefCard title="Presuit mediation / arbitration" cite={PRESUIT_ADR_NOTE.citation}>
               {PRESUIT_ADR_NOTE.value} This is a process reminder, not a deadline.
             </RefCard>
+            </div>
           </div>
         </>
       )}

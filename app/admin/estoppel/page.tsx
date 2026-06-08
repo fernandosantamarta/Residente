@@ -140,7 +140,7 @@ export default function EstoppelPage() {
   }
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Estoppel certificates</h1>
       <p className="admin-dek">
@@ -160,47 +160,51 @@ export default function EstoppelPage() {
       )}
 
       {/* Intake */}
-      <form className="admin-form" onSubmit={create} style={{ marginTop: 16 }}>
-        <h2 className="bc-title" style={{ marginBottom: 8 }}>New request</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-          <label className="admin-field"><span className="admin-field-label">Unit / owner</span>
-            <select className="admin-input" value={form.resident_id ?? ''} onChange={e => setF('resident_id', e.target.value)}>
-              <option value="">— select unit / owner —</option>
-              {residents.map((r: any) => (
-                <option key={r.id} value={r.id}>{[r.full_name || 'Owner', r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>
-              ))}
-            </select></label>
-          <label className="admin-field"><span className="admin-field-label">Requestor name</span>
-            <input className="admin-input" value={form.requestor_name ?? ''} placeholder="Sunshine Title Co." onChange={e => setF('requestor_name', e.target.value)} /></label>
-          <label className="admin-field"><span className="admin-field-label">Requestor email</span>
-            <input className="admin-input" type="email" value={form.requestor_email ?? ''} placeholder="closer@title.com" onChange={e => setF('requestor_email', e.target.value)} /></label>
-          <label className="admin-field"><span className="admin-field-label">Requestor type</span>
-            <select className="admin-input" value={form.requestor_type} onChange={e => setF('requestor_type', e.target.value)}>
-              {REQUESTOR_TYPES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></label>
-          <label className="admin-field"><span className="admin-field-label">Request method</span>
-            <select className="admin-input" value={form.request_method} onChange={e => setF('request_method', e.target.value)}>
-              <option value="electronic">Electronic</option><option value="written">Written</option></select></label>
-        </div>
-        <div style={{ display: 'flex', gap: 20, margin: '12px 0', flexWrap: 'wrap' }}>
-          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
-            <input type="checkbox" checked={!!form.expedited} onChange={e => setF('expedited', e.target.checked)} /> Expedited (3-day, +{fmt$(estoppelFee({ expedited: true }).expedited)})</label>
-          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
-            <input type="checkbox" checked={!!form.delinquent} onChange={e => setF('delinquent', e.target.checked)} /> Owner is delinquent (+{fmt$(estoppelFee({ delinquent: true }).delinquency)})</label>
-          <span style={{ fontSize: 14, fontWeight: 700, alignSelf: 'center' }}>
-            Fee: {fmt$(estoppelFee({ expedited: !!form.expedited, delinquent: !!form.delinquent }).total)}</span>
-        </div>
-        <div className="admin-form-actions">
-          <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Saving…' : 'Log request'}</button>
-          {error && status === 'ready' && <span className="admin-err-inline">{error}</span>}
-        </div>
-      </form>
+      <div className="card">
+        <div className="card-head"><div><h2>New request</h2><div className="sub">Logging a request starts the statutory delivery clock.</div></div></div>
+        <form className="admin-form" onSubmit={create}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+            <label className="admin-field"><span className="admin-field-label">Unit / owner</span>
+              <select className="admin-input" value={form.resident_id ?? ''} onChange={e => setF('resident_id', e.target.value)}>
+                <option value="">— select unit / owner —</option>
+                {residents.map((r: any) => (
+                  <option key={r.id} value={r.id}>{[r.full_name || 'Owner', r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>
+                ))}
+              </select></label>
+            <label className="admin-field"><span className="admin-field-label">Requestor name</span>
+              <input className="admin-input" value={form.requestor_name ?? ''} placeholder="Sunshine Title Co." onChange={e => setF('requestor_name', e.target.value)} /></label>
+            <label className="admin-field"><span className="admin-field-label">Requestor email</span>
+              <input className="admin-input" type="email" value={form.requestor_email ?? ''} placeholder="closer@title.com" onChange={e => setF('requestor_email', e.target.value)} /></label>
+            <label className="admin-field"><span className="admin-field-label">Requestor type</span>
+              <select className="admin-input" value={form.requestor_type} onChange={e => setF('requestor_type', e.target.value)}>
+                {REQUESTOR_TYPES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></label>
+            <label className="admin-field"><span className="admin-field-label">Request method</span>
+              <select className="admin-input" value={form.request_method} onChange={e => setF('request_method', e.target.value)}>
+                <option value="electronic">Electronic</option><option value="written">Written</option></select></label>
+          </div>
+          <div style={{ display: 'flex', gap: 20, margin: '12px 0', flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
+              <input type="checkbox" checked={!!form.expedited} onChange={e => setF('expedited', e.target.checked)} /> Expedited (3-day, +{fmt$(estoppelFee({ expedited: true }).expedited)})</label>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
+              <input type="checkbox" checked={!!form.delinquent} onChange={e => setF('delinquent', e.target.checked)} /> Owner is delinquent (+{fmt$(estoppelFee({ delinquent: true }).delinquency)})</label>
+            <span style={{ fontSize: 14, fontWeight: 700, alignSelf: 'center' }}>
+              Fee: {fmt$(estoppelFee({ expedited: !!form.expedited, delinquent: !!form.delinquent }).total)}</span>
+          </div>
+          <div className="card-cta">
+            {error && status === 'ready' && <span className="admin-err-inline">{error}</span>}
+            <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Saving…' : 'Log request'}</button>
+          </div>
+        </form>
+      </div>
 
       {/* Worklist */}
-      <h2 className="bc-title" style={{ margin: '22px 0 10px' }}>Open & recent requests</h2>
-      {status === 'loading' && <div className="admin-note">Loading…</div>}
-      {status === 'ready' && rows.length === 0 && <div className="admin-note">No estoppel requests yet.</div>}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {rows.map(r => <EstoppelRow key={r.id} r={r} onDeliver={markDelivered} onPatch={patch} communityId={communityId} />)}
+      <div className="card">
+        <div className="card-head"><div><h2>Open <span className="amp">&</span> recent requests</h2></div></div>
+        {status === 'loading' && <div className="admin-note">Loading…</div>}
+        {status === 'ready' && rows.length === 0 && <div className="admin-note">No estoppel requests yet.</div>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {rows.map(r => <EstoppelRow key={r.id} r={r} onDeliver={markDelivered} onPatch={patch} communityId={communityId} />)}
+        </div>
       </div>
     </div>
   )

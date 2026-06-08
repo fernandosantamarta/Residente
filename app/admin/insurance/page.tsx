@@ -145,7 +145,7 @@ export default function InsurancePage() {
   }
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Insurance</h1>
       <p className="admin-dek">
@@ -204,13 +204,13 @@ export default function InsurancePage() {
           )}
 
           {/* ---------- FIDELITY BOND (both regimes) ---------- */}
-          <section style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: '4px solid #7A5AF8', borderRadius: 12, padding: '14px 16px', background: '#fff', marginTop: 24 }}>
-            <h2 className="bc-title" style={{ marginBottom: 4 }}>Fidelity-bond floor &amp; waiver</h2>
-            <p style={{ fontSize: 12.5, opacity: 0.72, margin: '0 0 10px' }}>
-              The bond must cover the <strong>maximum funds in custody</strong> of the association or its manager at
-              any one time. Enter an estimate of that peak balance; if you leave it blank we use the sum of your
-              recorded reserve balances ({fmt$(reserveSum)}) as a rough proxy.
-            </p>
+          <div className="card">
+            <div className="card-head"><div><h2>Fidelity-bond floor <span className="amp">&</span> waiver</h2>
+              <div className="sub">
+                The bond must cover the maximum funds in custody of the association or its manager at
+                any one time. Enter an estimate of that peak balance; if you leave it blank we use the sum of your
+                recorded reserve balances ({fmt$(reserveSum)}) as a rough proxy.
+              </div></div></div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
               <label className="admin-field"><span className="admin-field-label">Estimated max funds in custody</span>
                 <input className="admin-input" type="number" min="0" step="1000" placeholder={reserveSum ? `reserves ≈ ${fmt$(reserveSum)}` : 'e.g. 250000'}
@@ -221,19 +221,19 @@ export default function InsurancePage() {
                     value={bondForm.fidelity_bond_waiver_fy ?? ''} onChange={e => setBondForm((f: any) => ({ ...f, fidelity_bond_waiver_fy: e.target.value }))} /></label>
               )}
             </div>
-            <div style={{ fontSize: 12.5, marginTop: 8 }}>
+            <div style={{ fontSize: 12.5, marginTop: 12 }}>
               Estimated bond floor: <strong>{fmt$(maxFunds)}</strong>
               {regime === 'hoa' && (
                 <span style={{ opacity: 0.72 }}> · An HOA may waive the bond by {HOA_FIDELITY_BOND_WAIVER_BASIS.value}, effective one fiscal year only. Condominiums may not waive.</span>
               )}
             </div>
-            <div style={{ marginTop: 10 }}>
-              <button className="admin-primary-btn" disabled={bondSaving} onClick={saveBondSettings}>{bondSaving ? 'Saving…' : 'Save fidelity-bond settings'}</button>
-            </div>
             <div style={{ fontSize: 12, opacity: 0.7, marginTop: 10 }}>
               Must cover: {FIDELITY_BOND_COVERED_PERSONS.value.join(' · ')}.
             </div>
-          </section>
+            <div className="card-cta">
+              <button className="admin-primary-btn" disabled={bondSaving} onClick={saveBondSettings}>{bondSaving ? 'Saving…' : 'Save fidelity-bond settings'}</button>
+            </div>
+          </div>
 
           <PolicySection
             kind="fidelity_bond"
@@ -279,10 +279,10 @@ function PolicySection({
   }
 
   return (
-    <>
-      <form className="admin-form" onSubmit={submit} style={{ marginTop: 24 }}>
-        <h2 className="bc-title" style={{ marginBottom: 4 }}>{title}</h2>
-        <p style={{ fontSize: 12.5, opacity: 0.72, margin: '0 0 10px' }}>{blurb}</p>
+    <div className="card">
+      <div className="card-head"><div><h2>{title}</h2>
+        <div className="sub">{blurb}</div></div></div>
+      <form className="admin-form" onSubmit={submit}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
           <label className="admin-field"><span className="admin-field-label">Carrier</span>
             <input className="admin-input" value={form.carrier ?? ''} onChange={e => setF('carrier', e.target.value)} /></label>
@@ -303,7 +303,7 @@ function PolicySection({
             </>
           )}
         </div>
-        <div className="admin-form-actions">
+        <div className="card-cta">
           <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Saving…' : `Record ${isProperty ? 'property policy' : 'fidelity bond'}`}</button>
         </div>
       </form>
@@ -314,7 +314,7 @@ function PolicySection({
           <PolicyCard key={p.id} p={p} accent={accent} maxFunds={maxFunds} onUpdate={onUpdate} onDelete={onDelete} />
         ))}
       </div>
-    </>
+    </div>
   )
 }
 

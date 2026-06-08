@@ -142,7 +142,7 @@ export default function MeetingsPage() {
   const docHref = (id: string, type: string) => `/admin/meetings/${id}/document?type=${type}`
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Meetings <span className="amp">&</span> notice</h1>
       <p className="admin-dek">
@@ -162,8 +162,9 @@ export default function MeetingsPage() {
       {status === 'ready' && (
         <>
           {/* ---- Intake form ---- */}
-          <form className="admin-form" onSubmit={scheduleMeeting} style={{ marginTop: 22 }}>
-            <h2 className="bc-title" style={{ marginBottom: 8 }}>Schedule / log a meeting</h2>
+          <div className="card">
+            <div className="card-head"><div><h2>Schedule / log a meeting</h2></div></div>
+            <form className="admin-form" onSubmit={scheduleMeeting}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
               <label className="admin-field">
                 <span className="admin-field-label">Meeting type</span>
@@ -201,27 +202,30 @@ export default function MeetingsPage() {
                 Emergency (no advance notice possible)
               </label>
             </div>
-            <div className="admin-form-actions">
-              <button type="submit" className="admin-primary-btn" disabled={saving || !form.scheduled_at}>{saving ? 'Saving…' : 'Log meeting'}</button>
+            <div className="card-cta">
               {error && status === 'ready' && <span className="admin-err-inline">{error}</span>}
+              <button type="submit" className="admin-primary-btn" disabled={saving || !form.scheduled_at}>{saving ? 'Saving…' : 'Log meeting'}</button>
             </div>
-          </form>
+            </form>
+          </div>
 
           {/* ---- Worklist ---- */}
-          <h2 className="bc-title" style={{ margin: '26px 0 10px' }}>Meetings ({meetings.length})</h2>
-          {meetings.length === 0 && <div className="admin-note">No meetings on file yet.</div>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {meetings.map(m => (
-              <MeetingCard
-                key={m.id}
-                m={m}
-                onRecordPosting={() => recordPosting(m)}
-                onRecordMailing={() => recordMailing(m)}
-                onRecordAgenda={() => recordAgenda(m)}
-                onPublishMinutes={() => publishMinutes(m)}
-                docHref={(type: string) => docHref(m.id, type)}
-              />
-            ))}
+          <div className="card">
+            <div className="card-head"><div><h2>Meetings <span style={{ opacity: 0.55, fontWeight: 400 }}>({meetings.length})</span></h2></div></div>
+            {meetings.length === 0 && <div className="admin-note">No meetings on file yet.</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {meetings.map(m => (
+                <MeetingCard
+                  key={m.id}
+                  m={m}
+                  onRecordPosting={() => recordPosting(m)}
+                  onRecordMailing={() => recordMailing(m)}
+                  onRecordAgenda={() => recordAgenda(m)}
+                  onPublishMinutes={() => publishMinutes(m)}
+                  docHref={(type: string) => docHref(m.id, type)}
+                />
+              ))}
+            </div>
           </div>
         </>
       )}

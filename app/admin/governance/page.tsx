@@ -156,7 +156,7 @@ export default function GovernancePage() {
   const directorOwnedVendors = vendors.filter(v => v.director_owned)
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Directors <span className="amp">&</span> management</h1>
       <p className="admin-dek">
@@ -196,90 +196,94 @@ export default function GovernancePage() {
           )}
 
           {/* Directors */}
-          <h2 className="bc-title" style={{ margin: '8px 0 10px' }}>Directors ({directors.length})</h2>
-          {directors.length === 0 && <div className="admin-note">No board members yet. Mark residents as board members on Easy Voice → Board.</div>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {directors.map(d => (
-              <DirectorCard
-                key={d.id} d={d} regime={regime}
-                terms={terms.filter(t => t.resident_id === d.id)}
-                certs={certs.filter(c => c.resident_id === d.id)}
-                elig={eligibility.find(e => e.resident_id === d.id)}
-                onAddTerm={addTerm} onAddCert={addCert} onSaveElig={saveEligibility}
-              />
-            ))}
+          <div className="card">
+            <div className="card-head"><div><h2>Directors <span style={{ opacity: 0.55, fontWeight: 400 }}>({directors.length})</span></h2></div></div>
+            {directors.length === 0 && <div className="admin-note">No board members yet. Mark residents as board members on Easy Voice → Board.</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {directors.map(d => (
+                <DirectorCard
+                  key={d.id} d={d} regime={regime}
+                  terms={terms.filter(t => t.resident_id === d.id)}
+                  certs={certs.filter(c => c.resident_id === d.id)}
+                  elig={eligibility.find(e => e.resident_id === d.id)}
+                  onAddTerm={addTerm} onAddCert={addCert} onSaveElig={saveEligibility}
+                />
+              ))}
+            </div>
           </div>
 
           {/* Managers (CAM) */}
-          <h2 className="bc-title" style={{ margin: '24px 0 8px' }}>
-            Community-association manager (CAM){camRequired(community) ? ' — required at this size' : ''}
-          </h2>
-          <form className="admin-form" onSubmit={addManager}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
-              <label className="admin-field"><span className="admin-field-label">Name</span>
-                <input className="admin-input" value={mForm.name ?? ''} onChange={e => setMF('name', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">License #</span>
-                <input className="admin-input" value={mForm.license_number ?? ''} onChange={e => setMF('license_number', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">Type</span>
-                <select className="admin-input" value={mForm.license_type ?? ''} onChange={e => setMF('license_type', e.target.value)}>
-                  <option value="">—</option><option value="cam">CAM</option><option value="cab">CAB (firm)</option><option value="other">Other</option>
-                </select></label>
-              <label className="admin-field"><span className="admin-field-label">License expiry</span>
-                <input className="admin-input" type="date" value={mForm.license_expiry ?? ''} onChange={e => setMF('license_expiry', e.target.value)} /></label>
-            </div>
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '8px 0' }}>
-              <input type="checkbox" checked={!!mForm.dbpr_verified} onChange={e => setMF('dbpr_verified', e.target.checked)} /> DBPR-verified
-            </label>
-            <button type="submit" className="admin-primary-btn">Record manager</button>
-          </form>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-            {managers.map(m => (
-              <div key={m.id} style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{m.name}{m.status !== 'active' ? ' (inactive)' : ''}</div>
-                <div style={{ fontSize: 12.5, opacity: 0.75 }}>
-                  {m.license_type ? `${String(m.license_type).toUpperCase()} ` : ''}{m.license_number || ''}
-                  {m.license_expiry ? ` · exp ${m.license_expiry}` : ''} · {m.dbpr_verified ? 'DBPR-verified' : 'not DBPR-verified'}
-                </div>
+          <div className="card">
+            <div className="card-head"><div><h2>Community-association manager (CAM){camRequired(community) ? ' — required at this size' : ''}</h2></div></div>
+            <form className="admin-form" onSubmit={addManager}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+                <label className="admin-field"><span className="admin-field-label">Name</span>
+                  <input className="admin-input" value={mForm.name ?? ''} onChange={e => setMF('name', e.target.value)} /></label>
+                <label className="admin-field"><span className="admin-field-label">License #</span>
+                  <input className="admin-input" value={mForm.license_number ?? ''} onChange={e => setMF('license_number', e.target.value)} /></label>
+                <label className="admin-field"><span className="admin-field-label">Type</span>
+                  <select className="admin-input" value={mForm.license_type ?? ''} onChange={e => setMF('license_type', e.target.value)}>
+                    <option value="">—</option><option value="cam">CAM</option><option value="cab">CAB (firm)</option><option value="other">Other</option>
+                  </select></label>
+                <label className="admin-field"><span className="admin-field-label">License expiry</span>
+                  <input className="admin-input" type="date" value={mForm.license_expiry ?? ''} onChange={e => setMF('license_expiry', e.target.value)} /></label>
               </div>
-            ))}
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '8px 0' }}>
+                <input type="checkbox" checked={!!mForm.dbpr_verified} onChange={e => setMF('dbpr_verified', e.target.checked)} /> DBPR-verified
+              </label>
+              <div className="card-cta"><button type="submit" className="admin-primary-btn">Record manager</button></div>
+            </form>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+              {managers.map(m => (
+                <div key={m.id} style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{m.name}{m.status !== 'active' ? ' (inactive)' : ''}</div>
+                  <div style={{ fontSize: 12.5, opacity: 0.75 }}>
+                    {m.license_type ? `${String(m.license_type).toUpperCase()} ` : ''}{m.license_number || ''}
+                    {m.license_expiry ? ` · exp ${m.license_expiry}` : ''} · {m.dbpr_verified ? 'DBPR-verified' : 'not DBPR-verified'}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Conflicts */}
-          <h2 className="bc-title" style={{ margin: '24px 0 8px' }}>Conflicts of interest</h2>
-          {directorOwnedVendors.length > 0 && (
-            <div className="admin-note admin-note-info" style={{ marginBottom: 10 }}>
-              Director-affiliated vendor(s): {directorOwnedVendors.map(v => v.name).join(', ')}. A contract with a director-affiliated party needs written disclosure + ⅔ board approval (FS 718.3027). Mark a vendor as director-owned on Easy Track → Vendors.
-            </div>
-          )}
-          <form className="admin-form" onSubmit={addDisclosure}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-              <label className="admin-field"><span className="admin-field-label">What is disclosed</span>
-                <input className="admin-input" value={cForm.subject ?? ''} placeholder="Director's firm bidding the landscaping contract" onChange={e => setCForm((f: any) => ({ ...f, subject: e.target.value }))} /></label>
-              <label className="admin-field"><span className="admin-field-label">Director</span>
-                <select className="admin-input" value={cForm.resident_id ?? ''} onChange={e => setCForm((f: any) => ({ ...f, resident_id: e.target.value }))}>
-                  <option value="">—</option>
-                  {directors.map(d => <option key={d.id} value={d.id}>{d.full_name || d.id.slice(0, 8)}</option>)}
-                </select></label>
-              <label className="admin-field"><span className="admin-field-label">Related vendor</span>
-                <select className="admin-input" value={cForm.related_vendor_id ?? ''} onChange={e => setCForm((f: any) => ({ ...f, related_vendor_id: e.target.value }))}>
-                  <option value="">—</option>
-                  {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                </select></label>
-              <label className="admin-field"><span className="admin-field-label">Disclosed on</span>
-                <input className="admin-input" type="date" value={cForm.disclosed_at ?? ''} onChange={e => setCForm((f: any) => ({ ...f, disclosed_at: e.target.value }))} /></label>
-            </div>
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '8px 0' }}>
-              <input type="checkbox" checked={!!cForm.approved} onChange={e => setCForm((f: any) => ({ ...f, approved: e.target.checked }))} /> Approved by ⅔ of directors
-            </label>
-            <button type="submit" className="admin-primary-btn">Record disclosure</button>
-          </form>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-            {disclosures.map(x => (
-              <div key={x.id} style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
-                <div style={{ fontWeight: 700, fontSize: 14 }}>{(x as any).subject}</div>
-                <div style={{ fontSize: 12.5, opacity: 0.75 }}>{(x as any).disclosed_at ? `disclosed ${(x as any).disclosed_at}` : ''} · {x.approved ? '✓ approved' : 'not approved'}</div>
+          <div className="card">
+            <div className="card-head"><div><h2>Conflicts of interest</h2></div></div>
+            {directorOwnedVendors.length > 0 && (
+              <div className="admin-note admin-note-info" style={{ marginBottom: 10 }}>
+                Director-affiliated vendor(s): {directorOwnedVendors.map(v => v.name).join(', ')}. A contract with a director-affiliated party needs written disclosure + ⅔ board approval (FS 718.3027). Mark a vendor as director-owned on Easy Track → Vendors.
               </div>
-            ))}
+            )}
+            <form className="admin-form" onSubmit={addDisclosure}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+                <label className="admin-field"><span className="admin-field-label">What is disclosed</span>
+                  <input className="admin-input" value={cForm.subject ?? ''} placeholder="Director's firm bidding the landscaping contract" onChange={e => setCForm((f: any) => ({ ...f, subject: e.target.value }))} /></label>
+                <label className="admin-field"><span className="admin-field-label">Director</span>
+                  <select className="admin-input" value={cForm.resident_id ?? ''} onChange={e => setCForm((f: any) => ({ ...f, resident_id: e.target.value }))}>
+                    <option value="">—</option>
+                    {directors.map(d => <option key={d.id} value={d.id}>{d.full_name || d.id.slice(0, 8)}</option>)}
+                  </select></label>
+                <label className="admin-field"><span className="admin-field-label">Related vendor</span>
+                  <select className="admin-input" value={cForm.related_vendor_id ?? ''} onChange={e => setCForm((f: any) => ({ ...f, related_vendor_id: e.target.value }))}>
+                    <option value="">—</option>
+                    {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
+                  </select></label>
+                <label className="admin-field"><span className="admin-field-label">Disclosed on</span>
+                  <input className="admin-input" type="date" value={cForm.disclosed_at ?? ''} onChange={e => setCForm((f: any) => ({ ...f, disclosed_at: e.target.value }))} /></label>
+              </div>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '8px 0' }}>
+                <input type="checkbox" checked={!!cForm.approved} onChange={e => setCForm((f: any) => ({ ...f, approved: e.target.checked }))} /> Approved by ⅔ of directors
+              </label>
+              <div className="card-cta"><button type="submit" className="admin-primary-btn">Record disclosure</button></div>
+            </form>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+              {disclosures.map(x => (
+                <div key={x.id} style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{(x as any).subject}</div>
+                  <div style={{ fontSize: 12.5, opacity: 0.75 }}>{(x as any).disclosed_at ? `disclosed ${(x as any).disclosed_at}` : ''} · {x.approved ? '✓ approved' : 'not approved'}</div>
+                </div>
+              ))}
+            </div>
           </div>
         </>
       )}

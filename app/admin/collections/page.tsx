@@ -159,7 +159,7 @@ export default function CollectionsPage() {
   const closed = rows.filter(r => !isOpenStage(r.stage))
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Collections <span className="amp">&</span> liens</h1>
       <p className="admin-dek">
@@ -180,44 +180,48 @@ export default function CollectionsPage() {
       )}
 
       {/* Intake */}
-      <form className="admin-form" onSubmit={create} style={{ marginTop: 16 }}>
-        <h2 className="bc-title" style={{ marginBottom: 8 }}>Open a case</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-          <label className="admin-field"><span className="admin-field-label">Owner (from roster)</span>
-            <select className="admin-input" value={form.resident_id} onChange={e => setF('resident_id', e.target.value)}>
-              <option value="">— select —</option>
-              {residents.map(r => <option key={r.id} value={r.id}>{[r.full_name || 'Owner', r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>)}
-            </select></label>
-          <label className="admin-field"><span className="admin-field-label">Unit / parcel label (override)</span>
-            <input className="admin-input" value={form.unit_label ?? ''} placeholder="auto from owner" onChange={e => setF('unit_label', e.target.value)} /></label>
-          <label className="admin-field"><span className="admin-field-label">Delinquent since</span>
-            <input className="admin-input" type="date" value={form.delinquent_since ?? ''} onChange={e => setF('delinquent_since', e.target.value)} /></label>
-          <label className="admin-field"><span className="admin-field-label">Amount past due ($, optional)</span>
-            <input className="admin-input" type="number" min="0" step="0.01" value={form.principal_balance ?? ''} placeholder="auto from ledger" onChange={e => setF('principal_balance', e.target.value)} /></label>
-        </div>
-        {regime === 'hoa' && (
-          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '10px 0' }}>
-            <input type="checkbox" checked={!!form.is_fine_only} onChange={e => setF('is_fine_only', e.target.checked)} />
-            Fine-only case (HB 1203: an HOA fine under $1,000 may not become a lien)
-          </label>
-        )}
-        <div className="admin-form-actions">
-          <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Opening…' : 'Open case'}</button>
-          {error && status === 'ready' && <span className="admin-err-inline">{error}</span>}
-        </div>
-      </form>
+      <div className="card">
+        <div className="card-head"><div><h2>Open a case</h2></div></div>
+        <form className="admin-form" onSubmit={create}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+            <label className="admin-field"><span className="admin-field-label">Owner (from roster)</span>
+              <select className="admin-input" value={form.resident_id} onChange={e => setF('resident_id', e.target.value)}>
+                <option value="">— select —</option>
+                {residents.map(r => <option key={r.id} value={r.id}>{[r.full_name || 'Owner', r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>)}
+              </select></label>
+            <label className="admin-field"><span className="admin-field-label">Unit / parcel label (override)</span>
+              <input className="admin-input" value={form.unit_label ?? ''} placeholder="auto from owner" onChange={e => setF('unit_label', e.target.value)} /></label>
+            <label className="admin-field"><span className="admin-field-label">Delinquent since</span>
+              <input className="admin-input" type="date" value={form.delinquent_since ?? ''} onChange={e => setF('delinquent_since', e.target.value)} /></label>
+            <label className="admin-field"><span className="admin-field-label">Amount past due ($, optional)</span>
+              <input className="admin-input" type="number" min="0" step="0.01" value={form.principal_balance ?? ''} placeholder="auto from ledger" onChange={e => setF('principal_balance', e.target.value)} /></label>
+          </div>
+          {regime === 'hoa' && (
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '10px 0 0' }}>
+              <input type="checkbox" checked={!!form.is_fine_only} onChange={e => setF('is_fine_only', e.target.checked)} />
+              Fine-only case (HB 1203: an HOA fine under $1,000 may not become a lien)
+            </label>
+          )}
+          <div className="card-cta">
+            {error && status === 'ready' && <span className="admin-err-inline">{error}</span>}
+            <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Opening…' : 'Open case'}</button>
+          </div>
+        </form>
+      </div>
 
       {/* Suggested cases — delinquent owners with no open case */}
       {status === 'ready' && (
-        <section style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, padding: '14px 16px', background: '#fafafa', marginTop: 22 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <h2 className="bc-title" style={{ margin: 0 }}>Suggested cases ({candidates.length})</h2>
+        <div className="card">
+          <div className="card-head" style={{ flexWrap: 'wrap' }}>
+            <div>
+              <h2>Suggested cases ({candidates.length})</h2>
+              <div className="sub">
+                Owners behind by more than the current installment with no open case. Detection is automatic —
+                opening a case (and every statutory step after) stays your decision.
+              </div>
+            </div>
             <AutoOpenSettings community={community} onSaved={load} />
           </div>
-          <p style={{ fontSize: 12.5, opacity: 0.7, margin: '4px 0 10px' }}>
-            Owners behind by more than the current installment with no open case. Detection is automatic —
-            opening a case (and every statutory step after) stays your decision.
-          </p>
           {candidates.length === 0 ? (
             <div className="admin-note">No delinquent owners without a case{(community?.collections_min_balance || community?.collections_min_days) ? ' above your thresholds' : ''}.</div>
           ) : (
@@ -238,7 +242,7 @@ export default function CollectionsPage() {
               )}
             </>
           )}
-        </section>
+        </div>
       )}
 
       {/* Open cases */}

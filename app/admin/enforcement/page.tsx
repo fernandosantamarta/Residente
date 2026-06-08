@@ -269,7 +269,7 @@ export default function EnforcementPage() {
   }
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
       <Link href="/admin/violations" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#DC6803', textDecoration: 'none', marginBottom: 10 }}>
         &larr; All violations (issue &amp; track)
       </Link>
@@ -293,17 +293,19 @@ export default function EnforcementPage() {
         <>
           {/* ---- Owner-contested fines (statutory right to contest) ---- */}
           {contestedFines.length > 0 && (
-            <section style={{ marginTop: 18 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <h2 className="bc-title" style={{ margin: 0 }}>Contested fines ({contestedFines.length})</h2>
+            <div className="card">
+              <div className="card-head">
+                <div>
+                  <h2>Contested fines ({contestedFines.length})</h2>
+                  <div className="sub">
+                    An owner has exercised their right to contest. Send the {HEARING_NOTICE_DAYS.value}-day hearing notice,
+                    convene the independent committee, then record the decision. Do not impose the fine until the committee rules.
+                  </div>
+                </div>
                 <span style={chip(committeeOk ? '#067647' : '#B42318')}>
                   {committeeOk ? 'Committee ready ✓' : `Committee short — ${independents.length}/${FINING_COMMITTEE_MIN.value}`}
                 </span>
               </div>
-              <p className="admin-dek" style={{ marginTop: 6 }}>
-                An owner has exercised their right to contest. Send the {HEARING_NOTICE_DAYS.value}-day hearing notice,
-                convene the independent committee, then record the decision. Do not impose the fine until the committee rules.
-              </p>
               {contestedFines.map(v => (
                 <ContestedFineRow
                   key={v.id}
@@ -316,31 +318,34 @@ export default function EnforcementPage() {
                   onDecide={decideContest}
                 />
               ))}
-            </section>
+            </div>
           )}
 
           {/* ---- Fining committee ---- */}
-          <section style={{ marginTop: 18 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-              <h2 className="bc-title" style={{ margin: 0 }}>Independent fining committee</h2>
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <h2>Independent fining committee</h2>
+                <div className="sub">
+                  A fine or covenant-violation suspension can&apos;t be imposed without a hearing before a committee of at
+                  least {FINING_COMMITTEE_MIN.value} members the board appoints who are <strong>not</strong> officers, directors,
+                  employees, or their relatives ({FINING_COMMITTEE_MIN.citation}).
+                </div>
+              </div>
               <span style={chip(committeeOk ? '#067647' : '#B42318')}>
                 {independents.length} of {FINING_COMMITTEE_MIN.value} independent {committeeOk ? '✓' : 'required'}
               </span>
             </div>
-            <p style={{ fontSize: 12.5, opacity: 0.72, margin: '4px 0 10px' }}>
-              A fine or covenant-violation suspension can&apos;t be imposed without a hearing before a committee of at
-              least {FINING_COMMITTEE_MIN.value} members the board appoints who are <strong>not</strong> officers, directors,
-              employees, or their relatives ({FINING_COMMITTEE_MIN.citation}).
-            </p>
             <CommitteeManager
               members={committee} communityId={communityId} createdBy={profile?.id ?? null}
               onChange={load} setError={setError}
             />
-          </section>
+          </div>
 
           {/* ---- Propose a fine ---- */}
-          <form className="admin-form" onSubmit={proposeFine} style={{ marginTop: 22 }}>
-            <h2 className="bc-title" style={{ marginBottom: 8 }}>Propose a fine</h2>
+          <div className="card">
+            <div className="card-head"><div><h2>Propose a fine</h2></div></div>
+            <form className="admin-form" onSubmit={proposeFine}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
               <label className="admin-field"><span className="admin-field-label">Owner (from roster)</span>
                 <select className="admin-input" value={form.resident_id} onChange={e => setF('resident_id', e.target.value)}>
@@ -373,32 +378,36 @@ export default function EnforcementPage() {
                 Requires a hearing (recommended)
               </label>
             </div>
-            <div className="admin-form-actions">
-              <button type="submit" className="admin-primary-btn" disabled={saving || !form.resident_id}>{saving ? 'Saving…' : 'Propose fine'}</button>
+            <div className="card-cta">
               {error && status === 'ready' && <span className="admin-err-inline">{error}</span>}
+              <button type="submit" className="admin-primary-btn" disabled={saving || !form.resident_id}>{saving ? 'Saving…' : 'Propose fine'}</button>
             </div>
-          </form>
+            </form>
+          </div>
 
           {/* ---- Fines on the hearing track ---- */}
-          <h2 className="bc-title" style={{ margin: '24px 0 10px' }}>Fines &amp; hearings ({trackViolations.length})</h2>
-          {trackViolations.length === 0 && <div className="admin-note">No fines are working through the hearing process.</div>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {trackViolations.map(v => (
-              <ViolationCard
-                key={v.id} v={v} hearing={hearingByViolation.get(String(v.id))} regime={community?.association_type === 'hoa' ? 'hoa' : 'condo'}
-                committeeOk={committeeOk}
-                onSendNotice={() => sendHearingNotice(v)}
-                onSchedule={(date: string) => scheduleHearing(v, hearingByViolation.get(String(v.id)), date)}
-                onDecision={(d: any) => recordDecision(v, hearingByViolation.get(String(v.id)), d)}
-                onLevy={() => markLevied(v)}
-                onPatch={(patch: Record<string, any>, ok?: string) => patchViolation(v.id, patch, ok)}
-              />
-            ))}
+          <div className="card">
+            <div className="card-head"><div><h2>Fines <span className="amp">&</span> hearings ({trackViolations.length})</h2></div></div>
+            {trackViolations.length === 0 && <div className="admin-note">No fines are working through the hearing process.</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {trackViolations.map(v => (
+                <ViolationCard
+                  key={v.id} v={v} hearing={hearingByViolation.get(String(v.id))} regime={community?.association_type === 'hoa' ? 'hoa' : 'condo'}
+                  committeeOk={committeeOk}
+                  onSendNotice={() => sendHearingNotice(v)}
+                  onSchedule={(date: string) => scheduleHearing(v, hearingByViolation.get(String(v.id)), date)}
+                  onDecision={(d: any) => recordDecision(v, hearingByViolation.get(String(v.id)), d)}
+                  onLevy={() => markLevied(v)}
+                  onPatch={(patch: Record<string, any>, ok?: string) => patchViolation(v.id, patch, ok)}
+                />
+              ))}
+            </div>
           </div>
 
           {/* ---- Suspensions ---- */}
-          <h2 className="bc-title" style={{ margin: '26px 0 10px' }}>Voting &amp; use-rights suspensions</h2>
-          <SuspensionForm residents={residents} onRecord={recordSuspension} />
+          <div className="card">
+            <div className="card-head"><div><h2>Voting <span className="amp">&</span> use-rights suspensions</h2></div></div>
+            <SuspensionForm residents={residents} onRecord={recordSuspension} />
 
           {/* Suggested voting suspensions (>90 days delinquent, no hearing required) */}
           {candidates.length > 0 && (
@@ -445,6 +454,7 @@ export default function EnforcementPage() {
                 onLift={() => patchSuspension(s.id, { status: 'lifted', ended_at: todayYmd() }, 'Suspension lifted.')}
               />
             ))}
+          </div>
           </div>
         </>
       )}

@@ -209,7 +209,7 @@ export default function StructuralPage() {
   // ---------- N/A for HOAs ----------
   if (status === 'ready' && regime === 'hoa') {
     return (
-      <div className="admin-page">
+      <div className="admin-page cset">
         <div className="admin-kicker">Florida compliance</div>
         <h1 className="admin-h1">Structural integrity</h1>
         <div className="admin-note" style={{ marginTop: 16 }}>
@@ -222,7 +222,7 @@ export default function StructuralPage() {
   }
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Structural integrity</h1>
       <p className="admin-dek">
@@ -260,14 +260,16 @@ export default function StructuralPage() {
           </div>
 
           {/* DBPR (Division of Florida Condominiums) settings */}
-          <section style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: '4px solid #067647', borderRadius: 12, padding: '14px 16px', background: '#fff', marginTop: 8 }}>
-            <h2 className="bc-title" style={{ marginBottom: 4 }}>DBPR (Division) filings</h2>
-            <p style={{ fontSize: 12.5, opacity: 0.72, margin: '0 0 12px' }}>
-              Record your condominium&apos;s Division filings so the dashboard can track them:
-              the online account (FS 718.501(1)), the ${DBPR_FEE_PER_UNIT.value}/unit annual fee
-              due January 1 (FS 718.501(2) — associations operating more than {DBPR_FEE_MIN_UNITS.value} units),
-              and the {DBPR_BUILDING_REPORT_MIN_STORIES.value}+-story building report (FS 718.501(3)).
-            </p>
+          <div className="card">
+            <div className="card-head"><div>
+              <h2>DBPR (Division) filings</h2>
+              <div className="sub">
+                Record your condominium&apos;s Division filings so the dashboard can track them:
+                the online account (FS 718.501(1)), the ${DBPR_FEE_PER_UNIT.value}/unit annual fee
+                due January 1 (FS 718.501(2) — associations operating more than {DBPR_FEE_MIN_UNITS.value} units),
+                and the {DBPR_BUILDING_REPORT_MIN_STORIES.value}+-story building report (FS 718.501(3)).
+              </div>
+            </div></div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
               <label className="admin-field"><span className="admin-field-label">DBPR online account created</span>
                 <input className="admin-input" type="date" value={dbprForm.dbpr_account_created_at ?? ''} onChange={e => setDbprForm((f: any) => ({ ...f, dbpr_account_created_at: e.target.value }))} /></label>
@@ -277,40 +279,43 @@ export default function StructuralPage() {
               <label className="admin-field"><span className="admin-field-label">{DBPR_BUILDING_REPORT_MIN_STORIES.value}+-story building report filed</span>
                 <input className="admin-input" type="date" value={dbprForm.dbpr_building_report_filed_at ?? ''} onChange={e => setDbprForm((f: any) => ({ ...f, dbpr_building_report_filed_at: e.target.value }))} /></label>
             </div>
-            <div style={{ marginTop: 10 }}>
+            <div className="card-cta">
               <button className="admin-primary-btn" disabled={dbprSaving} onClick={saveDbpr}>{dbprSaving ? 'Saving…' : 'Save DBPR settings'}</button>
             </div>
-          </section>
+          </div>
 
           {/* Building intake */}
-          <form className="admin-form" onSubmit={createBuilding} style={{ marginTop: 24 }}>
-            <h2 className="bc-title" style={{ marginBottom: 8 }}>Add a building</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-              <label className="admin-field"><span className="admin-field-label">Name</span>
-                <input className="admin-input" value={bForm.name ?? ''} placeholder="Tower A" onChange={e => setBF('name', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">Address</span>
-                <input className="admin-input" value={bForm.address ?? ''} onChange={e => setBF('address', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">Stories</span>
-                <input className="admin-input" type="number" min="1" step="1" value={bForm.stories ?? ''} onChange={e => setBF('stories', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">Units</span>
-                <input className="admin-input" type="number" min="0" step="1" value={bForm.units ?? ''} onChange={e => setBF('units', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">Certificate-of-occupancy date</span>
-                <input className="admin-input" type="date" value={bForm.coa ?? ''} onChange={e => setBF('coa', e.target.value)} /></label>
-            </div>
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '10px 0' }}>
-              <input type="checkbox" checked={!!bForm.coastal} onChange={e => setBF('coastal', e.target.checked)} />
-              Within 3 miles of the coastline (25-year milestone trigger instead of 30)
-            </label>
-            <div className="admin-form-actions">
-              <button type="submit" className="admin-primary-btn" disabled={bSaving}>{bSaving ? 'Adding…' : 'Add building'}</button>
-              {error && <span className="admin-err-inline">{error}</span>}
-            </div>
-          </form>
+          <div className="card">
+            <div className="card-head"><div><h2>Add a building</h2></div></div>
+            <form className="admin-form" onSubmit={createBuilding}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+                <label className="admin-field"><span className="admin-field-label">Name</span>
+                  <input className="admin-input" value={bForm.name ?? ''} placeholder="Tower A" onChange={e => setBF('name', e.target.value)} /></label>
+                <label className="admin-field"><span className="admin-field-label">Address</span>
+                  <input className="admin-input" value={bForm.address ?? ''} onChange={e => setBF('address', e.target.value)} /></label>
+                <label className="admin-field"><span className="admin-field-label">Stories</span>
+                  <input className="admin-input" type="number" min="1" step="1" value={bForm.stories ?? ''} onChange={e => setBF('stories', e.target.value)} /></label>
+                <label className="admin-field"><span className="admin-field-label">Units</span>
+                  <input className="admin-input" type="number" min="0" step="1" value={bForm.units ?? ''} onChange={e => setBF('units', e.target.value)} /></label>
+                <label className="admin-field"><span className="admin-field-label">Certificate-of-occupancy date</span>
+                  <input className="admin-input" type="date" value={bForm.coa ?? ''} onChange={e => setBF('coa', e.target.value)} /></label>
+              </div>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '10px 0' }}>
+                <input type="checkbox" checked={!!bForm.coastal} onChange={e => setBF('coastal', e.target.checked)} />
+                Within 3 miles of the coastline (25-year milestone trigger instead of 30)
+              </label>
+              <div className="card-cta">
+                {error && <span className="admin-err-inline">{error}</span>}
+                <button type="submit" className="admin-primary-btn" disabled={bSaving}>{bSaving ? 'Adding…' : 'Add building'}</button>
+              </div>
+            </form>
+          </div>
 
           {/* Buildings list */}
-          <h2 className="bc-title" style={{ margin: '22px 0 10px' }}>Buildings ({buildings.length})</h2>
-          {buildings.length === 0 && <div className="admin-note">No buildings yet. Add one above to start tracking milestone and SIRS deadlines.</div>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="card">
+            <div className="card-head"><div><h2>Buildings <span style={{ opacity: 0.55, fontWeight: 400 }}>({buildings.length})</span></h2></div></div>
+            {buildings.length === 0 && <div className="admin-note">No buildings yet. Add one above to start tracking milestone and SIRS deadlines.</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {buildings.map(b => {
               const due = milestoneInitialDueDate(b.certificate_of_occupancy_date, b.coastal)
               const eligible = isSirsEligible(b.stories)
@@ -330,63 +335,68 @@ export default function StructuralPage() {
                 </div>
               )
             })}
+            </div>
           </div>
 
           {/* Assessment intake */}
-          <form className="admin-form" onSubmit={createAssessment} style={{ marginTop: 24 }}>
-            <h2 className="bc-title" style={{ marginBottom: 8 }}>Record an assessment</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-              <label className="admin-field"><span className="admin-field-label">Type</span>
-                <select className="admin-input" value={aForm.kind} onChange={e => setAF('kind', e.target.value)}>
-                  <option value="milestone">Milestone inspection</option>
-                  <option value="sirs">SIRS</option>
-                  <option value="turnover">Turnover inspection</option>
-                </select></label>
-              <label className="admin-field"><span className="admin-field-label">Building (optional)</span>
-                <select className="admin-input" value={aForm.building_id ?? ''} onChange={e => setAF('building_id', e.target.value)}>
-                  <option value="">— community-wide —</option>
-                  {buildings.map(b => <option key={b.id} value={b.id}>{b.name || b.address || b.id.slice(0, 8)}</option>)}
-                </select></label>
-              <label className="admin-field"><span className="admin-field-label">Status</span>
-                <select className="admin-input" value={aForm.status ?? 'not_started'} onChange={e => setAF('status', e.target.value)}>
-                  {STATUS_OPTIONS.map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
-                </select></label>
-              <label className="admin-field"><span className="admin-field-label">{aForm.kind === 'milestone' ? 'Phase 1 due date' : 'Deadline'}</span>
-                <input className="admin-input" type="date" value={aForm.due_date ?? ''} onChange={e => setAF('due_date', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">Inspection date</span>
-                <input className="admin-input" type="date" value={aForm.inspection_date ?? ''} onChange={e => setAF('inspection_date', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">Performer name</span>
-                <input className="admin-input" value={aForm.performer_name ?? ''} onChange={e => setAF('performer_name', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">Performer credential</span>
-                <select className="admin-input" value={aForm.performer_type ?? ''} onChange={e => setAF('performer_type', e.target.value)}>
-                  <option value="">—</option>
-                  {PERFORMER_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
-                </select></label>
-              <label className="admin-field"><span className="admin-field-label">License #</span>
-                <input className="admin-input" value={aForm.performer_license ?? ''} onChange={e => setAF('performer_license', e.target.value)} /></label>
-            </div>
-            <div className="admin-form-actions">
-              <button type="submit" className="admin-primary-btn" disabled={aSaving}>{aSaving ? 'Saving…' : 'Record assessment'}</button>
-            </div>
-          </form>
+          <div className="card">
+            <div className="card-head"><div><h2>Record an assessment</h2></div></div>
+            <form className="admin-form" onSubmit={createAssessment}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+                <label className="admin-field"><span className="admin-field-label">Type</span>
+                  <select className="admin-input" value={aForm.kind} onChange={e => setAF('kind', e.target.value)}>
+                    <option value="milestone">Milestone inspection</option>
+                    <option value="sirs">SIRS</option>
+                    <option value="turnover">Turnover inspection</option>
+                  </select></label>
+                <label className="admin-field"><span className="admin-field-label">Building (optional)</span>
+                  <select className="admin-input" value={aForm.building_id ?? ''} onChange={e => setAF('building_id', e.target.value)}>
+                    <option value="">— community-wide —</option>
+                    {buildings.map(b => <option key={b.id} value={b.id}>{b.name || b.address || b.id.slice(0, 8)}</option>)}
+                  </select></label>
+                <label className="admin-field"><span className="admin-field-label">Status</span>
+                  <select className="admin-input" value={aForm.status ?? 'not_started'} onChange={e => setAF('status', e.target.value)}>
+                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+                  </select></label>
+                <label className="admin-field"><span className="admin-field-label">{aForm.kind === 'milestone' ? 'Phase 1 due date' : 'Deadline'}</span>
+                  <input className="admin-input" type="date" value={aForm.due_date ?? ''} onChange={e => setAF('due_date', e.target.value)} /></label>
+                <label className="admin-field"><span className="admin-field-label">Inspection date</span>
+                  <input className="admin-input" type="date" value={aForm.inspection_date ?? ''} onChange={e => setAF('inspection_date', e.target.value)} /></label>
+                <label className="admin-field"><span className="admin-field-label">Performer name</span>
+                  <input className="admin-input" value={aForm.performer_name ?? ''} onChange={e => setAF('performer_name', e.target.value)} /></label>
+                <label className="admin-field"><span className="admin-field-label">Performer credential</span>
+                  <select className="admin-input" value={aForm.performer_type ?? ''} onChange={e => setAF('performer_type', e.target.value)}>
+                    <option value="">—</option>
+                    {PERFORMER_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select></label>
+                <label className="admin-field"><span className="admin-field-label">License #</span>
+                  <input className="admin-input" value={aForm.performer_license ?? ''} onChange={e => setAF('performer_license', e.target.value)} /></label>
+              </div>
+              <div className="card-cta">
+                <button type="submit" className="admin-primary-btn" disabled={aSaving}>{aSaving ? 'Saving…' : 'Record assessment'}</button>
+              </div>
+            </form>
+          </div>
 
           {/* Assessments list */}
-          <h2 className="bc-title" style={{ margin: '22px 0 10px' }}>Assessments ({assessments.length})</h2>
-          {assessments.length === 0 && <div className="admin-note">No assessments recorded yet.</div>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {assessments.map(a => (
-              <AssessmentCard
-                key={a.id}
-                a={a}
-                buildings={buildings}
-                components={componentsByAssessment.get(String(a.id)) || []}
-                communityId={communityId!}
-                profileId={profile?.id ?? null}
-                onUpdate={updateAssessment}
-                onChanged={load}
-                onError={setError}
-              />
-            ))}
+          <div className="card">
+            <div className="card-head"><div><h2>Assessments <span style={{ opacity: 0.55, fontWeight: 400 }}>({assessments.length})</span></h2></div></div>
+            {assessments.length === 0 && <div className="admin-note">No assessments recorded yet.</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {assessments.map(a => (
+                <AssessmentCard
+                  key={a.id}
+                  a={a}
+                  buildings={buildings}
+                  components={componentsByAssessment.get(String(a.id)) || []}
+                  communityId={communityId!}
+                  profileId={profile?.id ?? null}
+                  onUpdate={updateAssessment}
+                  onChanged={load}
+                  onError={setError}
+                />
+              ))}
+            </div>
           </div>
         </>
       )}

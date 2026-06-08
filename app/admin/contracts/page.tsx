@@ -133,9 +133,9 @@ export default function ContractsPage() {
   }
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
       <div className="admin-kicker">Florida compliance</div>
-      <h1 className="admin-h1">Procurement &amp; contracts</h1>
+      <h1 className="admin-h1">Procurement <span className="amp">&</span> contracts</h1>
       <p className="admin-dek">
         Florida requires competitive bids for a contract exceeding {pct}% of {BID_THRESHOLD_BASIS.value}
         (FS {regime === 'hoa' ? '720.3055' : '718.3026'}), and every service contract or contract over a year
@@ -171,8 +171,8 @@ export default function ContractsPage() {
           </div>
 
           {/* Threshold banner */}
-          <section style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: '4px solid #0D9488', borderRadius: 12, padding: '14px 16px', background: '#fff', marginTop: 8 }}>
-            <h2 className="bc-title" style={{ marginBottom: 4 }}>Competitive-bid threshold</h2>
+          <div className="card">
+            <div className="card-head"><div><h2>Competitive-bid threshold</h2></div></div>
             {budgetInfo.basis === 'none' ? (
               <p style={{ fontSize: 13, opacity: 0.8, margin: 0 }}>
                 No budget is recorded yet, so the {pct}% threshold can&apos;t be computed. Add this year&apos;s budget
@@ -185,11 +185,12 @@ export default function ContractsPage() {
                 A contract exceeding this requires competitive bids unless a statutory exception applies.
               </p>
             )}
-          </section>
+          </div>
 
           {/* Contract intake */}
-          <form className="admin-form" onSubmit={createContract} style={{ marginTop: 24 }}>
-            <h2 className="bc-title" style={{ marginBottom: 8 }}>Record a contract</h2>
+          <div className="card">
+          <div className="card-head"><div><h2>Record a contract</h2></div></div>
+          <form className="admin-form" onSubmit={createContract}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
               <label className="admin-field"><span className="admin-field-label">Vendor</span>
                 <input className="admin-input" value={form.vendor ?? ''} onChange={e => setF('vendor', e.target.value)} /></label>
@@ -225,26 +226,29 @@ export default function ContractsPage() {
                 </label>
               )}
             </div>
-            <div className="admin-form-actions">
-              <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Saving…' : 'Record contract'}</button>
+            <div className="card-cta">
               {error && <span className="admin-err-inline">{error}</span>}
+              <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Saving…' : 'Record contract'}</button>
             </div>
           </form>
+          </div>
 
           {/* Contracts list */}
-          <h2 className="bc-title" style={{ margin: '22px 0 10px' }}>Contracts ({contracts.length})</h2>
-          {contracts.length === 0 && <div className="admin-note">No contracts recorded yet. Add your material vendor and management contracts above.</div>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {contracts.map(c => (
-              <ContractCard
-                key={c.id}
-                c={c}
-                regime={regime}
-                threshold={threshold}
-                onUpdate={updateContract}
-                onDelete={deleteContract}
-              />
-            ))}
+          <div className="card">
+            <div className="card-head"><div><h2>Contracts <span style={{ opacity: 0.55, fontWeight: 400 }}>({contracts.length})</span></h2></div></div>
+            {contracts.length === 0 && <div className="admin-note">No contracts recorded yet. Add your material vendor and management contracts above.</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {contracts.map(c => (
+                <ContractCard
+                  key={c.id}
+                  c={c}
+                  regime={regime}
+                  threshold={threshold}
+                  onUpdate={updateContract}
+                  onDelete={deleteContract}
+                />
+              ))}
+            </div>
           </div>
         </>
       )}
