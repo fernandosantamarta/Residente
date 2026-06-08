@@ -122,7 +122,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       </header>
 
       <nav className="admin-nav">
-        <Link href="/app" className="admin-nav-item admin-nav-back" style={{ opacity: 0.7 }}>&larr; Back to app</Link>
+        <Link href="/app" className="admin-nav-item admin-nav-back">&larr; Back to app</Link>
         {ADMIN_NAV.filter(item => !item.anyPerm || permLoading || canAny(item.anyPerm)).map(item => (
           <Link
             key={item.href}

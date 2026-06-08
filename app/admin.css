@@ -46,6 +46,10 @@
 }
 .admin-nav-item:hover { color: var(--text); }
 .admin-nav-item.active { color: var(--text); border-bottom-color: var(--pink); }
+/* Back-to-app leads the row in solid near-black, flush to the left gutter
+   (drop the .admin-nav-item left padding so its text lines up with the brand
+   + page content at 32px). Defined after .admin-nav-item so the color wins. */
+.admin-nav-back { color: var(--text); padding-left: 0; }
 
 .admin-main { max-width: 920px; margin: 0 auto; padding: 40px 32px 80px; }
 
