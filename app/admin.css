@@ -863,16 +863,6 @@
 }
 .cset .card-head .sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
 
-/* Notes (attorney-review banner, info/err callouts) read as soft tinted cards
-   in the cset theme. The default hard 3px left-accent stripe + flat box clashed
-   with the rounded .card shells around them — here they get the card radius +
-   shadow and a uniform warm hairline with a faint tint instead of the stripe.
-   Scoped to .cset so other admin pages keep the original accent style. */
-.cset .admin-note { border-radius: 18px; box-shadow: 0 1px 2px rgba(42, 18, 6, 0.05); }
-.cset .admin-note-warn { border: 1px solid rgba(181, 113, 58, 0.26); background: rgba(181, 113, 58, 0.06); color: var(--text-dim); }
-.cset .admin-note-info { border: 1px solid rgba(107, 142, 196, 0.28); background: rgba(107, 142, 196, 0.06); }
-.cset .admin-note-err  { border: 1px solid rgba(244, 113, 116, 0.38); background: rgba(244, 113, 116, 0.06); }
-
 /* Form fields sit flush inside cards (no max-width form column). */
 .cset .card .admin-field { margin-bottom: 14px; }
 .cset .card .admin-field:last-child { margin-bottom: 0; }
