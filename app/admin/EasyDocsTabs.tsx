@@ -19,8 +19,8 @@ export function EasyDocsTabs({
   onSelect?: (t: 'rules' | 'documents') => void
 }) {
   const pageTabs: { key: 'rules' | 'documents'; label: string }[] = [
-    { key: 'rules',     label: 'Rules' },
     { key: 'documents', label: 'Documents' },
+    { key: 'rules',     label: 'Rules' },
   ]
   return (
     <div className="seg-tabs" role="tablist">

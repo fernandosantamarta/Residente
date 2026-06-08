@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback, useRef, ChangeEvent } from 'react'
+import { AdminModal } from '../AdminModal'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import {
@@ -69,7 +70,7 @@ export default function AdminEasyDocs() {
   // the Easy Documents sub-nav; only the active section renders. Read the hash
   // once on mount so arriving from the Violations tab (#documents) lands on the
   // right section.
-  const [tab, setTab] = useState<'rules' | 'documents'>('rules')
+  const [tab, setTab] = useState<'rules' | 'documents'>('documents')
   useEffect(() => {
     const h = window.location.hash.replace(/^#/, '')
     if (h === 'rules' || h === 'documents') setTab(h)
@@ -89,6 +90,7 @@ export default function AdminEasyDocs() {
   >('all')
   const [rulePage, setRulePage] = useState(1)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [showAddRule, setShowAddRule] = useState(false)
   const [ruleSuccessMsg, setRuleSuccessMsg] = useState('')
   const { rules: rows, addRule: insertRule, removeRule: deleteRule, deleteAll, restoreDemo } = useRulesAdmin()
   const ruleStatus = 'ready' as const
@@ -138,6 +140,7 @@ export default function AdminEasyDocs() {
       } catch { /* notice is best-effort; the rule add already succeeded */ }
 
       setRuleForm(RULE_EMPTY)
+      setShowAddRule(false)
       setRuleSuccessMsg(
         newCategoryCreated
           ? `Added "${title}" — "${section}" is now a category too.`
@@ -176,7 +179,11 @@ export default function AdminEasyDocs() {
   const [docSaving, setDocSaving] = useState(false)
   const [docSuccessMsg, setDocSuccessMsg] = useState('')
   const [docPage, setDocPage] = useState(1)
+  const [docCatFilter, setDocCatFilter] = useState<string>('all')
+  const [showUpload, setShowUpload] = useState(false)
   const docFileRef = useRef(null)
+  const govFileRef = useRef<HTMLInputElement | null>(null)
+  const bulkFileRef = useRef<HTMLInputElement | null>(null)
   // Official-records compliance: community (for posting scope) + records-inspection requests.
   const [community, setCommunity] = useState<any>(null)
   const [recRequests, setRecRequests] = useState<any[]>([])
@@ -258,6 +265,7 @@ export default function AdminEasyDocs() {
       setDocForm(DOC_EMPTY)
       setDocFile(null)
       if (docFileRef.current) docFileRef.current.value = ''
+      setShowUpload(false)
       setDocSuccessMsg(`Uploaded "${row.title}".`)
 
       // Tell residents a new library document is available. Uploads through the
@@ -297,6 +305,81 @@ export default function AdminEasyDocs() {
       setDocRows(prev)
       setDocError(err?.message || 'Could not remove that document')
     }
+  }
+
+  // Open a stored document in a new tab via a short-lived signed URL (the mock's
+  // "Open →"). Read-only; the bucket is private so we never expose a raw path.
+  const openDoc = async (doc: any) => {
+    try {
+      const { data, error } = await withTimeoutDocs(
+        supabase.storage.from('documents').createSignedUrl(doc.storage_path, 60)
+      )
+      if (error) throw error
+      if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener,noreferrer')
+    } catch (err: any) {
+      setDocError(err?.message || 'Could not open that document')
+    }
+  }
+
+  // "Set up from your governing docs" — pick a PDF and file it under Governing
+  // Documents immediately. Same upload path as the form; auto-extraction into
+  // rules/fines is a later slice (the extract-setup edge fn), noted in the card.
+  const onPickGoverningDoc = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (e.target) e.target.value = ''
+    if (!file) return
+    setDocSaving(true); setDocError('')
+    try {
+      const ext = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : 'pdf'
+      const path = `${communityId}/${crypto.randomUUID()}.${ext}`
+      const up = await withTimeoutDocs(supabase.storage.from('documents').upload(path, file))
+      if ((up as any).error) throw (up as any).error
+      const title = file.name.replace(/\.[^.]+$/, '')
+      const { data, error } = await withTimeoutDocs(
+        supabase.from('documents').insert({
+          community_id: communityId, title,
+          category: 'Governing Documents', storage_path: path, file_size: file.size,
+        }).select().single()
+      )
+      if (error) { supabase.storage.from('documents').remove([path]); throw error }
+      setDocRows((rs: any[]) => [data, ...rs])
+      setDocSuccessMsg(`Filed "${title}" under Governing Documents.`)
+    } catch (err: any) {
+      setDocError(err?.message || 'Could not upload that file')
+    } finally { setDocSaving(false) }
+  }
+
+  // Bulk upload — pick many files at once and file each one. Category defaults to
+  // the active filter (if a specific one is picked) so "filter to Minutes → bulk
+  // upload" tags them all; otherwise Governing Documents. Failures skip, not abort.
+  const onBulkUpload = async (e: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    if (e.target) e.target.value = ''
+    if (!files.length) return
+    const category = (docCatFilter !== 'all' ? docCatFilter : 'Governing Documents') as DocCategory
+    setDocSaving(true); setDocError('')
+    let ok = 0
+    try {
+      for (const file of files) {
+        try {
+          const ext = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : 'bin'
+          const path = `${communityId}/${crypto.randomUUID()}.${ext}`
+          const up = await withTimeoutDocs(supabase.storage.from('documents').upload(path, file))
+          if ((up as any).error) throw (up as any).error
+          const { data, error } = await withTimeoutDocs(
+            supabase.from('documents').insert({
+              community_id: communityId, title: file.name.replace(/\.[^.]+$/, ''),
+              category, storage_path: path, file_size: file.size,
+            }).select().single()
+          )
+          if (error) { supabase.storage.from('documents').remove([path]); throw error }
+          setDocRows((rs: any[]) => [data, ...rs])
+          ok++
+        } catch { /* skip this file, keep going */ }
+      }
+      if (ok) setDocSuccessMsg(`Uploaded ${ok} document${ok === 1 ? '' : 's'} to ${category}.`)
+      if (ok < files.length) setDocError(`${files.length - ok} file${files.length - ok === 1 ? '' : 's'} failed to upload.`)
+    } finally { setDocSaving(false) }
   }
 
   // Mark a document posted / unposted to the portal (drives the 30-day signal).
@@ -359,13 +442,33 @@ export default function AdminEasyDocs() {
       ════════════════════════════════════════════════════════════════ */}
       {tab === 'rules' && (
       <section id="easydocs-rules" style={{ scrollMarginTop: 56 }}>
-        <div className="admin-page">
+        <div className="admin-page cset">
           <div className="admin-kicker">Rules</div>
-          <h1 className="admin-h1">Community rules</h1>
-          <p className="admin-dek">
-            Covenants and house rules. Everything here shows on each resident's
+          <h1 className="admin-h1">Rule book</h1>
+          <p className="admin-dek" style={{ maxWidth: 560 }}>
+            Covenants and house rules. Everything here shows on each resident&rsquo;s
             Rules page, grouped by section.
           </p>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', margin: '6px 0 8px' }}>
+            <button type="button" className="admin-btn-ghost"
+              onClick={async () => {
+                try { await restoreDemo(); setRuleSuccessMsg('Starter rules added.') }
+                catch (err) { setRuleError((err as any)?.message || 'Could not restore samples') }
+              }}>
+              Restore samples
+            </button>
+            <button type="button" className="admin-rules-danger"
+              onClick={async () => {
+                if (window.confirm('Delete every rule? You can restore the samples afterward.')) {
+                  try { await deleteAll(); setRuleSuccessMsg('All rules deleted.') }
+                  catch (err) { setRuleError((err as any)?.message || 'Could not delete rules') }
+                }
+              }}>
+              Delete all
+            </button>
+            <button type="button" className="admin-primary-btn" onClick={() => setShowAddRule(true)}>+ Add rule</button>
+          </div>
 
           {ruleSuccessMsg && (
             <div className="admin-success" role="status">
@@ -374,230 +477,197 @@ export default function AdminEasyDocs() {
             </div>
           )}
 
-          <form className="admin-form" onSubmit={addRule}>
-            <div className="admin-field">
-              <span className="admin-field-label">Section</span>
-              <Dropdown<string>
-                value={ruleForm.section}
-                onChange={v => setRuleField('section', v)}
-                ariaLabel="Rule section"
-                placeholder="Choose a section…"
-                searchable
-                onCreate={name => {
-                  addStoredCategory(name)
-                  setRuleField('section', name)
-                  setRuleSuccessMsg(`Added "${name}" as a category.`)
-                }}
-                onDelete={name => {
-                  const isBuiltIn = (RULE_CATEGORIES as readonly string[]).includes(name)
-                  if (isBuiltIn) hideBuiltInCategory(name)
-                  else removeStoredCategory(name)
-                  if (ruleForm.section === name) setRuleField('section', '')
-                  setRuleSuccessMsg(`Removed "${name}" category.`)
-                }}
-                options={categories.map(c => ({ value: c, label: c }))}
-              />
-              <span className="admin-field-hint">
-                Search to filter, or type a new section and click <strong>Add</strong>.
-              </span>
-            </div>
-            <label className="admin-field">
-              <span className="admin-field-label">Rule</span>
-              <input name="title" className="admin-input" placeholder="Trash bins stored out of street view"
-                value={ruleForm.title} onChange={e => setRuleField('title', e.target.value)} />
-            </label>
-            <label className="admin-field">
-              <span className="admin-field-label">Detail (optional)</span>
-              <textarea name="body" className="admin-input admin-textarea" rows={3}
-                placeholder="Plain-language explanation residents will read."
-                value={ruleForm.body} onChange={e => setRuleField('body', e.target.value)} />
-            </label>
-            <label className="admin-field" style={{ maxWidth: 200 }}>
-              <span className="admin-field-label">Fine $ (optional)</span>
-              <input name="fine" className="admin-input" type="number" placeholder="50"
-                value={ruleForm.fine} onChange={e => setRuleField('fine', e.target.value)} />
-            </label>
-            <div className="admin-form-actions">
-              <button type="submit" className="admin-btn" disabled={ruleSaving}>
-                {ruleSaving ? 'Adding…' : 'Add rule'}
-              </button>
-              {ruleError && <span className="admin-err-inline">{ruleError}</span>}
-            </div>
-          </form>
-
-          <div className="admin-rules-bulk">
-            <div className="admin-rules-bulk-head">
-              <h2 className="bc-title">Bulk upload</h2>
-              <span className="bc-sub">Got a CC&amp;R packet or rule book PDF? Drop it here.</span>
-            </div>
-            <div className="admin-bulk-box admin-bulk-pdf">
-              <div className="admin-bulk-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
-                  <path d="M14 3v6h6" />
-                  <text x="7" y="17" fontSize="6" fontWeight="700" fill="currentColor" stroke="none">PDF</text>
-                </svg>
+          {/* Set up from a rule book PDF — same governing-docs intake pattern. */}
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <h2>Set up from a rule book PDF</h2>
+                <div className="sub">Got a CC&amp;R packet or rule book PDF? We&rsquo;ll pull the rule titles, sections &amp; fines out automatically.</div>
               </div>
-              <div className="admin-bulk-body">
-                <div className="admin-bulk-title">Rule book PDF</div>
-                <div className="admin-bulk-sub">
-                  We&rsquo;ll pull rule titles, sections, and fines out automatically so you don&rsquo;t have to retype them.
-                </div>
-                {pdfFile && <div className="admin-bulk-file">{pdfFile.name}</div>}
-                {pdfStatus && <div className="admin-bulk-file" style={{ background: 'rgba(125,140,92,0.14)' }}>{pdfStatus}</div>}
-                <div className="admin-bulk-actions">
-                  <input name="rule-book-pdf" ref={pdfInputRef} type="file" accept="application/pdf"
-                    onChange={onPickPdf} style={{ display: 'none' }} />
-                  <button type="button" className="admin-secondary-btn"
-                    onClick={() => pdfInputRef.current?.click()}>
-                    {pdfFile ? 'Pick another file' : 'Choose file'}
-                  </button>
-                  <button type="button" className="admin-primary-btn" onClick={importPdf} disabled={!pdfFile}>
-                    Import
-                  </button>
-                </div>
+              <span className="doc-badge">Sets itself up</span>
+            </div>
+            <div className="docsetup">
+              <div className="docsetup-title">Drop a PDF here</div>
+              <div className="docsetup-sub">CC&amp;Rs &middot; Rules &amp; Regulations &middot; Bylaws</div>
+            </div>
+            {pdfFile && <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--text-dim)' }}>{pdfFile.name}</div>}
+            {pdfStatus && <div className="admin-note" style={{ marginTop: 10 }}>{pdfStatus}</div>}
+            <div className="docsetup-actions">
+              <input name="rule-book-pdf" ref={pdfInputRef} type="file" accept="application/pdf"
+                onChange={onPickPdf} style={{ display: 'none' }} />
+              <span className="docsetup-hint">We&rsquo;ll show you what we found before anything is saved.</span>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button type="button" className="admin-secondary-btn" onClick={() => pdfInputRef.current?.click()}>
+                  {pdfFile ? 'Pick another' : 'Choose file'}
+                </button>
+                <button type="button" className="admin-primary-btn" onClick={importPdf} disabled={!pdfFile}>Import</button>
               </div>
             </div>
           </div>
 
-          <div className="bc-head" style={{ marginTop: 40, marginBottom: 14, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-            <div>
-              <h2 className="bc-title">Rule book</h2>
-              <span className="bc-sub">{rows.length} {rows.length === 1 ? 'rule' : 'rules'} published.</span>
+          {/* Rule book — numbered clean rows (matches mock). */}
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <h2>Rule book</h2>
+                <div className="sub">Published to residents · {rows.length} {rows.length === 1 ? 'rule' : 'rules'}</div>
+              </div>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ minWidth: 160 }}>
+                  <Dropdown<string>
+                    value={filterCategory}
+                    onChange={setFilterCategory}
+                    ariaLabel="Filter rules by category"
+                    options={[
+                      { value: 'all', label: `All sections (${rows.length})` },
+                      ...categories.map(c => ({
+                        value: c,
+                        label: `${c} (${rows.filter((r: any) => (r.section || '') === c).length})`,
+                      })),
+                    ]}
+                  />
+                </div>
+                <div style={{ minWidth: 140 }}>
+                  <Dropdown<typeof filterPeriod>
+                    value={filterPeriod}
+                    onChange={setFilterPeriod}
+                    ariaLabel="Filter rules by when added"
+                    options={[
+                      { value: 'all',        label: 'All time' },
+                      { value: 'week',       label: 'This week' },
+                      { value: 'month',      label: 'This month' },
+                      { value: 'past-week',  label: 'Past week' },
+                      { value: 'past-month', label: 'Past month' },
+                      { value: 'past-year',  label: 'Past year' },
+                    ]}
+                  />
+                </div>
+              </div>
             </div>
-            <div style={{ display: 'inline-flex', gap: 8 }}>
-              <button type="button" className="admin-btn-ghost"
-                onClick={async () => {
-                  try { await restoreDemo(); setRuleSuccessMsg('Starter rules added.') }
-                  catch (err) { setRuleError((err as any)?.message || 'Could not restore samples') }
-                }}>
-                Restore samples
-              </button>
-              <button type="button" className="admin-rules-danger"
-                onClick={async () => {
-                  if (window.confirm('Delete every rule? You can restore the samples afterward.')) {
-                    try { await deleteAll(); setRuleSuccessMsg('All rules deleted.') }
-                    catch (err) { setRuleError((err as any)?.message || 'Could not delete rules') }
-                  }
-                }}>
-                Delete all
-              </button>
-            </div>
+
+            {rows.length === 0 ? (
+              <div className="bc-empty" style={{ margin: 0 }}>No rules yet — click &ldquo;+ Add rule&rdquo; or drop a PDF above.</div>
+            ) : (() => {
+              const filtered = rows.filter((r: any) => {
+                if (filterCategory !== 'all' && (r.section || '') !== filterCategory) return false
+                if (filterPeriod === 'all') return true
+                const added = r.created_at ? new Date(r.created_at) : null
+                if (!added) return false
+                const today = new Date()
+                const dayMs = 24 * 60 * 60 * 1000
+                const weekStart = new Date(today); weekStart.setDate(today.getDate() - today.getDay())
+                const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
+                const past7   = new Date(today.getTime() -   7 * dayMs)
+                const past30  = new Date(today.getTime() -  30 * dayMs)
+                const past365 = new Date(today.getTime() - 365 * dayMs)
+                switch (filterPeriod) {
+                  case 'week':       return added >= weekStart
+                  case 'month':      return added >= monthStart
+                  case 'past-week':  return added >= past7
+                  case 'past-month': return added >= past30
+                  case 'past-year':  return added >= past365
+                }
+              })
+              if (filtered.length === 0) return <div className="bc-empty" style={{ margin: 0 }}>No rules match these filters.</div>
+              const visible = paginate(filtered, rulePage, RULE_BOOK_PAGE_SIZE)
+              const startIdx = (rulePage - 1) * RULE_BOOK_PAGE_SIZE
+              return (
+                <>
+                  <div className="rulelist">
+                    {visible.map((r: any, i: number) => {
+                      const open = expandedId === r.id
+                      return (
+                        <div className="rulerow" key={r.id}>
+                          <span className="rulenum">{startIdx + i + 1}</span>
+                          <div className="rulemain">
+                            <div className="ruletitle">{r.title}</div>
+                            <div className="rulemeta">
+                              {r.section ? `${r.section} · ` : ''}{r.body ? r.body.slice(0, 80) + (r.body.length > 80 ? '…' : '') : `Published ${fmtPubDate(r.created_at) || '—'}`}
+                            </div>
+                            {open && (
+                              <div className="rule-detail">
+                                {r.body ? <p style={{ margin: '0 0 8px' }}>{r.body}</p> : <p style={{ margin: '0 0 8px', opacity: 0.7 }}>No additional detail for this rule.</p>}
+                                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12.5 }}>
+                                  <span><strong>Section:</strong> {r.section || 'Unsectioned'}</span>
+                                  <span><strong>Published:</strong> {fmtPubDate(r.created_at) || 'unknown'}</span>
+                                  {r.fine != null && Number(r.fine) > 0 && <span><strong>Fine:</strong> {fmtMoney(r.fine)}</span>}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <div className="ruleactions">
+                            {r.fine != null && Number(r.fine) > 0 && <div className="bd-amount">{fmtMoney(r.fine)}</div>}
+                            <button type="button" className="rule-edit" onClick={() => setExpandedId(open ? null : r.id)} aria-expanded={open}>
+                              {open ? 'Close' : 'Edit'} →
+                            </button>
+                            <button type="button" className="vdel" onClick={() => removeRule(r.id)} aria-label="Remove rule">&times;</button>
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                  <Pagination page={rulePage} pageSize={RULE_BOOK_PAGE_SIZE}
+                    total={filtered.length} onPageChange={setRulePage} />
+                </>
+              )
+            })()}
           </div>
 
-          <div className="admin-sched-filters" style={{ marginTop: 4, marginBottom: 12 }}>
-            <div className="admin-sched-filter">
-              <label>Category</label>
-              <Dropdown<string>
-                value={filterCategory}
-                onChange={setFilterCategory}
-                ariaLabel="Filter rules by category"
-                options={[
-                  { value: 'all', label: `All (${rows.length})` },
-                  ...categories.map(c => ({
-                    value: c,
-                    label: `${c} (${rows.filter((r: any) => (r.section || '') === c).length})`,
-                  })),
-                ]}
-              />
-            </div>
-            <div className="admin-sched-filter">
-              <label>Time period</label>
-              <Dropdown<typeof filterPeriod>
-                value={filterPeriod}
-                onChange={setFilterPeriod}
-                ariaLabel="Filter rules by when added"
-                options={[
-                  { value: 'all',        label: 'All time' },
-                  { value: 'week',       label: 'This week' },
-                  { value: 'month',      label: 'This month' },
-                  { value: 'past-week',  label: 'Past week' },
-                  { value: 'past-month', label: 'Past month' },
-                  { value: 'past-year',  label: 'Past year' },
-                ]}
-              />
-            </div>
-          </div>
-
-          {rows.length === 0 && (
-            <div className="bc-empty">No rules yet — add the first one above.</div>
+          {/* Add-rule popup — opens over the page from "+ Add rule". */}
+          {showAddRule && (
+            <AdminModal title="Add a rule"
+              sub="It shows on every resident's Rules page under its section."
+              onClose={() => setShowAddRule(false)}>
+              <form className="admin-form" onSubmit={addRule}>
+                <div className="admin-field">
+                  <span className="admin-field-label">Section</span>
+                  <Dropdown<string>
+                    value={ruleForm.section}
+                    onChange={v => setRuleField('section', v)}
+                    ariaLabel="Rule section"
+                    placeholder="Choose a section…"
+                    searchable
+                    onCreate={name => {
+                      addStoredCategory(name)
+                      setRuleField('section', name)
+                      setRuleSuccessMsg(`Added "${name}" as a category.`)
+                    }}
+                    onDelete={name => {
+                      const isBuiltIn = (RULE_CATEGORIES as readonly string[]).includes(name)
+                      if (isBuiltIn) hideBuiltInCategory(name)
+                      else removeStoredCategory(name)
+                      if (ruleForm.section === name) setRuleField('section', '')
+                      setRuleSuccessMsg(`Removed "${name}" category.`)
+                    }}
+                    options={categories.map(c => ({ value: c, label: c }))}
+                  />
+                  <span className="admin-field-hint">Search to filter, or type a new section and click <strong>Add</strong>.</span>
+                </div>
+                <label className="admin-field">
+                  <span className="admin-field-label">Rule</span>
+                  <input name="title" className="admin-input" placeholder="Trash bins stored out of street view"
+                    value={ruleForm.title} onChange={e => setRuleField('title', e.target.value)} />
+                </label>
+                <label className="admin-field">
+                  <span className="admin-field-label">Detail (optional)</span>
+                  <textarea name="body" className="admin-input admin-textarea" rows={3}
+                    placeholder="Plain-language explanation residents will read."
+                    value={ruleForm.body} onChange={e => setRuleField('body', e.target.value)} />
+                </label>
+                <label className="admin-field" style={{ maxWidth: 200 }}>
+                  <span className="admin-field-label">Fine $ (optional)</span>
+                  <input name="fine" className="admin-input" type="number" placeholder="50"
+                    value={ruleForm.fine} onChange={e => setRuleField('fine', e.target.value)} />
+                </label>
+                <div className="admin-form-actions">
+                  <button type="submit" className="admin-primary-btn" disabled={ruleSaving}>
+                    {ruleSaving ? 'Adding…' : 'Add rule'}
+                  </button>
+                  {ruleError && <span className="admin-err-inline">{ruleError}</span>}
+                </div>
+              </form>
+            </AdminModal>
           )}
-
-          {(() => {
-            const filtered = rows.filter((r: any) => {
-              if (filterCategory !== 'all' && (r.section || '') !== filterCategory) return false
-              if (filterPeriod === 'all') return true
-              const added = r.created_at ? new Date(r.created_at) : null
-              if (!added) return false
-              const today = new Date()
-              const dayMs = 24 * 60 * 60 * 1000
-              const weekStart = new Date(today); weekStart.setDate(today.getDate() - today.getDay())
-              const monthStart = new Date(today.getFullYear(), today.getMonth(), 1)
-              const past7   = new Date(today.getTime() -   7 * dayMs)
-              const past30  = new Date(today.getTime() -  30 * dayMs)
-              const past365 = new Date(today.getTime() - 365 * dayMs)
-              switch (filterPeriod) {
-                case 'week':       return added >= weekStart
-                case 'month':      return added >= monthStart
-                case 'past-week':  return added >= past7
-                case 'past-month': return added >= past30
-                case 'past-year':  return added >= past365
-              }
-            })
-            const visible = paginate(filtered, rulePage, RULE_BOOK_PAGE_SIZE)
-            return (
-              <>
-                <div className="bd-list">
-                  {visible.map((r: any) => {
-                    const open = expandedId === r.id
-                    return (
-                      <div className={`bd-row${open ? ' open' : ''}`} key={r.id}>
-                        <button type="button" className="bd-row-toggle"
-                          onClick={() => setExpandedId(open ? null : r.id)} aria-expanded={open}>
-                          <div className="bd-main">
-                            <div className="bd-title">{r.title}</div>
-                            <div className="bd-meta">
-                              {r.section && <><span>{r.section}</span><span className="bd-dot">·</span></>}
-                              <span>Published {fmtPubDate(r.created_at) || '—'}</span>
-                              {r.body && !open && (
-                                <><span className="bd-dot">·</span>
-                                  <span>{r.body.slice(0, 64)}{r.body.length > 64 ? '…' : ''}</span></>
-                              )}
-                            </div>
-                          </div>
-                          {r.fine != null && Number(r.fine) > 0 && (
-                            <div className="bd-amount">{fmtMoney(r.fine)}</div>
-                          )}
-                          <svg className="bd-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                            <polyline points="6 9 12 15 18 9" />
-                          </svg>
-                        </button>
-                        {open && (
-                          <div className="bd-body">
-                            {r.body
-                              ? <p>{r.body}</p>
-                              : <p className="bd-body-empty">No additional detail for this rule.</p>}
-                            <div className="bd-body-meta">
-                              <span><strong>Section:</strong> {r.section || 'Unsectioned'}</span>
-                              <span><strong>Published:</strong> {fmtPubDate(r.created_at) || 'unknown'}</span>
-                              {r.fine != null && Number(r.fine) > 0 && (
-                                <span><strong>Fine:</strong> {fmtMoney(r.fine)}</span>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        <button type="button" className="bc-del"
-                          onClick={(e) => { e.stopPropagation(); removeRule(r.id) }}
-                          aria-label="Remove rule">&times;</button>
-                      </div>
-                    )
-                  })}
-                </div>
-                <Pagination page={rulePage} pageSize={RULE_BOOK_PAGE_SIZE}
-                  total={filtered.length} onPageChange={setRulePage} />
-              </>
-            )
-          })()}
         </div>
       </section>
       )}
@@ -607,13 +677,25 @@ export default function AdminEasyDocs() {
       ════════════════════════════════════════════════════════════════ */}
       {tab === 'documents' && (
       <section id="easydocs-documents" style={{ scrollMarginTop: 56 }}>
-        <div className="admin-page">
+        <div className="admin-page cset">
           <div className="admin-kicker">Documents</div>
           <h1 className="admin-h1">Document archive</h1>
-          <p className="admin-dek">
-            Upload minutes, financials, insurance certificates and contracts.
-            Every file shows on each resident's Documents page to download.
+          <p className="admin-dek" style={{ maxWidth: 560 }}>
+            Your community&rsquo;s official records and rule book. Drop your governing
+            docs and Residente pre-fills the rules.
           </p>
+          {docStatus === 'ready' && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap', margin: '6px 0 8px' }}>
+              <input ref={bulkFileRef} type="file" multiple onChange={onBulkUpload} style={{ display: 'none' }} />
+              <button type="button" className="admin-secondary-btn" disabled={docSaving}
+                onClick={() => bulkFileRef.current?.click()}>
+                {docSaving ? 'Uploading…' : 'Bulk upload'}
+              </button>
+              <button type="button" className="admin-primary-btn" onClick={() => setShowUpload(s => !s)}>
+                {showUpload ? 'Close' : 'Add document'}
+              </button>
+            </div>
+          )}
 
           {docStatus === 'none' && (
             <div className="admin-note admin-note-warn">
@@ -641,14 +723,75 @@ export default function AdminEasyDocs() {
           {docStatus === 'loading' && <div className="admin-note">Loading…</div>}
           {docStatus === 'ready' && (
             <>
-              <div className="admin-note admin-note-info" style={{ marginBottom: 24 }}>
-                <strong>Florida compliance — required document types</strong>
-                <p style={{ margin: '8px 0 10px', fontSize: 13, opacity: 0.85 }}>
+              {/* Set up from your governing docs — drop a PDF, file it, pre-fill rules. */}
+              <div className="card">
+                <div className="card-head">
+                  <div>
+                    <h2>Set up from your governing docs</h2>
+                    <div className="sub">Drop your declaration or bylaws &mdash; we read them into your rules, fine schedule &amp; reserves.</div>
+                  </div>
+                  <span className="doc-badge">Sets itself up</span>
+                </div>
+                <div className="docsetup">
+                  <div className="docsetup-title">Drop a PDF here</div>
+                  <div className="docsetup-sub">Declaration &middot; Bylaws &middot; Articles &middot; Rules &amp; Regulations</div>
+                </div>
+                <div className="docsetup-actions">
+                  <input ref={govFileRef} type="file" accept="application/pdf"
+                    onChange={onPickGoverningDoc} style={{ display: 'none' }} />
+                  <span className="docsetup-hint">We&rsquo;ll show you what we found before anything is saved.</span>
+                  <button type="button" className="admin-primary-btn" disabled={docSaving}
+                    onClick={() => govFileRef.current?.click()}>
+                    {docSaving ? 'Uploading…' : 'Choose file'}
+                  </button>
+                </div>
+              </div>
+
+              {/* Add-a-document popup — opens over the page from the header button. */}
+              {showUpload && (
+                <AdminModal title="Add a document"
+                  sub="Minutes, financials, insurance certificates, contracts."
+                  onClose={() => setShowUpload(false)}>
+                  <form className="admin-form" onSubmit={uploadDoc}>
+                    <label className="admin-field">
+                      <span className="admin-field-label">Title</span>
+                      <input name="title" className="admin-input" placeholder="April 2026 board meeting minutes"
+                        value={docForm.title} onChange={e => setDocField('title', e.target.value)} />
+                    </label>
+                    <div className="admin-field" style={{ maxWidth: 240 }}>
+                      <span className="admin-field-label">Category</span>
+                      <Dropdown
+                        value={docForm.category}
+                        onChange={v => setDocField('category', v)}
+                        ariaLabel="Document category"
+                        options={[...DOC_CATEGORIES].map(c => ({ value: c, label: c }))}
+                      />
+                    </div>
+                    <label className="admin-field">
+                      <span className="admin-field-label">File</span>
+                      <input name="document" ref={docFileRef} type="file" className="admin-file"
+                        onChange={e => setDocFile(e.target.files?.[0] || null)} />
+                    </label>
+                    <div className="admin-form-actions">
+                      <button type="submit" className="admin-primary-btn" disabled={docSaving}>
+                        {docSaving ? 'Uploading…' : 'Upload document'}
+                      </button>
+                      {docError && <span className="admin-err-inline">{docError}</span>}
+                    </div>
+                  </form>
+                </AdminModal>
+              )}
+
+              {/* Florida compliance — required document types (kept from the live page). */}
+              <div className="card">
+                <div className="card-head"><div><h2>Florida compliance</h2>
+                  <div className="sub">Required document types &mdash; missing types are flagged.</div></div></div>
+                <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--text-dim)' }}>
                   FL 718.111(12)(g) (condos, 25+ units) and FL 720.303(4)(b) (HOAs, 100+ parcels)
-                  require associations to post the following document types online within 30 days of
-                  creation or receipt. Types highlighted below are missing from your portal.
+                  require associations to post these document types online within 30 days of
+                  creation or receipt.
                 </p>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 8 }}>
                   {FL_REQUIRED_CATEGORIES.map(({ label, statute }) => {
                     const present = docRows.some(
                       (d: any) => (d.category || '').toLowerCase() === label.toLowerCase()
@@ -658,146 +801,166 @@ export default function AdminEasyDocs() {
                         key={label}
                         title={`FL §${statute}`}
                         style={{
-                          display: 'inline-flex', alignItems: 'center', gap: 5,
-                          padding: '4px 10px', borderRadius: 20, fontSize: 12, fontWeight: 500,
-                          background: present ? 'rgba(125,140,92,0.18)' : 'rgba(210,80,80,0.13)',
-                          color: present ? 'var(--accent)' : '#c0392b',
+                          display: 'flex', alignItems: 'center', gap: 8,
+                          padding: '7px 12px', borderRadius: 10, fontSize: 12.5, fontWeight: 600,
+                          background: present ? 'rgba(125,140,92,0.14)' : 'rgba(210,80,80,0.10)',
+                          color: present ? '#5d6b3f' : '#c0392b',
                           border: `1px solid ${present ? 'rgba(125,140,92,0.3)' : 'rgba(210,80,80,0.25)'}`,
                         }}
                       >
-                        <span>{present ? '✓' : '!'}</span> {label}
+                        <span style={{
+                          flexShrink: 0, width: 18, height: 18, borderRadius: '50%',
+                          display: 'grid', placeItems: 'center', fontSize: 11, lineHeight: 1,
+                          color: '#fff', background: present ? '#7d8c5c' : '#c0392b',
+                        }}>{present ? '✓' : '!'}</span>
+                        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{label}</span>
                       </span>
                     )
                   })}
                 </div>
-                <p style={{ margin: '10px 0 0', fontSize: 12, opacity: 0.7 }}>
-                  <strong>Public notices requirement (HOA only):</strong> FL 720.303(4)(b)(1)(l) requires
-                  meeting notices to be posted in plain view on a public homepage or "Notices" subpage —
-                  not just behind login. Contact your management company or attorney to determine how your
-                  association will satisfy this requirement.
+                <p style={{ margin: '12px 0 0', fontSize: 12, color: 'var(--text-faint)' }}>
+                  <strong>Public notices (HOA only):</strong> FL 720.303(4)(b)(1)(l) requires
+                  meeting notices to be posted in plain view on a public homepage or &ldquo;Notices&rdquo;
+                  subpage &mdash; not just behind login.
                 </p>
               </div>
 
-              <form className="admin-form" onSubmit={uploadDoc}>
-                <label className="admin-field">
-                  <span className="admin-field-label">Title</span>
-                  <input name="title" className="admin-input" placeholder="April 2026 board meeting minutes"
-                    value={docForm.title} onChange={e => setDocField('title', e.target.value)} />
-                </label>
-                <div className="admin-field" style={{ maxWidth: 240 }}>
-                  <span className="admin-field-label">Category</span>
-                  <Dropdown
-                    value={docForm.category}
-                    onChange={v => setDocField('category', v)}
-                    ariaLabel="Document category"
-                    options={[...DOC_CATEGORIES].map(c => ({ value: c, label: c }))}
-                  />
-                </div>
-                <label className="admin-field">
-                  <span className="admin-field-label">File</span>
-                  <input name="document" ref={docFileRef} type="file" className="admin-file"
-                    onChange={e => setDocFile(e.target.files?.[0] || null)} />
-                </label>
-                <div className="admin-form-actions">
-                  <button type="submit" className="admin-primary-btn" disabled={docSaving}>
-                    {docSaving ? 'Uploading…' : 'Upload document'}
-                  </button>
-                  {docError && <span className="admin-err-inline">{docError}</span>}
-                </div>
-              </form>
-
-              <div className="bc-head" style={{ marginTop: 40, marginBottom: 14 }}>
-                <h2 className="bc-title">Archive</h2>
-                <span className="bc-sub">
-                  {docRows.length} {docRows.length === 1 ? 'document' : 'documents'} published.
-                </span>
-              </div>
-
-              {docRows.length === 0 && (
-                <div className="bc-empty">No documents yet — upload the first one above.</div>
-              )}
-              <div className="bd-list">
-                {paginate(docRows, docPage, DOCS_PAGE_SIZE).map(d => (
-                  <div key={d.id}>
-                    <div className="bd-row">
-                      <div className="bd-main">
-                        <div className="bd-title">{d.title}</div>
-                        <div className="bd-meta">
-                          {d.category && <><span>{d.category}</span><span className="bd-dot">·</span></>}
-                          <span>{fmtDate(d.uploaded_at)}</span>
-                          {fmtSize(d.file_size) && <><span className="bd-dot">·</span><span>{fmtSize(d.file_size)}</span></>}
-                          {recordsApplies && (
-                            <>
-                              <span className="bd-dot">·</span>
-                              <span style={{ color: d.posted_to_portal ? '#067647' : '#B54708', fontWeight: 600 }}>
-                                {d.posted_to_portal ? '✓ Posted' : 'Not posted'}
-                              </span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      {recordsApplies && (
-                        <button type="button" className="admin-btn-ghost" style={{ marginRight: 8 }}
-                          onClick={() => togglePosted(d)}>
-                          {d.posted_to_portal ? 'Mark unposted' : 'Mark posted'}
-                        </button>
-                      )}
-                      <button type="button" className="bc-del" onClick={() => removeDoc(d)}
-                        aria-label="Remove document">&times;</button>
-                    </div>
-                    {isHoa && <AmendmentControl doc={d} onPatch={patchDoc} />}
+              {/* Archive — clean table (mock columns + preserved posting/amendment). */}
+              <div className="card">
+                <div className="card-head">
+                  <div><h2>Archive</h2>
+                    <div className="sub">{docRows.length} {docRows.length === 1 ? 'document' : 'documents'}</div></div>
+                  <div style={{ minWidth: 180 }}>
+                    <Dropdown<string>
+                      value={docCatFilter}
+                      onChange={(v) => { setDocCatFilter(v); setDocPage(1) }}
+                      ariaLabel="Filter documents by category"
+                      options={[
+                        { value: 'all', label: `All categories (${docRows.length})` },
+                        ...[...DOC_CATEGORIES].map(c => ({
+                          value: c,
+                          label: `${c} (${docRows.filter((d: any) => (d.category || '') === c).length})`,
+                        })),
+                      ]}
+                    />
                   </div>
-                ))}
+                </div>
+                {(() => {
+                  const filteredDocs = docRows.filter((d: any) => docCatFilter === 'all' || (d.category || '') === docCatFilter)
+                  if (filteredDocs.length === 0) {
+                    return <div className="bc-empty" style={{ margin: 0 }}>
+                      {docRows.length === 0 ? 'No documents yet — drop a PDF above or add one.' : 'No documents in this category.'}
+                    </div>
+                  }
+                  const pageRows = paginate(filteredDocs, docPage, DOCS_PAGE_SIZE)
+                  return (
+                    <>
+                      <table className="doctbl">
+                        <thead>
+                          <tr>
+                            <th>Document</th><th>Category</th><th>Uploaded</th><th className="act" aria-label="Actions" />
+                          </tr>
+                        </thead>
+                        {pageRows.map((d: any) => {
+                          const hasSub = recordsApplies || isHoa
+                          return (
+                            <tbody key={d.id}>
+                              <tr>
+                                <td>
+                                  <div className="doc-name">{d.title}</div>
+                                  {(fmtSize(d.file_size) || recordsApplies) && (
+                                    <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>
+                                      {fmtSize(d.file_size)}
+                                      {fmtSize(d.file_size) && recordsApplies && ' · '}
+                                      {recordsApplies && (
+                                        <span style={{ color: d.posted_to_portal ? '#067647' : '#B54708', fontWeight: 600 }}>
+                                          {d.posted_to_portal ? '✓ Posted to portal' : 'Not posted'}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </td>
+                                <td>{d.category ? <span className="doc-cat">{d.category}</span> : <span className="muted">—</span>}</td>
+                                <td className="muted">{fmtDate(d.uploaded_at)}</td>
+                                <td className="act">
+                                  <button type="button" className="doc-open" onClick={() => openDoc(d)}>Open →</button>
+                                  <button type="button" className="vdel" onClick={() => removeDoc(d)} aria-label="Remove document">&times;</button>
+                                </td>
+                              </tr>
+                              {hasSub && (
+                                <tr className="doc-subrow">
+                                  <td colSpan={4}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                      {recordsApplies && (
+                                        <button type="button" className="admin-btn-ghost" style={{ fontSize: 12 }}
+                                          onClick={() => togglePosted(d)}>
+                                          {d.posted_to_portal ? 'Mark unposted' : 'Mark posted'}
+                                        </button>
+                                      )}
+                                      {isHoa && <AmendmentControl doc={d} onPatch={patchDoc} />}
+                                    </div>
+                                  </td>
+                                </tr>
+                              )}
+                            </tbody>
+                          )
+                        })}
+                      </table>
+                      <Pagination page={docPage} pageSize={DOCS_PAGE_SIZE}
+                        total={filteredDocs.length} onPageChange={setDocPage} />
+                    </>
+                  )
+                })()}
               </div>
-              <Pagination page={docPage} pageSize={DOCS_PAGE_SIZE}
-                total={docRows.length} onPageChange={setDocPage} />
 
-              {/* ── Records-inspection requests (FS 718.111(12)(c) / 720.303(5)) ── */}
-              <div id="records-requests" className="bc-head" style={{ marginTop: 44, marginBottom: 14, scrollMarginTop: 56, display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                <div>
-                  <h2 className="bc-title">Records-inspection requests</h2>
-                  <span className="bc-sub">
-                    {openRecRequests.length} open · statutory production deadline is 10 {community?.association_type === 'hoa' ? 'business' : 'working'} days from a written request.
-                  </span>
+              {/* Records-inspection requests (FS 718.111(12)(c) / 720.303(5)). */}
+              <div id="records-requests" className="card" style={{ scrollMarginTop: 56 }}>
+                <div className="card-head">
+                  <div>
+                    <h2>Records-inspection requests</h2>
+                    <div className="sub">
+                      {openRecRequests.length} open · 10 {community?.association_type === 'hoa' ? 'business' : 'working'}-day statutory deadline.
+                    </div>
+                  </div>
+                  <a href="/admin/documents/records-print?type=manifest" target="_blank" rel="noreferrer" className="admin-btn-ghost" style={{ textDecoration: 'none' }}>📄 Records index</a>
                 </div>
-                <a href="/admin/documents/records-print?type=manifest" target="_blank" rel="noreferrer" className="admin-btn-ghost" style={{ textDecoration: 'none' }}>📄 Records index / posting manifest</a>
-              </div>
-              {recRequests.length === 0 ? (
-                <div className="bc-empty">No records-inspection requests. Residents can submit one from their Documents page.</div>
-              ) : (
-                <div className="bd-list">
-                  {recRequests.map(r => {
-                    const due = r.due_at ? new Date(r.due_at) : recordsInspectionDueAt(r.created_at)
-                    const answered = !!r.responded_at
-                    const overdue = !answered && due && due.getTime() < Date.now()
-                    return (
-                      <div className="bd-row" key={r.id} style={overdue ? { borderLeft: '4px solid #B42318' } : undefined}>
-                        <div className="bd-main">
-                          <div className="bd-title">{r.subject || 'Records request'}</div>
-                          <div className="bd-meta">
-                            {r.submitter_name && <><span>{r.submitter_name}</span><span className="bd-dot">·</span></>}
-                            <span>requested {fmtDate(r.created_at)}</span>
-                            {due && <><span className="bd-dot">·</span>
-                              <span style={{ color: answered ? '#067647' : overdue ? '#B42318' : '#475467', fontWeight: 600 }}>
-                                {answered ? `answered ${fmtDate(r.responded_at)}` : `due ${ymd(due)}`}
-                              </span></>}
+                {recRequests.length === 0 ? (
+                  <div className="bc-empty" style={{ margin: 0 }}>No records-inspection requests. Residents can submit one from their Documents page.</div>
+                ) : (
+                  <div className="bd-list">
+                    {recRequests.map(r => {
+                      const due = r.due_at ? new Date(r.due_at) : recordsInspectionDueAt(r.created_at)
+                      const answered = !!r.responded_at
+                      const overdue = !answered && due && due.getTime() < Date.now()
+                      return (
+                        <div className="bd-row" key={r.id} style={overdue ? { borderLeft: '4px solid #B42318' } : undefined}>
+                          <div className="bd-main">
+                            <div className="bd-title">{r.subject || 'Records request'}</div>
+                            <div className="bd-meta">
+                              {r.submitter_name && <><span>{r.submitter_name}</span><span className="bd-dot">·</span></>}
+                              <span>requested {fmtDate(r.created_at)}</span>
+                              {due && <><span className="bd-dot">·</span>
+                                <span style={{ color: answered ? '#067647' : overdue ? '#B42318' : '#475467', fontWeight: 600 }}>
+                                  {answered ? `answered ${fmtDate(r.responded_at)}` : `due ${ymd(due)}`}
+                                </span></>}
+                            </div>
+                            {r.body && <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>{r.body}</div>}
                           </div>
-                          {r.body && <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>{r.body}</div>}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+                            {!answered && (
+                              <button type="button" className="admin-primary-btn" onClick={() => respondToRequest(r)}>
+                                Mark answered
+                              </button>
+                            )}
+                            <a href={`/admin/documents/records-print?type=acknowledgement&request=${r.id}`} target="_blank" rel="noreferrer" className="doc-card-link" style={{ fontSize: 12 }}>Acknowledgement</a>
+                            <a href={`/admin/documents/records-print?type=checklist&request=${r.id}`} target="_blank" rel="noreferrer" className="doc-card-link" style={{ fontSize: 12 }}>Checklist</a>
+                          </div>
                         </div>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-                          {!answered && (
-                            <button type="button" className="admin-primary-btn" onClick={() => respondToRequest(r)}>
-                              Mark answered
-                            </button>
-                          )}
-                          <a href={`/admin/documents/records-print?type=acknowledgement&request=${r.id}`} target="_blank" rel="noreferrer" className="doc-card-link" style={{ fontSize: 12 }}>Acknowledgement</a>
-                          <a href={`/admin/documents/records-print?type=checklist&request=${r.id}`} target="_blank" rel="noreferrer" className="doc-card-link" style={{ fontSize: 12 }}>Checklist</a>
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              )}
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             </>
           )}
         </div>

@@ -966,6 +966,120 @@
 }
 .cset .tbl tr:last-child td { border-bottom: none; }
 .cset .tbl .muted { color: var(--text-dim); }
+
+/* ── Easy Documents · Documents section (clean-theme archive, matches mock) ─── */
+/* Governing-docs setup drop card (the "Set up from your governing docs" hero). */
+.cset .docsetup {
+  border: 1px solid rgba(225, 73, 9, 0.18); border-radius: 14px;
+  background: #FBEAE0; padding: 38px 22px; text-align: center;
+}
+.cset .docsetup-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.cset .docsetup-sub { font-size: 13px; color: var(--text-dim); margin-top: 6px; }
+.cset .docsetup-actions {
+  margin-top: 16px; display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+}
+.cset .docsetup-hint { font-size: 12.5px; color: var(--text-faint); }
+.cset .doc-badge {
+  font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 999px;
+  background: rgba(225, 73, 9, 0.12); color: #B23A06; white-space: nowrap;
+}
+/* Archive table — mock columns: DOCUMENT · CATEGORY · UPLOADED · (actions). All
+   columns left-aligned (unlike the budget .tbl which right-aligns numbers). */
+.cset .doctbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.cset .doctbl th {
+  text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-faint);
+  padding: 0 12px 10px; border-bottom: 1px solid var(--border);
+}
+.cset .doctbl td {
+  padding: 13px 12px; border-bottom: 1px solid var(--border);
+  color: var(--text); vertical-align: middle; text-align: left;
+}
+.cset .doctbl tbody:last-child tr:last-child td { border-bottom: none; }
+.cset .doctbl .doc-name { font-weight: 600; }
+.cset .doctbl .doc-cat {
+  display: inline-block; font-size: 11.5px; font-weight: 600;
+  padding: 3px 10px; border-radius: 999px;
+  background: rgba(42, 18, 6, 0.06); color: var(--text-dim);
+}
+.cset .doctbl td.act { text-align: right; white-space: nowrap; }
+.cset .doctbl .doc-open {
+  background: none; border: none; cursor: pointer; font-weight: 700;
+  color: var(--pink); font-size: 13px; padding: 2px 4px;
+}
+.cset .doctbl .doc-open:hover { text-decoration: underline; }
+/* the amendment / posting sub-controls ride a borderless row under their doc */
+.cset .doctbl .doc-subrow td { border-bottom: 1px solid var(--border); padding-top: 0; }
+
+/* ── Easy Documents · Rules section (numbered rule book, matches mock) ──────── */
+.cset .rulelist { display: flex; flex-direction: column; }
+.cset .rulerow {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 15px 2px; border-top: 1px solid var(--border);
+}
+.cset .rulelist .rulerow:first-child { border-top: none; }
+.cset .rulenum {
+  flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 13px; font-weight: 700;
+  background: rgba(225, 73, 9, 0.12); color: var(--pink); margin-top: 1px;
+}
+.cset .rulemain { flex: 1; min-width: 0; }
+.cset .ruletitle { font-size: 14.5px; font-weight: 600; color: var(--text); }
+.cset .rulemeta { font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
+.cset .rule-detail {
+  margin-top: 10px; padding: 12px 14px; border-radius: 10px;
+  background: var(--bg); border: 1px solid var(--border);
+  font-size: 13px; color: var(--text-dim); line-height: 1.5;
+}
+.cset .rule-detail strong { color: var(--text); font-weight: 600; }
+.cset .rule-edit {
+  flex-shrink: 0; background: none; border: none; cursor: pointer;
+  color: var(--pink); font-weight: 700; font-size: 13px; padding: 2px 4px;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.cset .rule-edit:hover { text-decoration: underline; }
+/* Right-side action cluster ($fine · Edit → · ×) — even gaps, centered, aligned
+   with the rule title (not the second meta line). */
+.cset .ruleactions {
+  flex-shrink: 0; display: flex; align-items: center; gap: 16px; margin-top: 2px;
+}
+.cset .ruleactions .bd-amount { flex-shrink: 0; }
+.cset .ruleactions .vdel { margin-left: 0; }
+
+/* ── Clean-theme bd-row override (Violation log + records requests) ─────────── */
+/* The base bd-row is a sketch-themed white box; inside a cset card we want the
+   same borderless divider rows the Archive table uses. */
+.cset .bd-list { gap: 0; max-width: none; }
+.cset .bd-list .bd-row {
+  background: none; border: none; border-radius: 0; box-shadow: none;
+  border-top: 1px solid var(--border);
+}
+.cset .bd-list .bd-row:first-child { border-top: none; }
+.cset .bd-list .bd-row:hover,
+.cset .bd-list .bd-row.open { border-color: var(--border); box-shadow: none; }
+/* Rows with their own toggle button get padding there; plain rows (records
+   requests) pad the row itself. */
+.cset .bd-list .bd-row { padding: 15px 2px; }
+.cset .bd-list .bd-row:has(.bd-row-toggle) { padding: 0; }
+.cset .bd-list .bd-row .bd-row-toggle { padding: 15px 2px; }
+.cset .bd-list .bd-row .bd-title { color: var(--text); font-weight: 600; }
+.cset .bd-list .bd-row .bd-meta { color: var(--text-dim); }
+.cset .bd-list .bd-row .bd-dot { color: var(--text-faint); }
+.cset .bd-list .bd-row .bd-body { padding: 2px 2px 15px; }
+.cset .bd-list .bd-row .bd-row-toggle + .bd-body { padding-top: 0; }
+/* Move the delete × out of the chevron/amount's way: a reserved right gutter,
+   aligned with the title, as a plain orange × (no circle) like the Archive. */
+.cset .bd-list .bd-row .bd-row-toggle { padding-right: 42px; }
+.cset .bd-list .bd-row .bc-del {
+  top: 24px; right: 6px; transform: translateY(-50%);
+  width: 24px; height: 24px; border: none; background: none;
+  color: var(--pink); font-size: 20px; opacity: 1;
+}
+/* When the row is collapsed (toggle only), center the × on that single line so it
+   aligns with the amount + chevron. */
+.cset .bd-list .bd-row:not(.open) .bc-del { top: 50%; }
+.cset .bd-list .bd-row .bc-del:hover { background: none; color: #C53D06; }
 .cset .tbl .strong { font-weight: 600; }
 .cset .tbl .go-cell { text-align: right; width: 1%; white-space: nowrap; }
 .cset .go {
