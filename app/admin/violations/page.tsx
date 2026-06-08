@@ -200,14 +200,24 @@ export default function AdminViolations() {
         ))}
       </div>
 
-      {/* Cross-link to the statutory enforcement workspace (Compliance). */}
-      <Link href="/admin/enforcement" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, margin: '0 0 18px', padding: '14px 18px', borderRadius: 14, border: '1px solid var(--border)', borderLeft: '4px solid #DC6803', background: 'var(--bg-card)', textDecoration: 'none', color: 'inherit', boxShadow: '0 1px 2px rgba(42,18,6,0.05)' }}>
-        <span>
-          <span style={{ display: 'block', fontWeight: 700, fontSize: 14 }}>Statutory fines, hearings &amp; suspensions</span>
-          <span style={{ display: 'block', fontSize: 12.5, color: 'var(--text-dim)', marginTop: 2 }}>Run a fine through the independent fining committee and the 14-day hearing notice, and track voting / use-rights suspensions.</span>
-        </span>
-        <span style={{ color: '#DC6803', fontWeight: 700, whiteSpace: 'nowrap' }}>Open &rarr;</span>
-      </Link>
+      {/* Cross-link to the statutory enforcement workspace (Compliance) — same
+          wsrow card format the Compliance hub uses. */}
+      <div className="card">
+        <div className="wslist">
+          <Link href="/admin/enforcement" className="wsrow">
+            <span className="wsrow-glyph" style={{ color: '#DC6803', background: '#DC680318' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3l8 4v6c0 5-3.5 7-8 8-4.5-1-8-3-8-8V7z" /><path d="M9 12l2 2 4-4" />
+              </svg>
+            </span>
+            <div className="wsrow-main">
+              <div className="wsrow-title">Statutory fines, hearings &amp; suspensions</div>
+              <div className="wsrow-desc">Run a fine through the independent fining committee and the 14-day hearing notice, and track voting / use-rights suspensions.</div>
+            </div>
+            <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
+          </Link>
+        </div>
+      </div>
 
       {/* Violation log card. */}
       <div className="card">
