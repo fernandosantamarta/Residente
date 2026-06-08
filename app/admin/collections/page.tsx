@@ -12,6 +12,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { communityDuesConfig } from '@/lib/dues'
 import { ymd, toDate, calendarDaysUntil } from '@/lib/compliance/rules-core'
 import { AttorneyNote } from '../AttorneyNote'
+import { ComplianceBackLink } from '../ComplianceBackLink'
 import {
   STAGE_LABELS, nextEscalation, lienEnforceDeadline, isOpenStage,
   delinquentOwnersWithoutCase,
@@ -161,6 +162,7 @@ export default function CollectionsPage() {
 
   return (
     <div className="admin-page cset">
+      <ComplianceBackLink />
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Collections <span className="amp">&</span> liens</h1>
       <p className="admin-dek">

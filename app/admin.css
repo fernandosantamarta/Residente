@@ -863,6 +863,15 @@
 }
 .cset .card-head .sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
 
+/* Back-to-hub link sitting above the page kicker on compliance sub-pages, so
+   you can step out of a section back to the Compliance dashboard. */
+.cset .admin-backlink {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 600; color: var(--text-dim);
+  text-decoration: none; margin-bottom: 12px;
+}
+.cset .admin-backlink:hover { color: var(--pink); }
+
 /* Info/warn/err notes on the clean pages drop the colored left-accent stripe and
    pick up the card radius + soft shadow, so they read as clean cards rather than
    banners. White background kept (no tint) — severity is carried by the text /

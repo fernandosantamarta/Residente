@@ -13,6 +13,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
 import { AttorneyNote } from '../AttorneyNote'
+import { ComplianceBackLink } from '../ComplianceBackLink'
 import {
   SIRS_COMPONENTS, SIRS_MIN_STORIES,
   DBPR_FEE_PER_UNIT, DBPR_FEE_MIN_UNITS, DBPR_BUILDING_REPORT_MIN_STORIES, dbprAnnualFee,
@@ -212,6 +213,7 @@ export default function StructuralPage() {
   if (status === 'ready' && regime === 'hoa') {
     return (
       <div className="admin-page cset">
+        <ComplianceBackLink />
         <div className="admin-kicker">Florida compliance</div>
         <h1 className="admin-h1">Structural integrity</h1>
         <div className="admin-note" style={{ marginTop: 16 }}>
@@ -225,6 +227,7 @@ export default function StructuralPage() {
 
   return (
     <div className="admin-page cset">
+      <ComplianceBackLink />
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Structural integrity</h1>
       <p className="admin-dek">

@@ -12,6 +12,7 @@ import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { AttorneyNote } from '../AttorneyNote'
+import { ComplianceBackLink } from '../ComplianceBackLink'
 import { logAudit } from '@/lib/audit'
 import {
   BID_THRESHOLD_PCT, BID_THRESHOLD_BASIS, CONDO_MGMT_REQUIRED_TERMS,
@@ -136,6 +137,7 @@ export default function ContractsPage() {
 
   return (
     <div className="admin-page cset">
+      <ComplianceBackLink />
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Procurement <span className="amp">&</span> contracts</h1>
       <p className="admin-dek">

@@ -14,6 +14,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
 import { AttorneyNote } from '../AttorneyNote'
+import { ComplianceBackLink } from '../ComplianceBackLink'
 import {
   PROPERTY_APPRAISAL_INTERVAL_MONTHS, FIDELITY_BOND_COVERED_PERSONS,
   HOA_FIDELITY_BOND_WAIVER_BASIS,
@@ -149,6 +150,7 @@ export default function InsurancePage() {
 
   return (
     <div className="admin-page cset">
+      <ComplianceBackLink />
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Insurance</h1>
       <p className="admin-dek">

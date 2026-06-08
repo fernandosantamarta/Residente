@@ -14,6 +14,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
 import { AttorneyNote } from '../AttorneyNote'
+import { ComplianceBackLink } from '../ComplianceBackLink'
 import {
   TURNOVER_CALL_DAYS, TURNOVER_DOC_DELIVERY_DAYS, RECEIVERSHIP_CURE_DAYS,
   INVOICE_DELIVERY_NOTICE_DAYS, TIERED_REPORT_MEETING_DAYS, TIERED_REPORT_PETITION_PCT,
@@ -127,6 +128,7 @@ export default function AdvisoriesPage() {
 
   return (
     <div className="admin-page cset">
+      <ComplianceBackLink />
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Advisories <span className="amp">&</span> event clocks</h1>
       <p className="admin-dek">

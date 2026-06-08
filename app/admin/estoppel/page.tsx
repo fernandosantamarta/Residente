@@ -10,6 +10,7 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd, calendarDaysUntil, businessDaysBetween, toDate } from '@/lib/compliance/rules-core'
 import { AttorneyNote } from '../AttorneyNote'
+import { ComplianceBackLink } from '../ComplianceBackLink'
 import {
   estoppelDueAt, estoppelFee, estoppelValidUntil,
   ESTOPPEL_DELIVERY_BUSINESS_DAYS, ESTOPPEL_EXPEDITED_BUSINESS_DAYS,
@@ -149,6 +150,7 @@ export default function EstoppelPage() {
 
   return (
     <div className="admin-page cset">
+      <ComplianceBackLink />
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Estoppel certificates</h1>
       <p className="admin-dek">

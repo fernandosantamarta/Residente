@@ -13,6 +13,7 @@ import { ymd } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
 import { AttorneyNote } from '../AttorneyNote'
 import { SignalRow } from '../SignalRow'
+import { ComplianceBackLink } from '../ComplianceBackLink'
 import {
   governanceSignals, consecutiveServiceYears, certExpiry, camRequired,
   CONDO_TERM_LIMIT_YEARS, TERM_LIMIT_EXCEPTION_LABELS,
@@ -170,6 +171,7 @@ export default function GovernancePage() {
 
   return (
     <div className="admin-page cset">
+      <ComplianceBackLink />
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Directors <span className="amp">&</span> management</h1>
       <p className="admin-dek">

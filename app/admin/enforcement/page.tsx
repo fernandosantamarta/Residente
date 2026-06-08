@@ -8,7 +8,6 @@
 // decides each step.
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd, calendarDaysUntil, toDate } from '@/lib/compliance/rules-core'
@@ -24,6 +23,7 @@ import {
 } from '@/lib/compliance/enforcement'
 import { decideDispute } from '@/lib/violations'
 import { AttorneyNote } from '../AttorneyNote'
+import { ComplianceBackLink } from '../ComplianceBackLink'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -284,9 +284,7 @@ export default function EnforcementPage() {
 
   return (
     <div className="admin-page cset">
-      <Link href="/admin/violations" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#DC6803', textDecoration: 'none', marginBottom: 10 }}>
-        &larr; All violations (issue &amp; track)
-      </Link>
+      <ComplianceBackLink />
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Violations, fines <span className="amp">&</span> hearings</h1>
       <p className="admin-dek">

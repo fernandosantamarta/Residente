@@ -12,6 +12,7 @@ import { ymd } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
 import { AttorneyNote } from '../AttorneyNote'
 import { SignalRow } from '../SignalRow'
+import { ComplianceBackLink } from '../ComplianceBackLink'
 import {
   requiredAuditTier, estimateAnnualRevenue, AUDIT_TIER_LABEL, financialSignals,
   type BudgetCategoryRow, type ReserveComponentRow, type FinancialFilingRow, type FilingType,
@@ -182,6 +183,7 @@ export default function FinancialsPage() {
 
   return (
     <div className="admin-page cset">
+      <ComplianceBackLink />
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Financial reporting <span className="amp">&</span> reserves</h1>
       <p className="admin-dek">
