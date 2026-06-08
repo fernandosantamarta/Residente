@@ -9,7 +9,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { sortSignals, ATTORNEY_REVIEW_BANNER, type ComplianceSignal, type Severity } from '@/lib/compliance/rules-core'
+import { sortSignals, type ComplianceSignal, type Severity } from '@/lib/compliance/rules-core'
+import { AttorneyNote } from '../AttorneyNote'
 import { communityDuesConfig } from '@/lib/dues'
 import { foundationSignals } from '@/lib/compliance/signals'
 import { estoppelSignals, type EstoppelRequestRow } from '@/lib/compliance/estoppel'
@@ -305,9 +306,7 @@ export default function CompliancePage() {
         advisory reminders — you decide how to act on them.
       </p>
 
-      <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>
-        {ATTORNEY_REVIEW_BANNER}
-      </div>
+      <AttorneyNote />
 
       {status === 'loading' && <div className="admin-note">Loading…</div>}
 

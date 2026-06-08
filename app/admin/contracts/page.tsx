@@ -11,7 +11,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
+import { AttorneyNote } from '../AttorneyNote'
 import { logAudit } from '@/lib/audit'
 import {
   BID_THRESHOLD_PCT, BID_THRESHOLD_BASIS, CONDO_MGMT_REQUIRED_TERMS,
@@ -143,7 +143,7 @@ export default function ContractsPage() {
         of interest are tracked under <Link href="/admin/governance">Directors &amp; management</Link>.
       </p>
 
-      <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>{ATTORNEY_REVIEW_BANNER}</div>
+      <AttorneyNote />
 
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
 

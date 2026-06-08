@@ -9,7 +9,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { ymd, toDate, ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
+import { ymd, toDate } from '@/lib/compliance/rules-core'
 import {
   electionMilestones,
   electionQuorumMet,
@@ -24,6 +24,7 @@ import {
   type RecallRow,
 } from '@/lib/compliance/elections'
 import { logAudit } from '@/lib/audit'
+import { AttorneyNote } from '../AttorneyNote'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -214,7 +215,7 @@ export default function ElectionsPage() {
         invalidates an election.
       </p>
 
-      <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>{ATTORNEY_REVIEW_BANNER}</div>
+      <AttorneyNote />
 
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
       {status === 'none' && <div className="admin-note admin-note-warn">No community is linked to your account yet. Run the setup SQL, then reload.</div>}

@@ -10,7 +10,8 @@ import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { communityDuesConfig } from '@/lib/dues'
-import { ymd, toDate, calendarDaysUntil, ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
+import { ymd, toDate, calendarDaysUntil } from '@/lib/compliance/rules-core'
+import { AttorneyNote } from '../AttorneyNote'
 import {
   STAGE_LABELS, nextEscalation, lienEnforceDeadline, isOpenStage,
   delinquentOwnersWithoutCase,
@@ -168,7 +169,7 @@ export default function CollectionsPage() {
         to foreclose. We track every deadline; you decide each step.
       </p>
 
-      <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>{ATTORNEY_REVIEW_BANNER}</div>
+      <AttorneyNote />
 
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
 

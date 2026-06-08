@@ -9,7 +9,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { ymd, toDate, ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
+import { ymd, toDate } from '@/lib/compliance/rules-core'
 import {
   arcResponseDeadline,
   arcResponseDays,
@@ -21,6 +21,7 @@ import {
   type ArcStatus,
 } from '@/lib/compliance/arc'
 import { logAudit } from '@/lib/audit'
+import { AttorneyNote } from '../AttorneyNote'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -189,7 +190,7 @@ export default function ArcPage() {
         Advisory only — every decision stays with the board and the ARC committee.
       </p>
 
-      <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>{ATTORNEY_REVIEW_BANNER}</div>
+      <AttorneyNote />
 
       {community?.arc_deemed_approval && (
         <div className="admin-note admin-note-warn" style={{ fontWeight: 600, fontSize: 13 }}>

@@ -8,7 +8,8 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { ymd, calendarDaysUntil, businessDaysBetween, toDate, ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
+import { ymd, calendarDaysUntil, businessDaysBetween, toDate } from '@/lib/compliance/rules-core'
+import { AttorneyNote } from '../AttorneyNote'
 import {
   estoppelDueAt, estoppelFee, estoppelValidUntil,
   ESTOPPEL_DELIVERY_BUSINESS_DAYS, ESTOPPEL_EXPEDITED_BUSINESS_DAYS,
@@ -148,7 +149,7 @@ export default function EstoppelPage() {
         days, or {ESTOPPEL_EXPEDITED_BUSINESS_DAYS.value} if expedited. Deliver late and the law requires every fee to be waived.
       </p>
 
-      <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>{ATTORNEY_REVIEW_BANNER}</div>
+      <AttorneyNote />
 
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
 

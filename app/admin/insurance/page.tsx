@@ -11,8 +11,9 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { ymd, ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
+import { ymd } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
+import { AttorneyNote } from '../AttorneyNote'
 import {
   PROPERTY_APPRAISAL_INTERVAL_MONTHS, FIDELITY_BOND_COVERED_PERSONS,
   HOA_FIDELITY_BOND_WAIVER_BASIS,
@@ -155,7 +156,7 @@ export default function InsurancePage() {
         appraisal clock and the bond floor for you; you decide each step.
       </p>
 
-      <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>{ATTORNEY_REVIEW_BANNER}</div>
+      <AttorneyNote />
 
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
 
