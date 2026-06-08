@@ -77,13 +77,22 @@ export default function FinancialsPage() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const { data: c } = (await withTimeout(supabase.from('communities').select('*').eq('id', communityId).single())) as any
-      const { data: b } = (await withTimeout(supabase.from('budget_categories').select('*').eq('community_id', communityId).order('sort_order'))) as any
-      const { data: r } = (await withTimeout(supabase.from('ev_reserve_components').select('*').eq('community_id', communityId).order('created_at'))) as any
-      const { data: f } = (await withTimeout(supabase.from('ev_financial_filings').select('*').eq('community_id', communityId).order('fiscal_year', { ascending: false }))) as any
-      // Bank feed (Plaid) — tolerant: returns null (not a throw) if the table
-      // isn't created yet, so this never breaks the page before community-plaid.sql.
-      const { data: bt } = (await withTimeout(supabase.from('bank_transactions').select('id, amount, mapped_budget_category_id, posted_date, name, merchant_name, plaid_category').eq('community_id', communityId).order('posted_date', { ascending: false }))) as any
+      // Fire every read in ONE parallel batch instead of awaiting five round-trips
+      // in series — the page used to wait for the SUM of all five; now it waits for
+      // the slowest single query. The bank feed is tolerant (returns an error object,
+      // not a throw, if the table isn't created yet) so it never blocks the rest.
+      const [cRes, bRes, rRes, fRes, btRes] = await Promise.all([
+        withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
+        withTimeout(supabase.from('budget_categories').select('*').eq('community_id', communityId).order('sort_order')),
+        withTimeout(supabase.from('ev_reserve_components').select('*').eq('community_id', communityId).order('created_at')),
+        withTimeout(supabase.from('ev_financial_filings').select('*').eq('community_id', communityId).order('fiscal_year', { ascending: false })),
+        withTimeout(supabase.from('bank_transactions').select('id, amount, mapped_budget_category_id, posted_date, name, merchant_name, plaid_category').eq('community_id', communityId).order('posted_date', { ascending: false })),
+      ])
+      const { data: c } = cRes as any
+      const { data: b } = bRes as any
+      const { data: r } = rRes as any
+      const { data: f } = fRes as any
+      const { data: bt } = btRes as any
       setCommunity(c || null); setBudgets(b || []); setReserves(r || []); setFilings(f || []); setBankTx(bt || [])
       setStatus('ready')
     } catch (err: any) {
