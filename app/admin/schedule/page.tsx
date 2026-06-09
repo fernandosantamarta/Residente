@@ -323,14 +323,18 @@ function CalendarAdmin() {
 
   return (
     <div className="admin-schedule admin-page cset">
-      <div className="admin-kicker">Schedule</div>
-      <h1 className="admin-h1">Community calendar</h1>
-      <p className="admin-dek">
-        Add events to the community calendar one at a time, or upload a CSV
-        to bulk-import. Anything you add here shows up on every
-        resident&rsquo;s <strong>Schedule</strong> tab and the dashboard&rsquo;s
-        &ldquo;Up next&rdquo; rail.
-      </p>
+      {/* Group the header so the flex-column `gap` on .admin-schedule doesn't
+          push the kicker, title, and dek apart. */}
+      <div className="admin-h-wrap">
+        <div className="admin-kicker">Schedule</div>
+        <h1 className="admin-h1">Community calendar</h1>
+        <p className="admin-dek">
+          Add events to the community calendar one at a time, or upload a CSV
+          to bulk-import. Anything you add here shows up on every
+          resident&rsquo;s <strong>Schedule</strong> tab and the dashboard&rsquo;s
+          &ldquo;Up next&rdquo; rail.
+        </p>
+      </div>
 
       {error && <div className="admin-note admin-note-err">{error}</div>}
       {successMsg && (
