@@ -128,10 +128,22 @@ function MeetingRow({ meeting: m, onClick }) {
   )
 }
 
-function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; onCancel: () => void; existing?: any }) {
+function MeetingForm({ onSaved, onCancel, existing, embedded }: { onSaved: (id) => void; onCancel: () => void; existing?: any; embedded?: boolean }) {
   const { profile } = useAuth() || {}
   const [form, setForm] = useState(
-    existing ? { ...EMPTY_MEETING, ...existing, summary: existing.summary ?? '' } : EMPTY_MEETING,
+    existing
+      ? {
+          ...EMPTY_MEETING,
+          ...existing,
+          // datetime-local needs "yyyy-MM-ddThh:mm"; the DB returns a full ISO.
+          scheduled_at: String(existing.scheduled_at ?? '').slice(0, 16),
+          // coerce nullable columns to '' so the inputs stay controlled (no React null warning).
+          location: existing.location ?? '',
+          virtual_link: existing.virtual_link ?? '',
+          quorum_required_pct: existing.quorum_required_pct ?? '',
+          summary: existing.summary ?? '',
+        }
+      : EMPTY_MEETING,
   )
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
@@ -180,6 +192,115 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
     }
   }
 
+  const fields = (
+    <>
+      <div className="voice-form-row">
+        <label>Meeting type</label>
+        <Dropdown<string>
+          value={form.type}
+          onChange={v => set('type', v)}
+          ariaLabel="Meeting type"
+          options={MEETING_TYPES}
+        />
+      </div>
+
+      <div className="voice-form-row">
+        <label>Title</label>
+        <input
+          name="title"
+          type="text"
+          value={form.title}
+          onChange={e => set('title', e.target.value)}
+          placeholder="e.g. Q2 Board Meeting"
+          required
+        />
+      </div>
+
+      <div className="voice-form-row">
+        <label>Date &amp; time</label>
+        <input
+          name="scheduled_at"
+          type="datetime-local"
+          value={form.scheduled_at}
+          onChange={e => set('scheduled_at', e.target.value)}
+          required
+        />
+      </div>
+
+      {warning && (
+        <div className="voice-notice-warn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <span>{warning}</span>
+        </div>
+      )}
+
+      <div className="voice-form-row">
+        <label>Location <span className="voice-opt">(optional)</span></label>
+        <input
+          name="location"
+          type="text"
+          value={form.location}
+          onChange={e => set('location', e.target.value)}
+          placeholder="e.g. Clubhouse Meeting Room"
+        />
+      </div>
+
+      <div className="voice-form-row">
+        <label>Virtual link <span className="voice-opt">(optional)</span></label>
+        <input
+          name="virtual_link"
+          type="url"
+          value={form.virtual_link}
+          onChange={e => set('virtual_link', e.target.value)}
+          placeholder="https://zoom.us/j/…"
+        />
+      </div>
+
+      <div className="voice-form-row">
+        <label>Quorum % <span className="voice-opt">(optional — overrides community default)</span></label>
+        <input
+          name="quorum_required_pct"
+          type="number"
+          min="1" max="100" step="0.1"
+          value={form.quorum_required_pct}
+          onChange={e => set('quorum_required_pct', e.target.value)}
+          placeholder="e.g. 30"
+        />
+      </div>
+
+      <div className="voice-form-row">
+        <label>Summary / recap <span className="voice-opt">(optional — what was said, shown to residents)</span></label>
+        <textarea
+          name="summary"
+          value={form.summary}
+          onChange={e => set('summary', e.target.value)}
+          rows={4}
+          placeholder="A short recap of what was discussed and decided…"
+        />
+      </div>
+    </>
+  )
+
+  // Embedded on the meeting detail page: render only the form as a card section.
+  if (embedded) {
+    return (
+      <form className="card voice-form" onSubmit={save}>
+        <div className="card-head"><div><h2>Meeting settings</h2><div className="sub">Edit the details and add a recap after the meeting.</div></div></div>
+        {fields}
+        {err && <div className="admin-err">{err}</div>}
+        <div className="card-cta voice-form-actions">
+          <button type="submit" className="admin-primary-btn" disabled={saving}>
+            {saving ? 'Saving…' : 'Save changes'}
+          </button>
+        </div>
+      </form>
+    )
+  }
+
+  // Standalone "New Meeting" page (reached from the + New Meeting button).
   return (
     <div className="admin-page cset">
       <div className="admin-section-head">
@@ -191,96 +312,8 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
       </div>
 
       <form className="card voice-form" onSubmit={save}>
-        <div className="voice-form-row">
-          <label>Meeting type</label>
-          <Dropdown<string>
-            value={form.type}
-            onChange={v => set('type', v)}
-            ariaLabel="Meeting type"
-            options={MEETING_TYPES}
-          />
-        </div>
-
-        <div className="voice-form-row">
-          <label>Title</label>
-          <input
-            name="title"
-            type="text"
-            value={form.title}
-            onChange={e => set('title', e.target.value)}
-            placeholder="e.g. Q2 Board Meeting"
-            required
-          />
-        </div>
-
-        <div className="voice-form-row">
-          <label>Date &amp; time</label>
-          <input
-            name="scheduled_at"
-            type="datetime-local"
-            value={form.scheduled_at}
-            onChange={e => set('scheduled_at', e.target.value)}
-            required
-          />
-        </div>
-
-        {warning && (
-          <div className="voice-notice-warn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-            </svg>
-            <span>{warning}</span>
-          </div>
-        )}
-
-        <div className="voice-form-row">
-          <label>Location <span className="voice-opt">(optional)</span></label>
-          <input
-            name="location"
-            type="text"
-            value={form.location}
-            onChange={e => set('location', e.target.value)}
-            placeholder="e.g. Clubhouse Meeting Room"
-          />
-        </div>
-
-        <div className="voice-form-row">
-          <label>Virtual link <span className="voice-opt">(optional)</span></label>
-          <input
-            name="virtual_link"
-            type="url"
-            value={form.virtual_link}
-            onChange={e => set('virtual_link', e.target.value)}
-            placeholder="https://zoom.us/j/…"
-          />
-        </div>
-
-        <div className="voice-form-row">
-          <label>Quorum % <span className="voice-opt">(optional — overrides community default)</span></label>
-          <input
-            name="quorum_required_pct"
-            type="number"
-            min="1" max="100" step="0.1"
-            value={form.quorum_required_pct}
-            onChange={e => set('quorum_required_pct', e.target.value)}
-            placeholder="e.g. 30"
-          />
-        </div>
-
-        <div className="voice-form-row">
-          <label>Summary / recap <span className="voice-opt">(optional — what was said, shown to residents)</span></label>
-          <textarea
-            name="summary"
-            value={form.summary}
-            onChange={e => set('summary', e.target.value)}
-            rows={4}
-            placeholder="A short recap of what was discussed and decided…"
-          />
-        </div>
-
+        {fields}
         {err && <div className="admin-err">{err}</div>}
-
         <div className="card-cta voice-form-actions">
           <button type="submit" className="admin-primary-btn" disabled={saving}>
             {saving ? 'Saving…' : existing ? 'Save changes' : 'Create meeting'}
@@ -294,7 +327,6 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
 
 function MeetingDetail({ meetingId, onBack }) {
   const { meeting, loading, error, reload } = useVoiceMeeting(meetingId)
-  const [tab, setTab] = useState('docs') // docs | notify | settings (votes are now standalone, see /admin/voice/votes)
   const [advancing, setAdvancing] = useState(false)
   const [advErr, setAdvErr] = useState(null)
 
@@ -393,24 +425,12 @@ function MeetingDetail({ meetingId, onBack }) {
         )}
       </div>
 
-      <div className="seg-tabs voice-detail-tabs" role="tablist">
-        {['docs', 'notify', 'settings'].map(t => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t}
-            className={`seg-tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>
-            {t === 'docs' ? 'Documents' : t === 'notify' ? 'Notify residents' : 'Settings'}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'docs'     && <DocsPanel   meeting={meeting} reload={reload} />}
-      {tab === 'notify'   && <NotifyPanel meeting={meeting} />}
-      {tab === 'settings' && (
-        <MeetingForm
-          existing={meeting}
-          onSaved={() => { reload(); setTab('docs') }}
-          onCancel={() => setTab('docs')}
-        />
-      )}
+      {/* Everything on one page, in order: documents, then notices, then the
+          editable settings/recap at the bottom. (Was a Documents/Notify/Settings
+          tab bar.) */}
+      <DocsPanel meeting={meeting} reload={reload} />
+      <NotifyPanel meeting={meeting} />
+      <MeetingForm existing={meeting} embedded onSaved={reload} onCancel={onBack} />
     </div>
   )
 }
