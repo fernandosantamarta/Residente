@@ -221,7 +221,7 @@ export default function RolesPage() {
                   disabled={editingProtected} placeholder="1"
                   onChange={e => setMaxHolders(e.target.value)} />
                 <span style={{ fontSize: 12, opacity: 0.6, marginTop: 4, textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>
-                  e.g. 2 secretaries, 3 guards. Use 0 for no limit.
+                  e.g. 2 secretaries, 5 board members. Use 0 for no limit.
                 </span>
               </label>
             </div>
