@@ -412,12 +412,12 @@ function SignalRow({ signal: s }: { signal: ComplianceSignal }) {
   const meta = SEVERITY_META[s.severity]
   const body = (
     <div style={{
-      display: 'flex', gap: 12, alignItems: 'center',
+      display: 'flex', gap: 12, alignItems: 'flex-start',
       padding: '13px 2px', borderTop: '1px solid rgba(0,0,0,0.06)',
     }}>
       <span style={{
         fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px',
-        color: meta.color, background: meta.bg, padding: '3px 10px', borderRadius: 999, whiteSpace: 'nowrap',
+        color: meta.color, background: meta.bg, padding: '3px 10px', borderRadius: 999, whiteSpace: 'nowrap', marginTop: 1,
       }}>{meta.label}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14.5, fontWeight: 600 }}>{s.title}</div>
@@ -425,7 +425,7 @@ function SignalRow({ signal: s }: { signal: ComplianceSignal }) {
           {s.domain}{s.citation ? ` · ${s.citation}` : ''}{s.detail ? ` · ${s.detail}` : ''}
         </div>
       </div>
-      {s.href && <span style={{ fontSize: 13, color: meta.color, fontWeight: 700, whiteSpace: 'nowrap' }}>Review →</span>}
+      {s.href && <span style={{ fontSize: 13, color: meta.color, fontWeight: 700, whiteSpace: 'nowrap', marginTop: 1 }}>Review →</span>}
     </div>
   )
   return s.href ? <Link href={s.href} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>{body}</Link> : body
