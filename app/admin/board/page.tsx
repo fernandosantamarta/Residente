@@ -211,10 +211,10 @@ export default function Board() {
   }
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
       <EasyVoiceTabs active="board" />
       <div className="admin-kicker">Board</div>
-      <h1 className="admin-h1">Board <span className="rb-amp">&amp;</span> decisions</h1>
+      <h1 className="admin-h1">Board <span className="amp">&</span> decisions</h1>
       <p className="admin-dek">
         Who sits on the board, and the decisions they make — every decision
         shows on each resident's Home under &ldquo;This Week on the Board.&rdquo;
@@ -242,10 +242,12 @@ export default function Board() {
 
       {(status === 'ready' || status === 'loading') && (
         <>
-          <div className="bm-section">
-            <div className="bc-head" style={{ marginBottom: 14 }}>
-              <h2 className="bc-title">Board members</h2>
-              <span className="bc-sub">Add anyone from your resident roster — start typing their name.</span>
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <h2>Board members</h2>
+                <div className="sub">Add anyone from your resident roster — start typing their name.</div>
+              </div>
             </div>
 
             <div className="bm-search">
@@ -297,138 +299,150 @@ export default function Board() {
             )}
           </div>
 
-          <div className="bc-head" style={{ marginTop: 44, marginBottom: 14 }}>
-            <h2 className="bc-title">Committees</h2>
-            <span className="bc-sub">Show your committees on every resident's Board page.</span>
-          </div>
-
-          <form className="admin-form" onSubmit={addCommittee} style={{ marginBottom: 16 }}>
-            <label className="admin-field">
-              <span className="admin-field-label">Committee name</span>
-              <input name="com-name" className="admin-input" placeholder="Finance Committee"
-                value={comForm.name} onChange={e => setComForm(f => ({ ...f, name: e.target.value }))} />
-            </label>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <label className="admin-field" style={{ flex: '1 1 180px' }}>
-                <span className="admin-field-label">Chair (optional)</span>
-                <input name="com-chair" className="admin-input" placeholder="Michael Chen"
-                  value={comForm.chair} onChange={e => setComForm(f => ({ ...f, chair: e.target.value }))} />
-              </label>
-              <label className="admin-field" style={{ width: 130 }}>
-                <span className="admin-field-label"># members</span>
-                <input name="com-count" type="number" className="admin-input" placeholder="4"
-                  value={comForm.member_count} onChange={e => setComForm(f => ({ ...f, member_count: e.target.value }))} />
-              </label>
-              <div className="admin-field" style={{ width: 160 }}>
-                <span className="admin-field-label">Icon</span>
-                <Dropdown<string>
-                  value={comForm.icon}
-                  onChange={v => setComForm(f => ({ ...f, icon: v }))}
-                  ariaLabel="Committee icon"
-                  options={[
-                    { value: 'finance', label: 'Finance' },
-                    { value: 'leaf', label: 'Landscape' },
-                    { value: 'home', label: 'Architectural' },
-                    { value: 'shield', label: 'Security' },
-                    { value: 'megaphone', label: 'Communications' },
-                  ]}
-                />
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <h2>Committees</h2>
+                <div className="sub">Show your committees on every resident's Board page.</div>
               </div>
             </div>
-            <div className="admin-form-actions">
-              <button type="submit" className="admin-btn" disabled={comSaving}>
-                {comSaving ? 'Adding…' : 'Add committee'}
-              </button>
-            </div>
-          </form>
 
-          {committees.length > 0 && (
-            <div className="bm-list">
-              {committees.map(c => (
-                <div className="bm-row" key={c.id}>
-                  <div className="bm-row-main">
-                    <div className="bm-row-name">{c.name}</div>
-                    <div className="bm-row-sub">
-                      {c.chair ? `${c.chair} · ` : ''}{c.member_count || 0} {Number(c.member_count) === 1 ? 'member' : 'members'}
+            <form className="admin-form" onSubmit={addCommittee}>
+              <label className="admin-field">
+                <span className="admin-field-label">Committee name</span>
+                <input name="com-name" className="admin-input" placeholder="Finance Committee"
+                  value={comForm.name} onChange={e => setComForm(f => ({ ...f, name: e.target.value }))} />
+              </label>
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+                <label className="admin-field" style={{ flex: '1 1 180px' }}>
+                  <span className="admin-field-label">Chair (optional)</span>
+                  <input name="com-chair" className="admin-input" placeholder="Michael Chen"
+                    value={comForm.chair} onChange={e => setComForm(f => ({ ...f, chair: e.target.value }))} />
+                </label>
+                <label className="admin-field" style={{ width: 130 }}>
+                  <span className="admin-field-label"># members</span>
+                  <input name="com-count" type="number" className="admin-input" placeholder="4"
+                    value={comForm.member_count} onChange={e => setComForm(f => ({ ...f, member_count: e.target.value }))} />
+                </label>
+                <div className="admin-field" style={{ width: 160 }}>
+                  <span className="admin-field-label">Icon</span>
+                  <Dropdown<string>
+                    value={comForm.icon}
+                    onChange={v => setComForm(f => ({ ...f, icon: v }))}
+                    ariaLabel="Committee icon"
+                    options={[
+                      { value: 'finance', label: 'Finance' },
+                      { value: 'leaf', label: 'Landscape' },
+                      { value: 'home', label: 'Architectural' },
+                      { value: 'shield', label: 'Security' },
+                      { value: 'megaphone', label: 'Communications' },
+                    ]}
+                  />
+                </div>
+              </div>
+              <div className="card-cta">
+                <button type="submit" className="admin-primary-btn" disabled={comSaving}>
+                  {comSaving ? 'Adding…' : 'Add committee'}
+                </button>
+              </div>
+            </form>
+
+            {committees.length > 0 && (
+              <div className="bm-list">
+                {committees.map(c => (
+                  <div className="bm-row" key={c.id}>
+                    <div className="bm-row-main">
+                      <div className="bm-row-name">{c.name}</div>
+                      <div className="bm-row-sub">
+                        {c.chair ? `${c.chair} · ` : ''}{c.member_count || 0} {Number(c.member_count) === 1 ? 'member' : 'members'}
+                      </div>
+                    </div>
+                    <button type="button" className="bc-del" onClick={() => removeCommittee(c.id)}
+                      aria-label={`Remove ${c.name}`}>&times;</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <h2>Log a decision</h2>
+                <div className="sub">Approvals, payments and motions.</div>
+              </div>
+            </div>
+
+            <form className="admin-form" onSubmit={add}>
+              <label className="admin-field">
+                <span className="admin-field-label">What was decided</span>
+                <input name="title" className="admin-input" placeholder="Approved landscaping contract"
+                  value={form.title} onChange={e => setField('title', e.target.value)} />
+              </label>
+              <label className="admin-field">
+                <span className="admin-field-label">Vendor / who (optional)</span>
+                <input name="vendor" className="admin-input" placeholder="Oak Ridge Nursery"
+                  value={form.vendor} onChange={e => setField('vendor', e.target.value)} />
+              </label>
+              <div className="bd-form-row">
+                <label className="admin-field">
+                  <span className="admin-field-label">Amount $ (optional)</span>
+                  <input name="amount" className="admin-input" type="number" placeholder="5200"
+                    value={form.amount} onChange={e => setField('amount', e.target.value)} />
+                </label>
+                <div className="admin-field">
+                  <span className="admin-field-label">Status</span>
+                  <Dropdown<string>
+                    value={form.status}
+                    onChange={v => setField('status', v)}
+                    ariaLabel="Decision status"
+                    options={STATUSES}
+                  />
+                </div>
+                <label className="admin-field">
+                  <span className="admin-field-label">Date</span>
+                  <input name="decided_on" className="admin-input" type="date"
+                    value={form.decided_on} onChange={e => setField('decided_on', e.target.value)} />
+                </label>
+              </div>
+              <div className="card-cta">
+                <button type="submit" className="admin-primary-btn" disabled={saving}>
+                  {saving ? 'Adding…' : 'Add decision'}
+                </button>
+                {error && <span className="admin-err-inline">{error}</span>}
+              </div>
+            </form>
+          </div>
+
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <h2>Decision feed</h2>
+                <div className="sub">Most recent first — the newest five appear on Home.</div>
+              </div>
+            </div>
+
+            <div className="bd-list">
+              {status === 'loading' && <div className="admin-note">Loading…</div>}
+              {status === 'ready' && rows.length === 0 && (
+                <div className="bc-empty">No decisions logged yet — add the first one above.</div>
+              )}
+              {rows.map(r => (
+                <div className="bd-row" key={r.id}>
+                  <div className="bd-main">
+                    <div className="bd-title">{r.title}</div>
+                    <div className="bd-meta">
+                      {r.vendor && <><span>{r.vendor}</span><span className="bd-dot">·</span></>}
+                      <span>{fmtDate(r.decided_on)}</span>
                     </div>
                   </div>
-                  <button type="button" className="bc-del" onClick={() => removeCommittee(c.id)}
-                    aria-label={`Remove ${c.name}`}>&times;</button>
+                  {r.amount != null && <div className="bd-amount">{fmtMoney(r.amount)}</div>}
+                  <span className={`bd-status bd-${r.status}`}>{statusLabel(r.status)}</span>
+                  <button type="button" className="bc-del" onClick={() => remove(r.id)}
+                    aria-label="Remove decision">&times;</button>
                 </div>
               ))}
             </div>
-          )}
-
-          <div className="bc-head" style={{ marginTop: 44, marginBottom: 14 }}>
-            <h2 className="bc-title">Log a decision</h2>
-            <span className="bc-sub">Approvals, payments and motions.</span>
-          </div>
-
-          <form className="admin-form" onSubmit={add}>
-            <label className="admin-field">
-              <span className="admin-field-label">What was decided</span>
-              <input name="title" className="admin-input" placeholder="Approved landscaping contract"
-                value={form.title} onChange={e => setField('title', e.target.value)} />
-            </label>
-            <label className="admin-field">
-              <span className="admin-field-label">Vendor / who (optional)</span>
-              <input name="vendor" className="admin-input" placeholder="Oak Ridge Nursery"
-                value={form.vendor} onChange={e => setField('vendor', e.target.value)} />
-            </label>
-            <div className="bd-form-row">
-              <label className="admin-field">
-                <span className="admin-field-label">Amount $ (optional)</span>
-                <input name="amount" className="admin-input" type="number" placeholder="5200"
-                  value={form.amount} onChange={e => setField('amount', e.target.value)} />
-              </label>
-              <div className="admin-field">
-                <span className="admin-field-label">Status</span>
-                <Dropdown<string>
-                  value={form.status}
-                  onChange={v => setField('status', v)}
-                  ariaLabel="Decision status"
-                  options={STATUSES}
-                />
-              </div>
-              <label className="admin-field">
-                <span className="admin-field-label">Date</span>
-                <input name="decided_on" className="admin-input" type="date"
-                  value={form.decided_on} onChange={e => setField('decided_on', e.target.value)} />
-              </label>
-            </div>
-            <div className="admin-form-actions">
-              <button type="submit" className="admin-primary-btn" disabled={saving}>
-                {saving ? 'Adding…' : 'Add decision'}
-              </button>
-              {error && <span className="admin-err-inline">{error}</span>}
-            </div>
-          </form>
-
-          <div className="bd-list">
-            <div className="bc-head" style={{ marginTop: 40, marginBottom: 14 }}>
-              <h2 className="bc-title">Decision feed</h2>
-              <span className="bc-sub">Most recent first — the newest five appear on Home.</span>
-            </div>
-
-            {status === 'loading' && <div className="admin-note">Loading…</div>}
-            {status === 'ready' && rows.length === 0 && (
-              <div className="bc-empty">No decisions logged yet — add the first one above.</div>
-            )}
-            {rows.map(r => (
-              <div className="bd-row" key={r.id}>
-                <div className="bd-main">
-                  <div className="bd-title">{r.title}</div>
-                  <div className="bd-meta">
-                    {r.vendor && <><span>{r.vendor}</span><span className="bd-dot">·</span></>}
-                    <span>{fmtDate(r.decided_on)}</span>
-                  </div>
-                </div>
-                {r.amount != null && <div className="bd-amount">{fmtMoney(r.amount)}</div>}
-                <span className={`bd-status bd-${r.status}`}>{statusLabel(r.status)}</span>
-                <button type="button" className="bc-del" onClick={() => remove(r.id)}
-                  aria-label="Remove decision">&times;</button>
-              </div>
-            ))}
           </div>
         </>
       )}
