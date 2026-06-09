@@ -355,9 +355,10 @@ function MeetingDetail({ meetingId, onBack }) {
 
   return (
     <div className="admin-page cset">
-      <div className="admin-section-head">
-        <button className="admin-btn-ghost" onClick={onBack}>← All meetings</button>
-      </div>
+      <button type="button" className="admin-backlink" onClick={onBack}
+        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}>
+        <span aria-hidden>←</span> Meetings
+      </button>
 
       <div className="card voice-detail-header">
         <div className="voice-meeting-type">{typeLabel}</div>
