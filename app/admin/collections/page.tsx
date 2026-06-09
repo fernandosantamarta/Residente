@@ -5,8 +5,9 @@
 // page: 30-day notice → 45-day intent-to-lien → lien recorded → 45-day
 // intent-to-foreclose → foreclosure. Advisory posture — nothing here blocks.
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { communityDuesConfig } from '@/lib/dues'
@@ -33,6 +34,7 @@ const STAGE_COLOR: Record<string, string> = {
 
 export default function CollectionsPage() {
   const { profile } = useAuth() || {}
+  const router = useRouter()
   const communityId = profile?.community_id
   const [community, setCommunity] = useState<any>(null)
   const [rows, setRows] = useState<CollectionCaseRow[]>([])
@@ -42,6 +44,8 @@ export default function CollectionsPage() {
   const [error, setError] = useState('')
   const [msg, setMsg] = useState('')
   const [showClosed, setShowClosed] = useState(false)
+  const [flashIntake, setFlashIntake] = useState(false)
+  const deepLinkDone = useRef(false)
 
   useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(''), 4000); return () => clearTimeout(t) }, [msg])
 
@@ -127,6 +131,24 @@ export default function CollectionsPage() {
   const setF = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }))
   const [saving, setSaving] = useState(false)
 
+  // Deep link from Reports → "Collect →" (?resident=<id>). If that owner already
+  // has an open case, jump straight to it; otherwise pre-pick them in the intake
+  // form and scroll/flash it so the board opens the case in one step.
+  useEffect(() => {
+    if (status !== 'ready' || deepLinkDone.current) return
+    const rid = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('resident') : null
+    if (!rid) return
+    deepLinkDone.current = true
+    const existing = rows.find(r => (r as any).resident_id === rid && isOpenStage(r.stage))
+    if (existing) { router.replace(`/admin/collections/${existing.id}`); return }
+    if (residents.some(r => r.id === rid)) {
+      setForm((f: any) => ({ ...f, resident_id: rid }))
+      setFlashIntake(true)
+      setTimeout(() => setFlashIntake(false), 2600)
+      requestAnimationFrame(() => document.getElementById('open-case')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+    }
+  }, [status, rows, residents, router])
+
   const create = async (e: any) => {
     e.preventDefault()
     setSaving(true); setError('')
@@ -183,7 +205,11 @@ export default function CollectionsPage() {
       )}
 
       {/* Intake */}
-      <div className="card">
+      <div className="card" id="open-case" style={{
+        scrollMarginTop: 80,
+        boxShadow: flashIntake ? '0 0 0 2px var(--pink)' : undefined,
+        transition: 'box-shadow .3s ease',
+      }}>
         <div className="card-head"><div><h2>Open a case</h2></div></div>
         <form className="admin-form" onSubmit={create}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>

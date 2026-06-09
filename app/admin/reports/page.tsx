@@ -384,7 +384,7 @@ export default function ReportsPage() {
                     <div className="meta">{b.owed > 0 ? `${fmt$(b.owed)} on file` : '$0 balance'}</div>
                   </div>
                   {isLast && b.count > 0
-                    ? <Link href="/admin/compliance" className="go" style={{ textDecoration: 'none' }}>Collections &rarr;</Link>
+                    ? <Link href="/admin/collections" className="go" style={{ textDecoration: 'none' }}>Collections &rarr;</Link>
                     : <span className="pct">{b.pct}%</span>}
                 </div>
               )
@@ -420,7 +420,7 @@ export default function ReportsPage() {
                       <td className="muted period-col">{r.unit_number || r.address || '—'}</td>
                       <td className="due">{fmt$(bal)}</td>
                       <td className="act">
-                        <Link href="/admin/compliance" className="go" style={{ textDecoration: 'none' }}>Collect →</Link>
+                        <Link href={`/admin/collections?resident=${r.id}`} className="go" style={{ textDecoration: 'none' }}>Collect →</Link>
                       </td>
                     </tr>
                   ))}
