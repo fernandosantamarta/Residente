@@ -880,19 +880,16 @@
    24px), not the card's outer edge — "Board & roles" sits over "Board members",
    the dek over the section's first line, etc. Applies across the clean admin
    pages (.cset) and the reports page (.crep). Card boxes stay full-width. */
-.admin-page .admin-backlink,
-.admin-page .admin-kicker,
-.admin-page .admin-h1,
-.admin-page .admin-dek { padding-left: 24px; }
-/* Page-level stat tiles and toolbars (residents, reports) also lead at the page
-   edge — indent them to the same content line so the header sits over them.
-   Reset any stats/toolbar nested inside a card (e.g. Community → Monthly dues). */
-.admin-page .stats,
-.admin-page .toolbar { padding-left: 24px; }
-.admin-page .card .stats,
-.admin-page .card .toolbar { padding-left: 0; }
-/* Breathing room between the page description and the first section/card, so the
-   header block reads as separate from the content (matches the Board & roles fix). */
+/* Indent the header text to align with card CONTENT on the clean CARD-FIRST
+   pages (.cset). Reports (.crep) and Residents (.etrack) lead with stat tiles /
+   toolbars that are themselves boxes sitting at the page edge — there, an
+   indented header would float right of that content, so those pages stay
+   un-indented and everything lines up at the edge. */
+.cset .admin-backlink,
+.cset .admin-kicker,
+.cset .admin-h1,
+.cset .admin-dek { padding-left: 24px; }
+/* Breathing room between the page description and the first section, every page. */
 .admin-page .admin-dek { margin-bottom: 24px; }
 
 /* Info/warn/err notes on the clean pages drop the colored left-accent stripe and
