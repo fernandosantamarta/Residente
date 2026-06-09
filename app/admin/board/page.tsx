@@ -309,17 +309,13 @@ export default function Board() {
   return (
     <div className="admin-page cset">
       <EasyVoiceTabs active="board" />
-      {/* Indent the header text to line up with the card content (cards pad 24px),
-          so "Board & roles" sits over "Board members" rather than the card edge. */}
-      <div style={{ paddingLeft: 24 }}>
-        <div className="admin-kicker">Easy Voice</div>
-        <h1 className="admin-h1">Board <span className="amp">&</span> roles</h1>
-        <p className="admin-dek">
-          Who sits on the board, the role each one holds, committees, and the
-          decisions they make — every decision shows on each resident's Home
-          under &ldquo;This Week on the Board.&rdquo;
-        </p>
-      </div>
+      <div className="admin-kicker">Easy Voice</div>
+      <h1 className="admin-h1">Board <span className="amp">&</span> roles</h1>
+      <p className="admin-dek">
+        Who sits on the board, the role each one holds, committees, and the
+        decisions they make — every decision shows on each resident's Home
+        under &ldquo;This Week on the Board.&rdquo;
+      </p>
 
       {status === 'none' && (
         <div className="admin-note admin-note-warn">

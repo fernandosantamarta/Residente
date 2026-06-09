@@ -876,6 +876,22 @@
 }
 .cset .admin-backlink:hover { color: var(--pink); }
 
+/* Indent the page-header text so it lines up with the card CONTENT (cards pad
+   24px), not the card's outer edge — "Board & roles" sits over "Board members",
+   the dek over the section's first line, etc. Applies across the clean admin
+   pages (.cset) and the reports page (.crep). Card boxes stay full-width. */
+.admin-page .admin-backlink,
+.admin-page .admin-kicker,
+.admin-page .admin-h1,
+.admin-page .admin-dek { padding-left: 24px; }
+/* Page-level stat tiles and toolbars (residents, reports) also lead at the page
+   edge — indent them to the same content line so the header sits over them.
+   Reset any stats/toolbar nested inside a card (e.g. Community → Monthly dues). */
+.admin-page .stats,
+.admin-page .toolbar { padding-left: 24px; }
+.admin-page .card .stats,
+.admin-page .card .toolbar { padding-left: 0; }
+
 /* Info/warn/err notes on the clean pages drop the colored left-accent stripe and
    pick up the card radius + soft shadow, so they read as clean cards rather than
    banners. White background kept (no tint) — severity is carried by the text /

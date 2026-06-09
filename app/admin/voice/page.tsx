@@ -356,7 +356,7 @@ function MeetingDetail({ meetingId, onBack }) {
   return (
     <div className="admin-page cset">
       <button type="button" className="admin-backlink" onClick={onBack}
-        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}>
+        style={{ background: 'none', border: 'none', paddingTop: 0, paddingRight: 0, paddingBottom: 0, cursor: 'pointer', fontFamily: 'inherit' }}>
         <span aria-hidden>←</span> Meetings
       </button>
 
