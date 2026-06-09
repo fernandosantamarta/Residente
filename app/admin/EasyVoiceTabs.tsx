@@ -6,12 +6,13 @@ import Link from 'next/link'
 // former Board, Voice (meetings/votes), and Contact admin sections. One tap
 // between Meetings, Roster, Board, and Contact. Rendered at the top of each
 // of those pages so they read as tabs of a single section.
+// 'roster' is retired — the owner roster + magic-link invites now live in
+// Easy Track → Residents. The type keeps it so the redirect stub still compiles.
 export type EasyVoiceTab = 'meetings' | 'votes' | 'roster' | 'board' | 'contact'
 
 const TABS: { key: EasyVoiceTab; href: string; label: string }[] = [
   { key: 'meetings', href: '/admin/voice',        label: 'Meetings' },
   { key: 'votes',    href: '/admin/voice/votes',  label: 'Votes' },
-  { key: 'roster',   href: '/admin/voice/roster', label: 'Roster' },
   { key: 'board',    href: '/admin/board',        label: 'Board' },
   { key: 'contact',  href: '/admin/requests',     label: 'Contact' },
 ]

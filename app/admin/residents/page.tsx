@@ -5,8 +5,16 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { residentBalance, duesStatus, DUES_LABEL, fmtMoney, communityDuesConfig } from '@/lib/dues'
 import { downloadCsv, exportFilename } from '@/lib/exportCsv'
+import { logAudit } from '@/lib/audit'
 import { Dropdown } from '@/components/Dropdown'
 import { EasyTrackTabs } from '../EasyTrackTabs'
+
+// Resident account / voting-invite state from the magic-link columns, with a
+// fallback to a linked profile (older rows activated before invited_at existed).
+const inviteState = (r) =>
+  (r.activated_at || r.profile_id) ? { cls: 'ok', label: 'Activated' }
+  : r.invited_at ? { cls: 'warn', label: 'Invited' }
+  : { cls: 'warn', label: 'Pending' }
 
 // Initials for a household avatar — first letters of the first two words.
 const initials = (name) =>
@@ -72,6 +80,10 @@ export default function Residents() {
   const [subFilter, setSubFilter] = useState('all')
   const [grid, setGrid] = useState(() => [blankGridRow(), blankGridRow(), blankGridRow()])
   const fileRef = useRef(null)
+  // Magic-link invites (ported from the old Voice Roster).
+  const [inviteBusyId, setInviteBusyId] = useState(null)
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [inviteMsg, setInviteMsg] = useState('')
 
   // Auto-dismiss the green confirmation banner after 4 seconds.
   useEffect(() => {
@@ -135,7 +147,7 @@ export default function Residents() {
   // (profile_id set); "Pending" = on the roster but no account yet. "Tenants" =
   // units flagged as rented or carrying tenant contact info.
   const stats = useMemo(() => {
-    const activated = rows.filter(r => r.profile_id).length
+    const activated = rows.filter(r => r.activated_at || r.profile_id).length
     const tenants = rows.filter(r => r.is_rented || r.tenant_name).length
     return { owners: rows.length, tenants, activated, pending: rows.length - activated }
   }, [rows])
@@ -167,6 +179,44 @@ export default function Residents() {
       setRows(prev) // roll back
       setError(err?.message || 'Could not remove that resident')
     }
+  }
+
+  // Send (or resend) a resident their magic-link invite to activate the app and
+  // vote. Reuses the voice-invite-owner edge function + audit log.
+  const sendInvite = async (id) => {
+    if (!hasSupabase || !communityId) return
+    setInviteBusyId(id); setError(''); setInviteMsg('')
+    try {
+      const { data, error } = await supabase.functions.invoke('voice-invite-owner', { body: { resident_id: id } })
+      if (error) throw error
+      if (data && data.ok === false) throw new Error(data.error || 'Invite failed')
+      await logAudit({ community_id: communityId, event_type: 'invite.sent', target_type: 'resident', target_id: id, metadata: { email_sent: !!data?.email_sent } })
+      setInviteMsg('Invitation sent.')
+      load()
+    } catch (err) {
+      setError(err?.message || 'Could not send invitation')
+    } finally { setInviteBusyId(null) }
+  }
+
+  // Owners who have an email but were never invited — the bulk-invite targets.
+  const uninvited = useMemo(() => rows.filter(r => r.email && !r.invited_at && !r.activated_at && !r.profile_id), [rows])
+
+  const inviteAllUninvited = async () => {
+    if (!hasSupabase || !communityId || !uninvited.length) return
+    setBulkBusy(true); setError(''); setInviteMsg('')
+    let sent = 0, failed = 0
+    for (const o of uninvited) {
+      try {
+        const { data, error } = await supabase.functions.invoke('voice-invite-owner', { body: { resident_id: o.id } })
+        if (error) throw error
+        if (data && data.ok === false) throw new Error(data.error || 'Invite failed')
+        await logAudit({ community_id: communityId, event_type: 'invite.sent', target_type: 'resident', target_id: o.id, metadata: { email_sent: !!data?.email_sent, bulk: true } })
+        sent++
+      } catch { failed++ }
+    }
+    setBulkBusy(false)
+    setInviteMsg(`Bulk invite: ${sent} sent${failed ? `, ${failed} failed` : ''}.`)
+    load()
   }
 
   // Instant local edit while typing — no DB write yet.
@@ -314,6 +364,13 @@ export default function Residents() {
         </div>
       )}
 
+      {inviteMsg && (
+        <div className="admin-success" role="status">
+          <span className="admin-success-check" aria-hidden="true">✓</span>
+          {inviteMsg}
+        </div>
+      )}
+
       {(status === 'ready' || status === 'loading') && (
         <>
           {/* Stat tiles. */}
@@ -406,11 +463,20 @@ export default function Residents() {
                   <Dropdown value={subFilter} onChange={setSubFilter} options={subOptions} ariaLabel="Subdivision" />
                 )}
               </div>
-              <button type="button" className="admin-secondary-btn"
-                title="Download all households as CSV"
-                onClick={exportRoster} disabled={rows.length === 0}>
-                Export CSV
-              </button>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                {uninvited.length > 0 && (
+                  <button type="button" className="admin-primary-btn" disabled={bulkBusy}
+                    title="Email a magic-link invite to every owner who has one but hasn't been invited"
+                    onClick={inviteAllUninvited}>
+                    {bulkBusy ? 'Sending…' : `Invite ${uninvited.length} owner${uninvited.length === 1 ? '' : 's'}`}
+                  </button>
+                )}
+                <button type="button" className="admin-secondary-btn"
+                  title="Download all households as CSV"
+                  onClick={exportRoster} disabled={rows.length === 0}>
+                  Export CSV
+                </button>
+              </div>
             </div>
           )}
 
@@ -433,7 +499,8 @@ export default function Residents() {
                   ) : filtered.map(r => (
                     <ResidentRow key={r.id} r={r} monthlyDues={monthlyDues} duesCfg={duesCfg}
                       payments={paymentsByResident.get(r.id) || []}
-                      onLocal={editLocal} onCommit={commit} onRemove={remove} />
+                      onLocal={editLocal} onCommit={commit} onRemove={remove}
+                      onInvite={sendInvite} inviteBusy={inviteBusyId === r.id} />
                   ))}
                 </tbody>
               </table>
@@ -449,12 +516,14 @@ export default function Residents() {
 // activation pill | Open). "Open" expands the full household editor in-place so
 // every working field (address, subdivision, opening balance, mailing address,
 // tenant) is still editable — nothing is read-only-only.
-function ResidentRow({ r, monthlyDues, duesCfg, payments, onLocal, onCommit, onRemove }) {
+function ResidentRow({ r, monthlyDues, duesCfg, payments, onLocal, onCommit, onRemove, onInvite, inviteBusy }) {
   const [open, setOpen] = useState(false)
   const balance = residentBalance(r, monthlyDues, payments, duesCfg)
-  const activated = !!r.profile_id
-  const pill = activated ? { cls: 'ok', label: 'Activated' } : { cls: 'warn', label: 'Pending' }
+  const activated = !!(r.activated_at || r.profile_id)
+  const pill = inviteState(r)
   const contact = r.email || r.phone || '—'
+  // Invite button label mirrors the old roster: first send vs re-invite vs resend.
+  const inviteLabel = activated ? 'Resend magic link' : r.invited_at ? 'Re-invite' : 'Send invite'
   return (
     <>
       <tr className="tr">
@@ -529,12 +598,20 @@ function ResidentRow({ r, monthlyDues, duesCfg, payments, onLocal, onCommit, onR
 
             <div className="edit-foot">
               <span className="muted" style={{ fontSize: 12.5 }}>
-                {activated ? 'Account activated' : 'No linked account yet'}
+                {activated ? 'Account activated' : r.invited_at ? 'Invite sent — not activated yet' : 'No linked account yet'}
                 {' · '}{DUES_LABEL[duesStatus(balance, monthlyDues)]}
               </span>
-              <button type="button" className="admin-btn-sm admin-btn-warn" onClick={() => onRemove(r.id)}>
-                Remove household
-              </button>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {r.email && (
+                  <button type="button" className="admin-btn-sm" disabled={inviteBusy} onClick={() => onInvite(r.id)}
+                    title="Email this owner a magic link to activate the app and vote">
+                    {inviteBusy ? 'Sending…' : inviteLabel}
+                  </button>
+                )}
+                <button type="button" className="admin-btn-sm admin-btn-warn" onClick={() => onRemove(r.id)}>
+                  Remove household
+                </button>
+              </div>
             </div>
           </td>
         </tr>
