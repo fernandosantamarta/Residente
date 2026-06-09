@@ -365,8 +365,33 @@ export default function ReportsPage() {
             </table>
           </div>
 
-          {/* Who's behind — the named past-due list (the snapshot below is the
-              bucketed summary of the same balances). */}
+          {/* Collections snapshot — owners by balance, bucketed. */}
+          <div className="card">
+            <div className="card-head">
+              <div><h2>Collections snapshot</h2><div className="sub">Owners by balance, bucketed by amount</div></div>
+            </div>
+            {residents.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '22px 16px', color: 'var(--text-dim)', fontSize: 13.5 }}>
+                No households in the roster yet. Import or add residents to see collections at a glance.
+              </div>
+            ) : brackets.map((b, i) => {
+              const isLast = i === brackets.length - 1
+              return (
+                <div className="lrow" key={b.label}>
+                  <span className={`pill ${b.pill}`} style={{ width: 86, textAlign: 'center', flexShrink: 0, boxSizing: 'border-box' }}>{b.label}</span>
+                  <div className="body">
+                    <div className="ttl">{b.count} {b.count === 1 ? 'owner' : 'owners'}</div>
+                    <div className="meta">{b.owed > 0 ? `${fmt$(b.owed)} on file` : '$0 balance'}</div>
+                  </div>
+                  {isLast && b.count > 0
+                    ? <Link href="/admin/compliance" className="go" style={{ textDecoration: 'none' }}>Collections &rarr;</Link>
+                    : <span className="pct">{b.pct}%</span>}
+                </div>
+              )
+            })}
+          </div>
+
+          {/* Who's behind — the named past-due list, at the end of the page. */}
           <div className="card">
             <div className="card-head">
               <div>
@@ -402,32 +427,6 @@ export default function ReportsPage() {
                 </tbody>
               </table>
             )}
-          </div>
-
-          {/* Collections snapshot — owners by balance, bucketed. */}
-          <div className="card">
-            <div className="card-head">
-              <div><h2>Collections snapshot</h2><div className="sub">Owners by balance, bucketed by amount</div></div>
-            </div>
-            {residents.length === 0 ? (
-              <div style={{ textAlign: 'center', padding: '22px 16px', color: 'var(--text-dim)', fontSize: 13.5 }}>
-                No households in the roster yet. Import or add residents to see collections at a glance.
-              </div>
-            ) : brackets.map((b, i) => {
-              const isLast = i === brackets.length - 1
-              return (
-                <div className="lrow" key={b.label}>
-                  <span className={`pill ${b.pill}`}>{b.label}</span>
-                  <div className="body">
-                    <div className="ttl">{b.count} {b.count === 1 ? 'owner' : 'owners'}</div>
-                    <div className="meta">{b.owed > 0 ? `${fmt$(b.owed)} on file` : '$0 balance'}</div>
-                  </div>
-                  {isLast && b.count > 0
-                    ? <Link href="/admin/compliance" className="go" style={{ textDecoration: 'none' }}>Collections &rarr;</Link>
-                    : <span className="pct">{b.pct}%</span>}
-                </div>
-              )
-            })}
           </div>
 
           <p className="note">
