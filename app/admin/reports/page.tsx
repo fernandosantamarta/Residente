@@ -13,6 +13,7 @@ import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { downloadCsv, exportFilename, type CsvColumn } from '@/lib/exportCsv'
+import { residentBalance, communityDuesConfig } from '@/lib/dues'
 import { Dropdown } from '@/components/Dropdown'
 
 // Period presets behind the "Year to date" dropdown. Each maps to a from/to
@@ -49,7 +50,7 @@ const CHARGE_LABEL: Record<string, string> = {
 }
 const chargeLabel = (t: string | null) => (t ? (CHARGE_LABEL[t] || t) : 'Dues')
 type Expense = { id: string; amount: number; spent_on: string; category_id: string | null; vendor: string | null; description: string | null }
-type Resident = { id: string; full_name: string | null; unit_number: string | null; address: string | null; opening_balance: number | null }
+type Resident = { id: string; full_name: string | null; unit_number: string | null; address: string | null; opening_balance: number | null; created_at?: string | null }
 
 export default function ReportsPage() {
   const { profile } = useAuth() || {}
@@ -58,6 +59,7 @@ export default function ReportsPage() {
   const [payments, setPayments] = useState<Payment[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
   const [residents, setResidents] = useState<Resident[]>([])
+  const [community, setCommunity] = useState<any>(null)
   const [cats, setCats] = useState<{ id: string; name: string }[]>([])
   const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError] = useState('')
@@ -95,7 +97,7 @@ export default function ReportsPage() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const [{ data: pay }, { data: exp }, { data: res }, { data: bc }] = (await Promise.all([
+      const [{ data: pay }, { data: exp }, { data: res }, { data: bc }, { data: com }] = (await Promise.all([
         withTimeout(supabase!.from('payments')
           .select('id, amount, paid_on, created_at, resident_id, charge_type, method')
           .eq('community_id', communityId).order('paid_on', { ascending: false })),
@@ -103,11 +105,12 @@ export default function ReportsPage() {
           .select('id, amount, spent_on, category_id, vendor, description')
           .eq('community_id', communityId).order('spent_on', { ascending: false })),
         withTimeout(supabase!.from('residents')
-          .select('id, full_name, unit_number, address, opening_balance')
+          .select('id, full_name, unit_number, address, opening_balance, created_at')
           .eq('community_id', communityId).order('full_name')),
         withTimeout(supabase!.from('budget_categories').select('id, name').eq('community_id', communityId)),
+        withTimeout(supabase!.from('communities').select('*').eq('id', communityId).single()),
       ])) as any
-      setPayments(pay || []); setExpenses(exp || []); setResidents(res || []); setCats(bc || [])
+      setPayments(pay || []); setExpenses(exp || []); setResidents(res || []); setCats(bc || []); setCommunity(com || null)
       setStatus('ready')
     } catch (err: any) {
       setError(err?.message || 'Could not load report data'); setStatus('error')
@@ -124,6 +127,30 @@ export default function ReportsPage() {
     return m
   }, [residents])
 
+  // Live balance per household = opening balance + accrued monthly dues − payments
+  // (same calc the Residents page shows), so "who's behind" is accurate, not just
+  // the static opening balance.
+  const monthlyDues = Number(community?.monthly_dues) || 0
+  const duesCfg = useMemo(() => communityDuesConfig(community), [community])
+  const paymentsByResident = useMemo(() => {
+    const m = new Map<string, Payment[]>()
+    for (const p of payments) {
+      if (!p.resident_id) continue
+      if (!m.has(p.resident_id)) m.set(p.resident_id, [])
+      m.get(p.resident_id)!.push(p)
+    }
+    return m
+  }, [payments])
+  const balanceOf = useCallback(
+    (r: Resident) => residentBalance(r as any, monthlyDues, paymentsByResident.get(r.id) || [], duesCfg),
+    [monthlyDues, paymentsByResident, duesCfg],
+  )
+  // Owners who owe money, most-behind first.
+  const delinquents = useMemo(
+    () => residents.map(r => ({ r, bal: balanceOf(r) })).filter(x => x.bal > 0).sort((a, b) => b.bal - a.bal),
+    [residents, balanceOf],
+  )
+
   const paysInRange = useMemo(() => payments.filter(p => inRange(payDate(p), from, to)), [payments, from, to])
   const expInRange = useMemo(
     () => expenses.filter(x => inRange(x.spent_on, from, to) && (category === 'all' || x.category_id === category)),
@@ -137,11 +164,11 @@ export default function ReportsPage() {
   // recorded balance on file (opening_balance). Credits (negative) don't reduce
   // the figure — only positive balances count toward what's owed.
   const outstanding = useMemo(
-    () => residents.reduce((s, r) => s + Math.max(0, Number(r.opening_balance) || 0), 0),
-    [residents],
+    () => residents.reduce((s, r) => s + Math.max(0, balanceOf(r)), 0),
+    [residents, balanceOf],
   )
 
-  // Collections snapshot — owners bucketed by their balance on file. We have no
+  // Collections snapshot — owners bucketed by their live balance. We have no
   // aging dates here, so the brackets are by amount (not days late); the real
   // aging workflow lives in Compliance → Collections.
   const brackets = useMemo(() => {
@@ -153,13 +180,13 @@ export default function ReportsPage() {
     ]
     const rows = defs.map(d => ({ ...d, count: 0, owed: 0 }))
     for (const r of residents) {
-      const b = Number(r.opening_balance) || 0
+      const b = balanceOf(r)
       const row = rows.find(x => x.hit(b))
       if (row) { row.count++; row.owed += Math.max(0, b) }
     }
     const total = residents.length || 1
     return rows.map(r => ({ ...r, pct: Math.round((r.count / total) * 100) }))
-  }, [residents])
+  }, [residents, balanceOf])
 
   const rangeLabel = `${from} → ${to}`
 
@@ -215,6 +242,15 @@ export default function ReportsPage() {
       { label: 'Opening balance', value: r => r.opening_balance != null ? Number(r.opening_balance).toFixed(2) : '' },
     ]
     downloadCsv(exportFilename('residente-roster', todayISO()), residents, cols)
+  }
+  const exportDelinquents = () => {
+    const cols: CsvColumn<{ r: Resident; bal: number }>[] = [
+      { label: 'Name', value: x => x.r.full_name || '' },
+      { label: 'Unit', value: x => x.r.unit_number || '' },
+      { label: 'Address', value: x => x.r.address || '' },
+      { label: 'Balance owed', value: x => x.bal.toFixed(2) },
+    ]
+    downloadCsv(exportFilename('residente-past-due', todayISO()), delinquents, cols)
   }
 
   // The board-facing report list. Each row fronts the real CSV exporters above;
@@ -329,10 +365,49 @@ export default function ReportsPage() {
             </table>
           </div>
 
-          {/* Collections snapshot — owners by balance on file. */}
+          {/* Who's behind — the named past-due list (the snapshot below is the
+              bucketed summary of the same balances). */}
           <div className="card">
             <div className="card-head">
-              <div><h2>Collections snapshot</h2><div className="sub">Owners by balance on file</div></div>
+              <div>
+                <h2>Who&rsquo;s behind on payments</h2>
+                <div className="sub">{delinquents.length} {delinquents.length === 1 ? 'household owes' : 'households owe'} a balance · most behind first</div>
+              </div>
+              <button type="button" className="admin-secondary-btn" onClick={exportDelinquents} disabled={delinquents.length === 0}>
+                Export CSV
+              </button>
+            </div>
+            {delinquents.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '22px 16px', color: 'var(--text-dim)', fontSize: 13.5 }}>
+                {residents.length === 0
+                  ? 'No households in the roster yet.'
+                  : 'Everyone is current — no outstanding balances. 🎉'}
+              </div>
+            ) : (
+              <table className="tbl">
+                <thead>
+                  <tr><th>Owner</th><th className="period-col">Unit</th><th>Balance owed</th><th className="act"></th></tr>
+                </thead>
+                <tbody>
+                  {delinquents.map(({ r, bal }) => (
+                    <tr key={r.id}>
+                      <td className="strong">{r.full_name || 'Resident'}</td>
+                      <td className="muted period-col">{r.unit_number || r.address || '—'}</td>
+                      <td className="due">{fmt$(bal)}</td>
+                      <td className="act">
+                        <Link href="/admin/compliance" className="go" style={{ textDecoration: 'none' }}>Collect →</Link>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Collections snapshot — owners by balance, bucketed. */}
+          <div className="card">
+            <div className="card-head">
+              <div><h2>Collections snapshot</h2><div className="sub">Owners by balance, bucketed by amount</div></div>
             </div>
             {residents.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '22px 16px', color: 'var(--text-dim)', fontSize: 13.5 }}>
