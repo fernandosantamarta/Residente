@@ -120,7 +120,7 @@ function CalendarAdmin() {
   const allEvents = useScheduleEvents()
   // Board-managed events (from the DB) + async add/remove. Realtime-synced,
   // so anything added here shows on every resident's calendar immediately.
-  const { events: stored, addEvent, removeEvent } = useCommunitySchedule()
+  const { events: stored, addEvent, updateEvent, removeEvent } = useCommunitySchedule()
   const [form, setForm] = useState<EmptyForm>(EMPTY_FORM)
   const [successMsg, setSuccessMsg] = useState<string>('')
   const [error, setError] = useState<string>('')
@@ -227,6 +227,23 @@ function CalendarAdmin() {
     } catch (err: any) {
       setError(err?.message || 'Could not remove the event.')
     }
+  }
+
+  const onSaveEdit = async (id: string, patch: Partial<EmptyForm>) => {
+    if (!patch.title?.trim() || !patch.date) {
+      setError('Title and date are required.')
+      throw new Error('invalid')
+    }
+    await updateEvent(id, {
+      kind: patch.kind,
+      title: patch.title.trim(),
+      date: patch.date,
+      time: patch.time?.trim() || undefined,
+      vendor: patch.vendor?.trim() || undefined,
+      location: patch.location?.trim() || undefined,
+    })
+    setError('')
+    setSuccessMsg('Event updated.')
   }
 
   const onPickPdf = (e: ChangeEvent<HTMLInputElement>) => {
@@ -551,25 +568,7 @@ function CalendarAdmin() {
           <>
             <div className="admin-sched-list">
               {paginate(visibleStored, page, EVENTS_PAGE_SIZE).map(e => (
-                <div key={e.id} className="admin-sched-row">
-                  <span className={`sched-dot kind-${e.kind}`} aria-hidden="true" />
-                  <div className="admin-sched-row-body">
-                    <div className="admin-sched-row-title">{e.title}</div>
-                    <div className="admin-sched-row-meta">
-                      {KIND_LABEL[e.kind]} · {e.date}
-                      {e.time && <> · {e.time}</>}
-                      {e.vendor && <> · {e.vendor}</>}
-                      {e.location && <> · {e.location}</>}
-                    </div>
-                  </div>
-                  <button
-                    className="admin-sched-row-del"
-                    onClick={() => onDelete(e.id)}
-                    aria-label={`Delete ${e.title}`}
-                  >
-                    Remove
-                  </button>
-                </div>
+                <EventRow key={e.id} event={e} onSave={onSaveEdit} onDelete={onDelete} />
               ))}
             </div>
             <Pagination
@@ -581,6 +580,106 @@ function CalendarAdmin() {
           </>
         )}
       </div>
+    </div>
+  )
+}
+
+// One row in "Events you've added". Reads as title + meta with Edit / Remove;
+// clicking Edit swaps the row for an inline form (same fields as Add an event)
+// so board-added events stay fully editable.
+function EventRow({
+  event, onSave, onDelete,
+}: {
+  event: ScheduleEvent
+  onSave: (id: string, patch: Partial<EmptyForm>) => Promise<void>
+  onDelete: (id: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [form, setForm] = useState<EmptyForm>({
+    kind: event.kind, title: event.title, date: event.date,
+    time: event.time || '', vendor: event.vendor || '', location: event.location || '',
+  })
+  const set = (k: keyof EmptyForm) => (e: ChangeEvent<HTMLInputElement>) =>
+    setForm(prev => ({ ...prev, [k]: e.target.value }))
+
+  const startEdit = () => {
+    setForm({
+      kind: event.kind, title: event.title, date: event.date,
+      time: event.time || '', vendor: event.vendor || '', location: event.location || '',
+    })
+    setEditing(true)
+  }
+  const save = async () => {
+    setSaving(true)
+    try { await onSave(event.id, form); setEditing(false) }
+    catch { /* parent surfaces the error; keep the form open */ }
+    finally { setSaving(false) }
+  }
+
+  if (!editing) {
+    return (
+      <div className="admin-sched-row">
+        <span className={`sched-dot kind-${event.kind}`} aria-hidden="true" />
+        <div className="admin-sched-row-body">
+          <div className="admin-sched-row-title">{event.title}</div>
+          <div className="admin-sched-row-meta">
+            {KIND_LABEL[event.kind]} · {event.date}
+            {event.time && <> · {event.time}</>}
+            {event.vendor && <> · {event.vendor}</>}
+            {event.location && <> · {event.location}</>}
+          </div>
+        </div>
+        <div className="admin-amen-row-actions">
+          <button className="admin-sched-row-del" onClick={startEdit} aria-label={`Edit ${event.title}`}>Edit</button>
+          <button className="admin-sched-row-del" onClick={() => onDelete(event.id)} aria-label={`Delete ${event.title}`}>Remove</button>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="admin-sched-row" style={{ alignItems: 'stretch' }}>
+      <span className={`sched-dot kind-${form.kind}`} aria-hidden="true" />
+      <form className="admin-form" style={{ flex: 1 }} onSubmit={e => { e.preventDefault(); save() }}>
+        <label className="admin-field">
+          <span className="admin-field-label">Title</span>
+          <input className="admin-input" value={form.title} onChange={set('title')} required />
+        </label>
+        <div className="admin-field">
+          <span className="admin-field-label">Kind</span>
+          <Dropdown<EventKind>
+            value={form.kind}
+            onChange={v => setForm(prev => ({ ...prev, kind: v }))}
+            options={ALL_KINDS.map(k => ({ value: k, label: KIND_LABEL[k] }))}
+            ariaLabel="Event kind"
+          />
+        </div>
+        <label className="admin-field">
+          <span className="admin-field-label">Date</span>
+          <input className="admin-input" type="date" value={form.date} onChange={set('date')} required />
+        </label>
+        <label className="admin-field">
+          <span className="admin-field-label">Time <em>(optional)</em></span>
+          <input className="admin-input" value={form.time} onChange={set('time')} placeholder="7:00 PM, All day" />
+        </label>
+        <label className="admin-field">
+          <span className="admin-field-label">Vendor <em>(optional)</em></span>
+          <input className="admin-input" value={form.vendor} onChange={set('vendor')} />
+        </label>
+        <label className="admin-field">
+          <span className="admin-field-label">Location <em>(optional)</em></span>
+          <input className="admin-input" value={form.location} onChange={set('location')} />
+        </label>
+        <div className="card-cta" style={{ display: 'flex', gap: 10 }}>
+          <button type="submit" className="admin-primary-btn" disabled={saving}>
+            {saving ? 'Saving…' : 'Save changes'}
+          </button>
+          <button type="button" className="admin-btn-ghost" onClick={() => setEditing(false)} disabled={saving}>
+            Cancel
+          </button>
+        </div>
+      </form>
     </div>
   )
 }
