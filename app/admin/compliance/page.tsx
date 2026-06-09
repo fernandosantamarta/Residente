@@ -417,7 +417,8 @@ function SignalRow({ signal: s }: { signal: ComplianceSignal }) {
     }}>
       <span style={{
         fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px',
-        color: meta.color, background: meta.bg, padding: '3px 10px', borderRadius: 999, whiteSpace: 'nowrap', marginTop: 1,
+        color: meta.color, background: meta.bg, padding: '3px 0', borderRadius: 999, whiteSpace: 'nowrap', marginTop: 1,
+        width: 84, textAlign: 'center', flexShrink: 0, boxSizing: 'border-box',
       }}>{meta.label}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14.5, fontWeight: 600 }}>{s.title}</div>
