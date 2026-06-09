@@ -339,7 +339,7 @@ export default function Board() {
 
       {(status === 'ready' || status === 'loading') && (
         <>
-          <div className="card" style={{ marginTop: 24 }}>
+          <div className="card">
             <div className="card-head">
               <div>
                 <h2>Board members</h2>

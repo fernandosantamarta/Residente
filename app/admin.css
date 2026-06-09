@@ -891,6 +891,9 @@
 .admin-page .toolbar { padding-left: 24px; }
 .admin-page .card .stats,
 .admin-page .card .toolbar { padding-left: 0; }
+/* Breathing room between the page description and the first section/card, so the
+   header block reads as separate from the content (matches the Board & roles fix). */
+.admin-page .admin-dek { margin-bottom: 24px; }
 
 /* Info/warn/err notes on the clean pages drop the colored left-accent stripe and
    pick up the card radius + soft shadow, so they read as clean cards rather than
