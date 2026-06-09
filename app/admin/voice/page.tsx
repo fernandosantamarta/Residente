@@ -284,19 +284,22 @@ function MeetingForm({ onSaved, onCancel, existing, embedded }: { onSaved: (id) 
     </>
   )
 
-  // Embedded on the meeting detail page: render only the form as a card section.
+  // Embedded on the meeting detail page: a full-width card section (matching the
+  // Documents/Notify cards) with the form inside, like NotifyPanel.
   if (embedded) {
     return (
-      <form className="card voice-form" onSubmit={save}>
+      <div className="card">
         <div className="card-head"><div><h2>Meeting settings</h2><div className="sub">Edit the details and add a recap after the meeting.</div></div></div>
-        {fields}
-        {err && <div className="admin-err">{err}</div>}
-        <div className="card-cta voice-form-actions">
-          <button type="submit" className="admin-primary-btn" disabled={saving}>
-            {saving ? 'Saving…' : 'Save changes'}
-          </button>
-        </div>
-      </form>
+        <form className="voice-form" onSubmit={save}>
+          {fields}
+          {err && <div className="admin-err">{err}</div>}
+          <div className="card-cta voice-form-actions">
+            <button type="submit" className="admin-primary-btn" disabled={saving}>
+              {saving ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
+        </form>
+      </div>
     )
   }
 
