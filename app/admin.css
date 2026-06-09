@@ -880,17 +880,13 @@
    24px), not the card's outer edge — "Board & roles" sits over "Board members",
    the dek over the section's first line, etc. Applies across the clean admin
    pages (.cset) and the reports page (.crep). Card boxes stay full-width. */
-/* Indent the header text to align with card CONTENT on the clean CARD-FIRST
-   pages (.cset). Reports (.crep) and Residents (.etrack) lead with stat tiles /
-   toolbars that are themselves boxes sitting at the page edge — there, an
-   indented header would float right of that content, so those pages stay
-   un-indented and everything lines up at the edge. */
-.cset .admin-backlink,
-.cset .admin-kicker,
-.cset .admin-h1,
-.cset .admin-dek { padding-left: 24px; }
+/* Every admin page keeps its header flush at the page edge, lined up with the
+   cards / stat tiles below (uniform across card-first and stats-first layouts). */
 /* Breathing room between the page description and the first section, every page. */
 .admin-page .admin-dek { margin-bottom: 24px; }
+/* Easy Schedule is a flex column with its own 22px gap — let that handle the
+   header→cards separation so the dek's own margin doesn't double it up. */
+.admin-schedule .admin-dek { margin-bottom: 0; }
 
 /* Info/warn/err notes on the clean pages drop the colored left-accent stripe and
    pick up the card radius + soft shadow, so they read as clean cards rather than
