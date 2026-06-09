@@ -64,14 +64,14 @@ export default function Meetings() {
   }
 
   return (
-    <div className="admin-section">
+    <div className="admin-page cset">
       <EasyVoiceTabs active="meetings" />
 
       <div className="admin-section-head" style={{ marginTop: 18 }}>
         <div>
           <div className="admin-kicker">Easy Voice</div>
-          <div className="admin-section-title">Meetings</div>
-          <div className="admin-section-sub">Create meetings, manage documents, and run votes.</div>
+          <h1 className="admin-h1">Meetings</h1>
+          <p className="admin-dek">Create meetings, manage documents, and run votes.</p>
         </div>
         <button className="admin-primary-btn" onClick={() => setView('create')}>+ New Meeting</button>
       </div>
@@ -86,14 +86,17 @@ export default function Meetings() {
       )}
 
       {!loading && meetings.length > 0 && (
-        <div className="voice-meeting-list">
-          {meetings.map(m => (
-            <MeetingRow
-              key={m.id}
-              meeting={m}
-              onClick={() => { setSelectedId(m.id); setView('detail') }}
-            />
-          ))}
+        <div className="card">
+          <div className="card-head"><div><h2>All meetings</h2><div className="sub">Tap a meeting to manage documents, notices, and settings</div></div></div>
+          <div className="voice-meeting-list">
+            {meetings.map(m => (
+              <MeetingRow
+                key={m.id}
+                meeting={m}
+                onClick={() => { setSelectedId(m.id); setView('detail') }}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -178,15 +181,16 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
   }
 
   return (
-    <div className="admin-section">
+    <div className="admin-page cset">
       <div className="admin-section-head">
         <div>
-          <div className="admin-section-title">{existing ? 'Edit Meeting' : 'New Meeting'}</div>
+          <div className="admin-kicker">Easy Voice</div>
+          <h1 className="admin-h1">{existing ? 'Edit Meeting' : 'New Meeting'}</h1>
         </div>
         <button className="admin-btn-ghost" onClick={onCancel}>Cancel</button>
       </div>
 
-      <form className="voice-form" onSubmit={save}>
+      <form className="card voice-form" onSubmit={save}>
         <div className="voice-form-row">
           <label>Meeting type</label>
           <Dropdown<string>
@@ -277,7 +281,7 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
 
         {err && <div className="admin-err">{err}</div>}
 
-        <div className="voice-form-actions">
+        <div className="card-cta voice-form-actions">
           <button type="submit" className="admin-primary-btn" disabled={saving}>
             {saving ? 'Saving…' : existing ? 'Save changes' : 'Create meeting'}
           </button>
@@ -342,20 +346,20 @@ function MeetingDetail({ meetingId, onBack }) {
     }
   }
 
-  if (loading) return <div className="admin-section"><div className="admin-placeholder">Loading…</div></div>
-  if (error)   return <div className="admin-section"><div className="admin-err">{error}</div></div>
+  if (loading) return <div className="admin-page cset"><div className="admin-placeholder">Loading…</div></div>
+  if (error)   return <div className="admin-page cset"><div className="admin-err">{error}</div></div>
   if (!meeting) return null
 
   const typeLabel = MEETING_TYPES.find(t => t.value === meeting.type)?.label ?? meeting.type
   const nextStatusLabel = { draft: 'Mark Notice Sent', notice_sent: 'Start Meeting', in_progress: 'Complete Meeting' }[meeting.status]
 
   return (
-    <div className="admin-section">
+    <div className="admin-page cset">
       <div className="admin-section-head">
         <button className="admin-btn-ghost" onClick={onBack}>← All meetings</button>
       </div>
 
-      <div className="voice-detail-header">
+      <div className="card voice-detail-header">
         <div className="voice-meeting-type">{typeLabel}</div>
         <h2 className="voice-detail-title">{meeting.title}</h2>
         <div className="voice-detail-meta">
@@ -467,7 +471,8 @@ function NotifyPanel({ meeting }) {
 
   return (
     <div className="voice-panel">
-      <div className="voice-panel-head"><span>Send a notice to all residents</span></div>
+      <div className="card">
+      <div className="card-head"><div><h2>Send a notice to all residents</h2></div></div>
 
       <form className="voice-form" onSubmit={send}>
         <div className="voice-form-row">
@@ -512,14 +517,16 @@ function NotifyPanel({ meeting }) {
           </div>
         </div>
         {err && <div className="admin-err">{err}</div>}
-        <div className="voice-form-actions">
+        <div className="card-cta voice-form-actions">
           <button type="submit" className="admin-primary-btn" disabled={sending}>
             {sending ? 'Sending…' : 'Send notice'}
           </button>
         </div>
       </form>
+      </div>
 
-      <div className="voice-panel-head" style={{ marginTop: 24 }}><span>Notice history</span></div>
+      <div className="card">
+      <div className="card-head"><div><h2>Notice history</h2></div></div>
       {loading && <div className="admin-placeholder">Loading…</div>}
       {!loading && notices.length === 0 && (
         <div className="admin-placeholder">No notices sent for this meeting yet.</div>
@@ -539,6 +546,7 @@ function NotifyPanel({ meeting }) {
           </div>
         </div>
       ))}
+      </div>
     </div>
   )
 }
@@ -1140,7 +1148,7 @@ export function VoteForm({ meetingId = null, communityId, onSaved, onCancel, exi
         </div>
       )}
       {err && <div className="admin-err">{err}</div>}
-      <div className="voice-form-actions">
+      <div className="card-cta voice-form-actions">
         <button type="submit" className="admin-primary-btn" disabled={saving}>
           {saving ? 'Saving…' : isEditing ? 'Save changes' : 'Add vote item'}
         </button>
@@ -1249,8 +1257,8 @@ function DocsPanel({ meeting, reload }) {
   }
 
   return (
-    <div className="voice-panel">
-      <div className="voice-panel-head"><span>Meeting documents</span></div>
+    <div className="card voice-panel">
+      <div className="card-head"><div><h2>Meeting documents</h2></div></div>
 
       <div className="voice-upload-row">
         <div style={{ minWidth: 190 }}>

@@ -26,7 +26,7 @@ const ADMIN_TABS: SegTab[] = [
 export default function AdminSchedule() {
   const [tab, setTab] = useState('calendar')
   return (
-    <div className="admin-schedule-tabs">
+    <div className="admin-schedule-tabs admin-page cset">
       <SegTabs tabs={ADMIN_TABS} active={tab} onChange={setTab} ariaLabel="Schedule admin sections" />
       {tab === 'amenities' ? <AmenitiesAdmin /> : <CalendarAdmin />}
     </div>
@@ -305,17 +305,15 @@ function CalendarAdmin() {
   const okCount = preview ? preview.filter(r => r.ok).length : 0
 
   return (
-    <div className="admin-schedule">
-      <div className="admin-h-wrap">
-        <div className="admin-kicker">Schedule</div>
-        <h1 className="admin-h1">Community calendar</h1>
-        <p className="admin-dek">
-          Add events to the community calendar one at a time, or upload a CSV
-          to bulk-import. Anything you add here shows up on every
-          resident&rsquo;s <strong>Schedule</strong> tab and the dashboard&rsquo;s
-          &ldquo;Up next&rdquo; rail.
-        </p>
-      </div>
+    <div className="admin-schedule admin-page cset">
+      <div className="admin-kicker">Schedule</div>
+      <h1 className="admin-h1">Community calendar</h1>
+      <p className="admin-dek">
+        Add events to the community calendar one at a time, or upload a CSV
+        to bulk-import. Anything you add here shows up on every
+        resident&rsquo;s <strong>Schedule</strong> tab and the dashboard&rsquo;s
+        &ldquo;Up next&rdquo; rail.
+      </p>
 
       {error && <div className="admin-note admin-note-err">{error}</div>}
       {successMsg && (
@@ -326,15 +324,18 @@ function CalendarAdmin() {
       )}
 
       {/* ---------- ADD ONE ---------- */}
-      <section className="admin-sched-card">
-        <div className="admin-sched-card-head">
-          <h2>Add an event</h2>
-          <span className="admin-sched-card-sub">Manual entry, one at a time.</span>
+      <div className="card">
+        <div className="card-head">
+          <div>
+            <h2>Add an event</h2>
+            <div className="sub">Manual entry, one at a time.</div>
+          </div>
         </div>
-        <form className="admin-sched-form" onSubmit={onSubmit}>
+        <form className="admin-form" onSubmit={onSubmit}>
           <label className="admin-field">
-            <span>Title</span>
+            <span className="admin-field-label">Title</span>
             <input
+              className="admin-input"
               name="title"
               type="text"
               value={form.title}
@@ -345,7 +346,7 @@ function CalendarAdmin() {
           </label>
 
           <div className="admin-field">
-            <span>Kind</span>
+            <span className="admin-field-label">Kind</span>
             <Dropdown<EventKind>
               value={form.kind}
               onChange={v => setForm(prev => ({ ...prev, kind: v }))}
@@ -355,13 +356,14 @@ function CalendarAdmin() {
           </div>
 
           <label className="admin-field">
-            <span>Date</span>
-            <input name="date" type="date" value={form.date} onChange={onChange('date')} required />
+            <span className="admin-field-label">Date</span>
+            <input className="admin-input" name="date" type="date" value={form.date} onChange={onChange('date')} required />
           </label>
 
           <label className="admin-field">
-            <span>Time <em>(optional)</em></span>
+            <span className="admin-field-label">Time <em>(optional)</em></span>
             <input
+              className="admin-input"
               name="time"
               type="text"
               value={form.time}
@@ -371,8 +373,9 @@ function CalendarAdmin() {
           </label>
 
           <label className="admin-field">
-            <span>Vendor <em>(optional)</em></span>
+            <span className="admin-field-label">Vendor <em>(optional)</em></span>
             <input
+              className="admin-input"
               name="vendor"
               type="text"
               value={form.vendor}
@@ -382,8 +385,9 @@ function CalendarAdmin() {
           </label>
 
           <label className="admin-field">
-            <span>Location <em>(optional)</em></span>
+            <span className="admin-field-label">Location <em>(optional)</em></span>
             <input
+              className="admin-input"
               name="location"
               type="text"
               value={form.location}
@@ -392,19 +396,21 @@ function CalendarAdmin() {
             />
           </label>
 
-          <div className="admin-sched-form-foot">
+          <div className="card-cta">
             <button type="submit" className="admin-primary-btn">Add to calendar</button>
           </div>
         </form>
-      </section>
+      </div>
 
       {/* ---------- BULK UPLOAD ---------- */}
-      <section className="admin-sched-card">
-        <div className="admin-sched-card-head">
-          <h2>Bulk upload</h2>
-          <span className="admin-sched-card-sub">
-            Got a schedule on paper or in a spreadsheet? Drop it here.
-          </span>
+      <div className="card">
+        <div className="card-head">
+          <div>
+            <h2>Bulk upload</h2>
+            <div className="sub">
+              Got a schedule on paper or in a spreadsheet? Drop it here.
+            </div>
+          </div>
         </div>
 
         <div className="admin-sched-bulk">
@@ -430,17 +436,19 @@ function CalendarAdmin() {
             onImport={importXls}
           />
         </div>
-      </section>
+      </div>
 
       {/* ---------- REVIEW IMPORT ---------- */}
       {preview && (
-        <section className="admin-sched-card">
-          <div className="admin-sched-card-head">
-            <h2>Review import</h2>
-            <span className="admin-sched-card-sub">
-              {okCount} of {preview.length} row{preview.length === 1 ? '' : 's'} ready —
-              check them before they land on the calendar.
-            </span>
+        <div className="card">
+          <div className="card-head">
+            <div>
+              <h2>Review import</h2>
+              <div className="sub">
+                {okCount} of {preview.length} row{preview.length === 1 ? '' : 's'} ready —
+                check them before they land on the calendar.
+              </div>
+            </div>
           </div>
           <div className="admin-sched-list">
             {preview.map((r, i) => (
@@ -468,7 +476,7 @@ function CalendarAdmin() {
               </div>
             ))}
           </div>
-          <div className="admin-sched-form-foot" style={{ display: 'flex', gap: 10 }}>
+          <div className="card-cta" style={{ display: 'flex', gap: 10 }}>
             <button
               type="button"
               className="admin-primary-btn"
@@ -481,13 +489,15 @@ function CalendarAdmin() {
               Cancel
             </button>
           </div>
-        </section>
+        </div>
       )}
 
       {/* ---------- WHAT YOU'VE ADDED ---------- */}
-      <section className="admin-sched-card">
-        <div className="admin-sched-card-head">
-          <h2>Events you&rsquo;ve added</h2>
+      <div className="card">
+        <div className="card-head">
+          <div>
+            <h2>Events you&rsquo;ve added</h2>
+          </div>
           <div className="admin-sched-filters">
             <div className="admin-sched-filter">
               <label>Category</label>
@@ -570,7 +580,7 @@ function CalendarAdmin() {
             />
           </>
         )}
-      </section>
+      </div>
     </div>
   )
 }
@@ -631,7 +641,7 @@ function BulkBox({
           />
           <button
             type="button"
-            className="admin-secondary-btn"
+            className="admin-btn-ghost"
             onClick={() => ref.current?.click()}
           >
             {file ? 'Pick another file' : 'Choose file'}

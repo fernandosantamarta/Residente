@@ -181,16 +181,17 @@ export default function VoiceRosterPage() {
   }
 
   return (
-    <div className="admin-section">
+    <div className="admin-page cset">
       <EasyVoiceTabs active="roster" />
 
       <div className="admin-section-head" style={{ marginTop: 18 }}>
         <div>
-          <div className="admin-section-title">Voice Roster</div>
-          <div className="admin-section-sub">
+          <div className="admin-kicker">Easy Voice</div>
+          <h1 className="admin-h1">Voice Roster</h1>
+          <p className="admin-dek">
             Owners eligible to attend meetings and cast electronic ballots.
             Drop a CSV to import — existing owners (matched by email) are updated, not duplicated.
-          </div>
+          </p>
         </div>
         <button className="admin-btn" onClick={() => fileRef.current?.click()}>
           Import CSV
@@ -222,8 +223,8 @@ export default function VoiceRosterPage() {
       )}
 
       {importMsg && (
-        <div className="admin-note" style={{ marginTop: 12, borderLeft: '3px solid #6ee7a7' }}>
-          {importMsg}
+        <div className="admin-success" role="status" style={{ marginTop: 12 }}>
+          <span className="admin-success-check" aria-hidden>✓</span>{importMsg}
         </div>
       )}
 
@@ -260,7 +261,7 @@ function RosterPreview({
 }) {
   const blockingCount = rows.length - importable.length
   return (
-    <div className="voice-roster-preview">
+    <div className="card voice-roster-preview" style={{ marginTop: 16 }}>
       <div className="voice-roster-preview-head">
         <div>
           <strong>{rows.length}</strong> row{rows.length === 1 ? '' : 's'} parsed.
@@ -406,11 +407,9 @@ function OwnerList({
   const uninvitedCount = owners.filter(o => o.email && !o.invited_at).length
 
   return (
-    <div className="voice-roster-list" style={{ marginTop: 24 }}>
-      <div className="voice-roster-list-head" style={{
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      }}>
-        <span>{owners.length} owner{owners.length === 1 ? '' : 's'} in roster</span>
+    <div className="card voice-roster-list" style={{ marginTop: 24 }}>
+      <div className="card-head">
+        <div><h2>{owners.length} owner{owners.length === 1 ? '' : 's'} in roster</h2></div>
         {uninvitedCount > 0 && (
           <button
             className="admin-btn-sm"
@@ -424,8 +423,8 @@ function OwnerList({
         )}
       </div>
       {feedback && (
-        <div className="admin-note" style={{ marginBottom: 10, borderLeft: '3px solid #6ee7a7' }}>
-          {feedback}
+        <div className="admin-success" role="status" style={{ marginBottom: 10 }}>
+          <span className="admin-success-check" aria-hidden>✓</span>{feedback}
         </div>
       )}
       {feedbackErr && <div className="admin-err">{feedbackErr}</div>}

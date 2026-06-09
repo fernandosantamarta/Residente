@@ -18,14 +18,14 @@ export default function VotesAdmin() {
   const [editing, setEditing] = useState<any | null>(null)
 
   return (
-    <div className="admin-section">
+    <div className="admin-page cset">
       <EasyVoiceTabs active="votes" />
 
       <div className="admin-section-head" style={{ marginTop: 18 }}>
         <div>
           <div className="admin-kicker">Easy Voice</div>
-          <div className="admin-section-title">Votes</div>
-          <div className="admin-section-sub">Create and run community votes — no meeting required.</div>
+          <h1 className="admin-h1">Votes</h1>
+          <p className="admin-dek">Create and run community votes — no meeting required.</p>
         </div>
         <button className="admin-primary-btn" onClick={() => { setEditing(null); setShowForm(v => !v) }}>
           {showForm ? 'Cancel' : '+ New Vote'}
@@ -33,21 +33,25 @@ export default function VotesAdmin() {
       </div>
 
       {showForm && !editing && (
-        <VoteForm
-          meetingId={null}
-          communityId={profile?.community_id}
-          onSaved={() => { setShowForm(false); reload() }}
-          onCancel={() => setShowForm(false)}
-        />
+        <div className="card">
+          <VoteForm
+            meetingId={null}
+            communityId={profile?.community_id}
+            onSaved={() => { setShowForm(false); reload() }}
+            onCancel={() => setShowForm(false)}
+          />
+        </div>
       )}
 
       {editing && (
-        <VoteForm
-          existing={editing}
-          communityId={profile?.community_id}
-          onSaved={() => { setEditing(null); reload() }}
-          onCancel={() => setEditing(null)}
-        />
+        <div className="card">
+          <VoteForm
+            existing={editing}
+            communityId={profile?.community_id}
+            onSaved={() => { setEditing(null); reload() }}
+            onCancel={() => setEditing(null)}
+          />
+        </div>
       )}
 
       {loading && <div className="admin-placeholder">Loading votes…</div>}
@@ -58,10 +62,13 @@ export default function VotesAdmin() {
       )}
 
       {!loading && votes.length > 0 && (
-        <div className="voice-vote-list" style={{ marginTop: 18 }}>
-          {votes.map(v => (
-            <VoteRow key={v.id} vote={v} onChanged={reload} onEdit={(vote: any) => { setShowForm(false); setEditing(vote) }} />
-          ))}
+        <div className="card">
+          <div className="card-head"><div><h2>Votes</h2><div className="sub">Open, close, tally, and publish community votes</div></div></div>
+          <div className="voice-vote-list">
+            {votes.map(v => (
+              <VoteRow key={v.id} vote={v} onChanged={reload} onEdit={(vote: any) => { setShowForm(false); setEditing(vote) }} />
+            ))}
+          </div>
         </div>
       )}
     </div>

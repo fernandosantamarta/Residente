@@ -62,44 +62,44 @@ export default function AdminSupport() {
   }
 
   return (
-    <div className="admin-section">
-      <div className="admin-section-head">
-        <div>
-          <div className="admin-section-title">Contact Residente</div>
-          <div className="admin-section-sub">
-            Reach the Residente team for billing, setup help, or to report a problem with the platform.
-            (For resident maintenance issues, use Easy Voice → Contact instead.)
+    <div className="admin-page cset">
+      <div className="admin-kicker">Support</div>
+      <h1 className="admin-h1">Contact Residente</h1>
+      <p className="admin-dek">
+        Reach the Residente team for billing, setup help, or to report a problem with the platform.
+        (For resident maintenance issues, use Easy Voice → Contact instead.)
+      </p>
+
+      {successMsg && (
+        <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{successMsg}</div>
+      )}
+
+      <div className="card">
+        <div className="card-head"><div><h2>Send us a message</h2></div></div>
+        <form className="admin-form" onSubmit={submit}>
+          <label className="admin-field">
+            <span className="admin-field-label">Subject</span>
+            <input name="subject" className="admin-input" placeholder="e.g. How do I enable card payments?"
+              value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} />
+          </label>
+          <label className="admin-field">
+            <span className="admin-field-label">Message (optional)</span>
+            <textarea name="body" className="admin-input admin-textarea" rows={4}
+              placeholder="Tell us what you need."
+              value={form.body} onChange={e => setForm(f => ({ ...f, body: e.target.value }))} />
+          </label>
+          <div className="card-cta">
+            <button type="submit" className="admin-primary-btn" disabled={saving}>
+              {saving ? 'Sending…' : 'Send to Residente'}
+            </button>
+            {error && <span className="admin-err-inline">{error}</span>}
           </div>
-        </div>
+        </form>
       </div>
 
-      {successMsg && <div className="admin-success">{successMsg}</div>}
-
-      <form className="admin-form" onSubmit={submit} style={{ maxWidth: 640 }}>
-        <label className="admin-field">
-          <span className="admin-field-label">Subject</span>
-          <input name="subject" className="admin-input" placeholder="e.g. How do I enable card payments?"
-            value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} />
-        </label>
-        <label className="admin-field">
-          <span className="admin-field-label">Message (optional)</span>
-          <textarea name="body" className="admin-input admin-textarea" rows={4}
-            placeholder="Tell us what you need."
-            value={form.body} onChange={e => setForm(f => ({ ...f, body: e.target.value }))} />
-        </label>
-        <div className="admin-form-actions">
-          <button type="submit" className="admin-btn" disabled={saving}>
-            {saving ? 'Sending…' : 'Send to Residente'}
-          </button>
-          {error && <span className="admin-err-inline">{error}</span>}
-        </div>
-      </form>
-
       {tickets.length > 0 && (
-        <>
-          <div className="bc-head" style={{ marginTop: 36, marginBottom: 12 }}>
-            <h2 className="bc-title">Your messages</h2>
-          </div>
+        <div className="card">
+          <div className="card-head"><div><h2>Your messages</h2></div></div>
           <div className="bm-list">
             {tickets.map(t => (
               <div className="bm-row" key={t.id}>
@@ -113,7 +113,7 @@ export default function AdminSupport() {
               </div>
             ))}
           </div>
-        </>
+        </div>
       )}
     </div>
   )
