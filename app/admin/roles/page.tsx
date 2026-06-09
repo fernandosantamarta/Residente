@@ -18,7 +18,7 @@ import { EasyTrackTabs } from '../EasyTrackTabs'
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
 
-type Role = { id: string; name: string; permissions: string[]; is_admin: boolean; is_system: boolean; allow_multiple?: boolean }
+type Role = { id: string; name: string; permissions: string[]; is_admin: boolean; is_system: boolean; allow_multiple?: boolean; max_holders?: number | null }
 type Member = { id: string; full_name: string | null; board_position: string | null; role_id: string | null }
 
 export default function RolesPage() {
@@ -36,7 +36,8 @@ export default function RolesPage() {
   const [editId, setEditId] = useState<string | null>(null)
   const [name, setName] = useState('')
   const [perms, setPerms] = useState<Set<string>>(new Set())
-  const [allowMulti, setAllowMulti] = useState(false)
+  // How many board members can hold this role. '' / 0 means no limit.
+  const [maxHolders, setMaxHolders] = useState('1')
   const [saving, setSaving] = useState(false)
   const [savedId, setSavedId] = useState<string | null>(null) // member row that just saved
 
@@ -62,9 +63,14 @@ export default function RolesPage() {
 
   const roleName = useCallback((id: string | null) => roles.find(x => x.id === id)?.name || '—', [roles])
 
-  const startNew = () => { setEditId(null); setName(''); setPerms(new Set()); setAllowMulti(false) }
+  // A role's capacity: explicit max_holders, else derived from the old flag
+  // (allow_multiple → no limit), else single-holder.
+  const capOf = (r: Role) => r.max_holders == null ? (r.allow_multiple ? 0 : 1) : r.max_holders
+
+  const startNew = () => { setEditId(null); setName(''); setPerms(new Set()); setMaxHolders('1') }
   const startEdit = (r: Role) => {
-    setEditId(r.id); setName(r.name); setPerms(new Set(r.permissions || [])); setAllowMulti(!!r.allow_multiple)
+    setEditId(r.id); setName(r.name); setPerms(new Set(r.permissions || []))
+    const cap = capOf(r); setMaxHolders(cap === 0 ? '' : String(cap))
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
   }
   const togglePerm = (k: string) => setPerms(prev => {
@@ -73,13 +79,20 @@ export default function RolesPage() {
 
   const saveRole = async () => {
     if (!name.trim()) { setError('Name the role.'); return }
+    const cap = Math.max(0, parseInt(maxHolders, 10) || 0)   // 0 / blank = no limit
+    const multi = cap !== 1
     setSaving(true); setError('')
     try {
       let { error } = (await withTimeout(supabase!.rpc('ev_role_save', {
-        p_id: editId, p_name: name.trim(), p_perms: Array.from(perms), p_multi: allowMulti,
+        p_id: editId, p_name: name.trim(), p_perms: Array.from(perms), p_multi: multi, p_max_holders: cap,
       }))) as any
-      // Until the allow-multiple migration is applied the 4-arg function doesn't
-      // exist — fall back to the original 3-arg signature so saving still works.
+      // Migration not applied yet → step down: drop p_max_holders, then p_multi,
+      // so saving still works (capacity just won't persist until the SQL is run).
+      if (error && /function|schema cache|p_max_holders/i.test(error.message || '')) {
+        ;({ error } = (await withTimeout(supabase!.rpc('ev_role_save', {
+          p_id: editId, p_name: name.trim(), p_perms: Array.from(perms), p_multi: multi,
+        }))) as any)
+      }
       if (error && /function|schema cache|p_multi/i.test(error.message || '')) {
         ;({ error } = (await withTimeout(supabase!.rpc('ev_role_save', {
           p_id: editId, p_name: name.trim(), p_perms: Array.from(perms),
@@ -140,16 +153,20 @@ export default function RolesPage() {
     }
   }
 
-  // A custom role can be held by only one board member; the Admin role and any
-  // seeded system roles are shareable. So a member's dropdown hides custom roles
-  // already taken by someone else (their own current role stays selectable). To
-  // give two people the same access, create another role.
+  // How many other board members already hold a role (excluding this member).
+  const heldBy = useCallback((roleId: string, exceptMemberId: string) =>
+    boardMembers.filter(o => o.id !== exceptMemberId && o.role_id === roleId).length, [boardMembers])
+
+  // A custom role can be held by up to its capacity (max_holders); 0 = no limit.
+  // The Admin role and seeded system roles are always shareable. A member's
+  // dropdown hides custom roles whose capacity is already full (their own
+  // current role stays selectable).
   const rolesForMember = useCallback((memberId: string, currentRoleId: string | null) =>
-    roles.filter(r =>
-      r.is_admin || r.is_system || r.allow_multiple ||
-      r.id === currentRoleId ||
-      !boardMembers.some(o => o.id !== memberId && o.role_id === r.id),
-    ), [roles, boardMembers])
+    roles.filter(r => {
+      if (r.is_admin || r.is_system || r.id === currentRoleId) return true
+      const cap = capOf(r)
+      return cap === 0 || heldBy(r.id, memberId) < cap
+    }), [roles, heldBy])
 
   const editingRole = useMemo(() => roles.find(r => r.id === editId) || null, [roles, editId])
   const editingProtected = !!editingRole?.is_admin
@@ -192,11 +209,22 @@ export default function RolesPage() {
               </span>
             </div>
 
-            <label className="admin-field" style={{ maxWidth: 360 }}>
-              <span className="admin-field-label">Role name</span>
-              <input className="admin-input" value={name} disabled={editingProtected}
-                placeholder="e.g. Treasurer" onChange={e => setName(e.target.value)} />
-            </label>
+            <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+              <label className="admin-field" style={{ flex: '1 1 280px', maxWidth: 360 }}>
+                <span className="admin-field-label">Role name</span>
+                <input className="admin-input" value={name} disabled={editingProtected}
+                  placeholder="e.g. Secretary" onChange={e => setName(e.target.value)} />
+              </label>
+              <label className="admin-field" style={{ width: 200 }}>
+                <span className="admin-field-label">How many can hold it?</span>
+                <input className="admin-input" type="number" min={0} step={1} value={maxHolders}
+                  disabled={editingProtected} placeholder="1"
+                  onChange={e => setMaxHolders(e.target.value)} />
+                <span style={{ fontSize: 12, opacity: 0.6, marginTop: 4, textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>
+                  e.g. 2 secretaries, 3 guards. Use 0 for no limit.
+                </span>
+              </label>
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 18, margin: '16px 0' }}>
               {PERMISSION_GROUPS.map(g => (
@@ -214,17 +242,11 @@ export default function RolesPage() {
             </div>
 
             {!editingProtected && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12, justifyContent: 'space-between', flexWrap: 'wrap' }}>
-                <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5 }}>
-                  <input type="checkbox" checked={allowMulti} onChange={e => setAllowMulti(e.target.checked)} />
-                  Allow several board members to hold this role
-                </label>
-                <div style={{ display: 'flex', gap: 10 }}>
-                  {editId && <button className="admin-btn-ghost" type="button" onClick={startNew}>Cancel</button>}
-                  <button className="admin-primary-btn" disabled={saving} onClick={saveRole}>
-                    {saving ? 'Saving…' : editId ? 'Save changes' : 'Create role'}
-                  </button>
-                </div>
+              <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                {editId && <button className="admin-btn-ghost" type="button" onClick={startNew}>Cancel</button>}
+                <button className="admin-primary-btn" disabled={saving} onClick={saveRole}>
+                  {saving ? 'Saving…' : editId ? 'Save changes' : 'Create role'}
+                </button>
               </div>
             )}
             {editingProtected && <button className="admin-btn-ghost" type="button" onClick={startNew}>Back to new role</button>}
@@ -240,6 +262,11 @@ export default function RolesPage() {
                   <div className="admin-sched-row-body">
                     <div className="admin-sched-row-title">
                       {r.name}{r.is_admin && <span className="amen-pay-tag paid" style={{ marginLeft: 8 }}>Full access</span>}{r.is_system && !r.is_admin && <span className="amen-pay-tag pending" style={{ marginLeft: 8 }}>Default</span>}
+                      {!r.is_admin && (() => { const cap = capOf(r); const held = members.filter(m => m.role_id === r.id).length; return (
+                        <span className="amen-pay-tag" style={{ marginLeft: 8, opacity: 0.85 }}>
+                          {cap === 0 ? `${held} held · no limit` : `${held}/${cap} held`}
+                        </span>
+                      ) })()}
                     </div>
                     <div className="admin-sched-row-meta">
                       {r.is_admin ? 'Every permission' : (r.permissions.length ? r.permissions.map(p => PERMISSION_LABEL[p] || p).join(' · ') : 'No permissions yet')}
