@@ -28,7 +28,7 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/budget',     label: 'Budget', anyPerm: ['community.manage', 'financials.view'] },
   { href: '/admin/reports',    label: 'Reports', anyPerm: ['financials.view', 'payments.view'] },
   { href: '/admin/residents',  label: 'Easy Track', anyPerm: ['residents.view', 'residents.manage'], match: ['/admin/vendor'] },
-  { href: '/admin/voice',      label: 'Easy Voice', anyPerm: ['voice.manage', 'roles.manage'], match: ['/admin/board', '/admin/requests', '/admin/roles'] },
+  { href: '/admin/board',      label: 'Easy Voice', anyPerm: ['voice.manage', 'roles.manage'], match: ['/admin/voice', '/admin/requests', '/admin/roles'] },
   { href: '/admin/documents',  label: 'Easy Documents', anyPerm: ['documents.manage', 'violations.manage'], match: ['/admin/rules', '/admin/violations'] },
   { href: '/admin/schedule',   label: 'Easy Schedule', anyPerm: ['schedule.manage'] },
 ]

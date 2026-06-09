@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
+import { usePermissions } from '@/hooks/usePermissions'
+import { PERMISSION_GROUPS, PERMISSION_LABEL } from '@/lib/permissions'
 import { Dropdown } from '@/components/Dropdown'
 import { EasyVoiceTabs } from '../EasyVoiceTabs'
 
@@ -38,8 +40,11 @@ const EMPTY = { title: '', vendor: '', amount: '', status: 'approved', decided_o
 export default function Board() {
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
+  const { can } = usePermissions()
+  const canRoles = can('roles.manage')
   const [rows, setRows] = useState([])          // board_decisions
   const [residents, setResidents] = useState([]) // roster (for the member picker)
+  const [roles, setRoles] = useState([])         // ev_roles (custom roles)
   const [status, setStatus] = useState('loading') // loading | ready | none | error
   const [error, setError] = useState('')
   const [form, setForm] = useState(EMPTY)
@@ -49,6 +54,13 @@ export default function Board() {
   const [committees, setCommittees] = useState([])
   const [comForm, setComForm] = useState({ name: '', chair: '', member_count: '', icon: 'home' })
   const [comSaving, setComSaving] = useState(false)
+  // Role builder (merged in from the old Roles page).
+  const [roleEditId, setRoleEditId] = useState(null)
+  const [roleName, setRoleName] = useState('')
+  const [rolePerms, setRolePerms] = useState(new Set())
+  const [roleMax, setRoleMax] = useState('1')   // '' / 0 = no limit
+  const [roleSaving, setRoleSaving] = useState(false)
+  const [savedRoleFor, setSavedRoleFor] = useState(null) // member row that just saved a role
 
   // Auto-dismiss the green confirmation banner after 4 seconds.
   useEffect(() => {
@@ -61,19 +73,22 @@ export default function Board() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const [decR, resR, comR] = await Promise.all([
+      const [decR, resR, comR, roleR] = await Promise.all([
         withTimeout(supabase.from('board_decisions').select('*')
           .eq('community_id', communityId).order('decided_on', { ascending: false })),
         withTimeout(supabase.from('residents').select('*').eq('community_id', communityId)),
         withTimeout(supabase.from('committees').select('*')
           .eq('community_id', communityId).order('sort_order', { ascending: true })),
+        withTimeout(supabase.from('ev_roles').select('*')
+          .eq('community_id', communityId).order('is_admin', { ascending: false }).order('name')),
       ])
       if (decR.error) throw decR.error
       if (resR.error) throw resR.error
-      // committees table may not be migrated yet — don't fail the whole page.
+      // committees / ev_roles tables may not be migrated yet — don't fail the page.
       setRows(decR.data || [])
       setResidents(resR.data || [])
       setCommittees(comR.error ? [] : (comR.data || []))
+      setRoles(roleR.error ? [] : (roleR.data || []))
       setStatus('ready')
     } catch (err) {
       setError(err?.message || 'Could not load the board'); setStatus('error')
@@ -81,8 +96,11 @@ export default function Board() {
   }, [communityId])
   useEffect(() => { load() }, [load])
 
+  // On the board if flagged is_board OR carrying a board_position (the old Roles
+  // page only set the latter) — so the merge never hides anyone.
+  const onBoard = (r) => r.is_board || !!r.board_position
   const boardMembers = useMemo(
-    () => residents.filter(r => r.is_board).sort((a, b) => {
+    () => residents.filter(onBoard).sort((a, b) => {
       const p = posRank(a.board_position) - posRank(b.board_position)
       return p !== 0 ? p : String(a.full_name || '').localeCompare(String(b.full_name || ''))
     }),
@@ -93,17 +111,20 @@ export default function Board() {
     const q = memberQuery.trim().toLowerCase()
     if (!q) return []
     return residents
-      .filter(r => !r.is_board && String(r.full_name || '').toLowerCase().includes(q))
+      .filter(r => !onBoard(r) && String(r.full_name || '').toLowerCase().includes(q))
       .slice(0, 6)
   }, [residents, memberQuery])
 
   const setBoard = async (id, value) => {
     const prev = residents
-    setResidents(rs => rs.map(r => (r.id === id ? { ...r, is_board: value } : r)))
+    // Removing clears both signals (is_board + the legacy board_position) so the
+    // member fully leaves the merged list; adding just sets the flag.
+    const patch = value ? { is_board: true } : { is_board: false, board_position: null }
+    setResidents(rs => rs.map(r => (r.id === id ? { ...r, ...patch } : r)))
     setMemberQuery('')
     try {
       const { error } = await withTimeout(
-        supabase.from('residents').update({ is_board: value }).eq('id', id)
+        supabase.from('residents').update(patch).eq('id', id)
       )
       if (error) throw error
       setSuccessMsg(value ? 'Added to the board.' : 'Removed from the board.')
@@ -210,14 +231,90 @@ export default function Board() {
     }
   }
 
+  // ----- Roles (merged from the old Roles page) -----
+  // A role's capacity: explicit max_holders, else derived from the old flag.
+  const capOf = (r) => r.max_holders == null ? (r.allow_multiple ? 0 : 1) : r.max_holders
+  const roleLabel = (id) => roles.find(x => x.id === id)?.name || '—'
+  // How many other board members already hold a role (excluding this member).
+  const heldBy = (roleId, exceptId) =>
+    boardMembers.filter(o => o.id !== exceptId && o.role_id === roleId).length
+  // Roles a member may pick: admin/system always; otherwise capacity not full.
+  const rolesForMember = (memberId, currentRoleId) =>
+    roles.filter(r => {
+      if (r.is_admin || r.is_system || r.id === currentRoleId) return true
+      const cap = capOf(r)
+      return cap === 0 || heldBy(r.id, memberId) < cap
+    })
+
+  const startNewRole = () => { setRoleEditId(null); setRoleName(''); setRolePerms(new Set()); setRoleMax('1') }
+  const startEditRole = (r) => {
+    setRoleEditId(r.id); setRoleName(r.name); setRolePerms(new Set(r.permissions || []))
+    const cap = capOf(r); setRoleMax(cap === 0 ? '' : String(cap))
+  }
+  const togglePerm = (k) => setRolePerms(prev => {
+    const next = new Set(prev); next.has(k) ? next.delete(k) : next.add(k); return next
+  })
+
+  const saveRole = async () => {
+    if (!roleName.trim()) { setError('Name the role.'); return }
+    const cap = Math.max(0, parseInt(roleMax, 10) || 0)
+    const multi = cap !== 1
+    setRoleSaving(true); setError('')
+    try {
+      let { error } = await withTimeout(supabase.rpc('ev_role_save', {
+        p_id: roleEditId, p_name: roleName.trim(), p_perms: Array.from(rolePerms), p_multi: multi, p_max_holders: cap,
+      }))
+      if (error && /function|schema cache|p_max_holders/i.test(error.message || '')) {
+        ;({ error } = await withTimeout(supabase.rpc('ev_role_save', {
+          p_id: roleEditId, p_name: roleName.trim(), p_perms: Array.from(rolePerms), p_multi: multi,
+        })))
+      }
+      if (error && /function|schema cache|p_multi/i.test(error.message || '')) {
+        ;({ error } = await withTimeout(supabase.rpc('ev_role_save', {
+          p_id: roleEditId, p_name: roleName.trim(), p_perms: Array.from(rolePerms),
+        })))
+      }
+      if (error) throw error
+      setSuccessMsg(roleEditId ? 'Role updated.' : 'Role created.')
+      startNewRole(); load()
+    } catch (err) { setError(err?.message || 'Could not save the role.') }
+    finally { setRoleSaving(false) }
+  }
+
+  const deleteRole = async (r) => {
+    if (!window.confirm(`Delete the "${r.name}" role? Members holding it will lose its access.`)) return
+    setError('')
+    try {
+      const { error } = await withTimeout(supabase.rpc('ev_role_delete', { p_id: r.id }))
+      if (error) throw error
+      if (roleEditId === r.id) startNewRole()
+      setSuccessMsg(`Removed "${r.name}".`); load()
+    } catch (err) { setError(err?.message || 'Could not delete the role.') }
+  }
+
+  const assignRole = async (residentId, roleId) => {
+    setError('')
+    setResidents(rs => rs.map(m => m.id === residentId ? { ...m, role_id: roleId } : m)) // optimistic
+    try {
+      const { error } = await withTimeout(supabase.rpc('ev_role_assign', { p_resident: residentId, p_role: roleId }))
+      if (error) throw error
+      setSavedRoleFor(residentId)
+      setTimeout(() => setSavedRoleFor(s => (s === residentId ? null : s)), 2500)
+    } catch (err) { setError(err?.message || 'Could not assign the role.'); load() }
+  }
+
+  const editingRole = useMemo(() => roles.find(r => r.id === roleEditId) || null, [roles, roleEditId])
+  const editingProtected = !!editingRole?.is_admin
+
   return (
     <div className="admin-page cset">
       <EasyVoiceTabs active="board" />
-      <div className="admin-kicker">Board</div>
-      <h1 className="admin-h1">Board <span className="amp">&</span> decisions</h1>
+      <div className="admin-kicker">Easy Voice</div>
+      <h1 className="admin-h1">Board <span className="amp">&</span> roles</h1>
       <p className="admin-dek">
-        Who sits on the board, and the decisions they make — every decision
-        shows on each resident's Home under &ldquo;This Week on the Board.&rdquo;
+        Who sits on the board, the role each one holds, committees, and the
+        decisions they make — every decision shows on each resident's Home
+        under &ldquo;This Week on the Board.&rdquo;
       </p>
 
       {status === 'none' && (
@@ -246,7 +343,7 @@ export default function Board() {
             <div className="card-head">
               <div>
                 <h2>Board members</h2>
-                <div className="sub">Add anyone from your resident roster — start typing their name.</div>
+                <div className="sub">Add anyone from your resident roster — start typing their name.{canRoles ? ' Set each one’s position and role.' : ''}</div>
               </div>
             </div>
 
@@ -278,9 +375,15 @@ export default function Board() {
                   <div className="bm-row" key={m.id}>
                     <div className="bm-row-main">
                       <div className="bm-row-name">{m.full_name}</div>
-                      <div className="bm-row-sub">{subline(m) || '—'}</div>
+                      <div className="bm-row-sub">
+                        {subline(m) || '—'}
+                        {canRoles && m.role_id && <> · <span style={{ color: 'var(--pink)' }}>{roleLabel(m.role_id)}</span></>}
+                      </div>
                     </div>
-                    <div style={{ width: 180, flexShrink: 0 }}>
+                    {canRoles && savedRoleFor === m.id && (
+                      <span style={{ color: '#067647', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>Saved ✓</span>
+                    )}
+                    <div style={{ width: 160, flexShrink: 0 }}>
                       <Dropdown<string>
                         value={m.board_position || ''}
                         onChange={v => setPosition(m.id, v || null)}
@@ -291,6 +394,16 @@ export default function Board() {
                         ]}
                       />
                     </div>
+                    {canRoles && (
+                      <div style={{ width: 170, flexShrink: 0 }}>
+                        <Dropdown<string>
+                          value={m.role_id || ''}
+                          onChange={v => assignRole(m.id, v || null)}
+                          ariaLabel={`Role for ${m.full_name}`}
+                          options={[{ value: '', label: 'No role' }, ...rolesForMember(m.id, m.role_id).map(r => ({ value: r.id, label: r.name }))]}
+                        />
+                      </div>
+                    )}
                     <button type="button" className="bc-del" onClick={() => setBoard(m.id, false)}
                       aria-label="Remove from board">&times;</button>
                   </div>
@@ -298,6 +411,92 @@ export default function Board() {
               </div>
             )}
           </div>
+
+          {canRoles && (
+            <div className="card">
+              <div className="card-head">
+                <div>
+                  <h2>{roleEditId ? (editingProtected ? `Viewing “${roleName}”` : `Edit “${roleName}”`) : 'Roles & permissions'}</h2>
+                  <div className="sub">
+                    {editingProtected
+                      ? 'The Admin role has full access and can’t be edited.'
+                      : 'Build a role, set how many board members can hold it, then assign it above.'}
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                <label className="admin-field" style={{ flex: '1 1 240px', maxWidth: 320 }}>
+                  <span className="admin-field-label">Role name</span>
+                  <input className="admin-input" value={roleName} disabled={editingProtected}
+                    placeholder="e.g. Secretary" onChange={e => setRoleName(e.target.value)} />
+                </label>
+                <label className="admin-field" style={{ width: 190 }}>
+                  <span className="admin-field-label">How many can hold it?</span>
+                  <input className="admin-input" type="number" min={0} step={1} value={roleMax}
+                    disabled={editingProtected} placeholder="1" onChange={e => setRoleMax(e.target.value)} />
+                  <span style={{ fontSize: 12, opacity: 0.6, marginTop: 4, textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>
+                    e.g. 2 secretaries, 5 board members. Use 0 for no limit.
+                  </span>
+                </label>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 18, margin: '16px 0' }}>
+                {PERMISSION_GROUPS.map(g => (
+                  <div key={g.label}>
+                    <div style={{ fontSize: 12.5, textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.6, fontWeight: 600, marginBottom: 8 }}>{g.label}</div>
+                    {g.perms.map(p => (
+                      <label key={p.key} style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, padding: '4px 0', opacity: editingProtected ? 0.5 : 1 }}>
+                        <input type="checkbox" checked={editingProtected || rolePerms.has(p.key)} disabled={editingProtected}
+                          onChange={() => togglePerm(p.key)} />
+                        {p.label}
+                      </label>
+                    ))}
+                  </div>
+                ))}
+              </div>
+
+              {!editingProtected && (
+                <div className="card-cta" style={{ display: 'flex', gap: 10 }}>
+                  {roleEditId && <button className="admin-btn-ghost" type="button" onClick={startNewRole}>Cancel</button>}
+                  <button className="admin-primary-btn" disabled={roleSaving} onClick={saveRole}>
+                    {roleSaving ? 'Saving…' : roleEditId ? 'Save changes' : 'Create role'}
+                  </button>
+                </div>
+              )}
+              {editingProtected && <button className="admin-btn-ghost" type="button" onClick={startNewRole}>Back to new role</button>}
+
+              {roles.length > 0 && (
+                <div className="bm-list" style={{ marginTop: 18 }}>
+                  {roles.map(r => (
+                    <div className="bm-row" key={r.id}>
+                      <div className="bm-row-main">
+                        <div className="bm-row-name">
+                          {r.name}
+                          {r.is_admin && <span className="amen-pay-tag paid" style={{ marginLeft: 8 }}>Full access</span>}
+                          {r.is_system && !r.is_admin && <span className="amen-pay-tag pending" style={{ marginLeft: 8 }}>Default</span>}
+                          {!r.is_admin && (() => { const cap = capOf(r); const held = residents.filter(m => m.role_id === r.id).length; return (
+                            <span className="amen-pay-tag" style={{ marginLeft: 8, opacity: 0.85 }}>
+                              {cap === 0 ? `${held} held · no limit` : `${held}/${cap} held`}
+                            </span>
+                          ) })()}
+                        </div>
+                        <div className="bm-row-sub">
+                          {r.is_admin ? 'Every permission' : (r.permissions?.length ? r.permissions.map(p => PERMISSION_LABEL[p] || p).join(' · ') : 'No permissions yet')}
+                        </div>
+                      </div>
+                      {!r.is_admin && (
+                        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                          <button type="button" className="admin-sched-row-del" onClick={() => startEditRole(r)}>Edit</button>
+                          <button type="button" className="admin-sched-row-del" onClick={() => deleteRole(r)}>Delete</button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="card">
             <div className="card-head">
