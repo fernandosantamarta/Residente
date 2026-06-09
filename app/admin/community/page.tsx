@@ -7,8 +7,6 @@ import { supabase, hasSupabase, signOut } from '@/lib/supabase'
 import { deleteCommunity } from '@/lib/signup'
 import { DangerAction } from '@/components/DangerAction'
 import { Dropdown } from '@/components/Dropdown'
-import { ReportsSection } from '../ReportsSection'
-import { ReportsScrollHint } from './ReportsScrollHint'
 
 // Hardening (carried from Genie): wrap network promises, never .catch on Supabase.
 const withTimeout = (p, ms = 10000) =>
@@ -119,9 +117,6 @@ export default function CommunitySettings() {
       <p className="admin-dek">
         Your association&rsquo;s details, dues, and operating budget. Changes here flow to every resident&rsquo;s cockpit.
       </p>
-
-      {/* Floating nudge (bottom-right, by the scrollbar) that reports sit below. */}
-      <ReportsScrollHint />
 
       {successMsg && (
         <div className="admin-success" role="status">
@@ -264,9 +259,6 @@ export default function CommunitySettings() {
               </Link>
             </div>
           </div>
-
-          {/* ---- Reports & exports (moved here from the Reports tab) ---- */}
-          <ReportsSection />
 
           {/* ---- Danger zone ---- */}
           <div className="card danger-card">
