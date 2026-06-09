@@ -27,8 +27,8 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/compliance', label: 'Compliance', anyPerm: ['compliance.manage', 'financials.view', 'payments.view', 'violations.manage'], match: ['/admin/estoppel', '/admin/collections', '/admin/structural', '/admin/financials', '/admin/governance', '/admin/enforcement', '/admin/meetings', '/admin/elections', '/admin/arc', '/admin/insurance', '/admin/contracts', '/admin/advisories'] },
   { href: '/admin/budget',     label: 'Budget', anyPerm: ['community.manage', 'financials.view'] },
   { href: '/admin/reports',    label: 'Reports', anyPerm: ['financials.view', 'payments.view'] },
-  { href: '/admin/residents',  label: 'Easy Track', anyPerm: ['residents.view', 'residents.manage', 'roles.manage'], match: ['/admin/vendor', '/admin/roles'] },
-  { href: '/admin/voice',      label: 'Easy Voice', anyPerm: ['voice.manage'], match: ['/admin/board', '/admin/requests'] },
+  { href: '/admin/residents',  label: 'Easy Track', anyPerm: ['residents.view', 'residents.manage'], match: ['/admin/vendor'] },
+  { href: '/admin/voice',      label: 'Easy Voice', anyPerm: ['voice.manage', 'roles.manage'], match: ['/admin/board', '/admin/requests', '/admin/roles'] },
   { href: '/admin/documents',  label: 'Easy Documents', anyPerm: ['documents.manage', 'violations.manage'], match: ['/admin/rules', '/admin/violations'] },
   { href: '/admin/schedule',   label: 'Easy Schedule', anyPerm: ['schedule.manage'] },
 ]

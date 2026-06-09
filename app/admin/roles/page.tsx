@@ -13,7 +13,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { usePermissions } from '@/hooks/usePermissions'
 import { PERMISSION_GROUPS, PERMISSION_LABEL, type Permission } from '@/lib/permissions'
 import { Dropdown } from '@/components/Dropdown'
-import { EasyTrackTabs } from '../EasyTrackTabs'
+import { EasyVoiceTabs } from '../EasyVoiceTabs'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -175,8 +175,8 @@ export default function RolesPage() {
   if (!permLoading && !can('roles.manage')) {
     return (
       <div className="admin-page">
-        <EasyTrackTabs active="roles" />
-        <div className="admin-kicker">Administration</div>
+        <EasyVoiceTabs active="roles" />
+        <div className="admin-kicker">Easy Voice</div>
         <h1 className="admin-h1">Roles <span className="amp">&</span> permissions</h1>
         <div className="admin-note admin-note-warn">You don&rsquo;t have permission to manage roles.</div>
       </div>
@@ -185,8 +185,8 @@ export default function RolesPage() {
 
   return (
     <div className="admin-page">
-      <EasyTrackTabs active="roles" />
-      <div className="admin-kicker">Administration</div>
+      <EasyVoiceTabs active="roles" />
+      <div className="admin-kicker">Easy Voice</div>
       <h1 className="admin-h1">Roles <span className="amp">&</span> permissions</h1>
       <p className="admin-dek">
         Build roles with exactly the access each board member needs, then assign
