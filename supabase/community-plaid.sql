@@ -75,7 +75,10 @@ create table if not exists public.plaid_category_map (
 create index if not exists plaid_catmap_community_idx on public.plaid_category_map (community_id);
 alter table public.plaid_category_map enable row level security;
 
--- Members read; a board/admin (non-resident) may set/override the mapping.
+-- Members read; a board officer with financials.manage may set/override the mapping.
+-- (Permission via has_permission, NOT profiles.role — the seeded Treasurer custom
+-- role isn't a built-in role, so a profiles.role check would lock it out. Mirrors
+-- the convention in roles-rls-financials.sql / gl-spine.sql.)
 drop policy if exists plaid_catmap_read on public.plaid_category_map;
 create policy plaid_catmap_read on public.plaid_category_map
   for select to authenticated
@@ -86,5 +89,9 @@ create policy plaid_catmap_write on public.plaid_category_map
   for update to authenticated
   using (
     community_id = (select community_id from public.profiles where id = auth.uid())
-    and (select role from public.profiles where id = auth.uid()) <> 'resident'
+    and public.has_permission('financials.manage')
+  )
+  with check (
+    community_id = (select community_id from public.profiles where id = auth.uid())
+    and public.has_permission('financials.manage')
   );
