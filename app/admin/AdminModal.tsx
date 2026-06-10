@@ -27,15 +27,21 @@ export function AdminModal({ title, sub, onClose, children }: {
       position: 'fixed', inset: 0, background: 'rgba(24, 9, 2, 0.46)',
       display: 'grid', placeItems: 'center', padding: 20, zIndex: 1000,
     }}>
-      <div className="admin cset" onClick={e => e.stopPropagation()}
+      {/* `.cset` nests INSIDE `.admin` (not both on one element) so the page's
+          `.admin .cset …` clean-theme resets — sentence-case labels, dropdown
+          casing, input pills — match here too. A compound `.admin.cset` would
+          skip those descendant rules and leave the tracked sketch uppercase. */}
+      <div className="admin" onClick={e => e.stopPropagation()}
         style={{ width: 'min(560px, 100%)', maxHeight: '90vh', overflow: 'auto' }}>
-        <div className="card" style={{ margin: 0 }}>
-          <div className="card-head">
-            <div><h2>{title}</h2>{sub && <div className="sub">{sub}</div>}</div>
-            <button type="button" className="vdel" onClick={onClose} aria-label="Close"
-              style={{ fontSize: 24, lineHeight: 1 }}>&times;</button>
+        <div className="cset">
+          <div className="card" style={{ margin: 0 }}>
+            <div className="card-head">
+              <div><h2>{title}</h2>{sub && <div className="sub">{sub}</div>}</div>
+              <button type="button" className="vdel" onClick={onClose} aria-label="Close"
+                style={{ fontSize: 24, lineHeight: 1 }}>&times;</button>
+            </div>
+            {children}
           </div>
-          {children}
         </div>
       </div>
     </div>,
