@@ -6,7 +6,6 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { usePermissions } from '@/hooks/usePermissions'
 import { PERMISSION_GROUPS, PERMISSION_LABEL, ALL_PERMISSIONS } from '@/lib/permissions'
 import { Dropdown } from '@/components/Dropdown'
-import { AdminModal } from '../AdminModal'
 import { EasyVoiceTabs } from '../EasyVoiceTabs'
 
 const withTimeout = (p, ms = 10000) =>
@@ -354,6 +353,87 @@ export default function Board() {
   const editingRole = useMemo(() => roles.find(r => r.id === roleEditId) || null, [roles, roleEditId])
   const editingProtected = !!editingRole?.is_admin
 
+  // Committee add/edit form — rendered inside the expanded committee row (and the
+  // "new committee" row), so the editing UI matches the Rules detail layout.
+  const comEditor = (
+    <form className="admin-form" onSubmit={saveCommittee} style={{ maxWidth: 'none' }}>
+      <label className="admin-field">
+        <span className="admin-field-label">Committee name</span>
+        <input name="com-name" className="admin-input" placeholder="Finance Committee"
+          value={comForm.name} onChange={e => setComForm(f => ({ ...f, name: e.target.value }))} />
+      </label>
+
+      <div className="admin-field">
+        <span className="admin-field-label">Members</span>
+        <div className="bm-search" style={{ maxWidth: 'none', marginBottom: 0 }}>
+          <input name="com-member-search" className="admin-input" placeholder="Type a resident's name to add…"
+            value={comQuery} onChange={e => setComQuery(e.target.value)} />
+          {comQuery.trim() && (
+            <div className="bm-dropdown">
+              {comMatches.length === 0 ? (
+                <div className="bm-empty">No roster match — add them on the Residents page first.</div>
+              ) : comMatches.map(m => (
+                <button type="button" key={m.id} className="bm-option" onClick={() => addComMember(m.id)}>
+                  <span className="bm-option-name">{m.full_name}</span>
+                  {subline(m) && <span className="bm-option-sub">{subline(m)}</span>}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        {comSelected.length > 0 && (
+          <div className="cmem-chips">
+            {comSelected.map(m => (
+              <span className="cmem-chip" key={m.id}>
+                {m.full_name}
+                <button type="button" onClick={() => removeComMember(m.id)} aria-label={`Remove ${m.full_name}`}>&times;</button>
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+        <div className="admin-field" style={{ flex: '1 1 200px' }}>
+          <span className="admin-field-label">Chair (optional)</span>
+          <Dropdown<string>
+            value={comForm.chair}
+            onChange={v => setComForm(f => ({ ...f, chair: v }))}
+            ariaLabel="Committee chair"
+            options={[
+              { value: '', label: comSelected.length ? 'No chair' : 'Add members to pick a chair' },
+              ...comSelected.map(m => ({ value: m.full_name, label: m.full_name })),
+              ...(comForm.chair && !comSelected.some(m => m.full_name === comForm.chair)
+                ? [{ value: comForm.chair, label: comForm.chair }] : []),
+            ]}
+          />
+        </div>
+        <div className="admin-field" style={{ width: 170 }}>
+          <span className="admin-field-label">Icon</span>
+          <Dropdown<string>
+            value={comForm.icon}
+            onChange={v => setComForm(f => ({ ...f, icon: v }))}
+            ariaLabel="Committee icon"
+            options={[
+              { value: 'finance', label: 'Finance' },
+              { value: 'leaf', label: 'Landscape' },
+              { value: 'home', label: 'Architectural' },
+              { value: 'shield', label: 'Security' },
+              { value: 'megaphone', label: 'Communications' },
+            ]}
+          />
+        </div>
+      </div>
+      <div className="card-cta" style={{ display: 'flex', gap: 10 }}>
+        <button type="button" className="admin-btn-ghost" onClick={closeCommittee}>Cancel</button>
+        <button type="submit" className="admin-primary-btn" disabled={comSaving}>
+          {comSaving ? 'Saving…' : comEditId ? 'Save changes' : 'Add committee'}
+        </button>
+        {error && <span className="admin-err-inline">{error}</span>}
+      </div>
+    </form>
+  )
+
   return (
     <div className="admin-page cset">
       <EasyVoiceTabs active="board" />
@@ -564,112 +644,50 @@ export default function Board() {
               <button type="button" className="admin-primary-btn" onClick={openAddCommittee}>Add committee</button>
             </div>
 
-            {committees.length === 0 ? (
+            {committees.length === 0 && !(comOpen && !comEditId) ? (
               <div className="bc-empty">No committees yet — click “Add committee” to create one.</div>
             ) : (
-              <div className="bm-list">
-                {committees.map(c => (
-                  <div className="bm-row" key={c.id}>
-                    <div className="bm-row-main">
-                      <div className="bm-row-name">{c.name}</div>
-                      <div className="bm-row-sub">
-                        {c.chair ? `${c.chair} · ` : ''}{c.member_count || 0} {Number(c.member_count) === 1 ? 'member' : 'members'}
+              <div className="rulelist">
+                {committees.map((c, i) => {
+                  const open = comOpen && comEditId === c.id
+                  return (
+                    <div className="rulerow" key={c.id}>
+                      <span className="rulenum">{i + 1}</span>
+                      <div className="rulemain">
+                        <div className="ruletitle">{c.name}</div>
+                        <div className="rulemeta">
+                          {c.chair ? `${c.chair} · ` : ''}{c.member_count || 0} {Number(c.member_count) === 1 ? 'member' : 'members'}
+                        </div>
+                        {open && <div className="rule-detail" style={{ background: '#fff' }}>{comEditor}</div>}
+                      </div>
+                      <div className="ruleactions">
+                        <button type="button" className="rule-edit"
+                          onClick={() => (open ? closeCommittee() : startEditCommittee(c))} aria-expanded={open}>
+                          {open ? 'Close' : 'Edit'} →
+                        </button>
+                        <button type="button" className="vdel" onClick={() => removeCommittee(c.id)}
+                          aria-label={`Remove ${c.name}`}>&times;</button>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                      <button type="button" className="admin-sched-row-del" onClick={() => startEditCommittee(c)}>Edit</button>
-                      <button type="button" className="admin-sched-row-del" onClick={() => removeCommittee(c.id)}>Remove</button>
+                  )
+                })}
+
+                {comOpen && !comEditId && (
+                  <div className="rulerow">
+                    <span className="rulenum">{committees.length + 1}</span>
+                    <div className="rulemain">
+                      <div className="ruletitle">{comForm.name.trim() || 'New committee'}</div>
+                      <div className="rulemeta">Add members and a chair below.</div>
+                      <div className="rule-detail" style={{ background: '#fff' }}>{comEditor}</div>
+                    </div>
+                    <div className="ruleactions">
+                      <button type="button" className="rule-edit" onClick={closeCommittee}>Close →</button>
                     </div>
                   </div>
-                ))}
+                )}
               </div>
             )}
           </div>
-
-          {comOpen && (
-            <AdminModal
-              title={comEditId ? 'Edit committee' : 'Add committee'}
-              sub="Add members from your roster, then pick a chair."
-              onClose={closeCommittee}
-            >
-              <form className="admin-form" onSubmit={saveCommittee}>
-                <label className="admin-field">
-                  <span className="admin-field-label">Committee name</span>
-                  <input name="com-name" className="admin-input" placeholder="Finance Committee" autoFocus
-                    value={comForm.name} onChange={e => setComForm(f => ({ ...f, name: e.target.value }))} />
-                </label>
-
-                <div className="admin-field">
-                  <span className="admin-field-label">Members</span>
-                  <div className="bm-search" style={{ maxWidth: 'none', marginBottom: 0 }}>
-                    <input name="com-member-search" className="admin-input" placeholder="Type a resident's name to add…"
-                      value={comQuery} onChange={e => setComQuery(e.target.value)} />
-                    {comQuery.trim() && (
-                      <div className="bm-dropdown">
-                        {comMatches.length === 0 ? (
-                          <div className="bm-empty">No roster match — add them on the Residents page first.</div>
-                        ) : comMatches.map(m => (
-                          <button type="button" key={m.id} className="bm-option" onClick={() => addComMember(m.id)}>
-                            <span className="bm-option-name">{m.full_name}</span>
-                            {subline(m) && <span className="bm-option-sub">{subline(m)}</span>}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  {comSelected.length > 0 && (
-                    <div className="cmem-chips">
-                      {comSelected.map(m => (
-                        <span className="cmem-chip" key={m.id}>
-                          {m.full_name}
-                          <button type="button" onClick={() => removeComMember(m.id)} aria-label={`Remove ${m.full_name}`}>&times;</button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-
-                <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                  <div className="admin-field" style={{ flex: '1 1 200px' }}>
-                    <span className="admin-field-label">Chair (optional)</span>
-                    <Dropdown<string>
-                      value={comForm.chair}
-                      onChange={v => setComForm(f => ({ ...f, chair: v }))}
-                      ariaLabel="Committee chair"
-                      options={[
-                        { value: '', label: comSelected.length ? 'No chair' : 'Add members to pick a chair' },
-                        ...comSelected.map(m => ({ value: m.full_name, label: m.full_name })),
-                        ...(comForm.chair && !comSelected.some(m => m.full_name === comForm.chair)
-                          ? [{ value: comForm.chair, label: comForm.chair }] : []),
-                      ]}
-                    />
-                  </div>
-                  <div className="admin-field" style={{ width: 170 }}>
-                    <span className="admin-field-label">Icon</span>
-                    <Dropdown<string>
-                      value={comForm.icon}
-                      onChange={v => setComForm(f => ({ ...f, icon: v }))}
-                      ariaLabel="Committee icon"
-                      options={[
-                        { value: 'finance', label: 'Finance' },
-                        { value: 'leaf', label: 'Landscape' },
-                        { value: 'home', label: 'Architectural' },
-                        { value: 'shield', label: 'Security' },
-                        { value: 'megaphone', label: 'Communications' },
-                      ]}
-                    />
-                  </div>
-                </div>
-                <div className="card-cta" style={{ display: 'flex', gap: 10 }}>
-                  <button type="button" className="admin-btn-ghost" onClick={closeCommittee}>Cancel</button>
-                  <button type="submit" className="admin-primary-btn" disabled={comSaving}>
-                    {comSaving ? 'Saving…' : comEditId ? 'Save changes' : 'Add committee'}
-                  </button>
-                  {error && <span className="admin-err-inline">{error}</span>}
-                </div>
-              </form>
-            </AdminModal>
-          )}
 
           <div className="card">
             <div className="card-head">
