@@ -12,11 +12,15 @@ create table if not exists public.committees (
   name         text not null,
   chair        text,                                   -- chair name (free text)
   member_count int  not null default 0,
+  member_ids   uuid[] not null default '{}',            -- residents assigned to the committee
   icon         text not null default 'home'
                  check (icon in ('finance','leaf','home','shield','megaphone')),
   sort_order   int  not null default 0,
   created_at   timestamptz not null default now()
 );
+
+-- Additive for communities created before member assignment existed.
+alter table public.committees add column if not exists member_ids uuid[] not null default '{}';
 
 create index if not exists committees_community_idx on public.committees (community_id, sort_order);
 

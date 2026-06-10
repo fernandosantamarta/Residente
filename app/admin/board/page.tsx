@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { usePermissions } from '@/hooks/usePermissions'
-import { PERMISSION_GROUPS, PERMISSION_LABEL } from '@/lib/permissions'
+import { PERMISSION_GROUPS, PERMISSION_LABEL, ALL_PERMISSIONS } from '@/lib/permissions'
 import { Dropdown } from '@/components/Dropdown'
 import { EasyVoiceTabs } from '../EasyVoiceTabs'
 
@@ -52,7 +52,9 @@ export default function Board() {
   const [memberQuery, setMemberQuery] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   const [committees, setCommittees] = useState([])
-  const [comForm, setComForm] = useState({ name: '', chair: '', member_count: '', icon: 'home' })
+  const [comForm, setComForm] = useState({ name: '', chair: '', icon: 'home', member_ids: [] })
+  const [comEditId, setComEditId] = useState(null)
+  const [comQuery, setComQuery] = useState('')
   const [comSaving, setComSaving] = useState(false)
   // Role builder (merged in from the old Roles page).
   const [roleEditId, setRoleEditId] = useState(null)
@@ -192,28 +194,68 @@ export default function Board() {
     }
   }
 
-  const addCommittee = async (e) => {
+  // Members picked for the committee being built/edited, resolved to roster rows.
+  const comSelected = useMemo(
+    () => comForm.member_ids.map(id => residents.find(r => r.id === id)).filter(Boolean),
+    [comForm.member_ids, residents]
+  )
+  // Roster typeahead for adding members — non-selected residents matching the query.
+  const comMatches = useMemo(() => {
+    const q = comQuery.trim().toLowerCase()
+    if (!q) return []
+    return residents
+      .filter(r => !comForm.member_ids.includes(r.id) && String(r.full_name || '').toLowerCase().includes(q))
+      .slice(0, 6)
+  }, [residents, comQuery, comForm.member_ids])
+
+  const addComMember = (id) => { setComForm(f => ({ ...f, member_ids: [...f.member_ids, id] })); setComQuery('') }
+  const removeComMember = (id) => setComForm(f => {
+    const name = residents.find(r => r.id === id)?.full_name
+    return { ...f, member_ids: f.member_ids.filter(x => x !== id), chair: f.chair === name ? '' : f.chair }
+  })
+
+  const resetCommittee = () => { setComForm({ name: '', chair: '', icon: 'home', member_ids: [] }); setComEditId(null); setComQuery('') }
+  const startEditCommittee = (c) => {
+    setComEditId(c.id)
+    setComForm({ name: c.name || '', chair: c.chair || '', icon: c.icon || 'home', member_ids: c.member_ids || [] })
+    setComQuery('')
+    if (typeof document !== 'undefined') document.getElementById('committee-form')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }
+
+  const saveCommittee = async (e) => {
     e.preventDefault()
     if (!comForm.name.trim()) { setError('Give the committee a name'); return }
     setComSaving(true); setError('')
     try {
-      const row = {
+      const payload = {
         community_id: communityId,
         name: comForm.name.trim(),
         chair: comForm.chair.trim() || null,
-        member_count: comForm.member_count === '' ? 0 : Number(comForm.member_count),
+        member_ids: comForm.member_ids,
+        member_count: comForm.member_ids.length,
         icon: comForm.icon,
-        sort_order: committees.length,
       }
-      const { data, error } = await withTimeout(
-        supabase.from('committees').insert(row).select().single()
-      )
-      if (error) throw error
-      setCommittees(cs => [...cs, data])
-      setComForm({ name: '', chair: '', member_count: '', icon: 'home' })
-      setSuccessMsg(`Added the ${row.name}.`)
+      // Run the write, retrying without member_ids if that column isn't migrated yet.
+      const attempt = (body) => comEditId
+        ? supabase.from('committees').update(body).eq('id', comEditId).select().single()
+        : supabase.from('committees').insert({ ...body, sort_order: committees.length }).select().single()
+      let res = await withTimeout(attempt(payload))
+      if (res.error && /member_ids|column|schema cache/i.test(res.error.message || '')) {
+        const { member_ids, ...rest } = payload
+        res = await withTimeout(attempt(rest))
+      }
+      if (res.error) throw res.error
+      const data = res.data
+      if (comEditId) {
+        setCommittees(cs => cs.map(c => (c.id === comEditId ? data : c)))
+        setSuccessMsg(`Updated the ${payload.name}.`)
+      } else {
+        setCommittees(cs => [...cs, data])
+        setSuccessMsg(`Added the ${payload.name}.`)
+      }
+      resetCommittee()
     } catch (err) {
-      setError(err?.message || 'Could not add the committee')
+      setError(err?.message || 'Could not save the committee')
     } finally {
       setComSaving(false)
     }
@@ -221,6 +263,7 @@ export default function Board() {
 
   const removeCommittee = async (id) => {
     const prev = committees
+    if (comEditId === id) resetCommittee()
     setCommittees(cs => cs.filter(c => c.id !== id)) // optimistic
     try {
       const { error } = await withTimeout(supabase.from('committees').delete().eq('id', id))
@@ -254,6 +297,8 @@ export default function Board() {
   const togglePerm = (k) => setRolePerms(prev => {
     const next = new Set(prev); next.has(k) ? next.delete(k) : next.add(k); return next
   })
+  const allPermsSelected = rolePerms.size >= ALL_PERMISSIONS.length
+  const toggleAllPerms = () => setRolePerms(allPermsSelected ? new Set() : new Set(ALL_PERMISSIONS))
 
   const saveRole = async () => {
     if (!roleName.trim()) { setError('Name the role.'); return }
@@ -441,7 +486,16 @@ export default function Board() {
                 </label>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 18, margin: '16px 0' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
+                <span className="admin-field-label" style={{ marginBottom: 0 }}>Permissions</span>
+                {!editingProtected && (
+                  <button type="button" className="admin-btn-ghost" onClick={toggleAllPerms}>
+                    {allPermsSelected ? 'Clear all' : 'Select all'}
+                  </button>
+                )}
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 18, margin: '12px 0 16px' }}>
                 {PERMISSION_GROUPS.map(g => (
                   <div key={g.label}>
                     <div style={{ fontSize: 12.5, textTransform: 'uppercase', letterSpacing: '0.06em', opacity: 0.6, fontWeight: 600, marginBottom: 8 }}>{g.label}</div>
@@ -501,29 +555,64 @@ export default function Board() {
           <div className="card">
             <div className="card-head">
               <div>
-                <h2>Committees</h2>
-                <div className="sub">Show your committees on every resident's Board page.</div>
+                <h2>{comEditId ? `Edit “${comForm.name || 'committee'}”` : 'Committees'}</h2>
+                <div className="sub">Assign members from your roster, name a chair, and it shows on every resident's Board page.</div>
               </div>
             </div>
 
-            <form className="admin-form" onSubmit={addCommittee}>
+            <form id="committee-form" className="admin-form" onSubmit={saveCommittee}>
               <label className="admin-field">
                 <span className="admin-field-label">Committee name</span>
                 <input name="com-name" className="admin-input" placeholder="Finance Committee"
                   value={comForm.name} onChange={e => setComForm(f => ({ ...f, name: e.target.value }))} />
               </label>
+
+              <div className="admin-field">
+                <span className="admin-field-label">Members</span>
+                <div className="bm-search" style={{ maxWidth: 'none', marginBottom: 0 }}>
+                  <input name="com-member-search" className="admin-input" placeholder="Type a resident's name to add…"
+                    value={comQuery} onChange={e => setComQuery(e.target.value)} />
+                  {comQuery.trim() && (
+                    <div className="bm-dropdown">
+                      {comMatches.length === 0 ? (
+                        <div className="bm-empty">No roster match — add them on the Residents page first.</div>
+                      ) : comMatches.map(m => (
+                        <button type="button" key={m.id} className="bm-option" onClick={() => addComMember(m.id)}>
+                          <span className="bm-option-name">{m.full_name}</span>
+                          {subline(m) && <span className="bm-option-sub">{subline(m)}</span>}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                {comSelected.length > 0 && (
+                  <div className="cmem-chips">
+                    {comSelected.map(m => (
+                      <span className="cmem-chip" key={m.id}>
+                        {m.full_name}
+                        <button type="button" onClick={() => removeComMember(m.id)} aria-label={`Remove ${m.full_name}`}>&times;</button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-                <label className="admin-field" style={{ flex: '1 1 180px' }}>
+                <div className="admin-field" style={{ flex: '1 1 200px' }}>
                   <span className="admin-field-label">Chair (optional)</span>
-                  <input name="com-chair" className="admin-input" placeholder="Michael Chen"
-                    value={comForm.chair} onChange={e => setComForm(f => ({ ...f, chair: e.target.value }))} />
-                </label>
-                <label className="admin-field" style={{ width: 130 }}>
-                  <span className="admin-field-label"># members</span>
-                  <input name="com-count" type="number" className="admin-input" placeholder="4"
-                    value={comForm.member_count} onChange={e => setComForm(f => ({ ...f, member_count: e.target.value }))} />
-                </label>
-                <div className="admin-field" style={{ width: 160 }}>
+                  <Dropdown<string>
+                    value={comForm.chair}
+                    onChange={v => setComForm(f => ({ ...f, chair: v }))}
+                    ariaLabel="Committee chair"
+                    options={[
+                      { value: '', label: comSelected.length ? 'No chair' : 'Add members to pick a chair' },
+                      ...comSelected.map(m => ({ value: m.full_name, label: m.full_name })),
+                      ...(comForm.chair && !comSelected.some(m => m.full_name === comForm.chair)
+                        ? [{ value: comForm.chair, label: comForm.chair }] : []),
+                    ]}
+                  />
+                </div>
+                <div className="admin-field" style={{ width: 170 }}>
                   <span className="admin-field-label">Icon</span>
                   <Dropdown<string>
                     value={comForm.icon}
@@ -539,15 +628,16 @@ export default function Board() {
                   />
                 </div>
               </div>
-              <div className="card-cta">
+              <div className="card-cta" style={{ display: 'flex', gap: 10 }}>
+                {comEditId && <button type="button" className="admin-btn-ghost" onClick={resetCommittee}>Cancel</button>}
                 <button type="submit" className="admin-primary-btn" disabled={comSaving}>
-                  {comSaving ? 'Adding…' : 'Add committee'}
+                  {comSaving ? 'Saving…' : comEditId ? 'Save changes' : 'Add committee'}
                 </button>
               </div>
             </form>
 
             {committees.length > 0 && (
-              <div className="bm-list">
+              <div className="bm-list" style={{ marginTop: 18 }}>
                 {committees.map(c => (
                   <div className="bm-row" key={c.id}>
                     <div className="bm-row-main">
@@ -556,8 +646,10 @@ export default function Board() {
                         {c.chair ? `${c.chair} · ` : ''}{c.member_count || 0} {Number(c.member_count) === 1 ? 'member' : 'members'}
                       </div>
                     </div>
-                    <button type="button" className="bc-del" onClick={() => removeCommittee(c.id)}
-                      aria-label={`Remove ${c.name}`}>&times;</button>
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      <button type="button" className="admin-sched-row-del" onClick={() => startEditCommittee(c)}>Edit</button>
+                      <button type="button" className="admin-sched-row-del" onClick={() => removeCommittee(c.id)}>Remove</button>
+                    </div>
                   </div>
                 ))}
               </div>
