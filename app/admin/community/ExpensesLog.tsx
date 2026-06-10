@@ -75,15 +75,16 @@ export function ExpensesLog({ communityId }: { communityId: string | undefined }
   }
 
   return (
-    <div className="bc" style={{ marginTop: 40 }}>
-      <div className="bc-head">
-        <h2 className="bc-title">Expense ledger</h2>
-        <span className="bc-sub">
-          Dated spending that powers the residents&rsquo; Financial Overview chart. {expenses.length} logged · {fmtMoney(total)} total.
-        </span>
-        <button type="button" className="admin-secondary-btn" onClick={exportExpenses}
-          disabled={expenses.length === 0} title="Download the expense ledger as CSV"
-          style={{ marginTop: 8, alignSelf: 'flex-start' }}>
+    <div className="card">
+      <div className="card-head">
+        <div>
+          <h2>Expense ledger</h2>
+          <div className="sub">
+            Dated spending that powers the residents&rsquo; Financial Overview chart. {expenses.length} logged · {fmtMoney(total)} total.
+          </div>
+        </div>
+        <button type="button" className="admin-btn-ghost" onClick={exportExpenses}
+          disabled={expenses.length === 0} title="Download the expense ledger as CSV">
           Export CSV
         </button>
       </div>
@@ -127,11 +128,11 @@ export function ExpensesLog({ communityId }: { communityId: string | undefined }
           <input name="description" className="admin-input" placeholder="Quarterly landscaping invoice"
             value={form.description} onChange={e => setField('description', e.target.value)} />
         </label>
-        <div className="admin-form-actions">
+        <div className="admin-form-actions" style={{ justifyContent: 'flex-end' }}>
+          {error && <span className="admin-err-inline">{error}</span>}
           <button type="submit" className="admin-primary-btn" disabled={saving}>
             {saving ? 'Logging…' : 'Log expense'}
           </button>
-          {error && <span className="admin-err-inline">{error}</span>}
         </div>
       </form>
 

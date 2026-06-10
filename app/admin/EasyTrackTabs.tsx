@@ -3,9 +3,9 @@
 import Link from 'next/link'
 
 // Admin Easy Track sub-nav. Mirrors the resident Easy Track hub: on the admin
-// side it groups the two things the board "tracks" — the resident roster and
-// vendors — each its own route. Pill styling matches the other admin sub-tabs
-// (.seg-tabs in globals.css).
+// side it groups the people the board "tracks" — the resident roster and
+// vendors. (Roles & permissions moved to Easy Voice, next to Board.) Pill
+// styling matches the other admin sub-tabs (.seg-tabs in globals.css).
 export type AdminTrackTab = 'residents' | 'vendors'
 
 const TABS: { key: AdminTrackTab; href: string; label: string }[] = [

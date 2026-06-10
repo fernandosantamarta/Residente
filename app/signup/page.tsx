@@ -9,27 +9,160 @@ import {
   startSubscriptionCheckout,
   stashPendingProvision,
   clearPendingProvision,
+  uploadSignupDocuments,
+  saveSignupNotes,
   ProvisionError,
   type ProvisionInput,
   type PropertyType,
+  type CollectedDoc,
 } from '@/lib/signup'
+import type { DocCategory } from '@/lib/compliance/official-records'
+import { parseRosterCsv, parseBudgetCsv, applySignupImport, extractSetupFromPdf, applyExtractedSetup } from '@/lib/signupImport'
 import './signup.css'
 
 // Duolingo-style self-serve sign-up. Full-orange, one decision per screen, a
 // friendly house on every slide, account creation deferred to the end. Two
-// branches: board/management create a community (free trial) → /admin;
+// branches: board / HOA management create a community (free trial) → /admin;
 // residents join an existing community → /onboard (consent).
 
-type Who = 'resident' | 'board' | 'management'
+type Who = 'resident' | 'board'
 type Step =
   | 'property' | 'role'
-  | 'community' | 'plan' | 'connect' | 'details' | 'account'
+  | 'community' | 'plan' | 'documents' | 'connect' | 'details' | 'account'
   | 'working' | 'confirm-email'
 
 const FLOW: Record<Who, Step[]> = {
-  resident:   ['property', 'role', 'connect', 'details', 'account'],
-  board:      ['property', 'role', 'community', 'plan', 'details', 'account'],
-  management: ['property', 'role', 'community', 'plan', 'details', 'account'],
+  resident: ['property', 'role', 'connect', 'details', 'account'],
+  board:    ['property', 'role', 'community', 'plan', 'documents', 'details', 'account'],
+}
+
+// The document-collection wizard (board / management only). Each section maps to
+// a canonical DocCategory so attached files land in the right shelf of the
+// community's vault (see lib/compliance/official-records.ts for the category set
+// and app/admin/documents for where they surface). The category is per-section;
+// the item label becomes each document's title.
+type DocItem = { name: string; desc: string; key?: 'ccrs' | 'budget' | 'roster' }
+type DocSection = { emoji: string; label: string; category: DocCategory; items: DocItem[] }
+const DOC_SECTIONS: DocSection[] = [
+  { emoji: '📄', label: 'Governing documents', category: 'Governing Documents', items: [
+    { name: 'CC&Rs (Covenants, Conditions & Restrictions)', key: 'ccrs', desc: 'The recorded legal rulebook that runs with the land and binds every owner — sets property restrictions, the power to charge assessments, and who maintains what.' },
+    { name: 'HOA Bylaws', desc: "The association's operating manual: how the board is elected, how meetings and votes work, and officer duties and terms." },
+    { name: 'Articles of Incorporation', desc: 'The short charter filed with the state that legally creates the association as a corporation.' },
+    { name: 'Rules & regulations', desc: 'Day-to-day rules the board adopts under the CC&Rs (pool hours, parking, noise) — easier to change than the CC&Rs themselves.' },
+    { name: 'Architectural standards', desc: 'Design rules for exterior changes — paint, fences, additions — and how owners get approval before building.' },
+    { name: 'Rental / leasing restrictions', desc: 'Limits on renting out units — minimum lease terms, caps on rentals, and tenant approval or registration.' },
+    { name: 'Pet policy', desc: 'What pets are allowed, any size or breed limits, leash and waste rules, and registration requirements.' },
+  ] },
+  { emoji: '💰', label: 'Financial records', category: 'Financial Documents', items: [
+    { name: 'Current annual budget', key: 'budget', desc: "The board-approved plan of income and expenses for the year — the basis for each owner's dues." },
+    { name: 'Reserve fund study', desc: 'A professional forecast of major future repairs (roof, paving) and how much to set aside each year for them.' },
+    { name: 'Reserve fund balance statement', desc: 'How much is actually saved today in the reserve account for big-ticket repairs.' },
+    { name: 'Delinquency report', desc: 'Owners behind on dues or assessments and how much each one owes.' },
+    { name: 'Income & expense statement', desc: 'What the association earned and spent over a period — its profit-and-loss.' },
+    { name: 'Insurance declarations', desc: "The summary pages of each policy showing what's covered, the limits, and deductibles." },
+    { name: 'Bank statements (last 3 months)', desc: 'Recent statements for the operating and reserve accounts.' },
+    { name: 'Most recent audit', desc: "An independent accountant's review confirming the financial statements are accurate." },
+    { name: 'Tax returns (last 2 years)', desc: "The association's filed federal (and state) income tax returns." },
+  ] },
+  { emoji: '👥', label: 'Ownership & membership', category: 'Other', items: [
+    { name: 'Homeowner roster with contact info', key: 'roster', desc: 'Master list of every owner with mailing address, email, and phone for official notices.' },
+    { name: 'Board member roster', desc: 'Names, roles, and terms of the current board of directors.' },
+    { name: 'Committee member list', desc: 'Members serving on committees (architectural, social, finance) and what each covers.' },
+    { name: 'Tenant directory', desc: 'List of renters and their units — where the community tracks non-owner occupants.' },
+    { name: 'Delinquency list', desc: 'Current list of accounts past due, used for collections and lien decisions.' },
+  ] },
+  { emoji: '📅', label: 'Meetings & governance', category: 'Reports & Meeting Minutes', items: [
+    { name: 'Board meeting minutes (last 12 mo.)', desc: 'Official written record of what the board discussed and decided at each meeting.' },
+    { name: 'Annual meeting minutes (last 2 yr.)', desc: 'Record of the yearly membership meeting — elections, budget ratification, and owner business.' },
+    { name: 'Election procedures', desc: 'The rules for nominating candidates, voting, and counting ballots for board elections.' },
+    { name: 'Board resolution log', desc: 'A running list of formal board decisions and policies adopted by vote.' },
+    { name: 'Proxy / ballot forms', desc: 'The forms owners use to vote, or to assign their vote to someone else.' },
+  ] },
+  { emoji: '🏠', label: 'Property & maintenance', category: 'Vendor & Contracts', items: [
+    { name: 'Maintenance schedule', desc: 'The plan and calendar for routine upkeep of common areas and equipment.' },
+    { name: 'Inspection reports', desc: 'Results of structural, elevator, fire, or pest inspections of the property.' },
+    { name: 'Capital improvement list', desc: 'Planned major upgrades or replacements beyond routine maintenance.' },
+    { name: 'Landscape contract', desc: 'The agreement with the lawn / landscaping vendor — scope, schedule, and cost.' },
+    { name: 'Pool / amenity contracts', desc: 'Service agreements for the pool, gym, gate, or other shared amenities.' },
+    { name: 'Open work orders', desc: 'Repairs and service requests currently in progress or waiting.' },
+  ] },
+  { emoji: '📋', label: 'Contracts & vendors', category: 'Vendor & Contracts', items: [
+    { name: 'Property management agreement', desc: 'The contract with your management company — services, fees, and term.' },
+    { name: 'Active vendor contracts', desc: 'All current service agreements (security, trash, elevator, and so on).' },
+    { name: 'Vendor insurance certificates', desc: "Proof that each vendor carries liability and workers' comp insurance." },
+    { name: 'Utility account info', desc: 'Account numbers and providers for shared electric, water, gas, and internet.' },
+    { name: 'Waste removal contract', desc: 'The trash and recycling pickup agreement — schedule and cost.' },
+  ] },
+  { emoji: '⚖️', label: 'Compliance & legal', category: 'Other', items: [
+    { name: 'State HOA registration', desc: 'Your filing or registration with the state agency that oversees associations.' },
+    { name: 'Pending litigation', desc: 'Any active lawsuits the association is involved in, as plaintiff or defendant.' },
+    { name: 'Open violations log', desc: 'Owners currently cited for rule violations and the status of each case.' },
+    { name: 'Prior violation notices', desc: 'Past warning and fine letters sent to owners for rule breaches.' },
+    { name: 'Fair housing records', desc: 'Documentation showing the association follows fair-housing and accommodation laws.' },
+  ] },
+  { emoji: '🔧', label: 'Operations', category: 'Other', items: [
+    { name: 'Emergency contact list', desc: 'Who to call for after-hours emergencies — vendors, board, utilities.' },
+    { name: 'Gate / access codes', desc: 'Current codes and credentials for gates, doors, and shared spaces.' },
+    { name: 'Key / fob inventory log', desc: 'Record of who holds keys, fobs, and access cards to common areas.' },
+    { name: 'Move-in / move-out policy', desc: 'Rules and fees for residents moving in or out — scheduling, deposits, elevator use.' },
+    { name: 'Welcome packet', desc: 'The intro materials given to new owners and residents.' },
+  ] },
+]
+
+type DocItemState = { checked: boolean; file: File | null }
+type DocSectionState = { items: DocItemState[]; note: string }
+const emptyDocState = (docs: DocSection[]): DocSectionState[] =>
+  docs.map((s) => ({ items: s.items.map(() => ({ checked: false, file: null })), note: '' }))
+
+// Condos (FL Ch. 718) need a few documents HOAs (Ch. 720) don't, and call the
+// primary governing doc a "Declaration of Condominium" rather than CC&Rs. Build
+// the section list for the chosen property type from the HOA base above.
+function docSectionsFor(type: PropertyType | null): DocSection[] {
+  if (type !== 'condo') return DOC_SECTIONS
+  return DOC_SECTIONS.map((sec) => {
+    if (sec.label === 'Governing documents') {
+      const items = sec.items.map((it) =>
+        it.key === 'ccrs'
+          ? { ...it, name: 'Declaration of Condominium', desc: 'The recorded document that creates the condominium and binds every unit owner — unit boundaries, common elements, the assessment power, and use restrictions.' }
+          : it,
+      )
+      const at = items.findIndex((it) => it.name === 'Articles of Incorporation')
+      items.splice(at >= 0 ? at + 1 : items.length, 0, {
+        name: 'Q&A sheet (FS 718.504)',
+        desc: 'The condo’s required frequently-asked-questions sheet, kept current for prospective buyers.',
+      })
+      return { ...sec, items }
+    }
+    if (sec.label === 'Financial records') {
+      const items = [...sec.items]
+      const at = items.findIndex((it) => it.name === 'Reserve fund study')
+      items.splice(at >= 0 ? at + 1 : items.length, 0, {
+        name: 'Structural Integrity Reserve Study (SIRS)',
+        desc: 'The condo’s mandatory reserve study for structural components — roof, load-bearing walls, foundation, fireproofing, plumbing (FS 718.112).',
+      })
+      return { ...sec, items }
+    }
+    if (sec.label === 'Property & maintenance') {
+      return {
+        ...sec,
+        items: [
+          { name: 'Milestone inspection report', desc: 'Structural milestone inspection required for buildings three stories or higher (FS 553.899).' },
+          ...sec.items,
+        ],
+      }
+    }
+    return sec
+  })
+}
+
+// Locate a "smart" wizard item's uploaded file by stable key (ccrs/budget/
+// roster) — independent of name (condo renames CC&Rs) and order.
+function smartFile(docState: DocSectionState[], docs: DocSection[], key: 'ccrs' | 'budget' | 'roster'): File | null {
+  for (let si = 0; si < docs.length; si++) {
+    const ii = docs[si].items.findIndex((it) => it.key === key)
+    if (ii >= 0) return docState[si]?.items?.[ii]?.file ?? null
+  }
+  return null
 }
 
 export default function SignupPage() {
@@ -46,6 +179,17 @@ export default function SignupPage() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
 
+  // Document-collection wizard state (board / management). `docSection` is the
+  // active category; `docState` holds every check + attached file + note so it
+  // survives moving back and forth, then feeds the post-provision upload.
+  const [docSection, setDocSection] = useState(0)
+  const [docState, setDocState] = useState<DocSectionState[]>(() => emptyDocState(docSectionsFor(null)))
+
+  // The document categories vary by property type (condos add SIRS, milestone,
+  // Q&A and rename CC&Rs → Declaration). Recomputed from propertyType, which is
+  // chosen at the very first step before the documents step is ever reached.
+  const docs = docSectionsFor(propertyType)
+
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
 
@@ -56,6 +200,9 @@ export default function SignupPage() {
 
   const goBack = () => {
     setErr(null)
+    // At the documents step the back button steps through the wizard categories
+    // first, then leaves the step.
+    if (step === 'documents' && docSection > 0) { setDocSection(docSection - 1); return }
     if (idx > 0) setStep(seq[idx - 1])
     else window.location.assign('/')
   }
@@ -90,7 +237,7 @@ export default function SignupPage() {
           community_name: communityName.trim(),
           location: location.trim() || undefined,
           unit_count: unitCount.trim() ? Number(unitCount) : undefined,
-          role: who === 'management' ? 'admin' : 'board_member',
+          role: 'board_member',
           full_name: fullName.trim(),
           unit_number: unitNumber.trim() || undefined,
         }
@@ -130,6 +277,59 @@ export default function SignupPage() {
       const res = await provisionAccount(input, session.access_token)
       // Inline path succeeded — make sure no stale stash lingers to re-run later.
       clearPendingProvision()
+
+      // Persist any documents the board attached in the wizard now that the
+      // community (and their admin membership) exists. Best-effort: a failed
+      // upload must never block finishing signup — they can re-add in /admin.
+      // (Skipped on the confirm-email branch above, which has no live session —
+      // binary files can't be stashed, so those attachments are simply dropped.)
+      if (who !== 'resident') {
+        const collected: CollectedDoc[] = []
+        docState.forEach((sec, si) => {
+          sec.items.forEach((it, ii) => {
+            if (it.file) collected.push({
+              title: docs[si].items[ii].name,
+              category: docs[si].category,
+              file: it.file,
+            })
+          })
+        })
+        if (collected.length) {
+          try { await uploadSignupDocuments(res.community_id, collected) } catch { /* non-fatal */ }
+        }
+
+        // Persist the per-category notes too (board-only). A later AI slice
+        // reads these to pre-fill settings / flag missing docs. Best-effort:
+        // same non-fatal contract as the uploads above.
+        const notes = docState.map((sec, si) => ({ section: docs[si].label, note: sec.note }))
+        try { await saveSignupNotes(res.community_id, notes) } catch { /* non-fatal */ }
+
+        // Smart processing of the wizard's own uploads — one place per document,
+        // no separate upload step. The homeowner-roster CSV → residents, the
+        // annual-budget CSV → budget categories, the CC&Rs PDF → AI fines/rules.
+        // Each runs IN ADDITION to vaulting the file above; all best-effort.
+        try {
+          const rosterFile = smartFile(docState, docs, 'roster')
+          const budgetFile = smartFile(docState, docs, 'budget')
+          const roster = rosterFile && /\.csv$/i.test(rosterFile.name) ? parseRosterCsv(await rosterFile.text()) : undefined
+          const budget = budgetFile && /\.csv$/i.test(budgetFile.name) ? parseBudgetCsv(await budgetFile.text()) : undefined
+          if (roster?.length || budget?.length) {
+            await applySignupImport(res.community_id, { roster, budget }, { skipName: fullName.trim() })
+          }
+        } catch { /* non-fatal */ }
+
+        // CC&Rs → AI extraction: pre-fills late-fee / interest settings + rules.
+        // PDF only. Inert (no-op) until ANTHROPIC_API_KEY is set + extract-setup
+        // is deployed. Board reviews in /admin. Non-fatal.
+        const ccrsFile = smartFile(docState, docs, 'ccrs')
+        if (ccrsFile && /\.pdf$/i.test(ccrsFile.name)) {
+          try {
+            const extracted = await extractSetupFromPdf(ccrsFile)
+            if (extracted) await applyExtractedSetup(res.community_id, extracted)
+          } catch { /* non-fatal */ }
+        }
+      }
+
       // Paid band (26+ homes) → pay on the spot: redirect straight into Stripe
       // subscription checkout. On failure we fall through to /admin, where the
       // Activate banner lets them complete payment. ≤25 homes is free → /admin.
@@ -180,7 +380,7 @@ export default function SignupPage() {
         {step === 'property' && (
           <Property
             value={propertyType}
-            onPick={(t) => { setPropertyType(t); setErr(null); setStep('role') }}
+            onPick={(t) => { setPropertyType(t); setDocState(emptyDocState(docSectionsFor(t))); setErr(null); setStep('role') }}
           />
         )}
 
@@ -199,6 +399,15 @@ export default function SignupPage() {
         {step === 'plan' && (
           <Plan
             propertyType={propertyType!} unitCount={unitCount}
+            onNext={() => { setErr(null); setDocSection(0); setStep('documents') }}
+          />
+        )}
+
+        {step === 'documents' && (
+          <DocWizard
+            docs={docs}
+            section={docSection} setSection={setDocSection}
+            state={docState} setState={setDocState}
             onNext={() => { setErr(null); setStep('details') }}
           />
         )}
@@ -297,12 +506,9 @@ function Role({ onPick }: { onPick: (w: Who) => void }) {
           <Tile icon={<IconPerson />} title="A resident / owner"
             desc="Join your community to see notices, docs, and vote."
             onClick={() => onPick('resident')} />
-          <Tile icon={<IconPeople />} title="Resident board or HOA management"
+          <Tile icon={<IconPeople />} title="Board or HOA management"
             desc="Set up your community and run it. Free trial."
             onClick={() => onPick('board')} />
-          <Tile icon={<IconBuilding />} title="Property management"
-            desc="Manage one or many associations. Free trial."
-            onClick={() => onPick('management')} />
         </div>
       </div>
     </>
@@ -326,7 +532,7 @@ function Community({
   const label = propertyType === 'condo' ? 'condo association' : 'community'
   return (
     <>
-      <div className="su-kicker">{who === 'management' ? 'Your first community' : 'Your community'}</div>
+      <div className="su-kicker">Your community</div>
       <h1 className="su-h1">Tell us about your {label}.</h1>
       <p className="su-sub">You can change all of this later.</p>
       <HouseArt />
@@ -633,6 +839,156 @@ function Plan({ propertyType, unitCount, onNext }: {
   )
 }
 
+// Document-collection wizard (board / management). A self-contained mini-flow
+// inside one signup step: one category per slide with confirm/upload toggles +
+// notes, then a review summary. Everything is optional — every slide offers a
+// skip, and attachments persist to the community vault after provisioning. The
+// `docs` it renders vary by property type (condo vs HOA).
+function DocWizard({
+  docs, section, setSection, state, setState, onNext,
+}: {
+  docs: DocSection[]
+  section: number; setSection: (n: number) => void
+  state: DocSectionState[]; setState: React.Dispatch<React.SetStateAction<DocSectionState[]>>
+  onNext: () => void
+}) {
+  const total = docs.length
+  const onSummary = section >= total
+
+  // Which item's plain-English description is expanded. Keyed by `section-index`
+  // so the same row index in a different category doesn't stay open across jumps.
+  // Click pins the description (openKey); hover reveals it transiently (hoverKey).
+  const [openKey, setOpenKey] = useState<string | null>(null)
+  const [hoverKey, setHoverKey] = useState<string | null>(null)
+
+  const doneCount = (i: number) => state[i].items.filter((it) => it.checked).length
+  const allDone = (i: number) => doneCount(i) === docs[i].items.length
+
+  const patchSection = (fn: (s: DocSectionState) => DocSectionState) =>
+    setState((prev) => prev.map((s, si) => (si === section ? fn(s) : s)))
+
+  const toggle = (i: number) =>
+    patchSection((s) => ({ ...s, items: s.items.map((it, ii) => (ii === i ? { ...it, checked: !it.checked } : it)) }))
+  const attach = (i: number, file: File | null) => {
+    if (!file) return
+    patchSection((s) => ({ ...s, items: s.items.map((it, ii) => (ii === i ? { checked: true, file } : it)) }))
+  }
+  const setNote = (note: string) => patchSection((s) => ({ ...s, note }))
+
+  // Dots double as a jump nav across categories.
+  const dots = (
+    <div className="su-doc-dots">
+      {docs.map((sec, i) => (
+        <button key={sec.label} type="button"
+          className={`su-doc-dot${i === section ? ' active' : allDone(i) ? ' done' : ''}`}
+          onClick={() => setSection(i)} aria-label={`Go to ${sec.label}`} />
+      ))}
+    </div>
+  )
+
+  if (onSummary) {
+    return (
+      <>
+        <div className="su-kicker">Almost done</div>
+        <h1 className="su-h1">Review your documents</h1>
+        <p className="su-sub">Here&apos;s what you&apos;ve gathered. You can add the rest anytime from your dashboard.</p>
+        {dots}
+        <div className="su-content">
+          {docs.map((sec, i) => {
+            const d = doneCount(i), t = sec.items.length
+            const cls = d === t ? 'all' : d > 0 ? 'partial' : 'none'
+            return (
+              <button key={sec.label} type="button" className="su-doc-sum" onClick={() => setSection(i)}>
+                <span className="su-doc-sum-id">
+                  <span className="su-doc-sum-emoji" aria-hidden="true">{sec.emoji}</span>
+                  <span className="su-doc-sum-name">{sec.label}</span>
+                </span>
+                <span className={`su-doc-pill ${cls}`}>{d === t ? 'All done' : `${d}/${t}`}</span>
+              </button>
+            )
+          })}
+          <div className="su-actions">
+            <button className="su-btn" type="button" onClick={onNext}>Continue</button>
+          </div>
+        </div>
+      </>
+    )
+  }
+
+  const sec = docs[section]
+  const s = state[section]
+  const d = doneCount(section), t = sec.items.length
+  const isLast = section === total - 1
+  return (
+    <>
+      <div className="su-kicker">Step {section + 1} of {total} · Your documents</div>
+      <h1 className="su-h1">{sec.label}</h1>
+      <p className="su-sub">
+        {d === t ? 'All set for this category ✓' : 'Confirm or upload each — listed most important first. Skip and add the rest later.'}
+      </p>
+      <div className="su-doc-emoji" aria-hidden="true">{sec.emoji}</div>
+      <div className="su-content">
+        <div className="su-doc-card">
+          <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'rgba(42,18,6,0.45)', padding: '9px 16px 1px' }}>
+            Most important first ↓
+          </div>
+          <div className="su-doc-items">
+            {sec.items.map((item, i) => {
+              const it = s.items[i]
+              const dkey = `${section}-${i}`
+              const open = openKey === dkey
+              const showDesc = open || hoverKey === dkey
+              return (
+                <div className="su-doc-row" key={item.name}
+                  onMouseEnter={() => setHoverKey(dkey)} onMouseLeave={() => setHoverKey(null)}>
+                  <div className="su-doc-item">
+                    <button type="button" className={`su-doc-check${it.checked ? ' on' : ''}`}
+                      onClick={() => toggle(i)} aria-label={`${it.checked ? 'Uncheck' : 'Check'} ${item.name}`}>
+                      <IconCheck />
+                    </button>
+                    {/* Hover reveals the plain-English description; tap pins it
+                        open. The checkbox stays the confirm action. */}
+                    <button type="button" className={`su-doc-name${it.checked ? ' done' : ''}${showDesc ? ' open' : ''}`}
+                      onClick={() => setOpenKey(open ? null : dkey)} aria-expanded={showDesc}>
+                      <span className="su-doc-name-text">{item.name}</span>
+                      <span className="su-doc-caret" aria-hidden="true"><Chevron dir="right" /></span>
+                    </button>
+                    <label className={`su-doc-up${it.file ? ' done' : ''}`}>
+                      {it.file ? '✓ Saved' : 'Upload'}
+                      <input className="su-doc-file" type="file"
+                        onChange={(e) => attach(i, e.target.files?.[0] ?? null)} />
+                    </label>
+                  </div>
+                  {/* Smooth height + fade reveal (inline, eases the rows below). */}
+                  <div style={{ display: 'grid', gridTemplateRows: showDesc ? '1fr' : '0fr', opacity: showDesc ? 1 : 0, transition: 'grid-template-rows 0.24s ease, opacity 0.2s ease' }}>
+                    <div style={{ overflow: 'hidden' }}>
+                      <div className="su-doc-desc">{item.desc}</div>
+                    </div>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+          <div className="su-doc-notes">
+            <div className="su-doc-notes-label">Notes</div>
+            <textarea className="su-doc-textarea" value={s.note}
+              onChange={(e) => setNote(e.target.value)}
+              placeholder="Missing items, context, or questions…" />
+          </div>
+        </div>
+        <div className="su-actions">
+          <button className="su-btn" type="button" onClick={() => setSection(section + 1)}>
+            {isLast ? 'Review →' : 'Next →'}
+          </button>
+        </div>
+        <button type="button" className="su-skip" onClick={onNext}>
+          Skip — I&apos;ll add documents later
+        </button>
+      </div>
+    </>
+  )
+}
+
 function Connect({
   code, setCode, onNext, err,
 }: {
@@ -677,8 +1033,11 @@ function Details({
   unitNumber: string; setUnitNumber: (s: string) => void
   onNext: () => void
 }) {
-  const showUnit = who !== 'management'
-  const valid = fullName.trim().length > 1 && (!showUnit || unitNumber.trim().length > 0)
+  // Residents must give their unit — it's how they're matched to a home. Board /
+  // management can leave it blank: a property-management company has no unit of
+  // its own, and a board member's unit isn't needed to run the community.
+  const unitRequired = who === 'resident'
+  const valid = fullName.trim().length > 1 && (!unitRequired || unitNumber.trim().length > 0)
   return (
     <>
       <div className="su-kicker">About you</div>
@@ -694,15 +1053,13 @@ function Details({
                 placeholder="e.g. Jane Doe" autoFocus required autoComplete="name" />
             </div>
           </label>
-          {showUnit && (
-            <label className="su-field">
-              <span className="su-label">Your unit / address</span>
-              <div className="su-input-wrap">
-                <input className="su-input" value={unitNumber} onChange={(e) => setUnitNumber(e.target.value)}
-                  placeholder="e.g. 4B or 1420 Palm St" required />
-              </div>
-            </label>
-          )}
+          <label className="su-field">
+            <span className="su-label">Your unit / address{unitRequired ? '' : ' (optional)'}</span>
+            <div className="su-input-wrap">
+              <input className="su-input" value={unitNumber} onChange={(e) => setUnitNumber(e.target.value)}
+                placeholder="e.g. 4B or 1420 Palm St" required={unitRequired} />
+            </div>
+          </label>
         </div>
         <div className="su-actions">
           <button className="su-btn" type="submit" disabled={!valid}>Continue</button>

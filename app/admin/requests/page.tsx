@@ -177,7 +177,7 @@ export default function RequestsAdmin() {
   const visible = paginate(filtered, page, REQ_PAGE_SIZE)
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
       <EasyVoiceTabs active="contact" />
       <div className="admin-kicker">Contact</div>
       <h1 className="admin-h1">Contact requests</h1>
@@ -207,13 +207,15 @@ export default function RequestsAdmin() {
       )}
 
       {(status === 'ready' || status === 'loading') && (
-        <>
-          <div className="bc-head" style={{ marginTop: 8, marginBottom: 14 }}>
-            <h2 className="bc-title">Queue</h2>
-            <span className="bc-sub">
-              {rows.length} {rows.length === 1 ? 'request' : 'requests'}
-              {newCount > 0 ? ` · ${newCount} new` : ''}.
-            </span>
+        <div className="card">
+          <div className="card-head">
+            <div>
+              <h2>Queue</h2>
+              <div className="sub">
+                {rows.length} {rows.length === 1 ? 'request' : 'requests'}
+                {newCount > 0 ? ` · ${newCount} new` : ''}.
+              </div>
+            </div>
           </div>
 
           <div className="admin-sched-filters" style={{ marginTop: 4, marginBottom: 12 }}>
@@ -251,7 +253,7 @@ export default function RequestsAdmin() {
             <div className="bc-empty">No requests match these filters.</div>
           )}
 
-          <div className="bd-list" style={{ maxWidth: 860 }}>
+          <div className="bd-list">
             {visible.map(r => {
               const draft = noteDrafts[r.id] ?? r.board_note ?? ''
               const file = noteFiles[r.id] || null
@@ -347,7 +349,7 @@ export default function RequestsAdmin() {
             total={filtered.length}
             onPageChange={setPage}
           />
-        </>
+        </div>
       )}
     </div>
   )

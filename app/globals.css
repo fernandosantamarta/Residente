@@ -162,92 +162,11 @@
 [data-theme="sketch"] .btn,
 [data-theme="sketch"] .pay-btn { border-radius: 999px; }
 
-/* ============ SKETCH THEME — actual hand-drawn look ============
-   Beyond the palette swap, the Sketch theme adds an ink wobble to
-   decorative SVG icons and overlays a hand-drawn outline on cards.
-   Text stays clean (legible) — only borders and icons wobble. */
-
-/* Wobble every decorative SVG icon in the cockpit. The filter is
-   defined globally in App.jsx (#sketch-wobble) so any element on the
-   page can reference it. Stage `transform: translateZ(0)` triggers a
-   compositing layer so the filter result is cached, not re-rasterised
-   on hover. */
-[data-theme="sketch"] .nav-item svg,
-[data-theme="sketch"] .ic,
-[data-theme="sketch"] .icon,
-[data-theme="sketch"] .pay-card svg,
-[data-theme="sketch"] .you-card svg,
-[data-theme="sketch"] .brand-dot,
-[data-theme="sketch"] .admin-back svg,
-[data-theme="sketch"] .warn-ic,
-[data-theme="sketch"] .pace-chip svg {
-  filter: url(#sketch-wobble);
-  transform: translateZ(0);
-}
-
-/* Hand-drawn outlines on every card. We layer a pseudo-element on
-   top with a 2.5px ink-coloured border, then run the wobble filter
-   on it — that gives the card a sketchy outline without distorting
-   the text inside. Cards keep their existing border-radius. */
-[data-theme="sketch"] .card,
-[data-theme="sketch"] .panel,
-[data-theme="sketch"] .login-card,
-[data-theme="sketch"] .you-card,
-[data-theme="sketch"] .pay-card,
-[data-theme="sketch"] .admin-card,
-[data-theme="sketch"] .theme-card,
-[data-theme="sketch"] .settings-section,
-[data-theme="sketch"] .hero-head,
-[data-theme="sketch"] .burn,
-[data-theme="sketch"] .pace-chip {
-  position: relative;
-}
-[data-theme="sketch"] .card::before,
-[data-theme="sketch"] .panel::before,
-[data-theme="sketch"] .login-card::before,
-[data-theme="sketch"] .you-card::before,
-[data-theme="sketch"] .pay-card::before,
-[data-theme="sketch"] .admin-card::before,
-[data-theme="sketch"] .theme-card::before,
-[data-theme="sketch"] .settings-section::before,
-[data-theme="sketch"] .hero-head::before,
-[data-theme="sketch"] .burn::before,
-[data-theme="sketch"] .pace-chip::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border: 2.4px solid #1F2233;
-  border-radius: inherit;
-  pointer-events: none;
-  filter: url(#sketch-wobble-strong);
-  opacity: 0.78;
-}
-/* Cards that are already on a coloured/dark background should keep
-   their normal CSS border in addition to the sketch outline — looks
-   like an ink line drawn over the panel edge. */
-[data-theme="sketch"] .card,
-[data-theme="sketch"] .you-card,
-[data-theme="sketch"] .pay-card,
-[data-theme="sketch"] .admin-card,
-[data-theme="sketch"] .theme-card { border-color: transparent; }
-
-/* Hand-drawn underline under headlines and section titles. Uses an
-   inline SVG of a wavy stroke as a background image so we don't
-   need to touch any component markup. */
-[data-theme="sketch"] .headline,
-[data-theme="sketch"] .settings-h1,
-[data-theme="sketch"] .pay-h1,
-[data-theme="sketch"] .admin-h1,
-[data-theme="sketch"] .you-title {
-  display: inline-block;
-  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 12' preserveAspectRatio='none'><path d='M2 8 Q 25 2, 50 6 T 100 6 T 150 6 T 198 6' fill='none' stroke='%23C76F45' stroke-width='2.4' stroke-linecap='round'/></svg>");
-  background-repeat: no-repeat;
-  background-position: left bottom;
-  background-size: 100% 10px;
-  padding-bottom: 14px;
-}
-
-/* Pretty-up the section title with a small terracotta dash before it. */
+/* Sketch wobble layer removed (was a rough draft). The clean warm palette,
+   rounded cards, and serif headlines above stay; the hand-drawn icon wobble,
+   the ::before card outline, and the wavy headline underline are gone so the
+   app matches the clean mocks. A small terracotta dash still precedes section
+   titles, now without the wobble filter. */
 [data-theme="sketch"] .section-title::before {
   content: '';
   display: inline-block;
@@ -257,7 +176,6 @@
   border-radius: 2px;
   margin-right: 10px;
   vertical-align: middle;
-  filter: url(#sketch-wobble);
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -3750,7 +3668,6 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   stroke-width: 1.7;
   stroke-linecap: round;
   stroke-linejoin: round;
-  filter: url(#sketch-wobble);
 }
 [data-theme="sketch"] .glance-label {
   font-size: 12px; font-weight: 500;

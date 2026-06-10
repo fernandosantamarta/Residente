@@ -12,8 +12,9 @@ import { useParams } from 'next/navigation'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { logAudit } from '@/lib/audit'
-import { ymd, toDate, addCalendarDays, calendarDaysUntil, ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
+import { ymd, toDate, addCalendarDays, calendarDaysUntil } from '@/lib/compliance/rules-core'
 import { casePayoff, fmtMoney, type PayoffResult } from '@/lib/dues'
+import { AttorneyNote } from '../../AttorneyNote'
 import {
   STAGE_LABELS, NOTICE_KIND_LABELS, nextEscalation, lienEnforceDeadline, noticeMethodWarning, isOpenStage,
   dualAddressRule, resolveNoticeAddresses, noticeAddressWarning, ownerNoticeAddresses,
@@ -152,7 +153,7 @@ export default function CollectionCaseDetail() {
         {c.delinquent_since ? ` · delinquent since ${c.delinquent_since}` : ''}
       </p>
 
-      <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>{ATTORNEY_REVIEW_BANNER}</div>
+      <AttorneyNote />
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
       {error && <div className="admin-note admin-note-err">{error}</div>}
 

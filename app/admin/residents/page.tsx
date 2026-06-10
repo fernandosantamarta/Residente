@@ -5,7 +5,20 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { residentBalance, duesStatus, DUES_LABEL, fmtMoney, communityDuesConfig } from '@/lib/dues'
 import { downloadCsv, exportFilename } from '@/lib/exportCsv'
+import { logAudit } from '@/lib/audit'
+import { Dropdown } from '@/components/Dropdown'
 import { EasyTrackTabs } from '../EasyTrackTabs'
+
+// Resident account / voting-invite state from the magic-link columns, with a
+// fallback to a linked profile (older rows activated before invited_at existed).
+const inviteState = (r) =>
+  (r.activated_at || r.profile_id) ? { cls: 'ok', label: 'Activated' }
+  : r.invited_at ? { cls: 'warn', label: 'Invited' }
+  : { cls: 'warn', label: 'Pending' }
+
+// Initials for a household avatar — first letters of the first two words.
+const initials = (name) =>
+  String(name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
 
 const withTimeout = (p, ms = 10000) =>
   Promise.race([
@@ -43,7 +56,11 @@ const sortRows = (rs) => [...rs].sort((a, b) => {
   return ad !== 0 ? ad : String(a.full_name || '').localeCompare(String(b.full_name || ''))
 })
 
-const EMPTY = { full_name: '', subdivision: '', address: '', email: '', phone: '', unit_number: '' }
+// Editable import spreadsheet — one row per household, four columns matching the
+// header. Always keeps a trailing blank row so there's somewhere to type next.
+const GRID_COLS = ['name', 'unit', 'email', 'phone']
+const blankGridRow = () => ({ name: '', unit: '', email: '', phone: '' })
+const gridRowHasData = (r) => !!(r.name || r.unit || r.email || r.phone)
 
 // Residents page — the community roster, grouped by subdivision. Each
 // household's balance accrues monthly_dues automatically; the board sets the
@@ -56,12 +73,17 @@ export default function Residents() {
   const [community, setCommunity] = useState(null)
   const [status, setStatus] = useState('loading') // loading | ready | none | error
   const [error, setError] = useState('')
-  const [form, setForm] = useState(EMPTY)
-  const [saving, setSaving] = useState(false)
-  const [pending, setPending] = useState(null) // parsed CSV rows awaiting confirm
+  const [pending, setPending] = useState(null) // parsed CSV / pasted rows awaiting confirm
   const [importing, setImporting] = useState(false)
   const [successMsg, setSuccessMsg] = useState('')
+  const [query, setQuery] = useState('')
+  const [subFilter, setSubFilter] = useState('all')
+  const [grid, setGrid] = useState(() => [blankGridRow(), blankGridRow(), blankGridRow()])
   const fileRef = useRef(null)
+  // Magic-link invites (ported from the old Voice Roster).
+  const [inviteBusyId, setInviteBusyId] = useState(null)
+  const [bulkBusy, setBulkBusy] = useState(false)
+  const [inviteMsg, setInviteMsg] = useState('')
 
   // Auto-dismiss the green confirmation banner after 4 seconds.
   useEffect(() => {
@@ -121,43 +143,31 @@ export default function Residents() {
     return m
   }, [payments])
 
-  const groups = useMemo(() => {
-    const m = new Map()
-    for (const r of rows) {
-      const k = (r.subdivision || '').trim() || 'No subdivision'
-      if (!m.has(k)) m.set(k, [])
-      m.get(k).push(r)
-    }
-    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  // Stat tiles (mock parity). "Activated" = a resident with a linked account
+  // (profile_id set); "Pending" = on the roster but no account yet. "Tenants" =
+  // units flagged as rented or carrying tenant contact info.
+  const stats = useMemo(() => {
+    const activated = rows.filter(r => r.activated_at || r.profile_id).length
+    const tenants = rows.filter(r => r.is_rented || r.tenant_name).length
+    return { owners: rows.length, tenants, activated, pending: rows.length - activated }
   }, [rows])
 
-  const setField = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  // Subdivision filter options for the toolbar dropdown.
+  const subOptions = useMemo(() => {
+    const subs = [...new Set(rows.map(r => (r.subdivision || '').trim()).filter(Boolean))]
+      .sort((a, b) => a.localeCompare(b))
+    return [{ value: 'all', label: 'All subdivisions' }, ...subs.map(s => ({ value: s, label: s }))]
+  }, [rows])
 
-  const add = async (e) => {
-    e.preventDefault()
-    if (!form.full_name.trim()) { setError('Enter the resident name'); return }
-    setSaving(true); setError('')
-    try {
-      const row = {
-        community_id: communityId,
-        full_name: form.full_name.trim(),
-        subdivision: form.subdivision.trim() || null,
-        address: form.address.trim() || null,
-        email: form.email.trim() || null,
-        phone: form.phone.trim() || null,
-        unit_number: form.unit_number.trim() || null,
-      }
-      const { data, error } = await withTimeout(
-        supabase.from('residents').insert(row).select().single()
-      )
-      if (error) throw error
-      setRows(rs => sortRows([data, ...rs]))
-      setForm(EMPTY)
-      setSuccessMsg(`Added ${row.full_name}.`)
-    } catch (err) {
-      setError(err?.message || 'Could not add the resident')
-    } finally { setSaving(false) }
-  }
+  // Search + subdivision filter over the already-sorted roster (flat table).
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return rows.filter(r => {
+      if (subFilter !== 'all' && (r.subdivision || '').trim() !== subFilter) return false
+      if (!q) return true
+      return [r.full_name, r.unit_number, r.address, r.email].some(v => String(v || '').toLowerCase().includes(q))
+    })
+  }, [rows, query, subFilter])
 
   const remove = async (id) => {
     const prev = rows
@@ -169,6 +179,44 @@ export default function Residents() {
       setRows(prev) // roll back
       setError(err?.message || 'Could not remove that resident')
     }
+  }
+
+  // Send (or resend) a resident their magic-link invite to activate the app and
+  // vote. Reuses the voice-invite-owner edge function + audit log.
+  const sendInvite = async (id) => {
+    if (!hasSupabase || !communityId) return
+    setInviteBusyId(id); setError(''); setInviteMsg('')
+    try {
+      const { data, error } = await supabase.functions.invoke('voice-invite-owner', { body: { resident_id: id } })
+      if (error) throw error
+      if (data && data.ok === false) throw new Error(data.error || 'Invite failed')
+      await logAudit({ community_id: communityId, event_type: 'invite.sent', target_type: 'resident', target_id: id, metadata: { email_sent: !!data?.email_sent } })
+      setInviteMsg('Invitation sent.')
+      load()
+    } catch (err) {
+      setError(err?.message || 'Could not send invitation')
+    } finally { setInviteBusyId(null) }
+  }
+
+  // Owners who have an email but were never invited — the bulk-invite targets.
+  const uninvited = useMemo(() => rows.filter(r => r.email && !r.invited_at && !r.activated_at && !r.profile_id), [rows])
+
+  const inviteAllUninvited = async () => {
+    if (!hasSupabase || !communityId || !uninvited.length) return
+    setBulkBusy(true); setError(''); setInviteMsg('')
+    let sent = 0, failed = 0
+    for (const o of uninvited) {
+      try {
+        const { data, error } = await supabase.functions.invoke('voice-invite-owner', { body: { resident_id: o.id } })
+        if (error) throw error
+        if (data && data.ok === false) throw new Error(data.error || 'Invite failed')
+        await logAudit({ community_id: communityId, event_type: 'invite.sent', target_type: 'resident', target_id: o.id, metadata: { email_sent: !!data?.email_sent, bulk: true } })
+        sent++
+      } catch { failed++ }
+    }
+    setBulkBusy(false)
+    setInviteMsg(`Bulk invite: ${sent} sent${failed ? `, ${failed} failed` : ''}.`)
+    load()
   }
 
   // Instant local edit while typing — no DB write yet.
@@ -188,6 +236,61 @@ export default function Residents() {
       load() // re-sync from the DB
     }
   }
+
+  // Keep a trailing blank row so the spreadsheet always has room to type/paste.
+  const withTrailingRow = (rows) => {
+    const last = rows[rows.length - 1]
+    if (!last || gridRowHasData(last)) rows.push(blankGridRow())
+    return rows
+  }
+
+  const setCell = (ri, key, val) => setGrid(g => {
+    const next = g.map(r => ({ ...r }))
+    next[ri][key] = val
+    return withTrailingRow(next)
+  })
+
+  // Paste a block (from Excel / Sheets) straight into the grid, spreading the
+  // tab/newline-delimited cells from the focused cell down and to the right.
+  const onPasteCell = (e, ri, ci) => {
+    const text = e.clipboardData.getData('text')
+    if (!text || !/[\t\n]/.test(text)) return   // single value — let it paste normally
+    e.preventDefault()
+    const lines = text.replace(/\r/g, '').replace(/\n+$/, '').split('\n')
+    setGrid(g => {
+      const next = g.map(r => ({ ...r }))
+      lines.forEach((line, li) => {
+        const cells = line.split('\t')
+        const tr = ri + li
+        while (next.length <= tr) next.push(blankGridRow())
+        cells.forEach((cell, cj) => {
+          const col = GRID_COLS[ci + cj]
+          if (col) next[tr][col] = cell.trim()
+        })
+      })
+      return withTrailingRow(next)
+    })
+  }
+
+  const addRow = () => setGrid(g => [...g, blankGridRow()])
+  const removeRow = (ri) => setGrid(g => {
+    const next = g.filter((_, i) => i !== ri)
+    return withTrailingRow(next.length ? next : [blankGridRow()])
+  })
+
+  // "Paste & import" — turn the filled grid rows into the same confirm flow the
+  // CSV upload uses (the green "Import all N" bar). Owner (name) is required.
+  // The Unit value doubles as the household address so notices/exports have one.
+  const importGrid = () => {
+    const parsed = grid.filter(r => r.name.trim()).map(r => ({
+      full_name: r.name.trim(), unit_number: r.unit.trim(),
+      email: r.email.trim(), phone: r.phone.trim(),
+      address: r.unit.trim(), subdivision: '',
+    }))
+    if (parsed.length) { setPending(parsed); setError('') }
+    else setError('Type or paste at least one row — Owner is required.')
+  }
+  const gridHasData = grid.some(gridRowHasData)
 
   const onPickFile = (e) => {
     const file = e.target.files && e.target.files[0]
@@ -214,11 +317,13 @@ export default function Residents() {
         address: p.address || null,
         email: p.email || null,
         phone: p.phone || null,
+        unit_number: p.unit_number || null,
       }))
       const { error } = await withTimeout(supabase.from('residents').insert(toInsert))
       if (error) throw error
       const n = toInsert.length
       setPending(null)
+      setGrid([blankGridRow(), blankGridRow(), blankGridRow()])
       await load()
       setSuccessMsg(`Imported ${n} resident${n === 1 ? '' : 's'}.`)
     } catch (err) {
@@ -227,18 +332,16 @@ export default function Residents() {
   }
 
   return (
-    <div className="admin-page">
+    <div className="admin-page etrack">
       <EasyTrackTabs active="residents" />
       <div className="admin-kicker">Residents</div>
-      <h1 className="admin-h1">{communityName || 'Resident roster'}</h1>
+      <h1 className="admin-h1">{communityName ? `${communityName} roster` : 'Resident roster'}</h1>
       <p className="admin-dek">
-        {status === 'ready'
-          ? `${rows.length} household${rows.length === 1 ? '' : 's'} across ${groups.length} subdivision${groups.length === 1 ? '' : 's'}. `
-          : 'Your community roster — grouped by subdivision. '}
+        Every owner and tenant in your community. Add households one at a time or
+        import a roster from a spreadsheet.
         {monthlyDues > 0
-          ? `Dues are ${fmtMoney(monthlyDues)}/mo per home and accrue automatically — set each household's opening balance below.`
-          : 'Set monthly dues on the Community page to start dues tracking.'}
-        {' '}Residents maintain their own name, phone, and email from their Settings — those edits sync to this roster.
+          ? ` Dues are ${fmtMoney(monthlyDues)}/mo per home and accrue automatically — open a household to set its opening balance.`
+          : ' Set monthly dues on the Community page to start dues tracking.'}
       </p>
 
       {status === 'none' && (
@@ -261,65 +364,75 @@ export default function Residents() {
         </div>
       )}
 
+      {inviteMsg && (
+        <div className="admin-success" role="status">
+          <span className="admin-success-check" aria-hidden="true">✓</span>
+          {inviteMsg}
+        </div>
+      )}
+
       {(status === 'ready' || status === 'loading') && (
         <>
-          <form className="admin-form" onSubmit={add}>
-            <label className="admin-field">
-              <span className="admin-field-label">Resident name</span>
-              <input name="full_name" className="admin-input" placeholder="Jane Doe"
-                value={form.full_name} onChange={e => setField('full_name', e.target.value)} />
-            </label>
-            <div className="admin-2col">
-              <label className="admin-field">
-                <span className="admin-field-label">Subdivision</span>
-                <input name="subdivision" className="admin-input" placeholder="Lakeside"
-                  value={form.subdivision} onChange={e => setField('subdivision', e.target.value)} />
-              </label>
-              <label className="admin-field">
-                <span className="admin-field-label">Address / unit</span>
-                <input name="address" className="admin-input" placeholder="1247 Oak Street"
-                  value={form.address} onChange={e => setField('address', e.target.value)} />
-              </label>
+          {/* Stat tiles. */}
+          <div className="stats">
+            {[
+              { v: String(stats.owners), l: 'Owners' },
+              { v: String(stats.tenants), l: 'Tenants' },
+              { v: String(stats.activated), l: 'Activated', c: 'var(--ok)' },
+              { v: String(stats.pending), l: 'Pending', c: 'var(--warn)' },
+            ].map(s => (
+              <div key={s.l} className="stat">
+                <div className="v" style={s.c ? { color: s.c } : undefined}>{s.v}</div>
+                <div className="l">{s.l}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Import your roster — one editable spreadsheet. Type into the cells,
+              paste a block straight from Excel / Google Sheets, or upload a CSV. */}
+          <div className="card import-card">
+            <div className="card-head">
+              <div>
+                <h2>Import your roster</h2>
+                <div className="sub">Type it in, paste straight from Excel or Google Sheets, or upload a file — we map the columns for you.</div>
+              </div>
+              <span className="pill dim">No CSV needed</span>
             </div>
-            <div className="admin-2col">
-              <label className="admin-field">
-                <span className="admin-field-label">Email</span>
-                <input name="email" className="admin-input" type="email" placeholder="jane@email.com"
-                  value={form.email} onChange={e => setField('email', e.target.value)} />
-              </label>
-              <label className="admin-field">
-                <span className="admin-field-label">Phone</span>
-                <input name="phone" className="admin-input" placeholder="(555) 123-4567"
-                  value={form.phone} onChange={e => setField('phone', e.target.value)} />
-              </label>
+            <div className="import-sheet">
+              <div className="import-sheet-row import-sheet-head">
+                <span>Owner</span><span>Unit / Address</span><span>Email</span><span>Phone</span>
+              </div>
+              <div>
+                {grid.map((row, ri) => (
+                  <div className="import-sheet-row" key={ri}>
+                    {GRID_COLS.map((key, ci) => (
+                      <input key={key} className="import-cell" value={row[key]}
+                        placeholder={ri === 0 ? ['Jane Doe', '4B or 1247 Oak St', 'jane@email.com', '305-555-0142'][ci] : ''}
+                        aria-label={`${['Owner', 'Unit / Address', 'Email', 'Phone'][ci]} row ${ri + 1}`}
+                        onChange={e => setCell(ri, key, e.target.value)}
+                        onPaste={e => onPasteCell(e, ri, ci)} />
+                    ))}
+                    <button type="button" className="import-del" onClick={() => removeRow(ri)}
+                      tabIndex={-1} aria-label={`Delete row ${ri + 1}`}>&times;</button>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="admin-2col">
-              <label className="admin-field">
-                <span className="admin-field-label">Unit number</span>
-                <input name="unit_number" className="admin-input" placeholder="e.g. 11"
-                  value={form.unit_number} onChange={e => setField('unit_number', e.target.value)} />
-              </label>
-              <div />
-            </div>
-            <div className="admin-form-actions">
-              <button type="submit" className="admin-primary-btn" disabled={saving}>
-                {saving ? 'Adding…' : 'Add resident'}
+            <button type="button" className="import-addrow" onClick={addRow}>+ Add row</button>
+            <div className="row-actions">
+              <button type="button" className="admin-primary-btn" onClick={importGrid} disabled={!gridHasData}>
+                Paste &amp; import
               </button>
               <button type="button" className="admin-secondary-btn"
                 title="CSV columns: name, subdivision, address, email, phone"
                 onClick={() => fileRef.current && fileRef.current.click()}>
-                Import CSV
+                Upload CSV instead
               </button>
-              <button type="button" className="admin-secondary-btn"
-                title="Download all households as CSV"
-                onClick={exportRoster} disabled={rows.length === 0}>
-                Export CSV
-              </button>
-              <input name="residents-csv" ref={fileRef} type="file" accept=".csv,text/csv"
-                onChange={onPickFile} style={{ display: 'none' }} />
               {error && <span className="admin-err-inline">{error}</span>}
             </div>
-          </form>
+            <input name="residents-csv" ref={fileRef} type="file" accept=".csv,text/csv"
+              onChange={onPickFile} style={{ display: 'none' }} />
+          </div>
 
           {pending && (
             <div className="res-import-bar">
@@ -335,105 +448,173 @@ export default function Residents() {
             </div>
           )}
 
-          <div className="res-roster">
-            {status === 'loading' && <div className="admin-note">Loading…</div>}
-            {status === 'ready' && rows.length === 0 && (
-              <div className="bc-empty" style={{ marginTop: 32 }}>
-                No residents yet — add one above or import a CSV.
-              </div>
-            )}
-            {groups.map(([sub, list]) => (
-              <div className="res-group" key={sub}>
-                <div className="res-group-head">
-                  {sub}<span className="res-group-n">{list.length}</span>
+          {/* Search / filter / export toolbar over the roster table. */}
+          {status === 'ready' && rows.length > 0 && (
+            <div className="toolbar">
+              <div className="toolbar-left">
+                <div className="search">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
+                  </svg>
+                  <input value={query} onChange={e => setQuery(e.target.value)}
+                    placeholder="Search owners or units…" aria-label="Search roster" />
                 </div>
-                {list.map(r => (
-                  <ResidentRow key={r.id} r={r} monthlyDues={monthlyDues} duesCfg={duesCfg}
-                    payments={paymentsByResident.get(r.id) || []}
-                    onLocal={editLocal} onCommit={commit} onRemove={remove} />
-                ))}
+                {subOptions.length > 1 && (
+                  <Dropdown value={subFilter} onChange={setSubFilter} options={subOptions} ariaLabel="Subdivision" />
+                )}
               </div>
-            ))}
-          </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                {uninvited.length > 0 && (
+                  <button type="button" className="admin-primary-btn" disabled={bulkBusy}
+                    title="Email a magic-link invite to every owner who has one but hasn't been invited"
+                    onClick={inviteAllUninvited}>
+                    {bulkBusy ? 'Sending…' : `Invite ${uninvited.length} owner${uninvited.length === 1 ? '' : 's'}`}
+                  </button>
+                )}
+                <button type="button" className="admin-secondary-btn"
+                  title="Download all households as CSV"
+                  onClick={exportRoster} disabled={rows.length === 0}>
+                  Export CSV
+                </button>
+              </div>
+            </div>
+          )}
+
+          {status === 'loading' && <div className="admin-note">Loading…</div>}
+          {status === 'ready' && rows.length === 0 && (
+            <div className="card"><div className="roster-empty">No households yet — add one or import a CSV to get started.</div></div>
+          )}
+          {status === 'ready' && rows.length > 0 && (
+            <div className="card">
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th>Owner</th><th>Unit</th><th className="contact-col">Contact</th>
+                    <th>Balance</th><th>Status</th><th className="act"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.length === 0 ? (
+                    <tr><td colSpan={6}><div className="roster-empty">No households match your search.</div></td></tr>
+                  ) : filtered.map(r => (
+                    <ResidentRow key={r.id} r={r} monthlyDues={monthlyDues} duesCfg={duesCfg}
+                      payments={paymentsByResident.get(r.id) || []}
+                      onLocal={editLocal} onCommit={commit} onRemove={remove}
+                      onInvite={sendInvite} inviteBusy={inviteBusyId === r.id} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </>
       )}
     </div>
   )
 }
 
-// Compare the owner's mailing address of record against the unit/parcel address.
-const norm = (s) => String(s ?? '').replace(/[\s,]+/g, ' ').trim().toLowerCase()
-
-function ResidentRow({ r, monthlyDues, duesCfg, payments, onLocal, onCommit, onRemove }) {
-  const [showMore, setShowMore] = useState(false)
+// One roster row (mock table shape: avatar + name | unit | contact | balance |
+// activation pill | Open). "Open" expands the full household editor in-place so
+// every working field (address, subdivision, opening balance, mailing address,
+// tenant) is still editable — nothing is read-only-only.
+function ResidentRow({ r, monthlyDues, duesCfg, payments, onLocal, onCommit, onRemove, onInvite, inviteBusy }) {
+  const [open, setOpen] = useState(false)
   const balance = residentBalance(r, monthlyDues, payments, duesCfg)
-  const st = duesStatus(balance, monthlyDues)
-  const emailPhone = [r.email, r.phone].filter(Boolean).join('  ·  ')
-  const mailingDiffers = !!(r.last_known_address && r.address && norm(r.last_known_address) !== norm(r.address))
+  const activated = !!(r.activated_at || r.profile_id)
+  const pill = inviteState(r)
+  const contact = r.email || r.phone || '—'
+  // Invite button label mirrors the old roster: first send vs re-invite vs resend.
+  const inviteLabel = activated ? 'Resend magic link' : r.invited_at ? 'Re-invite' : 'Send invite'
   return (
     <>
-      <div className="res-row">
-        <div className="res-info">
-          <div className="res-name">{r.full_name}</div>
-          <input name={`address-${r.id}`} className="res-addr-input" placeholder="Add an address"
-            value={r.address ?? ''}
-            onChange={e => onLocal(r.id, 'address', e.target.value)}
-            onBlur={e => onCommit(r.id, { address: e.target.value.trim() || null })} />
-          {emailPhone && <div className="res-contact">{emailPhone}</div>}
-          <button type="button" onClick={() => setShowMore(s => !s)}
-            style={{ background: 'none', border: 0, padding: '3px 0 0', fontSize: 11.5, color: '#175CD3', cursor: 'pointer', fontWeight: 600 }}>
-            {showMore ? '– Mailing & tenant' : '+ Mailing & tenant'}
-            {mailingDiffers ? ' · off-site owner' : ''}{r.is_rented ? ' · rented' : ''}
+      <tr className="tr">
+        <td>
+          <div className="owner-cell">
+            <span className="av" aria-hidden="true">{initials(r.full_name)}</span>
+            <span className="strong">
+              {r.full_name}
+              {r.subdivision ? <span className="muted" style={{ fontWeight: 400 }}> · {r.subdivision}</span> : null}
+            </span>
+          </div>
+        </td>
+        <td className="muted">{r.unit_number || r.address || '—'}</td>
+        <td className="muted contact-col">{contact}</td>
+        <td className={balance > 0 ? 'due' : 'muted'}>{fmtMoney(balance)}</td>
+        <td><span className={`pill ${pill.cls}`}>{pill.label}</span></td>
+        <td className="act">
+          <button type="button" className="go" onClick={() => setOpen(o => !o)}>
+            {open ? 'Close' : 'Open →'}
           </button>
-        </div>
-        <div className={`res-owes res-${st}`}>
-          <span className="res-owes-amt">{fmtMoney(balance)}</span>
-          <span className="res-owes-tag">{DUES_LABEL[st]}</span>
-        </div>
-        <label className="res-open" title="Opening balance — what this household owed when added">
-          <span className="res-open-lbl">Opening</span>
-          <span className="res-open-field">
-            <span className="res-bal-pre">$</span>
-            <input name={`opening-balance-${r.id}`} className="res-bal-input" type="number" placeholder="0"
-              value={r.opening_balance ?? ''}
-              onChange={e => onLocal(r.id, 'opening_balance', e.target.value)}
-              onBlur={e => onCommit(r.id, { opening_balance: Number(e.target.value) || 0 })} />
-          </span>
-        </label>
-        <button type="button" className="bc-del" onClick={() => onRemove(r.id)}
-          aria-label="Remove resident">&times;</button>
-      </div>
+        </td>
+      </tr>
 
-      {showMore && (
-        <div style={{ border: '1px dashed #cbd5e1', borderRadius: 10, padding: 12, margin: '2px 0 10px', background: '#fafafa' }}>
-          <div style={{ fontSize: 11.5, opacity: 0.72, marginBottom: 10, lineHeight: 1.5 }}>
-            Used for the statutory collection notices. The <strong>unit/parcel address</strong> is the “Address” field above.
-            Set the owner’s <strong>mailing address of record</strong> here only when it differs (e.g. an absentee owner) — the
-            Notice of Late Assessment and Notice of Intent to Record a Lien must then be mailed to <em>both</em>.
-          </div>
-          <label className="admin-field">
-            <span className="admin-field-label">Owner mailing address of record (only if different from the unit/parcel)</span>
-            <input className="admin-input" defaultValue={r.last_known_address ?? ''}
-              placeholder="e.g. PO Box 410, Naples FL 34102"
-              onBlur={e => onCommit(r.id, { last_known_address: e.target.value.trim() || null })} />
-          </label>
-          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, margin: '12px 0 8px' }}>
-            <input type="checkbox" defaultChecked={!!r.is_rented}
-              onChange={e => onCommit(r.id, { is_rented: e.target.checked })} />
-            This unit is rented (enables the tenant rent-demand notice when the owner is delinquent)
-          </label>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
-            <label className="admin-field"><span className="admin-field-label">Tenant name</span>
-              <input className="admin-input" defaultValue={r.tenant_name ?? ''}
-                onBlur={e => onCommit(r.id, { tenant_name: e.target.value.trim() || null })} /></label>
-            <label className="admin-field"><span className="admin-field-label">Tenant email</span>
-              <input className="admin-input" type="email" defaultValue={r.tenant_email ?? ''}
-                onBlur={e => onCommit(r.id, { tenant_email: e.target.value.trim() || null })} /></label>
-            <label className="admin-field"><span className="admin-field-label">Tenant phone</span>
-              <input className="admin-input" defaultValue={r.tenant_phone ?? ''}
-                onBlur={e => onCommit(r.id, { tenant_phone: e.target.value.trim() || null })} /></label>
-          </div>
-        </div>
+      {open && (
+        <tr className="tr-edit">
+          <td colSpan={6}>
+            <div className="edit-grid">
+              <label className="admin-field"><span className="admin-field-label">Address / unit</span>
+                <input className="admin-input" placeholder="1247 Oak Street" value={r.address ?? ''}
+                  onChange={e => onLocal(r.id, 'address', e.target.value)}
+                  onBlur={e => onCommit(r.id, { address: e.target.value.trim() || null })} /></label>
+              <label className="admin-field"><span className="admin-field-label">Subdivision</span>
+                <input className="admin-input" placeholder="Lakeside" value={r.subdivision ?? ''}
+                  onChange={e => onLocal(r.id, 'subdivision', e.target.value)}
+                  onBlur={e => onCommit(r.id, { subdivision: e.target.value.trim() || null })} /></label>
+              <label className="admin-field"
+                title="Opening balance — what this household owed when added">
+                <span className="admin-field-label">Opening balance ($)</span>
+                <input className="admin-input" type="number" placeholder="0" value={r.opening_balance ?? ''}
+                  onChange={e => onLocal(r.id, 'opening_balance', e.target.value)}
+                  onBlur={e => onCommit(r.id, { opening_balance: Number(e.target.value) || 0 })} /></label>
+            </div>
+
+            <p className="edit-note">
+              The mailing address of record is used for the statutory collection
+              notices — set it only when it differs from the unit/parcel above (e.g.
+              an absentee owner); the late-assessment and intent-to-lien notices then
+              go to both.
+            </p>
+            <label className="admin-field">
+              <span className="admin-field-label">Owner mailing address of record (only if different)</span>
+              <input className="admin-input" defaultValue={r.last_known_address ?? ''}
+                placeholder="e.g. PO Box 410, Naples FL 34102"
+                onBlur={e => onCommit(r.id, { last_known_address: e.target.value.trim() || null })} />
+            </label>
+            <label className="edit-rented" style={{ margin: '12px 0' }}>
+              <input type="checkbox" defaultChecked={!!r.is_rented}
+                onChange={e => onCommit(r.id, { is_rented: e.target.checked })} />
+              This unit is rented (enables the tenant rent-demand notice when the owner is delinquent)
+            </label>
+            <div className="edit-grid">
+              <label className="admin-field"><span className="admin-field-label">Tenant name</span>
+                <input className="admin-input" defaultValue={r.tenant_name ?? ''}
+                  onBlur={e => onCommit(r.id, { tenant_name: e.target.value.trim() || null })} /></label>
+              <label className="admin-field"><span className="admin-field-label">Tenant email</span>
+                <input className="admin-input" type="email" defaultValue={r.tenant_email ?? ''}
+                  onBlur={e => onCommit(r.id, { tenant_email: e.target.value.trim() || null })} /></label>
+              <label className="admin-field"><span className="admin-field-label">Tenant phone</span>
+                <input className="admin-input" defaultValue={r.tenant_phone ?? ''}
+                  onBlur={e => onCommit(r.id, { tenant_phone: e.target.value.trim() || null })} /></label>
+            </div>
+
+            <div className="edit-foot">
+              <span className="muted" style={{ fontSize: 12.5 }}>
+                {activated ? 'Account activated' : r.invited_at ? 'Invite sent — not activated yet' : 'No linked account yet'}
+                {' · '}{DUES_LABEL[duesStatus(balance, monthlyDues)]}
+              </span>
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                {r.email && (
+                  <button type="button" className="admin-btn-sm" disabled={inviteBusy} onClick={() => onInvite(r.id)}
+                    title="Email this owner a magic link to activate the app and vote">
+                    {inviteBusy ? 'Sending…' : inviteLabel}
+                  </button>
+                )}
+                <button type="button" className="admin-btn-sm admin-btn-warn" onClick={() => onRemove(r.id)}>
+                  Remove household
+                </button>
+              </div>
+            </div>
+          </td>
+        </tr>
       )}
     </>
   )

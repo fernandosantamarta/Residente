@@ -75,6 +75,20 @@ Deno.serve(async (req) => {
       planId = plan.id
     }
 
+    // "Link, don't hold": if the community has linked its OWN Stripe (Connect
+    // Standard) and finished onboarding, the dues charge is created ON that
+    // account so funds land with the HOA and never touch Residente's balance.
+    // Until a community links, this falls back to the legacy single-account flow.
+    const { data: community } = await supabase
+      .from('communities')
+      .select('stripe_account_id, stripe_connect_status')
+      .eq('id', resident.community_id)
+      .single()
+    const connectedAccount =
+      community?.stripe_connect_status === 'active' && community?.stripe_account_id
+        ? (community.stripe_account_id as string)
+        : null
+
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items: [{
@@ -102,7 +116,7 @@ Deno.serve(async (req) => {
         ...(installment_no != null ? { installment_no: String(installment_no) } : {}),
         ...(charge_type ? { charge_type: String(charge_type) } : {}),
       },
-    })
+    }, connectedAccount ? { stripeAccount: connectedAccount } : undefined)
 
     return json({ url: session.url })
   } catch (err) {

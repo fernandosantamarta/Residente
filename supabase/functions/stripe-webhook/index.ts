@@ -312,6 +312,20 @@ Deno.serve(async (req) => {
     }
   }
 
+  // Connect Standard onboarding — a community's OWN linked account finished setup.
+  // Flip it to 'active' once Stripe will accept charges; back to 'pending' if not.
+  // Delivered to this endpoint only when "Listen to Connect events" is enabled.
+  // Keyed by the account id (event.account on connected events, or the object id).
+  if (event.type === 'account.updated') {
+    const acct = event.data.object as Stripe.Account
+    const acctId = acct.id ?? event.account
+    if (acctId) {
+      await admin.from('communities')
+        .update({ stripe_connect_status: acct.charges_enabled ? 'active' : 'pending' })
+        .eq('stripe_account_id', acctId)
+    }
+  }
+
   return new Response(JSON.stringify({ received: true }), {
     status: 200,
     headers: { 'Content-Type': 'application/json' },

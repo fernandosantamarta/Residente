@@ -24,11 +24,18 @@
 .admin-back:hover { color: var(--text); }
 
 .admin-nav {
+  position: relative;
   display: flex; gap: 4px;
   justify-content: center;
   padding: 14px 32px 0;
   background: var(--bg-elev);
   border-bottom: 1px solid var(--border);
+}
+/* "Back to app" hugs the far-left gutter while the tabs stay centered — pulled
+   out of the flex flow (absolute) so it never shifts the centered group, and
+   vertically aligned with the tab row via the same top padding. */
+.admin-nav-back {
+  position: absolute; left: 32px; top: 14px;
 }
 .admin-nav-item {
   padding: 10px 16px;
@@ -40,6 +47,9 @@
 }
 .admin-nav-item:hover { color: var(--text); }
 .admin-nav-item.active { color: var(--text); border-bottom-color: var(--pink); }
+/* Solid near-black + text flush to the 32px gutter (drop the item's left
+   padding). Defined after .admin-nav-item so these win. */
+.admin-nav-back { color: var(--text); padding-left: 0; }
 
 .admin-main { max-width: 920px; margin: 0 auto; padding: 40px 32px 80px; }
 
@@ -210,6 +220,27 @@
   border: 1px solid var(--border); cursor: pointer; outline: none;
 }
 .bm-pos:focus { border-color: var(--pink); }
+
+/* Committee member chips (Board page) — selected roster members shown as
+   removable pills under the typeahead. */
+.cmem-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+/* .admin .cset prefix beats the tracked [data-theme="sketch"] .admin-field span
+   rule (specificity 0,2,1) that would otherwise uppercase the chip text. */
+.admin .cset .cmem-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 6px 5px 12px; border-radius: 999px;
+  background: var(--bg-card); border: 1px solid var(--border);
+  font-size: 13px; font-weight: 500; color: var(--text);
+  text-transform: none; letter-spacing: normal;
+}
+.cmem-chip button {
+  width: 18px; height: 18px; border-radius: 50%; padding: 0;
+  border: none; background: rgba(0, 0, 0, 0.06); color: var(--text-dim);
+  font-size: 13px; line-height: 1; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: all 0.15s ease;
+}
+.cmem-chip button:hover { background: var(--pink); color: #fff; }
 
 /* Two-column form layout (Residents add form) */
 .admin-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -737,6 +768,8 @@
   }
   .admin-nav::-webkit-scrollbar { display: none; }
   .admin-nav-item { padding: 10px 13px; white-space: nowrap; flex-shrink: 0; }
+  /* Back in the scroll flow on mobile — it leads the scrollable tab strip. */
+  .admin-nav-back { position: static; left: auto; top: auto; }
 
   .admin-main { padding: 32px 16px 64px; }
 }
@@ -821,3 +854,604 @@
 .admin .admin-note,
 .admin .admin-soon { border-radius: 18px; }
 .admin .admin-dash-card { box-shadow: 0 1px 2px rgba(42, 18, 6, 0.05); }
+
+/* ============================================================
+   COMMUNITY SETTINGS — mock card layout
+   Mirrors public/mocks/community.html: a 2-up card grid (details +
+   dues), stat tiles, a budget card, a compliance card, and a danger
+   card. Reuses the existing admin-field / admin-input / admin-primary-btn
+   tokens for the controls; only the structural shell is ported here.
+   Scoped to .cset so it can't leak into other admin pages.
+   ============================================================ */
+.cset { --due: #C2360A; --due-soft: rgba(194, 54, 10, 0.30); }
+
+.cset .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+/* The two top cards stretch to equal height — make each a column and pin its
+   action to the bottom so both Save buttons line up at the card's bottom-right. */
+.cset .grid2 > .card { display: flex; flex-direction: column; }
+/* margin-top:auto pins the action to the card bottom; padding-top keeps a gap
+   above it so it never crowds the last field on the taller card. */
+.cset .grid2 > .card .card-cta { margin-top: auto; padding-top: 22px; }
+
+.cset .card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 18px; padding: 22px 24px;
+  box-shadow: 0 1px 2px rgba(42, 18, 6, 0.05); margin-bottom: 18px;
+}
+.cset .card-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; margin-bottom: 18px;
+}
+.cset .card-head h2 {
+  margin: 0; font-family: 'AmpFix', 'Fraunces', Georgia, serif;
+  font-weight: 500; font-size: 20px; letter-spacing: -0.01em;
+}
+.cset .card-head .sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+
+/* Back-to-hub link sitting above the page kicker on compliance sub-pages, so
+   you can step out of a section back to the Compliance dashboard. */
+.cset .admin-backlink {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 600; color: var(--text-dim);
+  text-decoration: none; margin-bottom: 12px;
+}
+.cset .admin-backlink:hover { color: var(--pink); }
+
+/* Indent the page-header text so it lines up with the card CONTENT (cards pad
+   24px), not the card's outer edge — "Board & roles" sits over "Board members",
+   the dek over the section's first line, etc. Applies across the clean admin
+   pages (.cset) and the reports page (.crep). Card boxes stay full-width. */
+/* Every admin page keeps its header flush at the page edge, lined up with the
+   cards / stat tiles below (uniform across card-first and stats-first layouts). */
+/* Breathing room between the page description and the first section, every page. */
+.admin-page .admin-dek { margin-bottom: 24px; }
+/* Easy Schedule is a flex column with its own 22px gap — let that handle the
+   header→cards separation so the dek's own margin doesn't double it up. */
+.admin-schedule .admin-dek { margin-bottom: 0; }
+
+/* Info/warn/err notes on the clean pages drop the colored left-accent stripe and
+   pick up the card radius + soft shadow, so they read as clean cards rather than
+   banners. White background kept (no tint) — severity is carried by the text /
+   pill, not a stripe. */
+.cset .admin-note { border-radius: 18px; box-shadow: 0 1px 2px rgba(42, 18, 6, 0.05); }
+.cset .admin-note-info,
+.cset .admin-note-warn,
+.cset .admin-note-err { border-left: 1px solid var(--border); }
+
+/* Form fields sit flush inside cards (no max-width form column). */
+.cset .card .admin-field { margin-bottom: 14px; }
+.cset .card .admin-field:last-child { margin-bottom: 0; }
+.cset .card .grid2 .admin-field { margin-bottom: 0; }
+.cset .field-hint {
+  font-size: 12px; color: var(--text-faint); line-height: 1.5; margin-top: 5px;
+}
+.cset .card-cta {
+  margin-top: 18px;
+  display: flex; align-items: center; justify-content: flex-end; gap: 12px;
+}
+
+/* Stat tiles inside the dues card. */
+.cset .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+.cset .stat { background: var(--bg); border: 1px solid var(--border); border-radius: 14px; padding: 15px 16px; }
+.cset .stat .v { font-size: 25px; font-weight: 700; letter-spacing: -0.5px; }
+.cset .stat .l {
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--text-faint); margin-top: 5px;
+}
+
+/* Budget editor lives inside a card now — drop its own top margin/width. */
+.cset .card .bc { margin-top: 0; max-width: none; }
+/* Forms inside cset cards fill the card (not the default 480px column) so their
+   bottom-right action lands at the card's right edge, like the other cards. */
+.cset .card .admin-form { max-width: none; margin-top: 0; }
+
+/* Vendor list — a clean table like the residents roster (reuses the .etrack
+   table styles via the .etrack wrapper; these are the vendor-specific bits). */
+.cset .bd-amount-per { font-size: 11.5px; font-weight: 600; color: var(--text-faint); margin-left: 1px; }
+.vlist .vbadge {
+  display: inline-block; margin-left: 8px; vertical-align: middle;
+  font-size: 10.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+  background: rgba(225, 73, 9, 0.12); color: #B23A06;
+}
+.vlist .tbl .act { white-space: nowrap; }
+/* Plain orange × — no circle/border/background, used in the vendor table and
+   the guidelines row. */
+.cset .vdel {
+  border: none; background: none; outline: none; cursor: pointer; margin-left: 10px;
+  font-size: 18px; line-height: 1; color: var(--pink); padding: 2px 4px;
+}
+.cset .vdel:hover { color: #C53D06; }
+.vlist .admin-btn-on { border-color: var(--pink); color: var(--pink); background: rgba(225, 73, 9, 0.09); }
+
+/* Day chips — click to toggle several days a vendor comes. */
+.cset .vdaychips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cset .vchip {
+  flex: 1; min-width: 0; padding: 9px 4px; cursor: pointer;
+  font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--text-dim);
+  background: #FBF7F1; border: 1.5px solid transparent; border-radius: 9px;
+  transition: all 0.12s; text-align: center;
+}
+.cset .vchip:hover { background: #F6EEE4; }
+.cset .vchip.on { background: #fff; border-color: var(--pink); color: var(--pink); }
+
+/* Vendor guidelines doc — a clean row (title + meta left, actions right) that
+   matches the rest of the admin instead of the old centered bd-row box. */
+.cset .vguide-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--bg);
+}
+.cset .vguide-title { font-size: 14.5px; font-weight: 600; color: var(--text); }
+.cset .vguide-meta { font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
+.cset .vguide-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* Compliance workspaces — a clean row list inside a card (glyph + title + desc
+   left, status badge + arrow right), matching the Needs-attention rows. */
+.cset .wsrow {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 2px; border-top: 1px solid var(--border);
+  text-decoration: none; color: inherit;
+}
+.cset .wslist .wsrow:first-child { border-top: none; }
+.cset .wsrow-glyph {
+  width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px; display: grid; place-items: center;
+}
+.cset .wsrow-main { flex: 1; min-width: 0; }
+.cset .wsrow-title { font-size: 14.5px; font-weight: 600; color: var(--text); }
+.cset .wsrow-desc { font-size: 12.5px; color: var(--text-dim); line-height: 1.45; margin-top: 2px; }
+.cset .wsrow-badge {
+  flex-shrink: 0; font-size: 11px; font-weight: 700; padding: 3px 10px; border-radius: 999px; white-space: nowrap;
+}
+.cset .wsrow-arrow { flex-shrink: 0; color: var(--text-faint); font-weight: 700; transition: transform 0.12s, color 0.12s; }
+.cset .wsrow:hover .wsrow-arrow { color: var(--pink); transform: translateX(2px); }
+.cset .wsrow:hover .wsrow-title { color: var(--pink); }
+.cset .card .bc-actions { margin-top: 16px; }
+
+/* Budget read-table — row dividers, no boxes, like the Overview checklist. */
+.cset .tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.cset .tbl th {
+  text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-faint);
+  padding: 0 12px 10px; border-bottom: 1px solid var(--border);
+}
+.cset .tbl th:nth-child(2), .cset .tbl td:nth-child(2),
+.cset .tbl th:nth-child(3), .cset .tbl td:nth-child(3) { text-align: right; }
+.cset .tbl td {
+  padding: 13px 12px; border-bottom: 1px solid var(--border);
+  color: var(--text); vertical-align: middle;
+}
+.cset .tbl tr:last-child td { border-bottom: none; }
+.cset .tbl .muted { color: var(--text-dim); }
+
+/* ── Easy Documents · Documents section (clean-theme archive, matches mock) ─── */
+/* Governing-docs setup drop card (the "Set up from your governing docs" hero). */
+.cset .docsetup {
+  border: 1px solid rgba(225, 73, 9, 0.18); border-radius: 14px;
+  background: #FBEAE0; padding: 38px 22px; text-align: center;
+}
+.cset .docsetup-title { font-size: 16px; font-weight: 700; color: var(--text); }
+.cset .docsetup-sub { font-size: 13px; color: var(--text-dim); margin-top: 6px; }
+.cset .docsetup-actions {
+  margin-top: 16px; display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+}
+.cset .docsetup-hint { font-size: 12.5px; color: var(--text-faint); }
+.cset .doc-badge {
+  font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 999px;
+  background: rgba(225, 73, 9, 0.12); color: #B23A06; white-space: nowrap;
+}
+/* Archive table — mock columns: DOCUMENT · CATEGORY · UPLOADED · (actions). All
+   columns left-aligned (unlike the budget .tbl which right-aligns numbers). */
+.cset .doctbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.cset .doctbl th {
+  text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-faint);
+  padding: 0 12px 10px; border-bottom: 1px solid var(--border);
+}
+.cset .doctbl td {
+  padding: 13px 12px; border-bottom: 1px solid var(--border);
+  color: var(--text); vertical-align: middle; text-align: left;
+}
+.cset .doctbl tbody:last-child tr:last-child td { border-bottom: none; }
+.cset .doctbl .doc-name { font-weight: 600; }
+.cset .doctbl .doc-cat {
+  display: inline-block; font-size: 11.5px; font-weight: 600;
+  padding: 3px 10px; border-radius: 999px;
+  background: rgba(42, 18, 6, 0.06); color: var(--text-dim);
+}
+.cset .doctbl td.act { text-align: right; white-space: nowrap; }
+.cset .doctbl .doc-open {
+  background: none; border: none; cursor: pointer; font-weight: 700;
+  color: var(--pink); font-size: 13px; padding: 2px 4px;
+}
+.cset .doctbl .doc-open:hover { text-decoration: underline; }
+/* the amendment / posting sub-controls ride a borderless row under their doc */
+.cset .doctbl .doc-subrow td { border-bottom: 1px solid var(--border); padding-top: 0; }
+
+/* ── Easy Documents · Rules section (numbered rule book, matches mock) ──────── */
+.cset .rulelist { display: flex; flex-direction: column; }
+.cset .rulerow {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 15px 2px; border-top: 1px solid var(--border);
+}
+.cset .rulelist .rulerow:first-child { border-top: none; }
+.cset .rulenum {
+  flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 13px; font-weight: 700;
+  background: rgba(225, 73, 9, 0.12); color: var(--pink); margin-top: 1px;
+}
+.cset .rulemain { flex: 1; min-width: 0; }
+.cset .ruletitle { font-size: 14.5px; font-weight: 600; color: var(--text); }
+.cset .rulemeta { font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
+.cset .rule-detail {
+  margin-top: 10px; padding: 12px 14px; border-radius: 10px;
+  background: var(--bg); border: 1px solid var(--border);
+  font-size: 13px; color: var(--text-dim); line-height: 1.5;
+}
+.cset .rule-detail strong { color: var(--text); font-weight: 600; }
+.cset .rule-edit {
+  flex-shrink: 0; background: none; border: none; cursor: pointer;
+  color: var(--pink); font-weight: 700; font-size: 13px; padding: 2px 4px;
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.cset .rule-edit:hover { text-decoration: underline; }
+/* Right-side action cluster ($fine · Edit → · ×) — even gaps, centered, aligned
+   with the rule title (not the second meta line). */
+.cset .ruleactions {
+  flex-shrink: 0; display: flex; align-items: center; gap: 16px; margin-top: 2px;
+}
+.cset .ruleactions .bd-amount { flex-shrink: 0; }
+.cset .ruleactions .vdel { margin-left: 0; }
+
+/* ── Clean-theme bd-row override (Violation log + records requests) ─────────── */
+/* The base bd-row is a sketch-themed white box; inside a cset card we want the
+   same borderless divider rows the Archive table uses. */
+.cset .bd-list { gap: 0; max-width: none; }
+.cset .bd-list .bd-row {
+  background: none; border: none; border-radius: 0; box-shadow: none;
+  border-top: 1px solid var(--border);
+}
+.cset .bd-list .bd-row:first-child { border-top: none; }
+.cset .bd-list .bd-row:hover,
+.cset .bd-list .bd-row.open { border-color: var(--border); box-shadow: none; }
+/* Rows with their own toggle button get padding there; plain rows (records
+   requests) pad the row itself. */
+.cset .bd-list .bd-row { padding: 15px 2px; }
+.cset .bd-list .bd-row:has(.bd-row-toggle) { padding: 0; }
+.cset .bd-list .bd-row .bd-row-toggle { padding: 15px 2px; }
+.cset .bd-list .bd-row .bd-title { color: var(--text); font-weight: 600; }
+.cset .bd-list .bd-row .bd-meta { color: var(--text-dim); }
+.cset .bd-list .bd-row .bd-dot { color: var(--text-faint); }
+.cset .bd-list .bd-row .bd-body { padding: 2px 2px 15px; }
+.cset .bd-list .bd-row .bd-row-toggle + .bd-body { padding-top: 0; }
+/* Move the delete × out of the chevron/amount's way: a reserved right gutter,
+   aligned with the title, as a plain orange × (no circle) like the Archive. */
+.cset .bd-list .bd-row .bd-row-toggle { padding-right: 42px; }
+.cset .bd-list .bd-row .bc-del {
+  top: 24px; right: 6px; transform: translateY(-50%);
+  width: 24px; height: 24px; border: none; background: none;
+  color: var(--pink); font-size: 20px; opacity: 1;
+}
+/* When the row is collapsed (toggle only), center the × on that single line so it
+   aligns with the amount + chevron. */
+.cset .bd-list .bd-row:not(.open) .bc-del { top: 50%; }
+.cset .bd-list .bd-row .bc-del:hover { background: none; color: #C53D06; }
+.cset .tbl .strong { font-weight: 600; }
+.cset .tbl .go-cell { text-align: right; width: 1%; white-space: nowrap; }
+.cset .go {
+  background: none; border: none; padding: 0; font-family: inherit;
+  font-size: 13px; font-weight: 700; color: var(--pink); cursor: pointer;
+}
+.cset .go:hover { color: #C53D06; }
+
+/* Danger card — soft red outline, red heading, matches the mock. */
+.cset .danger-card { border-color: var(--due-soft); }
+.cset .danger-card .card-head h2 { color: var(--due); }
+
+.cset .note { font-size: 11px; color: var(--text-faint); text-align: center; margin-top: 30px; }
+
+/* Controls match the MOCK exactly — flat white, 10px rounded rectangles, a
+   neutral-brown border, 42px tall so the Type dropdown and the Homes input
+   line up in the same row. The rest of the admin keeps its pill inputs; this
+   is scoped to .cset only. Specificity (.admin .cset .admin-field input = 4)
+   beats the [data-theme="sketch"] .admin-field input pill rule. */
+.admin .cset .admin-input,
+.admin .cset .ad-dd-trigger {
+  height: 42px;
+  /* The base .admin-input is `flex: 1 1 0%`; in a column-flex .admin-field that
+     collapses the input to one line (19px) unless a taller sibling forces the
+     grid row taller. Pin flex off so the 42px height always holds. */
+  flex: none;
+  padding: 0 13px;
+  background: #FBF7F1;            /* warm fill — reads as a field with no hard border */
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 14px; font-weight: 500; color: var(--text);
+  box-shadow: none;
+}
+.admin .cset .ad-dd-trigger,
+.admin .cset .ad-dd-trigger-label { font-size: 14px; font-weight: 500; color: var(--text); }
+.admin .cset .admin-input:hover,
+.admin .cset .ad-dd-trigger:hover { background: #F6EEE4; border-color: transparent; }
+.admin .cset .admin-input:focus,
+.admin .cset .ad-dd.open .ad-dd-trigger,
+.admin .cset .ad-dd-trigger:focus-visible {
+  border-color: var(--pink); background: #fff;
+  box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.14);
+}
+/* $ prefix box — same fill, joined to the input, no border. */
+.admin .cset .admin-input-prefix {
+  height: 42px;
+  border: 1px solid transparent; border-right: none;
+  border-radius: 10px 0 0 10px;
+  background: #FBF7F1; color: var(--text-dim);
+}
+.admin .cset .admin-input-prefix + .admin-input { border-radius: 0 10px 10px 0; }
+
+/* Sentence-case labels + hints + dropdown text, like the mock — overrides the
+   admin's tracked-uppercase [data-theme="sketch"] .admin-field span rule. */
+.admin .cset .admin-field > .admin-field-label {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.02em;
+  text-transform: none; color: var(--text-dim);
+}
+.admin .cset .field-hint {
+  font-size: 12px; font-weight: 400; letter-spacing: 0; text-transform: none;
+  color: var(--text-faint); line-height: 1.5; margin-top: 5px;
+}
+.admin .cset .ad-dd-trigger-label { text-transform: none; letter-spacing: 0; }
+
+@media (max-width: 780px) {
+  .cset .grid2 { grid-template-columns: 1fr; }
+  .cset .card .grid2 .admin-field { margin-bottom: 14px; }
+}
+
+/* ============================================================
+   REPORTS — mock parity (public/mocks/reports.html)
+   A filter toolbar (date range + Export), four stat tiles, an
+   "Available reports" table that fronts the real CSV exports, and
+   a collections snapshot. Reuses admin tokens; structural shell
+   only, scoped to .crep so it can't leak into other pages.
+   ============================================================ */
+.crep { --due: #C2360A; --ok: #067647; }
+
+/* Toolbar: filters on the left, primary export on the right. */
+.crep .toolbar {
+  display: flex; align-items: flex-end; justify-content: space-between;
+  gap: 16px; flex-wrap: wrap; margin: 6px 0 20px;
+}
+.crep .toolbar-filters { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+/* Period + category pills size to their content, not the full row. */
+.crep .toolbar-filters .ad-dd { width: auto; min-width: 170px; }
+
+/* Stat tiles. */
+.crep .stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px; margin-bottom: 22px;
+}
+.crep .stat {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px 18px;
+}
+.crep .stat .v { font-size: 27px; font-weight: 800; letter-spacing: -0.6px; line-height: 1; }
+.crep .stat .l {
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-faint); margin-top: 7px;
+}
+
+/* Cards (Available reports, Collections snapshot). */
+.crep .card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 18px; padding: 22px 24px;
+  box-shadow: 0 1px 2px rgba(42, 18, 6, 0.05); margin-bottom: 18px;
+}
+.crep .card-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; margin-bottom: 14px;
+}
+.crep .card-head h2 {
+  margin: 0; font-family: 'AmpFix', 'Fraunces', Georgia, serif;
+  font-weight: 500; font-size: 20px; letter-spacing: -0.01em;
+}
+.crep .card-head .sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+
+/* Available-reports table — row dividers, no boxes (matches the mock + the
+   .cset budget table). */
+.crep .tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.crep .tbl th {
+  text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-faint);
+  padding: 0 12px 10px; border-bottom: 1px solid var(--border);
+}
+.crep .tbl td {
+  padding: 14px 12px; border-bottom: 1px solid var(--border);
+  color: var(--text); vertical-align: middle;
+}
+.crep .tbl tr:last-child td { border-bottom: none; }
+.crep .tbl .muted { color: var(--text-dim); }
+.crep .tbl .strong { font-weight: 600; }
+.crep .tbl .act { text-align: right; white-space: nowrap; width: 1%; }
+.crep .tbl .act .go + .go { margin-left: 18px; }
+
+/* Text-link actions, like the mock's "View →". */
+.crep .go {
+  background: none; border: none; padding: 0; font-family: inherit;
+  font-size: 13px; font-weight: 700; color: var(--pink); cursor: pointer;
+}
+.crep .go:hover { color: #C53D06; }
+.crep .go:disabled { opacity: 0.4; cursor: default; }
+.crep .go.dim { color: var(--text-dim); }
+.crep .go.dim:not(:disabled):hover { color: var(--pink); }
+
+/* Collections snapshot rows. */
+.crep .lrow {
+  display: flex; align-items: center; gap: 14px;
+  padding: 14px 2px; border-top: 1px solid var(--border);
+}
+.crep .lrow:first-of-type { border-top: none; }
+.crep .lrow .body { flex: 1; min-width: 0; }
+.crep .lrow .ttl { font-size: 14.5px; font-weight: 600; }
+.crep .lrow .meta { font-size: 12.5px; color: var(--text-dim); margin-top: 1px; }
+.crep .pill {
+  font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 999px;
+  min-width: 70px; text-align: center; white-space: nowrap;
+}
+.crep .pill.ok   { color: var(--ok);   background: rgba(6, 118, 71, 0.12); }
+.crep .pill.warn { color: #B54708;     background: rgba(181, 71, 8, 0.12); }
+.crep .pill.due  { color: var(--due);  background: rgba(194, 54, 10, 0.12); }
+.crep .pct { font-size: 13px; color: var(--text-dim); font-weight: 600; }
+
+.crep .note { font-size: 12px; color: var(--text-faint); line-height: 1.6; margin-top: 18px; }
+
+@media (max-width: 600px) {
+  .crep .tbl .period-col { display: none; }
+}
+
+/* ============================================================
+   EASY TRACK / RESIDENTS — mock parity (public/mocks/easy-track.html)
+   Stat tiles + a search/filter/add toolbar + an avatar + status-pill
+   roster table whose "Open" row expands the full household editor (so
+   inline balance/mailing/tenant editing is kept, not stripped).
+   Scoped to .etrack.
+   ============================================================ */
+.etrack { --due: #C2360A; --ok: #067647; --warn: #B54708; }
+
+.etrack .stats {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px; margin: 6px 0 22px;
+}
+.etrack .stat {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 16px 18px;
+}
+.etrack .stat .v { font-size: 27px; font-weight: 800; letter-spacing: -0.6px; line-height: 1; }
+.etrack .stat .l {
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-faint); margin-top: 7px;
+}
+
+/* Search / filter / add toolbar. */
+.etrack .toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap; margin: 0 0 16px;
+}
+.etrack .toolbar-left { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; flex: 1; }
+.etrack .toolbar-left .ad-dd { width: auto; min-width: 168px; }
+.etrack .search {
+  display: inline-flex; align-items: center; gap: 9px; flex: 1; min-width: 220px; max-width: 360px;
+  padding: 9px 15px; border-radius: 999px;
+  background: #FBF7F1; border: 1.5px solid rgba(199, 111, 69, 0.30);
+  transition: border-color 0.12s, background 0.12s;
+}
+.etrack .search:focus-within { border-color: #E14909; background: #fff; box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.12); }
+.etrack .search svg { width: 15px; height: 15px; color: #C76F45; flex-shrink: 0; }
+.etrack .search input {
+  border: none; background: none; outline: none; width: 100%;
+  font-family: inherit; font-size: 13.5px; color: var(--text);
+}
+.etrack .search input::placeholder { color: var(--text-faint); }
+
+/* Cards (import + roster table). */
+.etrack .card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 18px; padding: 18px 22px; box-shadow: 0 1px 2px rgba(42, 18, 6, 0.05);
+  margin-bottom: 18px;
+}
+.etrack .card-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; margin-bottom: 14px;
+}
+.etrack .card-head h2 {
+  margin: 0; font-family: 'AmpFix', 'Fraunces', Georgia, serif;
+  font-weight: 500; font-size: 20px; letter-spacing: -0.01em;
+}
+.etrack .card-head .sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+
+/* "Import your roster" card — one editable spreadsheet: type into the cells,
+   paste a block from Excel / Google Sheets straight into it, or upload a CSV.
+   Header + rows styled to match the mock (peach header, hairline rows, dashed
+   outer border). */
+.etrack .import-card { border-color: rgba(225, 73, 9, 0.28); background: #FFFDFB; }
+.etrack .import-card .card-head .pill { flex-shrink: 0; }
+.etrack .import-sheet {
+  border: 1px dashed rgba(199, 111, 69, 0.45); border-radius: 12px;
+  overflow: hidden; background: #fff; margin-bottom: 0;
+}
+.etrack .import-sheet-row { position: relative; display: grid; grid-template-columns: 1.3fr 1.1fr 1.3fr 1fr; }
+/* Reserve room on the right so the hover delete never sits over typed text. */
+.etrack .import-sheet-row .import-cell:last-of-type { padding-right: 26px; }
+/* Hover a row to reveal a delete button at its right edge. */
+.etrack .import-del {
+  position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+  width: 20px; height: 20px; display: grid; place-items: center;
+  border: none; border-radius: 6px; cursor: pointer;
+  background: rgba(194, 54, 10, 0.10); color: var(--due);
+  font-size: 15px; line-height: 1; opacity: 0; transition: opacity 0.12s;
+}
+.etrack .import-sheet-row:hover .import-del { opacity: 1; }
+.etrack .import-del:hover { background: var(--due); color: #fff; }
+.etrack .import-sheet-head {
+  background: rgba(225, 73, 9, 0.10); color: #B23A06; font-weight: 700; font-size: 11.5px;
+}
+.etrack .import-sheet-head span { padding: 9px 12px; }
+.etrack .import-cell {
+  width: 100%; border: none; outline: none; background: transparent;
+  font-family: inherit; font-size: 13px; color: var(--text);
+  padding: 9px 12px; border-top: 1px solid var(--border);
+}
+.etrack .import-sheet-row .import-cell + .import-cell { border-left: 1px solid var(--border); }
+.etrack .import-cell:focus { background: rgba(225, 73, 9, 0.06); }
+.etrack .import-cell::placeholder { color: var(--text-faint); }
+/* "+ Add row" — appends a blank row (the grid also grows on its own as you type). */
+.etrack .import-addrow {
+  margin: 6px 0 0; padding: 3px 2px;
+  background: none; border: none; cursor: pointer;
+  font-family: inherit; font-size: 12.5px; font-weight: 700; color: var(--pink);
+}
+.etrack .import-addrow:hover { color: #C53D06; }
+.etrack .row-actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; justify-content: flex-end; align-items: center; }
+
+.etrack .tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.etrack .tbl th {
+  text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-faint);
+  padding: 2px 12px 10px; border-bottom: 1px solid var(--border);
+}
+.etrack .tbl td { padding: 13px 12px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+.etrack .tbl tr.tr:last-of-type td { border-bottom: none; }
+.etrack .tbl .muted { color: var(--text-dim); }
+.etrack .tbl .strong { font-weight: 600; }
+.etrack .tbl .due { color: var(--due); font-weight: 600; }
+.etrack .tbl .owner-cell { display: flex; align-items: center; gap: 11px; }
+.etrack .tbl .act { text-align: right; white-space: nowrap; width: 1%; }
+
+.etrack .av {
+  width: 30px; height: 30px; flex-shrink: 0; border-radius: 999px;
+  display: grid; place-items: center;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.02em;
+  background: rgba(225, 73, 9, 0.12); color: #B23A06;
+}
+.etrack .pill {
+  font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 999px;
+  white-space: nowrap;
+}
+.etrack .pill.ok  { color: var(--ok);   background: rgba(6, 118, 71, 0.12); }
+.etrack .pill.warn { color: var(--warn); background: rgba(181, 71, 8, 0.12); }
+.etrack .pill.dim { color: var(--text-dim); background: rgba(42, 18, 6, 0.07); }
+.etrack .go {
+  background: none; border: none; padding: 0; font-family: inherit;
+  font-size: 13px; font-weight: 700; color: var(--pink); cursor: pointer;
+}
+.etrack .go:hover { color: #C53D06; }
+
+/* Expanded household editor — sits in a full-width row under the household. */
+.etrack .tr-edit > td { background: rgba(42, 18, 6, 0.02); padding: 16px 12px 20px; }
+.etrack .edit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.etrack .edit-note { font-size: 12px; color: var(--text-dim); line-height: 1.5; margin: 0 0 12px; }
+.etrack .edit-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 14px; flex-wrap: wrap; }
+.etrack .edit-rented { display: flex; gap: 8px; align-items: center; font-size: 13px; color: var(--text); }
+
+.etrack .roster-empty { text-align: center; padding: 30px 16px; color: var(--text-dim); font-size: 13.5px; }
+.etrack .note { font-size: 12px; color: var(--text-faint); line-height: 1.6; margin-top: 16px; }
+
+@media (max-width: 640px) {
+  .etrack .tbl .contact-col { display: none; }
+}

@@ -9,7 +9,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { ymd, toDate, ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
+import { ymd, toDate } from '@/lib/compliance/rules-core'
 import {
   arcResponseDeadline,
   arcResponseDays,
@@ -21,6 +21,8 @@ import {
   type ArcStatus,
 } from '@/lib/compliance/arc'
 import { logAudit } from '@/lib/audit'
+import { AttorneyNote } from '../AttorneyNote'
+import { ComplianceBackLink } from '../ComplianceBackLink'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -64,20 +66,25 @@ export default function ArcPage() {
         } catch { return [] }
       }
 
-      const { data: c } = (await withTimeout(
-        supabase.from('communities').select('*').eq('id', communityId).single(),
-      )) as any
+      // Fire every read in ONE parallel batch instead of awaiting three round-trips
+      // in series — these queries are independent, so the page now waits for the
+      // slowest single query rather than the sum. The arc-request read keeps its own
+      // tolerant grab() wrapper (returns [] on a missing table) so it never blocks.
+      const [cRes, reqRows, resRes] = await Promise.all([
+        withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
+        grab('ev_arc_requests', 'submitted_at'),
+        withTimeout(
+          supabase
+            .from('residents')
+            .select('id, full_name, unit_number, address, profile_id')
+            .eq('community_id', communityId)
+            .order('unit_number', { ascending: true }),
+        ),
+      ])
+      const { data: c } = cRes as any
+      const { data: res } = resRes as any
       setCommunity(c || null)
-
-      setRequests(await grab('ev_arc_requests', 'submitted_at'))
-
-      const { data: res } = (await withTimeout(
-        supabase
-          .from('residents')
-          .select('id, full_name, unit_number, address, profile_id')
-          .eq('community_id', communityId)
-          .order('unit_number', { ascending: true }),
-      )) as any
+      setRequests(reqRows)
       setResidents(res || [])
 
       setStatus('ready')
@@ -180,7 +187,8 @@ export default function ArcPage() {
   const isCondo = community?.association_type !== 'hoa'
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
+      <ComplianceBackLink />
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Architectural review</h1>
       <p className="admin-dek">
@@ -189,7 +197,7 @@ export default function ArcPage() {
         Advisory only — every decision stays with the board and the ARC committee.
       </p>
 
-      <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>{ATTORNEY_REVIEW_BANNER}</div>
+      <AttorneyNote />
 
       {community?.arc_deemed_approval && (
         <div className="admin-note admin-note-warn" style={{ fontWeight: 600, fontSize: 13 }}>
@@ -220,80 +228,82 @@ export default function ArcPage() {
       {status === 'ready' && (
         <>
           {/* ---- Log a request ---- */}
-          <form className="admin-form" onSubmit={logRequest} style={{ marginTop: 22 }}>
-            <h2 className="bc-title" style={{ marginBottom: 8 }}>Log an ARC request</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-              <label className="admin-field">
-                <span className="admin-field-label">Owner (from roster)</span>
-                <select className="admin-input" value={form.resident_id} onChange={e => setF('resident_id', e.target.value)}>
-                  <option value="">— select —</option>
-                  {residents.map(r => (
-                    <option key={r.id} value={r.id}>
-                      {[r.full_name || 'Owner', r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}
-                    </option>
-                  ))}
-                </select>
+          <div className="card">
+            <div className="card-head"><div><h2>Log an ARC request</h2></div></div>
+            <form className="admin-form" onSubmit={logRequest}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+                <label className="admin-field">
+                  <span className="admin-field-label">Owner (from roster)</span>
+                  <select className="admin-input" value={form.resident_id} onChange={e => setF('resident_id', e.target.value)}>
+                    <option value="">— select —</option>
+                    {residents.map(r => (
+                      <option key={r.id} value={r.id}>
+                        {[r.full_name || 'Owner', r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="admin-field">
+                  <span className="admin-field-label">Request type</span>
+                  <select className="admin-input" value={form.request_type} onChange={e => setF('request_type', e.target.value)}>
+                    {(Object.entries(ARC_TYPE_LABELS) as [ArcRequestType, string][]).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <label className="admin-field" style={{ marginTop: 10 }}>
+                <span className="admin-field-label">Description of proposed work</span>
+                <textarea
+                  className="admin-input" rows={3}
+                  value={form.description}
+                  placeholder="Describe the alteration, construction, or landscaping work…"
+                  onChange={e => setF('description', e.target.value)}
+                />
               </label>
-              <label className="admin-field">
-                <span className="admin-field-label">Request type</span>
-                <select className="admin-input" value={form.request_type} onChange={e => setF('request_type', e.target.value)}>
-                  {(Object.entries(ARC_TYPE_LABELS) as [ArcRequestType, string][]).map(([k, v]) => (
-                    <option key={k} value={k}>{v}</option>
-                  ))}
-                </select>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '10px 0' }}>
+                <input
+                  type="checkbox"
+                  checked={!!form.is_material_alteration}
+                  onChange={e => setF('is_material_alteration', e.target.checked)}
+                />
+                Material alteration of common elements
+                {isCondo && (
+                  <span style={{ fontSize: 12, color: '#B54708', marginLeft: 4 }}>
+                    (condo: may require {community?.material_alteration_threshold_pct || MATERIAL_ALTERATION_APPROVAL_PCT.value}% membership vote — FS 718.113(2))
+                  </span>
+                )}
               </label>
-            </div>
-            <label className="admin-field" style={{ marginTop: 10 }}>
-              <span className="admin-field-label">Description of proposed work</span>
-              <textarea
-                className="admin-input" rows={3}
-                value={form.description}
-                placeholder="Describe the alteration, construction, or landscaping work…"
-                onChange={e => setF('description', e.target.value)}
-              />
-            </label>
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '10px 0' }}>
-              <input
-                type="checkbox"
-                checked={!!form.is_material_alteration}
-                onChange={e => setF('is_material_alteration', e.target.checked)}
-              />
-              Material alteration of common elements
-              {isCondo && (
-                <span style={{ fontSize: 12, color: '#B54708', marginLeft: 4 }}>
-                  (condo: may require {community?.material_alteration_threshold_pct || MATERIAL_ALTERATION_APPROVAL_PCT.value}% membership vote — FS 718.113(2))
-                </span>
-              )}
-            </label>
-            <div className="admin-form-actions">
-              <button
-                type="submit" className="admin-primary-btn"
-                disabled={saving || !form.resident_id}
-              >
-                {saving ? 'Saving…' : 'Log request'}
-              </button>
-              {error && status === 'ready' && <span className="admin-err-inline">{error}</span>}
-            </div>
-          </form>
+              <div className="card-cta">
+                {error && status === 'ready' && <span className="admin-err-inline">{error}</span>}
+                <button
+                  type="submit" className="admin-primary-btn"
+                  disabled={saving || !form.resident_id}
+                >
+                  {saving ? 'Saving…' : 'Log request'}
+                </button>
+              </div>
+            </form>
+          </div>
 
           {/* ---- Worklist ---- */}
-          <h2 className="bc-title" style={{ margin: '26px 0 10px' }}>
-            ARC requests ({requests.length})
-          </h2>
-          {requests.length === 0 && (
-            <div className="admin-note">No ARC requests on file.</div>
-          )}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {requests.map(r => (
-              <ArcRequestCard
-                key={r.id}
-                r={r}
-                community={community}
-                isCondo={isCondo}
-                onDecide={decide}
-                onWithdraw={withdraw}
-              />
-            ))}
+          <div className="card">
+            <div className="card-head"><div><h2>ARC requests <span style={{ opacity: 0.55, fontWeight: 400 }}>({requests.length})</span></h2></div></div>
+            {requests.length === 0 && (
+              <div className="admin-note">No ARC requests on file.</div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {requests.map(r => (
+                <ArcRequestCard
+                  key={r.id}
+                  r={r}
+                  community={community}
+                  isCondo={isCondo}
+                  onDecide={decide}
+                  onWithdraw={withdraw}
+                />
+              ))}
+            </div>
           </div>
         </>
       )}

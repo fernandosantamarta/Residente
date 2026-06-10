@@ -9,7 +9,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { ymd, toDate, ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
+import { ymd, toDate } from '@/lib/compliance/rules-core'
 import {
   electionMilestones,
   electionQuorumMet,
@@ -24,6 +24,8 @@ import {
   type RecallRow,
 } from '@/lib/compliance/elections'
 import { logAudit } from '@/lib/audit'
+import { AttorneyNote } from '../AttorneyNote'
+import { ComplianceBackLink } from '../ComplianceBackLink'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -51,6 +53,8 @@ export default function ElectionsPage() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
+      // grab() is tolerant — a missing table or query error resolves to [] instead
+      // of throwing, so one unbuilt feed never blocks the rest.
       const grab = async (table: string, order?: string) => {
         try {
           let q = supabase.from(table).select('*').eq('community_id', communityId)
@@ -60,12 +64,17 @@ export default function ElectionsPage() {
           return data || []
         } catch { return [] }
       }
-      const { data: c } = (await withTimeout(
-        supabase.from('communities').select('*').eq('id', communityId).single()
-      )) as any
+      // Fire all three reads in ONE parallel batch — they're independent (each just
+      // filters by community_id), so the page waits for the slowest query, not the sum.
+      const [cRes, elx, rec] = await Promise.all([
+        withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
+        grab('ev_elections', 'election_date'),
+        grab('ev_recalls', 'served_at'),
+      ])
+      const { data: c } = cRes as any
       setCommunity(c || null)
-      setElections(await grab('ev_elections', 'election_date'))
-      setRecalls(await grab('ev_recalls', 'served_at'))
+      setElections(elx)
+      setRecalls(rec)
       setStatus('ready')
     } catch (err: any) {
       setError(err?.message || 'Could not load elections data'); setStatus('error')
@@ -204,7 +213,8 @@ export default function ElectionsPage() {
   }
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
+      <ComplianceBackLink />
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Elections <span className="amp">&</span> recall</h1>
       <p className="admin-dek">
@@ -214,7 +224,7 @@ export default function ElectionsPage() {
         invalidates an election.
       </p>
 
-      <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>{ATTORNEY_REVIEW_BANNER}</div>
+      <AttorneyNote />
 
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
       {status === 'none' && <div className="admin-note admin-note-warn">No community is linked to your account yet. Run the setup SQL, then reload.</div>}
@@ -224,75 +234,83 @@ export default function ElectionsPage() {
       {status === 'ready' && (
         <>
           {/* ---- Schedule an election ---- */}
-          <form className="admin-form" onSubmit={scheduleElection} style={{ marginTop: 18 }}>
-            <h2 className="bc-title" style={{ marginBottom: 8 }}>Schedule an election</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
-              <label className="admin-field"><span className="admin-field-label">Election date</span>
-                <input className="admin-input" type="date" value={eForm.election_date} onChange={e => setEF('election_date', e.target.value)} required /></label>
-              <label className="admin-field"><span className="admin-field-label">Seats up for election</span>
-                <input className="admin-input" type="number" min="1" step="1" value={eForm.seats} onChange={e => setEF('seats', e.target.value)} placeholder="e.g. 3" /></label>
-              <label className="admin-field"><span className="admin-field-label">Eligible voters</span>
-                <input className="admin-input" type="number" min="1" step="1" value={eForm.eligible_count} onChange={e => setEF('eligible_count', e.target.value)} placeholder="total owners" /></label>
-              <label className="admin-field"><span className="admin-field-label">Notes (optional)</span>
-                <input className="admin-input" value={eForm.notes} onChange={e => setEF('notes', e.target.value)} placeholder="e.g. Annual meeting" /></label>
-            </div>
-            <div className="admin-form-actions">
-              <button type="submit" className="admin-primary-btn" disabled={eSaving || !eForm.election_date}>{eSaving ? 'Saving…' : 'Schedule election'}</button>
-              {error && status === 'ready' && <span className="admin-err-inline">{error}</span>}
-            </div>
-          </form>
+          <div className="card">
+            <div className="card-head"><div><h2>Schedule an election</h2></div></div>
+            <form className="admin-form" onSubmit={scheduleElection}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
+                <label className="admin-field"><span className="admin-field-label">Election date</span>
+                  <input className="admin-input" type="date" value={eForm.election_date} onChange={e => setEF('election_date', e.target.value)} required /></label>
+                <label className="admin-field"><span className="admin-field-label">Seats up for election</span>
+                  <input className="admin-input" type="number" min="1" step="1" value={eForm.seats} onChange={e => setEF('seats', e.target.value)} placeholder="e.g. 3" /></label>
+                <label className="admin-field"><span className="admin-field-label">Eligible voters</span>
+                  <input className="admin-input" type="number" min="1" step="1" value={eForm.eligible_count} onChange={e => setEF('eligible_count', e.target.value)} placeholder="total owners" /></label>
+                <label className="admin-field"><span className="admin-field-label">Notes (optional)</span>
+                  <input className="admin-input" value={eForm.notes} onChange={e => setEF('notes', e.target.value)} placeholder="e.g. Annual meeting" /></label>
+              </div>
+              <div className="card-cta">
+                {error && status === 'ready' && <span className="admin-err-inline">{error}</span>}
+                <button type="submit" className="admin-primary-btn" disabled={eSaving || !eForm.election_date}>{eSaving ? 'Saving…' : 'Schedule election'}</button>
+              </div>
+            </form>
+          </div>
 
           {/* ---- Elections list ---- */}
-          <h2 className="bc-title" style={{ margin: '26px 0 10px' }}>Elections ({elections.length})</h2>
-          {elections.length === 0 && <div className="admin-note">No elections on file.</div>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {elections.map(e => (
-              <ElectionCard
-                key={e.id}
-                e={e}
-                regime={community?.association_type === 'hoa' ? 'hoa' : 'condo'}
-                onFirstNotice={() => recordFirstNotice(e)}
-                onCloseCandidates={() => closeCandidates(e)}
-                onBallotsMailed={() => recordBallotsMailed(e)}
-                onComplete={(ballotsCast) => completeElection(e, ballotsCast)}
-                onAffidavit={() => recordAffidavit(e)}
-              />
-            ))}
+          <div className="card">
+            <div className="card-head"><div><h2>Elections <span style={{ opacity: 0.55, fontWeight: 400 }}>({elections.length})</span></h2></div></div>
+            {elections.length === 0 && <div className="admin-note">No elections on file.</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {elections.map(e => (
+                <ElectionCard
+                  key={e.id}
+                  e={e}
+                  regime={community?.association_type === 'hoa' ? 'hoa' : 'condo'}
+                  onFirstNotice={() => recordFirstNotice(e)}
+                  onCloseCandidates={() => closeCandidates(e)}
+                  onBallotsMailed={() => recordBallotsMailed(e)}
+                  onComplete={(ballotsCast) => completeElection(e, ballotsCast)}
+                  onAffidavit={() => recordAffidavit(e)}
+                />
+              ))}
+            </div>
           </div>
 
           {/* ---- Recalls ---- */}
-          <form className="admin-form" onSubmit={logRecall} style={{ marginTop: 30 }}>
-            <h2 className="bc-title" style={{ marginBottom: 8 }}>Log a recall served on the board</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
-              <label className="admin-field"><span className="admin-field-label">Date served</span>
-                <input className="admin-input" type="date" value={rForm.served_at} onChange={e => setRF('served_at', e.target.value)} required /></label>
-              <label className="admin-field"><span className="admin-field-label">Method</span>
-                <select className="admin-input" value={rForm.method} onChange={e => setRF('method', e.target.value)}>
-                  <option value="written_agreement">Written agreement</option>
-                  <option value="meeting">Meeting</option>
-                </select></label>
-              <label className="admin-field"><span className="admin-field-label">Total voting interests</span>
-                <input className="admin-input" type="number" min="1" step="1" value={rForm.voting_interests_total} onChange={e => setRF('voting_interests_total', e.target.value)} placeholder="total" /></label>
-              <label className="admin-field"><span className="admin-field-label">Signatures / votes for recall</span>
-                <input className="admin-input" type="number" min="0" step="1" value={rForm.signatures} onChange={e => setRF('signatures', e.target.value)} placeholder="count" /></label>
-            </div>
-            <div className="admin-form-actions">
-              <button type="submit" className="admin-primary-btn" disabled={rSaving || !rForm.served_at}>{rSaving ? 'Saving…' : 'Log recall'}</button>
-            </div>
-          </form>
+          <div className="card">
+            <div className="card-head"><div><h2>Log a recall served on the board</h2></div></div>
+            <form className="admin-form" onSubmit={logRecall}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
+                <label className="admin-field"><span className="admin-field-label">Date served</span>
+                  <input className="admin-input" type="date" value={rForm.served_at} onChange={e => setRF('served_at', e.target.value)} required /></label>
+                <label className="admin-field"><span className="admin-field-label">Method</span>
+                  <select className="admin-input" value={rForm.method} onChange={e => setRF('method', e.target.value)}>
+                    <option value="written_agreement">Written agreement</option>
+                    <option value="meeting">Meeting</option>
+                  </select></label>
+                <label className="admin-field"><span className="admin-field-label">Total voting interests</span>
+                  <input className="admin-input" type="number" min="1" step="1" value={rForm.voting_interests_total} onChange={e => setRF('voting_interests_total', e.target.value)} placeholder="total" /></label>
+                <label className="admin-field"><span className="admin-field-label">Signatures / votes for recall</span>
+                  <input className="admin-input" type="number" min="0" step="1" value={rForm.signatures} onChange={e => setRF('signatures', e.target.value)} placeholder="count" /></label>
+              </div>
+              <div className="card-cta">
+                <button type="submit" className="admin-primary-btn" disabled={rSaving || !rForm.served_at}>{rSaving ? 'Saving…' : 'Log recall'}</button>
+              </div>
+            </form>
+          </div>
 
-          <h2 className="bc-title" style={{ margin: '18px 0 10px' }}>Recalls ({recalls.length})</h2>
-          {recalls.length === 0 && <div className="admin-note">No recalls on file.</div>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {recalls.map(r => (
-              <RecallCard
-                key={r.id}
-                r={r}
-                onCertify={() => certifyRecall(r)}
-                onReject={() => rejectRecall(r)}
-                onArbitration={() => escalateRecall(r)}
-              />
-            ))}
+          <div className="card">
+            <div className="card-head"><div><h2>Recalls <span style={{ opacity: 0.55, fontWeight: 400 }}>({recalls.length})</span></h2></div></div>
+            {recalls.length === 0 && <div className="admin-note">No recalls on file.</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {recalls.map(r => (
+                <RecallCard
+                  key={r.id}
+                  r={r}
+                  onCertify={() => certifyRecall(r)}
+                  onReject={() => rejectRecall(r)}
+                  onArbitration={() => escalateRecall(r)}
+                />
+              ))}
+            </div>
           </div>
         </>
       )}

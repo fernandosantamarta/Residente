@@ -64,14 +64,14 @@ export default function Meetings() {
   }
 
   return (
-    <div className="admin-section">
+    <div className="admin-page cset">
       <EasyVoiceTabs active="meetings" />
 
       <div className="admin-section-head" style={{ marginTop: 18 }}>
         <div>
           <div className="admin-kicker">Easy Voice</div>
-          <div className="admin-section-title">Meetings</div>
-          <div className="admin-section-sub">Create meetings, manage documents, and run votes.</div>
+          <h1 className="admin-h1">Meetings</h1>
+          <p className="admin-dek">Create meetings, manage documents, and run votes.</p>
         </div>
         <button className="admin-primary-btn" onClick={() => setView('create')}>+ New Meeting</button>
       </div>
@@ -86,14 +86,17 @@ export default function Meetings() {
       )}
 
       {!loading && meetings.length > 0 && (
-        <div className="voice-meeting-list">
-          {meetings.map(m => (
-            <MeetingRow
-              key={m.id}
-              meeting={m}
-              onClick={() => { setSelectedId(m.id); setView('detail') }}
-            />
-          ))}
+        <div className="card">
+          <div className="card-head"><div><h2>All meetings</h2><div className="sub">Tap a meeting to manage documents, notices, and settings</div></div></div>
+          <div className="voice-meeting-list">
+            {meetings.map(m => (
+              <MeetingRow
+                key={m.id}
+                meeting={m}
+                onClick={() => { setSelectedId(m.id); setView('detail') }}
+              />
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -125,10 +128,22 @@ function MeetingRow({ meeting: m, onClick }) {
   )
 }
 
-function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; onCancel: () => void; existing?: any }) {
+function MeetingForm({ onSaved, onCancel, existing, embedded }: { onSaved: (id) => void; onCancel: () => void; existing?: any; embedded?: boolean }) {
   const { profile } = useAuth() || {}
   const [form, setForm] = useState(
-    existing ? { ...EMPTY_MEETING, ...existing, summary: existing.summary ?? '' } : EMPTY_MEETING,
+    existing
+      ? {
+          ...EMPTY_MEETING,
+          ...existing,
+          // datetime-local needs "yyyy-MM-ddThh:mm"; the DB returns a full ISO.
+          scheduled_at: String(existing.scheduled_at ?? '').slice(0, 16),
+          // coerce nullable columns to '' so the inputs stay controlled (no React null warning).
+          location: existing.location ?? '',
+          virtual_link: existing.virtual_link ?? '',
+          quorum_required_pct: existing.quorum_required_pct ?? '',
+          summary: existing.summary ?? '',
+        }
+      : EMPTY_MEETING,
   )
   const [saving, setSaving] = useState(false)
   const [err, setErr] = useState(null)
@@ -177,107 +192,132 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
     }
   }
 
+  const fields = (
+    <>
+      <div className="voice-form-row">
+        <label>Meeting type</label>
+        <Dropdown<string>
+          value={form.type}
+          onChange={v => set('type', v)}
+          ariaLabel="Meeting type"
+          options={MEETING_TYPES}
+        />
+      </div>
+
+      <div className="voice-form-row">
+        <label>Title</label>
+        <input
+          name="title"
+          type="text"
+          value={form.title}
+          onChange={e => set('title', e.target.value)}
+          placeholder="e.g. Q2 Board Meeting"
+          required
+        />
+      </div>
+
+      <div className="voice-form-row">
+        <label>Date &amp; time</label>
+        <input
+          name="scheduled_at"
+          type="datetime-local"
+          value={form.scheduled_at}
+          onChange={e => set('scheduled_at', e.target.value)}
+          required
+        />
+      </div>
+
+      {warning && (
+        <div className="voice-notice-warn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+          </svg>
+          <span>{warning}</span>
+        </div>
+      )}
+
+      <div className="voice-form-row">
+        <label>Location <span className="voice-opt">(optional)</span></label>
+        <input
+          name="location"
+          type="text"
+          value={form.location}
+          onChange={e => set('location', e.target.value)}
+          placeholder="e.g. Clubhouse Meeting Room"
+        />
+      </div>
+
+      <div className="voice-form-row">
+        <label>Virtual link <span className="voice-opt">(optional)</span></label>
+        <input
+          name="virtual_link"
+          type="url"
+          value={form.virtual_link}
+          onChange={e => set('virtual_link', e.target.value)}
+          placeholder="https://zoom.us/j/…"
+        />
+      </div>
+
+      <div className="voice-form-row">
+        <label>Quorum % <span className="voice-opt">(optional — overrides community default)</span></label>
+        <input
+          name="quorum_required_pct"
+          type="number"
+          min="1" max="100" step="0.1"
+          value={form.quorum_required_pct}
+          onChange={e => set('quorum_required_pct', e.target.value)}
+          placeholder="e.g. 30"
+        />
+      </div>
+
+      <div className="voice-form-row">
+        <label>Summary / recap <span className="voice-opt">(optional — what was said, shown to residents)</span></label>
+        <textarea
+          name="summary"
+          value={form.summary}
+          onChange={e => set('summary', e.target.value)}
+          rows={4}
+          placeholder="A short recap of what was discussed and decided…"
+        />
+      </div>
+    </>
+  )
+
+  // Embedded on the meeting detail page: a full-width card section (matching the
+  // Documents/Notify cards) with the form inside, like NotifyPanel.
+  if (embedded) {
+    return (
+      <div className="card">
+        <div className="card-head"><div><h2>Meeting settings</h2><div className="sub">Edit the details and add a recap after the meeting.</div></div></div>
+        <form className="voice-form" onSubmit={save}>
+          {fields}
+          {err && <div className="admin-err">{err}</div>}
+          <div className="card-cta voice-form-actions">
+            <button type="submit" className="admin-primary-btn" disabled={saving}>
+              {saving ? 'Saving…' : 'Save changes'}
+            </button>
+          </div>
+        </form>
+      </div>
+    )
+  }
+
+  // Standalone "New Meeting" page (reached from the + New Meeting button).
   return (
-    <div className="admin-section">
+    <div className="admin-page cset">
       <div className="admin-section-head">
         <div>
-          <div className="admin-section-title">{existing ? 'Edit Meeting' : 'New Meeting'}</div>
+          <div className="admin-kicker">Easy Voice</div>
+          <h1 className="admin-h1">{existing ? 'Edit Meeting' : 'New Meeting'}</h1>
         </div>
         <button className="admin-btn-ghost" onClick={onCancel}>Cancel</button>
       </div>
 
-      <form className="voice-form" onSubmit={save}>
-        <div className="voice-form-row">
-          <label>Meeting type</label>
-          <Dropdown<string>
-            value={form.type}
-            onChange={v => set('type', v)}
-            ariaLabel="Meeting type"
-            options={MEETING_TYPES}
-          />
-        </div>
-
-        <div className="voice-form-row">
-          <label>Title</label>
-          <input
-            name="title"
-            type="text"
-            value={form.title}
-            onChange={e => set('title', e.target.value)}
-            placeholder="e.g. Q2 Board Meeting"
-            required
-          />
-        </div>
-
-        <div className="voice-form-row">
-          <label>Date &amp; time</label>
-          <input
-            name="scheduled_at"
-            type="datetime-local"
-            value={form.scheduled_at}
-            onChange={e => set('scheduled_at', e.target.value)}
-            required
-          />
-        </div>
-
-        {warning && (
-          <div className="voice-notice-warn">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-              <line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
-            </svg>
-            <span>{warning}</span>
-          </div>
-        )}
-
-        <div className="voice-form-row">
-          <label>Location <span className="voice-opt">(optional)</span></label>
-          <input
-            name="location"
-            type="text"
-            value={form.location}
-            onChange={e => set('location', e.target.value)}
-            placeholder="e.g. Clubhouse Meeting Room"
-          />
-        </div>
-
-        <div className="voice-form-row">
-          <label>Virtual link <span className="voice-opt">(optional)</span></label>
-          <input
-            name="virtual_link"
-            type="url"
-            value={form.virtual_link}
-            onChange={e => set('virtual_link', e.target.value)}
-            placeholder="https://zoom.us/j/…"
-          />
-        </div>
-
-        <div className="voice-form-row">
-          <label>Quorum % <span className="voice-opt">(optional — overrides community default)</span></label>
-          <input
-            name="quorum_required_pct"
-            type="number"
-            min="1" max="100" step="0.1"
-            value={form.quorum_required_pct}
-            onChange={e => set('quorum_required_pct', e.target.value)}
-            placeholder="e.g. 30"
-          />
-        </div>
-
-        <div className="voice-form-row">
-          <label>Summary / recap <span className="voice-opt">(optional — what was said, shown to residents)</span></label>
-          <textarea
-            name="summary"
-            value={form.summary}
-            onChange={e => set('summary', e.target.value)}
-            rows={4}
-            placeholder="A short recap of what was discussed and decided…"
-          />
-        </div>
-
+      <form className="card voice-form" onSubmit={save}>
+        {fields}
         {err && <div className="admin-err">{err}</div>}
-
-        <div className="voice-form-actions">
+        <div className="card-cta voice-form-actions">
           <button type="submit" className="admin-primary-btn" disabled={saving}>
             {saving ? 'Saving…' : existing ? 'Save changes' : 'Create meeting'}
           </button>
@@ -290,7 +330,6 @@ function MeetingForm({ onSaved, onCancel, existing }: { onSaved: (id) => void; o
 
 function MeetingDetail({ meetingId, onBack }) {
   const { meeting, loading, error, reload } = useVoiceMeeting(meetingId)
-  const [tab, setTab] = useState('docs') // docs | notify | settings (votes are now standalone, see /admin/voice/votes)
   const [advancing, setAdvancing] = useState(false)
   const [advErr, setAdvErr] = useState(null)
 
@@ -342,20 +381,21 @@ function MeetingDetail({ meetingId, onBack }) {
     }
   }
 
-  if (loading) return <div className="admin-section"><div className="admin-placeholder">Loading…</div></div>
-  if (error)   return <div className="admin-section"><div className="admin-err">{error}</div></div>
+  if (loading) return <div className="admin-page cset"><div className="admin-placeholder">Loading…</div></div>
+  if (error)   return <div className="admin-page cset"><div className="admin-err">{error}</div></div>
   if (!meeting) return null
 
   const typeLabel = MEETING_TYPES.find(t => t.value === meeting.type)?.label ?? meeting.type
   const nextStatusLabel = { draft: 'Mark Notice Sent', notice_sent: 'Start Meeting', in_progress: 'Complete Meeting' }[meeting.status]
 
   return (
-    <div className="admin-section">
-      <div className="admin-section-head">
-        <button className="admin-btn-ghost" onClick={onBack}>← All meetings</button>
-      </div>
+    <div className="admin-page cset">
+      <button type="button" className="admin-backlink" onClick={onBack}
+        style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}>
+        <span aria-hidden>←</span> Meetings
+      </button>
 
-      <div className="voice-detail-header">
+      <div className="card voice-detail-header">
         <div className="voice-meeting-type">{typeLabel}</div>
         <h2 className="voice-detail-title">{meeting.title}</h2>
         <div className="voice-detail-meta">
@@ -388,24 +428,12 @@ function MeetingDetail({ meetingId, onBack }) {
         )}
       </div>
 
-      <div className="seg-tabs voice-detail-tabs" role="tablist">
-        {['docs', 'notify', 'settings'].map(t => (
-          <button key={t} type="button" role="tab" aria-selected={tab === t}
-            className={`seg-tab${tab === t ? ' active' : ''}`} onClick={() => setTab(t)}>
-            {t === 'docs' ? 'Documents' : t === 'notify' ? 'Notify residents' : 'Settings'}
-          </button>
-        ))}
-      </div>
-
-      {tab === 'docs'     && <DocsPanel   meeting={meeting} reload={reload} />}
-      {tab === 'notify'   && <NotifyPanel meeting={meeting} />}
-      {tab === 'settings' && (
-        <MeetingForm
-          existing={meeting}
-          onSaved={() => { reload(); setTab('docs') }}
-          onCancel={() => setTab('docs')}
-        />
-      )}
+      {/* Everything on one page, in order: documents, then notices, then the
+          editable settings/recap at the bottom. (Was a Documents/Notify/Settings
+          tab bar.) */}
+      <DocsPanel meeting={meeting} reload={reload} />
+      <NotifyPanel meeting={meeting} />
+      <MeetingForm existing={meeting} embedded onSaved={reload} onCancel={onBack} />
     </div>
   )
 }
@@ -467,7 +495,8 @@ function NotifyPanel({ meeting }) {
 
   return (
     <div className="voice-panel">
-      <div className="voice-panel-head"><span>Send a notice to all residents</span></div>
+      <div className="card">
+      <div className="card-head"><div><h2>Send a notice to all residents</h2></div></div>
 
       <form className="voice-form" onSubmit={send}>
         <div className="voice-form-row">
@@ -512,14 +541,16 @@ function NotifyPanel({ meeting }) {
           </div>
         </div>
         {err && <div className="admin-err">{err}</div>}
-        <div className="voice-form-actions">
+        <div className="card-cta voice-form-actions">
           <button type="submit" className="admin-primary-btn" disabled={sending}>
             {sending ? 'Sending…' : 'Send notice'}
           </button>
         </div>
       </form>
+      </div>
 
-      <div className="voice-panel-head" style={{ marginTop: 24 }}><span>Notice history</span></div>
+      <div className="card">
+      <div className="card-head"><div><h2>Notice history</h2></div></div>
       {loading && <div className="admin-placeholder">Loading…</div>}
       {!loading && notices.length === 0 && (
         <div className="admin-placeholder">No notices sent for this meeting yet.</div>
@@ -539,6 +570,7 @@ function NotifyPanel({ meeting }) {
           </div>
         </div>
       ))}
+      </div>
     </div>
   )
 }
@@ -1140,7 +1172,7 @@ export function VoteForm({ meetingId = null, communityId, onSaved, onCancel, exi
         </div>
       )}
       {err && <div className="admin-err">{err}</div>}
-      <div className="voice-form-actions">
+      <div className="card-cta voice-form-actions">
         <button type="submit" className="admin-primary-btn" disabled={saving}>
           {saving ? 'Saving…' : isEditing ? 'Save changes' : 'Add vote item'}
         </button>
@@ -1249,8 +1281,8 @@ function DocsPanel({ meeting, reload }) {
   }
 
   return (
-    <div className="voice-panel">
-      <div className="voice-panel-head"><span>Meeting documents</span></div>
+    <div className="card voice-panel">
+      <div className="card-head"><div><h2>Meeting documents</h2></div></div>
 
       <div className="voice-upload-row">
         <div style={{ minWidth: 190 }}>

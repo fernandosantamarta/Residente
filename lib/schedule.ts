@@ -189,6 +189,22 @@ export function useCommunitySchedule() {
     [communityId, profileId, reload]
   )
 
+  // Edit a board-added event in place. Only the passed fields change; maps the
+  // ScheduleEvent shape onto the table columns (date → event_date).
+  const updateEvent = useCallback(async (id: string, patch: Partial<NewEvent>) => {
+    if (!hasSupabase || !supabase) return
+    const row: Record<string, any> = {}
+    if (patch.kind !== undefined)     row.kind = patch.kind
+    if (patch.title !== undefined)    row.title = patch.title
+    if (patch.date !== undefined)     row.event_date = patch.date
+    if (patch.time !== undefined)     row.time = patch.time || null
+    if (patch.vendor !== undefined)   row.vendor = patch.vendor || null
+    if (patch.location !== undefined) row.location = patch.location || null
+    const { error } = await supabase.from('ev_schedule_events').update(row).eq('id', id)
+    if (error) throw error
+    await reload()
+  }, [reload])
+
   const removeEvent = useCallback(async (id: string) => {
     if (!hasSupabase || !supabase) return
     const { error } = await supabase.from('ev_schedule_events').delete().eq('id', id)
@@ -196,5 +212,5 @@ export function useCommunitySchedule() {
     await reload()
   }, [reload])
 
-  return { events, loading, error, reload, addEvent, removeEvent }
+  return { events, loading, error, reload, addEvent, updateEvent, removeEvent }
 }

@@ -7,7 +7,6 @@ import { hasSupabase, supabase } from '@/lib/supabase'
 import { AdminErrorBoundary } from '@/components/AdminErrorBoundary'
 import { SiteFooterSlim } from '@/components/SiteFooter'
 import { useAuth } from '../providers'
-import { CommunitySwitcher } from '../CommunitySwitcher'
 import { usePlatformAdmin } from '@/hooks/usePlatform'
 import { usePermissions } from '@/hooks/usePermissions'
 import type { Permission } from '@/lib/permissions'
@@ -26,12 +25,23 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin',            label: 'Overview', exact: true },
   { href: '/admin/community',  label: 'Community', anyPerm: ['community.manage'] },
   { href: '/admin/compliance', label: 'Compliance', anyPerm: ['compliance.manage', 'financials.view', 'payments.view', 'violations.manage'], match: ['/admin/estoppel', '/admin/collections', '/admin/structural', '/admin/financials', '/admin/governance', '/admin/enforcement', '/admin/meetings', '/admin/elections', '/admin/arc', '/admin/insurance', '/admin/contracts', '/admin/advisories'] },
+  { href: '/admin/budget',     label: 'Budget', anyPerm: ['community.manage', 'financials.view'] },
   { href: '/admin/reports',    label: 'Reports', anyPerm: ['financials.view', 'payments.view'] },
   { href: '/admin/residents',  label: 'Easy Track', anyPerm: ['residents.view', 'residents.manage'], match: ['/admin/vendor'] },
-  { href: '/admin/voice',      label: 'Easy Voice', anyPerm: ['voice.manage'], match: ['/admin/board', '/admin/requests'] },
+  { href: '/admin/board',      label: 'Easy Voice', anyPerm: ['voice.manage', 'roles.manage'], match: ['/admin/voice', '/admin/requests', '/admin/roles'] },
   { href: '/admin/documents',  label: 'Easy Documents', anyPerm: ['documents.manage', 'violations.manage'], match: ['/admin/rules', '/admin/violations'] },
   { href: '/admin/schedule',   label: 'Easy Schedule', anyPerm: ['schedule.manage'] },
-  { href: '/admin/roles',      label: 'Roles', anyPerm: ['roles.manage'] },
+]
+
+// "View as" team previews — founder/platform-only. Founder = full access; the
+// rest are Residente staff lenses; Admin = how the customer's board sees it.
+// (Selection persists; per-team content scoping is a follow-up.)
+const VIEW_AS: { key: string; label: string }[] = [
+  { key: 'founder', label: 'Founder' },
+  { key: 'onboarding', label: 'Onboarding' },
+  { key: 'support', label: 'Support' },
+  { key: 'billing', label: 'Billing' },
+  { key: 'admin', label: 'Admin' },
 ]
 
 const navActive = (pathname: string, item: AdminNavItem) => {
@@ -48,6 +58,19 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname() || '/admin'
   const isPlatformAdmin = usePlatformAdmin()
   const { canAny, perms, loading: permLoading } = usePermissions()
+
+  // Founder/staff "View as" preview selection (persisted). Hidden for regular
+  // admins entirely (see the header — only platform admins get the switcher).
+  const [viewAs, setViewAs] = useState('founder')
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const v = window.localStorage.getItem('admin_view_as'); if (v) setViewAs(v)
+    }
+  }, [])
+  const chooseView = (v: string) => {
+    setViewAs(v)
+    if (typeof window !== 'undefined') window.localStorage.setItem('admin_view_as', v)
+  }
 
   // Auth + access gate. Access = platform admin, community owner (role 'admin'),
   // or a board member whose assigned role grants at least one permission. A
@@ -73,14 +96,33 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <span className="admin-brand-word">Residente</span>
           </Link>
           <span className="admin-tag">Admin</span>
-          <CommunitySwitcher />
         </div>
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 16 }}>
-          <Link href="/app" className="admin-back">&larr; Back to app</Link>
+        {/* Mock-parity bar: a founder/platform-only "View as" team switcher, then
+            Contact Residente (pill) + Back to app. Regular admins see no switcher. */}
+        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          {isPlatformAdmin && (
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(255,255,255,0.16)', borderRadius: 999, padding: '4px 6px 4px 13px' }}>
+              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '1.2px', color: 'rgba(255,255,255,0.85)', marginRight: 3 }}>VIEW AS</span>
+              {VIEW_AS.map(v => {
+                const on = viewAs === v.key
+                return (
+                  <button key={v.key} type="button" onClick={() => chooseView(v.key)}
+                    style={{ border: 'none', cursor: 'pointer', borderRadius: 999, padding: '5px 13px', fontSize: 12.5, fontWeight: 700,
+                      background: on ? '#fff' : 'transparent', color: on ? '#E14909' : 'rgba(255,255,255,0.92)' }}>
+                    {v.label}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          <Link href="/admin/support" style={{ textDecoration: 'none', fontSize: 13, fontWeight: 700, color: '#fff', background: 'rgba(255,255,255,0.16)', borderRadius: 999, padding: '7px 15px' }}>
+            Contact Residente
+          </Link>
         </div>
       </header>
 
-      <nav className="admin-nav" style={{ position: 'relative' }}>
+      <nav className="admin-nav">
+        <Link href="/app" className="admin-nav-item admin-nav-back">&larr; Back to app</Link>
         {ADMIN_NAV.filter(item => !item.anyPerm || permLoading || canAny(item.anyPerm)).map(item => (
           <Link
             key={item.href}
@@ -95,9 +137,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             Platform Console
           </Link>
         )}
-        <Link href="/admin/support" className="admin-nav-item" style={{ position: 'absolute', right: 32, top: 14 }}>
-          Contact Residente
-        </Link>
       </nav>
 
       <main className="admin-main">

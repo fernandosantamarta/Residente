@@ -11,8 +11,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { ymd, ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
+import { ymd } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
+import { AttorneyNote } from '../AttorneyNote'
+import { ComplianceBackLink } from '../ComplianceBackLink'
 import {
   PROPERTY_APPRAISAL_INTERVAL_MONTHS, FIDELITY_BOND_COVERED_PERSONS,
   HOA_FIDELITY_BOND_WAIVER_BASIS,
@@ -41,17 +43,19 @@ export default function InsurancePage() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const { data: c } = (await withTimeout(
-        supabase.from('communities').select('*').eq('id', communityId).single(),
-      )) as any
-      const { data: p, error: pErr } = (await withTimeout(
-        supabase.from('ev_insurance_policies').select('*').eq('community_id', communityId).order('created_at', { ascending: false }),
-      )) as any
+      // Fire all three reads in ONE parallel batch instead of awaiting three
+      // round-trips in series — the page now waits for the slowest single query
+      // rather than the sum. Reserve balances feed the fidelity-bond "max funds
+      // in custody" estimate. The queries are independent (none uses another's result).
+      const [cRes, pRes, rRes] = await Promise.all([
+        withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
+        withTimeout(supabase.from('ev_insurance_policies').select('*').eq('community_id', communityId).order('created_at', { ascending: false })),
+        withTimeout(supabase.from('ev_reserve_components').select('current_balance').eq('community_id', communityId)),
+      ])
+      const { data: c } = cRes as any
+      const { data: p, error: pErr } = pRes as any
+      const { data: r } = rRes as any
       if (pErr) throw pErr
-      // Reserve balances feed the fidelity-bond "max funds in custody" estimate.
-      const { data: r } = (await withTimeout(
-        supabase.from('ev_reserve_components').select('current_balance').eq('community_id', communityId),
-      )) as any
       setCommunity(c || null)
       setPolicies(p || [])
       setReserves(r || [])
@@ -145,7 +149,8 @@ export default function InsurancePage() {
   }
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
+      <ComplianceBackLink />
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Insurance</h1>
       <p className="admin-dek">
@@ -155,7 +160,7 @@ export default function InsurancePage() {
         appraisal clock and the bond floor for you; you decide each step.
       </p>
 
-      <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>{ATTORNEY_REVIEW_BANNER}</div>
+      <AttorneyNote />
 
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
 
@@ -169,19 +174,6 @@ export default function InsurancePage() {
 
       {status === 'ready' && (
         <>
-          {/* Documents */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '16px 0' }}>
-            {[
-              { type: 'summary', label: 'Insurance compliance summary' },
-              ...(regime === 'condo' ? [{ type: 'appraisal_request', label: 'Replacement-cost appraisal request (draft)' }] : []),
-              { type: 'bond_worksheet', label: 'Fidelity-bond adequacy worksheet' },
-            ].map(d => (
-              <Link key={d.type} href={`/admin/insurance/document?type=${d.type}`} className="admin-btn-ghost" style={{ textDecoration: 'none' }}>
-                📄 {d.label}
-              </Link>
-            ))}
-          </div>
-
           {/* ---------- PROPERTY INSURANCE (condo only) ---------- */}
           {regime === 'condo' && (
             <PolicySection
@@ -196,7 +188,7 @@ export default function InsurancePage() {
             />
           )}
           {regime === 'hoa' && (
-            <div className="admin-note" style={{ marginTop: 14 }}>
+            <div className="admin-note" style={{ margin: '0 0 18px' }}>
               The master property-insurance and replacement-cost-appraisal duty (FS 718.111(11)(a)) is a
               condominium obligation and does not apply to this homeowners&apos; association — only the
               fidelity bond below is tracked here.
@@ -204,13 +196,13 @@ export default function InsurancePage() {
           )}
 
           {/* ---------- FIDELITY BOND (both regimes) ---------- */}
-          <section style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: '4px solid #7A5AF8', borderRadius: 12, padding: '14px 16px', background: '#fff', marginTop: 24 }}>
-            <h2 className="bc-title" style={{ marginBottom: 4 }}>Fidelity-bond floor &amp; waiver</h2>
-            <p style={{ fontSize: 12.5, opacity: 0.72, margin: '0 0 10px' }}>
-              The bond must cover the <strong>maximum funds in custody</strong> of the association or its manager at
-              any one time. Enter an estimate of that peak balance; if you leave it blank we use the sum of your
-              recorded reserve balances ({fmt$(reserveSum)}) as a rough proxy.
-            </p>
+          <div className="card">
+            <div className="card-head"><div><h2>Fidelity-bond floor <span className="amp">&</span> waiver</h2>
+              <div className="sub">
+                The bond must cover the maximum funds in custody of the association or its manager at
+                any one time. Enter an estimate of that peak balance; if you leave it blank we use the sum of your
+                recorded reserve balances ({fmt$(reserveSum)}) as a rough proxy.
+              </div></div></div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
               <label className="admin-field"><span className="admin-field-label">Estimated max funds in custody</span>
                 <input className="admin-input" type="number" min="0" step="1000" placeholder={reserveSum ? `reserves ≈ ${fmt$(reserveSum)}` : 'e.g. 250000'}
@@ -221,19 +213,19 @@ export default function InsurancePage() {
                     value={bondForm.fidelity_bond_waiver_fy ?? ''} onChange={e => setBondForm((f: any) => ({ ...f, fidelity_bond_waiver_fy: e.target.value }))} /></label>
               )}
             </div>
-            <div style={{ fontSize: 12.5, marginTop: 8 }}>
+            <div style={{ fontSize: 12.5, marginTop: 12 }}>
               Estimated bond floor: <strong>{fmt$(maxFunds)}</strong>
               {regime === 'hoa' && (
                 <span style={{ opacity: 0.72 }}> · An HOA may waive the bond by {HOA_FIDELITY_BOND_WAIVER_BASIS.value}, effective one fiscal year only. Condominiums may not waive.</span>
               )}
             </div>
-            <div style={{ marginTop: 10 }}>
-              <button className="admin-primary-btn" disabled={bondSaving} onClick={saveBondSettings}>{bondSaving ? 'Saving…' : 'Save fidelity-bond settings'}</button>
-            </div>
             <div style={{ fontSize: 12, opacity: 0.7, marginTop: 10 }}>
               Must cover: {FIDELITY_BOND_COVERED_PERSONS.value.join(' · ')}.
             </div>
-          </section>
+            <div className="card-cta">
+              <button className="admin-primary-btn" disabled={bondSaving} onClick={saveBondSettings}>{bondSaving ? 'Saving…' : 'Save fidelity-bond settings'}</button>
+            </div>
+          </div>
 
           <PolicySection
             kind="fidelity_bond"
@@ -246,6 +238,37 @@ export default function InsurancePage() {
             onUpdate={updatePolicy}
             onDelete={deletePolicy}
           />
+
+          {/* Documents — generate or view each statutory artifact (one wsrow each,
+              matching the financials Documents card). */}
+          <div className="card">
+            <div className="card-head"><div><h2>Documents</h2><div className="sub">Generate or view each statutory artifact</div></div></div>
+            <div className="wslist">
+              {[
+                { type: 'summary', label: 'Insurance compliance summary', live: true },
+                ...(regime === 'condo' ? [{ type: 'appraisal_request', label: 'Replacement-cost appraisal request', live: false }] : []),
+                { type: 'bond_worksheet', label: 'Fidelity-bond adequacy worksheet', live: false },
+              ].map(d => {
+                const col = d.live ? '#0E7490' : '#7A5AF8'
+                return (
+                  <Link key={d.type} href={`/admin/insurance/document?type=${d.type}`} className="wsrow">
+                    <span className="wsrow-glyph" style={{ color: col, background: col + '18' }}>
+                      {d.live ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><rect x="7" y="11" width="3" height="6" /><rect x="12" y="7" width="3" height="10" /><rect x="17" y="13" width="3" height="4" /></svg>
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="16" y2="17" /></svg>
+                      )}
+                    </span>
+                    <div className="wsrow-main">
+                      <div className="wsrow-title">{d.label}</div>
+                      <div className="wsrow-desc">{d.live ? 'Live summary' : 'Draft template'}</div>
+                    </div>
+                    <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
+                  </Link>
+                )
+              })}
+            </div>
+          </div>
         </>
       )}
     </div>
@@ -279,10 +302,10 @@ function PolicySection({
   }
 
   return (
-    <>
-      <form className="admin-form" onSubmit={submit} style={{ marginTop: 24 }}>
-        <h2 className="bc-title" style={{ marginBottom: 4 }}>{title}</h2>
-        <p style={{ fontSize: 12.5, opacity: 0.72, margin: '0 0 10px' }}>{blurb}</p>
+    <div className="card">
+      <div className="card-head"><div><h2>{title}</h2>
+        <div className="sub">{blurb}</div></div></div>
+      <form className="admin-form" onSubmit={submit}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
           <label className="admin-field"><span className="admin-field-label">Carrier</span>
             <input className="admin-input" value={form.carrier ?? ''} onChange={e => setF('carrier', e.target.value)} /></label>
@@ -303,7 +326,7 @@ function PolicySection({
             </>
           )}
         </div>
-        <div className="admin-form-actions">
+        <div className="card-cta">
           <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Saving…' : `Record ${isProperty ? 'property policy' : 'fidelity bond'}`}</button>
         </div>
       </form>
@@ -314,7 +337,7 @@ function PolicySection({
           <PolicyCard key={p.id} p={p} accent={accent} maxFunds={maxFunds} onUpdate={onUpdate} onDelete={onDelete} />
         ))}
       </div>
-    </>
+    </div>
   )
 }
 

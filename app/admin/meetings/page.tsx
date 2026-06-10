@@ -9,7 +9,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { ymd, toDate, ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
+import { ymd, toDate } from '@/lib/compliance/rules-core'
 import {
   requiredNotice,
   noticeDeadline,
@@ -21,6 +21,8 @@ import {
   type MeetingRow,
 } from '@/lib/compliance/meetings'
 import { logAudit } from '@/lib/audit'
+import { AttorneyNote } from '../AttorneyNote'
+import { ComplianceBackLink } from '../ComplianceBackLink'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -54,11 +56,15 @@ export default function MeetingsPage() {
           return data || []
         } catch { return [] }
       }
-      const { data: c } = (await withTimeout(
-        supabase.from('communities').select('*').eq('id', communityId).single(),
-      )) as any
+      // The community row and the meetings list are independent reads — fire them
+      // in ONE parallel batch so the page waits for the slower query, not the sum.
+      const [cRes, meetingsData] = await Promise.all([
+        withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
+        grab('ev_meetings', 'scheduled_at'),
+      ])
+      const { data: c } = cRes as any
       setCommunity(c || null)
-      setMeetings(await grab('ev_meetings', 'scheduled_at'))
+      setMeetings(meetingsData)
       setStatus('ready')
     } catch (err: any) {
       setError(err?.message || 'Could not load meetings data'); setStatus('error')
@@ -142,7 +148,8 @@ export default function MeetingsPage() {
   const docHref = (id: string, type: string) => `/admin/meetings/${id}/document?type=${type}`
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
+      <ComplianceBackLink />
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Meetings <span className="amp">&</span> notice</h1>
       <p className="admin-dek">
@@ -152,7 +159,7 @@ export default function MeetingsPage() {
         {MINUTES_AVAILABLE_DAYS.value}-day minutes-availability clock. Advisory only; you decide every step.
       </p>
 
-      <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>{ATTORNEY_REVIEW_BANNER}</div>
+      <AttorneyNote />
 
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
       {status === 'none' && <div className="admin-note admin-note-warn">No community is linked to your account yet. Run the setup SQL, then reload.</div>}
@@ -162,8 +169,9 @@ export default function MeetingsPage() {
       {status === 'ready' && (
         <>
           {/* ---- Intake form ---- */}
-          <form className="admin-form" onSubmit={scheduleMeeting} style={{ marginTop: 22 }}>
-            <h2 className="bc-title" style={{ marginBottom: 8 }}>Schedule / log a meeting</h2>
+          <div className="card">
+            <div className="card-head"><div><h2>Schedule / log a meeting</h2></div></div>
+            <form className="admin-form" onSubmit={scheduleMeeting}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
               <label className="admin-field">
                 <span className="admin-field-label">Meeting type</span>
@@ -201,27 +209,30 @@ export default function MeetingsPage() {
                 Emergency (no advance notice possible)
               </label>
             </div>
-            <div className="admin-form-actions">
-              <button type="submit" className="admin-primary-btn" disabled={saving || !form.scheduled_at}>{saving ? 'Saving…' : 'Log meeting'}</button>
+            <div className="card-cta">
               {error && status === 'ready' && <span className="admin-err-inline">{error}</span>}
+              <button type="submit" className="admin-primary-btn" disabled={saving || !form.scheduled_at}>{saving ? 'Saving…' : 'Log meeting'}</button>
             </div>
-          </form>
+            </form>
+          </div>
 
           {/* ---- Worklist ---- */}
-          <h2 className="bc-title" style={{ margin: '26px 0 10px' }}>Meetings ({meetings.length})</h2>
-          {meetings.length === 0 && <div className="admin-note">No meetings on file yet.</div>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {meetings.map(m => (
-              <MeetingCard
-                key={m.id}
-                m={m}
-                onRecordPosting={() => recordPosting(m)}
-                onRecordMailing={() => recordMailing(m)}
-                onRecordAgenda={() => recordAgenda(m)}
-                onPublishMinutes={() => publishMinutes(m)}
-                docHref={(type: string) => docHref(m.id, type)}
-              />
-            ))}
+          <div className="card">
+            <div className="card-head"><div><h2>Meetings <span style={{ opacity: 0.55, fontWeight: 400 }}>({meetings.length})</span></h2></div></div>
+            {meetings.length === 0 && <div className="admin-note">No meetings on file yet.</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {meetings.map(m => (
+                <MeetingCard
+                  key={m.id}
+                  m={m}
+                  onRecordPosting={() => recordPosting(m)}
+                  onRecordMailing={() => recordMailing(m)}
+                  onRecordAgenda={() => recordAgenda(m)}
+                  onPublishMinutes={() => publishMinutes(m)}
+                  docHref={(type: string) => docHref(m.id, type)}
+                />
+              ))}
+            </div>
           </div>
         </>
       )}

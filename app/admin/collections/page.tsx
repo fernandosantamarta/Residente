@@ -5,12 +5,15 @@
 // page: 30-day notice → 45-day intent-to-lien → lien recorded → 45-day
 // intent-to-foreclose → foreclosure. Advisory posture — nothing here blocks.
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { communityDuesConfig } from '@/lib/dues'
-import { ymd, toDate, calendarDaysUntil, ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
+import { ymd, toDate, calendarDaysUntil } from '@/lib/compliance/rules-core'
+import { AttorneyNote } from '../AttorneyNote'
+import { ComplianceBackLink } from '../ComplianceBackLink'
 import {
   STAGE_LABELS, nextEscalation, lienEnforceDeadline, isOpenStage,
   delinquentOwnersWithoutCase,
@@ -31,6 +34,7 @@ const STAGE_COLOR: Record<string, string> = {
 
 export default function CollectionsPage() {
   const { profile } = useAuth() || {}
+  const router = useRouter()
   const communityId = profile?.community_id
   const [community, setCommunity] = useState<any>(null)
   const [rows, setRows] = useState<CollectionCaseRow[]>([])
@@ -40,6 +44,8 @@ export default function CollectionsPage() {
   const [error, setError] = useState('')
   const [msg, setMsg] = useState('')
   const [showClosed, setShowClosed] = useState(false)
+  const [flashIntake, setFlashIntake] = useState(false)
+  const deepLinkDone = useRef(false)
 
   useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(''), 4000); return () => clearTimeout(t) }, [msg])
 
@@ -47,21 +53,21 @@ export default function CollectionsPage() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const { data: c } = (await withTimeout(
-        supabase.from('communities').select('*').eq('id', communityId).single(),
-      )) as any
-      const { data, error } = (await withTimeout(
-        supabase.from('ev_collection_cases').select('*')
-          .eq('community_id', communityId).order('opened_at', { ascending: false }),
-      )) as any
+      // Fire all four reads in ONE parallel batch — they're independent, so the
+      // page waits for the slowest single query instead of the sum of four.
+      const [cRes, casesRes, resRes, paysRes] = await Promise.all([
+        withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
+        withTimeout(supabase.from('ev_collection_cases').select('*')
+          .eq('community_id', communityId).order('opened_at', { ascending: false })),
+        withTimeout(supabase.from('residents').select('id, full_name, unit_number, address, profile_id, opening_balance, created_at')
+          .eq('community_id', communityId).order('unit_number', { ascending: true })),
+        withTimeout(supabase.from('payments').select('resident_id, amount').eq('community_id', communityId)),
+      ])
+      const { data: c } = cRes as any
+      const { data, error } = casesRes as any
       if (error) throw error
-      const { data: res } = (await withTimeout(
-        supabase.from('residents').select('id, full_name, unit_number, address, profile_id, opening_balance, created_at')
-          .eq('community_id', communityId).order('unit_number', { ascending: true }),
-      )) as any
-      const { data: pays } = (await withTimeout(
-        supabase.from('payments').select('resident_id, amount').eq('community_id', communityId),
-      )) as any
+      const { data: res } = resRes as any
+      const { data: pays } = paysRes as any
       const map: Record<string, { amount: number }[]> = {}
       for (const p of pays || []) { (map[p.resident_id] ||= []).push({ amount: Number(p.amount) || 0 }) }
       setCommunity(c || null)
@@ -125,6 +131,24 @@ export default function CollectionsPage() {
   const setF = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }))
   const [saving, setSaving] = useState(false)
 
+  // Deep link from Reports → "Collect →" (?resident=<id>). If that owner already
+  // has an open case, jump straight to it; otherwise pre-pick them in the intake
+  // form and scroll/flash it so the board opens the case in one step.
+  useEffect(() => {
+    if (status !== 'ready' || deepLinkDone.current) return
+    const rid = typeof window !== 'undefined' ? new URLSearchParams(window.location.search).get('resident') : null
+    if (!rid) return
+    deepLinkDone.current = true
+    const existing = rows.find(r => (r as any).resident_id === rid && isOpenStage(r.stage))
+    if (existing) { router.replace(`/admin/collections/${existing.id}`); return }
+    if (residents.some(r => r.id === rid)) {
+      setForm((f: any) => ({ ...f, resident_id: rid }))
+      setFlashIntake(true)
+      setTimeout(() => setFlashIntake(false), 2600)
+      requestAnimationFrame(() => document.getElementById('open-case')?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+    }
+  }, [status, rows, residents, router])
+
   const create = async (e: any) => {
     e.preventDefault()
     setSaving(true); setError('')
@@ -159,7 +183,8 @@ export default function CollectionsPage() {
   const closed = rows.filter(r => !isOpenStage(r.stage))
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
+      <ComplianceBackLink />
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Collections <span className="amp">&</span> liens</h1>
       <p className="admin-dek">
@@ -168,7 +193,7 @@ export default function CollectionsPage() {
         to foreclose. We track every deadline; you decide each step.
       </p>
 
-      <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>{ATTORNEY_REVIEW_BANNER}</div>
+      <AttorneyNote />
 
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
 
@@ -180,44 +205,52 @@ export default function CollectionsPage() {
       )}
 
       {/* Intake */}
-      <form className="admin-form" onSubmit={create} style={{ marginTop: 16 }}>
-        <h2 className="bc-title" style={{ marginBottom: 8 }}>Open a case</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-          <label className="admin-field"><span className="admin-field-label">Owner (from roster)</span>
-            <select className="admin-input" value={form.resident_id} onChange={e => setF('resident_id', e.target.value)}>
-              <option value="">— select —</option>
-              {residents.map(r => <option key={r.id} value={r.id}>{[r.full_name || 'Owner', r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>)}
-            </select></label>
-          <label className="admin-field"><span className="admin-field-label">Unit / parcel label (override)</span>
-            <input className="admin-input" value={form.unit_label ?? ''} placeholder="auto from owner" onChange={e => setF('unit_label', e.target.value)} /></label>
-          <label className="admin-field"><span className="admin-field-label">Delinquent since</span>
-            <input className="admin-input" type="date" value={form.delinquent_since ?? ''} onChange={e => setF('delinquent_since', e.target.value)} /></label>
-          <label className="admin-field"><span className="admin-field-label">Amount past due ($, optional)</span>
-            <input className="admin-input" type="number" min="0" step="0.01" value={form.principal_balance ?? ''} placeholder="auto from ledger" onChange={e => setF('principal_balance', e.target.value)} /></label>
-        </div>
-        {regime === 'hoa' && (
-          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '10px 0' }}>
-            <input type="checkbox" checked={!!form.is_fine_only} onChange={e => setF('is_fine_only', e.target.checked)} />
-            Fine-only case (HB 1203: an HOA fine under $1,000 may not become a lien)
-          </label>
-        )}
-        <div className="admin-form-actions">
-          <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Opening…' : 'Open case'}</button>
-          {error && status === 'ready' && <span className="admin-err-inline">{error}</span>}
-        </div>
-      </form>
+      <div className="card" id="open-case" style={{
+        scrollMarginTop: 80,
+        boxShadow: flashIntake ? '0 0 0 2px var(--pink)' : undefined,
+        transition: 'box-shadow .3s ease',
+      }}>
+        <div className="card-head"><div><h2>Open a case</h2></div></div>
+        <form className="admin-form" onSubmit={create}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+            <label className="admin-field"><span className="admin-field-label">Owner (from roster)</span>
+              <select className="admin-input" value={form.resident_id} onChange={e => setF('resident_id', e.target.value)}>
+                <option value="">— select —</option>
+                {residents.map(r => <option key={r.id} value={r.id}>{[r.full_name || 'Owner', r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>)}
+              </select></label>
+            <label className="admin-field"><span className="admin-field-label">Unit / parcel label (override)</span>
+              <input className="admin-input" value={form.unit_label ?? ''} placeholder="auto from owner" onChange={e => setF('unit_label', e.target.value)} /></label>
+            <label className="admin-field"><span className="admin-field-label">Delinquent since</span>
+              <input className="admin-input" type="date" value={form.delinquent_since ?? ''} onChange={e => setF('delinquent_since', e.target.value)} /></label>
+            <label className="admin-field"><span className="admin-field-label">Amount past due ($, optional)</span>
+              <input className="admin-input" type="number" min="0" step="0.01" value={form.principal_balance ?? ''} placeholder="auto from ledger" onChange={e => setF('principal_balance', e.target.value)} /></label>
+          </div>
+          {regime === 'hoa' && (
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '10px 0 0' }}>
+              <input type="checkbox" checked={!!form.is_fine_only} onChange={e => setF('is_fine_only', e.target.checked)} />
+              Fine-only case (HB 1203: an HOA fine under $1,000 may not become a lien)
+            </label>
+          )}
+          <div className="card-cta">
+            {error && status === 'ready' && <span className="admin-err-inline">{error}</span>}
+            <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Opening…' : 'Open case'}</button>
+          </div>
+        </form>
+      </div>
 
       {/* Suggested cases — delinquent owners with no open case */}
       {status === 'ready' && (
-        <section style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, padding: '14px 16px', background: '#fafafa', marginTop: 22 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-            <h2 className="bc-title" style={{ margin: 0 }}>Suggested cases ({candidates.length})</h2>
+        <div className="card">
+          <div className="card-head" style={{ flexWrap: 'wrap' }}>
+            <div>
+              <h2>Suggested cases ({candidates.length})</h2>
+              <div className="sub">
+                Owners behind by more than the current installment with no open case. Detection is automatic —
+                opening a case (and every statutory step after) stays your decision.
+              </div>
+            </div>
             <AutoOpenSettings community={community} onSaved={load} />
           </div>
-          <p style={{ fontSize: 12.5, opacity: 0.7, margin: '4px 0 10px' }}>
-            Owners behind by more than the current installment with no open case. Detection is automatic —
-            opening a case (and every statutory step after) stays your decision.
-          </p>
           {candidates.length === 0 ? (
             <div className="admin-note">No delinquent owners without a case{(community?.collections_min_balance || community?.collections_min_days) ? ' above your thresholds' : ''}.</div>
           ) : (
@@ -238,29 +271,31 @@ export default function CollectionsPage() {
               )}
             </>
           )}
-        </section>
+        </div>
       )}
 
       {/* Open cases */}
-      <h2 className="bc-title" style={{ margin: '22px 0 10px' }}>Open cases</h2>
-      {status === 'loading' && <div className="admin-note">Loading…</div>}
-      {status === 'ready' && open.length === 0 && <div className="admin-note">No open collection cases.</div>}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {open.map(r => <CaseRow key={r.id} r={r} regime={regime} />)}
-      </div>
-
-      {closed.length > 0 && (
-        <div style={{ marginTop: 18 }}>
-          <button className="admin-btn-ghost" onClick={() => setShowClosed(s => !s)}>
-            {showClosed ? 'Hide' : 'Show'} resolved / cancelled ({closed.length})
-          </button>
-          {showClosed && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
-              {closed.map(r => <CaseRow key={r.id} r={r} regime={regime} />)}
-            </div>
-          )}
+      <div className="card">
+        <div className="card-head"><div><h2>Open cases</h2></div></div>
+        {status === 'loading' && <div className="admin-note">Loading…</div>}
+        {status === 'ready' && open.length === 0 && <div className="admin-note">No open collection cases.</div>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {open.map(r => <CaseRow key={r.id} r={r} regime={regime} />)}
         </div>
-      )}
+
+        {closed.length > 0 && (
+          <div style={{ marginTop: 18 }}>
+            <button className="admin-btn-ghost" onClick={() => setShowClosed(s => !s)}>
+              {showClosed ? 'Hide' : 'Show'} resolved / cancelled ({closed.length})
+            </button>
+            {showClosed && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 10 }}>
+                {closed.map(r => <CaseRow key={r.id} r={r} regime={regime} />)}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

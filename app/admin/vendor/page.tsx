@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { Dropdown } from '@/components/Dropdown'
@@ -27,6 +27,21 @@ const CATS: { value: VendorCat; label: string }[] = [
 ]
 const CAT_LABEL: Record<string, string> = Object.fromEntries(CATS.map(c => [c.value, c.label]))
 
+// "When they come" is captured as one or more days + a time, combined into the
+// schedule string (e.g. "Mon, Wed, Fri · Morning"). Days are click-to-toggle
+// chips so several can be selected; an empty time means "any".
+const DAY_CHIPS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const VENDOR_TIMES: { value: string; label: string }[] = [
+  { value: '', label: 'Any time' },
+  { value: 'Early morning', label: 'Early morning' }, { value: 'Morning', label: 'Morning' },
+  { value: 'Midday', label: 'Midday' }, { value: 'Afternoon', label: 'Afternoon' },
+  { value: 'Evening', label: 'Evening' },
+]
+
+// Avatar initials from a vendor name — first letters of the first two words.
+const vInitials = (name: string) =>
+  String(name || '?').trim().split(/\s+/).slice(0, 2).map(w => w[0]?.toUpperCase() || '').join('') || '?'
+
 const fmtPubDate = (iso: string | null | undefined) => {
   if (!iso) return ''
   try {
@@ -37,7 +52,10 @@ const fmtPubDate = (iso: string | null | undefined) => {
 const EMPTY = {
   name: '', category: 'property' as VendorCat,
   phone: '', email: '', blurb: '', badge: '', featured: false,
+  cost: '', scheduleDays: [] as string[], scheduleTime: '',
 }
+
+const fmtCost = (n: any) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
 
 type Vendor = {
   id: string
@@ -48,6 +66,8 @@ type Vendor = {
   blurb: string | null
   badge: string | null
   featured: boolean
+  cost: number | null
+  schedule: string | null
   created_at?: string
 }
 
@@ -65,6 +85,12 @@ export default function VendorAdmin() {
   const [successMsg, setSuccessMsg] = useState('')
   const [filterCategory, setFilterCategory] = useState<'all' | VendorCat>('all')
   const [page, setPage] = useState(1)
+  // Vendor-guidelines doc — the PDF residents open from "View Guidelines".
+  // Stored as a normal library document (category "Vendor & Contracts", title
+  // containing "Guidelines") so the resident lookup in VendorSection resolves it.
+  const [guidelinesDoc, setGuidelinesDoc] = useState<any | null>(null)
+  const [guideBusy, setGuideBusy] = useState(false)
+  const guideFileRef = useRef<HTMLInputElement | null>(null)
 
   // Auto-dismiss the green confirmation banner after 4 seconds.
   useEffect(() => {
@@ -98,7 +124,97 @@ export default function VendorAdmin() {
   }, [communityId])
   useEffect(() => { load() }, [load])
 
+  // Find the current vendor-guidelines doc (same lookup the resident page uses:
+  // newest doc whose title contains "guideline", preferring a vendor category).
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (!hasSupabase || !supabase || !communityId) return
+      try {
+        const { data, error } = await withTimeout(
+          supabase.from('documents').select('*')
+            .eq('community_id', communityId).ilike('title', '%guideline%')
+            .order('uploaded_at', { ascending: false })
+        )
+        if (cancelled || error || !data?.length) return
+        setGuidelinesDoc(data.find((d: any) => (d.category || '').toLowerCase().includes('vendor')) || data[0])
+      } catch { /* documents table/bucket not set up — no guidelines yet */ }
+    })()
+    return () => { cancelled = true }
+  }, [communityId])
+
+  // Upload (or replace) the guidelines file. Writes the same row shape the
+  // Documents page uses, then drops the previous vendor-guidelines doc so
+  // residents always open the latest.
+  const onPickGuide = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setGuideBusy(true); setError('')
+    try {
+      const ext = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : 'pdf'
+      const path = `${communityId}/${crypto.randomUUID()}.${ext}`
+      const up = await withTimeout(supabase!.storage.from('documents').upload(path, file))
+      if (up.error) throw up.error
+      const row = {
+        community_id: communityId, title: 'Vendor Guidelines',
+        category: 'Vendor & Contracts', storage_path: path, file_size: file.size,
+      }
+      const { data, error } = await withTimeout(supabase!.from('documents').insert(row).select().single())
+      if (error) { supabase!.storage.from('documents').remove([path]); throw error }
+      const prev = guidelinesDoc
+      setGuidelinesDoc(data)
+      setSuccessMsg('Vendor guidelines uploaded.')
+      // Tidy up the prior vendor-guidelines doc (only if it was ours).
+      if (prev && (prev.category || '').toLowerCase().includes('vendor')) {
+        try {
+          await supabase!.storage.from('documents').remove([prev.storage_path])
+          await supabase!.from('documents').delete().eq('id', prev.id)
+        } catch { /* leave the old one — the newest still wins the lookup */ }
+      }
+    } catch (err: any) {
+      setError(err?.message || 'Could not upload the guidelines file')
+    } finally {
+      setGuideBusy(false)
+    }
+  }
+
+  const viewGuidelines = async () => {
+    if (!guidelinesDoc || !supabase) return
+    setGuideBusy(true); setError('')
+    try {
+      const { data, error } = await withTimeout(
+        supabase.storage.from('documents').createSignedUrl(guidelinesDoc.storage_path, 3600)
+      )
+      if (error || !data?.signedUrl) throw error || new Error('No link')
+      window.open(data.signedUrl, '_blank', 'noopener')
+    } catch {
+      setError('Could not open the guidelines file')
+    } finally {
+      setGuideBusy(false)
+    }
+  }
+
+  const removeGuidelines = async () => {
+    if (!guidelinesDoc) return
+    const doc = guidelinesDoc
+    setGuidelinesDoc(null)   // optimistic
+    try {
+      await withTimeout(supabase!.storage.from('documents').remove([doc.storage_path]))
+      const { error } = await withTimeout(supabase!.from('documents').delete().eq('id', doc.id))
+      if (error) throw error
+      setSuccessMsg('Vendor guidelines removed.')
+    } catch (err: any) {
+      setGuidelinesDoc(doc)   // roll back
+      setError(err?.message || 'Could not remove the guidelines file')
+    }
+  }
+
   const setField = (k: keyof typeof EMPTY, v: any) => setForm(f => ({ ...f, [k]: v }))
+  const toggleDay = (d: string) => setForm(f => ({
+    ...f,
+    scheduleDays: f.scheduleDays.includes(d) ? f.scheduleDays.filter(x => x !== d) : [...f.scheduleDays, d],
+  }))
 
   const add = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -114,6 +230,11 @@ export default function VendorAdmin() {
         blurb: form.blurb.trim() || null,
         badge: form.badge.trim() || null,
         featured: form.featured,
+        cost: form.cost.trim() ? Number(form.cost) : null,
+        schedule: [
+          DAY_CHIPS.filter(d => form.scheduleDays.includes(d)).join(', '),
+          form.scheduleTime,
+        ].filter(Boolean).join(' · ') || null,
         sort_order: rows.length,
       }
       const { data, error } = await withTimeout(
@@ -161,7 +282,7 @@ export default function VendorAdmin() {
   const visible = paginate(filtered, page, VENDOR_PAGE_SIZE)
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
       <EasyTrackTabs active="vendors" />
       <div className="admin-kicker">Vendors</div>
       <h1 className="admin-h1">Trusted vendors</h1>
@@ -169,18 +290,6 @@ export default function VendorAdmin() {
         Curate the service providers residents see on their Vendors page.
         Feature the ones the board recommends.
       </p>
-
-      <div className="admin-note admin-note-info" style={{ marginBottom: 20 }}>
-        <strong>Vendor guidelines</strong>
-        <p style={{ margin: '6px 0 0', fontSize: 13, opacity: 0.85 }}>
-          The “View Guidelines” button on each resident’s Vendors page opens the
-          guidelines PDF you publish. To set or update it, go to{' '}
-          <a href="/admin/documents#documents">Documents</a>, upload a file with
-          “Guidelines” in the title under the <strong>Vendor &amp; Contracts</strong>{' '}
-          category, and it shows up automatically. Until then, residents see the
-          default policy text.
-        </p>
-      </div>
 
       {status === 'none' && (
         <div className="admin-note admin-note-warn">
@@ -204,121 +313,228 @@ export default function VendorAdmin() {
       )}
 
       {(status === 'ready' || status === 'loading') && (
-        <>
-          <form className="admin-form" onSubmit={add}>
-            <label className="admin-field">
-              <span className="admin-field-label">Vendor name</span>
-              <input name="name" className="admin-input" placeholder="GreenScape Landscaping"
-                value={form.name} onChange={e => setField('name', e.target.value)} />
-            </label>
-            <div className="admin-field" style={{ maxWidth: 260 }}>
-              <span className="admin-field-label">Category</span>
-              <Dropdown<VendorCat>
-                value={form.category}
-                onChange={v => setField('category', v)}
-                ariaLabel="Vendor category"
-                options={CATS}
-              />
+        <div>
+          {/* ---- Add a vendor ---- */}
+          <form className="card" onSubmit={add}>
+            <div className="card-head">
+              <div>
+                <h2>Add a vendor</h2>
+                <div className="sub">Add the provider, then feature it from the list below.</div>
+              </div>
             </div>
-            <label className="admin-field">
-              <span className="admin-field-label">Phone (optional)</span>
-              <input name="phone" className="admin-input" placeholder="(305) 555-0142"
-                value={form.phone} onChange={e => setField('phone', e.target.value)} />
-            </label>
-            <label className="admin-field">
-              <span className="admin-field-label">Email (optional)</span>
-              <input name="email" type="email" className="admin-input" placeholder="hello@greenscape.com"
-                value={form.email} onChange={e => setField('email', e.target.value)} />
-            </label>
+            <div className="grid2" style={{ gap: 12, marginBottom: 14 }}>
+              <label className="admin-field">
+                <span className="admin-field-label">Vendor name</span>
+                <input name="name" className="admin-input" placeholder="GreenScape Landscaping"
+                  value={form.name} onChange={e => setField('name', e.target.value)} />
+              </label>
+              <label className="admin-field">
+                <span className="admin-field-label">Category</span>
+                <Dropdown<VendorCat>
+                  value={form.category}
+                  onChange={v => setField('category', v)}
+                  ariaLabel="Vendor category"
+                  options={CATS}
+                />
+              </label>
+            </div>
+            <div className="grid2" style={{ gap: 12, marginBottom: 14 }}>
+              <label className="admin-field">
+                <span className="admin-field-label">Phone (optional)</span>
+                <input name="phone" className="admin-input" placeholder="(305) 555-0142"
+                  value={form.phone} onChange={e => setField('phone', e.target.value)} />
+              </label>
+              <label className="admin-field">
+                <span className="admin-field-label">Email (optional)</span>
+                <input name="email" type="email" className="admin-input" placeholder="hello@greenscape.com"
+                  value={form.email} onChange={e => setField('email', e.target.value)} />
+              </label>
+            </div>
+            <div className="grid2" style={{ gap: 12, marginBottom: 14 }}>
+              <label className="admin-field">
+                <span className="admin-field-label">Badge (optional)</span>
+                <input name="badge" className="admin-input" placeholder="Preferred"
+                  value={form.badge} onChange={e => setField('badge', e.target.value)} />
+              </label>
+              <label className="admin-field">
+                <span className="admin-field-label">Monthly cost (optional)</span>
+                <div className="admin-input-wrap">
+                  <span className="admin-input-prefix">$</span>
+                  <input name="cost" className="admin-input" type="number" placeholder="500"
+                    value={form.cost} onChange={e => setField('cost', e.target.value)} />
+                </div>
+              </label>
+            </div>
+            <div className="grid2" style={{ gap: 12, marginBottom: 14 }}>
+              <div className="admin-field">
+                <span className="admin-field-label">Days they come (optional)</span>
+                <div className="vdaychips">
+                  {DAY_CHIPS.map(d => (
+                    <button key={d} type="button"
+                      className={`vchip${form.scheduleDays.includes(d) ? ' on' : ''}`}
+                      onClick={() => toggleDay(d)} aria-pressed={form.scheduleDays.includes(d)}>
+                      {d}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="admin-field">
+                <span className="admin-field-label">Time they come (optional)</span>
+                <Dropdown value={form.scheduleTime} onChange={v => setField('scheduleTime', v)}
+                  ariaLabel="Time they come" options={VENDOR_TIMES} />
+              </div>
+            </div>
             <label className="admin-field">
               <span className="admin-field-label">Blurb (optional)</span>
               <textarea name="blurb" className="admin-input admin-textarea" rows={2}
                 placeholder="Lawn, planters, irrigation. Weekly visits."
                 value={form.blurb} onChange={e => setField('blurb', e.target.value)} />
             </label>
-            <label className="admin-field" style={{ maxWidth: 200 }}>
-              <span className="admin-field-label">Badge (optional)</span>
-              <input name="badge" className="admin-input" placeholder="Preferred"
-                value={form.badge} onChange={e => setField('badge', e.target.value)} />
-            </label>
-            <div className="admin-form-actions">
+            <div className="card-cta" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
+              {error && <span className="admin-err-inline">{error}</span>}
               <button type="submit" className="admin-primary-btn" disabled={saving}>
                 {saving ? 'Adding…' : 'Add vendor'}
               </button>
-              <span className="admin-field-hint" style={{ alignSelf: 'center' }}>
-                Add the vendor, then feature it from the list below.
-              </span>
-              {error && <span className="admin-err-inline">{error}</span>}
             </div>
           </form>
 
-          <div className="bc-head" style={{ marginTop: 40, marginBottom: 14 }}>
-            <h2 className="bc-title">Vendor list</h2>
-            <span className="bc-sub">
-              {rows.length} {rows.length === 1 ? 'vendor' : 'vendors'} published.
-            </span>
-          </div>
-
-          <div className="admin-sched-filters" style={{ marginTop: 4, marginBottom: 12 }}>
-            <div className="admin-sched-filter">
-              <label>Category</label>
-              <Dropdown<'all' | VendorCat>
-                value={filterCategory}
-                onChange={v => { setFilterCategory(v); setPage(1) }}
-                ariaLabel="Filter vendors by category"
-                options={[
-                  { value: 'all', label: `All (${rows.length})` },
-                  ...CATS.map(c => ({
-                    value: c.value,
-                    label: `${c.label} (${rows.filter(r => r.category === c.value).length})`,
-                  })),
-                ]}
-              />
+          {/* ---- Vendor list ---- */}
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <h2>Vendor list</h2>
+                <div className="sub">{rows.length} {rows.length === 1 ? 'vendor' : 'vendors'} published</div>
+              </div>
+              <div style={{ minWidth: 200 }}>
+                <Dropdown<'all' | VendorCat>
+                  value={filterCategory}
+                  onChange={v => { setFilterCategory(v); setPage(1) }}
+                  ariaLabel="Filter vendors by category"
+                  options={[
+                    { value: 'all', label: `All (${rows.length})` },
+                    ...CATS.map(c => ({
+                      value: c.value,
+                      label: `${c.label} (${rows.filter(r => r.category === c.value).length})`,
+                    })),
+                  ]}
+                />
+              </div>
             </div>
+
+            {status === 'loading' && <div className="admin-note">Loading…</div>}
+            {status === 'ready' && rows.length === 0 && (
+              <div className="bc-empty">No vendors yet — add the first one above.</div>
+            )}
+            {status === 'ready' && rows.length > 0 && filtered.length === 0 && (
+              <div className="bc-empty">No vendors in this category.</div>
+            )}
+
+            {status === 'ready' && filtered.length > 0 && (
+              <div className="etrack vlist">
+                <table className="tbl">
+                  <thead>
+                    <tr>
+                      <th>Vendor</th><th>Category</th>
+                      <th className="contact-col">When they come</th><th>Cost</th>
+                      <th className="act"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {visible.map(v => (
+                      <tr className="tr" key={v.id}>
+                        <td>
+                          <div className="owner-cell">
+                            <span className="av" aria-hidden="true">{vInitials(v.name)}</span>
+                            <span style={{ minWidth: 0 }}>
+                              <span className="strong">{v.name}</span>
+                              {v.badge && <span className="vbadge">{v.badge}</span>}
+                              {(v.phone || v.email) && (
+                                <div className="muted" style={{ fontSize: 12, marginTop: 1 }}>
+                                  {[v.phone, v.email].filter(Boolean).join(' · ')}
+                                </div>
+                              )}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="muted">{CAT_LABEL[v.category] || v.category}</td>
+                        <td className="muted contact-col">{v.schedule || '—'}</td>
+                        <td>
+                          {v.cost != null
+                            ? <span className="strong">{fmtCost(v.cost)}<span className="bd-amount-per">/mo</span></span>
+                            : <span className="muted">—</span>}
+                        </td>
+                        <td className="act">
+                          <button type="button"
+                            className={`admin-btn-sm${v.featured ? ' admin-btn-on' : ''}`}
+                            onClick={() => toggleFeatured(v)}
+                            title={v.featured ? 'Unfeature' : 'Feature on the resident page'}>
+                            {v.featured ? '★ Featured' : '☆ Feature'}
+                          </button>
+                          <button type="button" className="vdel" onClick={() => remove(v)}
+                            aria-label="Remove vendor">&times;</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <Pagination
+              page={page}
+              pageSize={VENDOR_PAGE_SIZE}
+              total={filtered.length}
+              onPageChange={setPage}
+            />
           </div>
 
-          {status === 'loading' && <div className="admin-note">Loading…</div>}
-          {status === 'ready' && rows.length === 0 && (
-            <div className="bc-empty">No vendors yet — add the first one above.</div>
-          )}
-          {status === 'ready' && rows.length > 0 && filtered.length === 0 && (
-            <div className="bc-empty">No vendors in this category.</div>
-          )}
-
-          <div className="bd-list">
-            {visible.map(v => (
-              <div className="bd-row" key={v.id}>
-                <div className="bd-main">
-                  <div className="bd-title">{v.name}</div>
-                  <div className="bd-meta">
-                    {v.badge && <><span>{v.badge}</span><span className="bd-dot">·</span></>}
-                    <span>{CAT_LABEL[v.category] || v.category}</span>
-                    {v.phone && <><span className="bd-dot">·</span><span>{v.phone}</span></>}
-                    {v.email && <><span className="bd-dot">·</span><span>{v.email}</span></>}
-                    <span className="bd-dot">·</span>
-                    <span>Added {fmtPubDate(v.created_at) || '—'}</span>
+          {/* ---- Resident-facing guidelines ---- */}
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <h2>Vendor guidelines</h2>
+                <div className="sub">The “View Guidelines” link residents see on their Vendors page</div>
+              </div>
+            </div>
+            {guidelinesDoc ? (
+              <div className="vguide-row">
+                <div style={{ minWidth: 0 }}>
+                  <div className="vguide-title">{guidelinesDoc.title || 'Vendor Guidelines'}</div>
+                  <div className="vguide-meta">
+                    Published to residents{guidelinesDoc.uploaded_at ? ` · ${fmtPubDate(guidelinesDoc.uploaded_at)}` : ''}
                   </div>
                 </div>
-                <button
-                  type="button"
-                  className={`admin-btn-ghost${v.featured ? ' on' : ''}`}
-                  onClick={() => toggleFeatured(v)}
-                  title={v.featured ? 'Unfeature' : 'Feature on the resident page'}
-                >
-                  {v.featured ? '★ Featured' : '☆ Feature'}
-                </button>
-                <button type="button" className="bc-del" onClick={() => remove(v)}
-                  aria-label="Remove vendor">&times;</button>
+                <div className="vguide-actions">
+                  <button type="button" className="admin-btn-sm" onClick={viewGuidelines} disabled={guideBusy}>
+                    View
+                  </button>
+                  <button type="button" className="admin-btn-sm" onClick={() => guideFileRef.current?.click()} disabled={guideBusy}>
+                    {guideBusy ? 'Working…' : 'Replace'}
+                  </button>
+                  <button type="button" className="vdel" onClick={removeGuidelines}
+                    aria-label="Remove guidelines" disabled={guideBusy}>&times;</button>
+                </div>
               </div>
-            ))}
+            ) : (
+              <>
+                <p style={{ margin: '0 0 14px', fontSize: 13.5, lineHeight: 1.6, color: 'var(--text-dim)' }}>
+                  Upload the PDF residents open from “View Guidelines”. Until you add
+                  one, they see the default policy text.
+                </p>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="button" className="admin-primary-btn" onClick={() => guideFileRef.current?.click()} disabled={guideBusy}>
+                    {guideBusy ? 'Uploading…' : 'Upload guidelines'}
+                  </button>
+                </div>
+              </>
+            )}
+            <p className="field-hint" style={{ marginTop: 12 }}>
+              Saved to your document library under <strong>Vendor &amp; Contracts</strong> —
+              you can also manage it from <a href="/admin/documents#documents">Documents</a>.
+            </p>
+            <input ref={guideFileRef} type="file" accept=".pdf,.doc,.docx,application/pdf"
+              onChange={onPickGuide} style={{ display: 'none' }} />
           </div>
-          <Pagination
-            page={page}
-            pageSize={VENDOR_PAGE_SIZE}
-            total={filtered.length}
-            onPageChange={setPage}
-          />
-        </>
+        </div>
       )}
     </div>
   )

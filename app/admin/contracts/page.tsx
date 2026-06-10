@@ -11,7 +11,8 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
+import { AttorneyNote } from '../AttorneyNote'
+import { ComplianceBackLink } from '../ComplianceBackLink'
 import { logAudit } from '@/lib/audit'
 import {
   BID_THRESHOLD_PCT, BID_THRESHOLD_BASIS, CONDO_MGMT_REQUIRED_TERMS,
@@ -54,16 +55,18 @@ export default function ContractsPage() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const { data: c } = (await withTimeout(
-        supabase.from('communities').select('*').eq('id', communityId).single(),
-      )) as any
-      const { data: k, error: kErr } = (await withTimeout(
-        supabase.from('ev_contracts').select('*').eq('community_id', communityId).order('created_at', { ascending: false }),
-      )) as any
+      // Fire every read in ONE parallel batch instead of three serial round-trips —
+      // the queries are independent, so the page now waits for the slowest single
+      // query rather than the sum of all three.
+      const [cRes, kRes, bRes] = await Promise.all([
+        withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
+        withTimeout(supabase.from('ev_contracts').select('*').eq('community_id', communityId).order('created_at', { ascending: false })),
+        withTimeout(supabase.from('budget_categories').select('budget, fiscal_year, is_reserve').eq('community_id', communityId)),
+      ])
+      const { data: c } = cRes as any
+      const { data: k, error: kErr } = kRes as any
       if (kErr) throw kErr
-      const { data: b } = (await withTimeout(
-        supabase.from('budget_categories').select('budget, fiscal_year, is_reserve').eq('community_id', communityId),
-      )) as any
+      const { data: b } = bRes as any
       setCommunity(c || null)
       setContracts(k || [])
       setBudgets(b || [])
@@ -133,9 +136,10 @@ export default function ContractsPage() {
   }
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
+      <ComplianceBackLink />
       <div className="admin-kicker">Florida compliance</div>
-      <h1 className="admin-h1">Procurement &amp; contracts</h1>
+      <h1 className="admin-h1">Procurement <span className="amp">&</span> contracts</h1>
       <p className="admin-dek">
         Florida requires competitive bids for a contract exceeding {pct}% of {BID_THRESHOLD_BASIS.value}
         (FS {regime === 'hoa' ? '720.3055' : '718.3026'}), and every service contract or contract over a year
@@ -143,7 +147,7 @@ export default function ContractsPage() {
         of interest are tracked under <Link href="/admin/governance">Directors &amp; management</Link>.
       </p>
 
-      <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>{ATTORNEY_REVIEW_BANNER}</div>
+      <AttorneyNote />
 
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
 
@@ -157,22 +161,9 @@ export default function ContractsPage() {
 
       {status === 'ready' && (
         <>
-          {/* Documents */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '16px 0' }}>
-            {[
-              { type: 'summary', label: 'Procurement summary' },
-              { type: 'bid_log', label: 'Competitive-bid solicitation log' },
-              ...(regime === 'condo' ? [{ type: 'mgmt_checklist', label: 'Management-agreement required-terms checklist' }] : []),
-            ].map(d => (
-              <Link key={d.type} href={`/admin/contracts/document?type=${d.type}`} className="admin-btn-ghost" style={{ textDecoration: 'none' }}>
-                📄 {d.label}
-              </Link>
-            ))}
-          </div>
-
           {/* Threshold banner */}
-          <section style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: '4px solid #0D9488', borderRadius: 12, padding: '14px 16px', background: '#fff', marginTop: 8 }}>
-            <h2 className="bc-title" style={{ marginBottom: 4 }}>Competitive-bid threshold</h2>
+          <div className="card">
+            <div className="card-head"><div><h2>Competitive-bid threshold</h2></div></div>
             {budgetInfo.basis === 'none' ? (
               <p style={{ fontSize: 13, opacity: 0.8, margin: 0 }}>
                 No budget is recorded yet, so the {pct}% threshold can&apos;t be computed. Add this year&apos;s budget
@@ -185,11 +176,12 @@ export default function ContractsPage() {
                 A contract exceeding this requires competitive bids unless a statutory exception applies.
               </p>
             )}
-          </section>
+          </div>
 
           {/* Contract intake */}
-          <form className="admin-form" onSubmit={createContract} style={{ marginTop: 24 }}>
-            <h2 className="bc-title" style={{ marginBottom: 8 }}>Record a contract</h2>
+          <div className="card">
+          <div className="card-head"><div><h2>Record a contract</h2></div></div>
+          <form className="admin-form" onSubmit={createContract}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
               <label className="admin-field"><span className="admin-field-label">Vendor</span>
                 <input className="admin-input" value={form.vendor ?? ''} onChange={e => setF('vendor', e.target.value)} /></label>
@@ -225,26 +217,59 @@ export default function ContractsPage() {
                 </label>
               )}
             </div>
-            <div className="admin-form-actions">
-              <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Saving…' : 'Record contract'}</button>
+            <div className="card-cta">
               {error && <span className="admin-err-inline">{error}</span>}
+              <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Saving…' : 'Record contract'}</button>
             </div>
           </form>
+          </div>
 
           {/* Contracts list */}
-          <h2 className="bc-title" style={{ margin: '22px 0 10px' }}>Contracts ({contracts.length})</h2>
-          {contracts.length === 0 && <div className="admin-note">No contracts recorded yet. Add your material vendor and management contracts above.</div>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {contracts.map(c => (
-              <ContractCard
-                key={c.id}
-                c={c}
-                regime={regime}
-                threshold={threshold}
-                onUpdate={updateContract}
-                onDelete={deleteContract}
-              />
-            ))}
+          <div className="card">
+            <div className="card-head"><div><h2>Contracts <span style={{ opacity: 0.55, fontWeight: 400 }}>({contracts.length})</span></h2></div></div>
+            {contracts.length === 0 && <div className="admin-note">No contracts recorded yet. Add your material vendor and management contracts above.</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {contracts.map(c => (
+                <ContractCard
+                  key={c.id}
+                  c={c}
+                  regime={regime}
+                  threshold={threshold}
+                  onUpdate={updateContract}
+                  onDelete={deleteContract}
+                />
+              ))}
+            </div>
+          </div>
+
+          {/* Documents */}
+          <div className="card">
+            <div className="card-head"><div><h2>Documents</h2><div className="sub">Generate or view each procurement artifact</div></div></div>
+            <div className="wslist">
+              {[
+                { type: 'summary', label: 'Procurement summary', live: true },
+                { type: 'bid_log', label: 'Competitive-bid solicitation log', live: true },
+                ...(regime === 'condo' ? [{ type: 'mgmt_checklist', label: 'Management-agreement required-terms checklist', live: false }] : []),
+              ].map(d => {
+                const col = d.live ? '#0E7490' : '#7A5AF8'
+                return (
+                  <Link key={d.type} href={`/admin/contracts/document?type=${d.type}`} className="wsrow">
+                    <span className="wsrow-glyph" style={{ color: col, background: col + '18' }}>
+                      {d.live ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><rect x="7" y="11" width="3" height="6" /><rect x="12" y="7" width="3" height="10" /><rect x="17" y="13" width="3" height="4" /></svg>
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="16" y2="17" /></svg>
+                      )}
+                    </span>
+                    <div className="wsrow-main">
+                      <div className="wsrow-title">{d.label}</div>
+                      <div className="wsrow-desc">{d.live ? 'Live document' : 'Draft template'}</div>
+                    </div>
+                    <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
+                  </Link>
+                )
+              })}
+            </div>
           </div>
         </>
       )}

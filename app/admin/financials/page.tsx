@@ -8,8 +8,11 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { ymd, ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
+import { ymd } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
+import { AttorneyNote } from '../AttorneyNote'
+import { SignalRow } from '../SignalRow'
+import { ComplianceBackLink } from '../ComplianceBackLink'
 import {
   requiredAuditTier, estimateAnnualRevenue, AUDIT_TIER_LABEL, financialSignals,
   type BudgetCategoryRow, type ReserveComponentRow, type FinancialFilingRow, type FilingType,
@@ -43,6 +46,8 @@ export default function FinancialsPage() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError] = useState('')
   const [msg, setMsg] = useState('')
+  const [connectBusy, setConnectBusy] = useState(false)
+  const [connectErr, setConnectErr] = useState('')
 
   useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(''), 4000); return () => clearTimeout(t) }, [msg])
 
@@ -50,10 +55,20 @@ export default function FinancialsPage() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const { data: c } = (await withTimeout(supabase.from('communities').select('*').eq('id', communityId).single())) as any
-      const { data: b } = (await withTimeout(supabase.from('budget_categories').select('*').eq('community_id', communityId).order('sort_order'))) as any
-      const { data: r } = (await withTimeout(supabase.from('ev_reserve_components').select('*').eq('community_id', communityId).order('created_at'))) as any
-      const { data: f } = (await withTimeout(supabase.from('ev_financial_filings').select('*').eq('community_id', communityId).order('fiscal_year', { ascending: false }))) as any
+      // Fire every read in ONE parallel batch instead of awaiting four round-trips
+      // in series — the page used to wait for the SUM of all four; now it waits for
+      // the slowest single query. (budget_categories still feeds the audit-tier
+      // revenue estimate; the bank feed itself lives on the Budget page now.)
+      const [cRes, bRes, rRes, fRes] = await Promise.all([
+        withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
+        withTimeout(supabase.from('budget_categories').select('*').eq('community_id', communityId).order('sort_order')),
+        withTimeout(supabase.from('ev_reserve_components').select('*').eq('community_id', communityId).order('created_at')),
+        withTimeout(supabase.from('ev_financial_filings').select('*').eq('community_id', communityId).order('fiscal_year', { ascending: false })),
+      ])
+      const { data: c } = cRes as any
+      const { data: b } = bRes as any
+      const { data: r } = rRes as any
+      const { data: f } = fRes as any
       // Live current-FY GL revenue for the audit tier (null until a ledger exists).
       const live = await fetchGlCurrentFyRevenue(supabase, communityId, Number(c?.fiscal_year_start_month) || 1)
       setCommunity(c || null); setBudgets(b || []); setReserves(r || []); setFilings(f || []); setGlRevenue(live)
@@ -74,7 +89,6 @@ export default function FinancialsPage() {
   useEffect(() => {
     if (!community) return
     setCForm({
-      annual_revenue: community.annual_revenue ?? '',
       fiscal_year_start_month: community.fiscal_year_start_month ?? 1,
       reserves_established: !!community.reserves_established,
       reserve_study_last_completed: community.reserve_study_last_completed ?? '',
@@ -86,7 +100,6 @@ export default function FinancialsPage() {
     setCSaving(true); setError('')
     try {
       const patch = {
-        annual_revenue: cForm.annual_revenue === '' ? null : Number(cForm.annual_revenue),
         fiscal_year_start_month: Number(cForm.fiscal_year_start_month) || 1,
         reserves_established: !!cForm.reserves_established,
         reserve_study_last_completed: (cForm.reserve_study_last_completed || '').trim() || null,
@@ -97,6 +110,21 @@ export default function FinancialsPage() {
       setMsg('Financial settings saved.'); load()
     } catch (err: any) { setError(err?.message || 'Could not save settings') }
     finally { setCSaving(false) }
+  }
+
+  // ---- Stripe Connect ("link, don't hold") ----
+  // Links the association's OWN Stripe account so dues/fines are charged onto it;
+  // funds never touch Residente. connect-onboard returns a hosted onboarding URL.
+  const connectStripe = async () => {
+    setConnectBusy(true); setConnectErr('')
+    try {
+      const { data, error } = await supabase.functions.invoke('connect-onboard', { body: {} })
+      if (error) throw error
+      if (data?.url) { window.location.href = data.url; return }
+      throw new Error(data?.error || 'Could not start Stripe onboarding')
+    } catch (err: any) {
+      setConnectErr(err?.message || 'Could not start Stripe onboarding'); setConnectBusy(false)
+    }
   }
 
   // ---- reserve component intake ----
@@ -158,7 +186,8 @@ export default function FinancialsPage() {
   }
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
+      <ComplianceBackLink />
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Financial reporting <span className="amp">&</span> reserves</h1>
       <p className="admin-dek">
@@ -166,7 +195,7 @@ export default function FinancialsPage() {
         clocks, and reserve funding (FS 718.111(13) / 720.303(6)-(7)). Advisory — you decide each step.
       </p>
 
-      <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>{ATTORNEY_REVIEW_BANNER}</div>
+      <AttorneyNote />
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
       {status === 'none' && <div className="admin-note admin-note-warn">No community is linked to your account yet. Run the setup SQL, then reload.</div>}
       {status === 'error' && <div className="admin-note admin-note-err">{error}<button type="button" className="admin-btn-ghost" onClick={load}>Retry</button></div>}
@@ -174,78 +203,100 @@ export default function FinancialsPage() {
 
       {status === 'ready' && (
         <>
-          {/* Required tier banner */}
-          <div className="admin-note admin-note-info" style={{ marginTop: 8 }}>
+          {/* 1 — Required financial statements: what the law requires at this revenue */}
+          <div className="admin-note admin-note-info" style={{ marginBottom: 18 }}>
             <strong>Required financial statements:</strong> at ~{fmt$(revenue)} annual revenue
             {regime === 'hoa' ? ` (HOA, ${Number(community?.parcel_count) || 0} parcels)` : ' (condo)'}, the law requires <strong>{AUDIT_TIER_LABEL[required]}</strong>.
             <span style={{ opacity: 0.7 }}> Revenue is your entered figure, else live current-year general-ledger revenue, else the sum of non-reserve budget lines.</span>
           </div>
 
-          {/* Document artifacts — live statements first, then draft aids */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '14px 0' }}>
-            {[
-              { type: 'statement', label: 'Statement of cash receipts & expenditures', live: true },
-              { type: 'budget_actual', label: 'Budget vs actual', live: true },
-              { type: 'rev_exp', label: 'Statement of revenue & expenses (GL)', live: true },
-              { type: 'balance_sheet', label: 'Balance sheet (GL)', live: true },
-              { type: 'afr', label: 'Annual financial report + affidavit', live: false },
-              { type: 'budget', label: 'Proposed-budget package', live: false },
-              { type: 'reserve_worksheet', label: 'Reserve-funding worksheet', live: false },
-            ].map(d => (
-              <Link key={d.type} href={`/admin/financials/document?type=${d.type}`} className="admin-btn-ghost" style={{ textDecoration: 'none' }}>{d.live ? '📊' : '📄'} {d.label}</Link>
-            ))}
-          </div>
-
-          {/* Open signals for this domain */}
+          {/* 2 — Open signals: statutory deadlines that need attention */}
           {signals.length > 0 && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 18 }}>
-              {signals.map(s => (
-                <div key={s.id} style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${s.severity === 'overdue' ? '#B42318' : s.severity === 'soon' ? '#B54708' : '#175CD3'}`, borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
-                  <div style={{ fontWeight: 700, fontSize: 13.5 }}>{s.title}</div>
-                  <div style={{ fontSize: 12.5, opacity: 0.75 }}>{s.detail}</div>
-                </div>
-              ))}
+              {signals.map(s => <SignalRow key={s.id} signal={s} />)}
             </div>
           )}
 
-          {/* Financial settings */}
-          <h2 className="bc-title" style={{ margin: '8px 0 8px' }}>Financial settings</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 10 }}>
-            <label className="admin-field"><span className="admin-field-label">Annual revenue ($)</span>
-              <input className="admin-input" type="number" min="0" step="1000" value={cForm.annual_revenue ?? ''} placeholder="auto from budget" onChange={e => setCForm((f: any) => ({ ...f, annual_revenue: e.target.value }))} /></label>
-            <label className="admin-field"><span className="admin-field-label">Fiscal year start month (1–12)</span>
-              <input className="admin-input" type="number" min="1" max="12" step="1" value={cForm.fiscal_year_start_month ?? 1} onChange={e => setCForm((f: any) => ({ ...f, fiscal_year_start_month: e.target.value }))} /></label>
-            <label className="admin-field"><span className="admin-field-label">Last reserve study</span>
-              <input className="admin-input" type="date" value={cForm.reserve_study_last_completed ?? ''} onChange={e => setCForm((f: any) => ({ ...f, reserve_study_last_completed: e.target.value }))} /></label>
-            <label className="admin-field"><span className="admin-field-label">Reserve study type</span>
-              <select className="admin-input" value={cForm.reserve_study_type ?? ''} onChange={e => setCForm((f: any) => ({ ...f, reserve_study_type: e.target.value }))}>
-                <option value="">—</option><option value="sirs">SIRS</option><option value="general">General</option>
-              </select></label>
-          </div>
-          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '4px 0 10px' }}>
-            <input type="checkbox" checked={!!cForm.reserves_established} onChange={e => setCForm((f: any) => ({ ...f, reserves_established: e.target.checked }))} />
-            Reserves established
-          </label>
-          <button className="admin-primary-btn" disabled={cSaving} onClick={saveCommunity}>{cSaving ? 'Saving…' : 'Save settings'}</button>
-
-          {/* Reserve components */}
-          <h2 className="bc-title" style={{ margin: '24px 0 8px' }}>Reserve components ({reserves.length})</h2>
-          <form className="admin-form" onSubmit={addReserve}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-              <label className="admin-field"><span className="admin-field-label">Component</span>
-                <input className="admin-input" value={rForm.name ?? ''} placeholder="Roof" onChange={e => setRF('name', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">Current balance ($)</span>
-                <input className="admin-input" type="number" min="0" step="100" value={rForm.current_balance ?? ''} onChange={e => setRF('current_balance', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">Fully-funded ($)</span>
-                <input className="admin-input" type="number" min="0" step="100" value={rForm.fully_funded_balance ?? ''} onChange={e => setRF('fully_funded_balance', e.target.value)} /></label>
+          {/* 3 — Financial settings */}
+          <div className="card">
+            <div className="card-head"><div><h2>Financial settings</h2></div></div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 10 }}>
+              <label className="admin-field"><span className="admin-field-label">Fiscal year start month (1–12)</span>
+                <input className="admin-input" type="number" min="1" max="12" step="1" value={cForm.fiscal_year_start_month ?? 1} onChange={e => setCForm((f: any) => ({ ...f, fiscal_year_start_month: e.target.value }))} /></label>
+              <label className="admin-field"><span className="admin-field-label">Last reserve study</span>
+                <input className="admin-input" type="date" value={cForm.reserve_study_last_completed ?? ''} onChange={e => setCForm((f: any) => ({ ...f, reserve_study_last_completed: e.target.value }))} /></label>
+              <label className="admin-field"><span className="admin-field-label">Reserve study type</span>
+                <select className="admin-input" value={cForm.reserve_study_type ?? ''} onChange={e => setCForm((f: any) => ({ ...f, reserve_study_type: e.target.value }))}>
+                  <option value="">—</option><option value="sirs">SIRS</option><option value="general">General</option>
+                </select></label>
             </div>
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '8px 0' }}>
-              <input type="checkbox" checked={!!rForm.is_sirs} onChange={e => setRF('is_sirs', e.target.checked)} />
-              SIRS structural component (reserves may not be waived for budgets adopted on/after 2024-12-31)
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '4px 0 10px' }}>
+              <input type="checkbox" checked={!!cForm.reserves_established} onChange={e => setCForm((f: any) => ({ ...f, reserves_established: e.target.checked }))} />
+              Reserves established
             </label>
-            <button type="submit" className="admin-primary-btn">Add component</button>
-          </form>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+            <div className="card-cta">
+              <button className="admin-primary-btn" disabled={cSaving} onClick={saveCommunity}>{cSaving ? 'Saving…' : 'Save settings'}</button>
+            </div>
+          </div>
+
+          {/* 4 — Collect payments: Stripe Connect ("link, don't hold") */}
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <h2>Collect payments</h2>
+                <div className="sub" style={{ maxWidth: 540 }}>Link your association&rsquo;s own Stripe account. Dues and fines are paid directly into it — Residente never holds or moves your money.</div>
+              </div>
+              {community?.stripe_connect_status === 'active' ? (
+                <span className="admin-success" style={{ margin: 0 }}><span className="admin-success-check" aria-hidden>✓</span>Connected</span>
+              ) : (
+                <button className="admin-primary-btn" disabled={connectBusy} onClick={connectStripe}>
+                  {connectBusy ? 'Opening Stripe…' : community?.stripe_connect_status === 'pending' ? 'Finish Stripe setup' : 'Connect Stripe account'}
+                </button>
+              )}
+            </div>
+            {community?.stripe_connect_status === 'pending' && (
+              <div className="admin-note admin-note-warn" style={{ marginTop: 10, fontSize: 12.5 }}>
+                Stripe onboarding started but isn&rsquo;t finished — click &ldquo;Finish Stripe setup&rdquo; to complete it.
+              </div>
+            )}
+            {connectErr && <div className="admin-note admin-note-err" style={{ marginTop: 10 }}>{connectErr}</div>}
+          </div>
+
+          {/* 5 — Budget & spending: lives on the dedicated Budget page now. */}
+          <div className="card">
+            <div className="wslist">
+              <Link href="/admin/budget" className="wsrow">
+                <span className="wsrow-glyph" style={{ color: '#0E7490', background: '#0E749018' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><rect x="7" y="11" width="3" height="6" /><rect x="12" y="7" width="3" height="10" /><rect x="17" y="13" width="3" height="4" /></svg>
+                </span>
+                <div className="wsrow-main">
+                  <div className="wsrow-title">Budget <span className="amp">&</span> spending</div>
+                  <div className="wsrow-desc">Operating budget, categories, bank tracking (budget-vs-actual) &amp; expenses live on the Budget page.</div>
+                </div>
+                <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
+              </Link>
+            </div>
+          </div>
+
+          {/* 6 — Reserve components */}
+          <div className="card">
+            <div className="card-head"><div><h2>Reserve components <span style={{ opacity: 0.55, fontWeight: 400 }}>({reserves.length})</span></h2></div></div>
+            <form className="admin-form" onSubmit={addReserve}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
+                <label className="admin-field"><span className="admin-field-label">Component</span>
+                  <input className="admin-input" value={rForm.name ?? ''} placeholder="Roof" onChange={e => setRF('name', e.target.value)} /></label>
+                <label className="admin-field"><span className="admin-field-label">Current balance ($)</span>
+                  <input className="admin-input" type="number" min="0" step="100" value={rForm.current_balance ?? ''} onChange={e => setRF('current_balance', e.target.value)} /></label>
+                <label className="admin-field"><span className="admin-field-label">Fully-funded ($)</span>
+                  <input className="admin-input" type="number" min="0" step="100" value={rForm.fully_funded_balance ?? ''} onChange={e => setRF('fully_funded_balance', e.target.value)} /></label>
+              </div>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '8px 0' }}>
+                <input type="checkbox" checked={!!rForm.is_sirs} onChange={e => setRF('is_sirs', e.target.checked)} />
+                SIRS structural component (reserves may not be waived for budgets adopted on/after 2024-12-31)
+              </label>
+              <div className="card-cta"><button type="submit" className="admin-primary-btn">Add component</button></div>
+            </form>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
             {reserves.map(r => {
               const ff = Number(r.fully_funded_balance) || 0
               const pct = ff > 0 ? Math.round((Number(r.current_balance) || 0) / ff * 100) : null
@@ -262,32 +313,34 @@ export default function FinancialsPage() {
                 </div>
               )
             })}
+            </div>
           </div>
 
           {/* Filings */}
-          <h2 className="bc-title" style={{ margin: '24px 0 8px' }}>Compliance filings</h2>
-          <form className="admin-form" onSubmit={addFiling}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
-              <label className="admin-field"><span className="admin-field-label">Type</span>
-                <select className="admin-input" value={fForm.filing_type} onChange={e => setFF('filing_type', e.target.value)}>
-                  {FILING_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select></label>
-              <label className="admin-field"><span className="admin-field-label">Fiscal year</span>
-                <input className="admin-input" type="number" step="1" value={fForm.fiscal_year ?? ''} onChange={e => setFF('fiscal_year', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">Status</span>
-                <select className="admin-input" value={fForm.status} onChange={e => setFF('status', e.target.value)}>
-                  {STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
-                </select></label>
-              <label className="admin-field"><span className="admin-field-label">Statement level</span>
-                <select className="admin-input" value={fForm.audit_tier ?? ''} onChange={e => setFF('audit_tier', e.target.value)}>
-                  <option value="">—</option><option value="cash">cash</option><option value="compiled">compiled</option><option value="reviewed">reviewed</option><option value="audited">audited</option>
-                </select></label>
-              <label className="admin-field"><span className="admin-field-label">Completed</span>
-                <input className="admin-input" type="date" value={fForm.completed_at ?? ''} onChange={e => setFF('completed_at', e.target.value)} /></label>
-            </div>
-            <button type="submit" className="admin-primary-btn" style={{ marginTop: 8 }}>Record filing</button>
-          </form>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
+          <div className="card">
+            <div className="card-head"><div><h2>Compliance filings</h2></div></div>
+            <form className="admin-form" onSubmit={addFiling}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
+                <label className="admin-field"><span className="admin-field-label">Type</span>
+                  <select className="admin-input" value={fForm.filing_type} onChange={e => setFF('filing_type', e.target.value)}>
+                    {FILING_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select></label>
+                <label className="admin-field"><span className="admin-field-label">Fiscal year</span>
+                  <input className="admin-input" type="number" step="1" value={fForm.fiscal_year ?? ''} onChange={e => setFF('fiscal_year', e.target.value)} /></label>
+                <label className="admin-field"><span className="admin-field-label">Status</span>
+                  <select className="admin-input" value={fForm.status} onChange={e => setFF('status', e.target.value)}>
+                    {STATUSES.map(s => <option key={s} value={s}>{s.replace('_', ' ')}</option>)}
+                  </select></label>
+                <label className="admin-field"><span className="admin-field-label">Statement level</span>
+                  <select className="admin-input" value={fForm.audit_tier ?? ''} onChange={e => setFF('audit_tier', e.target.value)}>
+                    <option value="">—</option><option value="cash">cash</option><option value="compiled">compiled</option><option value="reviewed">reviewed</option><option value="audited">audited</option>
+                  </select></label>
+                <label className="admin-field"><span className="admin-field-label">Completed</span>
+                  <input className="admin-input" type="date" value={fForm.completed_at ?? ''} onChange={e => setFF('completed_at', e.target.value)} /></label>
+              </div>
+              <div className="card-cta"><button type="submit" className="admin-primary-btn">Record filing</button></div>
+            </form>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
             {filings.length === 0 && <div className="admin-note">No filings recorded yet.</div>}
             {filings.map(f => (
               <div key={f.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
@@ -300,6 +353,41 @@ export default function FinancialsPage() {
                 </select>
               </div>
             ))}
+            </div>
+          </div>
+
+          {/* 8 — Documents: generate or view each statutory artifact (one wsrow each) */}
+          <div className="card">
+            <div className="card-head"><div><h2>Documents</h2><div className="sub">Generate or view each statutory artifact</div></div></div>
+            <div className="wslist">
+              {[
+                { type: 'statement', label: 'Statement of cash receipts & expenditures', live: true },
+                { type: 'budget_actual', label: 'Budget vs actual', live: true },
+                { type: 'rev_exp', label: 'Statement of revenue & expenses (GL)', live: true },
+                { type: 'balance_sheet', label: 'Balance sheet (GL)', live: true },
+                { type: 'afr', label: 'Annual financial report + affidavit', live: false },
+                { type: 'budget', label: 'Proposed-budget package', live: false },
+                { type: 'reserve_worksheet', label: 'Reserve-funding worksheet', live: false },
+              ].map(d => {
+                const col = d.live ? '#0E7490' : '#7A5AF8'
+                return (
+                  <Link key={d.type} href={`/admin/financials/document?type=${d.type}`} className="wsrow">
+                    <span className="wsrow-glyph" style={{ color: col, background: col + '18' }}>
+                      {d.live ? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><rect x="7" y="11" width="3" height="6" /><rect x="12" y="7" width="3" height="10" /><rect x="17" y="13" width="3" height="4" /></svg>
+                      ) : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="16" y2="17" /></svg>
+                      )}
+                    </span>
+                    <div className="wsrow-main">
+                      <div className="wsrow-title">{d.label}</div>
+                      <div className="wsrow-desc">{d.live ? 'Live statement' : 'Draft template'}</div>
+                    </div>
+                    <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
+                  </Link>
+                )
+              })}
+            </div>
           </div>
         </>
       )}

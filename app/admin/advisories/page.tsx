@@ -11,8 +11,10 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { ymd, ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
+import { ymd } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
+import { AttorneyNote } from '../AttorneyNote'
+import { ComplianceBackLink } from '../ComplianceBackLink'
 import {
   TURNOVER_CALL_DAYS, TURNOVER_DOC_DELIVERY_DAYS, RECEIVERSHIP_CURE_DAYS,
   INVOICE_DELIVERY_NOTICE_DAYS, TIERED_REPORT_MEETING_DAYS, TIERED_REPORT_PETITION_PCT,
@@ -48,17 +50,19 @@ export default function AdvisoriesPage() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const { data: c } = (await withTimeout(
-        supabase.from('communities').select('*').eq('id', communityId).single(),
-      )) as any
-      const { data: e, error: eErr } = (await withTimeout(
-        supabase.from('ev_compliance_events').select('*').eq('community_id', communityId).order('event_date', { ascending: false }),
-      )) as any
-      if (eErr) throw eErr
+      // Fire all three reads in ONE parallel batch instead of three serial
+      // round-trips — they only depend on communityId, never on each other, so
+      // the page now waits for the slowest single query, not their sum.
       // ev_proxies powers the proxy-expiry advisory (read-only).
-      const { data: p } = (await withTimeout(
-        supabase.from('ev_proxies').select('id, status, type, submitted_at').eq('community_id', communityId),
-      )) as any
+      const [cRes, eRes, pRes] = await Promise.all([
+        withTimeout(supabase.from('communities').select('*').eq('id', communityId).single()),
+        withTimeout(supabase.from('ev_compliance_events').select('*').eq('community_id', communityId).order('event_date', { ascending: false })),
+        withTimeout(supabase.from('ev_proxies').select('id, status, type, submitted_at').eq('community_id', communityId)),
+      ])
+      const { data: c } = cRes as any
+      const { data: e, error: eErr } = eRes as any
+      const { data: p } = pRes as any
+      if (eErr) throw eErr
       setCommunity(c || null)
       setEvents(e || [])
       setProxies(p || [])
@@ -123,16 +127,17 @@ export default function AdvisoriesPage() {
   }
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
+      <ComplianceBackLink />
       <div className="admin-kicker">Florida compliance</div>
-      <h1 className="admin-h1">Advisories &amp; event clocks</h1>
+      <h1 className="admin-h1">Advisories <span className="amp">&</span> event clocks</h1>
       <p className="admin-dek">
         The long tail of Florida duties: developer turnover, board-vacancy receivership, invoice delivery-method
         changes, the HOA tiered-report petition, and proxy expiry. Log the date an event happens and we track the
         statutory clock; the standing rights below are reference only.
       </p>
 
-      <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>{ATTORNEY_REVIEW_BANNER}</div>
+      <AttorneyNote />
 
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
 
@@ -146,44 +151,34 @@ export default function AdvisoriesPage() {
 
       {status === 'ready' && (
         <>
-          {/* Documents */}
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', margin: '16px 0' }}>
-            {[
-              { type: 'turnover_checklist', label: regime === 'hoa' ? 'Developer-turnover document checklist' : 'Turnover transition summary' },
-              { type: 'receivership_notice', label: 'Receivership notice of intent (draft)' },
-              { type: 'mediation_demand', label: 'Presuit mediation demand (draft)' },
-            ].map(d => (
-              <Link key={d.type} href={`/admin/advisories/document?type=${d.type}`} className="admin-btn-ghost" style={{ textDecoration: 'none' }}>
-                📄 {d.label}
-              </Link>
-            ))}
+          {/* Event intake */}
+          <div className="card">
+            <div className="card-head"><div><h2>Record an event</h2></div></div>
+            <form className="admin-form" onSubmit={createEvent}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+                <label className="admin-field"><span className="admin-field-label">Event type</span>
+                  <select className="admin-input" value={form.kind ?? ''} onChange={e => setF('kind', e.target.value)}>
+                    <option value="">— choose —</option>
+                    {kindOptions.map(k => <option key={k} value={k}>{KIND_META[k].label}</option>)}
+                  </select></label>
+                <label className="admin-field"><span className="admin-field-label">Event date</span>
+                  <input className="admin-input" type="date" value={form.event_date ?? ''} onChange={e => setF('event_date', e.target.value)} /></label>
+                <label className="admin-field"><span className="admin-field-label">Notes</span>
+                  <input className="admin-input" value={form.notes ?? ''} onChange={e => setF('notes', e.target.value)} /></label>
+              </div>
+              {form.kind && <div style={{ fontSize: 12.5, opacity: 0.7, marginTop: 6 }}>{KIND_META[form.kind as ComplianceEventKind]?.help}</div>}
+              <div className="card-cta">
+                {error && <span className="admin-err-inline">{error}</span>}
+                <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Saving…' : 'Record event'}</button>
+              </div>
+            </form>
           </div>
 
-          {/* Event intake */}
-          <form className="admin-form" onSubmit={createEvent} style={{ marginTop: 8 }}>
-            <h2 className="bc-title" style={{ marginBottom: 8 }}>Record an event</h2>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-              <label className="admin-field"><span className="admin-field-label">Event type</span>
-                <select className="admin-input" value={form.kind ?? ''} onChange={e => setF('kind', e.target.value)}>
-                  <option value="">— choose —</option>
-                  {kindOptions.map(k => <option key={k} value={k}>{KIND_META[k].label}</option>)}
-                </select></label>
-              <label className="admin-field"><span className="admin-field-label">Event date</span>
-                <input className="admin-input" type="date" value={form.event_date ?? ''} onChange={e => setF('event_date', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">Notes</span>
-                <input className="admin-input" value={form.notes ?? ''} onChange={e => setF('notes', e.target.value)} /></label>
-            </div>
-            {form.kind && <div style={{ fontSize: 12.5, opacity: 0.7, marginTop: 6 }}>{KIND_META[form.kind as ComplianceEventKind]?.help}</div>}
-            <div className="admin-form-actions">
-              <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Saving…' : 'Record event'}</button>
-              {error && <span className="admin-err-inline">{error}</span>}
-            </div>
-          </form>
-
           {/* Event list */}
-          <h2 className="bc-title" style={{ margin: '22px 0 10px' }}>Tracked events ({events.length})</h2>
-          {events.length === 0 && <div className="admin-note">No events recorded. Log a turnover, receivership notice, delivery-method change, or petition above to start a clock.</div>}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div className="card">
+            <div className="card-head"><div><h2>Tracked events <span style={{ opacity: 0.55, fontWeight: 400 }}>({events.length})</span></h2></div></div>
+            {events.length === 0 && <div className="admin-note">No events recorded. Log a turnover, receivership notice, delivery-method change, or petition above to start a clock.</div>}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {events.map(ev => {
               const meta = KIND_META[String(ev.kind) as ComplianceEventKind]
               const resolved = !!ev.resolved_at
@@ -204,19 +199,23 @@ export default function AdvisoriesPage() {
                 </div>
               )
             })}
+            </div>
           </div>
 
           {/* Proxy expiry */}
-          <h2 className="bc-title" style={{ margin: '26px 0 8px' }}>Proxy expiry</h2>
-          <div className="admin-note" style={{ fontSize: 13 }}>
-            {stale.length === 0
-              ? `No open proxies older than ${PROXY_EXPIRY_DAYS.value} days.`
-              : `${stale.length} open prox${stale.length === 1 ? 'y appears' : 'ies appear'} to have expired — a proxy is generally valid only for its meeting and (HOA) expires ${PROXY_EXPIRY_DAYS.value} days after it (FS 720.306(8) / 718.112(2)(b)). Clear or archive them in Easy Voice.`}
+          <div className="card">
+            <div className="card-head"><div><h2>Proxy expiry</h2></div></div>
+            <div className="admin-note" style={{ fontSize: 13 }}>
+              {stale.length === 0
+                ? `No open proxies older than ${PROXY_EXPIRY_DAYS.value} days.`
+                : `${stale.length} open prox${stale.length === 1 ? 'y appears' : 'ies appear'} to have expired — a proxy is generally valid only for its meeting and (HOA) expires ${PROXY_EXPIRY_DAYS.value} days after it (FS 720.306(8) / 718.112(2)(b)). Clear or archive them in Easy Voice.`}
+            </div>
           </div>
 
           {/* Standing-right reference */}
-          <h2 className="bc-title" style={{ margin: '26px 0 8px' }}>Standing rights &amp; processes (reference)</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
+          <div className="card">
+            <div className="card-head"><div><h2>Standing rights <span className="amp">&</span> processes <span style={{ opacity: 0.55, fontWeight: 400 }}>(reference)</span></h2></div></div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
             <RefCard title="Board-vacancy receivership" cite="FS 718.1124 / 720.3053">
               If the board cannot fill vacancies to make a quorum, an owner/member may serve a notice of intent and,
               after a {RECEIVERSHIP_CURE_DAYS.value}-day cure window, petition a circuit court to appoint a receiver.
@@ -236,6 +235,33 @@ export default function AdvisoriesPage() {
             <RefCard title="Presuit mediation / arbitration" cite={PRESUIT_ADR_NOTE.citation}>
               {PRESUIT_ADR_NOTE.value} This is a process reminder, not a deadline.
             </RefCard>
+            </div>
+          </div>
+
+          {/* Documents */}
+          <div className="card">
+            <div className="card-head"><div><h2>Documents</h2><div className="sub">Generate or view each advisory artifact</div></div></div>
+            <div className="wslist">
+              {[
+                { type: 'turnover_checklist', label: regime === 'hoa' ? 'Developer-turnover document checklist' : 'Turnover transition summary', live: false },
+                { type: 'receivership_notice', label: 'Receivership notice of intent', live: false },
+                { type: 'mediation_demand', label: 'Presuit mediation demand', live: false },
+              ].map(d => {
+                const col = d.live ? '#0E7490' : '#7A5AF8'
+                return (
+                  <Link key={d.type} href={`/admin/advisories/document?type=${d.type}`} className="wsrow">
+                    <span className="wsrow-glyph" style={{ color: col, background: col + '18' }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="16" y2="17" /></svg>
+                    </span>
+                    <div className="wsrow-main">
+                      <div className="wsrow-title">{d.label}</div>
+                      <div className="wsrow-desc">Draft template</div>
+                    </div>
+                    <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
+                  </Link>
+                )
+              })}
+            </div>
           </div>
         </>
       )}

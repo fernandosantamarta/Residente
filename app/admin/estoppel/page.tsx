@@ -8,7 +8,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { ymd, calendarDaysUntil, businessDaysBetween, toDate, ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
+import { ymd, calendarDaysUntil, businessDaysBetween, toDate } from '@/lib/compliance/rules-core'
+import { AttorneyNote } from '../AttorneyNote'
+import { ComplianceBackLink } from '../ComplianceBackLink'
 import {
   estoppelDueAt, estoppelFee, estoppelValidUntil,
   ESTOPPEL_DELIVERY_BUSINESS_DAYS, ESTOPPEL_EXPEDITED_BUSINESS_DAYS,
@@ -54,15 +56,22 @@ export default function EstoppelPage() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const { data, error } = (await withTimeout(
-        supabase.from('ev_estoppel_requests').select('*')
-          .eq('community_id', communityId).order('received_at', { ascending: false }),
-      )) as any
+      // Fire both independent reads in ONE parallel batch instead of awaiting two
+      // round-trips in series — the page now waits for the slower single query
+      // rather than the sum of both.
+      const [reqRes, resRes] = await Promise.all([
+        withTimeout(
+          supabase.from('ev_estoppel_requests').select('*')
+            .eq('community_id', communityId).order('received_at', { ascending: false }),
+        ),
+        withTimeout(
+          supabase.from('residents').select('id, full_name, unit_number, address, profile_id')
+            .eq('community_id', communityId).order('unit_number', { ascending: true }),
+        ),
+      ])
+      const { data, error } = reqRes as any
       if (error) throw error
-      const { data: res } = (await withTimeout(
-        supabase.from('residents').select('id, full_name, unit_number, address, profile_id')
-          .eq('community_id', communityId).order('unit_number', { ascending: true }),
-      )) as any
+      const { data: res } = resRes as any
       setResidents(res || [])
       setRows(data || []); setStatus('ready')
     } catch (err: any) {
@@ -140,7 +149,8 @@ export default function EstoppelPage() {
   }
 
   return (
-    <div className="admin-page">
+    <div className="admin-page cset">
+      <ComplianceBackLink />
       <div className="admin-kicker">Florida compliance</div>
       <h1 className="admin-h1">Estoppel certificates</h1>
       <p className="admin-dek">
@@ -148,7 +158,7 @@ export default function EstoppelPage() {
         days, or {ESTOPPEL_EXPEDITED_BUSINESS_DAYS.value} if expedited. Deliver late and the law requires every fee to be waived.
       </p>
 
-      <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>{ATTORNEY_REVIEW_BANNER}</div>
+      <AttorneyNote />
 
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
 
@@ -160,47 +170,51 @@ export default function EstoppelPage() {
       )}
 
       {/* Intake */}
-      <form className="admin-form" onSubmit={create} style={{ marginTop: 16 }}>
-        <h2 className="bc-title" style={{ marginBottom: 8 }}>New request</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-          <label className="admin-field"><span className="admin-field-label">Unit / owner</span>
-            <select className="admin-input" value={form.resident_id ?? ''} onChange={e => setF('resident_id', e.target.value)}>
-              <option value="">— select unit / owner —</option>
-              {residents.map((r: any) => (
-                <option key={r.id} value={r.id}>{[r.full_name || 'Owner', r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>
-              ))}
-            </select></label>
-          <label className="admin-field"><span className="admin-field-label">Requestor name</span>
-            <input className="admin-input" value={form.requestor_name ?? ''} placeholder="Sunshine Title Co." onChange={e => setF('requestor_name', e.target.value)} /></label>
-          <label className="admin-field"><span className="admin-field-label">Requestor email</span>
-            <input className="admin-input" type="email" value={form.requestor_email ?? ''} placeholder="closer@title.com" onChange={e => setF('requestor_email', e.target.value)} /></label>
-          <label className="admin-field"><span className="admin-field-label">Requestor type</span>
-            <select className="admin-input" value={form.requestor_type} onChange={e => setF('requestor_type', e.target.value)}>
-              {REQUESTOR_TYPES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></label>
-          <label className="admin-field"><span className="admin-field-label">Request method</span>
-            <select className="admin-input" value={form.request_method} onChange={e => setF('request_method', e.target.value)}>
-              <option value="electronic">Electronic</option><option value="written">Written</option></select></label>
-        </div>
-        <div style={{ display: 'flex', gap: 20, margin: '12px 0', flexWrap: 'wrap' }}>
-          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
-            <input type="checkbox" checked={!!form.expedited} onChange={e => setF('expedited', e.target.checked)} /> Expedited (3-day, +{fmt$(estoppelFee({ expedited: true }).expedited)})</label>
-          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
-            <input type="checkbox" checked={!!form.delinquent} onChange={e => setF('delinquent', e.target.checked)} /> Owner is delinquent (+{fmt$(estoppelFee({ delinquent: true }).delinquency)})</label>
-          <span style={{ fontSize: 14, fontWeight: 700, alignSelf: 'center' }}>
-            Fee: {fmt$(estoppelFee({ expedited: !!form.expedited, delinquent: !!form.delinquent }).total)}</span>
-        </div>
-        <div className="admin-form-actions">
-          <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Saving…' : 'Log request'}</button>
-          {error && status === 'ready' && <span className="admin-err-inline">{error}</span>}
-        </div>
-      </form>
+      <div className="card">
+        <div className="card-head"><div><h2>New request</h2><div className="sub">Logging a request starts the statutory delivery clock.</div></div></div>
+        <form className="admin-form" onSubmit={create}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
+            <label className="admin-field"><span className="admin-field-label">Unit / owner</span>
+              <select className="admin-input" value={form.resident_id ?? ''} onChange={e => setF('resident_id', e.target.value)}>
+                <option value="">— select unit / owner —</option>
+                {residents.map((r: any) => (
+                  <option key={r.id} value={r.id}>{[r.full_name || 'Owner', r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>
+                ))}
+              </select></label>
+            <label className="admin-field"><span className="admin-field-label">Requestor name</span>
+              <input className="admin-input" value={form.requestor_name ?? ''} placeholder="Sunshine Title Co." onChange={e => setF('requestor_name', e.target.value)} /></label>
+            <label className="admin-field"><span className="admin-field-label">Requestor email</span>
+              <input className="admin-input" type="email" value={form.requestor_email ?? ''} placeholder="closer@title.com" onChange={e => setF('requestor_email', e.target.value)} /></label>
+            <label className="admin-field"><span className="admin-field-label">Requestor type</span>
+              <select className="admin-input" value={form.requestor_type} onChange={e => setF('requestor_type', e.target.value)}>
+                {REQUESTOR_TYPES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></label>
+            <label className="admin-field"><span className="admin-field-label">Request method</span>
+              <select className="admin-input" value={form.request_method} onChange={e => setF('request_method', e.target.value)}>
+                <option value="electronic">Electronic</option><option value="written">Written</option></select></label>
+          </div>
+          <div style={{ display: 'flex', gap: 20, margin: '12px 0', flexWrap: 'wrap' }}>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
+              <input type="checkbox" checked={!!form.expedited} onChange={e => setF('expedited', e.target.checked)} /> Expedited (3-day, +{fmt$(estoppelFee({ expedited: true }).expedited)})</label>
+            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
+              <input type="checkbox" checked={!!form.delinquent} onChange={e => setF('delinquent', e.target.checked)} /> Owner is delinquent (+{fmt$(estoppelFee({ delinquent: true }).delinquency)})</label>
+            <span style={{ fontSize: 14, fontWeight: 700, alignSelf: 'center' }}>
+              Fee: {fmt$(estoppelFee({ expedited: !!form.expedited, delinquent: !!form.delinquent }).total)}</span>
+          </div>
+          <div className="card-cta">
+            {error && status === 'ready' && <span className="admin-err-inline">{error}</span>}
+            <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Saving…' : 'Log request'}</button>
+          </div>
+        </form>
+      </div>
 
       {/* Worklist */}
-      <h2 className="bc-title" style={{ margin: '22px 0 10px' }}>Open & recent requests</h2>
-      {status === 'loading' && <div className="admin-note">Loading…</div>}
-      {status === 'ready' && rows.length === 0 && <div className="admin-note">No estoppel requests yet.</div>}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        {rows.map(r => <EstoppelRow key={r.id} r={r} onDeliver={markDelivered} onPatch={patch} communityId={communityId} />)}
+      <div className="card">
+        <div className="card-head"><div><h2>Open <span className="amp">&</span> recent requests</h2></div></div>
+        {status === 'loading' && <div className="admin-note">Loading…</div>}
+        {status === 'ready' && rows.length === 0 && <div className="admin-note">No estoppel requests yet.</div>}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+          {rows.map(r => <EstoppelRow key={r.id} r={r} onDeliver={markDelivered} onPatch={patch} communityId={communityId} />)}
+        </div>
       </div>
     </div>
   )
