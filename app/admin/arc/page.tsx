@@ -377,7 +377,10 @@ export default function ArcPage() {
             <div className="card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <div><h2>ARC requests <span style={{ opacity: 0.55, fontWeight: 400 }}>({filtered.length})</span></h2></div>
               {requests.length > 0 && (
-                <div className="toolbar-filters">
+                // Explicit width: the shared .ad-dd is width:100% and only gets a
+                // sized override under .crep/.etrack — neither wraps this page, so
+                // without a width the dropdown collapses and "doesn't show up".
+                <div style={{ width: 210, flexShrink: 0 }}>
                   <Dropdown value={catFilter} onChange={v => setCatFilter(v as 'all' | ArcRequestType)} options={catOptions} ariaLabel="Filter by category" />
                 </div>
               )}

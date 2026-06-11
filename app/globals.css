@@ -1920,24 +1920,18 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   box-shadow: 0 1px 3px rgba(31,34,51,0.18);
 }
 
-/* Admin sub-tabs (EasyVoiceTabs / EasyDocsTabs / EasyTrackTabs) — a touch more
-   polish than the base segmented control: a hairline border for definition,
-   smooth horizontal scroll when the row is wider than the screen (no wrap/bunch
-   on phones), and a crisper active pill. Scoped to .admin-seg-tabs so the
-   resident seg-tabs and other segmented controls are untouched. */
+/* Admin sub-tabs (EasyVoiceTabs / EasyDocsTabs / EasyTrackTabs) — keep the clean
+   content-width pill exactly as the base segmented control looks; only contain it
+   on narrow screens so it scrolls horizontally instead of wrapping or overflowing
+   the page, with the scrollbar hidden. Scoped to .admin-seg-tabs so the resident
+   seg-tabs and other segmented controls are untouched. */
 .seg-tabs.admin-seg-tabs {
-  display: flex;
   max-width: 100%;
   overflow-x: auto;
-  gap: 3px;
-  border: 1px solid var(--border);
   scrollbar-width: none;
 }
 .seg-tabs.admin-seg-tabs::-webkit-scrollbar { display: none; }
-.seg-tabs.admin-seg-tabs .seg-tab { flex: 0 0 auto; padding: 9px 18px; }
-.seg-tabs.admin-seg-tabs .seg-tab.active {
-  box-shadow: 0 1px 2px rgba(31,34,51,0.12), 0 2px 8px rgba(225,73,9,0.10);
-}
+.seg-tabs.admin-seg-tabs .seg-tab { flex: 0 0 auto; }
 
 .ev-section + .ev-section {
   margin-top: 22px;
