@@ -6,28 +6,62 @@
 -- "Link, don't hold": we READ the HOA's bank to track budget actuals and show
 -- where dues go. We never move money. See MONEY_FLOW_PLAN.md.
 --
---   plaid_items          — one row per linked bank Item. Holds the Plaid
---                          access_token. SERVICE-ROLE ONLY (RLS on, no policies)
---                          so the token is never readable by any client.
+--   plaid_items          — one row per linked bank Item. Holds ONLY a Vault
+--                          secret-id reference; the raw Plaid access token lives
+--                          encrypted in Supabase Vault (see below), never here.
 --   bank_transactions    — synced bank activity, mapped to a budget category.
 --   plaid_category_map    — per-community: Plaid category -> budget line. Learned
 --                          on sync; editable so re-syncs auto-apply the mapping.
 
--- ---- plaid_items (token vault) ---------------------------------------------
+-- ---- Supabase Vault (encrypted at-rest store for the Plaid access token) ---
+-- The Plaid access token is a bank-reading credential. We keep it in Vault
+-- (encrypted), and store only its secret-id reference in plaid_items — so a table
+-- read, backup dump, or leaked service-role key never exposes the raw token.
+create extension if not exists supabase_vault with schema vault;
+
+-- ---- plaid_items (one row per linked bank Item) ----------------------------
 create table if not exists public.plaid_items (
-  id                uuid primary key default gen_random_uuid(),
-  community_id      uuid not null references public.communities(id) on delete cascade,
-  plaid_item_id     text unique not null,
-  access_token      text not null,
-  institution_name  text,
-  sync_cursor       text,
-  created_at        timestamptz not null default now(),
-  updated_at        timestamptz not null default now()
+  id                      uuid primary key default gen_random_uuid(),
+  community_id            uuid not null references public.communities(id) on delete cascade,
+  plaid_item_id           text unique not null,
+  access_token_secret_id  uuid,            -- Vault secret id; NEVER the raw token
+  institution_name        text,
+  sync_cursor             text,
+  created_at              timestamptz not null default now(),
+  updated_at              timestamptz not null default now()
 );
+-- Migrate any earlier (plaintext) shape: add the Vault reference, drop the raw column.
+alter table public.plaid_items add column if not exists access_token_secret_id uuid;
+alter table public.plaid_items drop column if exists access_token;
 create index if not exists plaid_items_community_idx on public.plaid_items (community_id);
 alter table public.plaid_items enable row level security;
--- Intentionally NO policies: only the service role (edge functions) may read the
--- access token. authenticated/anon get nothing.
+-- Intentionally NO policies: clients get nothing. Only the service role touches
+-- this table, and the token itself is in Vault, not in any column here.
+
+-- ---- token store/read wrappers (service-role only) -------------------------
+-- The vault schema isn't exposed to PostgREST, so the edge functions go through
+-- these SECURITY DEFINER wrappers. EXECUTE is granted ONLY to service_role.
+create or replace function public.plaid_token_upsert(p_secret_id uuid, p_token text, p_name text)
+  returns uuid language plpgsql security definer set search_path = '' as $$
+declare v_id uuid;
+begin
+  if p_secret_id is not null then
+    perform vault.update_secret(p_secret_id, p_token);
+    return p_secret_id;
+  end if;
+  select vault.create_secret(p_token, p_name, 'Plaid access token (read-only bank feed)') into v_id;
+  return v_id;
+end $$;
+
+create or replace function public.plaid_token_read(p_secret_id uuid)
+  returns text language sql security definer set search_path = '' as $$
+  select decrypted_secret from vault.decrypted_secrets where id = p_secret_id
+$$;
+
+revoke all on function public.plaid_token_upsert(uuid, text, text) from public, anon, authenticated;
+revoke all on function public.plaid_token_read(uuid) from public, anon, authenticated;
+grant execute on function public.plaid_token_upsert(uuid, text, text) to service_role;
+grant execute on function public.plaid_token_read(uuid) to service_role;
 
 -- ---- bank_transactions -----------------------------------------------------
 create table if not exists public.bank_transactions (

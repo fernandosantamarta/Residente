@@ -41,13 +41,26 @@ Deno.serve(async (req) => {
     const accessToken = exchange.access_token as string
     const itemId = exchange.item_id as string
 
-    // Store the token in the service-role-only vault. Upsert on plaid_item_id so a
-    // re-link of the same Item refreshes the token instead of duplicating.
+    // Re-link of the same Item? Reuse its existing Vault secret so we update the
+    // token in place instead of orphaning the old encrypted secret.
+    const { data: existing } = await admin.from('plaid_items')
+      .select('access_token_secret_id').eq('plaid_item_id', itemId).maybeSingle()
+
+    // Put the raw token in Supabase Vault (encrypted at rest); we keep only the
+    // returned secret-id. The token never lands in a plaid_items column.
+    const { data: secretId, error: vaultErr } = await admin.rpc('plaid_token_upsert', {
+      p_secret_id: existing?.access_token_secret_id ?? null,
+      p_token: accessToken,
+      p_name: `plaid_access_token:${itemId}`,
+    })
+    if (vaultErr || !secretId) { console.error('vault store failed:', vaultErr); return json({ error: 'Could not secure bank token' }, 500) }
+
+    // Upsert on plaid_item_id so a re-link refreshes the row instead of duplicating.
     const { data: item, error: itemErr } = await admin.from('plaid_items')
       .upsert({
         community_id: communityId,
         plaid_item_id: itemId,
-        access_token: accessToken,
+        access_token_secret_id: secretId,
         institution_name: institution_name ?? null,
         updated_at: new Date().toISOString(),
       }, { onConflict: 'plaid_item_id' })
