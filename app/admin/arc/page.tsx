@@ -48,9 +48,10 @@ export default function ArcPage() {
   const [error, setError]           = useState('')
   const [msg, setMsg]               = useState('')
 
-  // Worklist filter + pagination.
-  const [catFilter, setCatFilter]   = useState<'all' | ArcRequestType>('all')
-  const [listPage, setListPage]     = useState(0)
+  // Worklist filters + pagination.
+  const [catFilter, setCatFilter]       = useState<'all' | ArcRequestType>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | ArcStatus>('all')
+  const [listPage, setListPage]         = useState(0)
   const LIST_PAGE = 8
 
   useEffect(() => {
@@ -253,7 +254,7 @@ export default function ArcPage() {
 
   const isCondo = community?.association_type !== 'hoa'
 
-  // Category filter + pagination over the worklist.
+  // Category (request type) + status filters + pagination over the worklist.
   const catOptions = useMemo(
     () => [
       { value: 'all' as const, label: 'All categories' },
@@ -261,15 +262,25 @@ export default function ArcPage() {
     ],
     [],
   )
+  const statusOptions = useMemo(
+    () => [
+      { value: 'all' as const, label: 'All statuses' },
+      ...(Object.entries(ARC_STATUS_LABELS) as [ArcStatus, string][]).map(([value, label]) => ({ value, label })),
+    ],
+    [],
+  )
   const filtered = useMemo(
-    () => (catFilter === 'all' ? requests : requests.filter(r => (r.request_type ?? 'other') === catFilter)),
-    [requests, catFilter],
+    () => requests.filter(r =>
+      (catFilter === 'all' || (r.request_type ?? 'other') === catFilter) &&
+      (statusFilter === 'all' || (r.status ?? 'submitted') === statusFilter),
+    ),
+    [requests, catFilter, statusFilter],
   )
   const pageCount = Math.max(1, Math.ceil(filtered.length / LIST_PAGE))
   const pg = Math.min(listPage, pageCount - 1)
   const paged = filtered.slice(pg * LIST_PAGE, pg * LIST_PAGE + LIST_PAGE)
-  // Back to the first page whenever the filter changes or the list shrinks.
-  useEffect(() => { setListPage(0) }, [catFilter])
+  // Back to the first page whenever a filter changes or the list shrinks.
+  useEffect(() => { setListPage(0) }, [catFilter, statusFilter])
 
   return (
     <div className="admin-page cset">
@@ -376,25 +387,36 @@ export default function ArcPage() {
             <div className="card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <div><h2>ARC requests <span style={{ opacity: 0.55, fontWeight: 400 }}>({filtered.length})</span></h2></div>
               {requests.length > 0 && (
-                // Native <select> styled with admin-input — the same control the
-                // intake form on this page already renders, so it's guaranteed to
-                // show (the custom Dropdown only sizes correctly under .crep/.etrack).
-                <select
-                  className="admin-input"
-                  style={{ width: 'auto', minWidth: 190, flexShrink: 0 }}
-                  value={catFilter}
-                  onChange={e => setCatFilter(e.target.value as 'all' | ArcRequestType)}
-                  aria-label="Filter by category"
-                >
-                  {catOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
+                // Native <select>s styled with admin-input — the same control the
+                // intake form on this page already renders. Two filters: request
+                // type ("All categories") and status ("All statuses").
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <select
+                    className="admin-input"
+                    style={{ width: 'auto', minWidth: 175, flexShrink: 0 }}
+                    value={catFilter}
+                    onChange={e => setCatFilter(e.target.value as 'all' | ArcRequestType)}
+                    aria-label="Filter by category"
+                  >
+                    {catOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                  <select
+                    className="admin-input"
+                    style={{ width: 'auto', minWidth: 165, flexShrink: 0 }}
+                    value={statusFilter}
+                    onChange={e => setStatusFilter(e.target.value as 'all' | ArcStatus)}
+                    aria-label="Filter by status"
+                  >
+                    {statusOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
               )}
             </div>
             {requests.length === 0 && (
               <div className="admin-note">No ARC requests on file.</div>
             )}
             {requests.length > 0 && filtered.length === 0 && (
-              <div className="admin-note">No requests in this category.</div>
+              <div className="admin-note">No requests match these filters.</div>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {paged.map(r => (
