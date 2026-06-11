@@ -32,17 +32,26 @@ type FormState = {
   resident: string          // denormalized label of the picked resident
   profile_id: string | null // the picked resident's account
   amount: string
+  due_at: string            // fine payment deadline (only used when kind=fine)
   notes: string
   opened_at: string
 }
+// Default fine payment window: today + 30 days. The board can change it per fine.
+const addDays = (iso: string, n: number) => {
+  const d = new Date(iso)
+  d.setDate(d.getDate() + n)
+  return d.toISOString().slice(0, 10)
+}
+const todayISO = () => new Date().toISOString().slice(0, 10)
 const EMPTY: FormState = {
   kind: 'warning',
   rule_id: '',
   resident: '',
   profile_id: null,
   amount: '',
+  due_at: addDays(todayISO(), 30),
   notes: '',
-  opened_at: new Date().toISOString().slice(0, 10),
+  opened_at: todayISO(),
 }
 
 const fmtMoney = (n: number | null | undefined) =>
@@ -119,9 +128,10 @@ export default function AdminViolations() {
         rule_id: rule?.id || null,
         rule_title: rule?.title || null,
         amount: form.kind === 'fine' ? Number(form.amount) : null,
+        due_at: form.kind === 'fine' ? form.due_at : null,
         notes: form.notes.trim() || null,
       })
-      setForm({ ...EMPTY, opened_at: new Date().toISOString().slice(0, 10) })
+      setForm({ ...EMPTY, opened_at: todayISO(), due_at: addDays(todayISO(), 30) })
       setShowAdd(false)
       setSuccessMsg(
         form.kind === 'fine'
@@ -151,7 +161,7 @@ export default function AdminViolations() {
   const visible = paginate(filtered, page, VIOLATIONS_PAGE_SIZE)
 
   return (
-    <div className="admin-page cset">
+    <div className="admin-page cset cviol">
       <EasyDocsTabs active="violations" />
       <div className="admin-kicker">Violations</div>
       <h1 className="admin-h1">Violations <span className="amp">&amp;</span> enforcement</h1>
@@ -338,6 +348,17 @@ export default function AdminViolations() {
                   value={form.amount} onChange={e => setField('amount', e.target.value)} />
                 <span className="admin-field-hint">
                   Stripe invoice is generated and emailed to the resident automatically.
+                </span>
+              </label>
+            )}
+
+            {form.kind === 'fine' && (
+              <label className="admin-field" style={{ maxWidth: 220 }}>
+                <span className="admin-field-label">Due date</span>
+                <input name="due_at" className="admin-input" type="date"
+                  value={form.due_at} onChange={e => setField('due_at', e.target.value)} />
+                <span className="admin-field-hint">
+                  The deadline the resident sees on their Pay screen. Defaults to 30 days out.
                 </span>
               </label>
             )}

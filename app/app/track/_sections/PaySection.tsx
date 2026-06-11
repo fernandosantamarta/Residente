@@ -833,6 +833,16 @@ function AddPaymentDialog({
 
 // -- small components ----------------------------------------------
 
+// Fines have no stored due date — only opened_at (issued). HOA fines carry a
+// payment window; we surface it as issued + FINE_DUE_DAYS. Adjust to match the
+// association's bylaws / the statutory window if it differs.
+const FINE_DUE_DAYS = 30
+function fineDueDate(issued: string): Date {
+  const d = new Date(issued)
+  d.setDate(d.getDate() + FINE_DUE_DAYS)
+  return d
+}
+
 // Outstanding fines the resident still owes. Each fine is its own Stripe
 // charge (create-fine-checkout) that the webhook closes on payment — this card
 // just surfaces them on the Pay screen so dues + fines live in one place.
@@ -864,21 +874,26 @@ function FinesDueCard() {
       <div className="pay-fines-list">
         {fines.map(v => (
           <div key={v.id} className="pay-fine-row">
-            <div className="pay-fine-amt">{fmtMoney(v.amount)}</div>
-            <div className="pay-fine-info">
-              <div className="pay-fine-title">{v.rule_title || t('pay.fineGeneric')}</div>
-              <div className="pay-fine-meta">{t('pay.fineIssued', { date: fmtDate(v.opened_at) })}</div>
+            <div className="pay-fine-head">
+              <div className="pay-fine-info">
+                <div className="pay-fine-title">{v.rule_title || t('pay.fineGeneric')}</div>
+                <div className="pay-fine-meta">{t('pay.dueOn', { date: fmtDate(v.due_at || fineDueDate(v.opened_at)) })}</div>
+              </div>
+              <div className="pay-fine-amt">{fmtMoney(v.amount)}</div>
             </div>
-            <div className="pay-fine-actions">
-              <button
-                type="button"
-                className="pay-cta-primary pay-fine-pay"
-                disabled={payingId === v.id}
-                onClick={() => onPay(v.id)}
-              >
-                {payingId === v.id ? t('pay.startingCheckout') : t('pay.payNow')}
-              </button>
-              <ContestFineControl violation={v} className="pay-cta-secondary pay-fine-contest" />
+            <div className="pay-fine-foot">
+              {v.notes && <p className="pay-fine-note">{v.notes}</p>}
+              <div className="pay-fine-actions">
+                <button
+                  type="button"
+                  className="pay-cta-primary pay-fine-pay"
+                  disabled={payingId === v.id}
+                  onClick={() => onPay(v.id)}
+                >
+                  {payingId === v.id ? t('pay.startingCheckout') : t('pay.payNow')}
+                </button>
+                <ContestFineControl violation={v} className="pay-cta-secondary pay-fine-contest" />
+              </div>
             </div>
           </div>
         ))}

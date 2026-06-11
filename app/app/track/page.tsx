@@ -36,7 +36,9 @@ export default function EasyTrack() {
         </p>
       </div>
 
-      <SegTabs tabs={TABS} active={tab} onChange={setTab} ariaLabel={t('pay.hubSectionsAria')} />
+      <div className="track-segtabs">
+        <SegTabs tabs={TABS} active={tab} onChange={setTab} ariaLabel={t('pay.hubSectionsAria')} />
+      </div>
 
       {tab === 'pay' && (<>
         <div className="rsv-web"><PaySection /></div>

@@ -61,7 +61,6 @@ export function VendorSection() {
   const [active, setActive] = useState<'all' | VendorCat>('all')
   const [rateOpen, setRateOpen] = useState<string | null>(null)   // vendor_id being rated
   const [request, setRequest] = useState<null | 'request' | 'recommend'>(null)
-  const [allOpen, setAllOpen] = useState(false)            // "View all" vendors popup
   const [vendorOpen, setVendorOpen] = useState<Vendor | null>(null)  // single vendor detail
   const ratings = useVendorRatings()
 
@@ -146,7 +145,12 @@ export function VendorSection() {
       return hay.includes(q)
     })
   }, [search, active, vendors, t])
-  const featured = filtered.filter(v => v.featured)
+  // One unified list: Preferred (featured) vendors pinned to the top, the rest
+  // after. Stable sort keeps the board's order within each group.
+  const sorted = useMemo(
+    () => [...filtered].sort((a, b) => Number(!!b.featured) - Number(!!a.featured)),
+    [filtered],
+  )
 
   return (
     <section id="vendor" className="ven-wrap ev-section">
@@ -179,94 +183,41 @@ export function VendorSection() {
         </select>
       </div>
 
-      <div className="ven-grid">
-        {/* MAIN COLUMN */}
-        <div className="ven-col">
-          {/* Featured vendors */}
-          {featured.length > 0 && (
-            <section className="ven-card">
-              <div className="ven-card-head">
-                <h2 className="ven-card-title">{t('vendors.featured')}</h2>
-                <span className="ven-card-meta">{t('vendors.boardPreferred')}</span>
-              </div>
-              <div className="ven-featured">
-                {featured.map(v => (
-                  <FeaturedCard
-                    key={v.id}
-                    v={v}
-                    catLabel={catLabel(v.category)}
-                    avg={ratings.averageFor(v.id)}
-                    count={ratings.countFor(v.id)}
-                    myRating={ratings.myRating(v.id)}
-                    onRate={() => setRateOpen(v.id)}
-                  />
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* All vendors table */}
-          <section className="ven-card">
-            <div className="ven-card-head">
-              <h2 className="ven-card-title">{t('vendors.allVendors')}</h2>
-              <button type="button" className="ven-card-link" onClick={() => setAllOpen(true)}>{t('vendors.viewAll')}</button>
-            </div>
-            <div className="ven-table">
-              <div className="ven-row ven-row-head">
-                <span>{t('vendors.colVendor')}</span>
-                <span>{t('vendors.colCategory')}</span>
-                <span>{t('vendors.colRating')}</span>
-                <span>{t('vendors.colContact')}</span>
-              </div>
-              {filtered.length === 0 ? (
-                <div className="ven-empty">{t('vendors.noMatch')}</div>
-              ) : (
-                filtered.map(v => (
-                  <div key={v.id} className="ven-row">
-                    <button type="button" className="ven-row-name ven-row-name-btn"
-                      onClick={() => setVendorOpen(v)}>{v.name}</button>
-                    <span className="ven-row-cat">{catLabel(v.category)}</span>
-                    <span className="ven-row-rating">
-                      <button type="button" className="ven-rate-btn"
-                        onClick={() => setRateOpen(v.id)}
-                        title={ratings.myRating(v.id) ? t('vendors.editYourRating') : t('vendors.rateThisVendor')}>
-                        <RatingDisplay
-                          avg={ratings.averageFor(v.id)}
-                          count={ratings.countFor(v.id)}
-                          mine={!!ratings.myRating(v.id)}
-                        />
-                      </button>
-                    </span>
-                    <span className="ven-row-contact">
-                      {v.contact.phone && <a href={`tel:${v.contact.phone}`}>{v.contact.phone}</a>}
-                      {v.contact.email && (
-                        <a href={`mailto:${v.contact.email}`} className="ven-row-email">{v.contact.email}</a>
-                      )}
-                    </span>
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-        </div>
-
-        {/* RIGHT COLUMN */}
-        <aside className="ven-aside">
-          <section className="ven-card ven-need">
-            <div className="ven-need-icon" aria-hidden="true"><IconHelp /></div>
-            <div className="ven-need-body">
-              <div className="ven-need-title">{t('vendors.needRecommendation')}</div>
-              <div className="ven-need-sub">
-                {t('vendors.needRecommendationSub')}
-              </div>
-            </div>
-            <button type="button" className="ven-cta-primary"
-              onClick={() => setRequest('request')}>
-              {t('vendors.requestRecommendations')}
-            </button>
-          </section>
-        </aside>
+      {/* One unified vendor list — every vendor a tidy card, Preferred pinned
+          to the top. No more Featured-cards / table duplication. */}
+      <div className="ven-list">
+        {sorted.length === 0 ? (
+          <div className="ven-empty">{t('vendors.noMatch')}</div>
+        ) : (
+          sorted.map(v => (
+            <VendorCard
+              key={v.id}
+              v={v}
+              catLabel={catLabel(v.category)}
+              avg={ratings.averageFor(v.id)}
+              count={ratings.countFor(v.id)}
+              myRating={ratings.myRating(v.id)}
+              onOpen={() => setVendorOpen(v)}
+              onRate={() => setRateOpen(v.id)}
+            />
+          ))
+        )}
       </div>
+
+      {/* Need a vendor we don't list? */}
+      <section className="ven-card ven-need">
+        <div className="ven-need-icon" aria-hidden="true"><IconHelp /></div>
+        <div className="ven-need-body">
+          <div className="ven-need-title">{t('vendors.needRecommendation')}</div>
+          <div className="ven-need-sub">
+            {t('vendors.needRecommendationSub')}
+          </div>
+        </div>
+        <button type="button" className="ven-cta-primary"
+          onClick={() => setRequest('request')}>
+          {t('vendors.requestRecommendations')}
+        </button>
+      </section>
 
       {rateOpen && (
         <RatingDialog
@@ -288,35 +239,6 @@ export function VendorSection() {
             : t('vendors.requestBodyPlaceholder')}
           onClose={() => setRequest(null)}
         />
-      )}
-
-      {/* View all vendors — full list in a popup, each row opens its detail. */}
-      {allOpen && (
-        <DetailDialog
-          eyebrow={t('vendors.title')}
-          title={t('vendors.allVendors')}
-          period={filtered.length === 1
-            ? t('vendors.countVendorOne', { count: filtered.length })
-            : t('vendors.countVendorOther', { count: filtered.length })}
-          size="wide"
-          onClose={() => setAllOpen(false)}
-        >
-          <div className="rd-list">
-            {filtered.length === 0 ? (
-              <p className="rd-detail-foot-note" style={{ marginTop: 0 }}>{t('vendors.noMatch')}</p>
-            ) : filtered.map(v => (
-              <button type="button" className="rd-list-row" key={v.id}
-                onClick={() => { setAllOpen(false); setVendorOpen(v) }}>
-                <span className="ven-fcard-icon">{categoryIcon(v.category)}</span>
-                <span className="rd-list-body">
-                  <span className="rd-list-title">{v.name}</span>
-                  <span className="rd-list-meta">{catLabel(v.category)}</span>
-                </span>
-                <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
-              </button>
-            ))}
-          </div>
-        </DetailDialog>
       )}
 
       {/* A single vendor, opened in place. */}
@@ -384,50 +306,57 @@ export function VendorSection() {
 // -- sub-components ------------------------------------------------
 
 
-function FeaturedCard({
-  v, catLabel, avg, count, myRating, onRate,
+// One vendor as a self-contained card: icon + name + rating on top, a
+// category tag (with a Preferred badge when board-curated), the blurb, and
+// Call / Email action buttons. Tapping the name opens the full detail popup;
+// tapping the rating opens the rating dialog.
+function VendorCard({
+  v, catLabel, avg, count, myRating, onOpen, onRate,
 }: {
   v: Vendor
   catLabel: string
   avg: number | null
   count: number
   myRating: Rating | undefined
+  onOpen: () => void
   onRate: () => void
 }) {
   const t = useT()
   return (
-    <div className="ven-fcard">
-      <div className="ven-fcard-head">
-        <div className="ven-fcard-icon">{categoryIcon(v.category)}</div>
-        {v.badge && <span className="ven-fcard-badge">{v.badge}</span>}
-      </div>
-      <div className="ven-fcard-name">{v.name}</div>
-      <div className="ven-fcard-cat">{catLabel}</div>
-      {v.blurb && <div className="ven-fcard-blurb">{v.blurb}</div>}
-      <div className="ven-fcard-rating">
-        <RatingDisplay avg={avg} count={count} mine={!!myRating} />
-        <button type="button" className="ven-rate-cta" onClick={onRate}>
-          {myRating ? t('vendors.editMyRating') : t('vendors.rateThisVendor')}
+    <div className={`ven-vcard${v.featured ? ' is-preferred' : ''}`}>
+      <div className="ven-vcard-top">
+        <span className="ven-vcard-icon">{categoryIcon(v.category)}</span>
+        <button type="button" className="ven-vcard-name" onClick={onOpen}>{v.name}</button>
+        <button type="button" className="ven-vcard-rate" onClick={onRate}
+          title={myRating ? t('vendors.editYourRating') : t('vendors.rateThisVendor')}>
+          <RatingDisplay avg={avg} count={count} mine={!!myRating} />
         </button>
       </div>
-      <div className="ven-fcard-contact">
-        {v.contact.phone && (
-          <a href={`tel:${v.contact.phone}`} className="ven-fcard-link">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .3 1.9.6 2.7a2 2 0 0 1-.4 2.1L8 9.6a16 16 0 0 0 6 6l1.1-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.5 2.7.6a2 2 0 0 1 1.7 2z"/>
-            </svg>
-            {v.contact.phone}
-          </a>
-        )}
-        {v.contact.email && (
-          <a href={`mailto:${v.contact.email}`} className="ven-fcard-link">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 7 9-7"/>
-            </svg>
-            {v.contact.email}
-          </a>
-        )}
+      <div className="ven-vcard-tags">
+        <span className="ven-vcard-cat">{catLabel}</span>
+        {v.badge && <span className="ven-vcard-badge">{v.badge}</span>}
       </div>
+      {v.blurb && <p className="ven-vcard-blurb">{v.blurb}</p>}
+      {(v.contact.phone || v.contact.email) && (
+        <div className="ven-vcard-actions">
+          {v.contact.phone && (
+            <a href={`tel:${v.contact.phone}`} className="ven-vcard-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .3 1.9.6 2.7a2 2 0 0 1-.4 2.1L8 9.6a16 16 0 0 0 6 6l1.1-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.5 2.7.6a2 2 0 0 1 1.7 2z"/>
+              </svg>
+              {t('vendors.call')}
+            </a>
+          )}
+          {v.contact.email && (
+            <a href={`mailto:${v.contact.email}`} className="ven-vcard-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 7 9-7"/>
+              </svg>
+              {t('vendors.email')}
+            </a>
+          )}
+        </div>
+      )}
     </div>
   )
 }

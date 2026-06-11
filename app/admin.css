@@ -1135,6 +1135,22 @@
    aligns with the amount + chevron. */
 .cset .bd-list .bd-row:not(.open) .bc-del { top: 50%; }
 .cset .bd-list .bd-row .bc-del:hover { background: none; color: #C53D06; }
+
+/* Violations & enforcement — phone polish (scoped to .cviol so it can't leak
+   into other admin pages that share .card / .bd-row / .card-head). */
+@media (max-width: 767px) {
+  /* Tighter card gutters so the log isn't boxed-in on a narrow screen. */
+  .cviol.cset .card { padding: 18px 16px; }
+  /* Card header stacks: title on top, the kind/status filters drop to their
+     own full-width row below instead of crowding the title. */
+  .cviol .card-head { flex-direction: column; align-items: stretch; gap: 12px; }
+  .cviol .card-head > div:last-child { width: 100%; }
+  .cviol .card-head > div:last-child > div { flex: 1 1 0; min-width: 0; }
+  /* The "Fine · Rule · Opened …" meta line wraps instead of overflowing. */
+  .cviol .bd-meta { flex-wrap: wrap; }
+  /* Keep the row's delete "×" clear of the chevron + amount on small screens. */
+  .cviol .bd-list .bd-row .bd-row-toggle { padding-right: 56px; }
+}
 .cset .tbl .strong { font-weight: 600; }
 .cset .tbl .go-cell { text-align: right; width: 1%; white-space: nowrap; }
 .cset .go {
