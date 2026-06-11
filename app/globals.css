@@ -1919,6 +1919,25 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   color: #E14909;
   box-shadow: 0 1px 3px rgba(31,34,51,0.18);
 }
+
+/* Admin Easy Voice sub-tabs (EasyVoiceTabs) — a touch more polish than the base
+   segmented control: a hairline border for definition, smooth horizontal scroll
+   when the row is wider than the screen (no wrap/bunch on phones), and a crisper
+   active pill. Scoped to .ev-admin-tabs so other seg-tabs are untouched. */
+.seg-tabs.ev-admin-tabs {
+  display: flex;
+  max-width: 100%;
+  overflow-x: auto;
+  gap: 3px;
+  border: 1px solid var(--border);
+  scrollbar-width: none;
+}
+.seg-tabs.ev-admin-tabs::-webkit-scrollbar { display: none; }
+.seg-tabs.ev-admin-tabs .seg-tab { flex: 0 0 auto; padding: 9px 18px; }
+.seg-tabs.ev-admin-tabs .seg-tab.active {
+  box-shadow: 0 1px 2px rgba(31,34,51,0.12), 0 2px 8px rgba(225,73,9,0.10);
+}
+
 .ev-section + .ev-section {
   margin-top: 22px;
   padding-top: 44px;

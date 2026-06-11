@@ -6,10 +6,11 @@
 // a DEEMED APPROVAL where the governing documents so provide. Advisory only —
 // every decision stays with the board.
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd, toDate } from '@/lib/compliance/rules-core'
+import { Dropdown } from '@/components/Dropdown'
 import {
   arcResponseDeadline,
   arcResponseDays,
@@ -47,6 +48,11 @@ export default function ArcPage() {
   const [status, setStatus]         = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError]           = useState('')
   const [msg, setMsg]               = useState('')
+
+  // Worklist filter + pagination.
+  const [catFilter, setCatFilter]   = useState<'all' | ArcRequestType>('all')
+  const [listPage, setListPage]     = useState(0)
+  const LIST_PAGE = 8
 
   useEffect(() => {
     if (!msg) return
@@ -248,6 +254,24 @@ export default function ArcPage() {
 
   const isCondo = community?.association_type !== 'hoa'
 
+  // Category filter + pagination over the worklist.
+  const catOptions = useMemo(
+    () => [
+      { value: 'all' as const, label: 'All categories' },
+      ...(Object.entries(ARC_TYPE_LABELS) as [ArcRequestType, string][]).map(([value, label]) => ({ value, label })),
+    ],
+    [],
+  )
+  const filtered = useMemo(
+    () => (catFilter === 'all' ? requests : requests.filter(r => (r.request_type ?? 'other') === catFilter)),
+    [requests, catFilter],
+  )
+  const pageCount = Math.max(1, Math.ceil(filtered.length / LIST_PAGE))
+  const pg = Math.min(listPage, pageCount - 1)
+  const paged = filtered.slice(pg * LIST_PAGE, pg * LIST_PAGE + LIST_PAGE)
+  // Back to the first page whenever the filter changes or the list shrinks.
+  useEffect(() => { setListPage(0) }, [catFilter])
+
   return (
     <div className="admin-page cset">
       <EasyVoiceTabs active="architectural" />
@@ -350,12 +374,22 @@ export default function ArcPage() {
 
           {/* ---- Worklist ---- */}
           <div className="card">
-            <div className="card-head"><div><h2>ARC requests <span style={{ opacity: 0.55, fontWeight: 400 }}>({requests.length})</span></h2></div></div>
+            <div className="card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div><h2>ARC requests <span style={{ opacity: 0.55, fontWeight: 400 }}>({filtered.length})</span></h2></div>
+              {requests.length > 0 && (
+                <div className="toolbar-filters">
+                  <Dropdown value={catFilter} onChange={v => setCatFilter(v as 'all' | ArcRequestType)} options={catOptions} ariaLabel="Filter by category" />
+                </div>
+              )}
+            </div>
             {requests.length === 0 && (
               <div className="admin-note">No ARC requests on file.</div>
             )}
+            {requests.length > 0 && filtered.length === 0 && (
+              <div className="admin-note">No requests in this category.</div>
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {requests.map(r => (
+              {paged.map(r => (
                 <ArcRequestCard
                   key={r.id}
                   r={r}
@@ -367,6 +401,15 @@ export default function ArcPage() {
                 />
               ))}
             </div>
+            {pageCount > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                <button type="button" className="admin-btn-ghost" style={{ marginLeft: 0 }}
+                  onClick={() => setListPage(p => Math.max(0, p - 1))} disabled={pg === 0}>‹ Prev</button>
+                <span style={{ fontSize: 11.5, color: 'var(--text-dim)' }}>{pg + 1} / {pageCount}</span>
+                <button type="button" className="admin-btn-ghost" style={{ marginLeft: 0 }}
+                  onClick={() => setListPage(p => Math.min(pageCount - 1, p + 1))} disabled={pg >= pageCount - 1}>Next ›</button>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -489,13 +532,13 @@ function ArcRequestCard({
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
         {isOpen && (
           <>
-            <Tip text={ARC_STATUS_DESC.approved}>
+            <Tip text={`${ARC_STATUS_DESC.approved} Records the decision and sends the official letter to the owner automatically.`}>
               <button
                 className="admin-primary-btn"
                 disabled={busy}
                 onClick={() => { setDecideMode(null); setReason(''); submit('approved') }}
               >
-                Approve
+                {busy ? 'Sending…' : 'Approve & send'}
               </button>
             </Tip>
             <Tip text={ARC_STATUS_DESC.approved_with_conditions}>
@@ -609,7 +652,7 @@ function ArcRequestCard({
               disabled={busy || (decideMode === 'deny' && !reason.trim())}
               onClick={() => submit(decideMode === 'deny' ? 'denied' : 'approved_with_conditions')}
             >
-              {busy ? 'Saving…' : decideMode === 'deny' ? 'Record denial' : 'Record approval w/ conditions'}
+              {busy ? 'Sending…' : decideMode === 'deny' ? 'Deny & send letter' : 'Approve w/ conditions & send'}
             </button>
             <button className="admin-btn-ghost" onClick={() => { setDecideMode(null); setReason('') }}>
               Cancel
