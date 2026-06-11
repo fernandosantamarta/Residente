@@ -10,6 +10,19 @@
 // the service-role key (bypasses RLS). It dedups on stripe_session_id so a
 // Stripe retry can't double-record a payment.
 //
+// ACH (us_bank_account) dues are async: the card path records at completion
+// (payment_status 'paid'); a bank debit completes 'unpaid' and is recorded ONLY
+// when it settles, via `checkout.session.async_payment_succeeded`. A debit that
+// returns AFTER settling (charge.refunded) or is charged back
+// (charge.dispute.created) posts a NEGATIVE contra `payments` row that nets the
+// resident's balance back. These run on each HOA's CONNECTED account (the events
+// carry event.account) — we map by ids/metadata only, so no per-account API call.
+//
+// Stripe destinations must subscribe to: checkout.session.completed,
+// checkout.session.async_payment_succeeded, checkout.session.async_payment_failed,
+// charge.refunded, charge.dispute.created, payment_intent.succeeded, plus the
+// platform subscription events.
+//
 // Deploy:  supabase functions deploy stripe-webhook --no-verify-jwt
 // Secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, and (optional)
 //          STRIPE_WEBHOOK_SECRET_CONNECT for the Connected-accounts destination
@@ -70,6 +83,99 @@ async function advancePlan(planId: string) {
       .update({ on_payment_plan: false })
       .eq('id', plan.case_id)
   }
+}
+
+const received = () => new Response(JSON.stringify({ received: true }), {
+  status: 200, headers: { 'Content-Type': 'application/json' },
+})
+
+// Record a one-time dues / installment payment from a Checkout Session, ONLY once
+// the money has moved. Called for instant card payments (checkout.session.completed
+// with payment_status 'paid') and for settled ACH debits
+// (checkout.session.async_payment_succeeded — fires after the bank transfer clears,
+// never at authorization). Dedups on stripe_session_id so a Stripe retry can't
+// double-record. Stores the PaymentIntent id too, so a later return / dispute /
+// refund can map the charge back to this row (see recordReversal).
+async function recordDuesPayment(session: Stripe.Checkout.Session): Promise<Response> {
+  const resident_id = session.metadata?.resident_id
+  const community_id = session.metadata?.community_id
+  const amount = (session.amount_total ?? 0) / 100
+  const plan_id = session.metadata?.plan_id || null
+  const installment_no = session.metadata?.installment_no != null
+    ? Number(session.metadata.installment_no) : null
+  const charge_type = session.metadata?.charge_type || null
+  const payment_intent_id = typeof session.payment_intent === 'string'
+    ? session.payment_intent : null
+
+  if (!resident_id || !community_id || amount <= 0) {
+    console.error('dues session missing metadata:', session.id)
+    return new Response('Missing metadata', { status: 400 })
+  }
+
+  const { data: existing } = await admin
+    .from('payments').select('id').eq('stripe_session_id', session.id).maybeSingle()
+  if (existing) return received()
+
+  // For an installment, tag the payment to the plan's collection case too.
+  let applied_to_case: string | null = null
+  if (plan_id) {
+    const { data: planRow } = await admin
+      .from('ev_payment_plans').select('case_id').eq('id', plan_id).maybeSingle()
+    applied_to_case = planRow?.case_id ?? null
+  }
+
+  const { error } = await admin.from('payments').insert({
+    community_id,
+    resident_id,
+    amount,
+    stripe_session_id: session.id,
+    ...(payment_intent_id ? { stripe_payment_intent_id: payment_intent_id } : {}),
+    ...(charge_type ? { charge_type } : {}),
+    ...(plan_id ? { applied_to_plan: plan_id, installment_no } : {}),
+    ...(applied_to_case ? { applied_to_case } : {}),
+  })
+  if (error) {
+    console.error('Failed to insert payment:', error)
+    return new Response('Insert failed', { status: 500 })
+  }
+  if (plan_id) await advancePlan(plan_id)
+  return received()
+}
+
+// Post a contra `payments` row that nets out a settled dues charge which later
+// reversed — an ACH return (charge.refunded) or a chargeback
+// (charge.dispute.created). lib/dues.ts sums payments.amount, so a negative row
+// restores the resident's balance automatically. Idempotent: keyed on
+// `${pi}:reversal`, so a refund + dispute on the same charge (or a Stripe retry)
+// reverses only once. `reversalCents` is the reversed amount in cents (0 ⇒ full).
+async function recordReversal(pi: string | null, reversalCents: number) {
+  if (!pi) return
+  const { data: orig } = await admin
+    .from('payments')
+    .select('community_id, resident_id, amount, charge_type, applied_to_case')
+    .eq('stripe_payment_intent_id', pi)
+    .gt('amount', 0)
+    .maybeSingle()
+  if (!orig || !orig.resident_id) return // not one of our dues charges
+
+  const reversalKey = `${pi}:reversal`
+  const { data: already } = await admin
+    .from('payments').select('id').eq('stripe_payment_intent_id', reversalKey).maybeSingle()
+  if (already) return
+
+  const original = Math.abs(Number(orig.amount) || 0)
+  const reversed = reversalCents > 0 ? Math.min(reversalCents / 100, original) : original
+  if (reversed <= 0) return
+
+  const { error } = await admin.from('payments').insert({
+    community_id: orig.community_id,
+    resident_id: orig.resident_id,
+    amount: -reversed,
+    stripe_payment_intent_id: reversalKey,
+    ...(orig.charge_type ? { charge_type: orig.charge_type } : {}),
+    ...(orig.applied_to_case ? { applied_to_case: orig.applied_to_case } : {}),
+  })
+  if (error) console.error('Failed to record reversal for', pi, error)
 }
 
 Deno.serve(async (req) => {
@@ -157,7 +263,9 @@ Deno.serve(async (req) => {
     if (reservation_id) {
       const { error } = await admin
         .from('ev_amenity_reservations')
-        .update({ payment_status: 'paid', stripe_session_id: session.id })
+        // payment_account_id = the connected account this was charged on (null on
+        // the legacy platform), so refund-amenity later refunds on the same account.
+        .update({ payment_status: 'paid', stripe_session_id: session.id, payment_account_id: event.account ?? null })
         .eq('id', reservation_id)
       if (error) {
         console.error('Failed to mark reservation paid:', error)
@@ -168,53 +276,33 @@ Deno.serve(async (req) => {
       })
     }
 
-    const resident_id = session.metadata?.resident_id
-    const community_id = session.metadata?.community_id
-    // Trust Stripe's own figure for what was actually charged.
-    const amount = (session.amount_total ?? 0) / 100
-    // Optional payment-plan tagging (create-checkout sets these for installments).
-    const plan_id = session.metadata?.plan_id || null
-    const installment_no = session.metadata?.installment_no != null
-      ? Number(session.metadata.installment_no) : null
-    const charge_type = session.metadata?.charge_type || null
-
-    if (!resident_id || !community_id || amount <= 0) {
-      console.error('checkout.session.completed missing metadata:', session.id)
-      return new Response('Missing metadata', { status: 400 })
+    // One-time dues / installment payment. Record ONLY when the money has actually
+    // moved. A card checkout completes with payment_status 'paid' → record now. An
+    // ACH (us_bank_account) debit completes 'unpaid'/'processing' and settles days
+    // later via checkout.session.async_payment_succeeded → skip here, record at
+    // settlement. We never write a payments row for an in-flight ACH debit.
+    if (session.payment_status === 'paid') {
+      return await recordDuesPayment(session)
     }
+    return received()
+  }
 
-    // Idempotency: a Stripe retry resends the same session id.
-    const { data: existing } = await admin
-      .from('payments')
-      .select('id')
-      .eq('stripe_session_id', session.id)
-      .maybeSingle()
+  // Settled ACH (us_bank_account) Checkout debit — fires only after the bank
+  // transfer clears, never at authorization. This is where an ACH dues payment is
+  // FIRST recorded. Card checkouts never emit this event, so there is no
+  // double-record with checkout.session.completed above.
+  if (event.type === 'checkout.session.async_payment_succeeded') {
+    return await recordDuesPayment(event.data.object as Stripe.Checkout.Session)
+  }
 
-    if (!existing) {
-      // For an installment, look up the plan's case so the payment is also
-      // tagged to the collection case (statutory ledger).
-      let applied_to_case: string | null = null
-      if (plan_id) {
-        const { data: planRow } = await admin
-          .from('ev_payment_plans').select('case_id').eq('id', plan_id).maybeSingle()
-        applied_to_case = planRow?.case_id ?? null
-      }
-
-      const { error } = await admin.from('payments').insert({
-        community_id,
-        resident_id,
-        amount,
-        stripe_session_id: session.id,
-        ...(charge_type ? { charge_type } : {}),
-        ...(plan_id ? { applied_to_plan: plan_id, installment_no } : {}),
-        ...(applied_to_case ? { applied_to_case } : {}),
-      })
-      if (error) {
-        console.error('Failed to insert payment:', error)
-        return new Response('Insert failed', { status: 500 })
-      }
-      if (plan_id) await advancePlan(plan_id)
-    }
+  // ACH debit failed before it ever settled (account closed / insufficient funds
+  // at submission). No payments row was written at authorization, so there is
+  // nothing to reverse — just acknowledge. A LATE return, after a successful
+  // settlement, arrives instead as charge.refunded / charge.dispute.created below.
+  if (event.type === 'checkout.session.async_payment_failed') {
+    const session = event.data.object as Stripe.Checkout.Session
+    console.log('ACH checkout failed before settlement:', session.id)
+    return received()
   }
 
   // Off-session autopay charges (created by charge-autopay) arrive as
@@ -325,6 +413,23 @@ Deno.serve(async (req) => {
           .neq('refund_status', 'refunded')
       }
     }
+
+    // Dues ACH return / refund — if this charge maps to a recorded dues payment,
+    // post a contra row for the refunded amount. Amenity charges (handled above)
+    // have no payments row, so this no-ops for them.
+    await recordReversal(pi ?? null, charge.amount_refunded ?? 0)
+  }
+
+  // Chargeback on a dues payment (incl. an ACH "unauthorized" late return). Post a
+  // contra row so the balance reflects the clawed-back funds. dispute.amount is in
+  // cents; the `${pi}:reversal` key is shared with charge.refunded, so a charge
+  // that both refunds and disputes is reversed only once.
+  if (event.type === 'charge.dispute.created') {
+    const dispute = event.data.object as Stripe.Dispute
+    const pi = typeof dispute.payment_intent === 'string'
+      ? dispute.payment_intent
+      : dispute.payment_intent?.id ?? null
+    await recordReversal(pi, dispute.amount ?? 0)
   }
 
   // Connect Standard onboarding — a community's OWN linked account finished setup.
