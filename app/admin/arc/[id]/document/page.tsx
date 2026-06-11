@@ -113,6 +113,15 @@ function DocInner() {
         body { margin: 0 }
       }`}</style>
 
+      {/* Back to the worklist (screen only) */}
+      <a
+        className="no-print"
+        href="/admin/arc"
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14, fontFamily: 'system-ui, sans-serif', fontSize: 13, fontWeight: 600, color: '#E14909', textDecoration: 'none' }}
+      >
+        ← Back to Architectural review
+      </a>
+
       {/* Screen-only bar */}
       <div className="no-print" style={{ display: 'flex', gap: 10, justifyContent: 'space-between', marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
         <div style={{ fontSize: 12, background: '#FEF3F2', color: '#B42318', padding: '8px 12px', borderRadius: 8, maxWidth: 520 }}>
@@ -179,7 +188,7 @@ function DocInner() {
               {community?.association_officer_name || 'Authorized officer / ARC chair'}
             </div>
             <div style={{ fontSize: 12, color: '#555' }}>{community?.name || 'Association'}</div>
-            <div style={{ fontSize: 12, color: '#555' }}>Date: __________</div>
+            <div style={{ fontSize: 12, color: '#555' }}>Date: {letter.decidedAt}</div>
           </div>
         </div>
       </div>

@@ -372,7 +372,7 @@ async function renderLetterPdf(
   y -= 14
   plain(opts.officerName, { size: 11 })
   plain(letter.associationName || 'Association', { size: 10, color: GREY })
-  plain('Date: __________', { size: 10, color: GREY })
+  plain(`Date: ${letter.decidedAt}`, { size: 10, color: GREY })
 
   return await doc.save()
 }
