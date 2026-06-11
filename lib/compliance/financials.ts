@@ -160,10 +160,23 @@ export const AUDIT_TIER_LABEL: Record<AuditTier, string> = {
   audited: 'audited financial statements',
 }
 
-/** Estimate annual revenue: explicit field, else the sum of operating budgets. */
-export function estimateAnnualRevenue(community: Record<string, any> | null | undefined, budgets: BudgetCategoryRow[] = []): number {
+/**
+ * Annual revenue for the audit tier. Precedence: an explicit `annual_revenue`
+ * field the board set (deliberate override) → `liveRevenue` (current-FY earned
+ * revenue from the general ledger, when a ledger exists) → the sum of operating
+ * budgets (the estimate used before any ledger is built). Measured GL revenue is
+ * more defensible for a statutory threshold than a budget figure, but never
+ * overrides a number the board explicitly stated.
+ */
+export function estimateAnnualRevenue(
+  community: Record<string, any> | null | undefined,
+  budgets: BudgetCategoryRow[] = [],
+  liveRevenue?: number,
+): number {
   const explicit = Number(community?.annual_revenue) || 0
   if (explicit > 0) return explicit
+  const live = Number(liveRevenue) || 0
+  if (live > 0) return live
   return budgets.filter(b => !b.is_reserve).reduce((s, b) => s + (Number(b.budget) || 0), 0)
 }
 
@@ -200,14 +213,15 @@ export function financialSignals(
   reserves: ReserveComponentRow[] = [],
   filings: FinancialFilingRow[] = [],
   now: Date = new Date(),
+  liveRevenue?: number,
 ): ComplianceSignal[] {
   if (!community) return []
   const out: ComplianceSignal[] = []
   const regime = regimeOf(community.association_type)
   const cite = 'FS 718.111(13) / 720.303(6)-(7)'
 
-  // --- Audit tier ---
-  const revenue = estimateAnnualRevenue(community, budgets)
+  // --- Audit tier (driven by live GL revenue when a ledger exists) ---
+  const revenue = estimateAnnualRevenue(community, budgets, liveRevenue)
   const parcelCount = Number(community.parcel_count) || 0
   const required = requiredAuditTier(revenue, regime, parcelCount, now)
   if (revenue > 0) {

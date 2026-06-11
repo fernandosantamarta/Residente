@@ -179,6 +179,114 @@ for (let t = 0; t < 5000; t++) {
 if (fuzzFails === 0) console.log('  ✓ 5,000/5,000 cases balance and tie out')
 else { failures += fuzzFails; console.log(`  ✗ ${fuzzFails} mismatches`) }
 
+// ---- REAL-DB MODE (opt-in): tie out the builder against live data ----
+// Runs ONLY when service-role creds are present, so the default `npm run verify`
+// stays offline + zero-dep. With creds it proves, on REAL communities, the two
+// properties the synthetic fuzz can't see real data shapes for:
+//   (A) HARD: the builder's operating 1100 net == Σ residentBalance() over the
+//       live roster (staleness-proof — both computed in memory, as of now).
+//   (B) INFO: the PERSISTED ledger (gl_trial_balance) 1100/operating net vs that
+//       same Σ residentBalance — a drift just means "rebuild needed", so it's
+//       informational by default. Set VERIFY_GL_ASSERT_PERSISTED=1 (e.g. in a
+//       post-rebuild acceptance gate) to make persisted drift a hard failure.
+// Scope to one community with VERIFY_GL_COMMUNITY=<uuid> (the pilot).
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
+const DB_URL =
+  process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.REACT_APP_SUPABASE_URL || 'https://nozzfcxijdnllkiydhfi.supabase.co'
+
+if (!SERVICE_KEY) {
+  console.log('\nℹ real-DB checks skipped (set SUPABASE_SERVICE_ROLE_KEY to run them)')
+} else {
+  // lib/dues.monthsOwed = monthsSince(created_at) + 1, using LOCAL getFullYear/
+  // getMonth (matched here so the tie-out is exact vs residentBalance()).
+  const monthsSinceLocal = (input, now) => {
+    if (!input) return 0
+    const d = new Date(input); if (isNaN(d.getTime())) return 0
+    return Math.max(0, (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth()))
+  }
+  const monthsOwedOf = (created_at, now) => monthsSinceLocal(created_at, now) + 1
+  const assertPersisted = process.env.VERIFY_GL_ASSERT_PERSISTED === '1'
+  const onlyCommunity = process.env.VERIFY_GL_COMMUNITY || null
+
+  try {
+    const { createClient } = await import('@supabase/supabase-js')
+    const db = createClient(DB_URL, SERVICE_KEY, { auth: { persistSession: false } })
+    const now = new Date()
+
+    let cq = db.from('communities').select('*')
+    if (onlyCommunity) cq = cq.eq('id', onlyCommunity)
+    const { data: comms, error: cErr } = await cq
+    if (cErr) throw new Error(`communities query failed: ${cErr.message}`)
+
+    console.log(`\nREAL-DB — ${comms.length} communit${comms.length === 1 ? 'y' : 'ies'} (live tie-out)`)
+    let drifts = 0, noLedger = 0
+    for (const c of comms) {
+      const [{ data: resRows, error: rErr }, { data: payRows, error: pErr }] = await Promise.all([
+        db.from('residents').select('id, created_at, opening_balance').eq('community_id', c.id),
+        db.from('payments').select('id, resident_id, amount').eq('community_id', c.id),
+      ])
+      if (rErr || pErr) { failures++; console.log(`  ✗ ${c.id}: source query failed (${(rErr || pErr).message})`); continue }
+
+      const paysByRes = new Map()
+      for (const p of payRows || []) {
+        const rid = p.resident_id ? String(p.resident_id) : null
+        if (!rid) continue
+        if (!paysByRes.has(rid)) paysByRes.set(rid, [])
+        paysByRes.get(rid).push(Number(p.amount) || 0)
+      }
+      const residents = (resRows || []).map(r => ({
+        id: String(r.id), monthsOwed: monthsOwedOf(r.created_at, now),
+        opening: Number(r.opening_balance) || 0, payments: paysByRes.get(String(r.id)) || [],
+      }))
+      const payments = (payRows || []).map(p => ({
+        id: String(p.id), resident_id: p.resident_id ? String(p.resident_id) : null, amount: Number(p.amount) || 0,
+      }))
+
+      // (A) in-memory tie-out on real data — HARD.
+      const es = buildLedger({ community: c, residents, payments })
+      const arNet = acctNet(es, '1100', 'operating')
+      const expAR = round2(sum(residents.map(r => duesBalance(r, c))))
+      if (arNet !== expAR) { failures++; console.log(`  ✗ ${c.name || c.id}: builder AR ${arNet} <> Σ residentBalance ${expAR}`) }
+      else console.log(`  ✓ ${c.name || c.id}: builder AR == Σ residentBalance (${expAR}), ${residents.length} residents`)
+
+      // (B) persisted ledger vs the same expectation — INFO (or HARD if asserting).
+      // Read the MACHINE-only 1100/operating net (exclude manual_adjustment), exactly
+      // as gl_rebuild_community's re-assert does. The gl_trial_balance VIEW sums ALL
+      // lines, so it would show false drift on any community with a manual AR
+      // adjustment (an intentional deviation, not staleness).
+      const { data: lineRows, error: tErr } = await db.from('gl_entry_lines')
+        .select('debit, credit, gl_journal_entries!inner(source_type), gl_accounts!inner(code)')
+        .eq('community_id', c.id).eq('fund', 'operating')
+        .eq('gl_accounts.code', '1100')
+        .neq('gl_journal_entries.source_type', 'manual_adjustment')
+      if (tErr) {
+        // Under the acceptance gate, an UNREADABLE persisted ledger must fail — not
+        // silently pass (it's an inability to verify, not a "not rebuilt yet" skip).
+        if (assertPersisted) failures++
+        console.log(`    ${assertPersisted ? '✗' : 'ℹ'} ${c.name || c.id}: persisted read failed (${tErr.message})`)
+        continue
+      }
+      if (!lineRows || lineRows.length === 0) { noLedger++; console.log(`    ℹ no persisted ledger yet (run the rebuild writer)`); continue }
+      const persisted = round2(lineRows.reduce((s, r) => s + (Number(r.debit) || 0) - (Number(r.credit) || 0), 0))
+      const drift = round2(persisted - expAR)
+      if (drift !== 0) {
+        drifts++
+        const msg = `    ${assertPersisted ? '✗' : 'ℹ'} persisted AR ${persisted} vs Σ residentBalance ${expAR} (drift ${drift} — projection stale, rebuild)`
+        console.log(msg)
+        if (assertPersisted) failures++
+      } else {
+        console.log(`    ✓ persisted AR ties out (${persisted})`)
+      }
+    }
+    if (drifts && !assertPersisted) console.log(`  ℹ ${drifts} communit${drifts === 1 ? 'y' : 'ies'} need a rebuild (set VERIFY_GL_ASSERT_PERSISTED=1 to fail on this)`)
+    if (noLedger) console.log(`  ℹ ${noLedger} communit${noLedger === 1 ? 'y has' : 'ies have'} no persisted ledger yet`)
+  } catch (err) {
+    failures++
+    console.log(`  ✗ real-DB checks errored: ${err.message}`)
+  }
+}
+
 console.log('')
 if (failures === 0) { console.log('PASS — GL projection balances and ties out to lib/dues.ts.'); process.exit(0) }
 else { console.log(`FAIL — ${failures} discrepancy(ies) in the GL projection.`); process.exit(1) }

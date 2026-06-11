@@ -87,16 +87,16 @@ export function monthsOwed(resident: Resident | null | undefined, now: Date = ne
 }
 
 // Whole months of dues the resident's payments have fully covered.
-export function monthsCovered(resident: Resident | null | undefined, monthlyDues: number, payments: Payment[] = []): number {
+export function monthsCovered(resident: Resident | null | undefined, monthlyDues: number, payments: Payment[] = [], now: Date = new Date()): number {
   const m = Number(monthlyDues) || 0
   if (m <= 0) return 0
   const opening = Number(resident?.opening_balance) || 0
   const afterOpening = Math.max(0, sumPayments(payments) - opening)
-  return Math.min(monthsOwed(resident), Math.floor(afterOpening / m))
+  return Math.min(monthsOwed(resident, now), Math.floor(afterOpening / m))
 }
 
-export function monthsLate(resident: Resident | null | undefined, monthlyDues: number, payments: Payment[] = []): number {
-  return Math.max(0, monthsOwed(resident) - monthsCovered(resident, monthlyDues, payments) - 1)
+export function monthsLate(resident: Resident | null | undefined, monthlyDues: number, payments: Payment[] = [], now: Date = new Date()): number {
+  return Math.max(0, monthsOwed(resident, now) - monthsCovered(resident, monthlyDues, payments, now) - 1)
 }
 
 // Triangular helper: the simple-interest month-sum for `late` overdue installments.
@@ -106,11 +106,11 @@ const triangular = (late: number): number => (late * (late + 1)) / 2
  * Simple late interest. `apr` is the ANNUAL percentage; the monthly factor is
  * apr/12/100. See the file-header statutory note. Returns 0 when apr ≤ 0.
  */
-export function lateInterest(resident: Resident | null | undefined, monthlyDues: number, payments: Payment[] = [], apr: number = 0): number {
+export function lateInterest(resident: Resident | null | undefined, monthlyDues: number, payments: Payment[] = [], apr: number = 0, now: Date = new Date()): number {
   const a = Number(apr) || 0
   const m = Number(monthlyDues) || 0
   if (a <= 0 || m <= 0) return 0
-  const late = monthsLate(resident, monthlyDues, payments)
+  const late = monthsLate(resident, monthlyDues, payments, now)
   if (late <= 0) return 0
   const monthlyFactor = a / 12 / 100
   return Math.round(m * monthlyFactor * triangular(late) * 100) / 100
@@ -121,12 +121,12 @@ export function lateInterest(resident: Resident | null | undefined, monthlyDues:
  * caps it at the greater of a flat $ amount or a % of the installment. Returns
  * 0 unless the community has opted into a flat and/or % fee.
  */
-export function adminLateFees(resident: Resident | null | undefined, monthlyDues: number, payments: Payment[] = [], cfg: DuesConfig = {}): number {
+export function adminLateFees(resident: Resident | null | undefined, monthlyDues: number, payments: Payment[] = [], cfg: DuesConfig = {}, now: Date = new Date()): number {
   const m = Number(monthlyDues) || 0
   const flat = Number(cfg.lateFeeFlat) || 0
   const pct = Number(cfg.lateFeePct) || 0
   if (m <= 0 || (flat <= 0 && pct <= 0)) return 0
-  const late = monthsLate(resident, monthlyDues, payments)
+  const late = monthsLate(resident, monthlyDues, payments, now)
   if (late <= 0) return 0
   const perInstallment = Math.max(flat, (m * pct) / 100)
   return Math.round(perInstallment * late * 100) / 100
@@ -143,13 +143,14 @@ export function residentBalance(
   monthlyDues: number,
   payments: Payment[] = [],
   cfg: DuesConfig | number = {},
+  now: Date = new Date(),
 ): number {
   const c = asConfig(cfg)
   const opening = Number(resident?.opening_balance) || 0
-  const accrued = monthsOwed(resident) * (Number(monthlyDues) || 0)
+  const accrued = monthsOwed(resident, now) * (Number(monthlyDues) || 0)
   const paid = sumPayments(payments)
-  const interest = lateInterest(resident, monthlyDues, payments, c.apr || 0)
-  const fees = adminLateFees(resident, monthlyDues, payments, c)
+  const interest = lateInterest(resident, monthlyDues, payments, c.apr || 0, now)
+  const fees = adminLateFees(resident, monthlyDues, payments, c, now)
   return Math.round((opening + accrued - paid + interest + fees) * 100) / 100
 }
 

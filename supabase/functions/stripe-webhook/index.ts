@@ -11,7 +11,9 @@
 // Stripe retry can't double-record a payment.
 //
 // Deploy:  supabase functions deploy stripe-webhook --no-verify-jwt
-// Secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET   (see supabase/README.md)
+// Secrets: STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, and (optional)
+//          STRIPE_WEBHOOK_SECRET_CONNECT for the Connected-accounts destination
+//          (see supabase/README.md)
 
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=denonext'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
@@ -23,7 +25,15 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
 // Deno needs the async SubtleCrypto provider for signature verification.
 const cryptoProvider = Stripe.createSubtleCryptoProvider()
 
-const WEBHOOK_SECRET = Deno.env.get('STRIPE_WEBHOOK_SECRET') ?? ''
+// Two possible signing secrets: the platform-account destination, and a separate
+// "Connected accounts" destination (Connect direct charges + account.updated fire
+// on the connected account, signed with that destination's own secret). We try
+// each; either valid signature is accepted. STRIPE_WEBHOOK_SECRET_CONNECT is
+// optional — until the Connect destination exists, only the first is set.
+const WEBHOOK_SECRETS = [
+  Deno.env.get('STRIPE_WEBHOOK_SECRET') ?? '',
+  Deno.env.get('STRIPE_WEBHOOK_SECRET_CONNECT') ?? '',
+].filter(Boolean)
 
 // Service-role client — bypasses RLS so the webhook can insert payments.
 const admin = createClient(
@@ -67,14 +77,19 @@ Deno.serve(async (req) => {
   if (!signature) return new Response('Missing stripe-signature', { status: 400 })
 
   const body = await req.text()
-  let event: Stripe.Event
-  try {
-    event = await stripe.webhooks.constructEventAsync(
-      body, signature, WEBHOOK_SECRET, undefined, cryptoProvider,
-    )
-  } catch (err) {
-    console.error('Signature verification failed:', (err as Error).message)
-    return new Response(`Bad signature: ${(err as Error).message}`, { status: 400 })
+  let event: Stripe.Event | null = null
+  let lastErr = 'no signing secret configured'
+  for (const secret of WEBHOOK_SECRETS) {
+    try {
+      event = await stripe.webhooks.constructEventAsync(body, signature, secret, undefined, cryptoProvider)
+      break
+    } catch (err) {
+      lastErr = (err as Error).message
+    }
+  }
+  if (!event) {
+    console.error('Signature verification failed:', lastErr)
+    return new Response(`Bad signature: ${lastErr}`, { status: 400 })
   }
 
   if (event.type === 'checkout.session.completed') {
