@@ -523,6 +523,8 @@ export const es: Record<string, string> = {
   "pay.statusPaid": "Pagado",
   "pay.statusPending": "Pendiente",
   "pay.stripeSecureNote": "Abriremos el formulario seguro de Stripe para registrar tu tarjeta — nunca vemos el número completo, solo la marca y los últimos 4 dígitos. También puedes administrar los métodos guardados en Configuración.",
+  "pay.dismiss": "Descartar",
+  "pay.submittedNote": "Pago enviado. Los pagos con tarjeta se registran de inmediato; las transferencias bancarias (ACH) tardan unos días hábiles en aparecer.",
   "pay.subheading": "Consulta tu saldo, realiza pagos y administra tus métodos de pago.",
   "pay.supportSub": "Si tienes preguntas o necesitas asistencia, nuestro equipo de soporte está aquí para ayudarte.",
   "pay.supportTitle": "¿Necesitas ayuda con un pago?",
