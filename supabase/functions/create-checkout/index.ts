@@ -89,8 +89,18 @@ Deno.serve(async (req) => {
         ? (community.stripe_account_id as string)
         : null
 
-    const session = await stripe.checkout.sessions.create({
+    // ACH (us_bank_account) is offered ONLY when the community charges on its OWN
+    // connected account — the bank debit then lands with the HOA, never with
+    // Residente. On the legacy single-account fallback we stay card-only. ACH is
+    // async: the payment is recorded only once it SETTLES (see stripe-webhook's
+    // checkout.session.async_payment_succeeded handler), never at authorization.
+    const paymentMethodTypes = connectedAccount
+      ? ['card', 'us_bank_account']
+      : ['card']
+
+    const params: any = {
       mode: 'payment',
+      payment_method_types: paymentMethodTypes,
       line_items: [{
         quantity: 1,
         price_data: {
@@ -104,7 +114,10 @@ Deno.serve(async (req) => {
           },
         },
       }],
-      success_url: `${APP_URL}/app/track?paid=1#pay`,
+      // Neutral copy: a card posts instantly, an ACH debit takes a few business
+      // days, and we don't know which the resident picked at redirect time. The
+      // Pay screen reads ?submitted=1 and explains both (it never claims "Paid").
+      success_url: `${APP_URL}/app/track?submitted=1#pay`,
       cancel_url: `${APP_URL}/app/track#pay`,
       // stripe-webhook reads these back to record the payment against the
       // right household. The charged amount comes from Stripe itself. Stripe
@@ -116,7 +129,35 @@ Deno.serve(async (req) => {
         ...(installment_no != null ? { installment_no: String(installment_no) } : {}),
         ...(charge_type ? { charge_type: String(charge_type) } : {}),
       },
-    }, connectedAccount ? { stripeAccount: connectedAccount } : undefined)
+      // Mirror the household tags onto the PaymentIntent too, so a connected
+      // account's own Stripe dashboard (and later reconciliation) can see what
+      // each charge was for. Recording still keys off the session metadata above.
+      payment_intent_data: {
+        metadata: {
+          resident_id: resident.id,
+          community_id: resident.community_id,
+          ...(planId ? { plan_id: planId } : {}),
+          ...(charge_type ? { charge_type: String(charge_type) } : {}),
+        },
+      },
+    }
+
+    const acctOpts = connectedAccount ? { stripeAccount: connectedAccount } : undefined
+    let session
+    try {
+      session = await stripe.checkout.sessions.create(params, acctOpts)
+    } catch (err) {
+      // A connected account that hasn't activated ACH (us_bank_account) rejects the
+      // session. Don't break dues entirely — retry card-only so the resident can
+      // still pay; ACH simply isn't offered until that account enables it.
+      if (params.payment_method_types.includes('us_bank_account')) {
+        console.warn('us_bank_account unavailable; retrying card-only:', (err as Error).message)
+        params.payment_method_types = ['card']
+        session = await stripe.checkout.sessions.create(params, acctOpts)
+      } else {
+        throw err
+      }
+    }
 
     return json({ url: session.url })
   } catch (err) {

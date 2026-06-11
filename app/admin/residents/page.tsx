@@ -7,6 +7,7 @@ import { residentBalance, duesStatus, DUES_LABEL, fmtMoney, communityDuesConfig 
 import { downloadCsv, exportFilename } from '@/lib/exportCsv'
 import { logAudit } from '@/lib/audit'
 import { Dropdown } from '@/components/Dropdown'
+import { RecordPaymentForm } from '@/components/RecordPaymentForm'
 import { EasyTrackTabs } from '../EasyTrackTabs'
 
 // Resident account / voting-invite state from the magic-link columns, with a
@@ -47,13 +48,12 @@ function parseResidentsCsv(text) {
   return out
 }
 
-// Sort by subdivision, then address (numeric-aware), then name.
+// Sort alphabetically by household name; unit/address (numeric-aware) breaks ties.
 const sortRows = (rs) => [...rs].sort((a, b) => {
-  const s = String(a.subdivision || '~').localeCompare(String(b.subdivision || '~'))
-  if (s !== 0) return s
-  const ad = String(a.address || '').localeCompare(
+  const n = String(a.full_name || '~').localeCompare(String(b.full_name || '~'))
+  if (n !== 0) return n
+  return String(a.address || '').localeCompare(
     String(b.address || ''), undefined, { numeric: true })
-  return ad !== 0 ? ad : String(a.full_name || '').localeCompare(String(b.full_name || ''))
 })
 
 // Editable import spreadsheet — one row per household, four columns matching the
@@ -235,6 +235,28 @@ export default function Residents() {
       setError(err?.message || 'Could not save that change')
       load() // re-sync from the DB
     }
+  }
+
+  // Record an offline (check / cash / money-order) DUES payment via the
+  // append-only record_offline_payment RPC, then refresh payments so the
+  // balance recomputes. client_key makes a double-click / retry idempotent.
+  const recordPayment = async (resident, { amount, method, paidOn, memo }) => {
+    if (!communityId) return { error: 'No community selected' }
+    const client_key = (globalThis.crypto?.randomUUID?.() || `${resident.id}:${paidOn}:${amount}`)
+    const { error } = await supabase.rpc('record_offline_payment', {
+      p_community: communityId,
+      p_resident: resident.id,
+      p_amount: amount,
+      p_method: method,
+      p_paid_on: paidOn || null,
+      p_memo: memo || null,
+      p_client_key: client_key,
+    })
+    if (error) return { error: error.message }
+    const { data } = await supabase.from('payments').select('*').eq('community_id', communityId)
+    setPayments(data || [])
+    setSuccessMsg(`Recorded ${fmtMoney(amount)} for ${resident.full_name}`)
+    return {}
   }
 
   // Keep a trailing blank row so the spreadsheet always has room to type/paste.
@@ -500,7 +522,8 @@ export default function Residents() {
                     <ResidentRow key={r.id} r={r} monthlyDues={monthlyDues} duesCfg={duesCfg}
                       payments={paymentsByResident.get(r.id) || []}
                       onLocal={editLocal} onCommit={commit} onRemove={remove}
-                      onInvite={sendInvite} inviteBusy={inviteBusyId === r.id} />
+                      onInvite={sendInvite} inviteBusy={inviteBusyId === r.id}
+                      onRecordPayment={recordPayment} />
                   ))}
                 </tbody>
               </table>
@@ -516,7 +539,7 @@ export default function Residents() {
 // activation pill | Open). "Open" expands the full household editor in-place so
 // every working field (address, subdivision, opening balance, mailing address,
 // tenant) is still editable — nothing is read-only-only.
-function ResidentRow({ r, monthlyDues, duesCfg, payments, onLocal, onCommit, onRemove, onInvite, inviteBusy }) {
+function ResidentRow({ r, monthlyDues, duesCfg, payments, onLocal, onCommit, onRemove, onInvite, inviteBusy, onRecordPayment }) {
   const [open, setOpen] = useState(false)
   const balance = residentBalance(r, monthlyDues, payments, duesCfg)
   const activated = !!(r.activated_at || r.profile_id)
@@ -565,6 +588,13 @@ function ResidentRow({ r, monthlyDues, duesCfg, payments, onLocal, onCommit, onR
                 <input className="admin-input" type="number" placeholder="0" value={r.opening_balance ?? ''}
                   onChange={e => onLocal(r.id, 'opening_balance', e.target.value)}
                   onBlur={e => onCommit(r.id, { opening_balance: Number(e.target.value) || 0 })} /></label>
+            </div>
+
+            <div style={{ margin: '14px 0', padding: '14px 16px', background: 'rgba(0,0,0,0.025)', borderRadius: 10 }}>
+              <span className="admin-field-label" style={{ display: 'block', marginBottom: 8 }}>
+                Record an offline payment (check / cash / money order) — posts to the ledger and updates the balance
+              </span>
+              <RecordPaymentForm onSubmit={v => onRecordPayment(r, v)} />
             </div>
 
             <p className="edit-note">

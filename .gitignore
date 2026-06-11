@@ -17,3 +17,8 @@ yarn-error.log*
 # Supabase CLI local scratch
 supabase/.temp/
 .env*
+
+# Local agent/session scratch (never commit)
+.claude/
+.tmpverify/
+graphify-out/

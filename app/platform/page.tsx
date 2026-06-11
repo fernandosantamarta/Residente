@@ -14,20 +14,50 @@ const fmtDateTime = (s: string) =>
 // Self-contained palette — this page lives outside the themed app layout.
 // Signup/mock look: warm cream surfaces, dark-brown ink, signup-orange accent.
 const C = {
-  bg: '#FFF5EC', card: '#FFFFFF', border: 'rgba(42,18,6,0.12)',
-  text: '#2A1206', muted: 'rgba(42,18,6,0.55)', accent: '#E14909', accentSoft: 'rgba(225,73,9,0.12)',
+  bg: '#FFF5EC', card: '#FFFFFF', border: 'rgba(42,18,6,0.14)',
+  // Darker muted + border than before so secondary text and rules read on cream.
+  text: '#2A1206', muted: 'rgba(42,18,6,0.64)', accent: '#E14909', accentSoft: 'rgba(225,73,9,0.12)',
+  // Semantic set — used consistently across KPI tiles, status badges, and table
+  // rows so an operator can scan state by color: green=healthy, amber=attention,
+  // red=problem, blue=in progress. Hues chosen to stay legible on white/cream.
+  good: '#1B9E6B', goodSoft: 'rgba(27,158,107,0.13)',
+  warn: '#C2740C', warnSoft: 'rgba(194,116,12,0.14)',
+  bad: '#D64141', badSoft: 'rgba(214,65,65,0.13)',
+  info: '#3B72C4', infoSoft: 'rgba(59,114,196,0.13)',
 }
+type Tone = 'neutral' | 'good' | 'warn' | 'bad' | 'info' | 'accent'
+const toneColor: Record<Tone, string> = { neutral: C.text, good: C.good, warn: C.warn, bad: C.bad, info: C.info, accent: C.accent }
+const toneSoft: Record<Tone, string> = { neutral: C.border, good: C.goodSoft, warn: C.warnSoft, bad: C.badSoft, info: C.infoSoft, accent: C.accentSoft }
 
 const card: React.CSSProperties = { background: C.card, border: `1px solid ${C.border}`, borderRadius: 16, padding: '20px 22px' }
 const th: React.CSSProperties = { textAlign: 'left', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6, color: C.muted, padding: '0 12px 10px', fontWeight: 700 }
 const td: React.CSSProperties = { padding: '13px 12px', borderTop: `1px solid ${C.border}`, fontSize: 13.5, color: C.text, verticalAlign: 'middle' }
+const searchInput: React.CSSProperties = {
+  width: '100%', maxWidth: 320, background: C.bg, color: C.text,
+  border: `1px solid ${C.border}`, borderRadius: 9, padding: '8px 12px',
+  fontSize: 13, marginBottom: 14, outline: 'none', display: 'block',
+}
+// Case-insensitive substring match across a row's searchable fields.
+const matchesQuery = (q: string, fields: (string | null | undefined)[]) => {
+  const s = q.trim().toLowerCase()
+  if (!s) return true
+  return fields.some(f => String(f || '').toLowerCase().includes(s))
+}
 const STATUS_NEXT: Record<PlatformRequest['status'], PlatformRequest['status']> = { open: 'in_progress', in_progress: 'resolved', resolved: 'open' }
 const statusStyle = (s: PlatformRequest['status']): React.CSSProperties => ({
   cursor: 'pointer', fontSize: 11, fontWeight: 700, padding: '4px 11px', borderRadius: 999, border: '1px solid transparent',
   flexShrink: 0, whiteSpace: 'nowrap', textTransform: 'capitalize',
-  background: s === 'resolved' ? 'rgba(74,201,155,0.15)' : s === 'in_progress' ? 'rgba(78,140,221,0.15)' : C.accentSoft,
-  color: s === 'resolved' ? '#4AC99B' : s === 'in_progress' ? '#6BA6F5' : C.accent,
+  background: s === 'resolved' ? C.goodSoft : s === 'in_progress' ? C.infoSoft : C.accentSoft,
+  color: s === 'resolved' ? C.good : s === 'in_progress' ? C.info : C.accent,
 })
+
+// Subscription status → semantic color. Module-scoped so either table can use
+// it (a community table defined before the component-body helpers still reaches
+// this), and so the badge color stays identical across both tables.
+const subStatusColor = (s: string | null) =>
+  s === 'active' ? C.good : s === 'past_due' ? C.bad : s === 'cancelled' || s === 'canceled' ? C.warn : s === 'trial' ? C.info : C.muted
+const subStatusBg = (s: string | null) =>
+  s === 'active' ? C.goodSoft : s === 'past_due' ? C.badSoft : s === 'cancelled' || s === 'canceled' ? C.warnSoft : s === 'trial' ? C.infoSoft : C.accentSoft
 
 type Tab = 'overview' | 'communities' | 'subscriptions' | 'support' | 'operators' | 'activity'
 const TABS: { key: Tab; label: string }[] = [
@@ -145,6 +175,10 @@ export default function PlatformConsole() {
   const router = useRouter()
   const [tab, setTab] = useState<Tab>('overview')
   const [entering, setEntering] = useState<string | null>(null)
+  // Per-list search queries (communities, subscriptions, roster modal).
+  const [commQuery, setCommQuery] = useState('')
+  const [subQuery, setSubQuery] = useState('')
+  const [rosterQuery, setRosterQuery] = useState('')
   const isOwner = myRole === 'owner'
   // Role-scoped views (mock parity). Unknown/legacy role → treat as full access
   // (owner) so an admin never lands on a blank console. Money lives only in the
@@ -159,7 +193,7 @@ export default function PlatformConsole() {
   const [rosterLoading, setRosterLoading] = useState(false)
   const [rosterBusy, setRosterBusy] = useState<string | null>(null)
   const openRoster = async (id: string, name: string) => {
-    setRosterFor({ id, name }); setRoster([]); setRosterLoading(true)
+    setRosterFor({ id, name }); setRoster([]); setRosterQuery(''); setRosterLoading(true)
     setRoster(await fetchResidents(id)); setRosterLoading(false)
   }
   const onRemoveResident = async (rid: string, rname: string) => {
@@ -169,6 +203,16 @@ export default function PlatformConsole() {
     if (!err && rosterFor) setRoster(await fetchResidents(rosterFor.id))
     setRosterBusy(null)
   }
+  // Where "Back to your community" returns to: the admin page the operator was
+  // on before opening Platform Console (stashed by the admin nav link). Defaults
+  // to the admin home, and only honors /admin paths so it can't be redirected.
+  const [returnTo, setReturnTo] = useState('/admin')
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const v = window.localStorage.getItem('admin_return_to')
+    if (v && v.startsWith('/admin')) setReturnTo(v)
+  }, [])
+
   const [newEmail, setNewEmail] = useState('')
   const [newRole, setNewRole] = useState<OperatorRole>('operator')
   const [opMsg, setOpMsg] = useState<{ kind: 'err' | 'ok'; text: string } | null>(null)
@@ -197,6 +241,15 @@ export default function PlatformConsole() {
 
   const shell = (children: React.ReactNode) => (
     <div style={{ minHeight: '100vh', background: C.bg, color: C.text }}>
+      {/* Hover/zebra/past-due row treatment — this page is otherwise all inline
+          styles, so one scoped style tag drives the table interactions. */}
+      <style>{`
+        .plat-table tbody tr { transition: background 0.12s ease; }
+        .plat-table tbody tr:nth-child(even) { background: rgba(42,18,6,0.025); }
+        .plat-table tbody tr:hover { background: rgba(225,73,9,0.07); }
+        .plat-table tbody tr.is-pastdue { background: rgba(214,65,65,0.07); }
+        .plat-table tbody tr.is-pastdue:hover { background: rgba(214,65,65,0.12); }
+      `}</style>
       <div style={{ maxWidth: 1120, margin: '0 auto', padding: '40px 28px 64px' }}>{children}</div>
     </div>
   )
@@ -218,6 +271,14 @@ export default function PlatformConsole() {
   const activeCount = communities.filter(c => c.subscription_status === 'active').length
   const pastDueCount = communities.filter(c => c.subscription_status === 'past_due').length
 
+  // Search-filtered views (the lists stay alphabetical from the hook).
+  const filteredCommunities = communities.filter(c =>
+    matchesQuery(commQuery, [c.name, c.location, c.created_by_name, c.created_by_email, c.join_code, c.plan, c.subscription_status]))
+  const filteredSubs = communities.filter(c =>
+    matchesQuery(subQuery, [c.name, c.plan, c.subscription_status]))
+  const filteredRoster = roster.filter(r =>
+    matchesQuery(rosterQuery, [r.full_name, r.email, r.unit_number, r.board_position]))
+
   const onEnter = async (id: string) => {
     setEntering(id)
     const ok = await enterCommunity(id)
@@ -225,21 +286,32 @@ export default function PlatformConsole() {
     else setEntering(null)
   }
 
-  const stat = (label: string, val: number, hot = false) => (
-    <div key={label} style={{ ...card, padding: '18px 20px', position: 'relative', overflow: 'hidden' }}>
-      <div style={{ position: 'absolute', top: 0, left: 0, width: 3, height: '100%', background: hot ? C.accent : C.border }} />
-      <div style={{ fontSize: 32, fontWeight: 800, color: hot ? C.accent : C.text, lineHeight: 1 }}>{val}</div>
-      <div style={{ color: C.muted, fontSize: 12.5, marginTop: 7 }}>{label}</div>
-    </div>
-  )
+  // A KPI tile. `tone` colors the number + left bar + a faint background wash so
+  // the meaningful figures (MRR, past due, open tickets) carry their own color.
+  // `prefix` lets MRR show a "$". When `tone` is a problem color (warn/bad) the
+  // wash only shows once the value is non-zero, so a clean console stays calm.
+  const stat = (label: string, val: number, tone: Tone = 'neutral', prefix = '') => {
+    const lit = tone !== 'neutral' && val > 0
+    const col = lit ? toneColor[tone] : C.text
+    return (
+      <div key={label} style={{ ...card, padding: '18px 20px', position: 'relative', overflow: 'hidden',
+        background: lit ? toneSoft[tone] : C.card, borderColor: lit ? 'transparent' : C.border }}>
+        <div style={{ position: 'absolute', top: 0, left: 0, width: 3, height: '100%', background: lit ? col : C.border }} />
+        <div style={{ fontSize: 32, fontWeight: 800, color: col, lineHeight: 1 }}>{prefix}{val.toLocaleString('en-US')}</div>
+        <div style={{ color: C.muted, fontSize: 12.5, marginTop: 7, fontWeight: 600 }}>{label}</div>
+      </div>
+    )
+  }
 
   const statsGrid = (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14, marginBottom: 18 }}>
       {stat('Communities', communities.length)}
-      {stat('MRR ($/mo)', Math.round(mrrCents / 100), mrrCents > 0)}
-      {stat('Active subs', activeCount)}
+      {stat('MRR / mo', Math.round(mrrCents / 100), 'good', '$')}
+      {stat('Active subs', activeCount, 'good')}
+      {stat('Trials', trials, 'info')}
+      {stat('Past due', pastDueCount, 'bad')}
+      {stat('Open tickets', openCount, 'accent')}
       {stat('Total residents', totalResidents)}
-      {stat('Open tickets', openCount, openCount > 0)}
     </div>
   )
 
@@ -250,23 +322,31 @@ export default function PlatformConsole() {
       {communities.length === 0 ? (
         <div style={{ color: C.muted, fontSize: 13.5 }}>No communities yet.</div>
       ) : (
+        <>
+        <input value={commQuery} onChange={e => setCommQuery(e.target.value)}
+          placeholder="Search communities…" aria-label="Search communities" style={searchInput} />
+        {filteredCommunities.length === 0 ? (
+          <div style={{ color: C.muted, fontSize: 13.5 }}>No communities match &ldquo;{commQuery}&rdquo;.</div>
+        ) : (
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
+          <table className="plat-table" style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
             <thead><tr>
               {['Community', 'Created by', 'Plan', 'Residents', 'Board', 'Join code', 'Created', ''].map(h => <th key={h} style={th}>{h}</th>)}
             </tr></thead>
             <tbody>
-              {communities.map(c => (
-                <tr key={c.id}>
+              {filteredCommunities.map(c => (
+                <tr key={c.id} className={c.subscription_status === 'past_due' ? 'is-pastdue' : undefined}>
                   <td style={{ ...td, fontWeight: 700 }}>{c.name || '—'}{c.location ? <span style={{ display: 'block', fontWeight: 400, fontSize: 12, color: C.muted }}>{c.location}</span> : null}</td>
                   <td style={td}>
                     <div style={{ fontWeight: 600 }}>{c.created_by_name || '—'}</div>
                     {c.created_by_email && <div style={{ fontSize: 12, color: C.muted, maxWidth: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.created_by_email}</div>}
                   </td>
                   <td style={td}>
-                    <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, textTransform: 'capitalize',
-                      background: c.subscription_status === 'trial' ? C.accentSoft : 'rgba(74,201,155,0.15)',
-                      color: c.subscription_status === 'trial' ? C.accent : '#4AC99B' }}>{c.subscription_status || 'active'}</span>
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, textTransform: 'capitalize',
+                      background: subStatusBg(c.subscription_status), color: subStatusColor(c.subscription_status) }}>
+                      <span style={{ width: 6, height: 6, borderRadius: '50%', background: subStatusColor(c.subscription_status) }} />
+                      {c.subscription_status || 'active'}
+                    </span>
                   </td>
                   <td style={td}>{c.resident_count}</td>
                   <td style={td}>{c.board_count}</td>
@@ -310,14 +390,11 @@ export default function PlatformConsole() {
             </tbody>
           </table>
         </div>
+        )}
+        </>
       )}
     </section>
   )
-
-  const subStatusColor = (s: string | null) =>
-    s === 'active' ? '#4AC99B' : s === 'past_due' ? '#E97070' : s === 'cancelled' || s === 'canceled' ? '#E9A23B' : C.muted
-  const subStatusBg = (s: string | null) =>
-    s === 'active' ? 'rgba(74,201,155,0.15)' : s === 'past_due' ? 'rgba(229,112,112,0.15)' : s === 'cancelled' || s === 'canceled' ? 'rgba(233,162,59,0.15)' : C.accentSoft
 
   const subscriptionsSection = (
     <section style={{ ...card, marginBottom: 18 }}>
@@ -325,32 +402,39 @@ export default function PlatformConsole() {
         <h2 style={{ fontSize: 15, fontWeight: 700 }}>Subscriptions</h2>
         <span style={{ fontSize: 13, color: C.muted }}>
           MRR <strong style={{ color: C.accent }}>{fmtMoney(mrrCents)}/mo</strong> · {activeCount} active · {paying.length} on a paid plan
-          {pastDueCount > 0 && <span style={{ color: '#E97070' }}> · {pastDueCount} past due</span>}
+          {pastDueCount > 0 && <span style={{ color: C.bad, fontWeight: 700 }}> · {pastDueCount} past due</span>}
         </span>
       </div>
       <p style={{ color: C.muted, fontSize: 12.5, marginBottom: 14 }}>Every community&apos;s plan, status, and monthly amount. MRR counts active subscriptions only.</p>
       {communities.length === 0 ? (
         <div style={{ color: C.muted, fontSize: 13.5 }}>No communities yet.</div>
       ) : (
+        <>
+        <input value={subQuery} onChange={e => setSubQuery(e.target.value)}
+          placeholder="Search subscriptions…" aria-label="Search subscriptions" style={searchInput} />
+        {filteredSubs.length === 0 ? (
+          <div style={{ color: C.muted, fontSize: 13.5 }}>No subscriptions match &ldquo;{subQuery}&rdquo;.</div>
+        ) : (
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
+          <table className="plat-table" style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
             <thead><tr>
               {['Community', 'Plan', 'Status', 'Homes', 'Monthly', 'Billing'].map(h => <th key={h} style={th}>{h}</th>)}
             </tr></thead>
             <tbody>
-              {communities.map(c => {
+              {filteredSubs.map(c => {
                 const monthly = communityMonthlyCents(c)
                 return (
-                  <tr key={c.id}>
+                  <tr key={c.id} className={c.subscription_status === 'past_due' ? 'is-pastdue' : undefined}>
                     <td style={{ ...td, fontWeight: 700 }}>{c.name || '—'}</td>
                     <td style={{ ...td, textTransform: 'capitalize' }}>{c.plan || 'free'}</td>
                     <td style={td}>
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, textTransform: 'capitalize',
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, textTransform: 'capitalize',
                         background: subStatusBg(c.subscription_status), color: subStatusColor(c.subscription_status) }}>
+                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: subStatusColor(c.subscription_status) }} />
                         {c.subscription_status || 'active'}
                       </span>
                     </td>
-                    <td style={td}>{c.home_count ?? c.unit_count ?? '—'}</td>
+                    <td style={{ ...td, fontWeight: 700 }}>{c.home_count ?? c.unit_count ?? '—'}</td>
                     <td style={{ ...td, fontWeight: 700 }}>{monthly > 0 ? `${fmtMoney(monthly)}/mo` : 'Free'}</td>
                     <td style={{ ...td, color: C.muted }}>{c.stripe_subscription_id ? 'Stripe' : '—'}</td>
                   </tr>
@@ -359,6 +443,8 @@ export default function PlatformConsole() {
             </tbody>
           </table>
         </div>
+        )}
+        </>
       )}
     </section>
   )
@@ -387,13 +473,40 @@ export default function PlatformConsole() {
     </section>
   )
 
+  // Triage strip for the Overview: surfaces the two things an operator must act
+  // on — communities behind on payment and unresolved support — as colored
+  // chips. Hidden entirely when there's nothing to do, so a healthy console
+  // doesn't carry a warning it doesn't need.
+  const attentionItems: { label: string; tone: Tone; onClick: () => void }[] = []
+  if (pastDueCount > 0) attentionItems.push({ label: `${pastDueCount} past due`, tone: 'bad', onClick: () => setTab('subscriptions') })
+  if (openCount > 0) attentionItems.push({ label: `${openCount} open ticket${openCount > 1 ? 's' : ''}`, tone: 'accent', onClick: () => setTab('support') })
+  if (trials > 0) attentionItems.push({ label: `${trials} on trial`, tone: 'info', onClick: () => setTab('subscriptions') })
+  const attentionBanner = attentionItems.length > 0 && (
+    <div style={{ ...card, marginBottom: 18, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
+      borderColor: pastDueCount > 0 ? C.badSoft : C.border }}>
+      <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Needs attention</span>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        {attentionItems.map(a => (
+          <button key={a.label} onClick={a.onClick}
+            style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 700, padding: '5px 13px', borderRadius: 999,
+              border: `1px solid ${toneColor[a.tone]}`, background: toneSoft[a.tone], color: toneColor[a.tone], whiteSpace: 'nowrap' }}>
+            {a.label} &rarr;
+          </button>
+        ))}
+      </div>
+      {pastDueCount === 0 && openCount === 0 && (
+        <span style={{ color: C.muted, fontSize: 12.5 }}>No payments behind, no open tickets.</span>
+      )}
+    </div>
+  )
+
   return shell(
     <>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <h1 style={{ fontSize: 26, fontWeight: 800, letterSpacing: -0.3 }}>
           Residente <span style={{ color: C.accent }}>Platform Console</span>
         </h1>
-        <Link href="/app" style={{ color: C.muted, fontSize: 13, textDecoration: 'none', whiteSpace: 'nowrap' }}>&larr; Back to your community</Link>
+        <Link href={returnTo} style={{ color: C.muted, fontSize: 13, textDecoration: 'none', whiteSpace: 'nowrap' }}>&larr; Back to your community</Link>
       </div>
       <p style={{ color: C.muted, fontSize: 13.5, marginTop: 4 }}>Every community on Residente, plus support from their boards. Operators only.</p>
 
@@ -416,7 +529,7 @@ export default function PlatformConsole() {
       </div>
 
       {/* OVERVIEW — everything on one page */}
-      {curTab === 'overview' && (<>{statsGrid}{subscriptionsSection}{communitiesSection}{supportSection}</>)}
+      {curTab === 'overview' && (<>{attentionBanner}{statsGrid}{subscriptionsSection}{communitiesSection}{supportSection}</>)}
 
       {/* COMMUNITIES */}
       {curTab === 'communities' && communitiesSection}
@@ -440,8 +553,8 @@ export default function PlatformConsole() {
 
           {opMsg && (
             <div style={{ fontSize: 13, padding: '9px 13px', borderRadius: 9, marginBottom: 14,
-              background: opMsg.kind === 'err' ? 'rgba(229,99,99,0.13)' : 'rgba(74,201,155,0.13)',
-              color: opMsg.kind === 'err' ? '#E97070' : '#4AC99B', border: `1px solid ${opMsg.kind === 'err' ? 'rgba(229,99,99,0.3)' : 'rgba(74,201,155,0.3)'}` }}>
+              background: opMsg.kind === 'err' ? C.badSoft : C.goodSoft,
+              color: opMsg.kind === 'err' ? C.bad : C.good, border: `1px solid ${opMsg.kind === 'err' ? C.bad : C.good}` }}>
               {opMsg.text}
             </div>
           )}
@@ -537,22 +650,30 @@ export default function PlatformConsole() {
               <div style={{ color: C.muted, fontSize: 13.5, padding: '14px 0' }}>Loading…</div>
             ) : roster.length === 0 ? (
               <div style={{ color: C.muted, fontSize: 13.5, padding: '14px 0' }}>No residents in this community.</div>
-            ) : roster.map(r => (
-              <div key={r.id} style={{ borderTop: `1px solid ${C.border}`, padding: '12px 0', display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 700, fontSize: 14 }}>
-                    {r.full_name || '—'}{r.is_board && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: C.accent }}>{r.board_position || 'Board'}</span>}
+            ) : (
+              <>
+              <input value={rosterQuery} onChange={e => setRosterQuery(e.target.value)}
+                placeholder="Search residents…" aria-label="Search residents" style={searchInput} />
+              {filteredRoster.length === 0 ? (
+                <div style={{ color: C.muted, fontSize: 13.5, padding: '14px 0' }}>No residents match &ldquo;{rosterQuery}&rdquo;.</div>
+              ) : filteredRoster.map(r => (
+                <div key={r.id} style={{ borderTop: `1px solid ${C.border}`, padding: '12px 0', display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 14 }}>
+                      {r.full_name || '—'}{r.is_board && <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: C.accent }}>{r.board_position || 'Board'}</span>}
+                    </div>
+                    <div style={{ color: C.muted, fontSize: 12.5 }}>
+                      {[r.unit_number ? `Unit ${r.unit_number}` : null, r.email].filter(Boolean).join(' · ') || '—'}
+                    </div>
                   </div>
-                  <div style={{ color: C.muted, fontSize: 12.5 }}>
-                    {[r.unit_number ? `Unit ${r.unit_number}` : null, r.email].filter(Boolean).join(' · ') || '—'}
-                  </div>
+                  <button onClick={() => onRemoveResident(r.id, r.full_name || '')} disabled={rosterBusy === r.id}
+                    style={{ flexShrink: 0, cursor: 'pointer', fontSize: 12.5, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: '1px solid #E97070', background: 'transparent', color: '#E97070' }}>
+                    {rosterBusy === r.id ? 'Removing…' : 'Remove'}
+                  </button>
                 </div>
-                <button onClick={() => onRemoveResident(r.id, r.full_name || '')} disabled={rosterBusy === r.id}
-                  style={{ flexShrink: 0, cursor: 'pointer', fontSize: 12.5, fontWeight: 700, padding: '6px 12px', borderRadius: 8, border: '1px solid #E97070', background: 'transparent', color: '#E97070' }}>
-                  {rosterBusy === r.id ? 'Removing…' : 'Remove'}
-                </button>
-              </div>
-            ))}
+              ))}
+              </>
+            )}
           </div>
         </div>
       )}

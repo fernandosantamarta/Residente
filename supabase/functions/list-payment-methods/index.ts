@@ -9,6 +9,7 @@
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=denonext'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import { corsHeaders } from '../_shared/cors.ts'
+import { acctOpts } from '../_shared/connect.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
   apiVersion: '2023-10-16',
@@ -48,29 +49,43 @@ Deno.serve(async (req) => {
 
     const { data: resident, error } = await supabase
       .from('residents')
-      .select('id, profile_id, stripe_customer_id, autopay_pm_id')
+      .select('id, profile_id, stripe_customer_id, stripe_customer_account, autopay_pm_id')
       .eq('id', resident_id)
       .single()
     if (error || !resident) return json({ error: 'Resident not found' }, 404)
     if (resident.profile_id !== caller.id) return json({ error: 'Forbidden' }, 403)
     if (!resident.stripe_customer_id) return json({ methods: [] })
 
-    const customer = await stripe.customers.retrieve(resident.stripe_customer_id) as Stripe.Customer
+    // The saved methods live on whichever account the customer was created on
+    // (residents.stripe_customer_account; null = platform) — list/manage them there.
+    const opts = acctOpts(resident.stripe_customer_account || null)
+
+    const customer = await stripe.customers.retrieve(resident.stripe_customer_id, opts) as Stripe.Customer
     const defaultPm = (customer.invoice_settings?.default_payment_method as string) || resident.autopay_pm_id || null
 
-    const pms = await stripe.paymentMethods.list({
-      customer: resident.stripe_customer_id,
-      type: 'card',
-    })
+    // List cards AND saved bank accounts (ACH). Omitting `type` returns every
+    // attached method; we normalise card vs us_bank_account to one shape.
+    const pms = await stripe.paymentMethods.list({ customer: resident.stripe_customer_id }, opts)
 
-    const methods = pms.data.map((pm) => ({
-      id: pm.id,
-      brand: pm.card?.brand ?? 'card',
-      last4: pm.card?.last4 ?? '••••',
-      exp_month: pm.card?.exp_month ?? null,
-      exp_year: pm.card?.exp_year ?? null,
-      is_default: pm.id === defaultPm,
-    }))
+    const methods = pms.data.map((pm) => pm.type === 'us_bank_account'
+      ? {
+          id: pm.id,
+          kind: 'bank' as const,
+          brand: pm.us_bank_account?.bank_name ?? 'Bank',
+          last4: pm.us_bank_account?.last4 ?? '••••',
+          exp_month: null,
+          exp_year: null,
+          is_default: pm.id === defaultPm,
+        }
+      : {
+          id: pm.id,
+          kind: 'card' as const,
+          brand: pm.card?.brand ?? 'card',
+          last4: pm.card?.last4 ?? '••••',
+          exp_month: pm.card?.exp_month ?? null,
+          exp_year: pm.card?.exp_year ?? null,
+          is_default: pm.id === defaultPm,
+        })
 
     return json({ methods })
   } catch (err) {

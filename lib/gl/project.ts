@@ -145,13 +145,14 @@ export function buildLedger(src: LedgerSources): GLEntry[] {
       }
     }
 
-    // Late interest + admin fee (snapshot, matching residentBalance()).
-    const interest = lateInterest(res as any, monthly, resPays as any, apr)
+    // Late interest + admin fee (snapshot, matching residentBalance()). asOf is
+    // threaded so accrual + interest/fee are all evaluated at the SAME instant.
+    const interest = lateInterest(res as any, monthly, resPays as any, apr, asOf)
     if (interest > 0) {
       post({ source_type: 'interest', source_key: `interest:${rid}`, entry_date: asOfISO, fund: 'operating',
         resident_id: rid, resident: rid, memo: 'Late interest', debitAccount: '1100', creditAccount: '4300', amount: interest })
     }
-    const fee = adminLateFees(res as any, monthly, resPays as any, cfg)
+    const fee = adminLateFees(res as any, monthly, resPays as any, cfg, asOf)
     if (fee > 0) {
       post({ source_type: 'late_fee', source_key: `fee:${rid}`, entry_date: asOfISO, fund: 'operating',
         resident_id: rid, resident: rid, memo: 'Administrative late fee', debitAccount: '1100', creditAccount: '4310', amount: fee })
@@ -164,10 +165,18 @@ export function buildLedger(src: LedgerSources): GLEntry[] {
   // it lands in "unapplied" (2000) — cash stays correct AND AR still ties to
   // Σ residentBalance() (which only sees roster residents' payments). resident_id is
   // `on delete set null`, and a deactivated resident may be off the roster, so both
-  // are real states. NB: paid fines never create payments rows (the Stripe webhook
-  // closes ev_violations and returns before any payments insert), so every payments
-  // row is a dues payment — crediting AR for all roster payments is correct and
-  // required for tie-out; do NOT filter by charge_type here.
+  // are real states. INVARIANT — public.payments is DUES-ONLY: every row is a dues
+  // payment, so crediting AR for all roster payments is correct and required for the
+  // tie-out (it matches sumPayments() in lib/dues.ts, which likewise sums all
+  // payments). This holds because no writer ever puts a fine/amenity into payments:
+  //   • Stripe webhook        — paid fines close ev_violations and amenities flip a
+  //                             reservation, both returning BEFORE any payments insert.
+  //   • record_offline_payment — offline DUES only; charge_type stays NULL. Offline
+  //                             fines go through ev_violations 'manual-paid'
+  //                             (lib/violations.ts), recognized as revenue below.
+  // So do NOT filter by charge_type here, and do NOT route any payments row to a
+  // non-AR account — either would break the tie-out. Keep payments dues-only at the
+  // write boundary instead (see supabase/offline-payments.sql).
   const roster = new Set((src.residents || []).map((r: any) => String(r.id)).filter(Boolean))
   for (const p of src.payments || []) {
     const amt = round2(Number(p.amount) || 0)

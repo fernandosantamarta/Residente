@@ -29,6 +29,7 @@ import {
   financialSignals,
   type BudgetCategoryRow, type ReserveComponentRow, type FinancialFilingRow,
 } from '@/lib/compliance/financials'
+import { fetchGlCurrentFyRevenue } from '@/lib/gl/liveRevenue'
 import {
   governanceSignals,
   type BoardTermRow, type DirectorCertRow, type DirectorEligibilityRow, type ManagerRow, type ConflictDisclosureRow,
@@ -110,6 +111,9 @@ export async function GET(req: Request) {
     const arcRequests = (await safe('ev_arc_requests', c.id)) as ArcRequestRow[]
     const insurancePolicies = (await safe('ev_insurance_policies', c.id)) as InsurancePolicyRow[]
     const contracts = (await safe('ev_contracts', c.id)) as ContractRow[]
+    // Live current-FY GL revenue drives the audit tier when a ledger exists
+    // (null → financialSignals falls back to the budget estimate).
+    const glRevenue = await fetchGlCurrentFyRevenue(admin, c.id, Number(c.fiscal_year_start_month) || 1)
     const complianceEvents = (await safe('ev_compliance_events', c.id)) as ComplianceEventRow[]
     const proxies = (await safe('ev_proxies', c.id)) as ProxyRow[]
     const signals = sortSignals([
@@ -117,7 +121,7 @@ export async function GET(req: Request) {
       ...estoppelSignals(estoppel),
       ...structuralSignals(buildings, assessments, sirsComponents, c), // condo-only (returns [] for HOA)
       ...officialRecordsSignals(c, documents, recordsRequests),
-      ...financialSignals(c, budgets, reserves, filings),
+      ...financialSignals(c, budgets, reserves, filings, undefined, glRevenue ?? undefined),
       ...governanceSignals(c, directors, boardTerms, directorCerts, directorElig, managers, govVendors, disclosures),
       ...enforcementSignals(c, violations, hearings, finingCommittee),
       ...fineDisputeSignals(violations, hearings),

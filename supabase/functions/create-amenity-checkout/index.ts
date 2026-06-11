@@ -12,6 +12,7 @@
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=denonext'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import { corsHeaders } from '../_shared/cors.ts'
+import { connectedAccountFor, acctOpts } from '../_shared/connect.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
   apiVersion: '2023-10-16',
@@ -62,6 +63,11 @@ Deno.serve(async (req) => {
     const cents = Number(amenity.price_cents) || 0
     if (cents <= 0) return json({ error: 'This amenity is free' }, 400)
 
+    // "Link, don't hold": charge the reservation ON the community's connected
+    // account when linked. The webhook records event.account onto the reservation
+    // so the later refund targets the same account it was charged on.
+    const connectedAccount = await connectedAccountFor(supabase, res.community_id)
+
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
       line_items: [{
@@ -83,7 +89,11 @@ Deno.serve(async (req) => {
         reservation_id: res.id,
         community_id: res.community_id,
       },
-    })
+      // Mirror onto the PaymentIntent for the connected account's own dashboard.
+      payment_intent_data: {
+        metadata: { reservation_id: res.id, community_id: res.community_id },
+      },
+    }, acctOpts(connectedAccount))
 
     return json({ url: session.url })
   } catch (err) {

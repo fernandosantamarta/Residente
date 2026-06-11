@@ -5516,7 +5516,7 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 [data-theme="sketch"] .admin-schedule {
   display: flex; flex-direction: column;
   gap: 22px;
-  max-width: 920px;
+  max-width: none;
   padding-bottom: 64px;
 }
 /* The events-added card stretches to match the left column's height,

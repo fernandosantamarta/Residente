@@ -18,6 +18,7 @@
 
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=denonext'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { acctOpts, customerMatchesAccount } from '../_shared/connect.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
   apiVersion: '2023-10-16',
@@ -55,22 +56,38 @@ Deno.serve(async (req) => {
   if (error) return new Response(`Query failed: ${error.message}`, { status: 500 })
 
   const results: { plan_id: string; status: string; detail?: string }[] = []
+  // Cache the charge account per community ("link, don't hold").
+  const accountByCommunity = new Map<string, string | null>()
 
   for (const p of plans ?? []) {
     try {
       const cents = Math.round((Number(p.installment_amount) || 0) * 100)
       if (cents <= 0) { results.push({ plan_id: p.id, status: 'skipped', detail: 'no amount' }); continue }
 
-      // Resolve the owner's saved card via the case → resident.
+      // Resolve the owner's saved method via the case → resident.
       const { data: kase } = await admin.from('ev_collection_cases')
         .select('resident_id, profile_id, community_id').eq('id', p.case_id).single()
       if (!kase) { results.push({ plan_id: p.id, status: 'skipped', detail: 'no case' }); continue }
 
-      let resQ = admin.from('residents').select('id, stripe_customer_id, autopay_pm_id')
+      let resQ = admin.from('residents').select('id, stripe_customer_id, stripe_customer_account, autopay_pm_id')
       resQ = kase.resident_id ? resQ.eq('id', kase.resident_id) : resQ.eq('profile_id', kase.profile_id)
       const { data: resident } = await resQ.maybeSingle()
       if (!resident?.stripe_customer_id || !resident?.autopay_pm_id) {
-        results.push({ plan_id: p.id, status: 'skipped', detail: 'no saved card' }); continue
+        results.push({ plan_id: p.id, status: 'skipped', detail: 'no saved method' }); continue
+      }
+
+      if (!accountByCommunity.has(p.community_id)) {
+        const { data: c } = await admin.from('communities')
+          .select('stripe_account_id, stripe_connect_status').eq('id', p.community_id).single()
+        accountByCommunity.set(p.community_id, c?.stripe_connect_status === 'active' && c?.stripe_account_id
+          ? String(c.stripe_account_id) : null)
+      }
+      const account = accountByCommunity.get(p.community_id) ?? null
+
+      // Only charge when the saved method is on the account we'd route dues to —
+      // else the installment would land on the wrong account (see charge-autopay).
+      if (!customerMatchesAccount(resident.stripe_customer_account, account)) {
+        results.push({ plan_id: p.id, status: 'skipped', detail: 'method on different account' }); continue
       }
 
       const installmentNo = (Number(p.paid_count) || 0) + 1
@@ -90,7 +107,7 @@ Deno.serve(async (req) => {
           installment_no: String(installmentNo),
           charge_type: 'assessment',
         },
-      }, { idempotencyKey: `plan-${p.id}-${installmentNo}` })
+      }, { idempotencyKey: `plan-${p.id}-${installmentNo}`, ...acctOpts(account) })
       results.push({ plan_id: p.id, status: pi.status })
     } catch (err) {
       // A declined off-session charge throws; log and continue with the rest.

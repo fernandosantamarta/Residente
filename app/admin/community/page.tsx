@@ -3,9 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
-import { supabase, hasSupabase, signOut } from '@/lib/supabase'
-import { deleteCommunity } from '@/lib/signup'
-import { DangerAction } from '@/components/DangerAction'
+import { supabase, hasSupabase } from '@/lib/supabase'
 import { Dropdown } from '@/components/Dropdown'
 
 // Hardening (carried from Genie): wrap network promises, never .catch on Supabase.
@@ -248,7 +246,7 @@ export default function CommunitySettings() {
           <div className="card">
             <div className="wslist">
               <Link href="/admin/budget" className="wsrow">
-                <span className="wsrow-glyph" style={{ color: '#0E7490', background: '#0E749018' }}>
+                <span className="wsrow-glyph" style={{ color: '#E14909', background: '#E1490918' }}>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><rect x="7" y="11" width="3" height="6" /><rect x="12" y="7" width="3" height="10" /><rect x="17" y="13" width="3" height="4" /></svg>
                 </span>
                 <div className="wsrow-main">
@@ -257,38 +255,6 @@ export default function CommunitySettings() {
                 </div>
                 <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
               </Link>
-            </div>
-          </div>
-
-          {/* ---- Danger zone ---- */}
-          <div className="card danger-card">
-            <div className="card-head">
-              <div>
-                <h2>Danger zone</h2>
-                <div className="sub">
-                  Permanently deletes {form.name || 'this community'} and all its data, cancels the subscription, and removes every member. This can&apos;t be undone.{' '}
-                  Need help instead? <a href="/admin/support" style={{ color: '#E5601F', fontWeight: 700 }}>Contact Residente</a>.
-                </div>
-              </div>
-              <DangerAction
-                confirmWord="DELETE"
-                confirmLabel="Delete community"
-                title="Delete community"
-                body={<>This permanently deletes <strong>{form.name || 'this community'}</strong> — every resident, document, payment, meeting, and setting — and cancels the subscription. All members lose access. This can&apos;t be undone.</>}
-                onConfirm={async () => {
-                  const r = await deleteCommunity()
-                  if (r?.error) return r
-                  try { await signOut() } catch { /* ignore */ }
-                  if (typeof window !== 'undefined') window.location.assign('/')
-                  return { ok: true }
-                }}
-                trigger={(open) => (
-                  <button type="button" onClick={open}
-                    style={{ flexShrink: 0, padding: '10px 18px', borderRadius: 999, border: '1px solid #c5341a', background: '#fff', color: '#c5341a', fontWeight: 700, fontSize: 13.5, cursor: 'pointer' }}>
-                    Delete community
-                  </button>
-                )}
-              />
             </div>
           </div>
         </div>

@@ -5,6 +5,8 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { hasSupabase, supabase } from '@/lib/supabase'
 import { AdminErrorBoundary } from '@/components/AdminErrorBoundary'
+import { AdminSearch } from '@/components/AdminSearch'
+import { SectionScroll } from '@/components/SectionScroll'
 import { SiteFooterSlim } from '@/components/SiteFooter'
 import { useAuth } from '../providers'
 import { usePlatformAdmin } from '@/hooks/usePlatform'
@@ -68,8 +70,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     }
   }, [])
   const chooseView = (v: string) => {
+    if (v === viewAs) return
     setViewAs(v)
     if (typeof window !== 'undefined') window.localStorage.setItem('admin_view_as', v)
+    // Switching the "View as" role lens resets the sub-nav back to Overview, so
+    // you don't land on a sub-page that belonged to the previous role's context.
+    router.push('/admin')
   }
 
   // Auth + access gate. Access = platform admin, community owner (role 'admin'),
@@ -133,13 +139,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </Link>
         ))}
         {isPlatformAdmin && (
-          <Link href="/platform" className="admin-nav-item" style={{ color: '#FF6B3D', fontWeight: 700 }}>
+          <Link href="/platform" className="admin-nav-item" style={{ color: '#FF6B3D', fontWeight: 700 }}
+            onClick={() => { if (typeof window !== 'undefined') window.localStorage.setItem('admin_return_to', pathname) }}>
             Platform Console
           </Link>
         )}
+        {/* Search lives in the far-right gutter, mirroring "Back to app" on the
+            left, so the centered tab row stays balanced. */}
+        <AdminSearch />
       </nav>
 
       <main className="admin-main">
+        <SectionScroll />
         <AdminErrorBoundary>{children}</AdminErrorBoundary>
       </main>
       <SiteFooterSlim />
