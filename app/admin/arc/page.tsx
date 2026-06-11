@@ -513,12 +513,13 @@ function ArcRequestCard({
           </>
         )}
         <Tip text="Opens a printable, official letter stating the board's decision (and any reason or conditions) to give or mail to the owner — the formal record FS 720.3035 expects.">
+          {/* Same-tab nav (not target=_blank): admin auth lives in sessionStorage,
+              which a new tab doesn't inherit — opening the document page in a fresh
+              tab loses the session and bounces to /login. Use Back to return here. */}
           <a
             className="admin-btn-ghost"
             style={{ marginLeft: 0 }}
             href={`/admin/arc/${r.id}/document?type=decision`}
-            target="_blank"
-            rel="noopener noreferrer"
           >
             Decision letter
           </a>
