@@ -80,7 +80,11 @@ function DocInner() {
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: 24, fontFamily: 'Georgia, serif', color: '#111', lineHeight: 1.6 }}>
-      <style>{`@media print { .no-print { display: none !important; } body { margin: 0 } }`}</style>
+      <style>{`@media print {
+        .no-print { display: none !important; }
+        .admin-top, .admin-nav, .admin-foot, .site-footer-slim, footer { display: none !important; }
+        body { margin: 0 }
+      }`}</style>
 
       {/* Screen-only bar */}
       <div className="no-print" style={{ display: 'flex', gap: 10, justifyContent: 'space-between', marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
@@ -127,6 +131,7 @@ function DocInner() {
           <Trow label="Owner / unit" value={req.unit_label || <Em>owner name / unit</Em>} />
           <Trow label="Request type" value={typeLabel} />
           <Trow label="Description" value={req.description || <Em>no description provided</Em>} />
+          {(req as any).attachment_name && <Trow label="Attachment" value={`${(req as any).attachment_name} (on file)`} />}
           <Trow label="Submitted" value={req.submitted_at || <Em>unknown</Em>} />
           <Trow label="Decision date" value={req.decided_at || today} />
           <Trow label="Decision" value={statusLabel} />
@@ -203,7 +208,11 @@ function DocInner() {
 
         {/* ---- Catch-all for non-decided statuses ---- */}
         {!['approved', 'approved_with_conditions', 'denied'].includes(st) && (
-          <p><Em>This request is currently {statusLabel.toLowerCase()} — a final decision has not yet been recorded.</Em></p>
+          <div className="no-print" style={{ border: '1px dashed #d6b8a8', borderRadius: 8, padding: '14px 16px', background: '#fdf6f1', fontFamily: 'system-ui, sans-serif', fontSize: 13.5 }}>
+            <strong>No decision recorded yet</strong> — this request is currently <strong>{statusLabel.toLowerCase()}</strong>.
+            The decision letter fills in automatically once you Approve, Approve with conditions, or Deny it
+            on the <a href="/admin/arc" style={{ color: '#E14909', fontWeight: 700 }}>Architectural review</a> page.
+          </div>
         )}
 
         <p style={{ fontSize: 12, color: '#555', marginTop: 18 }}>

@@ -71,6 +71,17 @@ export const ARC_STATUS_LABELS: Record<ArcStatus, string> = {
   withdrawn:               'Withdrawn',
 }
 
+// Plain-language meaning of each status — shown as a hover tooltip on the status
+// pills (resident and admin), so everyone understands what a decision means.
+export const ARC_STATUS_DESC: Record<ArcStatus, string> = {
+  submitted:                'Received — waiting for the board to start its review.',
+  under_review:             'The board is actively reviewing this request.',
+  approved:                 'Approved — you may proceed with the work as described.',
+  approved_with_conditions: 'Approved, but you must follow the specific conditions the board set.',
+  denied:                   'Not approved — the board declined the request and must state a reason.',
+  withdrawn:                'Cancelled without a decision — no longer under review (e.g. retracted or a duplicate).',
+}
+
 export interface ArcRequestRow {
   id: string
   community_id?: string

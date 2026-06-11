@@ -11,6 +11,7 @@ import { SiteFooterSlim } from '@/components/SiteFooter'
 import { useAuth } from '../providers'
 import { usePlatformAdmin } from '@/hooks/usePlatform'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useAwaitingMessages, useArcPending } from '@/hooks/useAwaitingMessages'
 import type { Permission } from '@/lib/permissions'
 
 // Board-only admin section. Gated by role check — only board_member/admin
@@ -26,11 +27,11 @@ type AdminNavItem = { href: string; label: string; match?: string[]; exact?: boo
 const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin',            label: 'Overview', exact: true },
   { href: '/admin/community',  label: 'Community', anyPerm: ['community.manage'] },
-  { href: '/admin/compliance', label: 'Compliance', anyPerm: ['compliance.manage', 'financials.view', 'payments.view', 'violations.manage'], match: ['/admin/estoppel', '/admin/collections', '/admin/structural', '/admin/financials', '/admin/governance', '/admin/enforcement', '/admin/meetings', '/admin/elections', '/admin/arc', '/admin/insurance', '/admin/contracts', '/admin/advisories'] },
+  { href: '/admin/compliance', label: 'Compliance', anyPerm: ['compliance.manage', 'financials.view', 'payments.view', 'violations.manage'], match: ['/admin/estoppel', '/admin/collections', '/admin/structural', '/admin/financials', '/admin/governance', '/admin/enforcement', '/admin/meetings', '/admin/elections', '/admin/insurance', '/admin/contracts', '/admin/advisories'] },
   { href: '/admin/budget',     label: 'Budget', anyPerm: ['community.manage', 'financials.view'] },
   { href: '/admin/reports',    label: 'Reports', anyPerm: ['financials.view', 'payments.view'] },
   { href: '/admin/residents',  label: 'Easy Track', anyPerm: ['residents.view', 'residents.manage'], match: ['/admin/vendor'] },
-  { href: '/admin/board',      label: 'Easy Voice', anyPerm: ['voice.manage', 'roles.manage'], match: ['/admin/voice', '/admin/requests', '/admin/roles'] },
+  { href: '/admin/board',      label: 'Easy Voice', anyPerm: ['voice.manage', 'roles.manage'], match: ['/admin/voice', '/admin/requests', '/admin/roles', '/admin/arc'] },
   { href: '/admin/documents',  label: 'Easy Documents', anyPerm: ['documents.manage', 'violations.manage'], match: ['/admin/rules', '/admin/violations'] },
   { href: '/admin/schedule',   label: 'Easy Schedule', anyPerm: ['schedule.manage'] },
 ]
@@ -60,6 +61,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname() || '/admin'
   const isPlatformAdmin = usePlatformAdmin()
   const { canAny, perms, loading: permLoading } = usePermissions()
+
+  // Live count of Easy Voice items needing the board's attention — messages
+  // awaiting a reply + ARC requests awaiting a decision — drives the nav badge so
+  // the board notices from anywhere in the admin.
+  const awaitingMsgs = useAwaitingMessages() + useArcPending()
 
   // Founder/staff "View as" preview selection (persisted). Hidden for regular
   // admins entirely (see the header — only platform admins get the switcher).
@@ -136,6 +142,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             className={`admin-nav-item${navActive(pathname, item) ? ' active' : ''}`}
           >
             {item.label}
+            {item.label === 'Easy Voice' && awaitingMsgs > 0 && (
+              <span className="admin-nav-badge" title={`${awaitingMsgs} message${awaitingMsgs === 1 ? '' : 's'} awaiting your reply`}>
+                {awaitingMsgs}
+              </span>
+            )}
           </Link>
         ))}
         {isPlatformAdmin && (

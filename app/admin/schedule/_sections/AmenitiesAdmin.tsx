@@ -1,6 +1,6 @@
 'use client'
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react'
+import { ChangeEvent, FormEvent, Fragment, useEffect, useMemo, useState } from 'react'
 import {
   AmenityInput,
   AmenityKind,
@@ -69,7 +69,7 @@ function formToInput(f: FormState): AmenityInput {
 
 export function AmenitiesAdmin() {
   const { amenities, addAmenity, updateAmenity, removeAmenity, canUseDb } = useManageAmenities()
-  const { reservations, residents, cancel: cancelReservation, refund: refundReservation, bookFor } = useAmenityBookings()
+  const { reservations, residents, cancel: cancelReservation, refund: refundReservation, bookFor, updateReservation } = useAmenityBookings()
 
   const [form, setForm] = useState<FormState>(EMPTY)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -81,6 +81,12 @@ export function AmenitiesAdmin() {
   // "Book for a resident" form.
   const [bf, setBf] = useState({ residentId: '', amenityId: '', date: todayISO(), slot: '', party: '1', note: '' })
   const [bfErr, setBfErr] = useState('')
+
+  // Inline "edit a reservation" form — opens under the reservation row.
+  const [editingResId, setEditingResId] = useState<string | null>(null)
+  const [rf, setRf] = useState({ amenityId: '', date: '', slot: '', party: '1', note: '' })
+  const [rfErr, setRfErr] = useState('')
+  const [savingRes, setSavingRes] = useState(false)
 
   const amenityName = useMemo(() => {
     const m: Record<string, string> = {}
@@ -113,6 +119,41 @@ export function AmenitiesAdmin() {
     } catch (e: any) {
       const dup = e?.code === '23505' || /duplicate|unique/i.test(e?.message || '')
       setBfErr(dup ? 'That slot is already booked. Pick another time.' : (e?.message || 'Could not book that slot.'))
+    }
+  }
+
+  const startEditRes = (r: typeof reservations[number]) => {
+    setEditingResId(r.id)
+    setRf({
+      amenityId: r.amenityId,
+      date:      r.reservedDate,
+      slot:      r.startTime,
+      party:     String(r.partySize || 1),
+      note:      r.note ?? '',
+    })
+    setRfErr('')
+  }
+  const cancelEditRes = () => { setEditingResId(null); setRfErr('') }
+
+  const submitEditRes = async (id: string) => {
+    if (!rf.amenityId || !rf.slot) { setRfErr('Pick an amenity and a time.'); return }
+    setSavingRes(true)
+    try {
+      await updateReservation(id, {
+        amenityId:    rf.amenityId,
+        reservedDate: rf.date,
+        startTime:    rf.slot,
+        partySize:    Math.max(1, Number(rf.party) || 1),
+        note:         rf.note.trim() || null,
+      })
+      setEditingResId(null)
+      setRfErr('')
+      setSuccessMsg('Reservation updated.')
+    } catch (e: any) {
+      const dup = e?.code === '23505' || /duplicate|unique/i.test(e?.message || '')
+      setRfErr(dup ? 'That slot is already booked. Pick another time.' : (e?.message || 'Could not update the reservation.'))
+    } finally {
+      setSavingRes(false)
     }
   }
 
@@ -413,7 +454,8 @@ export function AmenitiesAdmin() {
           <>
             <div className="admin-sched-list">
               {paginate(sortedReservations, resPage, PAGE_SIZE).map(r => (
-                <div key={r.id} className="admin-sched-row">
+                <Fragment key={r.id}>
+                <div className="admin-sched-row">
                   <div className="admin-sched-row-body">
                     <div className="admin-sched-row-title">
                       {r.residentName} · {amenityName[r.amenityId] || 'Amenity'}
@@ -429,6 +471,13 @@ export function AmenitiesAdmin() {
                     </div>
                   </div>
                   <div className="admin-sched-row-actions">
+                    <button
+                      className="admin-btn-ghost"
+                      onClick={() => (editingResId === r.id ? cancelEditRes() : startEditRes(r))}
+                      aria-label={`Edit ${r.residentName}'s reservation`}
+                    >
+                      {editingResId === r.id ? 'Close' : 'Edit'}
+                    </button>
                     {(r.paymentStatus === 'paid' && (r.refundStatus === 'none' || r.refundStatus === 'failed')) && (
                       <button
                         className="admin-btn-ghost"
@@ -447,6 +496,51 @@ export function AmenitiesAdmin() {
                     </button>
                   </div>
                 </div>
+
+                {editingResId === r.id && (
+                  <div style={{ padding: '4px 8px 16px', borderTop: '1px solid rgba(15, 28, 46, 0.08)' }}>
+                    <div className="admin-sched-form">
+                      <div className="admin-field">
+                        <span>Amenity</span>
+                        <Dropdown<string>
+                          value={rf.amenityId}
+                          onChange={v => setRf(prev => ({ ...prev, amenityId: v }))}
+                          ariaLabel="Amenity"
+                          options={sorted.map(a => ({ value: a.id, label: a.name }))}
+                        />
+                      </div>
+                      <label className="admin-field">
+                        <span>Date</span>
+                        <input type="date" value={rf.date} onChange={e => setRf(prev => ({ ...prev, date: e.target.value }))} />
+                      </label>
+                      <div className="admin-field">
+                        <span>Time</span>
+                        <Dropdown<string>
+                          value={rf.slot}
+                          onChange={v => setRf(prev => ({ ...prev, slot: v }))}
+                          ariaLabel="Time"
+                          options={[{ value: '', label: 'Select a time…' }, ...TIME_SLOTS.map(t => ({ value: t, label: fmtSlot(t) }))]}
+                        />
+                      </div>
+                      <label className="admin-field">
+                        <span>Party size</span>
+                        <input type="number" min={1} value={rf.party} onChange={e => setRf(prev => ({ ...prev, party: e.target.value }))} />
+                      </label>
+                      <label className="admin-field admin-field-wide">
+                        <span>Note <em>(optional)</em></span>
+                        <input type="text" value={rf.note} onChange={e => setRf(prev => ({ ...prev, note: e.target.value }))} placeholder="e.g. Birthday party" />
+                      </label>
+                      {rfErr && <div className="admin-field-wide"><div className="admin-note admin-note-err">{rfErr}</div></div>}
+                      <div className="admin-sched-form-foot" style={{ display: 'flex', gap: 10 }}>
+                        <button type="button" className="admin-primary-btn" onClick={() => submitEditRes(r.id)} disabled={savingRes}>
+                          {savingRes ? 'Saving…' : 'Save changes'}
+                        </button>
+                        <button type="button" className="admin-btn-ghost" onClick={cancelEditRes}>Cancel</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                </Fragment>
               ))}
             </div>
             <Pagination page={resPage} pageSize={PAGE_SIZE} total={sortedReservations.length} onPageChange={setResPage} />

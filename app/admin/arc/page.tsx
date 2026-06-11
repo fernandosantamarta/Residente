@@ -15,14 +15,16 @@ import {
   arcResponseDays,
   ARC_TYPE_LABELS,
   ARC_STATUS_LABELS,
+  ARC_STATUS_DESC,
   MATERIAL_ALTERATION_APPROVAL_PCT,
   type ArcRequestRow,
   type ArcRequestType,
   type ArcStatus,
 } from '@/lib/compliance/arc'
 import { logAudit } from '@/lib/audit'
+import { Tip } from '@/components/Tip'
 import { AttorneyNote } from '../AttorneyNote'
-import { ComplianceBackLink } from '../ComplianceBackLink'
+import { EasyVoiceTabs } from '../EasyVoiceTabs'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -188,8 +190,8 @@ export default function ArcPage() {
 
   return (
     <div className="admin-page cset">
-      <ComplianceBackLink />
-      <div className="admin-kicker">Florida compliance</div>
+      <EasyVoiceTabs active="architectural" />
+      <div className="admin-kicker" style={{ marginTop: 18 }}>Florida compliance</div>
       <h1 className="admin-h1">Architectural review</h1>
       <p className="admin-dek">
         Track owner ARC applications and respond within the governing-document window
@@ -382,12 +384,26 @@ function ArcRequestCard({
           {r.decision_reason && (
             <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>Reason: {r.decision_reason}</div>
           )}
+          {(r as any).attachment_path && (
+            <button type="button" onClick={async () => {
+              try {
+                const { data } = await supabase.storage.from('request-attachments').createSignedUrl((r as any).attachment_path, 3600)
+                if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener')
+              } catch { /* ignore */ }
+            }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#E14909', font: 'inherit', fontSize: 12.5, fontWeight: 600, padding: '6px 0 0', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 11.5 12.5 20a5 5 0 0 1-7-7l8.5-8.5a3.5 3.5 0 0 1 5 5L10.5 18a2 2 0 0 1-3-3l7.5-7.5" />
+              </svg>
+              {(r as any).attachment_name || 'View attachment'}
+            </button>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
           {isCondo && r.is_material_alteration && (
             <span style={chip('#7C3AED')}>Material alteration</span>
           )}
-          <span style={chip(statusColor)}>{ARC_STATUS_LABELS[st] || st}</span>
+          <Tip text={ARC_STATUS_DESC[st] || ''}><span style={chip(statusColor)}>{ARC_STATUS_LABELS[st] || st}</span></Tip>
           {deadline && (
             <span style={chip(deadlineColor)}>
               Respond by {ymd(deadline)}
@@ -400,44 +416,58 @@ function ArcRequestCard({
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
         {isOpen && (
           <>
-            <button
-              className="admin-primary-btn"
-              disabled={busy}
-              onClick={() => { setDecideMode(null); setReason(''); submit('approved') }}
-            >
-              Approve
-            </button>
-            <button
-              className="admin-btn-ghost"
-              disabled={busy}
-              onClick={() => setDecideMode(decideMode === 'approve_conditions' ? null : 'approve_conditions')}
-            >
-              Approve w/ conditions
-            </button>
-            <button
-              className="admin-btn-ghost"
-              disabled={busy}
-              onClick={() => setDecideMode(decideMode === 'deny' ? null : 'deny')}
-            >
-              Deny
-            </button>
-            <button
-              className="admin-btn-ghost"
-              disabled={busy}
-              onClick={() => onWithdraw(r)}
-            >
-              Withdraw
-            </button>
+            <Tip text={ARC_STATUS_DESC.approved}>
+              <button
+                className="admin-primary-btn"
+                disabled={busy}
+                onClick={() => { setDecideMode(null); setReason(''); submit('approved') }}
+              >
+                Approve
+              </button>
+            </Tip>
+            <Tip text={ARC_STATUS_DESC.approved_with_conditions}>
+              <button
+                className="admin-btn-ghost"
+                style={{ marginLeft: 0 }}
+                disabled={busy}
+                onClick={() => setDecideMode(decideMode === 'approve_conditions' ? null : 'approve_conditions')}
+              >
+                Approve w/ conditions
+              </button>
+            </Tip>
+            <Tip text={ARC_STATUS_DESC.denied}>
+              <button
+                className="admin-btn-ghost"
+                style={{ marginLeft: 0 }}
+                disabled={busy}
+                onClick={() => setDecideMode(decideMode === 'deny' ? null : 'deny')}
+              >
+                Deny
+              </button>
+            </Tip>
+            <Tip text={ARC_STATUS_DESC.withdrawn}>
+              <button
+                className="admin-btn-ghost"
+                style={{ marginLeft: 0 }}
+                disabled={busy}
+                onClick={() => onWithdraw(r)}
+              >
+                Withdraw
+              </button>
+            </Tip>
           </>
         )}
-        <a
-          className="admin-btn-ghost"
-          href={`/admin/arc/${r.id}/document?type=decision`}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Decision letter
-        </a>
+        <Tip text="Opens a printable, official letter stating the board's decision (and any reason or conditions) to give or mail to the owner — the formal record FS 720.3035 expects.">
+          <a
+            className="admin-btn-ghost"
+            style={{ marginLeft: 0 }}
+            href={`/admin/arc/${r.id}/document?type=decision`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            Decision letter
+          </a>
+        </Tip>
       </div>
 
       {/* Inline reason form */}

@@ -8,6 +8,7 @@ import { useAuth } from '../providers'
 import { useMyResident } from '@/hooks/useMyResident'
 import { kindToUpTag, upcomingFrom, useScheduleEvents } from '@/lib/schedule'
 import { useUnreadNoticeCount, useMyNotices } from '@/hooks/useNotices'
+import { useMyPendingReplies } from '@/hooks/useAwaitingMessages'
 import { SiteFooterSlim } from '@/components/SiteFooter'
 import { NOTICE_KIND_LABELS, noticeHref, NoticeKind } from '@/lib/voice'
 import { useCommunityData } from '@/hooks/useCommunityData'
@@ -82,6 +83,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
   // for demo screenshots.
   const { count: unreadCount } = useUnreadNoticeCount()
   useMyResident() // keep mounted before the auth guard for stable hook order
+  const pendingReplies = useMyPendingReplies()   // unread board replies → Easy Voice badge
   const homeHasAlert = isPreview || unreadCount > 0
   const showRightRail = pathname === '/app'
   const [navOpen, setNavOpen] = useState(false)
@@ -171,6 +173,9 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
               </svg>
               <span>{item.label}</span>
               {item.href === '/app' && homeHasAlert && <span className="pulse-dot"></span>}
+              {item.href === '/app/voice' && pendingReplies > 0 && (
+                <span className="con-pending-badge" style={{ marginLeft: 'auto' }}>{pendingReplies}</span>
+              )}
             </Link>
           ))}
           {(showAdmin || isPlatformAdmin) && (
@@ -314,6 +319,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
         <Link href={isPreview ? '/app/voice?preview=1' : '/app/voice'} className={`bn-item${pathname.startsWith('/app/voice') ? ' active' : ''}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           <span>Requests</span>
+          {pendingReplies > 0 && <span className="bn-dot" aria-hidden="true" />}
         </Link>
         <Link href={isPreview ? '/app/documents?preview=1' : '/app/documents'} className={`bn-item${(pathname.startsWith('/app/documents') || pathname.startsWith('/app/rules')) ? ' active' : ''}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h12l4 4v12H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
