@@ -393,7 +393,7 @@ export default function ArcPage() {
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <select
                     className="admin-input"
-                    style={{ width: 'auto', minWidth: 175, flexShrink: 0 }}
+                    style={{ width: 185, flexShrink: 0 }}
                     value={catFilter}
                     onChange={e => setCatFilter(e.target.value as 'all' | ArcRequestType)}
                     aria-label="Filter by category"
@@ -402,7 +402,7 @@ export default function ArcPage() {
                   </select>
                   <select
                     className="admin-input"
-                    style={{ width: 'auto', minWidth: 165, flexShrink: 0 }}
+                    style={{ width: 185, flexShrink: 0 }}
                     value={statusFilter}
                     onChange={e => setStatusFilter(e.target.value as 'all' | ArcStatus)}
                     aria-label="Filter by status"
