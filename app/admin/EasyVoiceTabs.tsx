@@ -7,13 +7,14 @@ import Link from 'next/link'
 // 'roster' is retired (owner roster moved to Easy Track → Residents) and 'roles'
 // is retired (merged into the Board page); both stay in the type so their
 // redirect stubs still compile.
-export type EasyVoiceTab = 'meetings' | 'votes' | 'roster' | 'board' | 'roles' | 'contact'
+export type EasyVoiceTab = 'meetings' | 'votes' | 'roster' | 'board' | 'roles' | 'contact' | 'architectural'
 
 const TABS: { key: EasyVoiceTab; href: string; label: string }[] = [
-  { key: 'board',    href: '/admin/board',        label: 'Board' },
-  { key: 'meetings', href: '/admin/voice',        label: 'Meetings' },
-  { key: 'votes',    href: '/admin/voice/votes',  label: 'Votes' },
-  { key: 'contact',  href: '/admin/requests',     label: 'Contact' },
+  { key: 'board',         href: '/admin/board',        label: 'Board' },
+  { key: 'meetings',      href: '/admin/voice',        label: 'Meetings' },
+  { key: 'votes',         href: '/admin/voice/votes',  label: 'Votes' },
+  { key: 'architectural', href: '/admin/arc',          label: 'Architectural' },
+  { key: 'contact',       href: '/admin/requests',     label: 'Contact' },
 ]
 
 export function EasyVoiceTabs({ active }: { active: EasyVoiceTab }) {

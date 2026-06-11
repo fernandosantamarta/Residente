@@ -629,5 +629,32 @@ export function useAmenityBookings() {
     return data?.id ?? null
   }, [canUseDb, communityId, load])
 
-  return { reservations, residents, loading, error, canUseDb, cancel, refund, bookFor }
+  // Board edit of an existing reservation — change the amenity, date/time, party
+  // size, or note on a resident's behalf (front-desk correction / reschedule).
+  // Only the fields provided in the patch are touched. Price is intentionally
+  // left untouched so an already-recorded charge isn't silently changed; use
+  // Cancel + Book (or Refund) when the money needs to move.
+  const updateReservation = useCallback(async (id: string, patch: {
+    amenityId?: string
+    reservedDate?: string
+    startTime?: string
+    partySize?: number
+    note?: string | null
+  }) => {
+    if (!canUseDb) return
+    const row: Record<string, any> = {}
+    if (patch.amenityId    !== undefined) row.amenity_id   = patch.amenityId
+    if (patch.reservedDate !== undefined) row.reserved_date = patch.reservedDate
+    if (patch.startTime    !== undefined) row.start_time   = patch.startTime
+    if (patch.partySize    !== undefined) row.party_size   = patch.partySize
+    if (patch.note         !== undefined) row.note         = patch.note || null
+    const { error } = await supabase!
+      .from('ev_amenity_reservations')
+      .update(row)
+      .eq('id', id)
+    if (error) throw error
+    await load()
+  }, [canUseDb, load])
+
+  return { reservations, residents, loading, error, canUseDb, cancel, refund, bookFor, updateReservation }
 }

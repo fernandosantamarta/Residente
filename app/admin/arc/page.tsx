@@ -22,7 +22,7 @@ import {
 } from '@/lib/compliance/arc'
 import { logAudit } from '@/lib/audit'
 import { AttorneyNote } from '../AttorneyNote'
-import { ComplianceBackLink } from '../ComplianceBackLink'
+import { EasyVoiceTabs } from '../EasyVoiceTabs'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -188,8 +188,8 @@ export default function ArcPage() {
 
   return (
     <div className="admin-page cset">
-      <ComplianceBackLink />
-      <div className="admin-kicker">Florida compliance</div>
+      <EasyVoiceTabs active="architectural" />
+      <div className="admin-kicker" style={{ marginTop: 18 }}>Florida compliance</div>
       <h1 className="admin-h1">Architectural review</h1>
       <p className="admin-dek">
         Track owner ARC applications and respond within the governing-document window
