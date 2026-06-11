@@ -14,6 +14,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { logAudit } from '@/lib/audit'
 import { ymd, toDate, addCalendarDays, calendarDaysUntil } from '@/lib/compliance/rules-core'
 import { casePayoff, fmtMoney, type PayoffResult } from '@/lib/dues'
+import { RecordPaymentForm } from '@/components/RecordPaymentForm'
 import { AttorneyNote } from '../../AttorneyNote'
 import {
   STAGE_LABELS, NOTICE_KIND_LABELS, nextEscalation, lienEnforceDeadline, noticeMethodWarning, isOpenStage,
@@ -125,6 +126,30 @@ export default function CollectionCaseDetail() {
     } catch (err: any) { setError(err?.message || 'Update failed') }
   }
 
+  // Record an offline DUES payment against this case's owner via the append-only
+  // record_offline_payment RPC (tagged applied_to_case = this case), then refresh
+  // payments so the payoff ledger recomputes.
+  const recordPayment = async (
+    { amount, method, paidOn, memo }: { amount: number; method: string; paidOn: string; memo: string },
+  ): Promise<{ error?: string } | void> => {
+    if (!resident || !c) return { error: 'Link an owner to this case first' }
+    const client_key = (globalThis.crypto?.randomUUID?.() || `${id}:${paidOn}:${amount}`)
+    const { error } = await supabase.rpc('record_offline_payment', {
+      p_community: c.community_id,
+      p_resident: resident.id,
+      p_amount: amount,
+      p_method: method,
+      p_paid_on: paidOn || null,
+      p_memo: memo || null,
+      p_client_key: client_key,
+      p_case: id,
+    })
+    if (error) return { error: error.message }
+    const { data } = (await supabase.from('payments').select('amount, created_at').eq('resident_id', resident.id)) as any
+    setPayments(data || [])
+    setMsg(`Recorded ${fmtMoney(amount)}`)
+  }
+
   if (status === 'loading') return <div className="admin-page"><div className="admin-note">Loading…</div></div>
   if (status === 'error' || !c) return <div className="admin-page"><div className="admin-note admin-note-err">{error || 'Not found'} <Link className="admin-btn-ghost" href="/admin/collections">Back</Link></div></div>
 
@@ -229,6 +254,15 @@ export default function CollectionCaseDetail() {
               Computed from the dues ledger (opening balance + {fmtMoney(Number(community?.monthly_dues) || 0)}/mo) at the community&apos;s configured interest rate. Confirm before relying on it.
             </p>
           </>
+        )}
+
+        {resident && (
+          <div style={{ marginTop: 14, padding: '14px 16px', background: 'rgba(0,0,0,0.025)', borderRadius: 10 }}>
+            <span className="admin-field-label" style={{ display: 'block', marginBottom: 8 }}>
+              Record an offline payment on this case (check / cash / money order)
+            </span>
+            <RecordPaymentForm onSubmit={recordPayment} />
+          </div>
         )}
 
         <CostEditor caseRow={c} onSaved={(p, m) => patchCase(p, m)} />

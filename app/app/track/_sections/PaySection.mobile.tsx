@@ -72,6 +72,9 @@ export function PaySection() {
   // Demo autopay toggle — lets preview mode flip autopay on/off in place
   // (real autopay goes through Stripe via toggleAutopay).
   const [autopayDemo, setAutopayDemo] = useState<boolean | null>(null)
+  // Set when we land back from Stripe Checkout (?submitted=1) so we can show an
+  // honest confirmation — a card posts now, an ACH bank transfer takes days.
+  const [submitted, setSubmitted] = useState(false)
 
   // Real Stripe state (test mode in the demo). `cards` are the customer's saved
   // payment methods from list-payment-methods; `autopayOn` mirrors the roster
@@ -100,6 +103,18 @@ export function PaySection() {
     })()
     return () => { cancelled = true }
   }, [resident?.id, stripeLive])
+
+  // Returning from Stripe Checkout (?submitted=1): show an honest confirmation,
+  // then strip the param so a refresh doesn't re-show it (keep the #pay hash).
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('submitted') !== '1') return
+    setSubmitted(true)
+    params.delete('submitted')
+    const qs = params.toString()
+    window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}#pay`)
+  }, [])
 
   // Show the skeleton only while the resident query is genuinely in flight.
   // Once it settles we render either the real balance or — in preview / no-
@@ -174,16 +189,19 @@ export function PaySection() {
     },
   ]
 
-  // Unified payment-method list: real Stripe cards when we have them, else the
-  // localStorage/demo methods so preview mode still renders cards.
+  // Unified payment-method list: real Stripe cards + saved bank accounts (ACH)
+  // when we have them, else the localStorage/demo methods so preview mode renders.
   const liveCards = cards && cards.length > 0
-    ? cards.map((c: any) => ({
-        id: c.id,
-        brand: c.brand ? c.brand.charAt(0).toUpperCase() + c.brand.slice(1) : 'Card',
-        last4: c.last4,
-        kind: 'card' as const,
-        is_default: !!c.is_default,
-      }))
+    ? cards.map((c: any) => {
+        const kind = c.kind === 'bank' ? 'bank' as const : 'card' as const
+        return {
+          id: c.id,
+          brand: c.brand ? c.brand.charAt(0).toUpperCase() + c.brand.slice(1) : (kind === 'bank' ? 'Bank' : 'Card'),
+          last4: c.last4,
+          kind,
+          is_default: !!c.is_default,
+        }
+      })
     : null
   // Demo default: the stored id, falling back to the first saved method.
   const demoDefaultId = prefs.default_payment_method_id || prefs.payment_methods[0]?.id
@@ -296,6 +314,32 @@ export function PaySection() {
           {t('pay.subheading')}
         </p>
       </div>
+
+      {submitted && (
+        <div
+          role="status"
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12,
+            margin: '0 0 16px', padding: '12px 16px',
+            border: '1px solid var(--ev-border, #d6d3cc)', borderRadius: 12,
+            background: 'var(--ev-surface-2, #f6f5f1)', color: 'var(--ev-text, #2b2a27)',
+            fontSize: 14, lineHeight: 1.45,
+          }}
+        >
+          <span>{t('pay.submittedNote')}</span>
+          <button
+            type="button"
+            onClick={() => setSubmitted(false)}
+            aria-label={t('pay.dismiss')}
+            style={{
+              border: 'none', background: 'transparent', cursor: 'pointer',
+              fontSize: 18, lineHeight: 1, color: 'inherit', padding: 4,
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
 
       {/* Outstanding fines — an orange "action needed" band above the balance
           (matches the open-votes band). Each fine is its own Stripe charge that

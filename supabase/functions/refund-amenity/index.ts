@@ -18,6 +18,7 @@
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=denonext'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import { corsHeaders } from '../_shared/cors.ts'
+import { acctOpts } from '../_shared/connect.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
   apiVersion: '2023-10-16',
@@ -73,7 +74,7 @@ Deno.serve(async (req) => {
     // a stranger's id is invisible and 404s.
     const { data: res, error } = await supabase
       .from('ev_amenity_reservations')
-      .select('id, community_id, profile_id, reserved_date, start_time, payment_status, stripe_session_id, refund_status')
+      .select('id, community_id, profile_id, reserved_date, start_time, payment_status, stripe_session_id, refund_status, payment_account_id')
       .eq('id', reservation_id)
       .single()
     if (error || !res) return json({ error: 'Reservation not found' }, 404)
@@ -117,7 +118,12 @@ Deno.serve(async (req) => {
     // Find the PaymentIntent behind the checkout session, then refund it in
     // full. The idempotency key keeps a double-click / retry from issuing two
     // refunds (the DB unique index on stripe_refund_id is the second guard).
-    const session = await stripe.checkout.sessions.retrieve(res.stripe_session_id)
+    // Refund on the account the charge actually lives on (recorded by the webhook
+    // at payment time from event.account). NULL = legacy platform charge. This
+    // stays correct even if the community's connect status changed after the
+    // reservation was paid.
+    const chargeAccount = (res.payment_account_id as string | null) ?? null
+    const session = await stripe.checkout.sessions.retrieve(res.stripe_session_id, {}, acctOpts(chargeAccount))
     const paymentIntent = typeof session.payment_intent === 'string'
       ? session.payment_intent
       : session.payment_intent?.id
@@ -127,7 +133,7 @@ Deno.serve(async (req) => {
     try {
       refund = await stripe.refunds.create(
         { payment_intent: paymentIntent },
-        { idempotencyKey: `refund-amenity-${res.id}` },
+        { idempotencyKey: `refund-amenity-${res.id}`, ...(chargeAccount ? { stripeAccount: chargeAccount } : {}) },
       )
     } catch (stripeErr) {
       console.error('refund-amenity stripe error:', stripeErr)
