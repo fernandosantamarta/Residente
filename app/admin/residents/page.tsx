@@ -48,13 +48,12 @@ function parseResidentsCsv(text) {
   return out
 }
 
-// Sort by subdivision, then address (numeric-aware), then name.
+// Sort alphabetically by household name; unit/address (numeric-aware) breaks ties.
 const sortRows = (rs) => [...rs].sort((a, b) => {
-  const s = String(a.subdivision || '~').localeCompare(String(b.subdivision || '~'))
-  if (s !== 0) return s
-  const ad = String(a.address || '').localeCompare(
+  const n = String(a.full_name || '~').localeCompare(String(b.full_name || '~'))
+  if (n !== 0) return n
+  return String(a.address || '').localeCompare(
     String(b.address || ''), undefined, { numeric: true })
-  return ad !== 0 ? ad : String(a.full_name || '').localeCompare(String(b.full_name || ''))
 })
 
 // Editable import spreadsheet — one row per household, four columns matching the

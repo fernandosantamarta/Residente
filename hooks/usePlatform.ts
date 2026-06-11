@@ -73,7 +73,12 @@ export function usePlatformConsole() {
       const { data, error } = await supabase.rpc('platform_overview')
       if (error) { setIsAdmin(false); setCommunities([]); setRequests([]); setOperators([]); setAudit([]); setMyRole(null); return }
       setIsAdmin(true)
-      setCommunities((data ?? []) as PlatformCommunity[])
+      // Alphabetical by community name — drives both the Communities and the
+      // Subscriptions tables (they iterate this same array).
+      setCommunities(
+        ([...((data ?? []) as PlatformCommunity[])])
+          .sort((a, b) => (a.name || '').localeCompare(b.name || ''))
+      )
       const { data: reqs } = await supabase
         .from('platform_requests')
         .select('id, from_name, from_email, from_community_id, subject, body, status, created_at')
@@ -167,7 +172,10 @@ export function usePlatformConsole() {
   const fetchResidents = useCallback(async (communityId: string): Promise<PlatformResident[]> => {
     if (!hasSupabase || !supabase) return []
     const { data, error } = await supabase.rpc('platform_community_residents', { p_community: communityId })
-    return error ? [] : ((data ?? []) as PlatformResident[])
+    if (error) return []
+    // Alphabetical by resident name.
+    return ((data ?? []) as PlatformResident[])
+      .sort((a, b) => (a.full_name || '~').localeCompare(b.full_name || '~'))
   }, [])
 
   const removeResident = useCallback(async (residentId: string): Promise<string | null> => {

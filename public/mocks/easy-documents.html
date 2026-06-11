@@ -28,21 +28,24 @@
   <p class="dek">Your community&rsquo;s official records and rule book. Drop your governing docs and Residente pre-fills the rules.</p>
 
   <div class="toolbar">
-    <div class="seg"><button class="on">Archive</button><button>Rule book</button></div>
+    <div class="seg"><button class="on" data-tab="archive">Archive</button><button data-tab="rulebook">Rule book</button></div>
     <div class="row-actions">
       <div class="dd">All categories<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg></div>
       <button class="btn">Bulk upload</button>
     </div>
   </div>
 
-  <!-- docs-ingestion lever -->
-  <div class="card" style="border-color:var(--accent-soft);background:#fffdfb">
-    <div class="card-head"><div><h2>Set up from your governing docs</h2><div class="sub">Drop your declaration or bylaws &mdash; we read them into your rules, fine schedule &amp; reserves.</div></div><span class="pill">Sets itself up</span></div>
-    <div style="border:1.5px dashed var(--border-hover);border-radius:12px;padding:22px;text-align:center;background:var(--accent-soft)">
-      <div style="font-weight:700;margin-bottom:3px">Drop a PDF here</div>
-      <div style="font-size:12.5px;color:var(--dim)">Declaration &middot; Bylaws &middot; Articles &middot; Rules &amp; Regulations</div>
+  <div data-panel="archive">
+  <!-- docs-ingestion lever (hero action) -->
+  <div class="card lever">
+    <div class="card-head"><div><h2>Set up from your governing docs</h2><div class="sub">Drop your declaration or bylaws &mdash; we read them into your rules, fine schedule &amp; reserves.</div></div><span class="pill" style="align-self:flex-start">Sets itself up</span></div>
+    <div class="dropzone">
+      <span class="dz-ic"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13v8"/><path d="m8 17 4-4 4 4"/><path d="M20.4 14.5A4 4 0 0 0 18 7h-1.3A7 7 0 1 0 4 15.2"/></svg></span>
+      <div class="dz-ttl">Drop a PDF here</div>
+      <div class="dz-types">Declaration &middot; Bylaws &middot; Articles &middot; Rules &amp; Regulations</div>
+      <button class="btn">Choose file</button>
     </div>
-    <div class="row-actions" style="margin-top:14px"><button class="btn">Choose file</button><span style="font-size:12.5px;color:var(--faint)">We&rsquo;ll show you what we found before anything is saved.</span></div>
+    <div class="dz-hint">We&rsquo;ll show you what we found before anything is saved.</div>
   </div>
 
   <div class="card">
@@ -50,23 +53,28 @@
     <table class="tbl">
       <thead><tr><th>Document</th><th>Category</th><th>Uploaded</th><th></th></tr></thead>
       <tbody>
-        <tr><td class="strong">Declaration of Covenants</td><td><span class="pill dim">Governing</span></td><td class="muted">Jun 1, 2026</td><td style="text-align:right"><span class="go">Open &rarr;</span></td></tr>
-        <tr><td class="strong">Bylaws (amended 2024)</td><td><span class="pill dim">Governing</span></td><td class="muted">Jun 1, 2026</td><td style="text-align:right"><span class="go">Open &rarr;</span></td></tr>
-        <tr><td class="strong">2026 operating budget</td><td><span class="pill dim">Financial</span></td><td class="muted">May 30, 2026</td><td style="text-align:right"><span class="go">Open &rarr;</span></td></tr>
-        <tr><td class="strong">Property insurance policy</td><td><span class="pill dim">Insurance</span></td><td class="muted">May 22, 2026</td><td style="text-align:right"><span class="go">Open &rarr;</span></td></tr>
-        <tr><td class="strong">May board meeting minutes</td><td><span class="pill dim">Minutes</span></td><td class="muted">May 21, 2026</td><td style="text-align:right"><span class="go">Open &rarr;</span></td></tr>
+        <tr><td><div class="doc-cell"><span class="doc-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><span class="strong">Declaration of Covenants</span></div></td><td><span class="pill gov">Governing</span></td><td class="muted">Jun 1, 2026</td><td style="text-align:right"><span class="go">Open &rarr;</span></td></tr>
+        <tr><td><div class="doc-cell"><span class="doc-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><span class="strong">Bylaws (amended 2024)</span></div></td><td><span class="pill gov">Governing</span></td><td class="muted">Jun 1, 2026</td><td style="text-align:right"><span class="go">Open &rarr;</span></td></tr>
+        <tr><td><div class="doc-cell"><span class="doc-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><span class="strong">2026 operating budget</span></div></td><td><span class="pill ok">Financial</span></td><td class="muted">May 30, 2026</td><td style="text-align:right"><span class="go">Open &rarr;</span></td></tr>
+        <tr><td><div class="doc-cell"><span class="doc-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><span class="strong">Property insurance policy</span></div></td><td><span class="pill info">Insurance</span></td><td class="muted">May 22, 2026</td><td style="text-align:right"><span class="go">Open &rarr;</span></td></tr>
+        <tr><td><div class="doc-cell"><span class="doc-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/></svg></span><span class="strong">May board meeting minutes</span></div></td><td><span class="pill dim">Minutes</span></td><td class="muted">May 21, 2026</td><td style="text-align:right"><span class="go">Open &rarr;</span></td></tr>
       </tbody>
     </table>
+    <a class="viewall" href="#">View all 14 documents &rarr;</a>
+  </div>
   </div>
 
+  <div data-panel="rulebook" style="display:none">
   <div class="card">
     <div class="card-head"><div><h2>Rule book</h2><div class="sub">Published to residents &middot; 9 sections</div></div><button class="btn sm">+ Add rule</button></div>
     <div class="lrow"><span class="av">1</span><div class="body"><div class="ttl">Architectural changes</div><div class="meta">Section 1 &middot; ARC approval required before work begins</div></div><span class="go">Edit &rarr;</span></div>
     <div class="lrow"><span class="av">2</span><div class="body"><div class="ttl">Parking &amp; vehicles</div><div class="meta">Section 2 &middot; No commercial vehicles overnight</div></div><span class="go">Edit &rarr;</span></div>
     <div class="lrow"><span class="av">3</span><div class="body"><div class="ttl">Pets</div><div class="meta">Section 3 &middot; Leashed in common areas; 2 pet max</div></div><span class="go">Edit &rarr;</span></div>
+    <a class="viewall" href="#">View all 9 sections &rarr;</a>
+  </div>
   </div>
 
-  <p class="note">Mock Mock &middot; sketch theme &middot; not wired to datamiddot; not wired to data</p>
+  <p class="note">Mock &middot; not wired to data</p>
 </main>
 <script src="admin-mock.js"></script>
 </body></html>

@@ -51,7 +51,76 @@
    padding). Defined after .admin-nav-item so these win. */
 .admin-nav-back { color: var(--text); padding-left: 0; }
 
-.admin-main { max-width: 920px; margin: 0 auto; padding: 40px 32px 80px; }
+/* Search — a quiet icon pinned to the far-right gutter (mirrors .admin-nav-back
+   on the left). Faint grey, a touch lighter than the tab labels next to it, so
+   it sits alongside the tabs without competing. Opens a command palette. */
+.admin-nav-search-btn {
+  position: absolute; right: 32px; top: 13px;
+  display: grid; place-items: center; width: 30px; height: 30px;
+  padding: 0; background: none; border: none; cursor: pointer;
+  color: var(--text-faint); border-radius: 8px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.admin-nav-search-btn:hover { color: var(--text-dim); background: rgba(42, 18, 6, 0.05); }
+.admin-nav-search-btn:focus-visible { outline: none; color: var(--pink); box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.18); }
+
+/* Command palette overlay — centered card near the top, dimmed backdrop. */
+.admin-search-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(42, 18, 6, 0.30);
+  display: flex; justify-content: center; align-items: flex-start;
+  padding: 13vh 16px 16px;
+}
+.admin-search-panel {
+  width: min(560px, 100%);
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 16px; box-shadow: 0 30px 70px -24px rgba(42, 18, 6, 0.45);
+  overflow: hidden;
+}
+.admin-search-input-row {
+  display: flex; align-items: center; gap: 11px;
+  padding: 15px 18px; border-bottom: 1px solid var(--border);
+  color: var(--text-faint);
+}
+.admin-search-input-row input {
+  flex: 1; border: none; outline: none; background: none;
+  font-family: inherit; font-size: 16px; color: var(--text);
+}
+.admin-search-input-row input::placeholder { color: var(--text-faint); }
+.admin-search-kbd {
+  flex-shrink: 0; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--text-faint);
+  border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; background: var(--bg);
+}
+.admin-search-results { max-height: 52vh; overflow-y: auto; padding: 7px; }
+.admin-search-item {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 11px 13px; border: none; background: none; border-radius: 10px;
+  cursor: pointer; text-align: left; font-family: inherit;
+}
+.admin-search-item.active { background: rgba(225, 73, 9, 0.09); }
+.admin-search-item-label { font-size: 14px; font-weight: 600; color: var(--text); }
+.admin-search-item.active .admin-search-item-label { color: var(--pink); }
+.admin-search-item-group {
+  flex-shrink: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.admin-search-empty { padding: 22px 16px; text-align: center; color: var(--text-dim); font-size: 14px; }
+
+/* Section deep-link target — leave room above the card when scrolled to (nav is
+   not sticky, but a gap reads better), and pulse a soft orange ring so the eye
+   lands on the right card after a search jump. */
+.admin .card { scroll-margin-top: 88px; }
+.admin-section-flash { animation: admin-section-flash 1.7s ease-out; }
+@keyframes admin-section-flash {
+  0%   { box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.55); }
+  70%  { box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.30); }
+  100% { box-shadow: 0 0 0 3px rgba(225, 73, 9, 0); }
+}
+
+/* Wider centered content column — panels use more of the screen while staying
+   centered under the nav. */
+.admin-main { max-width: 1200px; margin: 0 auto; padding: 40px 32px 80px; }
 
 .admin-kicker {
   font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
@@ -96,7 +165,7 @@
 .admin-note-err  { border-left: 3px solid #F47174; color: var(--text); }
 .admin-note-info { border-left: 3px solid #6B8EC4; }
 
-.admin-form { margin-top: 28px; max-width: 480px; display: flex; flex-direction: column; gap: 18px; }
+.admin-form { margin-top: 28px; max-width: none; display: flex; flex-direction: column; gap: 18px; }
 .admin-field { display: flex; flex-direction: column; gap: 7px; }
 .admin-field-label { font-size: 12px; font-weight: 600; letter-spacing: 0.3px; color: var(--text-dim); }
 .admin-input-wrap { display: flex; align-items: center; }
@@ -134,7 +203,7 @@
 .admin-err-inline { font-size: 13px; color: #F47174; }
 
 /* Budget categories editor (Community page) */
-.bc { margin-top: 44px; max-width: 560px; }
+.bc { margin-top: 44px; max-width: none; }
 .bc-head { margin-bottom: 16px; }
 .bc-title { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
 .bc-sub { display: block; font-size: 13px; color: var(--text-dim); margin-top: 4px; }
@@ -164,7 +233,7 @@
 
 /* Board decisions (Board page) */
 .bd-form-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-.bd-list { max-width: 620px; }
+.bd-list { max-width: none; }
 .bd-row {
   display: flex; align-items: center; gap: 14px;
   padding: 13px 16px; margin-bottom: 8px;
@@ -186,7 +255,7 @@
 .bd-discussion { color: var(--text-dim); }
 
 /* Board members + typeahead (Board page) */
-.bm-section { max-width: 620px; }
+.bm-section { max-width: none; }
 .bm-search { position: relative; max-width: 360px; margin-bottom: 16px; }
 .bm-dropdown {
   position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 20;
@@ -254,7 +323,7 @@
 }
 .res-import-bar strong { color: var(--text); }
 
-.res-roster { margin-top: 36px; max-width: 640px; }
+.res-roster { margin-top: 36px; max-width: none; }
 .res-group { margin-bottom: 24px; }
 .res-group-head {
   display: flex; align-items: center; gap: 9px;
@@ -334,7 +403,7 @@
 
 /* ============ EASY VOICE — Admin ============ */
 
-.admin-section { max-width: 860px; }
+.admin-section { max-width: none; }
 .admin-section-head {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 16px; margin-bottom: 28px;
@@ -398,7 +467,7 @@
 }
 
 /* Meeting form */
-.voice-form { display: flex; flex-direction: column; gap: 18px; max-width: 520px; }
+.voice-form { display: flex; flex-direction: column; gap: 18px; max-width: none; }
 .voice-form-row { display: flex; flex-direction: column; gap: 6px; }
 .voice-form-row label { font-size: 12px; font-weight: 600; letter-spacing: 0.3px; color: var(--text-dim); }
 .voice-form-row input,
@@ -1025,9 +1094,13 @@
 /* ── Easy Documents · Documents section (clean-theme archive, matches mock) ─── */
 /* Governing-docs setup drop card (the "Set up from your governing docs" hero). */
 .cset .docsetup {
-  border: 1px solid rgba(225, 73, 9, 0.18); border-radius: 14px;
-  background: #FBEAE0; padding: 38px 22px; text-align: center;
+  border: 2px dashed rgba(225, 73, 9, 0.42); border-radius: 14px;
+  background: #FBEAE0; padding: 30px 22px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  transition: border-color 0.15s, background 0.15s; cursor: pointer;
 }
+.cset .docsetup:hover { border-color: #E14909; background: #F8DFD2; }
+.cset .docsetup-ic { color: #E14909; margin-bottom: 2px; line-height: 0; }
 .cset .docsetup-title { font-size: 16px; font-weight: 700; color: var(--text); }
 .cset .docsetup-sub { font-size: 13px; color: var(--text-dim); margin-top: 6px; }
 .cset .docsetup-actions {
@@ -1038,6 +1111,12 @@
 .cset .doc-badge {
   font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 999px;
   background: rgba(225, 73, 9, 0.12); color: #B23A06; white-space: nowrap;
+}
+/* hero "lever" card — the do-this-first setup action stands apart from plain
+   white cards (warm tint + accent left-rail), matching the mock v2 treatment */
+.cset .card.lever {
+  background: #FFF6EF;
+  box-shadow: inset 4px 0 0 #E14909, 0 1px 2px rgba(42, 18, 6, 0.05);
 }
 /* Archive table — mock columns: DOCUMENT · CATEGORY · UPLOADED · (actions). All
    columns left-aligned (unlike the budget .tbl which right-aligns numbers). */
@@ -1053,11 +1132,23 @@
 }
 .cset .doctbl tbody:last-child tr:last-child td { border-bottom: none; }
 .cset .doctbl .doc-name { font-weight: 600; }
+/* file glyph leading each archive row (scannability, matches mock v2) */
+.cset .doctbl .doc-cell { display: flex; align-items: center; gap: 11px; }
+.cset .doctbl .doc-ic {
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  display: grid; place-items: center; line-height: 0;
+  background: rgba(225, 73, 9, 0.12); color: #B23A06;
+}
 .cset .doctbl .doc-cat {
   display: inline-block; font-size: 11.5px; font-weight: 600;
   padding: 3px 10px; border-radius: 999px;
   background: rgba(42, 18, 6, 0.06); color: var(--text-dim);
 }
+/* category-colored pills by theme (governing/financial/insurance/inspection) */
+.cset .doctbl .doc-cat--gov  { background: rgba(91, 77, 158, 0.13);  color: #5B4D9E; }
+.cset .doctbl .doc-cat--fin  { background: rgba(31, 122, 77, 0.13);  color: #1F7A4D; }
+.cset .doctbl .doc-cat--ins  { background: rgba(42, 108, 148, 0.14); color: #2A6C94; }
+.cset .doctbl .doc-cat--insp { background: rgba(181, 113, 58, 0.16); color: #9B5B2A; }
 .cset .doctbl td.act { text-align: right; white-space: nowrap; }
 .cset .doctbl .doc-open {
   background: none; border: none; cursor: pointer; font-weight: 700;

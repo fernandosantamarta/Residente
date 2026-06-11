@@ -56,6 +56,37 @@ const fmtDate = (d) => (d
   ? new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   : '')
 
+// Map a document category to a tasteful color family for its pill — grouped by
+// theme rather than one hue per category (there are a dozen), so the archive
+// stays scannable without clashing. Unmapped categories keep the neutral pill.
+const docCatClass = (category?: string | null) => {
+  switch (category) {
+    case 'Governing Documents':
+    case 'Rules & Policies':
+      return 'doc-cat doc-cat--gov'
+    case 'Financial Documents':
+    case 'Bank Records & Ledgers':
+      return 'doc-cat doc-cat--fin'
+    case 'Insurance':
+      return 'doc-cat doc-cat--ins'
+    case 'Inspection Reports':
+    case 'Building Permits':
+      return 'doc-cat doc-cat--insp'
+    default:
+      return 'doc-cat'
+  }
+}
+
+// File glyph drawn at the head of each archive row (scannability, matches mock v2).
+const DocGlyph = () => (
+  <span className="doc-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg></span>
+)
+
+// Cloud-upload glyph for the "Drop a PDF here" setup cards.
+const UploadGlyph = () => (
+  <span className="docsetup-ic"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round"><path d="M12 13v8" /><path d="m8 17 4-4 4 4" /><path d="M20.4 14.5A4 4 0 0 0 18 7h-1.3A7 7 0 1 0 4 15.2" /></svg></span>
+)
+
 const RULE_EMPTY = { section: '', title: '', body: '', fine: '' }
 // DOC_CATEGORIES + FL_REQUIRED_CATEGORIES now live in lib/compliance/official-records.ts
 // (imported above) so the statutory category set has one home shared with the
@@ -478,7 +509,7 @@ export default function AdminEasyDocs() {
           )}
 
           {/* Set up from a rule book PDF — same governing-docs intake pattern. */}
-          <div className="card">
+          <div className="card lever">
             <div className="card-head">
               <div>
                 <h2>Set up from a rule book PDF</h2>
@@ -486,7 +517,8 @@ export default function AdminEasyDocs() {
               </div>
               <span className="doc-badge">Sets itself up</span>
             </div>
-            <div className="docsetup">
+            <div className="docsetup" onClick={() => pdfInputRef.current?.click()}>
+              <UploadGlyph />
               <div className="docsetup-title">Drop a PDF here</div>
               <div className="docsetup-sub">CC&amp;Rs &middot; Rules &amp; Regulations &middot; Bylaws</div>
             </div>
@@ -724,7 +756,7 @@ export default function AdminEasyDocs() {
           {docStatus === 'ready' && (
             <>
               {/* Set up from your governing docs — drop a PDF, file it, pre-fill rules. */}
-              <div className="card">
+              <div className="card lever">
                 <div className="card-head">
                   <div>
                     <h2>Set up from your governing docs</h2>
@@ -732,7 +764,8 @@ export default function AdminEasyDocs() {
                   </div>
                   <span className="doc-badge">Sets itself up</span>
                 </div>
-                <div className="docsetup">
+                <div className="docsetup" onClick={() => { if (!docSaving) govFileRef.current?.click() }}>
+                  <UploadGlyph />
                   <div className="docsetup-title">Drop a PDF here</div>
                   <div className="docsetup-sub">Declaration &middot; Bylaws &middot; Articles &middot; Rules &amp; Regulations</div>
                 </div>
@@ -867,20 +900,25 @@ export default function AdminEasyDocs() {
                             <tbody key={d.id}>
                               <tr>
                                 <td>
-                                  <div className="doc-name">{d.title}</div>
-                                  {(fmtSize(d.file_size) || recordsApplies) && (
-                                    <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>
-                                      {fmtSize(d.file_size)}
-                                      {fmtSize(d.file_size) && recordsApplies && ' · '}
-                                      {recordsApplies && (
-                                        <span style={{ color: d.posted_to_portal ? '#067647' : '#B54708', fontWeight: 600 }}>
-                                          {d.posted_to_portal ? '✓ Posted to portal' : 'Not posted'}
-                                        </span>
+                                  <div className="doc-cell">
+                                    <DocGlyph />
+                                    <div>
+                                      <div className="doc-name">{d.title}</div>
+                                      {(fmtSize(d.file_size) || recordsApplies) && (
+                                        <div style={{ fontSize: 12, color: 'var(--text-faint)', marginTop: 2 }}>
+                                          {fmtSize(d.file_size)}
+                                          {fmtSize(d.file_size) && recordsApplies && ' · '}
+                                          {recordsApplies && (
+                                            <span style={{ color: d.posted_to_portal ? '#067647' : '#B54708', fontWeight: 600 }}>
+                                              {d.posted_to_portal ? '✓ Posted to portal' : 'Not posted'}
+                                            </span>
+                                          )}
+                                        </div>
                                       )}
                                     </div>
-                                  )}
+                                  </div>
                                 </td>
-                                <td>{d.category ? <span className="doc-cat">{d.category}</span> : <span className="muted">—</span>}</td>
+                                <td>{d.category ? <span className={docCatClass(d.category)}>{d.category}</span> : <span className="muted">—</span>}</td>
                                 <td className="muted">{fmtDate(d.uploaded_at)}</td>
                                 <td className="act">
                                   <button type="button" className="doc-open" onClick={() => openDoc(d)}>Open →</button>
