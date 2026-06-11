@@ -278,6 +278,22 @@ export default function FinancialsPage() {
             </div>
           </div>
 
+          {/* 5b — Bank reconciliation: match the Plaid feed to the ledger */}
+          <div className="card">
+            <div className="wslist">
+              <Link href="/admin/financials/reconcile" className="wsrow">
+                <span className="wsrow-glyph" style={{ color: '#067647', background: '#06764718' }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
+                </span>
+                <div className="wsrow-main">
+                  <div className="wsrow-title">Bank reconciliation</div>
+                  <div className="wsrow-desc">Match each bank transaction (Plaid) to the ledger entry that moved the money — confirm the exceptions.</div>
+                </div>
+                <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
+              </Link>
+            </div>
+          </div>
+
           {/* 6 — Reserve components */}
           <div className="card">
             <div className="card-head"><div><h2>Reserve components <span style={{ opacity: 0.55, fontWeight: 400 }}>({reserves.length})</span></h2></div></div>
