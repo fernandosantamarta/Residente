@@ -10,7 +10,6 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd, toDate } from '@/lib/compliance/rules-core'
-import { Dropdown } from '@/components/Dropdown'
 import {
   arcResponseDeadline,
   arcResponseDays,
@@ -377,12 +376,18 @@ export default function ArcPage() {
             <div className="card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <div><h2>ARC requests <span style={{ opacity: 0.55, fontWeight: 400 }}>({filtered.length})</span></h2></div>
               {requests.length > 0 && (
-                // Explicit width: the shared .ad-dd is width:100% and only gets a
-                // sized override under .crep/.etrack — neither wraps this page, so
-                // without a width the dropdown collapses and "doesn't show up".
-                <div style={{ width: 210, flexShrink: 0 }}>
-                  <Dropdown value={catFilter} onChange={v => setCatFilter(v as 'all' | ArcRequestType)} options={catOptions} ariaLabel="Filter by category" />
-                </div>
+                // Native <select> styled with admin-input — the same control the
+                // intake form on this page already renders, so it's guaranteed to
+                // show (the custom Dropdown only sizes correctly under .crep/.etrack).
+                <select
+                  className="admin-input"
+                  style={{ width: 'auto', minWidth: 190, flexShrink: 0 }}
+                  value={catFilter}
+                  onChange={e => setCatFilter(e.target.value as 'all' | ArcRequestType)}
+                  aria-label="Filter by category"
+                >
+                  {catOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
               )}
             </div>
             {requests.length === 0 && (
