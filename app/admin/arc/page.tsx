@@ -123,6 +123,48 @@ export default function ArcPage() {
     } catch { /* audit must not block */ }
   }
 
+  // Render the decision letter to a PDF and deliver it to the owner. The
+  // arc-decision-letter edge function does the work (verifies the board caller,
+  // builds the PDF from the same shared letter content as the document page,
+  // uploads to the owner's folder, records it, and notifies the owner).
+  const sendLetter = async (r: ArcRequestRow): Promise<boolean> => {
+    setError('')
+    try {
+      const { data, error } = (await withTimeout(
+        supabase.functions.invoke('arc-decision-letter', { body: { request_id: r.id } }),
+        30000,
+      )) as any
+      if (error) {
+        // functions.invoke surfaces a non-2xx as FunctionsHttpError; dig out the
+        // JSON {error} the function returns so the board sees a real message.
+        let msg = error.message || 'Could not send the letter.'
+        try {
+          const ctx = (error as any).context
+          if (ctx && typeof ctx.json === 'function') {
+            const body = await ctx.json()
+            if (body?.error) msg = body.error
+          }
+        } catch { /* keep the generic message */ }
+        throw new Error(msg)
+      }
+      if (data?.error) throw new Error(data.error)
+      try {
+        await logAudit({
+          community_id: communityId!,
+          event_type: 'arc.letter_sent',
+          target_type: 'arc_request',
+          target_id: r.id,
+        })
+      } catch { /* audit must not block */ }
+      setMsg('Decision letter sent to the resident.')
+      await load()
+      return true
+    } catch (err: any) {
+      setError(err?.message || 'Could not send the letter.')
+      return false
+    }
+  }
+
   const withdraw = async (r: ArcRequestRow) => {
     await patchRequest(r.id, { status: 'withdrawn' }, 'Request withdrawn.')
     try {
@@ -303,6 +345,7 @@ export default function ArcPage() {
                   isCondo={isCondo}
                   onDecide={decide}
                   onWithdraw={withdraw}
+                  onSendLetter={sendLetter}
                 />
               ))}
             </div>
@@ -317,16 +360,19 @@ export default function ArcPage() {
 // Request card with inline decision form
 // ----------------------------------------------------------------------------
 function ArcRequestCard({
-  r, community, isCondo, onDecide, onWithdraw,
+  r, community, isCondo, onDecide, onWithdraw, onSendLetter,
 }: {
   r: ArcRequestRow
   community: any
   isCondo: boolean
   onDecide: (r: ArcRequestRow, status: ArcStatus, reason?: string) => Promise<void>
   onWithdraw: (r: ArcRequestRow) => Promise<void>
+  onSendLetter: (r: ArcRequestRow) => Promise<boolean>
 }) {
   const st = String(r.status ?? 'submitted') as ArcStatus
   const isOpen = OPEN_STATUSES.includes(st)
+  const isDecided = ['approved', 'approved_with_conditions', 'denied'].includes(st)
+  const letterSentAt = r.decision_letter_sent_at
   const deadline = arcResponseDeadline(r, community)
   const today = new Date()
 
@@ -353,6 +399,15 @@ function ArcRequestCard({
   const [decideMode, setDecideMode] = useState<null | 'approve_conditions' | 'deny'>(null)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
+  const [confirmSend, setConfirmSend] = useState(false)
+  const [sending, setSending] = useState(false)
+
+  const doSend = async () => {
+    setSending(true)
+    const sent = await onSendLetter(r)
+    setSending(false)
+    if (sent) setConfirmSend(false)
+  }
 
   const submit = async (newStatus: ArcStatus) => {
     if (newStatus === 'denied' && !reason.trim()) return
@@ -468,7 +523,46 @@ function ArcRequestCard({
             Decision letter
           </a>
         </Tip>
+        {isDecided && (
+          <Tip text="Generates the decision letter as a PDF and delivers it to the owner — saved to their Architectural review page and announced with an in-app notice. The letter is a draft; confirm the language with counsel first.">
+            <button
+              className="admin-btn-ghost"
+              style={{ marginLeft: 0 }}
+              disabled={sending}
+              onClick={() => setConfirmSend(s => !s)}
+            >
+              {letterSentAt ? 'Resend letter to resident' : 'Send letter to resident'}
+            </button>
+          </Tip>
+        )}
+        {letterSentAt && !confirmSend && (
+          <span style={{ fontSize: 12, color: '#067647', fontWeight: 600 }}>
+            ✓ Letter sent {ymd(toDate(letterSentAt) || new Date())}
+          </span>
+        )}
       </div>
+
+      {/* Send-letter confirm (DRAFT — confirm with counsel) */}
+      {confirmSend && (
+        <div style={{ border: '1px dashed #d6b8a8', borderRadius: 10, padding: 12, marginTop: 10, background: '#fdf6f1' }}>
+          <div style={{ fontSize: 13, color: '#7a4a2b', fontWeight: 600, marginBottom: 4 }}>
+            Send the official decision letter to {r.unit_label || 'the owner'}?
+          </div>
+          <div style={{ fontSize: 12.5, color: '#8a5a38', marginBottom: 10 }}>
+            This is a DRAFT aid, not legal advice — confirm the letter language with your association
+            attorney before sending. The owner will be able to download the PDF and receives an in-app notice.
+            {!r.profile_id && <><br /><strong>This request has no linked owner account, so the letter can&apos;t be delivered.</strong></>}
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="admin-primary-btn" disabled={sending || !r.profile_id} onClick={doSend}>
+              {sending ? 'Sending…' : letterSentAt ? 'Resend official letter' : 'Send official letter'}
+            </button>
+            <button className="admin-btn-ghost" disabled={sending} onClick={() => setConfirmSend(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Inline reason form */}
       {decideMode && (
