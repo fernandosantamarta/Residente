@@ -4,11 +4,8 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { Dropdown } from '@/components/Dropdown'
-import { Pagination, paginate } from '@/components/Pagination'
 import { EasyVoiceTabs } from '../EasyVoiceTabs'
 import { useRequestThread, sendThreadMessage, type ThreadMessage } from '@/lib/requestThread'
-
-const REQ_PAGE_SIZE = 10
 
 const withTimeout = <T,>(p: Promise<T>, ms = 10000): Promise<T> =>
   Promise.race([
@@ -26,6 +23,19 @@ const CATS: { value: Category; label: string }[] = [
   { value: 'other',       label: 'Other' },
 ]
 const CAT_LABEL: Record<string, string> = Object.fromEntries(CATS.map(c => [c.value, c.label]))
+// Color per category — shared by the mailbox list and the conversation header.
+const CAT_COLOR: Record<string, string> = {
+  maintenance: '#175CD3',   // blue
+  appeal:      '#B54708',   // amber
+  account:     '#7C3AED',   // purple
+  other:       '#475467',   // slate
+}
+const catColor = (c: string) => CAT_COLOR[c] || '#475467'
+// Small squared category tag.
+function catTag(c: string): React.CSSProperties {
+  const col = catColor(c)
+  return { fontSize: 10.5, fontWeight: 700, color: col, background: col + '1A', padding: '1px 6px', borderRadius: 3, whiteSpace: 'nowrap' }
+}
 
 const STATUSES: { value: Status; label: string }[] = [
   { value: 'new',         label: 'New' },
@@ -40,7 +50,7 @@ const fmtDate = (d: string | null | undefined) =>
 // Status chip + left-accent colors — mirrors the Architectural (ARC) worklist
 // cards so the two Easy Voice queues read the same way.
 function chip(color: string): React.CSSProperties {
-  return { fontSize: 11.5, fontWeight: 700, color, background: color + '14', padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap' }
+  return { fontSize: 11.5, fontWeight: 700, color, background: color + '14', padding: '3px 9px', borderRadius: 4, whiteSpace: 'nowrap' }
 }
 const STATUS_COLOR: Record<string, string> = {
   new:         '#175CD3',
@@ -87,13 +97,18 @@ export default function RequestsAdmin() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
-  const [filterCategory, setFilterCategory] = useState<'all' | Category>('all')
-  const [filterStatus, setFilterStatus] = useState<'all' | Status>('all')
-  const [page, setPage] = useState(1)
+  // Mailbox: which folder (Received from residents / Sent by the board), the
+  // selected conversation, and whether the compose pane is open.
+  const [tab, setTab] = useState<'received' | 'sent'>('received')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [composing, setComposing] = useState(false)
+  const [search, setSearch] = useState('')
+  const [catFilter, setCatFilter] = useState<'all' | Category>('all')
 
   // "Message a resident" composer — board-initiated outreach.
   const [residents, setResidents] = useState<ResidentOption[]>([])
   const [compose, setCompose] = useState({ residentId: '', subject: '', message: '', allowReplies: true })
+  const [composeFile, setComposeFile] = useState<File | null>(null)
   const [composeErr, setComposeErr] = useState('')
   const [sending, setSending] = useState(false)
 
@@ -169,17 +184,31 @@ export default function RequestsAdmin() {
   }, [communityId])
 
   // Board-initiated message: create a tracked request row owned by the resident
-  // (so it shows on their Contact page and in this queue), then email it. The
-  // board's text lives in board_note so the resident sees it tagged "From the
-  // board"; origin = 'board' marks who started the thread.
+  // (so it shows on their Contact page and in this queue), seed the first board
+  // message (optionally with a photo), then email it. origin = 'board' marks who
+  // started the thread. board_note stays null — the message lives in the thread,
+  // so the seed trigger doesn't also create a duplicate text-only message.
   const sendMessage = async () => {
     const target = residents.find(r => r.id === compose.residentId)
     if (!target) { setComposeErr('Pick a resident.'); return }
     if (!compose.subject.trim()) { setComposeErr('Add a subject.'); return }
     if (!compose.message.trim()) { setComposeErr('Write a message.'); return }
+    if (composeFile && composeFile.size > MAX_FILE) { setComposeErr('Photo must be 10MB or smaller.'); return }
     setSending(true); setComposeErr('')
     try {
-      const now = new Date().toISOString()
+      // Upload first (into the resident's folder so their read policy covers it)
+      // — if it fails we haven't created an orphaned request.
+      let attachmentPath: string | null = null
+      let attachmentName: string | null = null
+      if (composeFile) {
+        const ext = composeFile.name.includes('.') ? composeFile.name.split('.').pop()!.toLowerCase() : 'bin'
+        const path = `${communityId}/${target.id}/${crypto.randomUUID()}.${ext}`
+        const up = await withTimeout(supabase!.storage.from('request-attachments').upload(path, composeFile), 30000)
+        if ((up as any).error) throw (up as any).error
+        attachmentPath = path
+        attachmentName = composeFile.name
+      }
+
       const { data: inserted, error } = await withTimeout(
         supabase!.from('resident_requests').insert({
           community_id:   communityId,
@@ -191,16 +220,28 @@ export default function RequestsAdmin() {
           body:           null,
           status:         'in_progress',
           origin:         'board',
-          board_note:     compose.message.trim(),
-          board_note_at:  now,
+          board_note:     null,
           replies_locked: !compose.allowReplies,
         }).select('id').single()
       )
       if (error) throw error
       const newId = (inserted as any)?.id as string | undefined
+      if (!newId) throw new Error('Could not create the message')
+
+      // Seed the opening board message (carries the photo, if any).
+      await sendThreadMessage({
+        requestId: newId,
+        communityId: communityId!,
+        body: compose.message.trim(),
+        authorRole: 'board',
+        authorId: profile?.id ?? null,
+        authorName: 'Board',
+        attachmentPath,
+        attachmentName,
+      })
 
       let emailed = false
-      if (newId && target.email) {
+      if (target.email) {
         const { data, error: fnErr } = await supabase!.functions.invoke('request-reply-email', {
           body: { request_id: newId, note: compose.message.trim() },
         })
@@ -208,6 +249,10 @@ export default function RequestsAdmin() {
       }
 
       setCompose({ residentId: '', subject: '', message: '', allowReplies: true })
+      setComposeFile(null)
+      setComposing(false)
+      setTab('sent')
+      setSelectedId(newId)
       setSuccessMsg(
         emailed ? `Message sent and emailed to ${target.name}.`
           : target.email ? `Message saved for ${target.name}, but the email could not be sent.`
@@ -262,30 +307,46 @@ export default function RequestsAdmin() {
     }
   }
 
-  const newCount = rows.filter(r => r.status === 'new').length
   // A thread is "awaiting your reply" when the last message was the resident's
   // and it isn't closed — the board owes a response.
   const awaiting = (r: Request) => r.last_message_role === 'resident' && r.status !== 'resolved'
-  const awaitingCount = rows.filter(awaiting).length
   const lastActivity = (r: Request) =>
     (r.last_message_at && r.last_message_at > r.created_at ? r.last_message_at : r.created_at)
-  const filtered = rows
-    .filter(r =>
-      (filterCategory === 'all' || r.category === filterCategory) &&
-      (filterStatus === 'all' || r.status === filterStatus)
-    )
-    // Threads awaiting a reply float to the top; otherwise newest activity first.
-    .sort((a, b) => (awaiting(b) ? 1 : 0) - (awaiting(a) ? 1 : 0) || lastActivity(b).localeCompare(lastActivity(a)))
-  const visible = paginate(filtered, page, REQ_PAGE_SIZE)
+  const byActivity = (a: Request, b: Request) => lastActivity(b).localeCompare(lastActivity(a))
+
+  // Two folders: Received (resident-initiated) and Sent (board-initiated).
+  const received = rows.filter(r => r.origin !== 'board')
+    .sort((a, b) => (awaiting(b) ? 1 : 0) - (awaiting(a) ? 1 : 0) || byActivity(a, b))
+  const sent = rows.filter(r => r.origin === 'board').sort(byActivity)
+  const awaitingCount = received.filter(awaiting).length
+  const activeList = tab === 'received' ? received : sent
+  // Search + category filter narrow the visible list.
+  const q = search.trim().toLowerCase()
+  const shownList = activeList.filter(r => {
+    if (catFilter !== 'all' && r.category !== catFilter) return false
+    if (q && !`${r.submitter_name || ''} ${r.subject || ''}`.toLowerCase().includes(q)) return false
+    return true
+  })
+  const selected = rows.find(r => r.id === selectedId) || null
+
+  // Keep a valid selection: when the folder/list changes, fall back to the first
+  // conversation in view (and never point at a row from the other folder).
+  useEffect(() => {
+    if (composing) return
+    if (!activeList.some(r => r.id === selectedId)) {
+      setSelectedId(activeList[0]?.id ?? null)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, rows.length, composing])
 
   return (
     <div className="admin-page cset">
       <EasyVoiceTabs active="contact" />
       <div className="admin-kicker">Contact</div>
-      <h1 className="admin-h1">Contact requests</h1>
+      <h1 className="admin-h1">Messages</h1>
       <p className="admin-dek">
-        Everything residents submit from their Contact tab — maintenance issues,
-        appeals, and questions. Set each one&rsquo;s status to keep residents in the loop.
+        Two-way messages with residents. <strong>Received</strong> holds what residents
+        sent you; <strong>Sent</strong> holds the messages you started.
       </p>
 
       {status === 'none' && (
@@ -309,178 +370,184 @@ export default function RequestsAdmin() {
       )}
 
       {(status === 'ready' || status === 'loading') && (
-        <div className="card" style={{ marginBottom: 16 }}>
-          <div className="card-head">
-            <div>
-              <h2>Message a resident</h2>
-              <div className="sub">Start a conversation — it lands on their Contact page and emails them.</div>
-            </div>
-          </div>
-          <div style={{ display: 'grid', gap: 12 }}>
-            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-              <div style={{ flex: '1 1 240px', minWidth: 0 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#0A2440', marginBottom: 5 }}>Resident</label>
-                <Dropdown<string>
-                  value={compose.residentId}
-                  onChange={v => setCompose(c => ({ ...c, residentId: v }))}
-                  ariaLabel="Resident"
-                  options={[
-                    { value: '', label: 'Select a resident…' },
-                    ...residents.map(r => ({
-                      value: r.id,
-                      label: `${r.name}${r.unit ? ` · ${r.unit}` : ''}${r.email ? '' : ' (no email)'}`,
-                    })),
-                  ]}
-                />
-              </div>
-              <div style={{ flex: '2 1 320px', minWidth: 0 }}>
-                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#0A2440', marginBottom: 5 }}>Subject</label>
-                <input
-                  className="admin-input"
-                  style={{ width: '100%', boxSizing: 'border-box' }}
-                  value={compose.subject}
-                  onChange={e => setCompose(c => ({ ...c, subject: e.target.value }))}
-                  placeholder="e.g. Reminder: gate code change Friday"
-                />
-              </div>
-            </div>
-            <div>
-              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#0A2440', marginBottom: 5 }}>Message</label>
-              <textarea
-                className="admin-input admin-textarea"
-                rows={3}
-                style={{ width: '100%', boxSizing: 'border-box' }}
-                value={compose.message}
-                onChange={e => setCompose(c => ({ ...c, message: e.target.value }))}
-                placeholder="Write your message to the resident…"
-              />
-            </div>
-            {composeErr && <div className="admin-note admin-note-err">{composeErr}</div>}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
-              <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12.5, color: 'rgba(10,36,64,0.75)' }}>
-                <input type="checkbox" checked={compose.allowReplies}
-                  onChange={e => setCompose(c => ({ ...c, allowReplies: e.target.checked }))} />
-                Allow the resident to reply
-              </label>
-              <button type="button" className="admin-primary-btn" onClick={sendMessage} disabled={sending}>
-                {sending ? 'Sending…' : 'Send message'}
+        <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+          {/* Folder tabs + compose */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '12px 14px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
+            <div className="seg-tabs" role="tablist">
+              <button type="button" role="tab" aria-selected={tab === 'received'}
+                className={`seg-tab${tab === 'received' ? ' active' : ''}`}
+                onClick={() => { setTab('received'); setComposing(false) }}>
+                Received{awaitingCount > 0 ? ` · ${awaitingCount}` : ''}
+              </button>
+              <button type="button" role="tab" aria-selected={tab === 'sent'}
+                className={`seg-tab${tab === 'sent' ? ' active' : ''}`}
+                onClick={() => { setTab('sent'); setComposing(false) }}>
+                Sent
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {(status === 'ready' || status === 'loading') && (
-        <div className="card">
-          <div className="card-head">
-            <div>
-              <h2>
-                Queue
-                {awaitingCount > 0 && (
-                  <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#fff', background: '#E14909', borderRadius: 999, padding: '2px 8px', verticalAlign: 'middle' }}>
-                    {awaitingCount} awaiting reply
-                  </span>
-                )}
-              </h2>
-              <div className="sub">
-                {rows.length} {rows.length === 1 ? 'request' : 'requests'}
-                {newCount > 0 ? ` · ${newCount} new` : ''}.
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+              <div style={{ width: 180 }}>
+                <Dropdown<'all' | Category>
+                  value={catFilter}
+                  onChange={setCatFilter}
+                  ariaLabel="Filter by category"
+                  options={[{ value: 'all', label: 'All categories' }, ...CATS.map(c => ({ value: c.value, label: c.label }))]}
+                />
               </div>
-            </div>
+              <button type="button" className="admin-primary-btn"
+                onClick={() => { setComposing(true); setSelectedId(null) }}>
+                New message
+              </button>
+            </span>
           </div>
 
-          <div className="admin-sched-filters" style={{ marginTop: 4, marginBottom: 12 }}>
-            <div className="admin-sched-filter">
-              <label>Category</label>
-              <Dropdown<'all' | Category>
-                value={filterCategory}
-                onChange={v => { setFilterCategory(v); setPage(1) }}
-                ariaLabel="Filter requests by category"
-                options={[
-                  { value: 'all', label: `All (${rows.length})` },
-                  ...CATS.map(c => ({ value: c.value, label: `${c.label} (${rows.filter(r => r.category === c.value).length})` })),
-                ]}
-              />
-            </div>
-            <div className="admin-sched-filter">
-              <label>Status</label>
-              <Dropdown<'all' | Status>
-                value={filterStatus}
-                onChange={v => { setFilterStatus(v); setPage(1) }}
-                ariaLabel="Filter requests by status"
-                options={[
-                  { value: 'all', label: 'All statuses' },
-                  ...STATUSES.map(s => ({ value: s.value, label: `${s.label} (${rows.filter(r => r.status === s.value).length})` })),
-                ]}
-              />
-            </div>
-          </div>
-
-          {status === 'loading' && <div className="admin-note">Loading…</div>}
-          {status === 'ready' && rows.length === 0 && (
-            <div className="bc-empty">No requests yet — they&rsquo;ll appear here as residents submit them.</div>
-          )}
-          {status === 'ready' && rows.length > 0 && filtered.length === 0 && (
-            <div className="bc-empty">No requests match these filters.</div>
-          )}
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {visible.map(r => {
-              const statusColor = STATUS_COLOR[r.status] || '#475467'
-              return (
-              <div key={r.id} style={{
-                border: '1px solid rgba(0,0,0,0.08)',
-                borderLeft: `4px solid ${statusColor}`,
-                borderRadius: 12,
-                padding: '14px 16px',
-                background: '#fff',
-              }}>
-                {/* Header — subject + meta on the left, status chip + dropdown on the right. */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 15 }}>{r.subject}</div>
-                    <div style={{ fontSize: 12.5, opacity: 0.72, marginTop: 2 }}>
-                      {r.submitter_name || 'Resident'}
-                      {r.submitter_unit ? ` · ${r.submitter_unit}` : ''}
-                      {` · ${CAT_LABEL[r.category] || r.category}`}
-                      {` · ${fmtDate(r.created_at)}`}
+          {/* Two-pane: mailbox list | conversation */}
+          <div className="msg-layout" style={{ display: 'grid', gridTemplateColumns: 'minmax(230px, 320px) 1fr', minHeight: 460 }}>
+            {/* LEFT — mailbox list */}
+            <div style={{ borderRight: '1px solid var(--border)', maxHeight: 640, overflowY: 'auto' }}>
+              {/* Search */}
+              <div style={{ position: 'sticky', top: 0, zIndex: 1, background: 'var(--bg-elev)', borderBottom: '1px solid var(--border)', padding: 8 }}>
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--text-dim)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ position: 'absolute', left: 9, pointerEvents: 'none' }}>
+                    <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+                  </svg>
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={e => setSearch(e.target.value)}
+                    placeholder="Search name or subject…"
+                    style={{ width: '100%', boxSizing: 'border-box', padding: '7px 9px 7px 28px', fontSize: 12.5, font: 'inherit', color: 'var(--text)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, outline: 'none' }}
+                  />
+                </div>
+              </div>
+              {status === 'loading' && <div className="admin-note" style={{ margin: 12 }}>Loading…</div>}
+              {status === 'ready' && activeList.length === 0 && (
+                <div style={{ padding: '24px 16px', color: 'var(--text-dim)', fontSize: 13 }}>
+                  {tab === 'received' ? 'No messages from residents yet.' : 'You haven’t sent any messages yet.'}
+                </div>
+              )}
+              {status === 'ready' && activeList.length > 0 && shownList.length === 0 && (
+                <div style={{ padding: '20px 16px', color: 'var(--text-dim)', fontSize: 13 }}>No matches for “{search}”.</div>
+              )}
+              {shownList.map(r => {
+                const sel = selected?.id === r.id
+                const need = awaiting(r)
+                return (
+                  <button key={r.id} type="button"
+                    onClick={() => { setSelectedId(r.id); setComposing(false) }}
+                    style={{ display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none', borderRadius: 0, borderBottom: '1px solid var(--border)', borderLeft: `3px solid ${sel ? '#E14909' : 'transparent'}`, background: sel ? 'rgba(225,73,9,0.06)' : 'transparent', padding: '10px 14px', font: 'inherit' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'baseline' }}>
+                      <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {r.submitter_name || 'Resident'}
+                      </span>
+                      <span style={{ fontSize: 11, color: 'var(--text-dim)', whiteSpace: 'nowrap', flexShrink: 0 }}>{fmtDate(lastActivity(r))}</span>
                     </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                    {awaiting(r) && <span style={chip('#E14909')}>Awaiting reply</span>}
-                    {r.replies_locked && <span style={chip('#475467')}>Replies off</span>}
-                    {r.origin === 'board' && <span style={chip('#7C3AED')}>Outbound</span>}
-                    <span style={chip(statusColor)}>{STATUS_LABEL[r.status] || r.status}</span>
-                    <div style={{ width: 150 }}>
-                      <Dropdown<Status>
-                        value={r.status as Status}
-                        onChange={v => setRequestStatus(r, v)}
-                        ariaLabel={`Status for ${r.subject}`}
-                        options={STATUSES}
+                    <div style={{ fontSize: 12.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{r.subject}</div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5, minHeight: 16, flexWrap: 'wrap' }}>
+                      <span style={catTag(r.category)}>{CAT_LABEL[r.category] || r.category}</span>
+                      {need && (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: '#E14909' }}>
+                          <span style={{ width: 6, height: 6, borderRadius: 1, background: '#E14909' }} />Awaiting reply
+                        </span>
+                      )}
+                      {!need && r.status === 'resolved' && <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Resolved</span>}
+                      {r.replies_locked && <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>· Replies off</span>}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* RIGHT — composer / conversation / empty */}
+            <div style={{ padding: 16, minWidth: 0 }}>
+              {composing ? (
+                <div>
+                  <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: '0 0 4px' }}>New message</h2>
+                  <p style={{ fontSize: 12.5, color: 'var(--text-dim)', margin: '0 0 14px' }}>Start a conversation — it lands on their Contact page and emails them.</p>
+                  <div style={{ display: 'grid', gap: 12 }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 5 }}>Resident</label>
+                      <Dropdown<string>
+                        value={compose.residentId}
+                        onChange={v => setCompose(c => ({ ...c, residentId: v }))}
+                        ariaLabel="Resident"
+                        options={[
+                          { value: '', label: 'Select a resident…' },
+                          ...residents.map(r => ({ value: r.id, label: `${r.name}${r.unit ? ` · ${r.unit}` : ''}${r.email ? '' : ' (no email)'}` })),
+                        ]}
                       />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 5 }}>Subject</label>
+                      <input className="admin-input" style={{ width: '100%', boxSizing: 'border-box' }}
+                        value={compose.subject} onChange={e => setCompose(c => ({ ...c, subject: e.target.value }))}
+                        placeholder="e.g. Reminder: gate code change Friday" />
+                    </div>
+                    <div>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 5 }}>Message</label>
+                      <textarea className="admin-input admin-textarea" rows={4} style={{ width: '100%', boxSizing: 'border-box' }}
+                        value={compose.message} onChange={e => setCompose(c => ({ ...c, message: e.target.value }))}
+                        placeholder="Write your message to the resident…" />
+                    </div>
+                    {composeErr && <div className="admin-note admin-note-err">{composeErr}</div>}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#E14909' }}>
+                          <input type="file" accept="image/*" hidden onChange={e => setComposeFile(e.target.files?.[0] || null)} />
+                          <Clip />
+                          {composeFile ? composeFile.name : 'Attach a photo'}
+                        </label>
+                        <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12.5, color: 'var(--text-dim)' }}>
+                          <input type="checkbox" checked={compose.allowReplies} onChange={e => setCompose(c => ({ ...c, allowReplies: e.target.checked }))} />
+                          Allow the resident to reply
+                        </label>
+                      </span>
+                      <span style={{ display: 'inline-flex', gap: 8 }}>
+                        <button type="button" className="admin-btn-ghost admin-btn-ghost-orange" onClick={() => { setComposing(false); setComposeFile(null) }}>Cancel</button>
+                        <button type="button" className="admin-primary-btn" onClick={sendMessage} disabled={sending}>
+                          {sending ? 'Sending…' : 'Send message'}
+                        </button>
+                      </span>
                     </div>
                   </div>
                 </div>
-
-                {/* Two-way thread + the board's reply box. */}
-                <AdminThread
-                  request={r}
-                  profileId={profile?.id}
-                  openAttachment={openAttachment}
-                  onSent={msg => setSuccessMsg(msg)}
-                  onSetStatus={setRequestStatus}
-                  onSetLocked={setRepliesLocked}
-                />
-              </div>
-              )
-            })}
+              ) : selected ? (
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start', borderBottom: '1px solid var(--border)', paddingBottom: 12 }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>{selected.subject}</div>
+                      <div style={{ fontSize: 12.5, color: 'var(--text-dim)', marginTop: 2 }}>
+                        {selected.submitter_name || 'Resident'}{selected.submitter_unit ? ` · ${selected.submitter_unit}` : ''} · {fmtDate(selected.created_at)}
+                      </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={chip(catColor(selected.category))}>{CAT_LABEL[selected.category] || selected.category}</span>
+                      {selected.replies_locked && <span style={chip('#475467')}>Replies off</span>}
+                      {selected.origin === 'board' && <span style={chip('#7C3AED')}>Outbound</span>}
+                      <span style={chip(STATUS_COLOR[selected.status] || '#475467')}>{STATUS_LABEL[selected.status] || selected.status}</span>
+                    </div>
+                  </div>
+                  <AdminThread
+                    request={selected}
+                    profileId={profile?.id}
+                    openAttachment={openAttachment}
+                    onSent={msg => setSuccessMsg(msg)}
+                    onSetStatus={setRequestStatus}
+                    onSetLocked={setRepliesLocked}
+                  />
+                </>
+              ) : (
+                <div style={{ display: 'grid', placeItems: 'center', height: '100%', minHeight: 360, color: 'var(--text-dim)', fontSize: 13, textAlign: 'center' }}>
+                  <div>
+                    <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="var(--border-hover)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 10 }}>
+                      <rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" />
+                    </svg>
+                    <div>Select a message to read it,<br />or hit <strong>New message</strong>.</div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-          <Pagination
-            page={page}
-            pageSize={REQ_PAGE_SIZE}
-            total={filtered.length}
-            onPageChange={setPage}
-          />
         </div>
       )}
     </div>
@@ -571,54 +638,62 @@ function AdminThread({
     }
   }
 
+  const messageLog = (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+      {loading && messages.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>Loading…</div>}
+      {messages.map(m => {
+        const board = m.authorRole === 'board'
+        return (
+          <div key={m.id} style={{ display: 'flex', justifyContent: board ? 'flex-end' : 'flex-start' }}>
+            <div style={{
+              maxWidth: '78%',
+              background: board ? 'rgba(225, 73, 9, 0.07)' : 'rgba(42, 18, 6, 0.04)',
+              border: `1px solid ${board ? 'rgba(225, 73, 9, 0.18)' : 'var(--border)'}`,
+              borderRadius: 5,
+              padding: '8px 12px',
+            }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: board ? '#E14909' : 'var(--text-dim)', marginBottom: 2 }}>
+                {board ? (m.authorName || 'Board') : (m.authorName || 'Resident')}
+                <span style={{ fontWeight: 400, opacity: 0.6 }}>{' · '}{fmtMsgTime(m.createdAt)}</span>
+              </div>
+              <div style={{ fontSize: 13, color: 'var(--text)', whiteSpace: 'pre-wrap' }}>{m.body}</div>
+              {m.attachmentPath && (
+                <button type="button" onClick={() => openAttachment(m.attachmentPath!)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#E14909', font: 'inherit', fontSize: 12, padding: '4px 0 0', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                  <Clip />{m.attachmentName || 'View photo'}
+                </button>
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+
   return (
     <div style={{ marginTop: 12 }}>
-      {/* Message log */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-        {loading && messages.length === 0 && <div style={{ fontSize: 12.5, color: 'rgba(10,36,64,0.5)' }}>Loading…</div>}
-        {messages.map(m => {
-          const board = m.authorRole === 'board'
-          return (
-            <div key={m.id} style={{ display: 'flex', justifyContent: board ? 'flex-end' : 'flex-start' }}>
-              <div style={{
-                maxWidth: '78%',
-                background: board ? 'rgba(225, 73, 9, 0.08)' : 'rgba(10, 36, 64, 0.05)',
-                border: `1px solid ${board ? 'rgba(225, 73, 9, 0.18)' : 'rgba(10, 36, 64, 0.10)'}`,
-                borderRadius: 12,
-                padding: '8px 12px',
-              }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: board ? '#E14909' : 'rgba(10,36,64,0.7)', marginBottom: 2 }}>
-                  {board ? (m.authorName || 'Board') : (m.authorName || 'Resident')}
-                  <span style={{ fontWeight: 400, opacity: 0.6 }}>{' · '}{fmtMsgTime(m.createdAt)}</span>
-                </div>
-                <div style={{ fontSize: 13, color: '#1F2233', whiteSpace: 'pre-wrap' }}>{m.body}</div>
-                {m.attachmentPath && (
-                  <button type="button" onClick={() => openAttachment(m.attachmentPath!)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#E14909', font: 'inherit', fontSize: 12, padding: '4px 0 0', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                    <Clip />{m.attachmentName || 'View photo'}
-                  </button>
-                )}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* Closed → no reply box; the board can reopen. Open → reply + Close. */}
+      {messageLog}
       {closed ? (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, background: 'rgba(6,118,71,0.06)', border: '1px solid rgba(6,118,71,0.2)', borderRadius: 10, padding: '10px 14px' }}>
-          <span style={{ fontSize: 12.5, color: '#067647', fontWeight: 600 }}>
-            ✓ Conversation closed{request.closed_at ? ` · ${fmtDate(request.closed_at)}` : ''} — the resident can’t reply; they’d start a new message.
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, background: 'rgba(42,18,6,0.03)', border: '1px solid var(--border)', borderRadius: 4, padding: '8px 12px' }}>
+          <span style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+              <rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" />
+            </svg>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              <span style={{ color: '#1F7A4D' }}>Resolved</span>
+              {request.closed_at ? ` · ${fmtDate(request.closed_at)}` : ''} — the resident can’t reply.
+            </span>
           </span>
-          <button type="button" className="admin-btn-ghost" onClick={() => onSetStatus(request, 'in_progress')}>
+          <button type="button" onClick={() => onSetStatus(request, 'in_progress')}
+            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#E14909', font: 'inherit', fontSize: 12, fontWeight: 700, padding: 0, whiteSpace: 'nowrap', flexShrink: 0 }}>
             Reopen
           </button>
         </div>
       ) : (
         <>
-          <label htmlFor={`reply-${request.id}`} style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#0A2440', marginBottom: 5 }}>
+          <label htmlFor={`reply-${request.id}`} style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 5 }}>
             Reply to resident{' '}
-            <span style={{ fontWeight: 400, color: 'rgba(15,28,46,0.5)' }}>— shown on their Contact page</span>
+            <span style={{ fontWeight: 400, color: 'var(--text-dim)' }}>— shown on their Contact page</span>
           </label>
           <textarea
             id={`reply-${request.id}`}
@@ -631,30 +706,45 @@ function AdminThread({
             onKeyDown={onKeyDown}
           />
           {err && <div className="admin-note admin-note-err" style={{ marginTop: 8 }}>{err}</div>}
+          {/* Row 1 — reply actions (Send reply pinned right) */}
           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginTop: 8 }}>
-            <button type="button" className="admin-secondary-btn" onClick={send} disabled={sending || (!draft.trim() && !file)}>
-              {sending ? 'Sending…' : 'Send reply'}
-            </button>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#E14909' }}>
               <input type="file" accept="image/*" hidden onChange={e => setFile(e.target.files?.[0] || null)} />
               <Clip />
               {file ? file.name : 'Attach a photo'}
             </label>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12.5, color: 'rgba(10,36,64,0.75)' }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12.5, color: 'var(--text-dim)' }}>
               <input type="checkbox" checked={emailIt} onChange={e => setEmailIt(e.target.checked)} />
-              Email this reply to the resident
+              Email resident
             </label>
-            <span style={{ display: 'inline-flex', gap: 8, marginLeft: 'auto' }}>
-              <button type="button" className="admin-btn-ghost" onClick={() => onSetLocked(request, !locked)}>
+            <button type="button" className="admin-secondary-btn" style={{ marginLeft: 'auto' }} onClick={send} disabled={sending || (!draft.trim() && !file)}>
+              {sending ? 'Sending…' : 'Send reply'}
+            </button>
+          </div>
+          {/* Row 2 — status (left) + conversation management (right) */}
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 10 }}>
+            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-dim)' }}>Status</span>
+              <div style={{ width: 140 }}>
+                <Dropdown<Status>
+                  value={request.status as Status}
+                  onChange={v => onSetStatus(request, v)}
+                  ariaLabel="Conversation status"
+                  options={STATUSES}
+                />
+              </div>
+            </span>
+            <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', marginLeft: 'auto' }}>
+              <button type="button" className="admin-btn-ghost admin-btn-ghost-orange" style={{ marginLeft: 0 }} onClick={() => onSetLocked(request, !locked)}>
                 {locked ? 'Allow replies' : 'Turn off replies'}
               </button>
-              <button type="button" className="admin-btn-ghost" onClick={() => onSetStatus(request, 'resolved')}>
+              <button type="button" className="admin-btn-ghost admin-btn-ghost-orange" style={{ marginLeft: 0 }} onClick={() => onSetStatus(request, 'resolved')}>
                 Close conversation
               </button>
             </span>
           </div>
           {locked && (
-            <div style={{ fontSize: 12, color: 'rgba(10,36,64,0.6)', marginTop: 8 }}>
+            <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 8 }}>
               Replies are off — the resident can read this thread but can’t reply. They’d start a new message.
             </div>
           )}
