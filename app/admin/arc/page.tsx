@@ -573,18 +573,6 @@ function ArcRequestCard({
             </Tip>
           </>
         )}
-        <Tip text="Opens a printable, official letter stating the board's decision (and any reason or conditions) to give or mail to the owner — the formal record FS 720.3035 expects.">
-          {/* Same-tab nav (not target=_blank): admin auth lives in sessionStorage,
-              which a new tab doesn't inherit — opening the document page in a fresh
-              tab loses the session and bounces to /login. Use Back to return here. */}
-          <a
-            className="admin-btn-ghost"
-            style={{ marginLeft: 0 }}
-            href={`/admin/arc/${r.id}/document?type=decision`}
-          >
-            Decision letter
-          </a>
-        </Tip>
         {isDecided && (
           <Tip text="Generates the decision letter as a PDF and delivers it to the owner — saved to their Architectural review page and announced with an in-app notice. The letter is a draft; confirm the language with counsel first.">
             <button
@@ -602,6 +590,23 @@ function ArcRequestCard({
             ✓ Letter sent {ymd(toDate(letterSentAt) || new Date())}
           </span>
         )}
+
+        {/* Draft letter to view + print — pushed to the far right; it's a preview,
+            not a decision action. Same-tab nav (admin auth lives in sessionStorage,
+            which a new tab doesn't inherit — a fresh tab loses the session). */}
+        <div style={{ marginLeft: 'auto' }}>
+          <Tip text="Opens the printable draft letter stating the board's decision (and any reason or conditions) — view it and print to mail a paper copy if needed. Confirm the language with counsel.">
+            <a
+              href={`/admin/arc/${r.id}/document?type=decision`}
+              style={{ background: '#0A2440', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 700, fontSize: 13, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap' }}
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M6 9V3h12v6" /><path d="M6 18H4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2" /><path d="M6 14h12v7H6z" />
+              </svg>
+              Decision letter
+            </a>
+          </Tip>
+        </div>
       </div>
 
       {/* Send-letter confirm (DRAFT — confirm with counsel) */}

@@ -23,7 +23,7 @@ export function EasyDocsTabs({
     { key: 'rules',     label: 'Rules' },
   ]
   return (
-    <div className="seg-tabs" role="tablist">
+    <div className="seg-tabs admin-seg-tabs" role="tablist">
       {pageTabs.map(t => {
         const cls = `seg-tab${active === t.key ? ' active' : ''}`
         return onSelect ? (

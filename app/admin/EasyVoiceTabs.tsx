@@ -31,7 +31,7 @@ export function EasyVoiceTabs({ active }: { active: EasyVoiceTab }) {
     return null
   }
   return (
-    <div className="seg-tabs ev-admin-tabs" role="tablist">
+    <div className="seg-tabs admin-seg-tabs" role="tablist">
       {TABS.map(t => {
         const badge = badgeFor(t.key)
         return (
