@@ -73,3 +73,10 @@ verify_jwt = false
 # the function. Equivalent deploy flag: --no-verify-jwt
 [functions.waitlist-notify]
 verify_jwt = false
+
+# arc-decision-letter is called by a signed-in board member / admin to render
+# and deliver the ARC decision letter PDF to the owner. Keep JWT verification on
+# so the caller is authenticated; the function also re-checks the caller is
+# board/admin of the request's community before storing or notifying.
+[functions.arc-decision-letter]
+verify_jwt = true

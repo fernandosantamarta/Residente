@@ -83,6 +83,7 @@ export type AuditEventType =
   // architectural review / ARC (compliance domain J)
   | 'arc.request_submitted'
   | 'arc.decided'
+  | 'arc.letter_sent'
   // insurance — property appraisal & fidelity bond (compliance: Insurance)
   | 'insurance.policy_recorded'
   | 'insurance.waiver_recorded'

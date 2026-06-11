@@ -15,7 +15,7 @@ const TABS: { key: AdminTrackTab; href: string; label: string }[] = [
 
 export function EasyTrackTabs({ active }: { active: AdminTrackTab }) {
   return (
-    <div className="seg-tabs" role="tablist">
+    <div className="seg-tabs admin-seg-tabs" role="tablist">
       {TABS.map(t => (
         <Link key={t.key} href={t.href} role="tab" aria-selected={active === t.key}
               className={`seg-tab${active === t.key ? ' active' : ''}`}>

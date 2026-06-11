@@ -257,6 +257,20 @@ export default function ArcPage() {
                         {r.decided_at && <span style={{ display: 'block', marginTop: 4, fontSize: 11.5, color: 'rgba(15,28,46,0.5)' }}>{fmtDate(r.decided_at)}</span>}
                       </div>
                     )}
+                    {r.decision_letter_path && (
+                      <div style={{ marginTop: 10 }}>
+                        <div style={{ fontSize: 12.5, color: 'rgba(15,28,46,0.6)', marginBottom: 4 }}>
+                          The board sent the official decision letter.
+                        </div>
+                        <button type="button" onClick={() => openAttachment(r.decision_letter_path!)}
+                          style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#E14909', font: 'inherit', fontSize: 13, fontWeight: 600, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                            <path d="M12 3v12" /><path d="m7 12 5 5 5-5" /><path d="M5 21h14" />
+                          </svg>
+                          {r.decision_letter_name || 'Download decision letter'}
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

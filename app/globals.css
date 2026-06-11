@@ -1919,6 +1919,20 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   color: #E14909;
   box-shadow: 0 1px 3px rgba(31,34,51,0.18);
 }
+
+/* Admin sub-tabs (EasyVoiceTabs / EasyDocsTabs / EasyTrackTabs) — keep the clean
+   content-width pill exactly as the base segmented control looks; only contain it
+   on narrow screens so it scrolls horizontally instead of wrapping or overflowing
+   the page, with the scrollbar hidden. Scoped to .admin-seg-tabs so the resident
+   seg-tabs and other segmented controls are untouched. */
+.seg-tabs.admin-seg-tabs {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.seg-tabs.admin-seg-tabs::-webkit-scrollbar { display: none; }
+.seg-tabs.admin-seg-tabs .seg-tab { flex: 0 0 auto; }
+
 .ev-section + .ev-section {
   margin-top: 22px;
   padding-top: 44px;

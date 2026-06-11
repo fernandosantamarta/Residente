@@ -6,7 +6,7 @@
 // a DEEMED APPROVAL where the governing documents so provide. Advisory only —
 // every decision stays with the board.
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd, toDate } from '@/lib/compliance/rules-core'
@@ -47,6 +47,12 @@ export default function ArcPage() {
   const [status, setStatus]         = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError]           = useState('')
   const [msg, setMsg]               = useState('')
+
+  // Worklist filters + pagination.
+  const [catFilter, setCatFilter]       = useState<'all' | ArcRequestType>('all')
+  const [statusFilter, setStatusFilter] = useState<'all' | ArcStatus>('all')
+  const [listPage, setListPage]         = useState(0)
+  const LIST_PAGE = 8
 
   useEffect(() => {
     if (!msg) return
@@ -98,20 +104,62 @@ export default function ArcPage() {
   useEffect(() => { load() }, [load])
 
   // ---- mutations ----
-  const patchRequest = async (id: string, patch: Record<string, any>, ok?: string) => {
+  const patchRequest = async (id: string, patch: Record<string, any>, ok?: string): Promise<boolean> => {
     setError('')
     try {
       const { error } = (await withTimeout(supabase.from('ev_arc_requests').update(patch).eq('id', id))) as any
       if (error) throw error
       if (ok) setMsg(ok)
       await load()
-    } catch (err: any) { setError(err?.message || 'Could not update the request') }
+      return true
+    } catch (err: any) { setError(err?.message || 'Could not update the request'); return false }
+  }
+
+  // Invoke the arc-decision-letter edge function to render the decision letter
+  // to a PDF and deliver it to the owner (the function verifies the board
+  // caller, builds the PDF from the same shared content as the document page,
+  // uploads to the owner's folder, records it, and notifies them). Returns the
+  // outcome without touching the page message, so callers can phrase it in
+  // context (automatic on a decision vs. an explicit resend).
+  const deliverLetter = async (requestId: string): Promise<{ ok: boolean; error?: string }> => {
+    try {
+      const { data, error } = (await withTimeout(
+        supabase.functions.invoke('arc-decision-letter', { body: { request_id: requestId } }),
+        30000,
+      )) as any
+      if (error) {
+        // functions.invoke surfaces a non-2xx as FunctionsHttpError; dig out the
+        // JSON {error} the function returns so the board sees a real message.
+        let msg = error.message || 'Could not send the letter.'
+        try {
+          const ctx = (error as any).context
+          if (ctx && typeof ctx.json === 'function') {
+            const body = await ctx.json()
+            if (body?.error) msg = body.error
+          }
+        } catch { /* keep the generic message */ }
+        return { ok: false, error: msg }
+      }
+      if (data?.error) return { ok: false, error: data.error }
+      try {
+        await logAudit({
+          community_id: communityId!,
+          event_type: 'arc.letter_sent',
+          target_type: 'arc_request',
+          target_id: requestId,
+        })
+      } catch { /* audit must not block */ }
+      return { ok: true }
+    } catch (err: any) {
+      return { ok: false, error: err?.message || 'Could not send the letter.' }
+    }
   }
 
   const decide = async (r: ArcRequestRow, newStatus: ArcStatus, reason?: string) => {
     const patch: Record<string, any> = { status: newStatus, decided_at: todayYmd() }
     if (reason !== undefined) patch.decision_reason = reason
-    await patchRequest(r.id, patch, `Request ${ARC_STATUS_LABELS[newStatus].toLowerCase()}.`)
+    const saved = await patchRequest(r.id, patch)
+    if (!saved) return
     try {
       await logAudit({
         community_id: communityId!,
@@ -121,6 +169,24 @@ export default function ArcPage() {
         metadata: { status: newStatus },
       })
     } catch { /* audit must not block */ }
+
+    // Automatically deliver the official decision letter to the resident. The
+    // board can still open "Decision letter" to print and mail a paper copy.
+    const label = ARC_STATUS_LABELS[newStatus].toLowerCase()
+    const sent = await deliverLetter(r.id)
+    await load()
+    setMsg(sent.ok
+      ? `Request ${label} — decision letter sent to the resident.`
+      : `Request ${label}. The letter wasn't sent automatically${sent.error ? ` (${sent.error})` : ''} — use "Send letter to resident".`)
+  }
+
+  // Explicit (re)send from the card button.
+  const sendLetter = async (r: ArcRequestRow): Promise<boolean> => {
+    setError('')
+    const sent = await deliverLetter(r.id)
+    if (sent.ok) { setMsg('Decision letter sent to the resident.'); await load() }
+    else setError(sent.error || 'Could not send the letter.')
+    return sent.ok
   }
 
   const withdraw = async (r: ArcRequestRow) => {
@@ -187,6 +253,34 @@ export default function ArcPage() {
   }
 
   const isCondo = community?.association_type !== 'hoa'
+
+  // Category (request type) + status filters + pagination over the worklist.
+  const catOptions = useMemo(
+    () => [
+      { value: 'all' as const, label: 'All categories' },
+      ...(Object.entries(ARC_TYPE_LABELS) as [ArcRequestType, string][]).map(([value, label]) => ({ value, label })),
+    ],
+    [],
+  )
+  const statusOptions = useMemo(
+    () => [
+      { value: 'all' as const, label: 'All statuses' },
+      ...(Object.entries(ARC_STATUS_LABELS) as [ArcStatus, string][]).map(([value, label]) => ({ value, label })),
+    ],
+    [],
+  )
+  const filtered = useMemo(
+    () => requests.filter(r =>
+      (catFilter === 'all' || (r.request_type ?? 'other') === catFilter) &&
+      (statusFilter === 'all' || (r.status ?? 'submitted') === statusFilter),
+    ),
+    [requests, catFilter, statusFilter],
+  )
+  const pageCount = Math.max(1, Math.ceil(filtered.length / LIST_PAGE))
+  const pg = Math.min(listPage, pageCount - 1)
+  const paged = filtered.slice(pg * LIST_PAGE, pg * LIST_PAGE + LIST_PAGE)
+  // Back to the first page whenever a filter changes or the list shrinks.
+  useEffect(() => { setListPage(0) }, [catFilter, statusFilter])
 
   return (
     <div className="admin-page cset">
@@ -290,12 +384,42 @@ export default function ArcPage() {
 
           {/* ---- Worklist ---- */}
           <div className="card">
-            <div className="card-head"><div><h2>ARC requests <span style={{ opacity: 0.55, fontWeight: 400 }}>({requests.length})</span></h2></div></div>
+            <div className="card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+              <div><h2>ARC requests <span style={{ opacity: 0.55, fontWeight: 400 }}>({filtered.length})</span></h2></div>
+              {requests.length > 0 && (
+                // Native <select>s styled with admin-input — the same control the
+                // intake form on this page already renders. Two filters: request
+                // type ("All categories") and status ("All statuses").
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <select
+                    className="admin-input"
+                    style={{ width: 220, flexShrink: 0 }}
+                    value={catFilter}
+                    onChange={e => setCatFilter(e.target.value as 'all' | ArcRequestType)}
+                    aria-label="Filter by category"
+                  >
+                    {catOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                  <select
+                    className="admin-input"
+                    style={{ width: 220, flexShrink: 0 }}
+                    value={statusFilter}
+                    onChange={e => setStatusFilter(e.target.value as 'all' | ArcStatus)}
+                    aria-label="Filter by status"
+                  >
+                    {statusOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
             {requests.length === 0 && (
               <div className="admin-note">No ARC requests on file.</div>
             )}
+            {requests.length > 0 && filtered.length === 0 && (
+              <div className="admin-note">No requests match these filters.</div>
+            )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-              {requests.map(r => (
+              {paged.map(r => (
                 <ArcRequestCard
                   key={r.id}
                   r={r}
@@ -303,9 +427,19 @@ export default function ArcPage() {
                   isCondo={isCondo}
                   onDecide={decide}
                   onWithdraw={withdraw}
+                  onSendLetter={sendLetter}
                 />
               ))}
             </div>
+            {pageCount > 1 && (
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
+                <button type="button" className="admin-btn-ghost" style={{ marginLeft: 0 }}
+                  onClick={() => setListPage(p => Math.max(0, p - 1))} disabled={pg === 0}>‹ Prev</button>
+                <span style={{ fontSize: 11.5, color: 'var(--text-dim)' }}>{pg + 1} / {pageCount}</span>
+                <button type="button" className="admin-btn-ghost" style={{ marginLeft: 0 }}
+                  onClick={() => setListPage(p => Math.min(pageCount - 1, p + 1))} disabled={pg >= pageCount - 1}>Next ›</button>
+              </div>
+            )}
           </div>
         </>
       )}
@@ -317,16 +451,19 @@ export default function ArcPage() {
 // Request card with inline decision form
 // ----------------------------------------------------------------------------
 function ArcRequestCard({
-  r, community, isCondo, onDecide, onWithdraw,
+  r, community, isCondo, onDecide, onWithdraw, onSendLetter,
 }: {
   r: ArcRequestRow
   community: any
   isCondo: boolean
   onDecide: (r: ArcRequestRow, status: ArcStatus, reason?: string) => Promise<void>
   onWithdraw: (r: ArcRequestRow) => Promise<void>
+  onSendLetter: (r: ArcRequestRow) => Promise<boolean>
 }) {
   const st = String(r.status ?? 'submitted') as ArcStatus
   const isOpen = OPEN_STATUSES.includes(st)
+  const isDecided = ['approved', 'approved_with_conditions', 'denied'].includes(st)
+  const letterSentAt = r.decision_letter_sent_at
   const deadline = arcResponseDeadline(r, community)
   const today = new Date()
 
@@ -353,6 +490,15 @@ function ArcRequestCard({
   const [decideMode, setDecideMode] = useState<null | 'approve_conditions' | 'deny'>(null)
   const [reason, setReason] = useState('')
   const [busy, setBusy] = useState(false)
+  const [confirmSend, setConfirmSend] = useState(false)
+  const [sending, setSending] = useState(false)
+
+  const doSend = async () => {
+    setSending(true)
+    const sent = await onSendLetter(r)
+    setSending(false)
+    if (sent) setConfirmSend(false)
+  }
 
   const submit = async (newStatus: ArcStatus) => {
     if (newStatus === 'denied' && !reason.trim()) return
@@ -416,13 +562,13 @@ function ArcRequestCard({
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
         {isOpen && (
           <>
-            <Tip text={ARC_STATUS_DESC.approved}>
+            <Tip text={`${ARC_STATUS_DESC.approved} Records the decision and sends the official letter to the owner automatically.`}>
               <button
                 className="admin-primary-btn"
                 disabled={busy}
                 onClick={() => { setDecideMode(null); setReason(''); submit('approved') }}
               >
-                Approve
+                {busy ? 'Sending…' : 'Approve & send'}
               </button>
             </Tip>
             <Tip text={ARC_STATUS_DESC.approved_with_conditions}>
@@ -457,18 +603,63 @@ function ArcRequestCard({
             </Tip>
           </>
         )}
-        <Tip text="Opens a printable, official letter stating the board's decision (and any reason or conditions) to give or mail to the owner — the formal record FS 720.3035 expects.">
-          <a
-            className="admin-btn-ghost"
-            style={{ marginLeft: 0 }}
-            href={`/admin/arc/${r.id}/document?type=decision`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Decision letter
-          </a>
-        </Tip>
+        {isDecided && (
+          <Tip text="Generates the decision letter as a PDF and delivers it to the owner — saved to their Architectural review page and announced with an in-app notice. The letter is a draft; confirm the language with counsel first.">
+            <button
+              className="admin-btn-ghost"
+              style={{ marginLeft: 0 }}
+              disabled={sending}
+              onClick={() => setConfirmSend(s => !s)}
+            >
+              {letterSentAt ? 'Resend letter to resident' : 'Send letter to resident'}
+            </button>
+          </Tip>
+        )}
+        {letterSentAt && !confirmSend && (
+          <span style={{ fontSize: 12, color: '#067647', fontWeight: 600 }}>
+            ✓ Letter sent {ymd(toDate(letterSentAt) || new Date())}
+          </span>
+        )}
+
+        {/* Draft letter to view + print — pushed to the far right; it's a preview,
+            not a decision action. Same-tab nav (admin auth lives in sessionStorage,
+            which a new tab doesn't inherit — a fresh tab loses the session). */}
+        <div style={{ marginLeft: 'auto' }}>
+          <Tip text="Opens the printable draft letter stating the board's decision (and any reason or conditions) — view it and print to mail a paper copy if needed. Confirm the language with counsel.">
+            <a
+              href={`/admin/arc/${r.id}/document?type=decision`}
+              style={{ background: '#0A2440', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 700, fontSize: 13, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap' }}
+            >
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M6 9V3h12v6" /><path d="M6 18H4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2" /><path d="M6 14h12v7H6z" />
+              </svg>
+              Decision letter
+            </a>
+          </Tip>
+        </div>
       </div>
+
+      {/* Send-letter confirm (DRAFT — confirm with counsel) */}
+      {confirmSend && (
+        <div style={{ border: '1px dashed #d6b8a8', borderRadius: 10, padding: 12, marginTop: 10, background: '#fdf6f1' }}>
+          <div style={{ fontSize: 13, color: '#7a4a2b', fontWeight: 600, marginBottom: 4 }}>
+            Send the official decision letter to {r.unit_label || 'the owner'}?
+          </div>
+          <div style={{ fontSize: 12.5, color: '#8a5a38', marginBottom: 10 }}>
+            This is a DRAFT aid, not legal advice — confirm the letter language with your association
+            attorney before sending. The owner will be able to download the PDF and receives an in-app notice.
+            {!r.profile_id && <><br /><strong>This request has no linked owner account, so the letter can&apos;t be delivered.</strong></>}
+          </div>
+          <div style={{ display: 'flex', gap: 10 }}>
+            <button className="admin-primary-btn" disabled={sending || !r.profile_id} onClick={doSend}>
+              {sending ? 'Sending…' : letterSentAt ? 'Resend official letter' : 'Send official letter'}
+            </button>
+            <button className="admin-btn-ghost" disabled={sending} onClick={() => setConfirmSend(false)}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Inline reason form */}
       {decideMode && (
@@ -496,7 +687,7 @@ function ArcRequestCard({
               disabled={busy || (decideMode === 'deny' && !reason.trim())}
               onClick={() => submit(decideMode === 'deny' ? 'denied' : 'approved_with_conditions')}
             >
-              {busy ? 'Saving…' : decideMode === 'deny' ? 'Record denial' : 'Record approval w/ conditions'}
+              {busy ? 'Sending…' : decideMode === 'deny' ? 'Deny & send letter' : 'Approve w/ conditions & send'}
             </button>
             <button className="admin-btn-ghost" onClick={() => { setDecideMode(null); setReason('') }}>
               Cancel

@@ -96,6 +96,14 @@ export interface ArcRequestRow {
   decided_at?: string | null
   decision_reason?: string | null
   is_material_alteration?: boolean | null
+  attachment_path?: string | null
+  attachment_name?: string | null
+  // Official decision letter the board renders to a PDF and delivers to the
+  // owner (arc-decision-letter.sql / the arc-decision-letter edge function).
+  decision_letter_path?: string | null
+  decision_letter_name?: string | null
+  decision_letter_sent_at?: string | null
+  created_by?: string | null
 }
 
 // ----------------------------------------------------------------------------
