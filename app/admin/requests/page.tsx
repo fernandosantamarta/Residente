@@ -5,7 +5,7 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { Dropdown } from '@/components/Dropdown'
 import { EasyVoiceTabs } from '../EasyVoiceTabs'
-import { useRequestThread, sendThreadMessage, type ThreadMessage } from '@/lib/requestThread'
+import { useRequestThread, sendThreadMessage, systemLine, SYS_REOPENED, type ThreadMessage } from '@/lib/requestThread'
 
 const withTimeout = <T,>(p: Promise<T>, ms = 10000): Promise<T> =>
   Promise.race([
@@ -97,13 +97,14 @@ export default function RequestsAdmin() {
   const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
-  // Mailbox: which folder (Received from residents / Sent by the board), the
-  // selected conversation, and whether the compose pane is open.
-  const [tab, setTab] = useState<'received' | 'sent'>('received')
+  // Mailbox folder by what needs doing (not who started it): Needs reply /
+  // Resolved / All. Plus the selected conversation and compose state.
+  const [tab, setTab] = useState<'needs' | 'resolved' | 'all'>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [composing, setComposing] = useState(false)
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState<'all' | Category>('all')
+  const [listPage, setListPage] = useState(0)
 
   // "Message a resident" composer — board-initiated outreach.
   const [residents, setResidents] = useState<ResidentOption[]>([])
@@ -251,7 +252,7 @@ export default function RequestsAdmin() {
       setCompose({ residentId: '', subject: '', message: '', allowReplies: true })
       setComposeFile(null)
       setComposing(false)
-      setTab('sent')
+      setTab('all')
       setSelectedId(newId)
       setSuccessMsg(
         emailed ? `Message sent and emailed to ${target.name}.`
@@ -284,6 +285,16 @@ export default function RequestsAdmin() {
         supabase!.from('resident_requests').update({ status: next, closed_at: closedAt }).eq('id', r.id)
       )
       if (error) throw error
+      // Reopening a resolved thread drops a "reopened" line into the conversation
+      // so the resident can see it was reopened (and gets re-notified).
+      if (r.status === 'resolved' && next !== 'resolved') {
+        try {
+          await sendThreadMessage({
+            requestId: r.id, communityId: r.community_id, body: SYS_REOPENED,
+            authorRole: 'board', authorId: profile?.id ?? null, authorName: 'Board',
+          })
+        } catch { /* non-blocking */ }
+      }
       setSuccessMsg(next === 'resolved' ? `Conversation with ${r.submitter_name || 'the resident'} closed.` : `"${r.subject}" → ${STATUS_LABEL[next]}.`)
     } catch (err: any) {
       setRows(rs => rs.map(x => x.id === r.id ? { ...x, ...prev } : x))   // roll back
@@ -314,12 +325,14 @@ export default function RequestsAdmin() {
     (r.last_message_at && r.last_message_at > r.created_at ? r.last_message_at : r.created_at)
   const byActivity = (a: Request, b: Request) => lastActivity(b).localeCompare(lastActivity(a))
 
-  // Two folders: Received (resident-initiated) and Sent (board-initiated).
-  const received = rows.filter(r => r.origin !== 'board')
+  // Every conversation, awaiting-reply first, then newest activity. Folders are
+  // just filtered views of this one list (no more confusing Received/Sent split).
+  const allSorted = [...rows]
     .sort((a, b) => (awaiting(b) ? 1 : 0) - (awaiting(a) ? 1 : 0) || byActivity(a, b))
-  const sent = rows.filter(r => r.origin === 'board').sort(byActivity)
-  const awaitingCount = received.filter(awaiting).length
-  const activeList = tab === 'received' ? received : sent
+  const needsList = allSorted.filter(awaiting)
+  const resolvedList = allSorted.filter(r => r.status === 'resolved')
+  const awaitingCount = needsList.length
+  const activeList = tab === 'needs' ? needsList : tab === 'resolved' ? resolvedList : allSorted
   // Search + category filter narrow the visible list.
   const q = search.trim().toLowerCase()
   const shownList = activeList.filter(r => {
@@ -327,7 +340,15 @@ export default function RequestsAdmin() {
     if (q && !`${r.submitter_name || ''} ${r.subject || ''}`.toLowerCase().includes(q)) return false
     return true
   })
+  // Paginate the mailbox list so long inboxes stay manageable.
+  const LIST_PAGE = 12
+  const listPageCount = Math.max(1, Math.ceil(shownList.length / LIST_PAGE))
+  const listPg = Math.min(listPage, listPageCount - 1)
+  const pagedList = shownList.slice(listPg * LIST_PAGE, listPg * LIST_PAGE + LIST_PAGE)
   const selected = rows.find(r => r.id === selectedId) || null
+
+  // Back to page 1 whenever the folder, search, or category filter changes.
+  useEffect(() => { setListPage(0) }, [tab, search, catFilter])
 
   // Keep a valid selection: when the folder/list changes, fall back to the first
   // conversation in view (and never point at a row from the other folder).
@@ -343,11 +364,28 @@ export default function RequestsAdmin() {
     <div className="admin-page cset">
       <EasyVoiceTabs active="contact" />
       <div className="admin-kicker">Contact</div>
-      <h1 className="admin-h1">Messages</h1>
+      <h1 className="admin-h1" style={{ display: 'inline-flex', alignItems: 'center' }}>
+        Messages
+        {awaitingCount > 0 && <span className="admin-nav-badge" title="Messages awaiting your reply">{awaitingCount}</span>}
+      </h1>
       <p className="admin-dek">
-        Two-way messages with residents. <strong>Received</strong> holds what residents
-        sent you; <strong>Sent</strong> holds the messages you started.
+        Two-way messages with residents — every conversation in one place.
+        <strong> Needs reply</strong> flags the ones waiting on you.
       </p>
+
+      {(status === 'ready' || status === 'loading') && awaitingCount > 0 && (
+        <button
+          type="button"
+          onClick={() => { setTab('needs'); setComposing(false); if (needsList[0]) setSelectedId(needsList[0].id) }}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', cursor: 'pointer', marginBottom: 14, background: 'rgba(229,72,77,0.07)', border: '1px solid rgba(229,72,77,0.28)', borderRadius: 10, padding: '11px 14px', font: 'inherit' }}
+        >
+          <span className="con-pending-dot" />
+          <span style={{ fontSize: 13.5, fontWeight: 700, color: '#B42318' }}>
+            You have {awaitingCount} message{awaitingCount === 1 ? '' : 's'} awaiting your reply
+          </span>
+          <span style={{ marginLeft: 'auto', fontWeight: 800, color: '#E5484D' }}>View &rarr;</span>
+        </button>
+      )}
 
       {status === 'none' && (
         <div className="admin-note admin-note-warn">
@@ -374,15 +412,21 @@ export default function RequestsAdmin() {
           {/* Folder tabs + compose */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '12px 14px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
             <div className="seg-tabs" role="tablist">
-              <button type="button" role="tab" aria-selected={tab === 'received'}
-                className={`seg-tab${tab === 'received' ? ' active' : ''}`}
-                onClick={() => { setTab('received'); setComposing(false) }}>
-                Received{awaitingCount > 0 ? ` · ${awaitingCount}` : ''}
+              <button type="button" role="tab" aria-selected={tab === 'needs'}
+                className={`seg-tab${tab === 'needs' ? ' active' : ''}`}
+                onClick={() => { setTab('needs'); setComposing(false) }}>
+                Needs reply
+                {awaitingCount > 0 && <span className="admin-nav-badge">{awaitingCount}</span>}
               </button>
-              <button type="button" role="tab" aria-selected={tab === 'sent'}
-                className={`seg-tab${tab === 'sent' ? ' active' : ''}`}
-                onClick={() => { setTab('sent'); setComposing(false) }}>
-                Sent
+              <button type="button" role="tab" aria-selected={tab === 'resolved'}
+                className={`seg-tab${tab === 'resolved' ? ' active' : ''}`}
+                onClick={() => { setTab('resolved'); setComposing(false) }}>
+                Resolved
+              </button>
+              <button type="button" role="tab" aria-selected={tab === 'all'}
+                className={`seg-tab${tab === 'all' ? ' active' : ''}`}
+                onClick={() => { setTab('all'); setComposing(false) }}>
+                All
               </button>
             </div>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
@@ -423,13 +467,15 @@ export default function RequestsAdmin() {
               {status === 'loading' && <div className="admin-note" style={{ margin: 12 }}>Loading…</div>}
               {status === 'ready' && activeList.length === 0 && (
                 <div style={{ padding: '24px 16px', color: 'var(--text-dim)', fontSize: 13 }}>
-                  {tab === 'received' ? 'No messages from residents yet.' : 'You haven’t sent any messages yet.'}
+                  {tab === 'needs' ? 'Nothing awaiting your reply — you’re all caught up.'
+                    : tab === 'resolved' ? 'No resolved conversations yet.'
+                    : 'No messages yet — they’ll appear here as residents reach out.'}
                 </div>
               )}
               {status === 'ready' && activeList.length > 0 && shownList.length === 0 && (
                 <div style={{ padding: '20px 16px', color: 'var(--text-dim)', fontSize: 13 }}>No matches for “{search}”.</div>
               )}
-              {shownList.map(r => {
+              {pagedList.map(r => {
                 const sel = selected?.id === r.id
                 const need = awaiting(r)
                 return (
@@ -456,6 +502,15 @@ export default function RequestsAdmin() {
                   </button>
                 )
               })}
+              {listPageCount > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '10px 12px', borderTop: '1px solid var(--border)', position: 'sticky', bottom: 0, background: 'var(--bg-elev)' }}>
+                  <button type="button" className="admin-btn-ghost" style={{ marginLeft: 0 }}
+                    onClick={() => setListPage(p => Math.max(0, p - 1))} disabled={listPg === 0}>‹ Prev</button>
+                  <span style={{ fontSize: 11.5, color: 'var(--text-dim)' }}>{listPg + 1} / {listPageCount}</span>
+                  <button type="button" className="admin-btn-ghost" style={{ marginLeft: 0 }}
+                    onClick={() => setListPage(p => Math.min(listPageCount - 1, p + 1))} disabled={listPg >= listPageCount - 1}>Next ›</button>
+                </div>
+              )}
             </div>
 
             {/* RIGHT — composer / conversation / empty */}
@@ -584,6 +639,7 @@ function AdminThread({
   const [emailIt, setEmailIt] = useState(true)
   const [sending, setSending] = useState(false)
   const [err, setErr] = useState('')
+  const [expanded, setExpanded] = useState(false)   // closed convos minimize until expanded
   const closed = request.status === 'resolved'
   const locked = !!request.replies_locked
 
@@ -642,6 +698,16 @@ function AdminThread({
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
       {loading && messages.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>Loading…</div>}
       {messages.map(m => {
+        const sys = systemLine(m.body)
+        if (sys) {
+          return (
+            <div key={m.id} style={{ display: 'flex', justifyContent: 'center', margin: '2px 0' }}>
+              <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-dim)', background: 'rgba(42,18,6,0.04)', border: '1px solid var(--border)', borderRadius: 999, padding: '3px 12px' }}>
+                ↻ {sys} · {fmtMsgTime(m.createdAt)}
+              </span>
+            </div>
+          )
+        }
         const board = m.authorRole === 'board'
         return (
           <div key={m.id} style={{ display: 'flex', justifyContent: board ? 'flex-end' : 'flex-start' }}>
@@ -670,26 +736,47 @@ function AdminThread({
     </div>
   )
 
+  // Closed → minimize to a resolved summary bar; expand on demand to read it all.
+  if (closed) {
+    return (
+      <div style={{ marginTop: 12 }}>
+        <div role="button" tabIndex={0} aria-expanded={expanded} className="msg-resolved-bar"
+          onClick={() => setExpanded(e => !e)}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setExpanded(x => !x) } }}>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <span style={{ width: 22, height: 22, borderRadius: 999, background: '#1F7A4D', color: '#fff', display: 'inline-grid', placeItems: 'center', flexShrink: 0 }}>
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 13 4 4L19 7" /></svg>
+            </span>
+            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5 }}>
+              <span style={{ color: '#1F7A4D', fontWeight: 700 }}>Resolved</span>
+              <span style={{ color: 'var(--text-dim)', fontWeight: 500 }}>
+                {request.closed_at ? ` · ${fmtDate(request.closed_at)}` : ''} · {messages.length} message{messages.length === 1 ? '' : 's'}
+              </span>
+            </span>
+          </span>
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
+            <span style={{ fontSize: 11.5, color: 'var(--text-dim)', whiteSpace: 'nowrap', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
+              {expanded ? 'Hide' : 'View conversation'}
+              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+                style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }}>
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </span>
+            <button type="button" onClick={e => { e.stopPropagation(); onSetStatus(request, 'in_progress') }}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#E14909', font: 'inherit', fontSize: 12, fontWeight: 700, padding: 0, whiteSpace: 'nowrap' }}>
+              Reopen
+            </button>
+          </span>
+        </div>
+        {expanded && <div style={{ marginTop: 12 }}>{messageLog}</div>}
+      </div>
+    )
+  }
+
   return (
     <div style={{ marginTop: 12 }}>
       {messageLog}
-      {closed ? (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, background: 'rgba(42,18,6,0.03)', border: '1px solid var(--border)', borderRadius: 4, padding: '8px 12px' }}>
-          <span style={{ fontSize: 12, color: 'var(--text-dim)', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 6, minWidth: 0 }}>
-            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
-              <rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" />
-            </svg>
-            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              <span style={{ color: '#1F7A4D' }}>Resolved</span>
-              {request.closed_at ? ` · ${fmtDate(request.closed_at)}` : ''} — the resident can’t reply.
-            </span>
-          </span>
-          <button type="button" onClick={() => onSetStatus(request, 'in_progress')}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#E14909', font: 'inherit', fontSize: 12, fontWeight: 700, padding: 0, whiteSpace: 'nowrap', flexShrink: 0 }}>
-            Reopen
-          </button>
-        </div>
-      ) : (
+      {(
         <>
           <label htmlFor={`reply-${request.id}`} style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 5 }}>
             Reply to resident{' '}

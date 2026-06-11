@@ -11,6 +11,7 @@ import { SiteFooterSlim } from '@/components/SiteFooter'
 import { useAuth } from '../providers'
 import { usePlatformAdmin } from '@/hooks/usePlatform'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useAwaitingMessages, useArcPending } from '@/hooks/useAwaitingMessages'
 import type { Permission } from '@/lib/permissions'
 
 // Board-only admin section. Gated by role check — only board_member/admin
@@ -60,6 +61,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname() || '/admin'
   const isPlatformAdmin = usePlatformAdmin()
   const { canAny, perms, loading: permLoading } = usePermissions()
+
+  // Live count of Easy Voice items needing the board's attention — messages
+  // awaiting a reply + ARC requests awaiting a decision — drives the nav badge so
+  // the board notices from anywhere in the admin.
+  const awaitingMsgs = useAwaitingMessages() + useArcPending()
 
   // Founder/staff "View as" preview selection (persisted). Hidden for regular
   // admins entirely (see the header — only platform admins get the switcher).
@@ -136,6 +142,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             className={`admin-nav-item${navActive(pathname, item) ? ' active' : ''}`}
           >
             {item.label}
+            {item.label === 'Easy Voice' && awaitingMsgs > 0 && (
+              <span className="admin-nav-badge" title={`${awaitingMsgs} message${awaitingMsgs === 1 ? '' : 's'} awaiting your reply`}>
+                {awaitingMsgs}
+              </span>
+            )}
           </Link>
         ))}
         {isPlatformAdmin && (

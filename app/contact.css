@@ -3,6 +3,10 @@
    "Your past submissions" table. */
 
 .con-wrap { max-width: 1120px; margin: 0 auto; padding: 28px 8px 48px; color: #0A2440; }
+/* Inside the Easy Voice hub the cockpit content area (.center) clips overflow,
+   so the standalone 1120px max-width was getting cut off on the right (status
+   badges, etc.). Fill the hub width and left-align to match the Voting tab. */
+.ev-wrap .con-wrap { max-width: 100%; margin: 0; padding-left: 0; padding-right: 0; }
 .con-grid {
   display: grid;
   grid-template-columns: minmax(320px, 430px) 1fr;
@@ -83,6 +87,16 @@
 }
 .con-submit:hover:not(:disabled) { background: #14365c; }
 .con-submit:disabled { opacity: .6; cursor: default; }
+
+/* Reply send button — matches the admin's outlined "Send reply" pill. */
+.con-send-btn {
+  padding: 10px 18px; background: transparent; color: #0A2440;
+  border: 1.5px solid rgba(15, 28, 46, 0.20); border-radius: 999px;
+  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: border-color .12s ease, background .12s ease;
+}
+.con-send-btn:hover:not(:disabled) { border-color: #0A2440; background: rgba(15, 28, 46, 0.04); }
+.con-send-btn:disabled { opacity: .55; cursor: default; }
 .con-error { color: #c0392b; font-size: 13px; margin-top: 10px; }
 .con-ok { color: #1f8a4c; font-size: 13px; margin-top: 10px; font-weight: 500; }
 
@@ -146,6 +160,26 @@
 .con-chev-ic { transition: transform .15s ease; }
 .con-chev-ic.open { transform: rotate(180deg); color: #E14909; }
 .con-reply-dot { width: 7px; height: 7px; border-radius: 50%; background: #3e7cb1; flex-shrink: 0; }
+
+/* Pulsing red dot — a fresh, unread reply from the board. */
+.con-pending-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #E5484D; flex-shrink: 0;
+  box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.55);
+  animation: conPendingPulse 1.4s ease-out infinite;
+}
+@keyframes conPendingPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.55); }
+  70%  { box-shadow: 0 0 0 7px rgba(229, 72, 77, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0); }
+}
+
+/* Count badge on the resident Contact tab (Easy Voice). */
+.con-pending-badge {
+  margin-left: 6px; display: inline-block; min-width: 17px; text-align: center;
+  font-size: 10px; font-weight: 800; line-height: 16px; color: #fff;
+  background: #E5484D; border-radius: 999px; padding: 0 5px; vertical-align: middle;
+  animation: conPendingPulse 1.6s ease-out infinite;
+}
 
 /* Expanded detail panel under a submission row. */
 .con-detail {

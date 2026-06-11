@@ -11,6 +11,14 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase, hasSupabase } from '@/lib/supabase'
 
+// System lines — board actions surfaced inside the conversation (not a real
+// reply). Stored as a board message with a sentinel body, rendered centered.
+export const SYS_REOPENED = '__sys:reopened__'
+export function systemLine(body: string): string | null {
+  if (body === SYS_REOPENED) return 'Conversation reopened by the board'
+  return null
+}
+
 export type ThreadMessage = {
   id: string
   requestId: string

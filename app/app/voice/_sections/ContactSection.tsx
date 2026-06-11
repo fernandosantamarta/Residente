@@ -5,7 +5,7 @@ import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { RequestForm, useCatLabel, IconClip, type Category } from './RequestForm'
-import { useRequestThread, sendThreadMessage } from '@/lib/requestThread'
+import { useRequestThread, sendThreadMessage, systemLine } from '@/lib/requestThread'
 import { useT } from '@/lib/i18n'
 
 const withTimeout = <T,>(p: Promise<T>, ms = 10000): Promise<T> =>
@@ -59,7 +59,7 @@ export function ContactSection() {
     .includes((sp?.get('cat') || '') as Category) ? (sp!.get('cat') as Category) : 'maintenance'
   const [rows, setRows] = useState<Request[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
-  const [showAll, setShowAll] = useState(false)
+  const [subPage, setSubPage] = useState(0)
   const [loading, setLoading] = useState(true)
   // Unread tracking: latest board-message time per thread vs. the last time this
   // resident opened it (kept per-device in localStorage).
@@ -77,6 +77,8 @@ export function ContactSection() {
       const next = { ...prev, [requestId]: lastBoardAt[requestId] || new Date().toISOString() }
       if (typeof window !== 'undefined') {
         try { window.localStorage.setItem(READ_KEY, JSON.stringify(next)) } catch { /* ignore */ }
+        // Tell the home banner + Contact tab badge to refresh right away.
+        window.dispatchEvent(new Event('contact-read'))
       }
       return next
     })
@@ -162,6 +164,12 @@ export function ContactSection() {
   const sortedRows = [...rows].sort((a, b) => lastActivity(b).localeCompare(lastActivity(a)))
   const unreadCount = rows.filter(isUnread).length
 
+  // Paginate the submission history so a long list stays tidy.
+  const SUB_PAGE = 8
+  const subPageCount = Math.max(1, Math.ceil(sortedRows.length / SUB_PAGE))
+  const subPg = Math.min(subPage, subPageCount - 1)
+  const pagedSubs = sortedRows.slice(subPg * SUB_PAGE, subPg * SUB_PAGE + SUB_PAGE)
+
   return (
     <section id="contact" className="con-wrap ev-section">
       <div className="voice-page-head">
@@ -181,8 +189,9 @@ export function ContactSection() {
           <h2 className="con-card-title">
             {t('board.pastSubmissions')}
             {unreadCount > 0 && (
-              <span style={{ marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#fff', background: '#E14909', borderRadius: 999, padding: '2px 8px', verticalAlign: 'middle' }}>
-                {unreadCount} new
+              <span style={{ marginLeft: 10, fontSize: 12.5, fontWeight: 700, color: '#E5484D', verticalAlign: 'middle', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <span className="con-pending-dot" />
+                You have {unreadCount} pending {unreadCount === 1 ? 'message' : 'messages'}
               </span>
             )}
           </h2>
@@ -195,7 +204,7 @@ export function ContactSection() {
             {!loading && rows.length === 0 && (
               <div className="con-empty">{t('board.noRequests')}</div>
             )}
-            {!loading && (showAll ? sortedRows : sortedRows.slice(0, 5)).map(r => {
+            {!loading && pagedSubs.map(r => {
               const open = expandedId === r.id
               const unread = isUnread(r)
               const toggle = () => { if (!open) markRead(r.id); setExpandedId(open ? null : r.id) }
@@ -213,7 +222,7 @@ export function ContactSection() {
                   <span><span className={`con-badge con-badge-${r.status}`}>{statusLabel(r.status)}</span></span>
                   <span className="con-date">{fmtDate(r.created_at)}</span>
                   <span className="con-chev">
-                    {unread && !open && <span className="con-reply-dot" title={t('board.boardReplied')} />}
+                    {unread && !open && <span className="con-pending-dot" title={t('board.boardReplied')} />}
                     <svg className={`con-chev-ic${open ? ' open' : ''}`} viewBox="0 0 24 24" width="16" height="16"
                       fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                       <path d="m6 9 6 6 6-6" />
@@ -229,10 +238,14 @@ export function ContactSection() {
               )
             })}
           </div>
-          {!loading && rows.length > 5 && (
-            <button type="button" className="con-viewall" onClick={() => setShowAll(v => !v)}>
-              {showAll ? 'Show less' : `${t('board.viewAllSubmissions')} (${rows.length})`}
-            </button>
+          {!loading && subPageCount > 1 && (
+            <div className="con-pager" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, marginTop: 12 }}>
+              <button type="button" className="con-viewall" style={{ margin: 0 }}
+                onClick={() => setSubPage(p => Math.max(0, p - 1))} disabled={subPg === 0}>‹ Prev</button>
+              <span style={{ fontSize: 12.5, color: 'rgba(10,36,64,0.6)' }}>Page {subPg + 1} of {subPageCount}</span>
+              <button type="button" className="con-viewall" style={{ margin: 0 }}
+                onClick={() => setSubPage(p => Math.min(subPageCount - 1, p + 1))} disabled={subPg >= subPageCount - 1}>Next ›</button>
+            </div>
           )}
         </section>
       </div>
@@ -330,6 +343,16 @@ function ConThread({ requestId, closed, locked, openAttachment }: {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
         {loading && messages.length === 0 && <div className="con-empty">{t('board.loading')}</div>}
         {messages.map(m => {
+          const sys = systemLine(m.body)
+          if (sys) {
+            return (
+              <div key={m.id} style={{ display: 'flex', justifyContent: 'center', margin: '2px 0' }}>
+                <span style={{ fontSize: 11.5, fontWeight: 600, color: 'rgba(10,36,64,0.6)', background: 'rgba(10,36,64,0.05)', border: '1px solid rgba(10,36,64,0.10)', borderRadius: 999, padding: '3px 12px' }}>
+                  ↻ {sys} · {fmtMsgTime(m.createdAt)}
+                </span>
+              </div>
+            )
+          }
           const me = m.authorRole === 'resident'
           return (
             <div key={m.id} style={{ display: 'flex', justifyContent: me ? 'flex-end' : 'flex-start' }}>
@@ -357,13 +380,11 @@ function ConThread({ requestId, closed, locked, openAttachment }: {
         })}
       </div>
       {noReply ? (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, background: 'rgba(10,36,64,0.04)', border: '1px solid rgba(10,36,64,0.12)', borderRadius: 10, padding: '10px 14px' }}>
-          <span style={{ fontSize: 12.5, color: 'rgba(10,36,64,0.7)', fontWeight: 600 }}>
-            {closed
-              ? 'This conversation was closed by the board. Start a new message if you need anything else.'
-              : 'The board turned off replies on this message. Start a new message if you need anything.'}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'nowrap', gap: 12, background: 'rgba(10,36,64,0.04)', border: '1px solid rgba(10,36,64,0.12)', borderRadius: 10, padding: '10px 14px' }}>
+          <span style={{ fontSize: 12.5, color: 'rgba(10,36,64,0.7)', fontWeight: 600, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {closed ? 'This conversation was closed by the board.' : 'The board turned off replies on this message.'}
           </span>
-          <button type="button" className="con-viewall" style={{ margin: 0 }} onClick={startNewMessage}>
+          <button type="button" className="con-viewall" style={{ margin: 0, flexShrink: 0, whiteSpace: 'nowrap' }} onClick={startNewMessage}>
             Start a new message
           </button>
         </div>
@@ -380,11 +401,12 @@ function ConThread({ requestId, closed, locked, openAttachment }: {
           />
           {err && <div style={{ color: '#B42318', fontSize: 12, marginTop: 6 }}>{err}</div>}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12.5, color: '#E14909' }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#E14909' }}>
               <input type="file" accept="image/*" hidden onChange={e => setFile(e.target.files?.[0] || null)} />
-              <IconClip /> {file ? file.name : 'Attach a photo'}
+              <Clip />
+              {file ? file.name : 'Attach a photo'}
             </label>
-            <button type="button" className="con-viewall" style={{ margin: 0 }} onClick={send} disabled={sending || (!draft.trim() && !file)}>
+            <button type="button" className="con-send-btn" onClick={send} disabled={sending || (!draft.trim() && !file)}>
               {sending ? 'Sending…' : 'Send reply'}
             </button>
           </div>
@@ -395,6 +417,16 @@ function ConThread({ requestId, closed, locked, openAttachment }: {
 }
 
 // -- icons ----------------------------------------------------------
+
+// Paperclip matching the admin attach control (components/.../requests Clip).
+function Clip() {
+  return (
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor"
+      strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M21 11.5 12.5 20a5 5 0 0 1-7-7l8.5-8.5a3.5 3.5 0 0 1 5 5L10.5 18a2 2 0 0 1-3-3l7.5-7.5" />
+    </svg>
+  )
+}
 
 function IconPhone() { return <Svg><><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .3 1.9.6 2.7a2 2 0 0 1-.4 2.1L8 9.6a16 16 0 0 0 6 6l1.1-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.5 2.7.6a2 2 0 0 1 1.7 2z" /></></Svg> }
 

@@ -8,6 +8,7 @@ import { ProposalsRulesSection } from './_sections/ProposalsRulesSection'
 import { ProposalsRulesSection as ProposalsRulesSectionMobile } from './_sections/ProposalsRulesSection.mobile'
 import ArcView from '../arc/page'
 import { SegTabs, SegTab } from '@/components/SegTabs'
+import { useMyPendingReplies } from '@/hooks/useAwaitingMessages'
 import { useT } from '@/lib/i18n'
 
 // Easy Voice — the resident hub that merges the former Voice (Meetings &
@@ -24,12 +25,18 @@ const TAB_IDS = ['board', 'proposals', 'architectural', 'contact'] as const
 export default function EasyVoice() {
   const t = useT()
   const [tab, setTab] = useState('board')
+  const pendingReplies = useMyPendingReplies()
 
   const TABS: SegTab[] = [
     { id: 'board',         label: t('voice.tabBoard') },
     { id: 'proposals',     label: 'Voting' },
     { id: 'architectural', label: 'Architectural' },
-    { id: 'contact',       label: t('voice.tabContact') },
+    { id: 'contact',       label: (
+      <>
+        {t('voice.tabContact')}
+        {pendingReplies > 0 && <span className="con-pending-badge">{pendingReplies}</span>}
+      </>
+    ) },
   ]
 
   // Honor the URL hash so links like /app/voice#contact (and #architectural)
