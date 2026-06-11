@@ -27,6 +27,7 @@ export type Violation = {
   stripe_invoice_id: string | null
   notes: string | null
   opened_at: string
+  due_at: string | null       // fine payment deadline (fine-due-date.sql); null for warnings
   closed_at: string | null
   // Fine-dispute layer (fine-disputes.sql)
   dispute_status: DisputeStatus | null
@@ -39,7 +40,16 @@ export type Violation = {
   dispute_attachment_name: string | null
 }
 
-const SELECT = 'id, profile_id, kind, rule_id, rule_title, resident_label, amount, status, resolution, stripe_invoice_id, notes, opened_at, closed_at, dispute_status, dispute_filed_at, dispute_reason, dispute_decided_at, dispute_decision_note, reduced_amount, dispute_attachment_path, dispute_attachment_name'
+const SELECT = 'id, profile_id, kind, rule_id, rule_title, resident_label, amount, status, resolution, stripe_invoice_id, notes, opened_at, due_at, closed_at, dispute_status, dispute_filed_at, dispute_reason, dispute_decided_at, dispute_decision_note, reduced_amount, dispute_attachment_path, dispute_attachment_name'
+// Pre-migration fallback: same columns minus due_at (fine-due-date.sql not run
+// yet). Lets the app keep working — the card computes the due date instead.
+const SELECT_LEGACY = SELECT.replace('opened_at, due_at,', 'opened_at,')
+// Flips true the first time the DB reports due_at is missing, so we stop
+// firing a query that 42703s on every load / realtime refresh. A page refresh
+// (after the migration runs) resets it back to false.
+let dueColumnMissing = false
+const isMissingDueColumn = (e: any) =>
+  e?.code === '42703' && typeof e?.message === 'string' && e.message.includes('due_at')
 
 const rowTo = (r: any): Violation => ({
   id: r.id,
@@ -54,6 +64,7 @@ const rowTo = (r: any): Violation => ({
   stripe_invoice_id: r.stripe_invoice_id ?? null,
   notes: r.notes ?? null,
   opened_at: r.opened_at,
+  due_at: r.due_at ?? null,
   closed_at: r.closed_at ?? null,
   dispute_status: r.dispute_status ?? null,
   dispute_filed_at: r.dispute_filed_at ?? null,
@@ -93,9 +104,16 @@ function useViolations(scope: 'community' | 'mine') {
   const load = useCallback(async () => {
     if (!hasSupabase || !supabase || !communityId) { setLoading(false); return }
     try {
-      let q = supabase.from('ev_violations').select(SELECT).order('opened_at', { ascending: false })
-      q = scope === 'mine' ? q.eq('profile_id', myId) : q.eq('community_id', communityId)
-      const { data, error } = await q
+      const run = (sel: string) => {
+        const base = supabase!.from('ev_violations').select(sel).order('opened_at', { ascending: false })
+        return scope === 'mine' ? base.eq('profile_id', myId) : base.eq('community_id', communityId)
+      }
+      let { data, error } = await run(dueColumnMissing ? SELECT_LEGACY : SELECT)
+      if (error && isMissingDueColumn(error)) {
+        // due_at column not migrated yet — fall back for the rest of the session.
+        dueColumnMissing = true
+        ;({ data, error } = await run(SELECT_LEGACY))
+      }
       if (error) throw error
       setList((data ?? []).map(rowTo))
     } finally {
@@ -288,6 +306,7 @@ export type NewViolation = {
   rule_id: string | null
   rule_title: string | null
   amount: number | null
+  due_at: string | null       // fine payment deadline (ignored for warnings)
   notes: string | null
 }
 
@@ -306,6 +325,9 @@ export function useViolationsAdmin() {
         rule_id: v.rule_id,
         rule_title: v.rule_title,
         amount: v.amount,
+        // Only send due_at once the column exists (fine-due-date.sql), else the
+        // insert 42703s pre-migration. dueColumnMissing is set by the loader.
+        ...(dueColumnMissing ? {} : { due_at: v.kind === 'fine' ? v.due_at : null }),
         notes: v.notes,
       })
       .select('id')

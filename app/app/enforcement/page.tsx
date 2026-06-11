@@ -71,11 +71,12 @@ export default function ResidentEnforcementPage() {
 
   return (
     <section className="con-wrap ev-section">
-      <Link href="/app/documents#violations" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: 600, color: '#0A2440', textDecoration: 'none', marginBottom: 14 }}>
-        &larr; Back to My Violations
+      <Link href="/app/documents#violations" className="ev-back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to My Violations
       </Link>
       <div className="voice-page-head">
-        <h1 className="voice-page-title">Violations <span className="amp">&</span> fines</h1>
+        <h1 className="voice-page-title">Hearings <span className="amp">&</span> suspensions</h1>
         <p className="voice-page-sub">
           Any rule violations, fines, or suspensions on your account. Fines and use-rights suspensions are
           decided by the board, and you have the right to at least {HEARING_NOTICE_DAYS.value} days&apos; notice and a

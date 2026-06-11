@@ -1903,7 +1903,7 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   box-shadow: 0 1px 3px rgba(31,34,51,0.18);
 }
 .ev-section + .ev-section {
-  margin-top: 44px;
+  margin-top: 22px;
   padding-top: 44px;
   border-top: 1px solid var(--border);
 }
@@ -4858,12 +4858,19 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 [data-theme="sketch"] .amen-res-body { flex: 1; min-width: 0; }
 [data-theme="sketch"] .amen-res-name { font-size: 14px; font-weight: 700; color: #0A2440; }
 [data-theme="sketch"] .amen-res-meta { font-size: 12px; color: rgba(10, 36, 64, 0.6); margin-top: 1px; }
-[data-theme="sketch"] .amen-res-cancel {
-  background: transparent; border: none; padding: 2px 4px;
-  color: rgba(10, 36, 64, 0.5); font-family: inherit; font-size: 12px; font-weight: 700;
-  cursor: pointer; transition: color 0.12s ease;
+[data-theme="sketch"] .amen-res-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
+/* Plain text buttons — no pill border / grey ring. */
+[data-theme="sketch"] .amen-res-cancel,
+[data-theme="sketch"] .amen-res-edit {
+  background: transparent; border: none; border-radius: 0; padding: 2px 4px;
+  font-family: inherit; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: color 0.12s ease; appearance: none; -webkit-appearance: none;
+  white-space: nowrap;
 }
+[data-theme="sketch"] .amen-res-cancel { color: rgba(10, 36, 64, 0.5); }
 [data-theme="sketch"] .amen-res-cancel:hover { color: #C73E07; }
+[data-theme="sketch"] .amen-res-edit { color: #C45F2A; }
+[data-theme="sketch"] .amen-res-edit:hover { color: #E14909; }
 [data-theme="sketch"] .amen-help { background: rgba(225, 73, 9, 0.05); }
 [data-theme="sketch"] .amen-help-title { font-size: 13px; font-weight: 700; color: #0A2440; margin-bottom: 6px; }
 [data-theme="sketch"] .amen-help-text { font-size: 12.5px; color: rgba(10, 36, 64, 0.7); line-height: 1.5; margin: 0; }
@@ -5009,6 +5016,24 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   min-width: 0;
 }
 [data-theme="sketch"] .rb-search input::placeholder { color: rgba(10, 36, 64, 0.40); font-weight: 500; }
+
+/* Rules toolbar — search + All Categories dropdown on one row, styled to match
+   the Reports toolbar (.rep-*) exactly: same pill metrics, icon tint, placeholder
+   and focus glow. The standalone .rb-search above keeps its own look elsewhere. */
+[data-theme="sketch"] .rb-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; }
+[data-theme="sketch"] .rb-toolbar .rb-search { flex: 1; min-width: 240px; max-width: none; padding: 11px 16px; }
+[data-theme="sketch"] .rb-toolbar .rb-search:focus-within { border-color: #E14909; background-color: #FFFFFF; box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.14); }
+[data-theme="sketch"] .rb-toolbar .rb-search svg { color: #C45F2A; }
+[data-theme="sketch"] .rb-toolbar .rb-search input { font-size: 13.5px; }
+[data-theme="sketch"] .rb-toolbar .rb-search input::placeholder { color: rgba(10, 36, 64, 0.55); font-weight: 600; }
+[data-theme="sketch"] .rb-select {
+  padding: 10px 36px 10px 14px;
+  background: #FBF7F1 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230A2440' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 12px center / 14px 14px;
+  border: 1.5px solid rgba(199, 111, 69, 0.30); border-radius: 999px;
+  font-family: inherit; font-size: 13px; font-weight: 700; color: #0A2440;
+  cursor: pointer; appearance: none;
+}
+[data-theme="sketch"] .rb-select:focus { outline: none; border-color: #E14909; }
 
 /* Category chips as vertical box cards: icon in circle on top,
    name in the middle, "N rules" count below. Active card gets the
@@ -5192,6 +5217,23 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   font-weight: 800;
   color: rgba(10, 36, 64, 0.70);
   flex-shrink: 0;
+}
+/* "More categories" link — hidden on desktop (the full card list shows). On
+   phones the list is capped at the first 3 cards and this link, bottom-right,
+   reveals the rest in a popup. (.rb-col isn't flex, so right-align with a
+   fit-content block + margin-left:auto.) */
+[data-theme="sketch"] .rb-cat-more { display: none; }
+@media (max-width: 767px) {
+  [data-theme="sketch"] .rb-cat-list .rb-cat-card:nth-child(n+4) { display: none; }
+  [data-theme="sketch"] .rb-cat-more {
+    display: flex; width: fit-content; margin: 10px 0 0 auto;
+    align-items: center; gap: 4px;
+    padding: 0; border: none; background: none; cursor: pointer;
+    appearance: none; -webkit-appearance: none; font: inherit;
+    font-size: 13px; font-weight: 700; color: #C45F2A;
+  }
+  [data-theme="sketch"] .rb-cat-more svg { width: 15px; height: 15px; }
+  [data-theme="sketch"] .rb-cat-more:active { color: #E14909; }
 }
 
 /* Active section's rule items (rendered inline below the cat list
@@ -7782,16 +7824,16 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   border: 2px solid #E14909;
   border-left: 6px solid #E14909;
   border-radius: 22px;
-  padding: 16px 22px 14px;
+  padding: 16px 22px 10px;
   margin-bottom: 16px;
   box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
 }
 [data-theme="sketch"] .pay-fines-band-head {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap; margin-bottom: 6px;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 12px;
 }
 [data-theme="sketch"] .pay-fines-eyebrow {
-  font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+  font-size: 15px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
   color: #C73E07;
 }
 [data-theme="sketch"] .pay-fines-total {
@@ -7827,29 +7869,67 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   border: 1.5px solid rgba(10, 36, 64, 0.2); border-radius: 10px; padding: 9px 12px; font-size: 14px;
   font-family: inherit; width: 100%; box-sizing: border-box;
 }
-/* Fine row: stack Pay + Contest in the action column. */
-[data-theme="sketch"] .pay-fine-actions { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
-[data-theme="sketch"] .pay-fine-contest { white-space: nowrap; padding: 6px 12px; font-size: 12.5px; }
-[data-theme="sketch"] .pay-plan-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #0A2440; }
-[data-theme="sketch"] .pay-fines-list { display: flex; flex-direction: column; }
+/* Fine row — title + due date on the left, amount on the right; Pay and
+   Dispute split to the two ends below. Shared by the desktop and phone cards. */
+[data-theme="sketch"] .pay-fines-list { display: flex; flex-direction: column; gap: 8px; }
 [data-theme="sketch"] .pay-fine-row {
-  display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 14px; align-items: center;
-  padding: 12px 0; border-top: 1px solid rgba(15, 28, 46, 0.08);
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 16px 0 2px; border-top: 1px solid rgba(15, 28, 46, 0.08);
 }
 [data-theme="sketch"] .pay-fine-row:first-of-type { border-top: none; }
-[data-theme="sketch"] .pay-fine-info { min-width: 0; }
-[data-theme="sketch"] .pay-fine-title { font-size: 14px; font-weight: 700; color: #0A2440; }
-[data-theme="sketch"] .pay-fine-meta { font-size: 12px; color: rgba(10, 36, 64, 0.55); margin-top: 2px; }
-[data-theme="sketch"] .pay-fine-amt { font-size: 15px; font-weight: 800; color: #0A2440; white-space: nowrap; }
-[data-theme="sketch"] .pay-fine-pay {
-  white-space: nowrap;
-  background: #0A2440; border-color: #0A2440;
+[data-theme="sketch"] .pay-fine-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 18px;
 }
-[data-theme="sketch"] .pay-fine-pay:hover { background: #143456; border-color: #143456; }
-@media (max-width: 560px) {
-  [data-theme="sketch"] .pay-fine-row { grid-template-columns: minmax(0, 1fr) auto; }
-  [data-theme="sketch"] .pay-fine-pay { grid-column: 1 / -1; justify-self: start; }
+[data-theme="sketch"] .pay-fine-info {
+  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px;
+}
+[data-theme="sketch"] .pay-fine-title { font-size: 15px; font-weight: 700; color: #0A2440; }
+[data-theme="sketch"] .pay-fine-meta { font-size: 12.5px; color: rgba(10, 36, 64, 0.6); }
+[data-theme="sketch"] .pay-fine-amt { flex: 0 0 auto; font-size: 20px; font-weight: 800; color: #0A2440; white-space: nowrap; }
+/* Bottom row: optional fine description on the left, Pay + Dispute on the right.
+   margin-right:auto on the note pushes the buttons to the far right; when there's
+   no note the buttons stay right anyway (justify-content: flex-end). */
+[data-theme="sketch"] .pay-fine-foot {
+  display: flex; flex-direction: row; align-items: center; justify-content: flex-end; gap: 16px;
+  margin-top: 22px;
+}
+[data-theme="sketch"] .pay-fine-note {
+  margin: 0 auto 0 0; flex: 1 1 auto; min-width: 0;
+  font-size: 12.5px; line-height: 1.45; color: rgba(10, 36, 64, 0.62);
+}
+[data-theme="sketch"] .pay-fine-actions {
+  display: flex; flex-direction: row; align-items: center; justify-content: flex-end; gap: 12px;
+  flex: 0 0 auto;
+}
+[data-theme="sketch"] .pay-fine-pay {
+  white-space: nowrap; flex: 0 0 auto;
+  background: #E14909; border-color: #E14909;
+}
+[data-theme="sketch"] .pay-fine-pay:hover { background: #C73E07; border-color: #C73E07; }
+[data-theme="sketch"] .pay-fine-contest { white-space: nowrap; flex: 0 0 auto; }
+
+/* Phone fines card (.rsv-mob only — desktop keeps its grid above).
+   Title flush left with the due date right below it; fine amount flush right;
+   Pay flush left + Dispute flush right along the bottom. */
+[data-theme="sketch"] .rsv-mob .pay-fine-row {
+  display: flex; flex-direction: column; gap: 12px;
+}
+[data-theme="sketch"] .rsv-mob .pay-fine-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+}
+[data-theme="sketch"] .rsv-mob .pay-fine-info {
+  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px;
+}
+[data-theme="sketch"] .rsv-mob .pay-fine-meta { white-space: normal; }
+[data-theme="sketch"] .rsv-mob .pay-fine-amt { flex: 0 0 auto; font-size: 20px; }
+[data-theme="sketch"] .rsv-mob .pay-fine-foot { margin-top: 22px; }
+[data-theme="sketch"] .rsv-mob .pay-fine-actions {
+  flex-direction: row; justify-content: flex-end; align-items: center; gap: 10px;
+}
+[data-theme="sketch"] .rsv-mob .pay-fine-pay,
+[data-theme="sketch"] .rsv-mob .pay-fine-contest {
+  flex: 0 0 auto; text-align: center; justify-content: center;
+  padding: 10px 22px; font-size: 13px; white-space: nowrap;
 }
 
 /* Quick actions */
@@ -8213,6 +8293,21 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .doc-cat-label { font-size: 13.5px; font-weight: 700; color: #0A2440; line-height: 1.3; }
 [data-theme="sketch"] .doc-cat-desc { font-size: 11.5px; color: #0A2440; line-height: 1.4; }
 [data-theme="sketch"] .doc-cat-count { font-size: 11px; font-weight: 700; color: #C45F2A; margin-top: 2px; }
+/* "More categories" link — hidden on desktop (the full grid is shown). On
+   phones the grid is capped at the first 4 cards and this link, bottom-right of
+   the section, reveals the rest in a popup. */
+[data-theme="sketch"] .doc-cat-more { display: none; }
+@media (max-width: 767px) {
+  [data-theme="sketch"] .doc-cat-grid .doc-cat:nth-child(n+5) { display: none; }
+  [data-theme="sketch"] .doc-cat-more {
+    display: inline-flex; align-self: flex-end; align-items: center; gap: 4px;
+    margin-top: 2px; padding: 0; border: none; background: none; cursor: pointer;
+    appearance: none; -webkit-appearance: none; font: inherit;
+    font-size: 13px; font-weight: 700; color: #C45F2A;
+  }
+  [data-theme="sketch"] .doc-cat-more svg { width: 15px; height: 15px; }
+  [data-theme="sketch"] .doc-cat-more:active { color: #E14909; }
+}
 
 /* Need + stay-informed cards */
 [data-theme="sketch"] .doc-need, [data-theme="sketch"] .doc-stay {
@@ -8461,6 +8556,54 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .ven-row-contact a.ven-row-email { color: #C45F2A; }
 [data-theme="sketch"] .ven-row-contact a:hover { color: #E14909; }
 [data-theme="sketch"] .ven-empty { padding: 14px 0; font-size: 13px; color: #0A2440; text-align: center; }
+
+/* Unified vendor cards (phone list — VendorSection.mobile). One tidy card per
+   vendor, Preferred pinned to the top, replacing the old Featured-cards + table
+   duplication. Desktop (VendorSection) still uses .ven-featured / .ven-table. */
+[data-theme="sketch"] .ven-list { display: flex; flex-direction: column; gap: 12px; }
+[data-theme="sketch"] .ven-vcard {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 16px; background: #FFFFFF;
+  border: 1px solid rgba(15, 28, 46, 0.10); border-radius: 16px;
+}
+/* Board-curated vendors read as special: tinted left accent. */
+[data-theme="sketch"] .ven-vcard.is-preferred {
+  border-color: rgba(225, 73, 9, 0.30); border-left: 4px solid #E14909;
+}
+[data-theme="sketch"] .ven-vcard-top { display: flex; align-items: center; gap: 10px; }
+[data-theme="sketch"] .ven-vcard-icon {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: 10px;
+  background: rgba(225, 73, 9, 0.14); color: #C45F2A;
+}
+[data-theme="sketch"] .ven-vcard-icon svg { width: 20px; height: 20px; }
+[data-theme="sketch"] .ven-vcard-name {
+  flex: 1 1 auto; min-width: 0; text-align: left;
+  border: none; background: none; padding: 0; cursor: pointer; appearance: none; -webkit-appearance: none;
+  font-family: 'AmpFix', 'Fraunces', Georgia, serif; font-size: 16px; font-weight: 600; color: #0A2440;
+}
+[data-theme="sketch"] .ven-vcard-name:hover { color: #E14909; }
+[data-theme="sketch"] .ven-vcard-rate {
+  flex: 0 0 auto; border: none; background: none; padding: 0; cursor: pointer; appearance: none; -webkit-appearance: none;
+}
+[data-theme="sketch"] .ven-vcard-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+[data-theme="sketch"] .ven-vcard-cat {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: #C45F2A;
+}
+[data-theme="sketch"] .ven-vcard-badge {
+  padding: 2px 9px; background: #E14909; color: #FFFFFF; border-radius: 999px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+}
+[data-theme="sketch"] .ven-vcard-blurb { margin: 0; font-size: 12.5px; color: #0A2440; line-height: 1.45; }
+[data-theme="sketch"] .ven-vcard-actions { display: flex; gap: 8px; margin-top: 2px; }
+[data-theme="sketch"] .ven-vcard-btn {
+  flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 12px; border-radius: 999px;
+  background: #FBF7F1; border: 1.5px solid rgba(199, 111, 69, 0.30);
+  font-size: 13px; font-weight: 700; color: #0A2440; text-decoration: none;
+}
+[data-theme="sketch"] .ven-vcard-btn svg { width: 15px; height: 15px; color: #C45F2A; }
+[data-theme="sketch"] .ven-vcard-btn:hover { border-color: #E14909; background: rgba(225, 73, 9, 0.06); }
 
 /* Star rating */
 [data-theme="sketch"] .ven-rating { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: #0A2440; }
@@ -8950,48 +9093,50 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .con-pager-btn:disabled { opacity: 0.4; cursor: default; }
 
 /* Your violations panel (Easy Documents → Rules) */
-[data-theme="sketch"] .myv-list { display: flex; flex-direction: column; }
-[data-theme="sketch"] .myv-row {
-  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center;
-  padding: 12px 2px; border-top: 1px solid rgba(10, 36, 64, 0.08);
+/* Your violations — one card per violation: a Fine/Warning tag + colour-coded
+   status pill on top (amount to the right), the rule, the opened date, an
+   optional note, then Pay / Dispute actions. */
+[data-theme="sketch"] .myv-list { display: flex; flex-direction: column; gap: 12px; }
+[data-theme="sketch"] .myv-card {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 16px; background: #FFFFFF;
+  border: 1px solid rgba(15, 28, 46, 0.10); border-radius: 16px;
 }
-[data-theme="sketch"] .myv-row:first-child { border-top: none; }
-[data-theme="sketch"] .myv-tag {
+[data-theme="sketch"] .myv-card-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+[data-theme="sketch"] .myv-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+[data-theme="sketch"] .myv-tag,
+[data-theme="sketch"] .myv-status {
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
-  padding: 3px 9px; border-radius: 999px; align-self: start; margin-top: 2px;
+  padding: 3px 10px; border-radius: 999px; white-space: nowrap;
 }
 [data-theme="sketch"] .myv-tag-fine    { background: rgba(176, 84, 59, 0.14); color: #9a4530; }
 [data-theme="sketch"] .myv-tag-warning { background: rgba(176, 116, 31, 0.16); color: #8a5a13; }
-[data-theme="sketch"] .myv-title { font-size: 14px; font-weight: 600; color: #0A2440; }
-[data-theme="sketch"] .myv-amt { font-weight: 700; }
-[data-theme="sketch"] .myv-meta { font-size: 12px; color: rgba(10, 36, 64, 0.55); margin-top: 2px; }
+[data-theme="sketch"] .myv-status-open   { background: rgba(225, 73, 9, 0.12);  color: #C23D06; }
+[data-theme="sketch"] .myv-status-review { background: rgba(60, 83, 119, 0.14);  color: #3C5377; }
+[data-theme="sketch"] .myv-status-paid   { background: rgba(125, 140, 92, 0.18); color: #4A5A2D; }
+[data-theme="sketch"] .myv-status-closed { background: rgba(15, 28, 46, 0.07);   color: rgba(10, 36, 64, 0.6); }
+[data-theme="sketch"] .myv-amt { flex: 0 0 auto; font-size: 19px; font-weight: 800; color: #0A2440; white-space: nowrap; }
+[data-theme="sketch"] .myv-title { font-size: 15px; font-weight: 700; color: #0A2440; }
+[data-theme="sketch"] .myv-meta { font-size: 12.5px; color: rgba(10, 36, 64, 0.55); }
+[data-theme="sketch"] .myv-note {
+  margin: 2px 0 0; font-size: 12.5px; line-height: 1.45; color: rgba(10, 36, 64, 0.72);
+  padding: 9px 12px; background: #FBF7F1; border-radius: 10px;
+}
+[data-theme="sketch"] .myv-actions { display: flex; flex-direction: row; gap: 10px; margin-top: 4px; }
 [data-theme="sketch"] .myv-pay-btn {
-  justify-self: end; white-space: nowrap;
-  padding: 8px 16px; border-radius: 999px;
+  white-space: nowrap;
+  padding: 9px 18px; border-radius: 999px;
   background: #E14909; border: 1px solid #E14909; color: #FFFFFF;
-  font-family: inherit; font-size: 12.5px; font-weight: 700;
+  font-family: inherit; font-size: 13px; font-weight: 700;
   cursor: pointer; transition: background-color 0.12s ease, transform 0.08s ease;
 }
 [data-theme="sketch"] .myv-pay-btn:hover { background: #C73E07; }
 [data-theme="sketch"] .myv-pay-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-[data-theme="sketch"] .myv-paid {
-  justify-self: end; white-space: nowrap;
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 6px 12px; border-radius: 999px;
-  background: rgba(125, 140, 92, 0.18); color: #4A5A2D;
-  border: 1px solid rgba(125, 140, 92, 0.36);
-  font-size: 12px; font-weight: 700; letter-spacing: 0.3px;
-}
-@media (max-width: 560px) {
-  [data-theme="sketch"] .myv-paid { align-self: start; }
-}
-[data-theme="sketch"] .myv-actions {
-  justify-self: end; display: inline-flex; flex-direction: column; gap: 6px; align-items: flex-end;
-}
-/* Contest is the quieter, secondary action next to Pay. */
+/* Dispute is the quieter, secondary action next to Pay. */
 [data-theme="sketch"] .myv-contest-btn {
   background: transparent; color: #3C5377; border: 1px solid rgba(60, 83, 119, 0.4);
-  padding: 6px 14px;
 }
 [data-theme="sketch"] .myv-contest-btn:hover { background: rgba(60, 83, 119, 0.08); }
 [data-theme="sketch"] .myv-pay-err {
@@ -8999,13 +9144,40 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   background: rgba(200, 46, 46, 0.08); border-radius: 8px;
   padding: 8px 12px; margin: 8px 0 4px;
 }
-@media (max-width: 560px) {
-  /* Keep the small "✓ Paid" pill inline top-right; only the wider "Pay fine"
-     button drops to its own full-width line. */
-  [data-theme="sketch"] .myv-row { align-items: start; }
-  [data-theme="sketch"] .myv-paid { align-self: start; }
-  [data-theme="sketch"] .myv-pay-btn { grid-column: 1 / -1; justify-self: start; }
+/* "Hearings & suspensions" link below the list — same card sizing as the
+   violation cards above it, so it reads as part of the set. */
+[data-theme="sketch"] .myv-link {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  margin-top: 12px; padding: 16px;
+  background: #FFFFFF; border: 1px solid rgba(15, 28, 46, 0.10); border-radius: 16px;
+  text-decoration: none; color: #0A2440;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
+[data-theme="sketch"] .myv-link:hover {
+  border-color: rgba(225, 73, 9, 0.40); box-shadow: 0 6px 18px -14px rgba(31, 42, 58, 0.4);
+}
+[data-theme="sketch"] .myv-link-body { min-width: 0; }
+[data-theme="sketch"] .myv-link-title { display: block; font-size: 14px; font-weight: 700; color: #0A2440; }
+[data-theme="sketch"] .myv-link-sub { display: block; font-size: 12.5px; color: rgba(10, 36, 64, 0.6); margin-top: 3px; line-height: 1.4; }
+[data-theme="sketch"] .myv-link-open { flex: 0 0 auto; color: #E14909; font-weight: 700; white-space: nowrap; }
+@media (max-width: 767px) {
+  /* Phone: the two action buttons split the full width as big tap targets. */
+  [data-theme="sketch"] .myv-actions .myv-pay-btn,
+  [data-theme="sketch"] .myv-actions .myv-contest-btn {
+    flex: 1 1 0; text-align: center; padding: 11px 14px;
+  }
+}
+
+/* Resident page back link — a tidy pill instead of a bare "← text" link. */
+[data-theme="sketch"] .ev-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-bottom: 16px; padding: 7px 15px 7px 11px;
+  background: #FBF7F1; border: 1.5px solid rgba(225, 73, 9, 0.35); border-radius: 999px;
+  font-family: inherit; font-size: 13px; font-weight: 700; color: #E14909; text-decoration: none;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+[data-theme="sketch"] .ev-back:hover { border-color: #E14909; background: rgba(225, 73, 9, 0.08); }
+[data-theme="sketch"] .ev-back svg { width: 16px; height: 16px; color: #E14909; }
 
 [data-theme="sketch"] .rep-maint { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 [data-theme="sketch"] .rep-maint-stat {
@@ -9486,6 +9658,42 @@ textarea[disabled] {
   /* Equal-width tabs, evenly spaced across the row. */
   [data-theme="sketch"] .voice-segtabs .seg-tab { flex: 1 1 0; min-width: 0; padding: 8px 4px; font-size: 12px; white-space: nowrap; text-align: center; }
 
+  /* Easy Track (Pay / Vendors / Reports) and Easy Documents (Documents / Rules /
+     My Violations): same treatment — three equal-width tabs that fill the row
+     instead of bunching to the left. */
+  [data-theme="sketch"] .track-segtabs .seg-tabs { overflow-x: visible; padding: 4px; gap: 3px; }
+  [data-theme="sketch"] .track-segtabs .seg-tab { flex: 1 1 0; min-width: 0; padding: 9px 6px; font-size: 13px; white-space: nowrap; text-align: center; }
+
+  /* Easy Schedule (Calendar / Amenities): same treatment so the two tabs split
+     the row evenly instead of bunching to the left. */
+  [data-theme="sketch"] .sched-tabs .seg-tabs { overflow-x: visible; padding: 4px; gap: 3px; }
+  [data-theme="sketch"] .sched-tabs .seg-tab { flex: 1 1 0; min-width: 0; padding: 9px 6px; font-size: 13px; white-space: nowrap; text-align: center; }
+
+  /* Search + category toolbars (Reports / Documents / Rules / Vendor) keep the
+     search box and the All Categories dropdown on ONE row on phones. Without
+     this the 240px search min-width forces the dropdown to wrap to a second
+     line; here we let the search shrink (min-width: 0) so they sit side by side. */
+  [data-theme="sketch"] .rep-toolbar,
+  [data-theme="sketch"] .doc-toolbar,
+  [data-theme="sketch"] .ven-toolbar,
+  [data-theme="sketch"] .rb-toolbar { flex-wrap: nowrap; align-items: center; }
+  [data-theme="sketch"] .rep-search,
+  [data-theme="sketch"] .doc-search,
+  [data-theme="sketch"] .ven-search,
+  [data-theme="sketch"] .rb-toolbar .rb-search { min-width: 0; }
+  /* A native <select> sizes to its WIDEST option, so a long category like
+     "Property Maintenance" would balloon the dropdown and shrink the search.
+     Cap it to fit the default "All Categories" label (same across all four
+     toolbars) and ellipsize any longer selected value — this makes the search
+     long and the dropdown compact, exactly like Reports. */
+  [data-theme="sketch"] .rep-select,
+  [data-theme="sketch"] .doc-select,
+  [data-theme="sketch"] .ven-select,
+  [data-theme="sketch"] .rb-select {
+    flex: 0 0 160px; width: 160px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+
   /* Filter bar: stack the filters and let each dropdown go full width so the
      two pills don't fight for a single phone row. */
   [data-theme="sketch"] .admin-sched-filters {
@@ -9832,5 +10040,12 @@ textarea[disabled] {
 [data-theme="sketch"] .sched-day-events { display: flex; flex-direction: column; }
 
 [data-theme="sketch"] .sched-filter-modal { max-width: 360px; }
-[data-theme="sketch"] .sched-filter-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid rgba(15,28,46,0.08); }
+[data-theme="sketch"] .sched-filter-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.12); }
 [data-theme="sketch"] .sched-filter-done { padding: 8px 18px; border-radius: 999px; background: #E14909; border: 1px solid #E14909; color: #fff; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+/* The filter popup reuses the dark .sched-modal shell, so the filter rows —
+   which are dark-navy text for the light side card — need light-on-dark colours
+   here, or they read as blank against the navy background. */
+[data-theme="sketch"] .sched-filter-modal .sched-filters-list { padding: 14px 18px; }
+[data-theme="sketch"] .sched-filter-modal .sched-filter { color: #FFFFFF; }
+[data-theme="sketch"] .sched-filter-modal .sched-filter:not(.on) { color: rgba(255, 255, 255, 0.5); }
+[data-theme="sketch"] .sched-filter-modal .sched-filter:hover { background: rgba(255, 255, 255, 0.08); }

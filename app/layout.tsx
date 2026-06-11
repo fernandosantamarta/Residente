@@ -22,6 +22,10 @@ export const viewport: Viewport = {
   themeColor: '#F4EFE8',
   width: 'device-width',
   initialScale: 1,
+  // Cap the scale so iOS Safari doesn't auto-zoom into small-font inputs/selects
+  // on focus (e.g. when switching tabs) and leave the page zoomed in.
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: 'cover',
 }
 

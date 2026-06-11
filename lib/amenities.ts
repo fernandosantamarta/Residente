@@ -330,6 +330,30 @@ export function useAmenityHub() {
     return { refunded: false }
   }, [live, canUseDb, dbReservations, refundCutoffHours, load])
 
+  // Reschedule an existing reservation — change the date / time / party size /
+  // note in place. Price and payment are unchanged (same booking, new slot), so
+  // there's no refund or re-charge here.
+  const reschedule = useCallback(async (id: string, input: BookInput): Promise<void> => {
+    if (live && canUseDb) {
+      const { error } = await supabase!
+        .from('ev_amenity_reservations')
+        .update({
+          reserved_date: input.reservedDate,
+          start_time:    input.startTime,
+          end_time:      input.endTime || null,
+          party_size:    input.partySize,
+          note:          input.note || null,
+        })
+        .eq('id', id)
+      if (error) throw error
+      await load()
+      return
+    }
+    setLocalReservations(prev => prev.map(r => r.id === id
+      ? { ...r, reservedDate: input.reservedDate, startTime: input.startTime, endTime: input.endTime, partySize: input.partySize, note: input.note }
+      : r))
+  }, [live, canUseDb, load])
+
   // Slots already taken (by anyone, when live) for a given amenity + date, so
   // the booking popup can disable them. In demo mode we only know this
   // resident's own local bookings, which is enough to feel real.
@@ -349,7 +373,7 @@ export function useAmenityHub() {
     return map
   }, [amenities])
 
-  return { amenities, reservations, byAmenity, loading, error, live, book, cancel, takenSlots, refundCutoffHours }
+  return { amenities, reservations, byAmenity, loading, error, live, book, cancel, reschedule, takenSlots, refundCutoffHours }
 }
 
 // ---------------------------------------------------------------
