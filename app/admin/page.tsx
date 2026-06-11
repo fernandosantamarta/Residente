@@ -148,8 +148,8 @@ export default function AdminHome() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, margin: '0 0 22px' }}>
         {[
           { tag: 'No CSV needed', title: 'Paste your roster', blurb: 'Copy owners straight from Excel — we match the columns.', href: '/admin/residents', cta: 'Paste & import', primary: true },
-          { tag: 'Sets itself up', title: 'Upload your docs', blurb: 'Drop your CC&Rs — we pre-fill rules, fines & reserves.', href: '/admin/documents', cta: 'Choose file', primary: false },
-          { tag: 'No emails? No problem', title: 'Print join poster', blurb: 'A lobby flyer with a QR code. Residents scan to join.', href: '/admin/voice/roster', cta: 'Download poster', primary: false },
+          { tag: 'Sets itself up', title: 'Upload your docs', blurb: 'Drop your CC&Rs — we pre-fill rules, fines & reserves.', href: '/admin/documents', cta: 'Choose file', primary: true },
+          { tag: 'No emails? No problem', title: 'Print join poster', blurb: 'A lobby flyer with a QR code. Residents scan to join.', href: '/admin/voice/roster', cta: 'Download poster', primary: true },
         ].map(c => (
           <div key={c.title} style={{ display: 'flex', flexDirection: 'column', gap: 9, border: '1px solid #efe1d2', background: '#fff', borderRadius: 18, padding: '20px 18px 18px', boxShadow: '0 1px 2px rgba(42,18,6,0.05)' }}>
             <span style={{ alignSelf: 'flex-start', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#b5481f', background: 'rgba(229,96,31,0.12)', padding: '3px 9px', borderRadius: 999 }}>{c.tag}</span>
