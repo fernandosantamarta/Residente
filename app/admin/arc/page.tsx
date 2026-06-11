@@ -98,40 +98,27 @@ export default function ArcPage() {
   useEffect(() => { load() }, [load])
 
   // ---- mutations ----
-  const patchRequest = async (id: string, patch: Record<string, any>, ok?: string) => {
+  const patchRequest = async (id: string, patch: Record<string, any>, ok?: string): Promise<boolean> => {
     setError('')
     try {
       const { error } = (await withTimeout(supabase.from('ev_arc_requests').update(patch).eq('id', id))) as any
       if (error) throw error
       if (ok) setMsg(ok)
       await load()
-    } catch (err: any) { setError(err?.message || 'Could not update the request') }
+      return true
+    } catch (err: any) { setError(err?.message || 'Could not update the request'); return false }
   }
 
-  const decide = async (r: ArcRequestRow, newStatus: ArcStatus, reason?: string) => {
-    const patch: Record<string, any> = { status: newStatus, decided_at: todayYmd() }
-    if (reason !== undefined) patch.decision_reason = reason
-    await patchRequest(r.id, patch, `Request ${ARC_STATUS_LABELS[newStatus].toLowerCase()}.`)
-    try {
-      await logAudit({
-        community_id: communityId!,
-        event_type: 'arc.decided',
-        target_type: 'arc_request',
-        target_id: r.id,
-        metadata: { status: newStatus },
-      })
-    } catch { /* audit must not block */ }
-  }
-
-  // Render the decision letter to a PDF and deliver it to the owner. The
-  // arc-decision-letter edge function does the work (verifies the board caller,
-  // builds the PDF from the same shared letter content as the document page,
-  // uploads to the owner's folder, records it, and notifies the owner).
-  const sendLetter = async (r: ArcRequestRow): Promise<boolean> => {
-    setError('')
+  // Invoke the arc-decision-letter edge function to render the decision letter
+  // to a PDF and deliver it to the owner (the function verifies the board
+  // caller, builds the PDF from the same shared content as the document page,
+  // uploads to the owner's folder, records it, and notifies them). Returns the
+  // outcome without touching the page message, so callers can phrase it in
+  // context (automatic on a decision vs. an explicit resend).
+  const deliverLetter = async (requestId: string): Promise<{ ok: boolean; error?: string }> => {
     try {
       const { data, error } = (await withTimeout(
-        supabase.functions.invoke('arc-decision-letter', { body: { request_id: r.id } }),
+        supabase.functions.invoke('arc-decision-letter', { body: { request_id: requestId } }),
         30000,
       )) as any
       if (error) {
@@ -145,24 +132,55 @@ export default function ArcPage() {
             if (body?.error) msg = body.error
           }
         } catch { /* keep the generic message */ }
-        throw new Error(msg)
+        return { ok: false, error: msg }
       }
-      if (data?.error) throw new Error(data.error)
+      if (data?.error) return { ok: false, error: data.error }
       try {
         await logAudit({
           community_id: communityId!,
           event_type: 'arc.letter_sent',
           target_type: 'arc_request',
-          target_id: r.id,
+          target_id: requestId,
         })
       } catch { /* audit must not block */ }
-      setMsg('Decision letter sent to the resident.')
-      await load()
-      return true
+      return { ok: true }
     } catch (err: any) {
-      setError(err?.message || 'Could not send the letter.')
-      return false
+      return { ok: false, error: err?.message || 'Could not send the letter.' }
     }
+  }
+
+  const decide = async (r: ArcRequestRow, newStatus: ArcStatus, reason?: string) => {
+    const patch: Record<string, any> = { status: newStatus, decided_at: todayYmd() }
+    if (reason !== undefined) patch.decision_reason = reason
+    const saved = await patchRequest(r.id, patch)
+    if (!saved) return
+    try {
+      await logAudit({
+        community_id: communityId!,
+        event_type: 'arc.decided',
+        target_type: 'arc_request',
+        target_id: r.id,
+        metadata: { status: newStatus },
+      })
+    } catch { /* audit must not block */ }
+
+    // Automatically deliver the official decision letter to the resident. The
+    // board can still open "Decision letter" to print and mail a paper copy.
+    const label = ARC_STATUS_LABELS[newStatus].toLowerCase()
+    const sent = await deliverLetter(r.id)
+    await load()
+    setMsg(sent.ok
+      ? `Request ${label} — decision letter sent to the resident.`
+      : `Request ${label}. The letter wasn't sent automatically${sent.error ? ` (${sent.error})` : ''} — use "Send letter to resident".`)
+  }
+
+  // Explicit (re)send from the card button.
+  const sendLetter = async (r: ArcRequestRow): Promise<boolean> => {
+    setError('')
+    const sent = await deliverLetter(r.id)
+    if (sent.ok) { setMsg('Decision letter sent to the resident.'); await load() }
+    else setError(sent.error || 'Could not send the letter.')
+    return sent.ok
   }
 
   const withdraw = async (r: ArcRequestRow) => {
