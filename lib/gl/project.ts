@@ -165,10 +165,18 @@ export function buildLedger(src: LedgerSources): GLEntry[] {
   // it lands in "unapplied" (2000) — cash stays correct AND AR still ties to
   // Σ residentBalance() (which only sees roster residents' payments). resident_id is
   // `on delete set null`, and a deactivated resident may be off the roster, so both
-  // are real states. NB: paid fines never create payments rows (the Stripe webhook
-  // closes ev_violations and returns before any payments insert), so every payments
-  // row is a dues payment — crediting AR for all roster payments is correct and
-  // required for tie-out; do NOT filter by charge_type here.
+  // are real states. INVARIANT — public.payments is DUES-ONLY: every row is a dues
+  // payment, so crediting AR for all roster payments is correct and required for the
+  // tie-out (it matches sumPayments() in lib/dues.ts, which likewise sums all
+  // payments). This holds because no writer ever puts a fine/amenity into payments:
+  //   • Stripe webhook        — paid fines close ev_violations and amenities flip a
+  //                             reservation, both returning BEFORE any payments insert.
+  //   • record_offline_payment — offline DUES only; charge_type stays NULL. Offline
+  //                             fines go through ev_violations 'manual-paid'
+  //                             (lib/violations.ts), recognized as revenue below.
+  // So do NOT filter by charge_type here, and do NOT route any payments row to a
+  // non-AR account — either would break the tie-out. Keep payments dues-only at the
+  // write boundary instead (see supabase/offline-payments.sql).
   const roster = new Set((src.residents || []).map((r: any) => String(r.id)).filter(Boolean))
   for (const p of src.payments || []) {
     const amt = round2(Number(p.amount) || 0)
