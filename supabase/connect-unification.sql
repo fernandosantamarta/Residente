@@ -14,7 +14,7 @@
 --       it flips the reservation to paid). NULL = legacy platform charge, so an
 --       old reservation refunds on the platform and a new one on the HOA account.
 --
---   residents.autopay_account_id — the connected account the resident's saved
+--   residents.stripe_customer_account — the connected account the resident's saved
 --       Stripe customer + card live on (set by create-setup-checkout at enrollment).
 --       NULL = legacy platform customer. charge-autopay / charge-plan-installment
 --       read it to charge the card on the SAME account it was saved on. (A card
@@ -24,8 +24,8 @@ alter table public.ev_amenity_reservations
   add column if not exists payment_account_id text;
 
 alter table public.residents
-  add column if not exists autopay_account_id text;
+  add column if not exists stripe_customer_account text;
 
 -- No RLS change: payment_account_id is written by the service-role webhook;
--- autopay_account_id by the edge fns under the resident's own JWT alongside the
+-- stripe_customer_account by the edge fns under the resident's own JWT alongside the
 -- existing stripe_customer_id write (resident-self-service.sql already covers it).

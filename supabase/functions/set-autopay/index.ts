@@ -13,6 +13,7 @@
 import Stripe from 'https://esm.sh/stripe@14.21.0?target=denonext'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
 import { corsHeaders } from '../_shared/cors.ts'
+import { acctOpts } from '../_shared/connect.ts'
 
 const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
   apiVersion: '2023-10-16',
@@ -55,7 +56,7 @@ Deno.serve(async (req) => {
 
     const { data: resident, error } = await supabase
       .from('residents')
-      .select('id, profile_id, stripe_customer_id, autopay_pm_id')
+      .select('id, profile_id, stripe_customer_id, stripe_customer_account, autopay_pm_id')
       .eq('id', resident_id)
       .single()
     if (error || !resident) return json({ error: 'Resident not found' }, 404)
@@ -64,18 +65,18 @@ Deno.serve(async (req) => {
     const pmId: string | null = payment_method_id || resident.autopay_pm_id || null
 
     if (enabled && !resident.stripe_customer_id) {
-      return json({ error: 'Save a card before enabling autopay.' }, 400)
+      return json({ error: 'Save a payment method before enabling autopay.' }, 400)
     }
     if (enabled && !pmId) {
       return json({ error: 'A payment method is required to enable autopay.' }, 400)
     }
-    // Whenever a card is named, make it the customer's default for off-session
+    // Whenever a method is named, make it the customer's default for off-session
     // charges — this also backs the "Set as default" action, independent of the
-    // autopay toggle.
+    // autopay toggle. The customer lives on stripe_customer_account (null = platform).
     if (pmId && resident.stripe_customer_id) {
       await stripe.customers.update(resident.stripe_customer_id, {
         invoice_settings: { default_payment_method: pmId },
-      })
+      }, acctOpts(resident.stripe_customer_account || null))
     }
 
     const { error: upErr } = await supabase.from('residents')
