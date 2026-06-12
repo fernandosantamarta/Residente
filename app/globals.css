@@ -7886,8 +7886,9 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; flex-wrap: wrap; margin-bottom: 5px;
 }
+/* The FINES DUE headline reads larger than the fine titles beneath it. */
 [data-theme="sketch"] .pay-fines-eyebrow {
-  font-size: 12.5px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase;
+  font-size: 16px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase;
   color: #C73E07;
 }
 [data-theme="sketch"] .pay-fines-total {
@@ -7937,7 +7938,7 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .pay-fine-info {
   flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px;
 }
-[data-theme="sketch"] .pay-fine-title { font-size: 15px; font-weight: 700; color: #0A2440; }
+[data-theme="sketch"] .pay-fine-title { font-size: 14px; font-weight: 700; color: #0A2440; }
 [data-theme="sketch"] .pay-fine-meta { font-size: 12.5px; color: rgba(10, 36, 64, 0.6); }
 [data-theme="sketch"] .pay-fine-amt { flex: 0 0 auto; font-size: 20px; font-weight: 800; color: #0A2440; white-space: nowrap; }
 /* Bottom row: optional fine description on the left, Pay + Dispute on the right.
