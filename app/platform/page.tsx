@@ -196,27 +196,35 @@ function Select<T extends string>({ value, onChange, options, width, ariaLabel }
 }
 
 // Multi-pick variant of Select for the operator teams: tick two or more teams
-// in one dropdown. The panel stays open while toggling; Owner is exclusive
-// (handled by the caller's toggle logic). Button shows "Onboarding + Billing".
-function MultiSelect({ values, onToggle, options, minWidth, ariaLabel }: {
-  values: OperatorRole[]; onToggle: (v: OperatorRole) => void
-  options: Opt<OperatorRole>[]; minWidth?: number; ariaLabel?: string
+// in one dropdown. Picks are a local DRAFT — the panel stays open while you
+// toggle (no save, no reload) and only the orange Done button commits the set
+// via onCommit. Closing the panel any other way discards the draft. `reduce`
+// owns the toggle rules (Owner-exclusive, never empty).
+function MultiSelect({ values, options, reduce, onCommit, minWidth, ariaLabel }: {
+  values: OperatorRole[]; options: Opt<OperatorRole>[]
+  reduce: (cur: OperatorRole[], key: OperatorRole) => OperatorRole[]
+  onCommit: (next: OperatorRole[]) => void
+  minWidth?: number; ariaLabel?: string
 }) {
   const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState<OperatorRole[] | null>(null)
   const [hover, setHover] = useState<OperatorRole | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const close = () => { setOpen(false); setDraft(null) }
   useEffect(() => {
     if (!open) return
-    const onClick = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
-    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    const onClick = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) close() }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') close() }
     document.addEventListener('mousedown', onClick)
     document.addEventListener('keydown', onKey)
     return () => { document.removeEventListener('mousedown', onClick); document.removeEventListener('keydown', onKey) }
   }, [open])
-  const sel = options.filter(o => values.includes(o.value))
+  const cur = draft ?? values
+  const sel = options.filter(o => cur.includes(o.value))
+  const done = () => { const next = cur; close(); onCommit(next) }
   return (
     <div ref={ref} style={{ position: 'relative', minWidth: minWidth ?? 148, flexShrink: 0 }}>
-      <button type="button" onClick={() => setOpen(o => !o)} aria-haspopup="listbox" aria-expanded={open} aria-label={ariaLabel}
+      <button type="button" onClick={() => (open ? close() : setOpen(true))} aria-haspopup="listbox" aria-expanded={open} aria-label={ariaLabel}
         style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
           background: C.bg, border: `1px solid ${open ? C.accent : C.border}`, borderRadius: 9, padding: '9px 12px',
           fontSize: 13, fontWeight: 700, color: sel.length === 1 ? (sel[0].color ?? C.text) : C.text, cursor: 'pointer', whiteSpace: 'nowrap' }}>
@@ -231,11 +239,11 @@ function MultiSelect({ values, onToggle, options, minWidth, ariaLabel }: {
           background: C.card, border: `1px solid ${C.border}`, borderRadius: 11, padding: 5, overflow: 'hidden',
           boxShadow: '0 14px 40px rgba(0,0,0,0.45)' }}>
           {options.map(o => {
-            const active = values.includes(o.value), hot = hover === o.value
+            const active = cur.includes(o.value), hot = hover === o.value
             return (
               <button key={o.value} type="button" role="option" aria-selected={active}
                 onMouseEnter={() => setHover(o.value)} onMouseLeave={() => setHover(h => h === o.value ? null : h)}
-                onClick={() => onToggle(o.value)}
+                onClick={() => setDraft(reduce(cur, o.value))}
                 style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: 9, cursor: 'pointer',
                   background: active ? C.accentSoft : hot ? 'rgba(255,255,255,0.05)' : 'transparent',
                   border: 'none', borderRadius: 7, padding: '8px 11px', whiteSpace: 'nowrap' }}>
@@ -252,6 +260,11 @@ function MultiSelect({ values, onToggle, options, minWidth, ariaLabel }: {
               </button>
             )
           })}
+          <button type="button" onClick={done}
+            style={{ width: '100%', marginTop: 5, cursor: 'pointer', fontSize: 13, fontWeight: 700, padding: '9px 12px',
+              borderRadius: 8, border: 'none', background: C.accent, color: '#fff' }}>
+            Done
+          </button>
         </div>
       )}
     </div>
@@ -534,12 +547,11 @@ export default function PlatformConsole() {
       setNewEmail(''); setNewTeams(['operator'])
     }
   }
-  // Toggle one team in an existing operator's dropdown.
-  const onRowTeamToggle = async (o: PlatformOperator, key: OperatorRole) => {
+  // Apply an operator's new team set when their dropdown's Done is clicked.
+  const commitRowTeams = async (o: PlatformOperator, next: OperatorRole[]) => {
     setOpMsg(null)
     const cur: OperatorRole[] = [o.role, ...o.extra_roles.filter(r => r !== o.role)]
-    const next = toggleTeam(cur, key)
-    if (next === cur || (next.length === cur.length && next.every(r => cur.includes(r)))) return
+    if (next.length === cur.length && next.every(r => cur.includes(r))) return
     const { primary, extras } = splitTeams(next)
     // Self-demotion is one click away from locking yourself out of this very
     // tab (the DB only protects the LAST owner) — make it deliberate.
@@ -550,6 +562,7 @@ export default function PlatformConsole() {
     if (primary !== o.role) err = await setOperatorRole(o.profile_id, primary)
     if (!err) err = await setOperatorExtraRoles(o.profile_id, extras)
     if (err) setOpMsg({ kind: 'err', text: err })
+    else setOpMsg({ kind: 'ok', text: `${o.name} is now ${teamLabels(next)}.` })
   }
   const onRemoveOperator = async (id: string, name: string) => {
     const msg = id === profile?.id
@@ -1119,7 +1132,7 @@ export default function PlatformConsole() {
                 {editable ? (
                   <>
                     <MultiSelect values={[o.role, ...o.extra_roles.filter(r => r !== o.role)]}
-                      onToggle={k => onRowTeamToggle(o, k)} options={ROLE_OPTIONS}
+                      reduce={toggleTeam} onCommit={next => commitRowTeams(o, next)} options={ROLE_OPTIONS}
                       ariaLabel={`Teams for ${o.name}`} />
                     <button onClick={() => onRemoveOperator(o.profile_id, o.name)}
                       style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: 'none', color: C.muted, whiteSpace: 'nowrap' }}>
@@ -1144,7 +1157,7 @@ export default function PlatformConsole() {
                 <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="their Residente email"
                   onKeyDown={e => { if (e.key === 'Enter') onAddOperator() }}
                   style={{ flex: 1, minWidth: 220, background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 9, padding: '10px 13px', fontSize: 13.5 }} />
-                <MultiSelect values={newTeams} onToggle={k => setNewTeams(cur => toggleTeam(cur, k))}
+                <MultiSelect values={newTeams} reduce={toggleTeam} onCommit={setNewTeams}
                   options={ROLE_OPTIONS} minWidth={150} ariaLabel="Teams for new operator" />
                 <button onClick={onAddOperator} disabled={opBusy || !newEmail.trim()}
                   style={{ cursor: opBusy || !newEmail.trim() ? 'default' : 'pointer', fontSize: 13.5, fontWeight: 700, padding: '10px 18px', borderRadius: 9,

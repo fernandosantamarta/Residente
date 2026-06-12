@@ -3531,14 +3531,16 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
    Cream-tinted card with a burnt-orange left border so it reads as
    "action needed" without screaming. Hidden entirely when no votes. */
 [data-theme="sketch"] .open-votes-band {
-  background: rgba(225, 73, 9, 0.06);
+  /* Opaque (tint over solid white): the band sits against the hero photo,
+     and a translucent wash makes the text unreadable there. */
+  background: linear-gradient(rgba(225, 73, 9, 0.06), rgba(225, 73, 9, 0.06)), #FFFFFF;
   border: 2px solid #E14909;
   border-left: 6px solid #E14909;
   border-radius: 22px;
   padding: 18px 22px 16px;
   margin-top: 96px;   /* same breathing room Row 1 used to have below hero */
   margin-bottom: 0;
-  box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
+  box-shadow: 0 14px 34px -18px rgba(31, 42, 58, 0.45);
 }
 /* When the band is present, Row 1 sits just below it with the same 16px
    gap the rest of the page uses between stacked cards (matches the
@@ -7869,15 +7871,17 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 
 /* Fines due — an orange "action needed" band above Current Balance. Mirrors
    the open-votes band so unpaid fines read as something to handle now. The
-   whole band is hidden when there's nothing open to pay. */
+   whole band is hidden when there's nothing open to pay. The background must
+   stay OPAQUE (tint layered over solid white): the band can sit on a photo
+   backdrop, and a translucent wash makes the text unreadable there. */
 [data-theme="sketch"] .pay-fines-band {
-  background: rgba(225, 73, 9, 0.06);
+  background: linear-gradient(rgba(225, 73, 9, 0.06), rgba(225, 73, 9, 0.06)), #FFFFFF;
   border: 2px solid #E14909;
   border-left: 6px solid #E14909;
   border-radius: 22px;
   padding: 16px 22px 10px;
   margin-bottom: 16px;
-  box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
+  box-shadow: 0 14px 34px -18px rgba(31, 42, 58, 0.45);
 }
 [data-theme="sketch"] .pay-fines-band-head {
   display: flex; align-items: center; justify-content: space-between;
