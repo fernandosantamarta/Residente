@@ -439,17 +439,28 @@ export default function PlatformConsole() {
 
   const [newEmail, setNewEmail] = useState('')
   const [newRole, setNewRole] = useState<OperatorRole>('operator')
+  const [newExtras, setNewExtras] = useState<OperatorRole[]>([])
   const [opMsg, setOpMsg] = useState<{ kind: 'err' | 'ok'; text: string } | null>(null)
   const [opBusy, setOpBusy] = useState(false)
 
+  // Extra teams only make sense alongside a team primary — an Owner already
+  // has everything, and the primary team isn't an "extra".
+  const pickNewRole = (r: OperatorRole) => {
+    setNewRole(r)
+    setNewExtras(x => r === 'owner' ? [] : x.filter(e => e !== r))
+  }
   const onAddOperator = async () => {
     const email = newEmail.trim()
     if (!email) return
     setOpBusy(true); setOpMsg(null)
-    const err = await addOperator(email, newRole)
+    const err = await addOperator(email, newRole, newExtras)
     setOpBusy(false)
     if (err) setOpMsg({ kind: 'err', text: err })
-    else { setOpMsg({ kind: 'ok', text: `Added ${email} as ${newRole}.` }); setNewEmail('') }
+    else {
+      const extraNote = newExtras.length ? ` (also on ${newExtras.map(e => ROLES.find(r => r.key === e)?.label || e).join(', ')})` : ''
+      setOpMsg({ kind: 'ok', text: `Added ${email} as ${ROLES.find(r => r.key === newRole)?.label || newRole}${extraNote}.` })
+      setNewEmail(''); setNewExtras([])
+    }
   }
   const onChangeRole = async (id: string, role: OperatorRole) => {
     setOpMsg(null)
@@ -1085,7 +1096,7 @@ export default function PlatformConsole() {
                 <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="their Residente email"
                   onKeyDown={e => { if (e.key === 'Enter') onAddOperator() }}
                   style={{ flex: 1, minWidth: 220, background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 9, padding: '10px 13px', fontSize: 13.5 }} />
-                <Select<OperatorRole> value={newRole} onChange={setNewRole}
+                <Select<OperatorRole> value={newRole} onChange={pickNewRole}
                   options={ROLE_OPTIONS} width={150} ariaLabel="Role for new operator" />
                 <button onClick={onAddOperator} disabled={opBusy || !newEmail.trim()}
                   style={{ cursor: opBusy || !newEmail.trim() ? 'default' : 'pointer', fontSize: 13.5, fontWeight: 700, padding: '10px 18px', borderRadius: 9,
@@ -1093,6 +1104,25 @@ export default function PlatformConsole() {
                   {opBusy ? 'Adding…' : 'Add operator'}
                 </button>
               </div>
+              {/* Grant extra teams in the same act — same chips as the rows
+                  above. Hidden for an Owner primary (already everything). */}
+              {newRole !== 'owner' && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                  <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.6px', color: C.muted }}>ALSO ON</span>
+                  {ROLES.filter(r => r.key !== 'owner' && r.key !== newRole).map(r => {
+                    const on = newExtras.includes(r.key)
+                    return (
+                      <button key={r.key} onClick={() => setNewExtras(x => on ? x.filter(e => e !== r.key) : [...x, r.key])}
+                        title={on ? `Remove the ${r.label} team` : `Add the ${r.label} team`}
+                        style={{ cursor: 'pointer', fontSize: 11.5, fontWeight: 700, padding: '4px 12px', borderRadius: 999, whiteSpace: 'nowrap',
+                          border: `1px solid ${on ? roleColor(r.key) : C.border}`,
+                          background: on ? roleBg(r.key) : 'transparent', color: on ? roleColor(r.key) : C.muted }}>
+                        {on ? '✓ ' : '+ '}{r.label}
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
               <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 12 }}>
                 {ROLES.map(r => (
                   <div key={r.key} style={{ fontSize: 11.5, color: C.muted }}>

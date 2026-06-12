@@ -164,10 +164,22 @@ export function usePlatformConsole() {
 
   // ---- Owner-only operator management. The DB enforces owner + guardrails
   // (last-owner protection, valid roles); these just surface the error string.
-  const addOperator = useCallback(async (email: string, role: OperatorRole): Promise<string | null> => {
+  // extras lets the caller grant additional teams in the same act: the add RPC
+  // only takes a primary role, so the extras are applied right after, looked up
+  // by the email that was just added.
+  const addOperator = useCallback(async (email: string, role: OperatorRole, extras: OperatorRole[] = []): Promise<string | null> => {
     if (!hasSupabase || !supabase) return 'Not connected'
     const { error } = await supabase.rpc('platform_add_operator', { target_email: email, target_role: role })
     if (error) return error.message
+    const wanted = extras.filter(r => r !== role && r !== 'owner')
+    if (role !== 'owner' && wanted.length > 0) {
+      const { data: ops } = await supabase.rpc('platform_operators')
+      const target = (ops ?? []).find((o: any) => (o.email || '').toLowerCase() === email.trim().toLowerCase())
+      if (target) {
+        const { error: exErr } = await supabase.rpc('platform_set_operator_extra_roles', { target: target.profile_id, extras: wanted })
+        if (exErr) { await load(); return `Added as ${role}, but the extra teams failed: ${exErr.message}` }
+      }
+    }
     await load()
     return null
   }, [load])
