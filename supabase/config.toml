@@ -80,3 +80,9 @@ verify_jwt = false
 # board/admin of the request's community before storing or notifying.
 [functions.arc-decision-letter]
 verify_jwt = true
+
+# Operator replies to support tickets. The gateway's "Verify JWT" rejects the
+# call (INVALID_CREDENTIALS) before our code runs, so we verify inside the
+# function instead — getUser() + is_platform_admin (operators only).
+[functions.platform-reply]
+verify_jwt = false

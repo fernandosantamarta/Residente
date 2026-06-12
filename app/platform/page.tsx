@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { usePlatformConsole, usePlatformThread, sendPlatformReply, PlatformRequest, PlatformResident, OperatorRole, AuditEntry } from '@/hooks/usePlatform'
+import { useAuth } from '@/app/providers'
+import { usePlatformConsole, usePlatformThread, sendPlatformReply, openCommunityThread, PlatformRequest, PlatformResident, OperatorRole, AuditEntry } from '@/hooks/usePlatform'
 import { DangerAction } from '@/components/DangerAction'
 
 const fmtDate = (s: string) =>
@@ -256,24 +257,30 @@ function SupportThread({ req, onResolve, onReopen, onChanged }: {
 
   return (
     <div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
         {loading && messages.length === 0 ? (
           <div style={{ color: C.muted, fontSize: 13 }}>Loading…</div>
         ) : messages.map(m => {
           const mine = m.authorRole === 'operator'
+          const who = mine ? (m.authorName || 'You') : (m.authorName || 'Board')
+          const initials = who.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase() || '?'
           return (
-            <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: mine ? 'flex-end' : 'flex-start' }}>
-              <div style={{ maxWidth: '85%', background: mine ? C.accent : C.card, color: mine ? '#fff' : C.text,
-                border: mine ? 'none' : `1px solid ${C.border}`, borderRadius: 12, padding: '10px 13px', fontSize: 13.5, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
-                {m.body}
-                {m.attachmentUrl && (
-                  <a href={m.attachmentUrl} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 8 }}>
-                    <img src={m.attachmentUrl} alt={m.attachmentName || 'attachment'} style={{ maxWidth: '100%', borderRadius: 8, display: 'block' }} />
-                  </a>
-                )}
-              </div>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>
-                {mine ? (m.authorName || 'You') : (m.authorName || 'Board')} · {fmtDateTime(m.createdAt)}
+            <div key={m.id} style={{ display: 'flex', flexDirection: mine ? 'row-reverse' : 'row', gap: 10, alignItems: 'flex-end' }}>
+              <div style={{ width: 30, height: 30, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontWeight: 800, fontSize: 11, background: mine ? C.accentSoft : 'rgba(42,18,6,0.07)', color: mine ? C.accent : C.text }}>{initials}</div>
+              <div style={{ maxWidth: '76%', display: 'flex', flexDirection: 'column', alignItems: mine ? 'flex-end' : 'flex-start' }}>
+                <div style={{ background: mine ? C.accent : C.card, color: mine ? '#fff' : C.text,
+                  border: mine ? 'none' : `1px solid ${C.border}`, borderRadius: 14,
+                  borderBottomRightRadius: mine ? 4 : 14, borderBottomLeftRadius: mine ? 14 : 4,
+                  padding: '10px 13px', fontSize: 13.5, lineHeight: 1.6, whiteSpace: 'pre-wrap', boxShadow: '0 1px 2px rgba(42,18,6,0.06)' }}>
+                  {m.body}
+                  {m.attachmentUrl && (
+                    <a href={m.attachmentUrl} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 8 }}>
+                      <img src={m.attachmentUrl} alt={m.attachmentName || 'attachment'} style={{ maxWidth: '100%', borderRadius: 8, display: 'block' }} />
+                    </a>
+                  )}
+                </div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 4, padding: '0 4px' }}>{who} · {fmtDateTime(m.createdAt)}</div>
               </div>
             </div>
           )
@@ -281,7 +288,8 @@ function SupportThread({ req, onResolve, onReopen, onChanged }: {
       </div>
 
       <div style={{ marginTop: 16, borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
-        <textarea value={text} onChange={e => setText(e.target.value)} placeholder="Write your reply…"
+        <textarea value={text} onChange={e => setText(e.target.value)} placeholder="Write your reply…  (Enter to send, Shift+Enter for a new line)"
+          onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }}
           style={{ width: '100%', minHeight: 84, resize: 'vertical', boxSizing: 'border-box', background: C.card, color: C.text,
             border: `1px solid ${C.border}`, borderRadius: 10, padding: '11px 13px', fontSize: 13.5, fontFamily: 'inherit', outline: 'none' }} />
         {photo && (
@@ -329,6 +337,7 @@ export default function PlatformConsole() {
     removeCommunity, fetchResidents, removeResident,
   } = usePlatformConsole()
   const router = useRouter()
+  const { profile } = useAuth() || {}
   const [tab, setTab] = useState<Tab>('overview')
   const [entering, setEntering] = useState<string | null>(null)
   // Per-list search queries (communities, subscriptions, roster modal).
@@ -344,6 +353,13 @@ export default function PlatformConsole() {
   const [subsPage, setSubsPage] = useState(1)
   const [supportPage, setSupportPage] = useState(1)
   const [selectedReqId, setSelectedReqId] = useState<string | null>(null)
+  // Operator → community "new message" composer.
+  const [showCompose, setShowCompose] = useState(false)
+  const [newCommunity, setNewCommunity] = useState('')
+  const [newSubject, setNewSubject] = useState('')
+  const [newBody, setNewBody] = useState('')
+  const [newSending, setNewSending] = useState(false)
+  const [newErr, setNewErr] = useState('')
   const ACT_PAGE_SIZE = 12
   const [activityPage, setActivityPage] = useState(1)
   const [activityCat, setActivityCat] = useState('all')
@@ -469,7 +485,10 @@ export default function PlatformConsole() {
     </div>
   )
 
-  const openCount = requests.filter(r => r.status !== 'resolved').length
+  // Notification count = tickets awaiting an operator (status 'open'). Once you
+  // reply the ticket moves to 'in_progress' and drops off the count until the
+  // board replies back (a board reply flips it to 'open' again — DB trigger).
+  const openCount = requests.filter(r => r.status === 'open').length
   const totalResidents = communities.reduce((s, c) => s + Number(c.resident_count || 0), 0)
   const trials = communities.filter(c => c.subscription_status === 'trial').length
   const paying = communities.filter(c => communityMonthlyCents(c) > 0)
@@ -712,12 +731,66 @@ export default function PlatformConsole() {
   // The message shown in the reading pane — the clicked one, else the first.
   const selectedReq = requests.find(r => r.id === selectedReqId) || pagedRequests[0] || null
 
+  const sendNewMessage = async () => {
+    if (!profile?.id || !newCommunity || !newSubject.trim() || !newBody.trim()) return
+    setNewSending(true); setNewErr('')
+    const e = await openCommunityThread({
+      communityId: newCommunity, subject: newSubject.trim(), body: newBody.trim(),
+      operatorId: profile.id, operatorName: profile.full_name ?? null, operatorEmail: profile.email ?? null,
+    })
+    setNewSending(false)
+    if (e) { setNewErr(e); return }
+    setNewSubject(''); setNewBody(''); setNewCommunity(''); setShowCompose(false)
+    await reload()
+  }
+
   const supportSection = (
     <section style={card}>
       <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
         Support inbox {openCount > 0 && <span style={{ color: C.accent }}>· {openCount} open</span>}
       </h2>
       <p style={{ color: C.muted, fontSize: 12.5, marginBottom: 12 }}>Messages from community boards — pick one to read the full conversation.</p>
+
+      {/* New message — operator opens a thread with a community */}
+      {!showCompose ? (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+          <button onClick={() => setShowCompose(true)}
+            style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, padding: '9px 15px', borderRadius: 9,
+              border: `1px solid ${C.accent}`, background: C.accentSoft, color: C.accent }}>
+            ✎ New message to a community
+          </button>
+        </div>
+      ) : (
+        <div style={{ marginBottom: 16 }}>
+          <div style={{ border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, background: C.card }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <span style={{ fontSize: 13, fontWeight: 700 }}>New message to a community</span>
+              <button onClick={() => setShowCompose(false)} aria-label="Cancel"
+                style={{ border: 'none', background: 'none', cursor: 'pointer', color: C.muted, fontSize: 20, lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+              <Select<string> value={newCommunity} onChange={setNewCommunity} ariaLabel="Community" width={220}
+                options={[{ value: '', label: communities.length ? 'Pick a community…' : 'No communities' }, ...communities.map(c => ({ value: c.id, label: c.name || 'Untitled' }))]} />
+              <input value={newSubject} onChange={e => setNewSubject(e.target.value)} placeholder="Subject"
+                style={{ flex: 1, minWidth: 180, background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 9, padding: '9px 12px', fontSize: 13, outline: 'none' }} />
+            </div>
+            <textarea value={newBody} onChange={e => setNewBody(e.target.value)} placeholder="Write your message…  (Enter to send, Shift+Enter for a new line)"
+              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendNewMessage() } }}
+              style={{ width: '100%', minHeight: 72, resize: 'vertical', boxSizing: 'border-box', background: C.bg, color: C.text,
+                border: `1px solid ${C.border}`, borderRadius: 10, padding: '10px 12px', fontSize: 13.5, fontFamily: 'inherit', outline: 'none' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 10 }}>
+              {newErr && <span style={{ color: C.bad, fontSize: 12.5 }}>{newErr}</span>}
+              <div style={{ flex: 1 }} />
+              <button onClick={sendNewMessage} disabled={newSending || !newCommunity || !newSubject.trim() || !newBody.trim()}
+                style={{ cursor: (newSending || !newCommunity || !newSubject.trim() || !newBody.trim()) ? 'default' : 'pointer', fontSize: 13, fontWeight: 700, padding: '9px 18px', borderRadius: 9,
+                  border: `1px solid ${C.accent}`, background: C.accent, color: '#fff', opacity: (newSending || !newCommunity || !newSubject.trim() || !newBody.trim()) ? 0.5 : 1 }}>
+                {newSending ? 'Sending…' : 'Send →'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {requests.length === 0 ? (
         <div style={{ color: C.muted, fontSize: 13.5, marginTop: 12 }}>No support requests yet.</div>
       ) : (
@@ -756,9 +829,14 @@ export default function PlatformConsole() {
                     {selectedReq.status === 'in_progress' ? 'in progress' : selectedReq.status}
                   </button>
                 </div>
-                <div style={{ color: C.muted, fontSize: 12.5, margin: '6px 0 16px' }}>
-                  {reqCommunity(selectedReq.from_community_id) && <><strong style={{ color: C.text }}>{reqCommunity(selectedReq.from_community_id)}</strong> · </>}
-                  {selectedReq.from_name || 'A board member'}{selectedReq.from_email ? ` · ${selectedReq.from_email}` : ''} · {fmtDateTime(selectedReq.created_at)}
+                <div style={{ margin: '6px 0 16px' }}>
+                  <div style={{ color: C.muted, fontSize: 12.5 }}>
+                    {reqCommunity(selectedReq.from_community_id) && <><strong style={{ color: C.text }}>{reqCommunity(selectedReq.from_community_id)}</strong> · </>}
+                    {new Date(selectedReq.created_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
+                  </div>
+                  {selectedReq.from_email && (
+                    <div style={{ color: C.muted, fontSize: 12.5, marginTop: 6 }}>{selectedReq.from_email}</div>
+                  )}
                 </div>
                 <SupportThread
                   req={selectedReq}

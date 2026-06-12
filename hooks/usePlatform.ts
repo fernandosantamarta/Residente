@@ -258,17 +258,68 @@ export async function sendPlatformReply(input: {
   photo?: { base64: string; name: string } | null
 }): Promise<string | null> {
   if (!hasSupabase || !supabase) return 'Not connected'
+  // Explicitly forward the session token — invoke() doesn't auto-attach it with
+  // this app's sessionStorage auth (same pattern as removeCommunity above).
+  const { data: { session } } = await supabase.auth.getSession()
   const { data, error } = await supabase.functions.invoke('platform-reply', {
     body: {
       request_id: input.requestId, body: input.body,
       photo_base64: input.photo?.base64 ?? null, photo_name: input.photo?.name ?? null,
     },
+    headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
   })
   if (error) {
-    try { const b = await (error as { context?: Response }).context?.json(); if (b?.error) return b.error } catch { /* ignore */ }
-    return 'Could not send the reply.'
+    const anyErr = error as any
+    try {
+      const ctx = anyErr.context
+      if (ctx && typeof ctx.json === 'function') { const b = await ctx.json(); if (b?.error || b?.message) return b.error || b.message }
+      else if (ctx && typeof ctx.text === 'function') { const t = await ctx.text(); if (t) return t.slice(0, 300) }
+    } catch { /* ignore */ }
+    return anyErr.message || 'Could not send the reply.'
   }
   if (data && data.ok === false) return data.error || 'Could not send the reply.'
+  return null
+}
+
+// Upload a board-side image to the private platform-attachments bucket under the
+// ticket's folder (RLS scopes it to the submitter). Returns the stored path/name.
+export async function uploadPlatformAttachment(
+  requestId: string, file: File,
+): Promise<{ path: string; name: string } | { error: string }> {
+  if (!hasSupabase || !supabase) return { error: 'Not connected' }
+  const ext = (file.name.match(/\.([a-z0-9]+)$/i)?.[1] || 'jpg').toLowerCase()
+  const path = `${requestId}/${crypto.randomUUID()}.${ext}`
+  const { error } = await supabase.storage.from('platform-attachments').upload(path, file, { upsert: false })
+  if (error) return { error: error.message }
+  return { path, name: file.name }
+}
+
+// Operator → community: open a new support thread addressed to a community. The
+// ticket starts 'in_progress' (waiting on the community, so it stays off the
+// operator badge until they reply). Returns null on success, else an error.
+export async function openCommunityThread(input: {
+  communityId: string; subject: string; body: string
+  operatorId: string; operatorName: string | null; operatorEmail: string | null
+}): Promise<string | null> {
+  if (!hasSupabase || !supabase) return 'Not connected'
+  const { data, error } = await supabase.from('platform_requests').insert({
+    from_profile_id: input.operatorId,
+    from_community_id: input.communityId,
+    from_name: input.operatorName,
+    from_email: input.operatorEmail,
+    subject: input.subject,
+    body: null,              // the opening message lives in the thread, posted below
+    status: 'in_progress',
+  }).select('id').single()
+  if (error) return error.message
+  const reqId = (data as any)?.id as string | undefined
+  if (reqId) {
+    const { error: mErr } = await supabase.from('platform_request_messages').insert({
+      request_id: reqId, author_profile_id: input.operatorId,
+      author_role: 'operator', author_name: input.operatorName, body: input.body,
+    })
+    if (mErr) return mErr.message
+  }
   return null
 }
 
@@ -276,11 +327,13 @@ export async function sendPlatformReply(input: {
 // the submitter). Returns null on success.
 export async function sendPlatformBoardMessage(input: {
   requestId: string; authorId: string; authorName: string | null; body: string
+  attachmentPath?: string | null; attachmentName?: string | null
 }): Promise<string | null> {
   if (!hasSupabase || !supabase) return 'Not connected'
   const { error } = await supabase.from('platform_request_messages').insert({
     request_id: input.requestId, author_profile_id: input.authorId,
     author_role: 'board', author_name: input.authorName, body: input.body,
+    attachment_path: input.attachmentPath ?? null, attachment_name: input.attachmentName ?? null,
   })
   return error ? error.message : null
 }

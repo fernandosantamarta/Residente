@@ -67,6 +67,56 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   // the board notices from anywhere in the admin.
   const awaitingMsgs = useAwaitingMessages() + useArcPending()
 
+  // Badge on "Contact Residente" — tickets where Residente sent the last message
+  // (status 'in_progress') that the board hasn't READ yet. "Read" is tracked
+  // locally (cr_read_ids): opening a ticket marks it read; a new operator message
+  // (status flips back to in_progress) clears the read flag so it shows again.
+  const communityId = profile?.community_id
+  const [inProgressIds, setInProgressIds] = useState<string[]>([])
+  const [readIds, setReadIds] = useState<Set<string>>(new Set())
+
+  useEffect(() => {
+    const load = () => {
+      try { setReadIds(new Set(JSON.parse(localStorage.getItem('cr_read_ids') || '[]'))) }
+      catch { setReadIds(new Set()) }
+    }
+    load()
+    window.addEventListener('cr-read-updated', load)
+    window.addEventListener('storage', load)
+    return () => { window.removeEventListener('cr-read-updated', load); window.removeEventListener('storage', load) }
+  }, [])
+
+  useEffect(() => {
+    if (!hasSupabase || !supabase || !communityId) { setInProgressIds([]); return }
+    let cancelled = false
+    const fetchIds = async () => {
+      const { data } = await supabase!.from('platform_requests')
+        .select('id').eq('from_community_id', communityId).eq('status', 'in_progress')
+      if (!cancelled) setInProgressIds((data || []).map((r: any) => r.id))
+    }
+    fetchIds()
+    const ch = supabase.channel(`contact-residente:${communityId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'platform_requests', filter: `from_community_id=eq.${communityId}` }, (payload: any) => {
+        // A fresh operator message flips status to in_progress — clear its read
+        // flag so the badge lights up again.
+        const row = payload?.new
+        if ((payload?.eventType === 'UPDATE' || payload?.eventType === 'INSERT') && row?.status === 'in_progress' && row?.id) {
+          try {
+            const set = new Set<string>(JSON.parse(localStorage.getItem('cr_read_ids') || '[]'))
+            if (set.delete(row.id)) {
+              localStorage.setItem('cr_read_ids', JSON.stringify([...set]))
+              window.dispatchEvent(new CustomEvent('cr-read-updated'))
+            }
+          } catch { /* ignore */ }
+        }
+        fetchIds()
+      })
+      .subscribe()
+    return () => { cancelled = true; supabase!.removeChannel(ch) }
+  }, [communityId])
+
+  const residenteUnread = inProgressIds.filter(id => !readIds.has(id)).length
+
   // Founder/staff "View as" preview selection (persisted). Hidden for regular
   // admins entirely (see the header — only platform admins get the switcher).
   const [viewAs, setViewAs] = useState('founder')
@@ -127,8 +177,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               })}
             </div>
           )}
-          <Link href="/admin/support" style={{ textDecoration: 'none', fontSize: 13, fontWeight: 700, color: '#fff', background: 'rgba(255,255,255,0.16)', borderRadius: 999, padding: '7px 15px' }}>
+          <Link href="/admin/support" title={residenteUnread > 0 ? `${residenteUnread} new from Residente` : 'Contact Residente'}
+            style={{ textDecoration: 'none', fontSize: 13, fontWeight: 700, color: '#fff', background: 'rgba(255,255,255,0.16)', borderRadius: 999, padding: '7px 15px', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
             Contact Residente
+            {residenteUnread > 0 && (
+              <span className="cr-badge">{residenteUnread}</span>
+            )}
           </Link>
         </div>
       </header>

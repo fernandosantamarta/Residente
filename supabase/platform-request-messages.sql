@@ -82,13 +82,15 @@ create trigger trg_seed_platform_request_first_message
   after insert on public.platform_requests
   for each row execute function public.seed_platform_request_first_message();
 
--- When the board replies on a resolved ticket, reopen it so operators see it.
+-- A board reply pulls the ticket back to 'open' (awaiting operator) — whether it
+-- was 'resolved' (reopened) or 'in_progress' (operator had replied, now the ball
+-- is back in the operator's court, so it counts in the notification badge again).
 create or replace function public.reopen_platform_request_on_board_reply()
 returns trigger language plpgsql security definer as $$
 begin
   if new.author_role = 'board' then
     update public.platform_requests set status = 'open'
-    where id = new.request_id and status = 'resolved';
+    where id = new.request_id and status in ('resolved', 'in_progress');
   end if;
   return new;
 end $$;
@@ -125,6 +127,20 @@ drop policy if exists "submitter reads own platform attachments" on storage.obje
 create policy "submitter reads own platform attachments"
   on storage.objects for select to authenticated
   using (
+    bucket_id = 'platform-attachments'
+    and exists (
+      select 1 from public.platform_requests r
+      where r.id::text = (storage.foldername(name))[1] and r.from_profile_id = auth.uid()
+    )
+  );
+
+-- The submitting board member may upload images on their own ticket (folder =
+-- request_id). Operators upload via the platform-reply edge fn (service role),
+-- so they don't need a client insert policy.
+drop policy if exists "submitter uploads own platform attachments" on storage.objects;
+create policy "submitter uploads own platform attachments"
+  on storage.objects for insert to authenticated
+  with check (
     bucket_id = 'platform-attachments'
     and exists (
       select 1 from public.platform_requests r

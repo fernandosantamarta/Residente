@@ -55,14 +55,20 @@ Deno.serve(async (req) => {
     if (!SERVICE_ROLE) return json({ error: 'Server not configured' }, 500)
 
     // 1. Authenticate the caller and verify they're a platform operator.
-    const callerClient = createClient(SUPABASE_URL, ANON_KEY, {
-      global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
-    })
-    const { data: { user: caller } } = await callerClient.auth.getUser()
-    if (!caller) return json({ error: 'Unauthorized' }, 401)
+    const authHeader = req.headers.get('Authorization') ?? ''
+    const token = authHeader.replace(/^Bearer\s+/i, '').trim()
+    if (!token) return json({ error: 'Unauthorized: no Authorization token reached the function' }, 401)
 
-    const { data: isAdmin } = await callerClient.rpc('is_platform_admin', { uid: caller.id })
-    if (isAdmin !== true) return json({ error: 'Forbidden — operators only' }, 403)
+    const callerClient = createClient(SUPABASE_URL, ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    })
+    // Pass the token explicitly — the no-arg form relies on a stored session,
+    // which an edge function doesn't have.
+    const { data: { user: caller }, error: userErr } = await callerClient.auth.getUser(token)
+    if (!caller) return json({ error: `Unauthorized: ${userErr?.message || 'token did not resolve to a user'}` }, 401)
+
+    const { data: isAdmin, error: adminErr } = await callerClient.rpc('is_platform_admin', { uid: caller.id })
+    if (isAdmin !== true) return json({ error: `Forbidden — operators only${adminErr ? ' (' + adminErr.message + ')' : ''}` }, 403)
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE)
 

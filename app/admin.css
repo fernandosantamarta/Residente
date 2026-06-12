@@ -223,6 +223,20 @@
   70%  { box-shadow: 0 0 0 5px rgba(229, 72, 77, 0); }
   100% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0); }
 }
+/* "Contact Residente" badge — white circle, orange text, white pulse so it
+   stands out against the dark header (where a red badge disappears). */
+.cr-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box;
+  font-size: 10px; font-weight: 800; line-height: 1; color: #E14909;
+  background: #fff; border-radius: 999px;
+  animation: crBadgePulse 1.6s ease-out infinite;
+}
+@keyframes crBadgePulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.65); }
+  70%  { box-shadow: 0 0 0 6px rgba(255, 255, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}
 
 /* Collapsed "Resolved" summary bar in a closed conversation. Soft green, with a
    gentle hover since the whole bar expands the thread. */
@@ -332,6 +346,58 @@
 .bm-option-name { font-size: 14px; font-weight: 500; color: var(--text); }
 .bm-option-sub { font-size: 12px; color: var(--text-dim); }
 .bm-empty { padding: 12px 14px; font-size: 13px; color: var(--text-dim); }
+/* Contact Residente — unified "message box" composer (chat/email feel). */
+.sup-composer {
+  border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card);
+  overflow: hidden; transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.sup-composer:focus-within { border-color: #E14909; box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.12); }
+.sup-subject {
+  width: 100%; border: none; border-bottom: 1px solid var(--border); outline: none;
+  background: transparent; box-sizing: border-box;
+  padding: 13px 16px; font-size: 15px; font-weight: 700; color: var(--text); font-family: inherit;
+}
+.sup-subject::placeholder { color: var(--text-faint); font-weight: 600; }
+.sup-body {
+  width: 100%; border: none; outline: none; background: transparent; box-sizing: border-box;
+  padding: 13px 16px; font-size: 14px; line-height: 1.6; color: var(--text);
+  font-family: inherit; resize: vertical; min-height: 96px;
+}
+.sup-body::placeholder { color: var(--text-faint); }
+.sup-composer-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-top: 1px solid var(--border); background: var(--bg);
+}
+
+/* Two-pane mail layout: conversations on the left, the thread on the right. */
+.sup-mail { display: grid; grid-template-columns: 300px 1fr; gap: 16px; }
+.sup-mail-list {
+  border: 1px solid var(--border); border-radius: 14px;
+  overflow: hidden auto; max-height: 580px; display: flex; flex-direction: column;
+}
+.sup-mail-read {
+  border: 1px solid var(--border); border-radius: 14px;
+  padding: 18px 20px; min-height: 340px;
+}
+.sup-mail-new {
+  display: block; width: 100%; text-align: left; cursor: pointer; font-family: inherit;
+  font-size: 13.5px; font-weight: 700; color: #E14909;
+  padding: 13px 14px; border: none; border-bottom: 1px solid var(--border);
+  background: transparent; transition: background 0.12s ease;
+}
+.sup-mail-new:hover { background: rgba(225, 73, 9, 0.06); }
+.sup-mail-new.active { background: rgba(225, 73, 9, 0.10); }
+.sup-mail-item {
+  display: block; width: 100%; text-align: left; cursor: pointer; font-family: inherit;
+  padding: 12px 14px; border: none; border-left: 3px solid transparent;
+  border-bottom: 1px solid var(--border); background: transparent; transition: background 0.12s ease;
+}
+.sup-mail-item:hover { background: rgba(42, 18, 6, 0.03); }
+.sup-mail-item.active { background: rgba(225, 73, 9, 0.08); border-left-color: #E14909; }
+/* Beat the sketch theme's `button { border-radius: 999px }` for these list rows. */
+.cset .sup-mail-new, .cset .sup-mail-item { border-radius: 0; }
+@media (max-width: 760px) { .sup-mail { grid-template-columns: 1fr; } .sup-mail-list { max-height: 320px; } }
+
 .bm-list { display: flex; flex-direction: column; gap: 8px; }
 .bm-row {
   display: flex; align-items: center; gap: 14px;
