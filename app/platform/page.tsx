@@ -195,6 +195,69 @@ function Select<T extends string>({ value, onChange, options, width, ariaLabel }
   )
 }
 
+// Multi-pick variant of Select for the operator teams: tick two or more teams
+// in one dropdown. The panel stays open while toggling; Owner is exclusive
+// (handled by the caller's toggle logic). Button shows "Onboarding + Billing".
+function MultiSelect({ values, onToggle, options, minWidth, ariaLabel }: {
+  values: OperatorRole[]; onToggle: (v: OperatorRole) => void
+  options: Opt<OperatorRole>[]; minWidth?: number; ariaLabel?: string
+}) {
+  const [open, setOpen] = useState(false)
+  const [hover, setHover] = useState<OperatorRole | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    if (!open) return
+    const onClick = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false) }
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false) }
+    document.addEventListener('mousedown', onClick)
+    document.addEventListener('keydown', onKey)
+    return () => { document.removeEventListener('mousedown', onClick); document.removeEventListener('keydown', onKey) }
+  }, [open])
+  const sel = options.filter(o => values.includes(o.value))
+  return (
+    <div ref={ref} style={{ position: 'relative', minWidth: minWidth ?? 148, flexShrink: 0 }}>
+      <button type="button" onClick={() => setOpen(o => !o)} aria-haspopup="listbox" aria-expanded={open} aria-label={ariaLabel}
+        style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8,
+          background: C.bg, border: `1px solid ${open ? C.accent : C.border}`, borderRadius: 9, padding: '9px 12px',
+          fontSize: 13, fontWeight: 700, color: sel.length === 1 ? (sel[0].color ?? C.text) : C.text, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+        <span>{sel.length ? sel.map(o => o.label).join(' + ') : '—'}</span>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"
+          style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform .15s', flexShrink: 0 }}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <div role="listbox" aria-multiselectable="true" style={{ position: 'absolute', top: 'calc(100% + 6px)', right: 0, minWidth: '100%', zIndex: 50,
+          background: C.card, border: `1px solid ${C.border}`, borderRadius: 11, padding: 5, overflow: 'hidden',
+          boxShadow: '0 14px 40px rgba(0,0,0,0.45)' }}>
+          {options.map(o => {
+            const active = values.includes(o.value), hot = hover === o.value
+            return (
+              <button key={o.value} type="button" role="option" aria-selected={active}
+                onMouseEnter={() => setHover(o.value)} onMouseLeave={() => setHover(h => h === o.value ? null : h)}
+                onClick={() => onToggle(o.value)}
+                style={{ width: '100%', textAlign: 'left', display: 'flex', alignItems: 'flex-start', gap: 9, cursor: 'pointer',
+                  background: active ? C.accentSoft : hot ? 'rgba(255,255,255,0.05)' : 'transparent',
+                  border: 'none', borderRadius: 7, padding: '8px 11px', whiteSpace: 'nowrap' }}>
+                <span aria-hidden="true" style={{ width: 16, height: 16, marginTop: 1, borderRadius: 4, flexShrink: 0,
+                  border: `1.5px solid ${active ? (o.color ?? C.accent) : C.border}`,
+                  background: active ? (o.color ?? C.accent) : 'transparent',
+                  color: '#fff', fontSize: 11, fontWeight: 800, lineHeight: '14px', textAlign: 'center' }}>
+                  {active ? '✓' : ''}
+                </span>
+                <span>
+                  <span style={{ display: 'block', fontSize: 13, fontWeight: 700, color: o.color ?? C.text }}>{o.label}</span>
+                  {o.hint && <span style={{ display: 'block', fontSize: 11.5, color: C.muted, marginTop: 1 }}>{o.hint}</span>}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // Compact paginator in the console palette. Hides itself when everything fits.
 function Paginator({ page, pageSize, total, onPage }: {
   page: number; pageSize: number; total: number; onPage: (p: number) => void
@@ -438,46 +501,54 @@ export default function PlatformConsole() {
   }, [])
 
   const [newEmail, setNewEmail] = useState('')
-  const [newRole, setNewRole] = useState<OperatorRole>('operator')
-  const [newExtras, setNewExtras] = useState<OperatorRole[]>([])
+  const [newTeams, setNewTeams] = useState<OperatorRole[]>(['operator'])
   const [opMsg, setOpMsg] = useState<{ kind: 'err' | 'ok'; text: string } | null>(null)
   const [opBusy, setOpBusy] = useState(false)
 
-  // Extra teams only make sense alongside a team primary — an Owner already
-  // has everything, and the primary team isn't an "extra".
-  const pickNewRole = (r: OperatorRole) => {
-    setNewRole(r)
-    setNewExtras(x => r === 'owner' ? [] : x.filter(e => e !== r))
+  // One team set per operator, picked in a single multi-select. Owner is
+  // exclusive (it's already everything): picking it clears the teams, picking
+  // a team drops Owner. A set can never go empty.
+  const toggleTeam = (cur: OperatorRole[], key: OperatorRole): OperatorRole[] => {
+    if (key === 'owner') return ['owner']
+    const next = cur.includes(key) ? cur.filter(r => r !== key) : [...cur.filter(r => r !== 'owner'), key]
+    return next.length ? next : cur
   }
+  // The DB stores a primary role + extras; derive them from the picked set.
+  const splitTeams = (teams: OperatorRole[]): { primary: OperatorRole; extras: OperatorRole[] } => {
+    const primary = (['owner', 'operator', 'billing', 'support'] as OperatorRole[]).find(r => teams.includes(r)) || 'operator'
+    return { primary, extras: primary === 'owner' ? [] : teams.filter(t => t !== primary) }
+  }
+  const teamLabels = (teams: OperatorRole[]) =>
+    teams.map(t => ROLES.find(r => r.key === t)?.label || t).join(' + ')
+
   const onAddOperator = async () => {
     const email = newEmail.trim()
     if (!email) return
     setOpBusy(true); setOpMsg(null)
-    const err = await addOperator(email, newRole, newExtras)
+    const { primary, extras } = splitTeams(newTeams)
+    const err = await addOperator(email, primary, extras)
     setOpBusy(false)
     if (err) setOpMsg({ kind: 'err', text: err })
     else {
-      const extraNote = newExtras.length ? ` (also on ${newExtras.map(e => ROLES.find(r => r.key === e)?.label || e).join(', ')})` : ''
-      setOpMsg({ kind: 'ok', text: `Added ${email} as ${ROLES.find(r => r.key === newRole)?.label || newRole}${extraNote}.` })
-      setNewEmail(''); setNewExtras([])
+      setOpMsg({ kind: 'ok', text: `Added ${email} as ${teamLabels(newTeams)}.` })
+      setNewEmail(''); setNewTeams(['operator'])
     }
   }
-  const onChangeRole = async (id: string, role: OperatorRole) => {
+  // Toggle one team in an existing operator's dropdown.
+  const onRowTeamToggle = async (o: PlatformOperator, key: OperatorRole) => {
     setOpMsg(null)
+    const cur: OperatorRole[] = [o.role, ...o.extra_roles.filter(r => r !== o.role)]
+    const next = toggleTeam(cur, key)
+    if (next === cur || (next.length === cur.length && next.every(r => cur.includes(r)))) return
+    const { primary, extras } = splitTeams(next)
     // Self-demotion is one click away from locking yourself out of this very
     // tab (the DB only protects the LAST owner) — make it deliberate.
-    if (id === profile?.id && isOwner && role !== 'owner') {
-      const label = ROLES.find(r => r.key === role)?.label || role
-      if (!window.confirm(`Change YOUR OWN role to ${label}? You'll immediately lose Owner access — including this Operators tab — and another Owner (or a SQL fix) will have to restore you.`)) return
+    if (o.profile_id === profile?.id && o.role === 'owner' && primary !== 'owner') {
+      if (!window.confirm(`Change YOUR OWN role to ${teamLabels(next)}? You'll immediately lose Owner access — including this Operators tab — and another Owner (or a SQL fix) will have to restore you.`)) return
     }
-    const err = await setOperatorRole(id, role)
-    if (err) setOpMsg({ kind: 'err', text: err })
-  }
-  // Toggle one extra team on/off for an operator (multi-role).
-  const onToggleExtra = async (o: PlatformOperator, r: OperatorRole) => {
-    setOpMsg(null)
-    const extras = o.extra_roles.includes(r) ? o.extra_roles.filter(x => x !== r) : [...o.extra_roles, r]
-    const err = await setOperatorExtraRoles(o.profile_id, extras)
+    let err: string | null = null
+    if (primary !== o.role) err = await setOperatorRole(o.profile_id, primary)
+    if (!err) err = await setOperatorExtraRoles(o.profile_id, extras)
     if (err) setOpMsg({ kind: 'err', text: err })
   }
   const onRemoveOperator = async (id: string, name: string) => {
@@ -1042,49 +1113,26 @@ export default function PlatformConsole() {
                     since {fmtDate(o.added_at)}{o.added_by_name ? ` · added by ${o.added_by_name}` : ''}
                   </div>
                 </div>
-                {/* Right-side controls: role dropdown + Remove, with the extra
-                    team chips (multi-role) tucked right underneath them. An
-                    Owner already has everything, so chips only show for the
-                    team roles — Owners toggle them; everyone else just sees
-                    which extra teams a person holds. */}
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                    {editable ? (
-                      <Select<OperatorRole> value={o.role} onChange={v => onChangeRole(o.profile_id, v)}
-                        options={ROLE_OPTIONS} width={148} ariaLabel={`Role for ${o.name}`} />
-                    ) : (
-                      <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 11px', borderRadius: 999, textTransform: 'capitalize', background: roleBg(o.role), color: roleColor(o.role) }}>{o.role}</span>
-                    )}
-                    {editable && (
-                      <button onClick={() => onRemoveOperator(o.profile_id, o.name)}
-                        style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: 'none', color: C.muted, whiteSpace: 'nowrap' }}>
-                        Remove
-                      </button>
-                    )}
-                  </div>
-                  {o.role !== 'owner' && (editable || o.extra_roles.length > 0) && (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-                      <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.6px', color: C.muted }}>ALSO ON</span>
-                      {ROLES.filter(r => r.key !== 'owner' && r.key !== o.role).map(r => {
-                        const on = o.extra_roles.includes(r.key)
-                        if (!editable && !on) return null
-                        return editable ? (
-                          <button key={r.key} onClick={() => onToggleExtra(o, r.key)}
-                            title={on ? `Remove the ${r.label} team` : `Add the ${r.label} team`}
-                            style={{ cursor: 'pointer', fontSize: 11.5, fontWeight: 700, padding: '4px 12px', borderRadius: 999, whiteSpace: 'nowrap',
-                              border: `1px solid ${on ? roleColor(r.key) : C.border}`,
-                              background: on ? roleBg(r.key) : 'transparent', color: on ? roleColor(r.key) : C.muted }}>
-                            {on ? '✓ ' : '+ '}{r.label}
-                          </button>
-                        ) : (
-                          <span key={r.key} style={{ fontSize: 11, fontWeight: 700, padding: '4px 11px', borderRadius: 999, background: roleBg(r.key), color: roleColor(r.key) }}>
-                            {r.label}
-                          </span>
-                        )
-                      })}
-                    </div>
-                  )}
-                </div>
+                {/* Right-side controls: one multi-select holds the whole team
+                    set (tick two or more; Owner is exclusive), plus Remove.
+                    Non-owners just see the teams as pills. */}
+                {editable ? (
+                  <>
+                    <MultiSelect values={[o.role, ...o.extra_roles.filter(r => r !== o.role)]}
+                      onToggle={k => onRowTeamToggle(o, k)} options={ROLE_OPTIONS}
+                      ariaLabel={`Teams for ${o.name}`} />
+                    <button onClick={() => onRemoveOperator(o.profile_id, o.name)}
+                      style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: 'none', color: C.muted, whiteSpace: 'nowrap' }}>
+                      Remove
+                    </button>
+                  </>
+                ) : (
+                  [o.role, ...o.extra_roles.filter(r => r !== o.role)].map(t => (
+                    <span key={t} style={{ fontSize: 11, fontWeight: 700, padding: '4px 11px', borderRadius: 999, background: roleBg(t), color: roleColor(t) }}>
+                      {ROLES.find(r => r.key === t)?.label || t}
+                    </span>
+                  ))
+                )}
               </div>
             )
           })}
@@ -1096,33 +1144,14 @@ export default function PlatformConsole() {
                 <input value={newEmail} onChange={e => setNewEmail(e.target.value)} placeholder="their Residente email"
                   onKeyDown={e => { if (e.key === 'Enter') onAddOperator() }}
                   style={{ flex: 1, minWidth: 220, background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 9, padding: '10px 13px', fontSize: 13.5 }} />
-                <Select<OperatorRole> value={newRole} onChange={pickNewRole}
-                  options={ROLE_OPTIONS} width={150} ariaLabel="Role for new operator" />
+                <MultiSelect values={newTeams} onToggle={k => setNewTeams(cur => toggleTeam(cur, k))}
+                  options={ROLE_OPTIONS} minWidth={150} ariaLabel="Teams for new operator" />
                 <button onClick={onAddOperator} disabled={opBusy || !newEmail.trim()}
                   style={{ cursor: opBusy || !newEmail.trim() ? 'default' : 'pointer', fontSize: 13.5, fontWeight: 700, padding: '10px 18px', borderRadius: 9,
                     border: `1px solid ${C.accent}`, background: opBusy || !newEmail.trim() ? 'transparent' : C.accentSoft, color: C.accent, opacity: opBusy || !newEmail.trim() ? 0.5 : 1, whiteSpace: 'nowrap' }}>
                   {opBusy ? 'Adding…' : 'Add operator'}
                 </button>
               </div>
-              {/* Grant extra teams in the same act — same chips as the rows
-                  above. Hidden for an Owner primary (already everything). */}
-              {newRole !== 'owner' && (
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
-                  <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.6px', color: C.muted }}>ALSO ON</span>
-                  {ROLES.filter(r => r.key !== 'owner' && r.key !== newRole).map(r => {
-                    const on = newExtras.includes(r.key)
-                    return (
-                      <button key={r.key} onClick={() => setNewExtras(x => on ? x.filter(e => e !== r.key) : [...x, r.key])}
-                        title={on ? `Remove the ${r.label} team` : `Add the ${r.label} team`}
-                        style={{ cursor: 'pointer', fontSize: 11.5, fontWeight: 700, padding: '4px 12px', borderRadius: 999, whiteSpace: 'nowrap',
-                          border: `1px solid ${on ? roleColor(r.key) : C.border}`,
-                          background: on ? roleBg(r.key) : 'transparent', color: on ? roleColor(r.key) : C.muted }}>
-                        {on ? '✓ ' : '+ '}{r.label}
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
               <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 12 }}>
                 {ROLES.map(r => (
                   <div key={r.key} style={{ fontSize: 11.5, color: C.muted }}>
