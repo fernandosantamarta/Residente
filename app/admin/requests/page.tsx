@@ -347,6 +347,29 @@ export default function RequestsAdmin() {
   const pagedList = shownList.slice(listPg * LIST_PAGE, listPg * LIST_PAGE + LIST_PAGE)
   const selected = rows.find(r => r.id === selectedId) || null
 
+  // Opening a thread whose last message is the resident's marks it "seen" for the
+  // Easy Voice nav badge. The receipt lives server-side (board_read_receipts, per
+  // board member) so it clears the badge on every device this member uses, not
+  // just this browser. This is what stops an already-read message from
+  // re-notifying — the badge clears the moment you open it, even before you reply.
+  // It does NOT touch the "Needs reply" folder, which still lists every unanswered
+  // thread so nothing a resident is waiting on falls through.
+  useEffect(() => {
+    if (!hasSupabase || !supabase || !profile?.id) return
+    if (!selected || selected.last_message_role !== 'resident') return
+    const itemId = selected.id
+    ;(async () => {
+      try {
+        await supabase!.from('board_read_receipts').upsert(
+          { profile_id: profile.id, item_type: 'request', item_id: itemId, read_at: new Date().toISOString() },
+          { onConflict: 'profile_id,item_type,item_id' },
+        )
+        window.dispatchEvent(new Event('board-read'))
+      } catch { /* receipts table may not exist yet — non-fatal */ }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId, selected?.last_message_at, selected?.last_message_role])
+
   // Back to page 1 whenever the folder, search, or category filter changes.
   useEffect(() => { setListPage(0) }, [tab, search, catFilter])
 

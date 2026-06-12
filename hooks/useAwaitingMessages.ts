@@ -9,52 +9,89 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 
-// Generic live count over a community-scoped table, refreshed via realtime + on
-// tab focus. `build` applies the table-specific filters (status, etc.).
-function useCommunityCount(
+// Count community items that need the board's attention AND that THIS board
+// member hasn't seen since their last activity. `build` narrows to the open rows
+// (awaiting reply / awaiting a decision); `activityField` is the column whose
+// value must be newer than the member's read receipt for the item to still count.
+//
+// "Seen" state lives server-side in board_read_receipts (per profile), so it
+// syncs across a member's devices — opening an item on your phone clears the
+// badge on your laptop too. Refreshed via realtime, on tab focus, and on the
+// 'board-read' window event the admin pages fire the moment they mark an item
+// seen. Fails open: if the receipts table doesn't exist yet (SQL not run), every
+// open item counts — the old always-on behavior — instead of erroring.
+function useUnreadCount(
   table: string,
+  itemType: 'request' | 'arc',
+  activityField: string,
   build: (q: any, communityId: string) => any,
 ): number {
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
+  const profileId = profile?.id
   const [count, setCount] = useState(0)
   const [chId] = useState(() => Math.random().toString(36).slice(2))
 
   useEffect(() => {
-    if (!hasSupabase || !supabase || !communityId) { setCount(0); return }
+    if (!hasSupabase || !supabase || !communityId || !profileId) { setCount(0); return }
     let cancelled = false
     const load = async () => {
       try {
-        const base = supabase!.from(table).select('id', { count: 'exact', head: true })
-        const { count: c } = await build(base, communityId)
-        if (!cancelled) setCount(c || 0)
+        const base = supabase!.from(table).select(`id, ${activityField}`)
+        const { data: rows } = await build(base, communityId)
+        const readAt: Record<string, string> = {}
+        try {
+          const { data: rec } = await supabase!
+            .from('board_read_receipts')
+            .select('item_id, read_at')
+            .eq('profile_id', profileId)
+            .eq('item_type', itemType)
+          for (const r of (rec || []) as any[]) readAt[r.item_id] = r.read_at
+        } catch { /* receipts table not created yet — treat all as unseen */ }
+        const unseen = ((rows || []) as any[]).filter((r) => {
+          const ts = r[activityField]
+          const seen = readAt[r.id]
+          return !seen || !ts || seen < ts
+        }).length
+        if (!cancelled) setCount(unseen)
       } catch { /* table may not exist yet — leave at 0 */ }
     }
     load()
     const ch = supabase!
-      .channel(`count:${table}:${communityId}:${chId}`)
+      .channel(`unread:${table}:${communityId}:${chId}`)
       .on('postgres_changes', {
         event: '*', schema: 'public', table,
         filter: `community_id=eq.${communityId}`,
       }, () => load())
       .subscribe()
-    const onFocus = () => load()
-    window.addEventListener('focus', onFocus)
-    return () => { cancelled = true; supabase!.removeChannel(ch); window.removeEventListener('focus', onFocus) }
-  }, [communityId, chId])
+    const onRefresh = () => load()
+    window.addEventListener('focus', onRefresh)
+    // The admin Contact + ARC pages fire this the moment they mark an item seen.
+    window.addEventListener('board-read', onRefresh)
+    return () => {
+      cancelled = true
+      supabase!.removeChannel(ch)
+      window.removeEventListener('focus', onRefresh)
+      window.removeEventListener('board-read', onRefresh)
+    }
+  }, [communityId, profileId, chId])
 
   return count
 }
 
-// Contact conversations awaiting the board's reply (resident messaged last, open).
+// Contact conversations needing the board's attention: resident messaged last,
+// not resolved, and unseen since that message. The /admin/requests "Needs reply"
+// folder still flags every unanswered thread (read or not), so nothing a
+// resident is waiting on gets dropped — only the nagging badge clears on read.
 export function useAwaitingMessages(): number {
-  return useCommunityCount('resident_requests', (q, cid) =>
+  return useUnreadCount('resident_requests', 'request', 'last_message_at', (q, cid) =>
     q.eq('community_id', cid).eq('last_message_role', 'resident').neq('status', 'resolved'))
 }
 
-// Architectural (ARC) requests still open and awaiting a board decision.
+// Architectural (ARC) requests still open and unseen since they were submitted.
+// The ARC worklist still lists every open request until it's decided.
 export function useArcPending(): number {
-  return useCommunityCount('ev_arc_requests', (q, cid) =>
+  return useUnreadCount('ev_arc_requests', 'arc', 'created_at', (q, cid) =>
     q.eq('community_id', cid).in('status', ['submitted', 'under_review']))
 }
 

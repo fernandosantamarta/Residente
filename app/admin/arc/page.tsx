@@ -282,6 +282,34 @@ export default function ArcPage() {
   // Back to the first page whenever a filter changes or the list shrinks.
   useEffect(() => { setListPage(0) }, [catFilter, statusFilter])
 
+  // Opening this worklist marks every open ARC request "seen" for this board
+  // member — the cards are all on screen, so loading the page is seeing them.
+  // The receipt is server-side (board_read_receipts, per member) so the Easy
+  // Voice badge clears across devices, not just this browser. The worklist still
+  // lists each open request until it's decided; only the nag clears. A new
+  // submission (later created_at, no receipt) re-triggers the badge.
+  const openArcKey = useMemo(
+    () => requests
+      .filter(r => OPEN_STATUSES.includes(String(r.status ?? 'submitted') as ArcStatus))
+      .map(r => r.id)
+      .join(','),
+    [requests],
+  )
+  useEffect(() => {
+    if (!hasSupabase || !supabase || !profile?.id || !openArcKey) return
+    const ids = openArcKey.split(',')
+    ;(async () => {
+      try {
+        await supabase.from('board_read_receipts').upsert(
+          ids.map(id => ({ profile_id: profile.id, item_type: 'arc', item_id: id, read_at: new Date().toISOString() })),
+          { onConflict: 'profile_id,item_type,item_id' },
+        )
+        window.dispatchEvent(new Event('board-read'))
+      } catch { /* receipts table may not exist yet — non-fatal */ }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openArcKey, profile?.id])
+
   return (
     <div className="admin-page cset">
       <EasyVoiceTabs active="architectural" />
