@@ -7876,10 +7876,9 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
    backdrop, and a translucent wash makes the text unreadable there. */
 [data-theme="sketch"] .pay-fines-band {
   background: linear-gradient(rgba(225, 73, 9, 0.06), rgba(225, 73, 9, 0.06)), #FFFFFF;
-  border: 2px solid #E14909;
-  border-left: 6px solid #E14909;
-  border-radius: 22px;
-  padding: 16px 22px 10px;
+  border: none;
+  border-radius: 16px;
+  padding: 12px 18px 8px;
   margin-bottom: 16px;
   box-shadow: 0 14px 34px -18px rgba(31, 42, 58, 0.45);
 }
