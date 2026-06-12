@@ -1107,7 +1107,7 @@ export default function PlatformConsole() {
               {/* Grant extra teams in the same act — same chips as the rows
                   above. Hidden for an Owner primary (already everything). */}
               {newRole !== 'owner' && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
                   <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.6px', color: C.muted }}>ALSO ON</span>
                   {ROLES.filter(r => r.key !== 'owner' && r.key !== newRole).map(r => {
                     const on = newExtras.includes(r.key)
