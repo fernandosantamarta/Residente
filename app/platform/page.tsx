@@ -453,6 +453,12 @@ export default function PlatformConsole() {
   }
   const onChangeRole = async (id: string, role: OperatorRole) => {
     setOpMsg(null)
+    // Self-demotion is one click away from locking yourself out of this very
+    // tab (the DB only protects the LAST owner) — make it deliberate.
+    if (id === profile?.id && isOwner && role !== 'owner') {
+      const label = ROLES.find(r => r.key === role)?.label || role
+      if (!window.confirm(`Change YOUR OWN role to ${label}? You'll immediately lose Owner access — including this Operators tab — and another Owner (or a SQL fix) will have to restore you.`)) return
+    }
     const err = await setOperatorRole(id, role)
     if (err) setOpMsg({ kind: 'err', text: err })
   }
@@ -464,7 +470,10 @@ export default function PlatformConsole() {
     if (err) setOpMsg({ kind: 'err', text: err })
   }
   const onRemoveOperator = async (id: string, name: string) => {
-    if (typeof window !== 'undefined' && !window.confirm(`Remove ${name} as a Residente operator?`)) return
+    const msg = id === profile?.id
+      ? 'Remove YOURSELF as a Residente operator? You lose all Platform Console access and another Owner has to add you back.'
+      : `Remove ${name} as a Residente operator?`
+    if (typeof window !== 'undefined' && !window.confirm(msg)) return
     setOpMsg(null)
     const err = await removeOperator(id)
     if (err) setOpMsg({ kind: 'err', text: err })
