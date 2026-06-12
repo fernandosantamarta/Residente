@@ -11,10 +11,13 @@ export const metadata: Metadata = {
   // Wires the existing brand mark as the favicon so browsers stop
   // 404'ing for /favicon.ico. Next emits the right <link rel="icon">
   // and apple-touch-icon tags from this block.
+  // apple-touch-icon must be the dedicated OPAQUE file: iOS paints any
+  // transparency black on the home screen, so the transparent logo PNG
+  // turned the icon black. This one is white with the orange mark centered.
   icons: {
     icon: '/residente-logo.png',
     shortcut: '/residente-logo.png',
-    apple: '/residente-logo.png',
+    apple: '/apple-touch-icon.png',
   },
 }
 
