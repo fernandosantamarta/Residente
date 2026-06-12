@@ -23,7 +23,13 @@ async function resolveLanding(): Promise<string> {
     if (supabase) {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+        const { data } = await supabase.from('profiles').select('role, community_id').eq('id', user.id).single()
+        // A Residente operator with no active community lives in the Platform
+        // Console — there's no community admin to land on.
+        if (data && !data.community_id) {
+          const { data: isOp } = await supabase.rpc('is_platform_admin', { uid: user.id })
+          if (isOp === true) return '/platform'
+        }
         if (data?.role && data.role !== 'resident') return '/admin'
       }
     }

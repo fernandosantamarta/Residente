@@ -28,6 +28,64 @@ export default function CommunitySettings() {
   // it loads (and on any error), so the dues card just shows '—' for actuals.
   const [summary, setSummary] = useState(null)
 
+  // Community ownership — current owner from community_owner_info(); the owner
+  // (only) also gets the transfer picker fed by community_owner_candidates().
+  // Both RPCs come from ownership-and-role-walls.sql; on an older DB they fail
+  // quietly and the card simply doesn't render.
+  const [owner, setOwner] = useState(null)
+  const [candidates, setCandidates] = useState([])
+  const [transferSel, setTransferSel] = useState('')
+  const [stepDown, setStepDown] = useState(false)
+  const [transferBusy, setTransferBusy] = useState(false)
+  const [transferErr, setTransferErr] = useState('')
+
+  const loadOwner = useCallback(async () => {
+    if (!hasSupabase || !communityId) return
+    try {
+      const { data, error } = await supabase.rpc('community_owner_info')
+      if (!error && data) setOwner(Array.isArray(data) ? (data[0] ?? null) : data)
+    } catch { /* pre-migration DB — no ownership card */ }
+  }, [communityId])
+  useEffect(() => { loadOwner() }, [loadOwner])
+
+  const isOwner = !!owner?.owner_profile_id && owner.owner_profile_id === profile?.id
+  useEffect(() => {
+    if (!hasSupabase || !isOwner) { setCandidates([]); return }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { data, error } = await supabase.rpc('community_owner_candidates')
+        if (!cancelled && !error && data) setCandidates(data)
+      } catch { /* non-fatal */ }
+    })()
+    return () => { cancelled = true }
+  }, [isOwner])
+
+  const transferOwnership = async () => {
+    if (!transferSel) return
+    const who = candidates.find(c => c.profile_id === transferSel)
+    const tail = stepDown
+      ? 'You will step down to a regular resident — your admin access ends immediately.'
+      : 'You keep your admin role.'
+    if (!window.confirm(`Transfer ownership of ${form?.name || 'your community'} to ${who?.full_name || 'this member'}? They become the owner with full admin access. ${tail}`)) return
+    setTransferBusy(true); setTransferErr('')
+    try {
+      const { error } = await withTimeout(
+        supabase.rpc('community_transfer_ownership', { p_community: communityId, p_new_owner: transferSel, p_step_down: stepDown })
+      )
+      if (error) throw error
+      setTransferSel('')
+      setSuccessMsg(`Ownership transferred to ${who?.full_name || 'the new owner'}.`)
+      // Stepping down ends your own admin access — leave the admin area now
+      // rather than waiting for the next permissions check to bounce you.
+      if (stepDown) { window.location.href = '/app'; return }
+      await loadOwner()
+    } catch (err) {
+      setTransferErr(err?.message || 'Transfer failed')
+    }
+    setTransferBusy(false)
+  }
+
   // Auto-dismiss the green confirmation banner after 4s, matching the Rules page.
   useEffect(() => {
     if (!successMsg) return
@@ -288,6 +346,69 @@ export default function CommunitySettings() {
               </Link>
             </div>
           </div>
+
+          {/* ---- Community ownership — a transferable hat, not a possession.
+                  Boards rotate; the owner hands the role to another member with
+                  an account. Residente can also reassign it from the Platform
+                  Console if a community is ever orphaned. ---- */}
+          {owner && (
+            <div className="card">
+              <div className="card-head" style={{ marginBottom: 0 }}>
+                <div>
+                  <h2>Community ownership</h2>
+                  <div className="sub">
+                    Owner: <strong>{owner.owner_name || owner.owner_email || '—'}</strong>
+                    {owner.owner_email && owner.owner_name ? ` (${owner.owner_email})` : ''}
+                    {isOwner ? ' — that’s you.' : ''}
+                  </div>
+                </div>
+              </div>
+              {isOwner && (
+                <div style={{ marginTop: 14 }}>
+                  {candidates.length === 0 ? (
+                    <div className="sub">
+                      To transfer ownership, another board member needs a Residente account first —
+                      once they sign up, they’ll appear here.
+                    </div>
+                  ) : (
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                      <label className="admin-field" style={{ flex: '1 1 260px', marginBottom: 0 }}>
+                        <span className="admin-field-label">Transfer ownership to</span>
+                        <Dropdown
+                          value={transferSel}
+                          onChange={setTransferSel}
+                          placeholder="Choose a member…"
+                          ariaLabel="New community owner"
+                          options={candidates.map(c => ({
+                            value: c.profile_id,
+                            label: `${c.full_name || c.email || 'Member'}${c.board_position ? ` · ${c.board_position}` : ''}`,
+                          }))}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="admin-primary-btn"
+                        disabled={!transferSel || transferBusy}
+                        onClick={transferOwnership}
+                        style={{ whiteSpace: 'nowrap' }}
+                      >
+                        {transferBusy ? 'Transferring…' : 'Transfer ownership'}
+                      </button>
+                    </div>
+                  )}
+                  {transferErr && <div className="admin-err-inline" style={{ display: 'block', marginTop: 10 }}>{transferErr}</div>}
+                  <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 12, cursor: 'pointer', fontSize: 13 }}>
+                    <input type="checkbox" checked={stepDown} onChange={e => setStepDown(e.target.checked)} style={{ marginTop: 2 }} />
+                    <span>I’m stepping down — make me a regular resident (removes my admin access, board seat, and assigned role)</span>
+                  </label>
+                  <div className="field-hint" style={{ marginTop: 10 }}>
+                    The new owner gets full admin access. Unless you step down, you keep your admin
+                    role — they can adjust roles afterwards. This can’t be undone from your side.
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ---- Delete community — handled by Residente, not self-serve ---- */}
           <div className="card">

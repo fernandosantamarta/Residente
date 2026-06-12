@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/providers'
-import { usePlatformConsole, usePlatformThread, sendPlatformReply, openCommunityThread, PlatformRequest, PlatformResident, OperatorRole, AuditEntry } from '@/hooks/usePlatform'
+import { usePlatformConsole, usePlatformThread, sendPlatformReply, openCommunityThread, PlatformRequest, PlatformResident, PlatformOperator, OperatorRole, AuditEntry } from '@/hooks/usePlatform'
 import { DangerAction } from '@/components/DangerAction'
 
 const fmtDate = (s: string) =>
@@ -87,8 +87,9 @@ const communityMonthlyCents = (c: { plan: string | null; home_count: number | nu
   (PLAN_RATE_CENTS[c.plan || 'free'] ?? 0) * Number(c.home_count ?? c.unit_count ?? 0)
 const fmtMoney = (cents: number) => `$${Math.round(cents / 100).toLocaleString('en-US')}`
 
+// 'owner' in the DB and "Owner" in the UI — the role that manages the team.
 const ROLES: { key: OperatorRole; label: string; blurb: string }[] = [
-  { key: 'owner', label: 'Founder', blurb: 'Everything + manage the team' },
+  { key: 'owner', label: 'Owner', blurb: 'Everything + manage the team' },
   { key: 'operator', label: 'Onboarding', blurb: 'Communities + support, no billing' },
   { key: 'billing', label: 'Billing', blurb: 'Subscriptions & invoices' },
   { key: 'support', label: 'Support', blurb: 'Support inbox only' },
@@ -107,7 +108,10 @@ const auditText = (e: AuditEntry): string => {
     case 'operator_added':       return `added ${d.email || 'an operator'} as ${d.role || 'operator'}`
     case 'operator_removed':     return `removed ${d.email || 'an operator'} (${d.role || '—'})`
     case 'operator_role_changed':return `changed an operator from ${d.from} to ${d.to}`
+    case 'operator_extra_roles': return `set an operator's extra teams to ${(Array.isArray(d.extras) && d.extras.length) ? d.extras.join(', ') : 'none'}`
     case 'ticket_status':        return `moved a ticket "${d.subject || ''}" ${d.from} → ${d.to}`
+    case 'ownership_transferred':return `transferred ownership of ${d.name || 'a community'} to ${d.to || 'a member'}`
+    case 'resident_removed':     return `removed ${d.name || 'a resident'} from ${d.community || 'a community'}`
     default:                     return e.action.replace(/_/g, ' ')
   }
 }
@@ -118,17 +122,20 @@ const AUDIT_META: Record<string, { tone: Tone; label: string }> = {
   operator_added:        { tone: 'good',   label: 'Operator +' },
   operator_removed:      { tone: 'bad',    label: 'Operator −' },
   operator_role_changed: { tone: 'warn',   label: 'Role' },
+  operator_extra_roles:  { tone: 'warn',   label: 'Role' },
   ticket_status:         { tone: 'accent', label: 'Support' },
+  ownership_transferred: { tone: 'warn',   label: 'Ownership' },
+  resident_removed:      { tone: 'bad',    label: 'Resident −' },
 }
 const auditMeta = (action: string): { tone: Tone; label: string } =>
   AUDIT_META[action] || { tone: 'neutral', label: action.replace(/_/g, ' ') }
 
 // Category filters for the Activity feed.
-const KNOWN_AUDIT = ['entered_community', 'operator_added', 'operator_removed', 'operator_role_changed', 'ticket_status']
+const KNOWN_AUDIT = ['entered_community', 'operator_added', 'operator_removed', 'operator_role_changed', 'operator_extra_roles', 'ticket_status']
 const ACTIVITY_FILTERS: { key: string; label: string; tone: Tone; match: (a: string) => boolean }[] = [
   { key: 'all',       label: 'All',          tone: 'neutral', match: () => true },
   { key: 'entered',   label: 'Entered',      tone: 'info',    match: a => a === 'entered_community' },
-  { key: 'operators', label: 'Operators',    tone: 'good',    match: a => a === 'operator_added' || a === 'operator_removed' || a === 'operator_role_changed' },
+  { key: 'operators', label: 'Operators',    tone: 'good',    match: a => a === 'operator_added' || a === 'operator_removed' || a === 'operator_role_changed' || a === 'operator_extra_roles' },
   { key: 'support',   label: 'Support',      tone: 'accent',  match: a => a === 'ticket_status' },
   { key: 'other',     label: 'Other',        tone: 'neutral', match: a => !KNOWN_AUDIT.includes(a) },
 ]
@@ -332,9 +339,9 @@ function SupportThread({ req, onResolve, onReopen, onChanged }: {
 
 export default function PlatformConsole() {
   const {
-    isAdmin, myRole, communities, requests, operators, audit, loading, reload,
+    isAdmin, myRole, myRoles, communities, requests, operators, audit, loading, reload,
     setRequestStatus, enterCommunity, addOperator, removeOperator, setOperatorRole,
-    removeCommunity, fetchResidents, removeResident,
+    setOperatorExtraRoles, removeCommunity, fetchResidents, removeResident, transferOwnership,
   } = usePlatformConsole()
   const router = useRouter()
   const { profile } = useAuth() || {}
@@ -375,13 +382,21 @@ export default function PlatformConsole() {
     return () => clearTimeout(t)
   }, [highlightId])
   const isOwner = myRole === 'owner'
-  // Role-scoped views (mock parity). Unknown/legacy role → treat as full access
-  // (owner) so an admin never lands on a blank console. Money lives only in the
-  // Overview + Subscriptions tabs, so omitting those hides revenue from a role.
-  const effectiveRole: OperatorRole = (myRole && ROLE_TABS[myRole]) ? myRole : 'owner'
-  const allowedTabs = ROLE_TABS[effectiveRole]
+  // Role-scoped views (mock parity). An operator can hold several teams — what
+  // they see is the UNION of their teams' tabs (the DB walls enforce the same
+  // set server-side). Unknown/legacy role → treat as full access (owner) so an
+  // admin never lands on a blank console. Money lives only in the Overview +
+  // Subscriptions tabs, so a role set without owner/billing never shows revenue.
+  const roleSet: OperatorRole[] = (myRoles && myRoles.length ? myRoles : [myRole as OperatorRole])
+    .filter((r): r is OperatorRole => !!r && !!ROLE_TABS[r])
+  const effectiveRoles: OperatorRole[] = roleSet.length ? roleSet : ['owner']
+  const allowedTabs = TABS.map(t => t.key)
+    .filter(k => effectiveRoles.some(r => ROLE_TABS[r].includes(k)))
   const curTab: Tab = allowedTabs.includes(tab) ? tab : allowedTabs[0]
-  const canEnter = effectiveRole !== 'support'
+  const canEnter = effectiveRoles.some(r => r !== 'support')
+  // Ownership reassignment is the operator backstop for orphaned communities —
+  // owner/operator teams only (the DB function enforces the same rule).
+  const canTransfer = effectiveRoles.includes('owner') || effectiveRoles.includes('operator')
   // Residents roster modal (per community)
   const [rosterFor, setRosterFor] = useState<{ id: string; name: string } | null>(null)
   const [roster, setRoster] = useState<PlatformResident[]>([])
@@ -398,6 +413,20 @@ export default function PlatformConsole() {
     if (!err && rosterFor) setRoster(await fetchResidents(rosterFor.id))
     setRosterBusy(null)
   }
+  // Transfer-ownership picker inside the community pop-up. Choices are the
+  // community's members who hold an account (profile_id), minus the current owner.
+  const [transferOpen, setTransferOpen] = useState(false)
+  const [transferLoading, setTransferLoading] = useState(false)
+  const [transferChoices, setTransferChoices] = useState<PlatformResident[]>([])
+  const [transferSel, setTransferSel] = useState('')
+  const [transferStepDown, setTransferStepDown] = useState(false)
+  const [transferBusy, setTransferBusy] = useState(false)
+  const [transferErr, setTransferErr] = useState('')
+  useEffect(() => {
+    // Opening a different community resets the picker.
+    setTransferOpen(false); setTransferSel(''); setTransferErr(''); setTransferChoices([]); setTransferStepDown(false)
+  }, [subDetail?.id])
+
   // Where "Back to your community" returns to: the admin page the operator was
   // on before opening Platform Console (stashed by the admin nav link). Defaults
   // to the admin home, and only honors /admin paths so it can't be redirected.
@@ -425,6 +454,13 @@ export default function PlatformConsole() {
   const onChangeRole = async (id: string, role: OperatorRole) => {
     setOpMsg(null)
     const err = await setOperatorRole(id, role)
+    if (err) setOpMsg({ kind: 'err', text: err })
+  }
+  // Toggle one extra team on/off for an operator (multi-role).
+  const onToggleExtra = async (o: PlatformOperator, r: OperatorRole) => {
+    setOpMsg(null)
+    const extras = o.extra_roles.includes(r) ? o.extra_roles.filter(x => x !== r) : [...o.extra_roles, r]
+    const err = await setOperatorExtraRoles(o.profile_id, extras)
     if (err) setOpMsg({ kind: 'err', text: err })
   }
   const onRemoveOperator = async (id: string, name: string) => {
@@ -505,7 +541,7 @@ export default function PlatformConsole() {
 
   // Search-filtered views (the lists stay alphabetical from the hook).
   const filteredCommunities = communities.filter(c =>
-    matchesQuery(commQuery, [c.name, c.location, c.created_by_name, c.created_by_email, c.join_code, c.plan, c.subscription_status]))
+    matchesQuery(commQuery, [c.name, c.location, c.created_by_name, c.created_by_email, c.owner_name, c.owner_email, c.join_code, c.plan, c.subscription_status]))
   const filteredSubs = communities.filter(c =>
     matchesQuery(subQuery, [c.name, c.plan, c.subscription_status]))
   const filteredRoster = roster.filter(r =>
@@ -525,6 +561,36 @@ export default function PlatformConsole() {
     const ok = await enterCommunity(id)
     if (ok) router.push('/admin')
     else setEntering(null)
+  }
+
+  const openTransfer = async () => {
+    if (!subDetail) return
+    setTransferOpen(true); setTransferErr(''); setTransferSel(''); setTransferLoading(true)
+    const all = await fetchResidents(subDetail.id)
+    // One entry per account — a member with several roster rows (multi-role)
+    // must appear once, keeping their board row so the label shows the seat.
+    const seen = new Set<string>()
+    const deduped = [...all]
+      .sort((a, b) => Number(!!b.is_board) - Number(!!a.is_board))
+      .filter(r => {
+        if (!r.profile_id || r.profile_id === subDetail.owner_profile_id || seen.has(r.profile_id)) return false
+        seen.add(r.profile_id)
+        return true
+      })
+      .sort((a, b) => (a.full_name || '~').localeCompare(b.full_name || '~'))
+    setTransferChoices(deduped)
+    setTransferLoading(false)
+  }
+  const doTransfer = async () => {
+    if (!subDetail || !transferSel) return
+    const who = transferChoices.find(r => r.profile_id === transferSel)
+    const stepDownNote = transferStepDown ? ' The previous owner steps down to a regular resident.' : ''
+    if (!window.confirm(`Make ${who?.full_name || 'this member'} the owner of ${subDetail.name || 'this community'}? They get full admin access.${stepDownNote}`)) return
+    setTransferBusy(true); setTransferErr('')
+    const err = await transferOwnership(subDetail.id, transferSel, transferStepDown)
+    setTransferBusy(false)
+    if (err) { setTransferErr(err); return }
+    setTransferOpen(false); setSubDetail(null)
   }
 
   // Jump from a KPI tile / triage chip to the first community with a given
@@ -968,6 +1034,31 @@ export default function PlatformConsole() {
                     Remove
                   </button>
                 )}
+                {/* Extra teams (multi-role): an Owner already has everything,
+                    so the chips only show for the team roles. Owners toggle
+                    them; everyone else sees which extra teams a person holds. */}
+                {o.role !== 'owner' && (editable || o.extra_roles.length > 0) && (
+                  <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', paddingLeft: 52 }}>
+                    <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.6px', color: C.muted }}>ALSO ON</span>
+                    {ROLES.filter(r => r.key !== 'owner' && r.key !== o.role).map(r => {
+                      const on = o.extra_roles.includes(r.key)
+                      if (!editable && !on) return null
+                      return editable ? (
+                        <button key={r.key} onClick={() => onToggleExtra(o, r.key)}
+                          title={on ? `Remove the ${r.label} team` : `Add the ${r.label} team`}
+                          style={{ cursor: 'pointer', fontSize: 11.5, fontWeight: 700, padding: '4px 12px', borderRadius: 999, whiteSpace: 'nowrap',
+                            border: `1px solid ${on ? roleColor(r.key) : C.border}`,
+                            background: on ? roleBg(r.key) : 'transparent', color: on ? roleColor(r.key) : C.muted }}>
+                          {on ? '✓ ' : '+ '}{r.label}
+                        </button>
+                      ) : (
+                        <span key={r.key} style={{ fontSize: 11, fontWeight: 700, padding: '4px 11px', borderRadius: 999, background: roleBg(r.key), color: roleColor(r.key) }}>
+                          {r.label}
+                        </span>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
             )
           })}
@@ -1107,6 +1198,13 @@ export default function PlatformConsole() {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', fontSize: 13.5 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '11px 0', borderTop: `1px solid ${C.border}` }}>
+                <span style={{ color: C.muted }}>Owner</span>
+                <span style={{ fontWeight: 700, textAlign: 'right' }}>
+                  {subDetail.owner_name || subDetail.created_by_name || '—'}
+                  {(subDetail.owner_email || subDetail.created_by_email) && <span style={{ display: 'block', fontWeight: 400, fontSize: 12, color: C.muted }}>{subDetail.owner_email || subDetail.created_by_email}</span>}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '11px 0', borderTop: `1px solid ${C.border}` }}>
                 <span style={{ color: C.muted }}>Created by</span>
                 <span style={{ fontWeight: 700, textAlign: 'right' }}>
                   {subDetail.created_by_name || '—'}
@@ -1154,16 +1252,69 @@ export default function PlatformConsole() {
                   Manage this community →
                 </button>
               )}
-              <a href={subDetail.created_by_email ? `mailto:${subDetail.created_by_email}?subject=${encodeURIComponent(`Residente — ${subDetail.name || 'your community'}`)}` : undefined}
-                title={subDetail.created_by_email || 'No email on file'}
-                onClick={subDetail.created_by_email ? undefined : (e) => e.preventDefault()}
-                style={{ width: '100%', boxSizing: 'border-box', textAlign: 'center', textDecoration: 'none', whiteSpace: 'nowrap',
-                  cursor: subDetail.created_by_email ? 'pointer' : 'not-allowed', fontSize: 14, fontWeight: 700,
-                  padding: '12px 16px', borderRadius: 10, border: `1px solid ${C.border}`, background: 'transparent',
-                  color: subDetail.created_by_email ? C.text : C.muted, opacity: subDetail.created_by_email ? 1 : 0.6 }}>
-                {subDetail.created_by_email ? `Contact ${subDetail.created_by_name?.split(' ')[0] || 'owner'}` : 'No email on file'}
-              </a>
+              {(() => {
+                // Contact goes to the CURRENT owner; the creator is history.
+                const cEmail = subDetail.owner_email || subDetail.created_by_email
+                const cName = subDetail.owner_name || subDetail.created_by_name
+                return (
+                  <a href={cEmail ? `mailto:${cEmail}?subject=${encodeURIComponent(`Residente — ${subDetail.name || 'your community'}`)}` : undefined}
+                    title={cEmail || 'No email on file'}
+                    onClick={cEmail ? undefined : (e) => e.preventDefault()}
+                    style={{ width: '100%', boxSizing: 'border-box', textAlign: 'center', textDecoration: 'none', whiteSpace: 'nowrap',
+                      cursor: cEmail ? 'pointer' : 'not-allowed', fontSize: 14, fontWeight: 700,
+                      padding: '12px 16px', borderRadius: 10, border: `1px solid ${C.border}`, background: 'transparent',
+                      color: cEmail ? C.text : C.muted, opacity: cEmail ? 1 : 0.6 }}>
+                    {cEmail ? `Contact ${cName?.split(' ')[0] || 'owner'}` : 'No email on file'}
+                  </a>
+                )
+              })()}
+              {canTransfer && !transferOpen && (
+                <button onClick={openTransfer}
+                  style={{ width: '100%', cursor: 'pointer', fontSize: 14, fontWeight: 700, padding: '12px 16px', borderRadius: 10, whiteSpace: 'nowrap',
+                    border: `1px solid ${C.border}`, background: 'transparent', color: C.text }}>
+                  Transfer ownership…
+                </button>
+              )}
             </div>
+            {canTransfer && transferOpen && (
+              <div style={{ marginTop: 14, borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.4px', color: C.muted, marginBottom: 8 }}>NEW OWNER</div>
+                {transferLoading ? (
+                  <div style={{ color: C.muted, fontSize: 13 }}>Loading members…</div>
+                ) : transferChoices.length === 0 ? (
+                  <div style={{ color: C.muted, fontSize: 13 }}>No other members with a Residente account — ask a board member to sign up first.</div>
+                ) : (
+                  <>
+                    <Select value={transferSel} onChange={setTransferSel} ariaLabel="New owner" width="100%"
+                      options={[{ value: '', label: 'Choose a member…' },
+                        ...transferChoices.map(r => ({
+                          value: r.profile_id as string,
+                          label: `${r.full_name || r.email || 'Member'}${r.is_board ? ` · ${r.board_position || 'Board'}` : ''}`,
+                        }))]} />
+                    <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 12, cursor: 'pointer', fontSize: 12.5, color: C.text }}>
+                      <input type="checkbox" checked={transferStepDown} onChange={e => setTransferStepDown(e.target.checked)}
+                        style={{ marginTop: 2, accentColor: C.accent }} />
+                      <span>Previous owner steps down to a regular resident (admin access, board seat, and any assigned role removed)</span>
+                    </label>
+                    <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+                      <button onClick={doTransfer} disabled={!transferSel || transferBusy}
+                        style={{ flex: 1, cursor: transferSel && !transferBusy ? 'pointer' : 'not-allowed', fontSize: 13.5, fontWeight: 700, padding: '10px 14px', borderRadius: 10,
+                          border: `1px solid ${C.accent}`, background: transferSel ? C.accent : C.accentSoft, color: transferSel ? '#fff' : C.accent, opacity: transferBusy ? 0.7 : 1 }}>
+                        {transferBusy ? 'Transferring…' : 'Confirm transfer'}
+                      </button>
+                      <button onClick={() => { setTransferOpen(false); setTransferErr('') }}
+                        style={{ cursor: 'pointer', fontSize: 13.5, fontWeight: 700, padding: '10px 14px', borderRadius: 10, border: `1px solid ${C.border}`, background: 'transparent', color: C.muted }}>
+                        Cancel
+                      </button>
+                    </div>
+                  </>
+                )}
+                {transferErr && <div style={{ color: '#C24040', fontSize: 12.5, marginTop: 8 }}>{transferErr}</div>}
+                <p style={{ color: C.muted, fontSize: 11.5, lineHeight: 1.5, marginTop: 10, marginBottom: 0 }}>
+                  The new owner gets full admin access. Unless they step down, the previous owner keeps their current role. Recorded in the Activity log.
+                </p>
+              </div>
+            )}
             {canEnter && (
               <p style={{ color: C.muted, fontSize: 11.5, lineHeight: 1.5, marginTop: 10, marginBottom: 0 }}>
                 <strong style={{ color: C.text }}>Manage</strong> drops you into this community&rsquo;s admin as an operator — you act in the board&rsquo;s seat and can view and edit everything they can (residents, budget, notices, votes). Your visit is recorded in the Activity log.

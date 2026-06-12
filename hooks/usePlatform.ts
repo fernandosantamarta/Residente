@@ -9,9 +9,12 @@ export type PlatformCommunity = {
   plan: string | null; home_count: number | null; unit_count: number | null
   stripe_subscription_id: string | null
   created_by_name: string | null; created_by_email: string | null
+  // Current owner — reassignable, distinct from created_by (history). Null on
+  // older DBs (before ownership-and-role-walls.sql) or for masked roles.
+  owner_profile_id: string | null; owner_name: string | null; owner_email: string | null
 }
 export type PlatformResident = {
-  id: string; full_name: string | null; email: string | null
+  id: string; profile_id: string | null; full_name: string | null; email: string | null
   unit_number: string | null; board_position: string | null
   is_board: boolean | null; created_at: string
 }
@@ -20,12 +23,15 @@ export type PlatformRequest = {
   from_community_id: string | null; subject: string; body: string | null
   status: 'open' | 'in_progress' | 'resolved'; created_at: string
 }
-// owner = "Founder" (full access + manage team), operator = "Onboarding",
+// owner = "Owner" (full access + manage team), operator = "Onboarding",
 // billing = "Billing" (financials), support = "Support" (inbox only).
+// An operator holds one primary role plus optional extra teams (multi-role);
+// their access is the union of the set — enforced in the DB role walls.
 export type OperatorRole = 'owner' | 'operator' | 'support' | 'billing'
 export type PlatformOperator = {
   profile_id: string; name: string; email: string | null
-  role: OperatorRole; added_by_name: string | null; added_at: string
+  role: OperatorRole; extra_roles: OperatorRole[]
+  added_by_name: string | null; added_at: string
 }
 export type AuditEntry = {
   id: string; actor_name: string | null; actor_email: string | null
@@ -51,6 +57,32 @@ export function usePlatformAdmin(): boolean | null {
   return isAdmin
 }
 
+// The signed-in operator's full team set (primary + extras), e.g.
+// ['operator','billing']. undefined while loading, null when the user isn't
+// an operator at all. Falls back to the single platform_role on a DB that
+// predates operator-multi-role.sql.
+export function usePlatformRoles(): OperatorRole[] | null | undefined {
+  const { profile } = useAuth() || {}
+  const [roles, setRoles] = useState<OperatorRole[] | null | undefined>(undefined)
+
+  useEffect(() => {
+    let cancelled = false
+    if (!hasSupabase || !supabase || !profile?.id) { setRoles(null); return }
+    ;(async () => {
+      const { data, error } = await supabase!.rpc('platform_roles', { uid: profile.id })
+      if (!error && Array.isArray(data)) {
+        if (!cancelled) setRoles(data.length ? (data as OperatorRole[]) : null)
+        return
+      }
+      const { data: single, error: singleErr } = await supabase!.rpc('platform_role', { uid: profile.id })
+      if (!cancelled) setRoles(!singleErr && single ? [single as OperatorRole] : null)
+    })()
+    return () => { cancelled = true }
+  }, [profile?.id])
+
+  return roles
+}
+
 // Full console data — all communities + the support inbox. The
 // platform_overview RPC raises for non-admins, so an error means "not authorized".
 export function usePlatformConsole() {
@@ -61,6 +93,7 @@ export function usePlatformConsole() {
   const [operators, setOperators] = useState<PlatformOperator[]>([])
   const [audit, setAudit] = useState<AuditEntry[]>([])
   const [myRole, setMyRole] = useState<OperatorRole | null>(null)
+  const [myRoles, setMyRoles] = useState<OperatorRole[]>([])
   const [loading, setLoading] = useState(true)
 
   const load = useCallback(async () => {
@@ -71,7 +104,7 @@ export function usePlatformConsole() {
     setLoading(true)
     try {
       const { data, error } = await supabase.rpc('platform_overview')
-      if (error) { setIsAdmin(false); setCommunities([]); setRequests([]); setOperators([]); setAudit([]); setMyRole(null); return }
+      if (error) { setIsAdmin(false); setCommunities([]); setRequests([]); setOperators([]); setAudit([]); setMyRole(null); setMyRoles([]); return }
       setIsAdmin(true)
       // Alphabetical by community name — drives both the Communities and the
       // Subscriptions tables (they iterate this same array).
@@ -90,10 +123,13 @@ export function usePlatformConsole() {
       const mapped: PlatformOperator[] = (ops ?? []).map((o: any) => ({
         profile_id: o.profile_id, name: o.name || 'Operator', email: o.email || null,
         role: (o.role || 'operator') as OperatorRole,
+        extra_roles: (Array.isArray(o.extra_roles) ? o.extra_roles : []) as OperatorRole[],
         added_by_name: o.added_by_name || null, added_at: o.added_at,
       }))
       setOperators(mapped)
-      setMyRole(mapped.find(o => o.profile_id === profile.id)?.role ?? null)
+      const me = mapped.find(o => o.profile_id === profile.id)
+      setMyRole(me?.role ?? null)
+      setMyRoles(me ? [me.role, ...me.extra_roles.filter(r => r !== me.role)] : [])
       // Recent activity (audit log).
       const { data: log } = await supabase.rpc('platform_audit', { p_limit: 100 })
       setAudit((log ?? []) as AuditEntry[])
@@ -116,8 +152,10 @@ export function usePlatformConsole() {
   const enterCommunity = useCallback(async (communityId: string): Promise<boolean> => {
     if (!hasSupabase || !supabase) return false
     try {
-      if (typeof window !== 'undefined' && profile?.community_id) {
-        window.localStorage.setItem('platform_return_to', profile.community_id)
+      // 'none' marks an operator with no home community: "exit" then parks
+      // them at community_id = NULL instead of re-entering somewhere.
+      if (typeof window !== 'undefined') {
+        window.localStorage.setItem('platform_return_to', profile?.community_id ?? 'none')
       }
       const { error } = await supabase.rpc('platform_enter_community', { target: communityId })
       return !error
@@ -145,6 +183,16 @@ export function usePlatformConsole() {
   const setOperatorRole = useCallback(async (profileId: string, role: OperatorRole): Promise<string | null> => {
     if (!hasSupabase || !supabase) return 'Not connected'
     const { error } = await supabase.rpc('platform_set_operator_role', { target: profileId, new_role: role })
+    if (error) return error.message
+    await load()
+    return null
+  }, [load])
+
+  // Owner-only: set an operator's extra teams (multi-role). Their access
+  // becomes the union of primary + extras — enforced by the DB walls.
+  const setOperatorExtraRoles = useCallback(async (profileId: string, extras: OperatorRole[]): Promise<string | null> => {
+    if (!hasSupabase || !supabase) return 'Not connected'
+    const { error } = await supabase.rpc('platform_set_operator_extra_roles', { target: profileId, extras })
     if (error) return error.message
     await load()
     return null
@@ -186,10 +234,23 @@ export function usePlatformConsole() {
     return null
   }, [load])
 
+  // Operator backstop: reassign a community's owner (owner/operator roles only,
+  // enforced in the DB function; audited). stepDown also drops the outgoing
+  // owner to a regular resident in the same act.
+  const transferOwnership = useCallback(async (communityId: string, newOwnerProfileId: string, stepDown = false): Promise<string | null> => {
+    if (!hasSupabase || !supabase) return 'Not connected'
+    const { error } = await supabase.rpc('community_transfer_ownership', {
+      p_community: communityId, p_new_owner: newOwnerProfileId, p_step_down: stepDown,
+    })
+    if (error) return error.message
+    await load()
+    return null
+  }, [load])
+
   return {
-    isAdmin, myRole, communities, requests, operators, audit, loading, reload: load,
+    isAdmin, myRole, myRoles, communities, requests, operators, audit, loading, reload: load,
     setRequestStatus, enterCommunity, addOperator, removeOperator, setOperatorRole,
-    removeCommunity, fetchResidents, removeResident,
+    setOperatorExtraRoles, removeCommunity, fetchResidents, removeResident, transferOwnership,
   }
 }
 

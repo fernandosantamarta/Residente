@@ -9,7 +9,7 @@ import { AdminSearch } from '@/components/AdminSearch'
 import { SectionScroll } from '@/components/SectionScroll'
 import { SiteFooterSlim } from '@/components/SiteFooter'
 import { useAuth } from '../providers'
-import { usePlatformAdmin } from '@/hooks/usePlatform'
+import { usePlatformAdmin, usePlatformRoles } from '@/hooks/usePlatform'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useAwaitingMessages, useArcPending } from '@/hooks/useAwaitingMessages'
 import type { Permission } from '@/lib/permissions'
@@ -36,16 +36,25 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/schedule',   label: 'Easy Schedule', anyPerm: ['schedule.manage'] },
 ]
 
-// "View as" team previews — founder/platform-only. Founder = full access; the
-// rest are Residente staff lenses; Admin = how the customer's board sees it.
+// "View as" team previews — platform-only. Owner (DB role 'owner') = full
+// access; the rest are Residente staff lenses; Admin = how the customer's
+// board sees it. The 'founder' key is kept for persisted localStorage values.
 // (Selection persists; per-team content scoping is a follow-up.)
 const VIEW_AS: { key: string; label: string }[] = [
-  { key: 'founder', label: 'Founder' },
+  { key: 'founder', label: 'Owner' },
   { key: 'onboarding', label: 'Onboarding' },
   { key: 'support', label: 'Support' },
   { key: 'billing', label: 'Billing' },
   { key: 'admin', label: 'Admin' },
 ]
+
+// Operator sub-role (DB value) → its View-as team. Founders get the full
+// switcher; everyone else is pinned to their own team's view.
+const ROLE_VIEW: Record<string, { key: string; label: string }> = {
+  operator: { key: 'onboarding', label: 'Onboarding' },
+  billing:  { key: 'billing', label: 'Billing' },
+  support:  { key: 'support', label: 'Support' },
+}
 
 const navActive = (pathname: string, item: AdminNavItem) => {
   // The Overview tab points at the admin root, which is a prefix of every other
@@ -60,6 +69,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const router = useRouter()
   const pathname = usePathname() || '/admin'
   const isPlatformAdmin = usePlatformAdmin()
+  const platformRoles = usePlatformRoles()
   const { canAny, perms, loading: permLoading } = usePermissions()
 
   // Live count of Easy Voice items needing the board's attention — messages
@@ -125,6 +135,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       const v = window.localStorage.getItem('admin_view_as'); if (v) setViewAs(v)
     }
   }, [])
+  // Non-owner operators only see their own teams in the bar — one locked pill,
+  // or switchable pills when they hold several teams (multi-role). Owners keep
+  // the full switcher.
+  const teamViews = platformRoles && !platformRoles.includes('owner')
+    ? platformRoles.map(r => ROLE_VIEW[r]).filter(Boolean)
+    : null
+  const teamKeys = teamViews ? teamViews.map(t => t.key).join(',') : ''
+  useEffect(() => {
+    if (teamViews && teamViews.length && !teamViews.some(t => t.key === viewAs)) setViewAs(teamViews[0].key)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [teamKeys, viewAs])
   const chooseView = (v: string) => {
     if (v === viewAs) return
     setViewAs(v)
@@ -143,7 +164,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     if (!hasSupabase) return
     if (permLoading) return
     const hasAccess = isPlatformAdmin || (!!perms && perms.length > 0)
-    if (!hasAccess) router.replace('/app')
+    if (!hasAccess) { router.replace('/app'); return }
+    // A Residente operator with no active community (community_id null) has
+    // nothing to render here — their home is the Platform Console.
+    if (isPlatformAdmin === true && profile && !profile.community_id) router.replace('/platform')
   }, [session, profile, perms, permLoading, isPlatformAdmin, router])
 
   if (hasSupabase && !session) return null
@@ -162,10 +186,29 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         {/* Mock-parity bar: a founder/platform-only "View as" team switcher, then
             Contact Residente (pill) + Back to app. Regular admins see no switcher. */}
         <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-          {isPlatformAdmin && (
+          {/* Wait for the roles to resolve so a support operator never flashes
+              the full owner switcher while their teams load. */}
+          {isPlatformAdmin && !!platformRoles && (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(255,255,255,0.16)', borderRadius: 999, padding: '4px 6px 4px 13px' }}>
               <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '1.2px', color: 'rgba(255,255,255,0.85)', marginRight: 3 }}>VIEW AS</span>
-              {VIEW_AS.map(v => {
+              {teamViews ? (
+                // Non-owner staff: only the teams they're on. One team = a
+                // locked pill; several teams = switchable between just those.
+                teamViews.length <= 1 ? (
+                  <span style={{ borderRadius: 999, padding: '5px 13px', fontSize: 12.5, fontWeight: 700, background: '#fff', color: '#E14909' }}>
+                    {teamViews[0]?.label || 'Operator'}
+                  </span>
+                ) : teamViews.map(v => {
+                  const on = viewAs === v.key
+                  return (
+                    <button key={v.key} type="button" onClick={() => chooseView(v.key)}
+                      style={{ border: 'none', cursor: 'pointer', borderRadius: 999, padding: '5px 13px', fontSize: 12.5, fontWeight: 700,
+                        background: on ? '#fff' : 'transparent', color: on ? '#E14909' : 'rgba(255,255,255,0.92)' }}>
+                      {v.label}
+                    </button>
+                  )
+                })
+              ) : VIEW_AS.map(v => {
                 const on = viewAs === v.key
                 return (
                   <button key={v.key} type="button" onClick={() => chooseView(v.key)}
@@ -236,7 +279,14 @@ function OperatorBanner({ isPlatformAdmin, currentCommunity }: { isPlatformAdmin
   if (!isPlatformAdmin || !returnTo || returnTo === currentCommunity) return null
 
   const exit = async () => {
-    try { if (supabase) await supabase.rpc('platform_enter_community', { target: returnTo }) } catch {}
+    // 'none' = the operator has no home community: park at community_id NULL
+    // (platform_exit_community) instead of re-entering one.
+    try {
+      if (supabase) {
+        if (returnTo === 'none') await supabase.rpc('platform_exit_community')
+        else await supabase.rpc('platform_enter_community', { target: returnTo })
+      }
+    } catch {}
     if (typeof window !== 'undefined') window.localStorage.removeItem('platform_return_to')
     router.push('/platform')
   }
