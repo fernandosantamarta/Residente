@@ -3,12 +3,64 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
+import { usePlatformThread, sendPlatformBoardMessage } from '@/hooks/usePlatform'
 
 type Ticket = { id: string; subject: string; body: string | null; status: string; created_at: string }
 
 const fmtDate = (s: string) =>
   s ? new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
 const STATUS_LABEL: Record<string, string> = { open: 'Open', in_progress: 'In progress', resolved: 'Resolved' }
+
+// One ticket's conversation with the Residente operators + a reply box. Replies
+// post straight to platform_request_messages (RLS scopes it to this submitter);
+// the operator's answers stream in live.
+function BoardTicketThread({ requestId, authorId, authorName }: {
+  requestId: string; authorId: string; authorName: string | null
+}) {
+  const { messages, loading, reload } = usePlatformThread(requestId)
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [err, setErr] = useState('')
+  const send = async () => {
+    if (!text.trim()) return
+    setSending(true); setErr('')
+    const e = await sendPlatformBoardMessage({ requestId, authorId, authorName, body: text.trim() })
+    setSending(false)
+    if (e) { setErr(e); return }
+    setText(''); reload()
+  }
+  return (
+    <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {loading && messages.length === 0 ? (
+          <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>Loading…</div>
+        ) : messages.map(m => {
+          const mine = m.authorRole === 'board'
+          return (
+            <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: mine ? 'flex-end' : 'flex-start' }}>
+              <div style={{ maxWidth: '85%', background: mine ? 'var(--pink)' : 'var(--bg-card)', color: mine ? '#fff' : 'var(--text)',
+                border: mine ? 'none' : '1px solid var(--border)', borderRadius: 12, padding: '9px 12px', fontSize: 13.5, lineHeight: 1.55, whiteSpace: 'pre-wrap' }}>
+                {m.body}
+                {m.attachmentUrl && (
+                  <a href={m.attachmentUrl} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 8 }}>
+                    <img src={m.attachmentUrl} alt={m.attachmentName || 'attachment'} style={{ maxWidth: '100%', borderRadius: 8, display: 'block' }} />
+                  </a>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 3 }}>{mine ? 'You' : (m.authorName || 'Residente')} · {fmtDate(m.createdAt)}</div>
+            </div>
+          )
+        })}
+      </div>
+      <textarea value={text} onChange={e => setText(e.target.value)} placeholder="Write a reply…" rows={2}
+        className="admin-input admin-textarea" style={{ marginTop: 12, width: '100%' }} />
+      {err && <div className="admin-err-inline" style={{ marginTop: 6 }}>{err}</div>}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+        <button className="admin-primary-btn" onClick={send} disabled={sending || !text.trim()}>{sending ? 'Sending…' : 'Send reply'}</button>
+      </div>
+    </div>
+  )
+}
 
 // Contact Residente — a board/admin reaches the platform operators (billing,
 // setup, bugs). Writes to platform_requests; the founders triage in /platform.
@@ -19,6 +71,7 @@ export default function AdminSupport() {
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
   const [tickets, setTickets] = useState<Ticket[]>([])
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     if (!hasSupabase || !supabase || !profile?.id) return
@@ -101,17 +154,27 @@ export default function AdminSupport() {
         <div className="card">
           <div className="card-head"><div><h2>Your messages</h2></div></div>
           <div className="bm-list">
-            {tickets.map(t => (
-              <div className="bm-row" key={t.id}>
-                <div className="bm-row-main">
-                  <div className="bm-row-name">{t.subject}</div>
-                  <div className="bm-row-sub">{t.body || '—'} · {fmtDate(t.created_at)}</div>
+            {tickets.map(t => {
+              const open = expandedId === t.id
+              return (
+                <div className="bm-row" key={t.id} style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer' }}
+                    onClick={() => setExpandedId(id => id === t.id ? null : t.id)}>
+                    <div className="bm-row-main">
+                      <div className="bm-row-name">{t.subject}</div>
+                      <div className="bm-row-sub">{t.body || '—'} · {fmtDate(t.created_at)}</div>
+                    </div>
+                    <span className={`brd-pill ${t.status === 'resolved' ? 'brd-pill-on' : 'brd-pill-off'}`}>
+                      {STATUS_LABEL[t.status] || t.status}
+                    </span>
+                    <span aria-hidden style={{ color: 'var(--text-dim)', fontSize: 12, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform .15s' }}>▸</span>
+                  </div>
+                  {open && profile?.id && (
+                    <BoardTicketThread requestId={t.id} authorId={profile.id} authorName={profile.full_name ?? null} />
+                  )}
                 </div>
-                <span className={`brd-pill ${t.status === 'resolved' ? 'brd-pill-on' : 'brd-pill-off'}`}>
-                  {STATUS_LABEL[t.status] || t.status}
-                </span>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}

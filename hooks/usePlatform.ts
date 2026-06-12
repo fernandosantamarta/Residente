@@ -192,3 +192,95 @@ export function usePlatformConsole() {
     removeCommunity, fetchResidents, removeResident,
   }
 }
+
+// ---- Two-way platform support threads (platform_request_messages) ----
+export type PlatformThreadMessage = {
+  id: string; requestId: string; authorRole: 'operator' | 'board'
+  authorName: string | null; body: string
+  attachmentPath: string | null; attachmentName: string | null
+  attachmentUrl: string | null; createdAt: string
+}
+
+const ptRow = (r: any): PlatformThreadMessage => ({
+  id: r.id, requestId: r.request_id,
+  authorRole: r.author_role === 'operator' ? 'operator' : 'board',
+  authorName: r.author_name ?? null, body: r.body,
+  attachmentPath: r.attachment_path ?? null, attachmentName: r.attachment_name ?? null,
+  attachmentUrl: null, createdAt: r.created_at,
+})
+
+// The message log for one support ticket, with realtime so a reply from the
+// other side appears live. Used by both the platform console and admin support.
+export function usePlatformThread(requestId: string | null) {
+  const [messages, setMessages] = useState<PlatformThreadMessage[]>([])
+  const [loading, setLoading] = useState(false)
+
+  const load = useCallback(async () => {
+    if (!hasSupabase || !supabase || !requestId) { setMessages([]); return }
+    setLoading(true)
+    try {
+      const { data } = await supabase
+        .from('platform_request_messages')
+        .select('*').eq('request_id', requestId)
+        .order('created_at', { ascending: true })
+      const msgs = (data || []).map(ptRow)
+      // Sign attachment URLs so private photos render in-app.
+      await Promise.all(msgs.map(async (m) => {
+        if (!m.attachmentPath || !supabase) return
+        const { data: s } = await supabase.storage.from('platform-attachments').createSignedUrl(m.attachmentPath, 3600)
+        m.attachmentUrl = s?.signedUrl ?? null
+      }))
+      setMessages(msgs)
+    } catch { /* keep what we have */ } finally { setLoading(false) }
+  }, [requestId])
+
+  useEffect(() => { load() }, [load])
+
+  useEffect(() => {
+    if (!hasSupabase || !supabase || !requestId) return
+    const ch = supabase
+      .channel(`platform-thread:${requestId}`)
+      .on('postgres_changes', {
+        event: 'INSERT', schema: 'public', table: 'platform_request_messages',
+        filter: `request_id=eq.${requestId}`,
+      }, () => { load() })
+      .subscribe()
+    return () => { supabase!.removeChannel(ch) }
+  }, [requestId, load])
+
+  return { messages, loading, reload: load }
+}
+
+// Operator reply — goes through the platform-reply edge fn (saves the message,
+// uploads the optional photo, emails the board member). Returns null on success.
+export async function sendPlatformReply(input: {
+  requestId: string; body: string
+  photo?: { base64: string; name: string } | null
+}): Promise<string | null> {
+  if (!hasSupabase || !supabase) return 'Not connected'
+  const { data, error } = await supabase.functions.invoke('platform-reply', {
+    body: {
+      request_id: input.requestId, body: input.body,
+      photo_base64: input.photo?.base64 ?? null, photo_name: input.photo?.name ?? null,
+    },
+  })
+  if (error) {
+    try { const b = await (error as { context?: Response }).context?.json(); if (b?.error) return b.error } catch { /* ignore */ }
+    return 'Could not send the reply.'
+  }
+  if (data && data.ok === false) return data.error || 'Could not send the reply.'
+  return null
+}
+
+// Board reply — the community side of the thread (direct insert, RLS-scoped to
+// the submitter). Returns null on success.
+export async function sendPlatformBoardMessage(input: {
+  requestId: string; authorId: string; authorName: string | null; body: string
+}): Promise<string | null> {
+  if (!hasSupabase || !supabase) return 'Not connected'
+  const { error } = await supabase.from('platform_request_messages').insert({
+    request_id: input.requestId, author_profile_id: input.authorId,
+    author_role: 'board', author_name: input.authorName, body: input.body,
+  })
+  return error ? error.message : null
+}

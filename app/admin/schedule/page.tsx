@@ -635,7 +635,7 @@ function EventRow({
           </div>
         </div>
         <div className="admin-amen-row-actions">
-          <button className="admin-sched-row-del" onClick={startEdit} aria-label={`Edit ${event.title}`}>Edit</button>
+          <button className="admin-sched-row-edit" onClick={startEdit} aria-label={`Edit ${event.title}`}>Edit</button>
           <button className="admin-sched-row-del" onClick={() => onDelete(event.id)} aria-label={`Delete ${event.title}`}>Remove</button>
         </div>
       </div>

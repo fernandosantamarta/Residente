@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { usePlatformConsole, PlatformRequest, PlatformResident, OperatorRole, AuditEntry } from '@/hooks/usePlatform'
+import { usePlatformConsole, usePlatformThread, sendPlatformReply, PlatformRequest, PlatformResident, OperatorRole, AuditEntry } from '@/hooks/usePlatform'
 import { DangerAction } from '@/components/DangerAction'
 
 const fmtDate = (s: string) =>
@@ -111,6 +111,27 @@ const auditText = (e: AuditEntry): string => {
   }
 }
 
+// Color + label for each audit action, so the Activity feed scans by category.
+const AUDIT_META: Record<string, { tone: Tone; label: string }> = {
+  entered_community:     { tone: 'info',   label: 'Entered' },
+  operator_added:        { tone: 'good',   label: 'Operator +' },
+  operator_removed:      { tone: 'bad',    label: 'Operator −' },
+  operator_role_changed: { tone: 'warn',   label: 'Role' },
+  ticket_status:         { tone: 'accent', label: 'Support' },
+}
+const auditMeta = (action: string): { tone: Tone; label: string } =>
+  AUDIT_META[action] || { tone: 'neutral', label: action.replace(/_/g, ' ') }
+
+// Category filters for the Activity feed.
+const KNOWN_AUDIT = ['entered_community', 'operator_added', 'operator_removed', 'operator_role_changed', 'ticket_status']
+const ACTIVITY_FILTERS: { key: string; label: string; tone: Tone; match: (a: string) => boolean }[] = [
+  { key: 'all',       label: 'All',          tone: 'neutral', match: () => true },
+  { key: 'entered',   label: 'Entered',      tone: 'info',    match: a => a === 'entered_community' },
+  { key: 'operators', label: 'Operators',    tone: 'good',    match: a => a === 'operator_added' || a === 'operator_removed' || a === 'operator_role_changed' },
+  { key: 'support',   label: 'Support',      tone: 'accent',  match: a => a === 'ticket_status' },
+  { key: 'other',     label: 'Other',        tone: 'neutral', match: a => !KNOWN_AUDIT.includes(a) },
+]
+
 // Themed dropdown for the console — replaces native <select> so the popup
 // panel matches the dark palette (no OS-white menu). Closes on outside click
 // + Escape. Options can carry their own accent color (used for role colors).
@@ -166,9 +187,144 @@ function Select<T extends string>({ value, onChange, options, width, ariaLabel }
   )
 }
 
+// Compact paginator in the console palette. Hides itself when everything fits.
+function Paginator({ page, pageSize, total, onPage }: {
+  page: number; pageSize: number; total: number; onPage: (p: number) => void
+}) {
+  const pages = Math.max(1, Math.ceil(total / pageSize))
+  if (pages <= 1) return null
+  const start = (page - 1) * pageSize + 1
+  const end = Math.min(total, page * pageSize)
+  const btn = (label: string, disabled: boolean, onClick: () => void): React.ReactNode => (
+    <button onClick={onClick} disabled={disabled}
+      style={{ cursor: disabled ? 'default' : 'pointer', fontSize: 12.5, fontWeight: 700, padding: '6px 12px',
+        borderRadius: 8, border: `1px solid ${C.border}`, background: 'transparent', color: C.text,
+        opacity: disabled ? 0.4 : 1, whiteSpace: 'nowrap' }}>
+      {label}
+    </button>
+  )
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginTop: 14, flexWrap: 'wrap' }}>
+      <span style={{ fontSize: 12.5, color: C.muted }}>{start}–{end} of {total}</span>
+      <div style={{ display: 'flex', gap: 8 }}>
+        {btn('← Prev', page <= 1, () => onPage(Math.max(1, page - 1)))}
+        {btn('Next →', page >= pages, () => onPage(Math.min(pages, page + 1)))}
+      </div>
+    </div>
+  )
+}
+
+// Conversation + reply composer for one support ticket — the operator side of
+// the two-way thread. Replies go through the platform-reply edge fn (saved
+// in-app, photo uploaded, board member emailed).
+function SupportThread({ req, onResolve, onReopen, onChanged }: {
+  req: PlatformRequest; onResolve: () => void; onReopen: () => void; onChanged: () => void
+}) {
+  const { messages, loading, reload } = usePlatformThread(req.id)
+  const [text, setText] = useState('')
+  const [photo, setPhoto] = useState<{ file: File; url: string; name: string } | null>(null)
+  const [sending, setSending] = useState(false)
+  const [err, setErr] = useState('')
+
+  useEffect(() => { setText(''); setPhoto(null); setErr('') }, [req.id])
+
+  const pickPhoto = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0]
+    if (f) setPhoto({ file: f, url: URL.createObjectURL(f), name: f.name })
+    e.target.value = ''
+  }
+  const fileToBase64 = (file: File) => new Promise<string>((resolve, reject) => {
+    const r = new FileReader()
+    r.onload = () => resolve(String(r.result).split(',')[1] || '')
+    r.onerror = () => reject(new Error('Could not read the photo'))
+    r.readAsDataURL(file)
+  })
+  const send = async () => {
+    if (!text.trim() && !photo) return
+    setSending(true); setErr('')
+    try {
+      const photoArg = photo ? { base64: await fileToBase64(photo.file), name: photo.name } : null
+      const e = await sendPlatformReply({ requestId: req.id, body: text.trim(), photo: photoArg })
+      if (e) { setErr(e); return }
+      setText(''); setPhoto(null)
+      await reload()
+      onChanged()
+    } catch (e: any) {
+      setErr(e?.message || 'Could not send the reply')
+    } finally { setSending(false) }
+  }
+
+  return (
+    <div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+        {loading && messages.length === 0 ? (
+          <div style={{ color: C.muted, fontSize: 13 }}>Loading…</div>
+        ) : messages.map(m => {
+          const mine = m.authorRole === 'operator'
+          return (
+            <div key={m.id} style={{ display: 'flex', flexDirection: 'column', alignItems: mine ? 'flex-end' : 'flex-start' }}>
+              <div style={{ maxWidth: '85%', background: mine ? C.accent : C.card, color: mine ? '#fff' : C.text,
+                border: mine ? 'none' : `1px solid ${C.border}`, borderRadius: 12, padding: '10px 13px', fontSize: 13.5, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                {m.body}
+                {m.attachmentUrl && (
+                  <a href={m.attachmentUrl} target="_blank" rel="noreferrer" style={{ display: 'block', marginTop: 8 }}>
+                    <img src={m.attachmentUrl} alt={m.attachmentName || 'attachment'} style={{ maxWidth: '100%', borderRadius: 8, display: 'block' }} />
+                  </a>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 3 }}>
+                {mine ? (m.authorName || 'You') : (m.authorName || 'Board')} · {fmtDateTime(m.createdAt)}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+
+      <div style={{ marginTop: 16, borderTop: `1px solid ${C.border}`, paddingTop: 14 }}>
+        <textarea value={text} onChange={e => setText(e.target.value)} placeholder="Write your reply…"
+          style={{ width: '100%', minHeight: 84, resize: 'vertical', boxSizing: 'border-box', background: C.card, color: C.text,
+            border: `1px solid ${C.border}`, borderRadius: 10, padding: '11px 13px', fontSize: 13.5, fontFamily: 'inherit', outline: 'none' }} />
+        {photo && (
+          <div style={{ marginTop: 10, display: 'flex', alignItems: 'center', gap: 10 }}>
+            <img src={photo.url} alt="attachment" style={{ width: 52, height: 52, objectFit: 'cover', borderRadius: 8, border: `1px solid ${C.border}` }} />
+            <span style={{ fontSize: 12.5, color: C.muted, flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{photo.name}</span>
+            <button onClick={() => setPhoto(null)} style={{ flexShrink: 0, cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: '5px 10px', borderRadius: 8, border: `1px solid ${C.border}`, background: 'transparent', color: C.muted }}>Remove</button>
+          </div>
+        )}
+        {err && <div style={{ color: C.bad, fontSize: 12.5, marginTop: 8 }}>{err}</div>}
+        <div style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+          <label style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, padding: '9px 14px', borderRadius: 9, border: `1px solid ${C.border}`, background: 'transparent', color: C.text }}>
+            📎 Attach photo
+            <input type="file" accept="image/*" onChange={pickPhoto} style={{ display: 'none' }} />
+          </label>
+          <div style={{ flex: 1 }} />
+          {req.status === 'resolved' ? (
+            <button onClick={onReopen}
+              style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, padding: '9px 14px', borderRadius: 9,
+                border: `1px solid ${C.accent}`, background: 'transparent', color: C.accent }}>
+              Reopen conversation
+            </button>
+          ) : (
+            <button onClick={onResolve}
+              style={{ cursor: 'pointer', fontSize: 13, fontWeight: 700, padding: '9px 14px', borderRadius: 9,
+                border: `1px solid ${C.border}`, background: 'transparent', color: C.muted }}>
+              Close conversation
+            </button>
+          )}
+          <button onClick={send} disabled={sending || (!text.trim() && !photo)}
+            style={{ cursor: sending || (!text.trim() && !photo) ? 'default' : 'pointer', fontSize: 13, fontWeight: 700, padding: '9px 18px', borderRadius: 9,
+              border: `1px solid ${C.accent}`, background: C.accent, color: '#fff', opacity: sending || (!text.trim() && !photo) ? 0.5 : 1 }}>
+            {sending ? 'Sending…' : 'Send reply'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function PlatformConsole() {
   const {
-    isAdmin, myRole, communities, requests, operators, audit, loading,
+    isAdmin, myRole, communities, requests, operators, audit, loading, reload,
     setRequestStatus, enterCommunity, addOperator, removeOperator, setOperatorRole,
     removeCommunity, fetchResidents, removeResident,
   } = usePlatformConsole()
@@ -179,6 +335,29 @@ export default function PlatformConsole() {
   const [commQuery, setCommQuery] = useState('')
   const [subQuery, setSubQuery] = useState('')
   const [rosterQuery, setRosterQuery] = useState('')
+  // Pagination for the communities + subscriptions tables (used in Overview and
+  // in their own tabs — the lists are long, so page through 8 at a time).
+  const PAGE_SIZE = 8           // support inbox
+  const LIST_PAGE_SIZE = 9      // communities + subscriptions tabs
+  const OVERVIEW_PREVIEW = 5    // shorter preview of those lists in the Overview
+  const [commPage, setCommPage] = useState(1)
+  const [subsPage, setSubsPage] = useState(1)
+  const [supportPage, setSupportPage] = useState(1)
+  const [selectedReqId, setSelectedReqId] = useState<string | null>(null)
+  const ACT_PAGE_SIZE = 12
+  const [activityPage, setActivityPage] = useState(1)
+  const [activityCat, setActivityCat] = useState('all')
+  // Row a user clicked from elsewhere (e.g. Overview) — highlighted in its tab so
+  // it's easy to spot after the jump. subDetail drives the subscription pop-up.
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+  const [subDetail, setSubDetail] = useState<(typeof communities)[number] | null>(null)
+  // Auto-clear the row highlight after a moment so it pulses to draw the eye on
+  // arrival, then fades — never a permanently highlighted "stuck" row.
+  useEffect(() => {
+    if (!highlightId) return
+    const t = setTimeout(() => setHighlightId(null), 2500)
+    return () => clearTimeout(t)
+  }, [highlightId])
   const isOwner = myRole === 'owner'
   // Role-scoped views (mock parity). Unknown/legacy role → treat as full access
   // (owner) so an admin never lands on a blank console. Money lives only in the
@@ -249,6 +428,33 @@ export default function PlatformConsole() {
         .plat-table tbody tr:hover { background: rgba(225,73,9,0.07); }
         .plat-table tbody tr.is-pastdue { background: rgba(214,65,65,0.07); }
         .plat-table tbody tr.is-pastdue:hover { background: rgba(214,65,65,0.12); }
+        /* Tabs: only the straight orange underline marks the active tab —
+           never the browser's rounded focus ring (outline or box-shadow). */
+        .plat-tab:focus, .plat-tab:focus-visible { outline: none; box-shadow: none; }
+        /* KPI tiles: a fixed 4-column grid so the 8 boxes line up as a clean
+           4×2 block instead of a ragged auto-fit row. */
+        .plat-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 14px; }
+        @media (max-width: 1000px) { .plat-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+        @media (max-width: 680px) { .plat-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+        @media (max-width: 460px) { .plat-stats { grid-template-columns: 1fr; } }
+        /* Support inbox: a two-pane mail layout — list on the left, the selected
+           message's conversation on the right. Stacks on narrow screens. */
+        .plat-mail { display: grid; grid-template-columns: 300px 1fr; gap: 18px; margin-top: 8px; }
+        .plat-mail-list { border: 1px solid rgba(42,18,6,0.14); border-radius: 12px; overflow: hidden auto; max-height: 520px; }
+        .plat-mail-read { border: 1px solid rgba(42,18,6,0.14); border-radius: 12px; padding: 18px 20px; min-height: 240px; }
+        @media (max-width: 760px) { .plat-mail { grid-template-columns: 1fr; } .plat-mail-list { max-height: 320px; } }
+        /* Pulsing red count on the Support tab — matches the admin nav badge. */
+        .plat-badge {
+          margin-left: 7px; display: inline-block; min-width: 17px; text-align: center;
+          font-size: 10px; font-weight: 800; line-height: 16px; color: #fff;
+          background: #E5484D; border-radius: 999px; padding: 0 5px; vertical-align: middle;
+          animation: platBadgePulse 1.6s ease-out infinite;
+        }
+        @keyframes platBadgePulse {
+          0%   { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.5); }
+          70%  { box-shadow: 0 0 0 5px rgba(229, 72, 77, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0); }
+        }
       `}</style>
       <div style={{ maxWidth: 1120, margin: '0 auto', padding: '40px 28px 64px' }}>{children}</div>
     </div>
@@ -271,6 +477,13 @@ export default function PlatformConsole() {
   const activeCount = communities.filter(c => c.subscription_status === 'active').length
   const pastDueCount = communities.filter(c => c.subscription_status === 'past_due').length
 
+  // Signups this calendar month (a real proxy for landing-page conversions), and
+  // month-over-month growth: this month's new communities vs everything before.
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+  const newThisMonth = communities.filter(c => c.created_at && new Date(c.created_at) >= monthStart).length
+  const priorCount = communities.length - newThisMonth
+  const growthPct = priorCount > 0 ? Math.round((newThisMonth / priorCount) * 100) : (newThisMonth > 0 ? 100 : 0)
+
   // Search-filtered views (the lists stay alphabetical from the hook).
   const filteredCommunities = communities.filter(c =>
     matchesQuery(commQuery, [c.name, c.location, c.created_by_name, c.created_by_email, c.join_code, c.plan, c.subscription_status]))
@@ -279,6 +492,15 @@ export default function PlatformConsole() {
   const filteredRoster = roster.filter(r =>
     matchesQuery(rosterQuery, [r.full_name, r.email, r.unit_number, r.board_position]))
 
+  // Clamp each page so searching (or a shorter list) never strands an empty page,
+  // then slice to the visible rows.
+  const supportPageC = Math.min(supportPage, Math.max(1, Math.ceil(requests.length / PAGE_SIZE)))
+  const pagedRequests = requests.slice((supportPageC - 1) * PAGE_SIZE, supportPageC * PAGE_SIZE)
+  const activeFilter = ACTIVITY_FILTERS.find(f => f.key === activityCat) || ACTIVITY_FILTERS[0]
+  const filteredAudit = audit.filter(e => activeFilter.match(e.action))
+  const actPageC = Math.min(activityPage, Math.max(1, Math.ceil(filteredAudit.length / ACT_PAGE_SIZE)))
+  const pagedAudit = filteredAudit.slice((actPageC - 1) * ACT_PAGE_SIZE, actPageC * ACT_PAGE_SIZE)
+
   const onEnter = async (id: string) => {
     setEntering(id)
     const ok = await enterCommunity(id)
@@ -286,44 +508,63 @@ export default function PlatformConsole() {
     else setEntering(null)
   }
 
-  // A KPI tile. `tone` colors the number + left bar + a faint background wash so
-  // the meaningful figures (MRR, past due, open tickets) carry their own color.
-  // `prefix` lets MRR show a "$". When `tone` is a problem color (warn/bad) the
-  // wash only shows once the value is non-zero, so a clean console stays calm.
-  const stat = (label: string, val: number, tone: Tone = 'neutral', prefix = '') => {
+  // Jump from a KPI tile / triage chip to the first community with a given
+  // subscription status: open the Subscriptions tab, highlight that row, and pop
+  // its detail modal so the operator lands right on the one that needs them.
+  const jumpToStatus = (status: string) => {
+    const hit = communities.find(c => (c.subscription_status || 'active') === status)
+    setTab('subscriptions')
+    if (hit) { setHighlightId(hit.id); setSubDetail(hit) }
+  }
+
+  // A KPI tile. `tone` colors the number + a faint background wash so the
+  // meaningful figures (MRR, past due, open tickets) carry their own color.
+  // `prefix` lets MRR show a "$", `suffix` lets growth show a "%". When `tone`
+  // is a problem color (warn/bad) the wash only shows once the value is non-zero,
+  // so a clean console stays calm.
+  const stat = (label: string, val: number, tone: Tone = 'neutral', prefix = '', suffix = '', onClick?: () => void) => {
     const lit = tone !== 'neutral' && val > 0
     const col = lit ? toneColor[tone] : C.text
     return (
-      <div key={label} style={{ ...card, padding: '18px 20px', position: 'relative', overflow: 'hidden',
-        background: lit ? toneSoft[tone] : C.card, borderColor: lit ? 'transparent' : C.border }}>
-        <div style={{ position: 'absolute', top: 0, left: 0, width: 3, height: '100%', background: lit ? col : C.border }} />
-        <div style={{ fontSize: 32, fontWeight: 800, color: col, lineHeight: 1 }}>{prefix}{val.toLocaleString('en-US')}</div>
+      <div key={label} onClick={onClick} title={onClick ? `View ${label.toLowerCase()}` : undefined}
+        style={{ ...card, padding: '18px 20px', cursor: onClick ? 'pointer' : 'default',
+          background: lit ? toneSoft[tone] : C.card, borderColor: lit ? 'transparent' : C.border }}>
+        <div style={{ fontSize: 32, fontWeight: 800, color: col, lineHeight: 1 }}>{prefix}{val.toLocaleString('en-US')}{suffix}</div>
         <div style={{ color: C.muted, fontSize: 12.5, marginTop: 7, fontWeight: 600 }}>{label}</div>
       </div>
     )
   }
 
   const statsGrid = (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 14, marginBottom: 18 }}>
+    <div className="plat-stats" style={{ marginBottom: 18 }}>
       {stat('Communities', communities.length)}
       {stat('MRR / mo', Math.round(mrrCents / 100), 'good', '$')}
       {stat('Active subs', activeCount, 'good')}
-      {stat('Trials', trials, 'info')}
-      {stat('Past due', pastDueCount, 'bad')}
+      {stat('Trials', trials, 'info', '', '', trials > 0 ? () => jumpToStatus('trial') : undefined)}
+      {stat('Past due', pastDueCount, 'bad', '', '', pastDueCount > 0 ? () => jumpToStatus('past_due') : undefined)}
       {stat('Open tickets', openCount, 'accent')}
+      {stat('Support messages', requests.length, 'info')}
       {stat('Total residents', totalResidents)}
+      {stat('Growth / mo', growthPct, growthPct > 0 ? 'good' : 'neutral', '', '%')}
+      {stat('New this month', newThisMonth, 'info')}
     </div>
   )
 
-  const communitiesSection = (
+  const communitiesSection = (inOverview: boolean) => {
+   const size = inOverview ? OVERVIEW_PREVIEW : LIST_PAGE_SIZE
+   const commPageC = Math.min(commPage, Math.max(1, Math.ceil(filteredCommunities.length / size)))
+   const pagedCommunities = filteredCommunities.slice((commPageC - 1) * size, commPageC * size)
+   return (
     <section style={{ ...card, marginBottom: 18 }}>
       <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Communities</h2>
-      <p style={{ color: C.muted, fontSize: 12.5, marginBottom: 14 }}>Click <strong style={{ color: C.accent }}>Manage</strong> to drop into a community and run it as an operator.</p>
+      <p style={{ color: C.muted, fontSize: 12.5, marginBottom: 14 }}>
+        {inOverview ? <>Click a row to open the full <strong style={{ color: C.accent }}>Communities</strong> tab.</> : <>Click <strong style={{ color: C.accent }}>Manage</strong> to drop into a community and run it as an operator.</>}
+      </p>
       {communities.length === 0 ? (
         <div style={{ color: C.muted, fontSize: 13.5 }}>No communities yet.</div>
       ) : (
         <>
-        <input value={commQuery} onChange={e => setCommQuery(e.target.value)}
+        <input value={commQuery} onChange={e => { setCommQuery(e.target.value); setCommPage(1) }}
           placeholder="Search communities…" aria-label="Search communities" style={searchInput} />
         {filteredCommunities.length === 0 ? (
           <div style={{ color: C.muted, fontSize: 13.5 }}>No communities match &ldquo;{commQuery}&rdquo;.</div>
@@ -334,8 +575,11 @@ export default function PlatformConsole() {
               {['Community', 'Created by', 'Plan', 'Residents', 'Board', 'Join code', 'Created', ''].map(h => <th key={h} style={th}>{h}</th>)}
             </tr></thead>
             <tbody>
-              {filteredCommunities.map(c => (
-                <tr key={c.id} className={c.subscription_status === 'past_due' ? 'is-pastdue' : undefined}>
+              {pagedCommunities.map(c => (
+                <tr key={c.id} className={c.subscription_status === 'past_due' ? 'is-pastdue' : undefined}
+                  onClick={() => { if (inOverview) setTab('communities'); setHighlightId(c.id); setSubDetail(c) }}
+                  style={{ cursor: 'pointer',
+                    ...(!inOverview && highlightId === c.id ? { background: C.accentSoft, boxShadow: `inset 3px 0 0 ${C.accent}` } : {}) }}>
                   <td style={{ ...td, fontWeight: 700 }}>{c.name || '—'}{c.location ? <span style={{ display: 'block', fontWeight: 400, fontSize: 12, color: C.muted }}>{c.location}</span> : null}</td>
                   <td style={td}>
                     <div style={{ fontWeight: 600 }}>{c.created_by_name || '—'}</div>
@@ -355,12 +599,13 @@ export default function PlatformConsole() {
                   <td style={td}>
                     {canEnter ? (
                       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
-                        <button onClick={() => onEnter(c.id)} disabled={entering === c.id}
+                        <button onClick={(e) => { e.stopPropagation(); onEnter(c.id) }} disabled={entering === c.id}
+                          title="Drop into this community's admin as an operator — you see and edit everything its board does. Recorded in Activity."
                           style={{ cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: '6px 11px', borderRadius: 8, flexShrink: 0,
                             border: `1px solid ${C.accent}`, background: C.accentSoft, color: C.accent, whiteSpace: 'nowrap' }}>
                           {entering === c.id ? 'Entering…' : 'Manage →'}
                         </button>
-                        <button onClick={() => openRoster(c.id, c.name)}
+                        <button onClick={(e) => { e.stopPropagation(); openRoster(c.id, c.name) }}
                           style={{ cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: '6px 11px', borderRadius: 8, flexShrink: 0,
                             border: `1px solid ${C.border}`, background: 'transparent', color: C.text, whiteSpace: 'nowrap' }}>
                           Residents
@@ -373,7 +618,7 @@ export default function PlatformConsole() {
                           body={<>This permanently deletes <strong>{c.name || 'this community'}</strong> and all its data, and cancels its subscription. This can&apos;t be undone.</>}
                           onConfirm={async () => { const e = await removeCommunity(c.id); return e ? { error: e } : { ok: true } }}
                           trigger={(open) => (
-                            <button onClick={open}
+                            <button onClick={(e) => { e.stopPropagation(); open() }}
                               style={{ cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: '6px 11px', borderRadius: 8, flexShrink: 0,
                                 border: '1px solid #E97070', background: 'transparent', color: '#E97070', whiteSpace: 'nowrap' }}>
                               Delete
@@ -389,14 +634,20 @@ export default function PlatformConsole() {
               ))}
             </tbody>
           </table>
+          <Paginator page={commPageC} pageSize={size} total={filteredCommunities.length} onPage={setCommPage} />
         </div>
         )}
         </>
       )}
     </section>
-  )
+   )
+  }
 
-  const subscriptionsSection = (
+  const subscriptionsSection = (inOverview: boolean) => {
+   const size = inOverview ? OVERVIEW_PREVIEW : LIST_PAGE_SIZE
+   const subsPageC = Math.min(subsPage, Math.max(1, Math.ceil(filteredSubs.length / size)))
+   const pagedSubs = filteredSubs.slice((subsPageC - 1) * size, subsPageC * size)
+   return (
     <section style={{ ...card, marginBottom: 18 }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
         <h2 style={{ fontSize: 15, fontWeight: 700 }}>Subscriptions</h2>
@@ -405,12 +656,14 @@ export default function PlatformConsole() {
           {pastDueCount > 0 && <span style={{ color: C.bad, fontWeight: 700 }}> · {pastDueCount} past due</span>}
         </span>
       </div>
-      <p style={{ color: C.muted, fontSize: 12.5, marginBottom: 14 }}>Every community&apos;s plan, status, and monthly amount. MRR counts active subscriptions only.</p>
+      <p style={{ color: C.muted, fontSize: 12.5, marginBottom: 14 }}>
+        {inOverview ? <>Click a row to open the full <strong style={{ color: C.accent }}>Subscriptions</strong> tab.</> : <>Every community&apos;s plan, status, and monthly amount. MRR counts active subscriptions only.</>}
+      </p>
       {communities.length === 0 ? (
         <div style={{ color: C.muted, fontSize: 13.5 }}>No communities yet.</div>
       ) : (
         <>
-        <input value={subQuery} onChange={e => setSubQuery(e.target.value)}
+        <input value={subQuery} onChange={e => { setSubQuery(e.target.value); setSubsPage(1) }}
           placeholder="Search subscriptions…" aria-label="Search subscriptions" style={searchInput} />
         {filteredSubs.length === 0 ? (
           <div style={{ color: C.muted, fontSize: 13.5 }}>No subscriptions match &ldquo;{subQuery}&rdquo;.</div>
@@ -421,10 +674,13 @@ export default function PlatformConsole() {
               {['Community', 'Plan', 'Status', 'Homes', 'Monthly', 'Billing'].map(h => <th key={h} style={th}>{h}</th>)}
             </tr></thead>
             <tbody>
-              {filteredSubs.map(c => {
+              {pagedSubs.map(c => {
                 const monthly = communityMonthlyCents(c)
                 return (
-                  <tr key={c.id} className={c.subscription_status === 'past_due' ? 'is-pastdue' : undefined}>
+                  <tr key={c.id} className={c.subscription_status === 'past_due' ? 'is-pastdue' : undefined}
+                    onClick={() => { if (inOverview) setTab('subscriptions'); setHighlightId(c.id); setSubDetail(c) }}
+                    style={{ cursor: 'pointer',
+                      ...(!inOverview && highlightId === c.id ? { background: C.accentSoft, boxShadow: `inset 3px 0 0 ${C.accent}` } : {}) }}>
                     <td style={{ ...td, fontWeight: 700 }}>{c.name || '—'}</td>
                     <td style={{ ...td, textTransform: 'capitalize' }}>{c.plan || 'free'}</td>
                     <td style={td}>
@@ -442,34 +698,81 @@ export default function PlatformConsole() {
               })}
             </tbody>
           </table>
+          <Paginator page={subsPageC} pageSize={size} total={filteredSubs.length} onPage={setSubsPage} />
         </div>
         )}
         </>
       )}
     </section>
-  )
+   )
+  }
+
+  // Resolve a request's community name from its id; falls back to the sender.
+  const reqCommunity = (id: string | null) => communities.find(c => c.id === id)?.name || null
+  // The message shown in the reading pane — the clicked one, else the first.
+  const selectedReq = requests.find(r => r.id === selectedReqId) || pagedRequests[0] || null
 
   const supportSection = (
     <section style={card}>
       <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>
         Support inbox {openCount > 0 && <span style={{ color: C.accent }}>· {openCount} open</span>}
       </h2>
+      <p style={{ color: C.muted, fontSize: 12.5, marginBottom: 12 }}>Messages from community boards — pick one to read the full conversation.</p>
       {requests.length === 0 ? (
         <div style={{ color: C.muted, fontSize: 13.5, marginTop: 12 }}>No support requests yet.</div>
-      ) : requests.map(r => (
-        <div key={r.id} style={{ borderTop: `1px solid ${C.border}`, padding: '14px 0', display: 'flex', gap: 14, alignItems: 'flex-start' }}>
-          <button onClick={() => setRequestStatus(r.id, STATUS_NEXT[r.status])} title="Click to advance status" style={statusStyle(r.status)}>
-            {r.status === 'in_progress' ? 'in progress' : r.status}
-          </button>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 700, fontSize: 14.5 }}>{r.subject}</div>
-            {r.body && <div style={{ color: C.muted, fontSize: 13.5, marginTop: 3 }}>{r.body}</div>}
-            <div style={{ color: C.muted, fontSize: 12.5, marginTop: 6 }}>
-              {r.from_name || 'A board member'}{r.from_email ? ` · ${r.from_email}` : ''} · {fmtDate(r.created_at)}
+      ) : (
+        <div className="plat-mail">
+          {/* LEFT — message list */}
+          <div className="plat-mail-list">
+            {pagedRequests.map(r => {
+              const active = selectedReq?.id === r.id
+              const cname = reqCommunity(r.from_community_id) || r.from_name || 'Unknown community'
+              const dot = r.status === 'resolved' ? C.good : r.status === 'in_progress' ? C.info : C.accent
+              return (
+                <button key={r.id} onClick={() => setSelectedReqId(r.id)}
+                  style={{ width: '100%', textAlign: 'left', cursor: 'pointer', display: 'block', borderRadius: 0,
+                    border: 'none', borderLeft: `3px solid ${active ? C.accent : 'transparent'}`,
+                    borderBottom: `1px solid ${C.border}`, background: active ? C.accentSoft : 'transparent', padding: '12px 14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
+                    <span style={{ fontWeight: 700, fontSize: 13.5, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{cname}</span>
+                    <span style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: dot }} />
+                  </div>
+                  <div style={{ fontSize: 13, color: C.text, marginTop: 3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.subject}</div>
+                  <div style={{ fontSize: 11.5, color: C.muted, marginTop: 3 }}>{fmtDate(r.created_at)}</div>
+                </button>
+              )
+            })}
+            <div style={{ padding: '4px 12px' }}>
+              <Paginator page={supportPageC} pageSize={PAGE_SIZE} total={requests.length} onPage={setSupportPage} />
             </div>
           </div>
+          {/* RIGHT — reading pane (the conversation) */}
+          <div className="plat-mail-read">
+            {selectedReq ? (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+                  <h3 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{selectedReq.subject}</h3>
+                  <button onClick={() => setRequestStatus(selectedReq.id, STATUS_NEXT[selectedReq.status])} title="Click to advance status" style={statusStyle(selectedReq.status)}>
+                    {selectedReq.status === 'in_progress' ? 'in progress' : selectedReq.status}
+                  </button>
+                </div>
+                <div style={{ color: C.muted, fontSize: 12.5, margin: '6px 0 16px' }}>
+                  {reqCommunity(selectedReq.from_community_id) && <><strong style={{ color: C.text }}>{reqCommunity(selectedReq.from_community_id)}</strong> · </>}
+                  {selectedReq.from_name || 'A board member'}{selectedReq.from_email ? ` · ${selectedReq.from_email}` : ''} · {fmtDateTime(selectedReq.created_at)}
+                </div>
+                <SupportThread
+                  req={selectedReq}
+                  onResolve={() => setRequestStatus(selectedReq.id, 'resolved')}
+                  onReopen={() => setRequestStatus(selectedReq.id, 'open')}
+                  onChanged={reload}
+                />
+              </>
+            ) : (
+              <div style={{ color: C.muted, fontSize: 13.5, padding: 20, textAlign: 'center' }}>Select a message to read it.</div>
+            )}
+          </div>
         </div>
-      ))}
+      )}
     </section>
   )
 
@@ -478,9 +781,9 @@ export default function PlatformConsole() {
   // chips. Hidden entirely when there's nothing to do, so a healthy console
   // doesn't carry a warning it doesn't need.
   const attentionItems: { label: string; tone: Tone; onClick: () => void }[] = []
-  if (pastDueCount > 0) attentionItems.push({ label: `${pastDueCount} past due`, tone: 'bad', onClick: () => setTab('subscriptions') })
+  if (pastDueCount > 0) attentionItems.push({ label: `${pastDueCount} past due`, tone: 'bad', onClick: () => jumpToStatus('past_due') })
   if (openCount > 0) attentionItems.push({ label: `${openCount} open ticket${openCount > 1 ? 's' : ''}`, tone: 'accent', onClick: () => setTab('support') })
-  if (trials > 0) attentionItems.push({ label: `${trials} on trial`, tone: 'info', onClick: () => setTab('subscriptions') })
+  if (trials > 0) attentionItems.push({ label: `${trials} on trial`, tone: 'info', onClick: () => jumpToStatus('trial') })
   const attentionBanner = attentionItems.length > 0 && (
     <div style={{ ...card, marginBottom: 18, display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap',
       borderColor: pastDueCount > 0 ? C.badSoft : C.border }}>
@@ -514,28 +817,28 @@ export default function PlatformConsole() {
       <div style={{ display: 'flex', gap: 4, margin: '22px 0 22px', borderBottom: `1px solid ${C.border}`, flexWrap: 'wrap' }}>
         {TABS.filter(t => allowedTabs.includes(t.key)).map(t => {
           const active = curTab === t.key
-          const badge = t.key === 'support' && openCount > 0 ? ` · ${openCount}` : ''
           return (
-            <button key={t.key} onClick={() => setTab(t.key)}
+            <button key={t.key} className="plat-tab" onClick={() => setTab(t.key)}
               style={{
-                cursor: 'pointer', background: 'none', border: 'none', padding: '10px 16px', fontSize: 14,
+                cursor: 'pointer', background: 'none', border: 'none', outline: 'none', borderRadius: 0, padding: '10px 16px', fontSize: 14,
                 fontWeight: active ? 700 : 500, color: active ? C.accent : C.muted,
                 borderBottom: `2px solid ${active ? C.accent : 'transparent'}`, marginBottom: -1,
               }}>
-              {t.label}{badge}
+              {t.label}
+              {t.key === 'support' && openCount > 0 && <span className="plat-badge">{openCount}</span>}
             </button>
           )
         })}
       </div>
 
       {/* OVERVIEW — everything on one page */}
-      {curTab === 'overview' && (<>{attentionBanner}{statsGrid}{subscriptionsSection}{communitiesSection}{supportSection}</>)}
+      {curTab === 'overview' && (<>{attentionBanner}{statsGrid}{subscriptionsSection(true)}{communitiesSection(true)}</>)}
 
       {/* COMMUNITIES */}
-      {curTab === 'communities' && communitiesSection}
+      {curTab === 'communities' && communitiesSection(false)}
 
       {/* SUBSCRIPTIONS */}
-      {curTab === 'subscriptions' && subscriptionsSection}
+      {curTab === 'subscriptions' && subscriptionsSection(false)}
 
       {/* SUPPORT */}
       {curTab === 'support' && supportSection}
@@ -622,18 +925,52 @@ export default function PlatformConsole() {
       {curTab === 'activity' && (
         <section style={card}>
           <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Activity</h2>
-          <p style={{ color: C.muted, fontSize: 12.5, marginBottom: 8 }}>Every operator action on the platform, newest first.</p>
-          {audit.length === 0 ? (
-            <div style={{ color: C.muted, fontSize: 13.5, marginTop: 10 }}>No activity recorded yet.</div>
-          ) : audit.map(e => (
-            <div key={e.id} style={{ borderTop: `1px solid ${C.border}`, padding: '12px 0', display: 'flex', gap: 12, alignItems: 'baseline', flexWrap: 'wrap' }}>
-              <div style={{ flex: 1, minWidth: 220, fontSize: 13.5 }}>
-                <strong style={{ color: C.text }}>{e.actor_name || 'An operator'}</strong>
-                <span style={{ color: C.muted }}> {auditText(e)}</span>
-              </div>
-              <div style={{ color: C.muted, fontSize: 12 }}>{fmtDateTime(e.created_at)}</div>
+          <p style={{ color: C.muted, fontSize: 12.5, marginBottom: 12 }}>Every operator action on the platform, newest first.</p>
+
+          {/* Category filter chips */}
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 6 }}>
+            {ACTIVITY_FILTERS.map(f => {
+              const count = f.key === 'all' ? audit.length : audit.filter(e => f.match(e.action)).length
+              if (f.key !== 'all' && count === 0) return null
+              const on = activityCat === f.key
+              return (
+                <button key={f.key} onClick={() => { setActivityCat(f.key); setActivityPage(1) }}
+                  style={{ cursor: 'pointer', fontSize: 12, fontWeight: 700, padding: '5px 12px', borderRadius: 999, whiteSpace: 'nowrap',
+                    border: `1px solid ${on ? toneColor[f.tone] : C.border}`,
+                    background: on ? toneSoft[f.tone] : 'transparent', color: on ? toneColor[f.tone] : C.muted }}>
+                  {f.label} <span style={{ opacity: 0.7 }}>· {count}</span>
+                </button>
+              )
+            })}
+          </div>
+
+          {filteredAudit.length === 0 ? (
+            <div style={{ color: C.muted, fontSize: 13.5, marginTop: 10 }}>
+              {activityCat === 'all' ? 'No activity recorded yet.' : 'No activity in this category.'}
             </div>
-          ))}
+          ) : (
+            <>
+            {pagedAudit.map(e => {
+              const meta = auditMeta(e.action)
+              return (
+                <div key={e.id} style={{ borderTop: `1px solid ${C.border}`, padding: '12px 2px', display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <span style={{ flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 6, justifyContent: 'center', minWidth: 104,
+                    fontSize: 10.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', padding: '5px 11px', borderRadius: 999,
+                    background: toneSoft[meta.tone], color: toneColor[meta.tone] }}>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', flexShrink: 0, background: toneColor[meta.tone] }} />
+                    {meta.label}
+                  </span>
+                  <div style={{ flex: 1, minWidth: 200, fontSize: 13.5 }}>
+                    <strong style={{ color: C.text }}>{e.actor_name || 'An operator'}</strong>
+                    <span style={{ color: C.muted }}> {auditText(e)}</span>
+                  </div>
+                  <div style={{ color: C.muted, fontSize: 12, whiteSpace: 'nowrap' }}>{fmtDateTime(e.created_at)}</div>
+                </div>
+              )
+            })}
+            <Paginator page={actPageC} pageSize={ACT_PAGE_SIZE} total={filteredAudit.length} onPage={setActivityPage} />
+            </>
+          )}
         </section>
       )}
 
@@ -673,6 +1010,86 @@ export default function PlatformConsole() {
                 </div>
               ))}
               </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Community / subscription detail pop-up — opened by clicking any row in
+          the Communities or Subscriptions tables. */}
+      {subDetail && (
+        <div onClick={() => setSubDetail(null)} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(8,10,16,0.6)', display: 'grid', placeItems: 'center', padding: 22 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ width: '100%', maxWidth: 460, maxHeight: '85vh', overflowY: 'auto', background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 16, padding: '24px 26px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 16 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 18, fontWeight: 800 }}>{subDetail.name || 'Community'}</h2>
+                <div style={{ color: C.muted, fontSize: 12.5, marginTop: 2 }}>{subDetail.location || 'Community details'}</div>
+              </div>
+              <button onClick={() => setSubDetail(null)} aria-label="Close" style={{ border: 'none', background: 'none', fontSize: 26, cursor: 'pointer', color: C.muted, lineHeight: 1 }}>×</button>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', fontSize: 13.5 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '11px 0', borderTop: `1px solid ${C.border}` }}>
+                <span style={{ color: C.muted }}>Created by</span>
+                <span style={{ fontWeight: 700, textAlign: 'right' }}>
+                  {subDetail.created_by_name || '—'}
+                  {subDetail.created_by_email && <span style={{ display: 'block', fontWeight: 400, fontSize: 12, color: C.muted }}>{subDetail.created_by_email}</span>}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '11px 0', borderTop: `1px solid ${C.border}` }}>
+                <span style={{ color: C.muted }}>Plan</span>
+                <span style={{ fontWeight: 700, textTransform: 'capitalize' }}>{subDetail.plan || 'free'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '11px 0', borderTop: `1px solid ${C.border}` }}>
+                <span style={{ color: C.muted }}>Status</span>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11.5, fontWeight: 700, padding: '3px 10px', borderRadius: 999, textTransform: 'capitalize',
+                  background: subStatusBg(subDetail.subscription_status), color: subStatusColor(subDetail.subscription_status) }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: subStatusColor(subDetail.subscription_status) }} />
+                  {subDetail.subscription_status || 'active'}
+                </span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '11px 0', borderTop: `1px solid ${C.border}` }}>
+                <span style={{ color: C.muted }}>Residents</span>
+                <span style={{ fontWeight: 700 }}>{subDetail.resident_count ?? '—'}{subDetail.board_count != null ? <span style={{ fontWeight: 400, color: C.muted }}> · {subDetail.board_count} board</span> : null}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '11px 0', borderTop: `1px solid ${C.border}` }}>
+                <span style={{ color: C.muted }}>Homes</span>
+                <span style={{ fontWeight: 700 }}>{subDetail.home_count ?? subDetail.unit_count ?? '—'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '11px 0', borderTop: `1px solid ${C.border}` }}>
+                <span style={{ color: C.muted }}>Monthly</span>
+                <span style={{ fontWeight: 700 }}>{communityMonthlyCents(subDetail) > 0 ? `${fmtMoney(communityMonthlyCents(subDetail))}/mo` : 'Free'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '11px 0', borderTop: `1px solid ${C.border}` }}>
+                <span style={{ color: C.muted }}>Join code</span>
+                <span style={{ fontWeight: 700, fontFamily: 'ui-monospace, monospace', letterSpacing: 1 }}>{subDetail.join_code || '—'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '11px 0', borderTop: `1px solid ${C.border}` }}>
+                <span style={{ color: C.muted }}>Billing</span>
+                <span style={{ fontWeight: 700 }}>{subDetail.stripe_subscription_id ? 'Stripe' : '—'}</span>
+              </div>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 18 }}>
+              {canEnter && (
+                <button onClick={() => { const id = subDetail.id; setSubDetail(null); onEnter(id) }}
+                  style={{ width: '100%', cursor: 'pointer', fontSize: 14, fontWeight: 700, padding: '12px 16px', borderRadius: 10, whiteSpace: 'nowrap',
+                    border: `1px solid ${C.accent}`, background: C.accent, color: '#fff' }}>
+                  Manage this community →
+                </button>
+              )}
+              <a href={subDetail.created_by_email ? `mailto:${subDetail.created_by_email}?subject=${encodeURIComponent(`Residente — ${subDetail.name || 'your community'}`)}` : undefined}
+                title={subDetail.created_by_email || 'No email on file'}
+                onClick={subDetail.created_by_email ? undefined : (e) => e.preventDefault()}
+                style={{ width: '100%', boxSizing: 'border-box', textAlign: 'center', textDecoration: 'none', whiteSpace: 'nowrap',
+                  cursor: subDetail.created_by_email ? 'pointer' : 'not-allowed', fontSize: 14, fontWeight: 700,
+                  padding: '12px 16px', borderRadius: 10, border: `1px solid ${C.border}`, background: 'transparent',
+                  color: subDetail.created_by_email ? C.text : C.muted, opacity: subDetail.created_by_email ? 1 : 0.6 }}>
+                {subDetail.created_by_email ? `Contact ${subDetail.created_by_name?.split(' ')[0] || 'owner'}` : 'No email on file'}
+              </a>
+            </div>
+            {canEnter && (
+              <p style={{ color: C.muted, fontSize: 11.5, lineHeight: 1.5, marginTop: 10, marginBottom: 0 }}>
+                <strong style={{ color: C.text }}>Manage</strong> drops you into this community&rsquo;s admin as an operator — you act in the board&rsquo;s seat and can view and edit everything they can (residents, budget, notices, votes). Your visit is recorded in the Activity log.
+              </p>
             )}
           </div>
         </div>

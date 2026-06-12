@@ -374,7 +374,7 @@ export function AmenitiesAdmin() {
                     </div>
                   </div>
                   <div className="admin-amen-row-actions">
-                    <button className="admin-sched-row-del" onClick={() => startEdit(a.id)} aria-label={`Edit ${a.name}`}>Edit</button>
+                    <button className="admin-sched-row-edit" onClick={() => startEdit(a.id)} aria-label={`Edit ${a.name}`}>Edit</button>
                     <button className="admin-sched-row-del" onClick={() => onRemove(a.id, a.name)} aria-label={`Remove ${a.name}`}>Remove</button>
                   </div>
                 </div>

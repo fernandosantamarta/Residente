@@ -4,7 +4,10 @@ import { useState, useEffect } from 'react'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { useExpensesAdmin } from '@/hooks/useExpenses'
 import { Dropdown } from '@/components/Dropdown'
+import { Pagination, paginate } from '@/components/Pagination'
 import { downloadCsv, exportFilename } from '@/lib/exportCsv'
+
+const LEDGER_PAGE_SIZE = 10
 
 const fmtMoney = (n: number | null | undefined) =>
   '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
@@ -17,6 +20,10 @@ const todayISO = () => new Date().toISOString().slice(0, 10)
 
 const EMPTY = { amount: '', spent_on: todayISO(), category_id: '', vendor: '', description: '' }
 
+// Shared grid for the logged-expenses table. minmax(0, …) lets the flexible
+// columns shrink instead of pushing the Amount column past the card edge.
+const LEDGER_COLS = '104px minmax(0,1fr) minmax(0,1.4fr) 88px 32px'
+
 // Board logs dated community expenses here. They feed the resident Home
 // "Financial Overview" chart, which builds a real month-by-month spend curve
 // from this ledger. Mirrors the Budget categories editor's look + behavior.
@@ -26,6 +33,7 @@ export function ExpensesLog({ communityId }: { communityId: string | undefined }
   const [form, setForm] = useState(EMPTY)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [page, setPage] = useState(1)
 
   useEffect(() => {
     let cancelled = false
@@ -61,6 +69,9 @@ export function ExpensesLog({ communityId }: { communityId: string | undefined }
 
   const catName = (id: string | null) => cats.find(c => c.id === id)?.name || '—'
   const total = expenses.reduce((s, x) => s + x.amount, 0)
+  // Clamp the page so removing rows (or a smaller list) never strands us past the end.
+  const pageCount = Math.max(1, Math.ceil(expenses.length / LEDGER_PAGE_SIZE))
+  const pageClamped = Math.min(page, pageCount)
 
   // Download the expense ledger as CSV (shared lib/exportCsv helper).
   const exportExpenses = () => {
@@ -141,20 +152,30 @@ export function ExpensesLog({ communityId }: { communityId: string | undefined }
       ) : expenses.length === 0 ? (
         <div className="bc-empty">No expenses logged yet — add one above to start the spending curve.</div>
       ) : (
-        <div className="bc" style={{ marginTop: 8 }}>
-          <div className="bc-row bc-row-head">
-            <span>Date</span><span>Category</span><span>Vendor / note</span><span>Amount</span><span />
-          </div>
-          {[...expenses].reverse().map(x => (
-            <div className="bc-row" key={x.id} style={{ gridTemplateColumns: '110px 1fr 1.4fr 90px 32px' }}>
-              <span>{fmtDate(x.spent_on)}</span>
-              <span>{catName(x.category_id)}</span>
-              <span>{x.vendor || x.description || '—'}</span>
-              <span style={{ fontWeight: 700 }}>{fmtMoney(x.amount)}</span>
-              <button type="button" className="bc-del" onClick={() => removeExpense(x.id)}
-                aria-label="Remove expense">&times;</button>
+        <div style={{ marginTop: 22 }}>
+          <div className="card-head" style={{ marginBottom: 6 }}>
+            <div>
+              <h3 style={{ margin: 0, fontSize: 15, letterSpacing: '-0.2px' }}>Logged expenses</h3>
+              <div className="sub">{expenses.length} entr{expenses.length === 1 ? 'y' : 'ies'} · {fmtMoney(total)} total</div>
             </div>
-          ))}
+          </div>
+          <div className="bc exp-ledger" style={{ marginTop: 16 }}>
+            <div className="bc-row bc-row-head" style={{ gridTemplateColumns: LEDGER_COLS }}>
+              <span>Date</span><span>Category</span><span>Vendor / note</span>
+              <span style={{ textAlign: 'right' }}>Amount</span><span />
+            </div>
+            {paginate([...expenses].reverse(), pageClamped, LEDGER_PAGE_SIZE).map(x => (
+              <div className="bc-row" key={x.id} style={{ gridTemplateColumns: LEDGER_COLS }}>
+                <span style={{ color: 'var(--text-dim)' }}>{fmtDate(x.spent_on)}</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{catName(x.category_id)}</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-dim)' }}>{x.vendor || x.description || '—'}</span>
+                <span className="exp-amount" style={{ fontWeight: 700, textAlign: 'right' }}>{fmtMoney(x.amount)}</span>
+                <button type="button" className="bc-del" onClick={() => removeExpense(x.id)}
+                  aria-label="Remove expense">&times;</button>
+              </div>
+            ))}
+          </div>
+          <Pagination page={pageClamped} pageSize={LEDGER_PAGE_SIZE} total={expenses.length} onPageChange={setPage} />
         </div>
       )}
     </div>
