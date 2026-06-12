@@ -1000,7 +1000,7 @@ export default function PlatformConsole() {
       {curTab === 'operators' && (
         <section style={card}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-            <h2 style={{ fontSize: 15, fontWeight: 700 }}>Residente operators</h2>
+            <h2 style={{ fontSize: 15, fontWeight: 700 }}>Residente Operators</h2>
             {!isOwner && <span style={{ color: C.muted, fontSize: 12 }}>Owners can add or change operators.</span>}
           </div>
           <p style={{ color: C.muted, fontSize: 12.5, margin: '4px 0 14px' }}>
@@ -1031,43 +1031,49 @@ export default function PlatformConsole() {
                     since {fmtDate(o.added_at)}{o.added_by_name ? ` · added by ${o.added_by_name}` : ''}
                   </div>
                 </div>
-                {editable ? (
-                  <Select<OperatorRole> value={o.role} onChange={v => onChangeRole(o.profile_id, v)}
-                    options={ROLE_OPTIONS} width={148} ariaLabel={`Role for ${o.name}`} />
-                ) : (
-                  <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 11px', borderRadius: 999, textTransform: 'capitalize', background: roleBg(o.role), color: roleColor(o.role) }}>{o.role}</span>
-                )}
-                {editable && (
-                  <button onClick={() => onRemoveOperator(o.profile_id, o.name)}
-                    style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: 'none', color: C.muted, whiteSpace: 'nowrap' }}>
-                    Remove
-                  </button>
-                )}
-                {/* Extra teams (multi-role): an Owner already has everything,
-                    so the chips only show for the team roles. Owners toggle
-                    them; everyone else sees which extra teams a person holds. */}
-                {o.role !== 'owner' && (editable || o.extra_roles.length > 0) && (
-                  <div style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', paddingLeft: 52 }}>
-                    <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.6px', color: C.muted }}>ALSO ON</span>
-                    {ROLES.filter(r => r.key !== 'owner' && r.key !== o.role).map(r => {
-                      const on = o.extra_roles.includes(r.key)
-                      if (!editable && !on) return null
-                      return editable ? (
-                        <button key={r.key} onClick={() => onToggleExtra(o, r.key)}
-                          title={on ? `Remove the ${r.label} team` : `Add the ${r.label} team`}
-                          style={{ cursor: 'pointer', fontSize: 11.5, fontWeight: 700, padding: '4px 12px', borderRadius: 999, whiteSpace: 'nowrap',
-                            border: `1px solid ${on ? roleColor(r.key) : C.border}`,
-                            background: on ? roleBg(r.key) : 'transparent', color: on ? roleColor(r.key) : C.muted }}>
-                          {on ? '✓ ' : '+ '}{r.label}
-                        </button>
-                      ) : (
-                        <span key={r.key} style={{ fontSize: 11, fontWeight: 700, padding: '4px 11px', borderRadius: 999, background: roleBg(r.key), color: roleColor(r.key) }}>
-                          {r.label}
-                        </span>
-                      )
-                    })}
+                {/* Right-side controls: role dropdown + Remove, with the extra
+                    team chips (multi-role) tucked right underneath them. An
+                    Owner already has everything, so chips only show for the
+                    team roles — Owners toggle them; everyone else just sees
+                    which extra teams a person holds. */}
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8, flexShrink: 0 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                    {editable ? (
+                      <Select<OperatorRole> value={o.role} onChange={v => onChangeRole(o.profile_id, v)}
+                        options={ROLE_OPTIONS} width={148} ariaLabel={`Role for ${o.name}`} />
+                    ) : (
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 11px', borderRadius: 999, textTransform: 'capitalize', background: roleBg(o.role), color: roleColor(o.role) }}>{o.role}</span>
+                    )}
+                    {editable && (
+                      <button onClick={() => onRemoveOperator(o.profile_id, o.name)}
+                        style={{ cursor: 'pointer', fontSize: 12.5, fontWeight: 600, padding: '6px 12px', borderRadius: 8, border: `1px solid ${C.border}`, background: 'none', color: C.muted, whiteSpace: 'nowrap' }}>
+                        Remove
+                      </button>
+                    )}
                   </div>
-                )}
+                  {o.role !== 'owner' && (editable || o.extra_roles.length > 0) && (
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 10.5, fontWeight: 800, letterSpacing: '0.6px', color: C.muted }}>ALSO ON</span>
+                      {ROLES.filter(r => r.key !== 'owner' && r.key !== o.role).map(r => {
+                        const on = o.extra_roles.includes(r.key)
+                        if (!editable && !on) return null
+                        return editable ? (
+                          <button key={r.key} onClick={() => onToggleExtra(o, r.key)}
+                            title={on ? `Remove the ${r.label} team` : `Add the ${r.label} team`}
+                            style={{ cursor: 'pointer', fontSize: 11.5, fontWeight: 700, padding: '4px 12px', borderRadius: 999, whiteSpace: 'nowrap',
+                              border: `1px solid ${on ? roleColor(r.key) : C.border}`,
+                              background: on ? roleBg(r.key) : 'transparent', color: on ? roleColor(r.key) : C.muted }}>
+                            {on ? '✓ ' : '+ '}{r.label}
+                          </button>
+                        ) : (
+                          <span key={r.key} style={{ fontSize: 11, fontWeight: 700, padding: '4px 11px', borderRadius: 999, background: roleBg(r.key), color: roleColor(r.key) }}>
+                            {r.label}
+                          </span>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             )
           })}
