@@ -7877,17 +7877,17 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .pay-fines-band {
   background: linear-gradient(rgba(225, 73, 9, 0.06), rgba(225, 73, 9, 0.06)), #FFFFFF;
   border: none;
-  border-radius: 16px;
-  padding: 12px 18px 8px;
+  border-radius: 14px;
+  padding: 9px 16px 6px;
   margin-bottom: 16px;
   box-shadow: 0 14px 34px -18px rgba(31, 42, 58, 0.45);
 }
 [data-theme="sketch"] .pay-fines-band-head {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap; margin-bottom: 12px;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 5px;
 }
 [data-theme="sketch"] .pay-fines-eyebrow {
-  font-size: 15px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase;
+  font-size: 12.5px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase;
   color: #C73E07;
 }
 [data-theme="sketch"] .pay-fines-total {
@@ -7927,8 +7927,8 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
    Dispute split to the two ends below. Shared by the desktop and phone cards. */
 [data-theme="sketch"] .pay-fines-list { display: flex; flex-direction: column; gap: 8px; }
 [data-theme="sketch"] .pay-fine-row {
-  display: flex; flex-direction: column; gap: 14px;
-  padding: 16px 0 2px; border-top: 1px solid rgba(15, 28, 46, 0.08);
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 9px 0 2px; border-top: 1px solid rgba(15, 28, 46, 0.08);
 }
 [data-theme="sketch"] .pay-fine-row:first-of-type { border-top: none; }
 [data-theme="sketch"] .pay-fine-head {
