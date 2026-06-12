@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 
@@ -96,12 +96,17 @@ export function usePlatformConsole() {
   const [myRoles, setMyRoles] = useState<OperatorRole[]>([])
   const [loading, setLoading] = useState(true)
 
+  // Only the FIRST load shows the loading shell; every reload after a
+  // mutation (role change, transfer, …) refreshes silently in the background
+  // so the console doesn't flash "Loading…" on each save.
+  const loadedOnce = useRef(false)
   const load = useCallback(async () => {
     // No session/profile → resolve to "not authorized" instead of hanging on
     // the loading state forever (isAdmin must leave null, or the page's
     // `loading || isAdmin === null` guard never clears).
     if (!hasSupabase || !supabase || !profile?.id) { setIsAdmin(false); setLoading(false); return }
-    setLoading(true)
+    const first = !loadedOnce.current
+    if (first) setLoading(true)
     try {
       const { data, error } = await supabase.rpc('platform_overview')
       if (error) { setIsAdmin(false); setCommunities([]); setRequests([]); setOperators([]); setAudit([]); setMyRole(null); setMyRoles([]); return }
@@ -134,7 +139,8 @@ export function usePlatformConsole() {
       const { data: log } = await supabase.rpc('platform_audit', { p_limit: 100 })
       setAudit((log ?? []) as AuditEntry[])
     } finally {
-      setLoading(false)
+      loadedOnce.current = true
+      if (first) setLoading(false)
     }
   }, [profile?.id])
 
@@ -192,10 +198,15 @@ export function usePlatformConsole() {
     return null
   }, [load])
 
+  // Optimistic: flip the row locally the moment the save lands, then let the
+  // silent background reload reconcile (no loading flash, no visible refresh).
   const setOperatorRole = useCallback(async (profileId: string, role: OperatorRole): Promise<string | null> => {
     if (!hasSupabase || !supabase) return 'Not connected'
     const { error } = await supabase.rpc('platform_set_operator_role', { target: profileId, new_role: role })
     if (error) return error.message
+    setOperators(ops => ops.map(o => o.profile_id === profileId
+      ? { ...o, role, extra_roles: role === 'owner' ? [] : o.extra_roles.filter(r => r !== role) }
+      : o))
     await load()
     return null
   }, [load])
@@ -206,6 +217,7 @@ export function usePlatformConsole() {
     if (!hasSupabase || !supabase) return 'Not connected'
     const { error } = await supabase.rpc('platform_set_operator_extra_roles', { target: profileId, extras })
     if (error) return error.message
+    setOperators(ops => ops.map(o => o.profile_id === profileId ? { ...o, extra_roles: extras } : o))
     await load()
     return null
   }, [load])
