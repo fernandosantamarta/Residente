@@ -1021,9 +1021,12 @@
 .cset .admin-note-err { border-left: 1px solid var(--border); }
 
 /* Form fields sit flush inside cards (no max-width form column). */
-.cset .card .admin-field { margin-bottom: 14px; }
+.cset .card .admin-field { margin-bottom: 18px; }
 .cset .card .admin-field:last-child { margin-bottom: 0; }
 .cset .card .grid2 .admin-field { margin-bottom: 0; }
+/* Give the stacked grid2 rows (Type/Homes, Fiscal/Dues) room to breathe too. */
+.cset .card .grid2 { margin-bottom: 18px; }
+.cset .card .grid2:last-child { margin-bottom: 0; }
 .cset .field-hint {
   font-size: 12px; color: var(--text-faint); line-height: 1.5; margin-top: 5px;
 }
@@ -1040,6 +1043,30 @@
   font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em;
   text-transform: uppercase; color: var(--text-faint); margin-top: 5px;
 }
+
+/* Dues summary — one stat per full-width row. Lighter, larger, simpler type
+   than the old tiles: a plain label + helper line on the left, a big tabular
+   number on the right, hairline-separated. */
+/* Small section caption above the rows, matching the page's field-label voice. */
+.cset .dues-stats-cap {
+  margin-top: 16px; font-size: 12px; font-weight: 600; letter-spacing: 0.3px;
+  color: var(--text-dim); text-transform: uppercase;
+}
+/* Square-ish boxed tiles in a two-up grid — value on top, label + hint under. */
+.cset .dues-stats { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cset .dues-stat {
+  display: flex; flex-direction: column; gap: 4px; justify-content: flex-start;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
+  padding: 14px 15px; min-height: 96px;
+}
+.cset .dues-stat-v {
+  order: -1; font-size: 23px; font-weight: 600; letter-spacing: -0.4px; color: var(--text);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.cset .dues-stat-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+/* Label matches .admin-field-label exactly so it rhymes with the input above. */
+.cset .dues-stat-l { font-size: 12px; font-weight: 600; letter-spacing: 0.3px; color: var(--text-dim); }
+.cset .dues-stat-hint { font-size: 11.5px; color: var(--text-faint); line-height: 1.35; }
 
 /* Budget editor lives inside a card now — drop its own top margin/width. */
 .cset .card .bc { margin-top: 0; max-width: none; }
@@ -1517,7 +1544,7 @@
 }
 .etrack .import-sheet-row { position: relative; display: grid; grid-template-columns: 1.3fr 1.1fr 1.3fr 1fr; }
 /* Reserve room on the right so the hover delete never sits over typed text. */
-.etrack .import-sheet-row .import-cell:last-of-type { padding-right: 26px; }
+.etrack .import-sheet-row .import-cell:last-of-type { padding-right: 32px; }
 /* Hover a row to reveal a delete button at its right edge. */
 .etrack .import-del {
   position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
@@ -1531,11 +1558,11 @@
 .etrack .import-sheet-head {
   background: rgba(225, 73, 9, 0.10); color: #B23A06; font-weight: 700; font-size: 11.5px;
 }
-.etrack .import-sheet-head span { padding: 9px 12px; }
+.etrack .import-sheet-head span { padding: 12px 15px; }
 .etrack .import-cell {
   width: 100%; border: none; outline: none; background: transparent;
   font-family: inherit; font-size: 13px; color: var(--text);
-  padding: 9px 12px; border-top: 1px solid var(--border);
+  padding: 13px 15px; border-top: 1px solid var(--border);
 }
 .etrack .import-sheet-row .import-cell + .import-cell { border-left: 1px solid var(--border); }
 .etrack .import-cell:focus { background: rgba(225, 73, 9, 0.06); }

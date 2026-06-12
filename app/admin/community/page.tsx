@@ -22,6 +22,11 @@ export default function CommunitySettings() {
   const [status, setStatus] = useState('loading') // loading | ready | none | error | saving | saved
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
+  // Live community-wide dues aggregate (collected / outstanding / collection
+  // rate) from the community_dues_summary RPC — the same totals the resident
+  // Reports tile uses. Aggregates only, no per-resident rows. Stays null until
+  // it loads (and on any error), so the dues card just shows '—' for actuals.
+  const [summary, setSummary] = useState(null)
 
   // Auto-dismiss the green confirmation banner after 4s, matching the Rules page.
   useEffect(() => {
@@ -44,6 +49,20 @@ export default function CommunitySettings() {
     }
   }, [communityId])
   useEffect(() => { load() }, [load])
+
+  // Pull the live dues aggregate once the community is known. Best-effort: any
+  // failure (older DB without the RPC, no roster yet) just leaves actuals at '—'.
+  useEffect(() => {
+    if (!hasSupabase || !communityId) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { data, error } = await supabase.rpc('community_dues_summary', { p_community: communityId })
+        if (!cancelled && !error && data) setSummary(Array.isArray(data) ? data[0] : data)
+      } catch { /* non-fatal — projections still render */ }
+    })()
+    return () => { cancelled = true }
+  }, [communityId])
 
   const setField = (key, val) => setForm(f => ({ ...f, [key]: val }))
 
@@ -151,7 +170,7 @@ export default function CommunitySettings() {
               </div>
               {field('name', 'Community name', { placeholder: 'Sunset Lakes' })}
               {field('location', 'Location', { placeholder: 'Miramar, FL' })}
-              <div className="grid2" style={{ gap: 12 }}>
+              <div className="grid2" style={{ gap: 16 }}>
                 <label className="admin-field">
                   <span className="admin-field-label">Type</span>
                   <Dropdown
@@ -166,8 +185,9 @@ export default function CommunitySettings() {
                 </label>
                 {field('unit_count', 'Homes / units', { type: 'number', placeholder: '120' })}
               </div>
-              <div className="grid2" style={{ gap: 12 }}>
+              <div className="grid2" style={{ gap: 16 }}>
                 {field('fiscal_year', 'Fiscal year', { type: 'number', placeholder: '2026' })}
+                {field('monthly_dues', 'Per-home monthly dues', { type: 'number', placeholder: '38', prefix: '$' })}
               </div>
               <div className="card-cta">
                 <button type="button" onClick={save} className="admin-primary-btn" disabled={status === 'saving'}>
@@ -176,29 +196,40 @@ export default function CommunitySettings() {
               </div>
             </div>
 
-            {/* ---- Monthly dues ---- */}
+            {/* ---- At a glance — automated dues snapshot (read-only) ---- */}
             <div className="card">
               <div className="card-head">
                 <div>
-                  <h2>Monthly dues</h2>
-                  <div className="sub">What each home pays</div>
+                  <h2>At a glance</h2>
+                  <div className="sub">Updates automatically from your homes &amp; dues</div>
                 </div>
               </div>
-              {field('monthly_dues', 'Per-home monthly dues', { type: 'number', placeholder: '38', prefix: '$' })}
-              <div className="stats">
-                <div className="stat">
-                  <div className="v">{billedMonth ? money(billedMonth) : '—'}</div>
-                  <div className="l">Billed / month</div>
-                </div>
-                <div className="stat">
-                  <div className="v">{billedMonth ? money(billedMonth * 12) : '—'}</div>
-                  <div className="l">Billed / year</div>
-                </div>
-              </div>
-              <div className="card-cta">
-                <button type="button" onClick={save} className="admin-primary-btn" disabled={status === 'saving'}>
-                  {status === 'saving' ? 'Saving…' : 'Save dues'}
-                </button>
+              {/* Projections compute live from the homes & dues set in Association
+                  details; the three actuals (rate / collected / outstanding) come
+                  from the live community dues summary. Nothing to save here. */}
+              <div className="dues-stats">
+                {[
+                  { l: 'Billed / month',   v: billedMonth ? money(billedMonth) : '—',
+                    hint: homes ? `${homes} home${homes === 1 ? '' : 's'} × ${money(dues)}` : 'Set homes & dues' },
+                  { l: 'Billed / year',    v: billedMonth ? money(billedMonth * 12) : '—',
+                    hint: 'Monthly dues × 12' },
+                  { l: 'Per home / year',  v: dues ? money(dues * 12) : '—',
+                    hint: 'What each home pays annually' },
+                  { l: 'Collection rate',  v: summary ? `${summary.rate}%` : '—',
+                    hint: summary ? `${summary.paid} paid · ${summary.due} due · ${summary.late} late` : 'Collected of what’s billed' },
+                  { l: 'Collected to date', v: summary ? money(summary.collected) : '—',
+                    hint: 'Payments recorded across the roster' },
+                  { l: 'Outstanding',      v: summary ? money(summary.outstanding) : '—',
+                    hint: 'Balances still owed today' },
+                ].map(s => (
+                  <div className="dues-stat" key={s.l}>
+                    <div className="dues-stat-main">
+                      <span className="dues-stat-l">{s.l}</span>
+                      <span className="dues-stat-hint">{s.hint}</span>
+                    </div>
+                    <span className="dues-stat-v">{s.v}</span>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
