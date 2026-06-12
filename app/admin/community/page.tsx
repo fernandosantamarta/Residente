@@ -288,6 +288,26 @@ export default function CommunitySettings() {
               </Link>
             </div>
           </div>
+
+          {/* ---- Delete community — handled by Residente, not self-serve ---- */}
+          <div className="card">
+            <div className="card-head" style={{ marginBottom: 0, alignItems: 'center' }}>
+              <div>
+                <h2>Delete community</h2>
+                <div className="sub">
+                  Closing {form?.name || 'your community'}? Deleting removes every resident,
+                  payment, document, and record — so we do it for you, safely.
+                </div>
+              </div>
+              <Link
+                href="/admin/support"
+                className="admin-primary-btn"
+                style={{ textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0, alignSelf: 'center' }}
+              >
+                Contact Residente
+              </Link>
+            </div>
+          </div>
         </div>
       )}
     </div>
