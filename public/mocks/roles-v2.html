@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><meta name="robots" content="noindex"/>
+<title>Residente Admin · Roles v2 (mock)</title>
+<link rel="stylesheet" href="admin-mock.css"/>
+<link rel="stylesheet" href="admin-mock-v2.css"/>
+</head><body>
+
+<div class="bar">
+  <div class="brand"><span class="brand-chip"><img src="../residente-logo.png" alt="Residente"/></span>Residente</div>
+  <div class="bar-right"><div class="viewas"><span class="viewas-lbl">View as</span><button data-view="founder">Founder</button><button data-view="onboarding">Onboarding</button><button data-view="support">Support</button><button data-view="billing">Billing</button><button data-view="client">Client</button></div><a class="bar-link" href="support.html">Contact Residente</a><a class="back" href="#">&larr; Back to app</a></div>
+</div>
+<nav class="nav">
+  <a href="index-v2.html">Overview</a>
+  <a href="community-v2.html">Community</a>
+  <a href="compliance-v2.html">Compliance</a>
+  <a href="reports-v2.html">Reports</a>
+  <a href="easy-track-v2.html">Easy Track</a>
+  <a href="easy-voice-v2.html">Easy Voice</a>
+  <a href="easy-documents-v2.html">Easy Documents</a>
+  <a href="easy-schedule-v2.html">Easy Schedule</a>
+  <a href="roles-v2.html" class="active">Roles</a>
+  <a href="platform-v2.html" class="plat">Platform</a>
+</nav>
+
+<main class="page">
+  <div class="kicker">Administration</div>
+  <h1>Roles &amp; permissions</h1>
+  <p class="dek">Control who can see and manage each part of your community. Assign a role to any board member or staff.</p>
+
+  <div class="toolbar">
+    <div class="sub" style="font-size:13px;color:var(--dim)">4 roles &middot; 6 people with admin access</div>
+    <button class="btn">+ New role</button>
+  </div>
+
+  <div class="card">
+    <table class="tbl">
+      <thead><tr><th>Role</th><th>People</th><th>Access</th><th></th></tr></thead>
+      <tbody>
+        <tr><td class="strong">Admin <span class="pill" style="margin-left:6px">Default</span></td><td class="muted">2</td><td><span class="pill ok">Full access</span></td><td style="text-align:right"><span class="go">Edit &rarr;</span></td></tr>
+        <tr><td class="strong">Board member <span class="pill dim" style="margin-left:6px">Default</span></td><td class="muted">3</td><td><span class="pill ok">Full access</span></td><td style="text-align:right"><span class="go">Edit &rarr;</span></td></tr>
+        <tr><td class="strong">Treasurer</td><td class="muted">1</td><td class="muted">Financials, Reports, Collections</td><td style="text-align:right"><span class="go">Edit &rarr;</span></td></tr>
+        <tr><td class="strong">Community manager</td><td class="muted">0</td><td class="muted">Residents, Documents, Schedule, Voice</td><td style="text-align:right"><span class="go">Edit &rarr;</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div><h2>Editing: Treasurer</h2><div class="sub">Tick the areas this role can access</div></div><button class="btn sm ghost">Back to roles</button></div>
+    <div class="field"><span class="l">Role name</span><input class="inp" value="Treasurer" style="max-width:320px"/></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px">
+      <label class="lrow" style="border:1px solid var(--border);border-radius:12px;padding:13px 14px;cursor:pointer"><span class="dot" style="background:var(--accent);border-color:transparent;color:#fff">&#10003;</span><div class="body"><div class="ttl">Financials</div><div class="meta">financials.view &middot; financials.manage</div></div></label>
+      <label class="lrow" style="border:1px solid var(--border);border-radius:12px;padding:13px 14px;cursor:pointer"><span class="dot" style="background:var(--accent);border-color:transparent;color:#fff">&#10003;</span><div class="body"><div class="ttl">Payments &amp; collections</div><div class="meta">payments.view &middot; payments.manage</div></div></label>
+      <label class="lrow" style="border:1px solid var(--border);border-radius:12px;padding:13px 14px;cursor:pointer"><span class="dot" style="background:var(--accent);border-color:transparent;color:#fff">&#10003;</span><div class="body"><div class="ttl">Reports</div><div class="meta">reports.view</div></div></label>
+      <label class="lrow" style="border:1px solid var(--border);border-radius:12px;padding:13px 14px;cursor:pointer"><span class="dot">&nbsp;</span><div class="body"><div class="ttl">Residents</div><div class="meta">residents.view &middot; residents.manage</div></div></label>
+      <label class="lrow" style="border:1px solid var(--border);border-radius:12px;padding:13px 14px;cursor:pointer"><span class="dot">&nbsp;</span><div class="body"><div class="ttl">Documents</div><div class="meta">documents.manage</div></div></label>
+      <label class="lrow" style="border:1px solid var(--border);border-radius:12px;padding:13px 14px;cursor:pointer"><span class="dot">&nbsp;</span><div class="body"><div class="ttl">Compliance</div><div class="meta">compliance.manage</div></div></label>
+    </div>
+    <div class="row-actions" style="margin-top:18px"><button class="btn">Save role</button><button class="btn ghost" style="color:var(--due);border-color:var(--due-soft)">Delete role</button></div>
+  </div>
+
+  <p class="note">Mock &middot; not wired to data</p>
+</main>
+<script src="admin-mock.js"></script>
+</body></html>

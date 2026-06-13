@@ -22,3 +22,6 @@ supabase/.temp/
 .claude/
 .tmpverify/
 graphify-out/
+
+# Dev/build scratch logs
+.next-dev.log
