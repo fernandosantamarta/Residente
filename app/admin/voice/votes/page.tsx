@@ -5,7 +5,7 @@ import { useAuth } from '@/app/providers'
 import { useT } from '@/lib/i18n'
 import { EasyVoiceTabs } from '../../EasyVoiceTabs'
 import { useCommunityVotes } from '@/hooks/useCommunityVotes'
-import { VoteForm, VoteRow } from '../page'
+import { VoteForm, VoteRow } from '../_votes'
 
 // Standalone Votes admin — votes are their own thing now, created and run
 // without a meeting (ev_votes.meeting_id stays null). Reuses VoteForm/VoteRow
