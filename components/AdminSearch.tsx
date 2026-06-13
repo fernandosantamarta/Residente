@@ -5,6 +5,15 @@ import { useRouter } from 'next/navigation'
 import { usePermissions } from '@/hooks/usePermissions'
 import type { Permission } from '@/lib/permissions'
 import { sectionSlug } from '@/lib/sectionSlug'
+import { useT } from '@/lib/i18n'
+
+// English label/group → i18n key suffix (camelCase). The data arrays keep their
+// English labels (used for the section-slug hrefs + keyword matching); display
+// text is looked up as adminSearch.l.<sk> / adminSearch.g.<sk>.
+const sk = (s: string) =>
+  s.replace(/[^a-zA-Z0-9]+/g, ' ').trim().split(' ')
+    .map((w, i) => (i === 0 ? w.toLowerCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+    .join('')
 
 // Permission groups mirror the nav's per-tab `anyPerm` (app/admin/layout.tsx):
 // a destination shows only if the user's role grants at least one. Sub-pages
@@ -166,6 +175,9 @@ const SearchIcon = ({ size = 18 }: { size?: number }) => (
 
 export function AdminSearch() {
   const router = useRouter()
+  const t = useT()
+  const trLabel = (d: Dest) => t('adminSearch.l.' + sk(d.label))
+  const trGroup = (d: Dest) => t('adminSearch.g.' + sk(d.group))
   const { canAny, loading: permLoading } = usePermissions()
   const [open, setOpen] = useState(false)
   const [q, setQ] = useState('')
@@ -218,9 +230,11 @@ export function AdminSearch() {
   const results = useMemo(() => {
     const term = q.trim().toLowerCase()
     if (!term) return visible
+    // Match the translated label/group AND the English label/group/keywords, so
+    // search works whether the user types in their language or English.
     return visible.filter(d =>
-      `${d.label} ${d.group} ${d.keywords ?? ''}`.toLowerCase().includes(term))
-  }, [q, visible])
+      `${trLabel(d)} ${trGroup(d)} ${d.label} ${d.group} ${d.keywords ?? ''}`.toLowerCase().includes(term))
+  }, [q, visible, t])
 
   useEffect(() => { setActive(0) }, [q])
 
@@ -239,13 +253,13 @@ export function AdminSearch() {
 
   return (
     <>
-      <button type="button" className="admin-nav-search-btn" aria-label="Search admin" onClick={() => { setQ(''); setOpen(true) }}>
+      <button type="button" className="admin-nav-search-btn" aria-label={t('adminSearch.searchAdmin')} onClick={() => { setQ(''); setOpen(true) }}>
         <SearchIcon />
       </button>
 
       {open && (
         <div className="admin-search-overlay" onMouseDown={() => setOpen(false)}>
-          <div className="admin-search-panel" role="dialog" aria-label="Search admin" onMouseDown={e => e.stopPropagation()}>
+          <div className="admin-search-panel" role="dialog" aria-label={t('adminSearch.searchAdmin')} onMouseDown={e => e.stopPropagation()}>
             <div className="admin-search-input-row">
               <SearchIcon />
               <input
@@ -253,13 +267,13 @@ export function AdminSearch() {
                 value={q}
                 onChange={e => setQ(e.target.value)}
                 onKeyDown={onInputKey}
-                placeholder="Search pages…"
-                aria-label="Search pages"
+                placeholder={t('adminSearch.placeholder')}
+                aria-label={t('adminSearch.searchPages')}
               />
               <kbd className="admin-search-kbd">esc</kbd>
             </div>
             <div className="admin-search-results">
-              {results.length === 0 && <div className="admin-search-empty">No pages match “{q}”.</div>}
+              {results.length === 0 && <div className="admin-search-empty">{t('adminSearch.noMatch', { q })}</div>}
               {results.map((d, i) => (
                 <button
                   key={`${d.href}-${d.label}`}
@@ -268,8 +282,8 @@ export function AdminSearch() {
                   onMouseEnter={() => setActive(i)}
                   onClick={() => go(d)}
                 >
-                  <span className="admin-search-item-label">{d.label}</span>
-                  <span className="admin-search-item-group">{d.group}</span>
+                  <span className="admin-search-item-label">{trLabel(d)}</span>
+                  <span className="admin-search-item-group">{trGroup(d)}</span>
                 </button>
               ))}
             </div>
