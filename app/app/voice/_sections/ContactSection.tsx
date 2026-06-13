@@ -55,8 +55,8 @@ export function ContactSection() {
   // Quick actions on Home link here with ?cat= so the right category is already
   // selected when the resident arrives.
   const sp = useSearchParams()
-  const initialCat = (['maintenance', 'appeal', 'account', 'rule_proposal', 'other'] as const)
-    .includes((sp?.get('cat') || '') as Category) ? (sp!.get('cat') as Category) : 'maintenance'
+  const initialCat = (['maintenance', 'appeal', 'account', 'rule_proposal', 'other'] as readonly string[])
+    .includes(sp?.get('cat') || '') ? (sp!.get('cat') as Category) : 'maintenance'
   const [rows, setRows] = useState<Request[]>([])
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [subPage, setSubPage] = useState(0)
