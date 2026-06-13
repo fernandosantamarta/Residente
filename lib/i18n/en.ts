@@ -1808,6 +1808,8 @@ export const en: Record<string, string> = {
   "admin.communityExpensesLog.vendorPlaceholder": "Greenscape Landscaping",
   "admin.compliance.badgeDueSoon": "{count} due soon",
   "admin.compliance.badgeOnTrack": "On track",
+  "admin.compliance.badgeToDo": "{count} to do",
+  "admin.compliance.statToDo": "To do",
   "admin.compliance.badgeOverdue": "{count} overdue",
   "admin.compliance.emptyAll": "Nothing flagged right now. As you add buildings, budgets, meetings, and records, this dashboard tracks the statutory deadlines for you.",
   "admin.compliance.emptyDueSoon": "No due-soon items.",

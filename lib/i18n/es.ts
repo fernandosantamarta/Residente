@@ -1761,6 +1761,8 @@ export const es: Record<string, string> = {
   "admin.communityExpensesLog.vendorPlaceholder": "Greenscape Landscaping",
   "admin.compliance.badgeDueSoon": "{count} próximo(s) a vencer",
   "admin.compliance.badgeOnTrack": "Al día",
+  "admin.compliance.badgeToDo": "{count} por hacer",
+  "admin.compliance.statToDo": "Por hacer",
   "admin.compliance.badgeOverdue": "{count} vencido(s)",
   "admin.compliance.emptyAll": "No hay elementos marcados en este momento. A medida que agregue edificios, presupuestos, reuniones y registros, este panel rastreará los plazos legales por usted.",
   "admin.compliance.emptyDueSoon": "No hay elementos próximos a vencer.",

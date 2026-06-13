@@ -14,6 +14,7 @@ import { sortSignals, type ComplianceSignal, type Severity } from '@/lib/complia
 import { AttorneyNote } from '../AttorneyNote'
 import { communityDuesConfig } from '@/lib/dues'
 import { foundationSignals } from '@/lib/compliance/signals'
+import { setupSignals } from '@/lib/compliance/setup'
 import { estoppelSignals, type EstoppelRequestRow } from '@/lib/compliance/estoppel'
 import {
   collectionsSignals, paymentPlanSignals, delinquencySignals, delinquentOwnersWithoutCase,
@@ -142,6 +143,7 @@ function gatherSignals(
     dueDay: Number(community.assessment_due_day) || 1,
   }) : []
   return sortSignals([
+    ...setupSignals({ community, residents, budgets, documents }),
     ...foundationSignals(community),
     ...estoppelSignals(estoppel),
     ...collectionsSignals(cases, community?.association_type),
@@ -277,13 +279,14 @@ export default function CompliancePage() {
   // Per-workspace open-signal counts — match a signal's href to a workspace so
   // each card can carry its own overdue/soon badge (folds the old count cards in).
   const wsCounts = useMemo(() => {
-    const m: Record<string, { overdue: number; soon: number }> = {}
+    const m: Record<string, { overdue: number; soon: number; info: number }> = {}
     for (const s of signals) {
       if (!s.href) continue
       const b = wsBase(s.href)
-      ;(m[b] ||= { overdue: 0, soon: 0 })
+      ;(m[b] ||= { overdue: 0, soon: 0, info: 0 })
       if (s.severity === 'overdue') m[b].overdue++
       else if (s.severity === 'soon') m[b].soon++
+      else m[b].info++
     }
     return m
   }, [signals])
@@ -336,6 +339,7 @@ export default function CompliancePage() {
             {[
               { v: counts.overdue, l: t('admin.compliance.statOverdue'), c: '#B42318' },
               { v: counts.soon, l: t('admin.compliance.statDueSoon'), c: '#B54708' },
+              { v: counts.info, l: t('admin.compliance.statToDo'), c: '#175CD3' },
               { v: clearWs, l: t('admin.compliance.statOnTrack'), c: '#067647' },
               { v: `${compliantPct}%`, l: t('admin.compliance.statCompliant'), c: '#2A1206' },
             ].map(s => (
@@ -389,9 +393,10 @@ export default function CompliancePage() {
                 <div className="card-head"><div><h2>{groupLabel}</h2></div></div>
                 <div className="wslist">
                   {items.map(w => {
-                    const c = wsCounts[wsBase(w.href)] || { overdue: 0, soon: 0 }
+                    const c = wsCounts[wsBase(w.href)] || { overdue: 0, soon: 0, info: 0 }
                     const badge = c.overdue ? { t: t('admin.compliance.badgeOverdue', { count: c.overdue }), col: '#B42318' }
                       : c.soon ? { t: t('admin.compliance.badgeDueSoon', { count: c.soon }), col: '#B54708' }
+                      : c.info ? { t: t('admin.compliance.badgeToDo', { count: c.info }), col: '#175CD3' }
                       : { t: t('admin.compliance.badgeOnTrack'), col: '#067647' }
                     return (
                       <Link key={w.href} href={w.href} className="wsrow">
