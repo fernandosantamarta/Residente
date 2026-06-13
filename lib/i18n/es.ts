@@ -2303,7 +2303,7 @@ export const es: Record<string, string> = {
   "admin.estoppelDetailCertificate.loading": "Cargando…",
   "admin.estoppelDetailCertificate.printButton": "Imprimir / Guardar como PDF",
   "admin.financials.addComponent": "Agregar componente",
-  "admin.financials.budgetRowDesc": "El presupuesto operativo, las categorías, el seguimiento bancario (presupuesto vs real) y los gastos están en la página de Presupuesto.",
+  "admin.financials.budgetRowDesc": "El presupuesto operativo, las categorías, el seguimiento bancario (presupuesto vs real) y los gastos están en la página de Presupuesto — vincula tu cuenta bancaria allí para que el presupuesto y los gastos se registren automáticamente.",
   "admin.financials.budgetRowTitle": "Presupuesto",
   "admin.financials.budgetRowTitleSpending": "gastos",
   "admin.financials.collectPaymentsSub": "Vincula la cuenta de Stripe propia de tu asociación. Las cuotas y multas se acreditan directamente en ella — Residente nunca retiene ni mueve tu dinero.",

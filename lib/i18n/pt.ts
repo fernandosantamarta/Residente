@@ -2303,7 +2303,7 @@ export const pt: Record<string, string> = {
   "admin.estoppelDetailCertificate.loading": "Carregando…",
   "admin.estoppelDetailCertificate.printButton": "Imprimir / Salvar como PDF",
   "admin.financials.addComponent": "Adicionar componente",
-  "admin.financials.budgetRowDesc": "O orçamento operacional, as categorias, o acompanhamento bancário (orçamento vs realizado) e as despesas estão na página de Orçamento.",
+  "admin.financials.budgetRowDesc": "O orçamento operacional, as categorias, o acompanhamento bancário (orçamento vs realizado) e as despesas estão na página de Orçamento — conecte sua conta bancária lá para que o orçamento e as despesas sejam rastreados automaticamente.",
   "admin.financials.budgetRowTitle": "Orçamento",
   "admin.financials.budgetRowTitleSpending": "gastos",
   "admin.financials.collectPaymentsSub": "Vincule a conta Stripe da própria associação. Taxas e multas são pagas diretamente nela — o Residente nunca retém nem movimenta seu dinheiro.",
