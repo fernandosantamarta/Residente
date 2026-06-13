@@ -151,6 +151,73 @@ export const NOTICE_KIND_LABELS: Record<NoticeKind, string> = {
   rule_published:       'New rule',
 }
 
+// Semantic colour group for a notice, used to colour-code the notification
+// rows (left accent + kind chip) so a resident can scan the bell by tone:
+//   alert   — needs action / money owed / a deadline (orange-red)
+//   success — something good landed (payment, booking, board reply) (green)
+//   info    — informational publish (docs, minutes, meetings, votes) (blue)
+//   neutral — everything else (slate)
+export type NoticeTone = 'alert' | 'success' | 'info' | 'neutral'
+export function noticeTone(kind?: string | null): NoticeTone {
+  switch (kind) {
+    case 'violation':
+    case 'dues_due':
+    case 'collections_deadline':
+    case 'collections_update':
+    case 'compliance_alert':
+    case 'meeting_reminder':
+    case 'vote_reminder':
+      return 'alert'
+    case 'payment_received':
+    case 'amenity_booked':
+    case 'estoppel_update':
+    case 'vote_results':
+      return 'success'
+    case 'meeting_published':
+    case 'document_uploaded':
+    case 'minutes_published':
+    case 'vote_opened':
+    case 'rule_published':
+    case 'request_update':   // an informational board reply → navy, not green
+      return 'info'
+    default:
+      return 'neutral'
+  }
+}
+
+// Translated kind label for the resident UI (bell + notifications inbox).
+// Falls back to the English NOTICE_KIND_LABELS (then the raw kind) when a
+// translation is missing — t() returns the key unchanged on a miss.
+export function noticeKindLabel(kind: string | null | undefined, t: (k: string) => string): string {
+  if (!kind) return ''
+  const key = `notice.kind.${kind}`
+  const label = t(key)
+  return label === key ? (NOTICE_KIND_LABELS[kind as NoticeKind] ?? kind) : label
+}
+
+// Notice subjects/bodies are written once (in English) by DB triggers, then
+// delivered to every resident — so they can't be stored per-language. For the
+// system-generated REQUEST templates (the common resident notices) we localise
+// at render time by matching the known English text. Board-written free text
+// and other templates fall through unchanged (correctly — we can't know them).
+export function localizeNoticeText(
+  text: string | null | undefined,
+  t: (k: string, v?: Record<string, string | number>) => string,
+): string {
+  if (!text) return ''
+  const exact: Record<string, string> = {
+    'Your request is now in progress.': 'notice.tpl.reqInProgress',
+    'Your request has been marked resolved.': 'notice.tpl.reqResolved',
+    'The board replied to your request. Tap to read it.': 'notice.tpl.reqReplied',
+  }
+  if (exact[text]) return t(exact[text])
+  let m: RegExpExecArray | null
+  if ((m = /^Request update: (.*)$/.exec(text)))        return t('notice.tpl.requestUpdate', { subject: m[1] })
+  if ((m = /^Reply on your request: (.*)$/.exec(text))) return t('notice.tpl.replyOnRequest', { subject: m[1] })
+  if ((m = /^Your request status changed to (.*)\.$/.exec(text))) return t('notice.tpl.reqStatusChanged', { status: m[1] })
+  return text
+}
+
 export function noticeHref(n: { kind?: string | null; meeting_id?: string | null; vote_id?: string | null }): string {
   // Amenity bookings notify the board — send them to the admin reservations view.
   if (n.kind === 'amenity_booked') return '/admin/schedule#amenities'

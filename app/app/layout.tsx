@@ -10,7 +10,7 @@ import { kindToUpTag, upcomingFrom, useScheduleEvents } from '@/lib/schedule'
 import { useUnreadNoticeCount, useMyNotices } from '@/hooks/useNotices'
 import { useMyPendingReplies } from '@/hooks/useAwaitingMessages'
 import { SiteFooterSlim } from '@/components/SiteFooter'
-import { NOTICE_KIND_LABELS, noticeHref, NoticeKind } from '@/lib/voice'
+import { noticeHref, noticeTone, noticeKindLabel, localizeNoticeText } from '@/lib/voice'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import { useWeather } from '@/hooks/useWeather'
 import { usePlatformAdmin } from '@/hooks/usePlatform'
@@ -631,7 +631,9 @@ function NotificationBell() {
           {!loading && notices.length === 0 && (
             <div className="bell-panel-empty">{t('bell.caughtUp')}</div>
           )}
-          {!loading && notices.map((r: any) => {
+          {/* The bell is a peek — only the latest 5; the footer opens the full
+              inbox for everything else. */}
+          {!loading && notices.slice(0, 5).map((r: any) => {
             const n = r.notice
             if (!n) return null
             const unread = !r.read_at
@@ -639,11 +641,12 @@ function NotificationBell() {
               <button
                 key={r.id}
                 className={`bell-row${unread ? ' unread' : ''}`}
+                data-tone={noticeTone(n.kind)}
                 onClick={() => onPick(r.id, n)}
               >
-                <div className="bell-row-kind">{NOTICE_KIND_LABELS[n.kind as NoticeKind] ?? n.kind}</div>
-                <div className="bell-row-subject">{n.subject || '(no subject)'}</div>
-                {n.body && <div className="bell-row-body">{n.body}</div>}
+                <span className="bell-row-kind">{noticeKindLabel(n.kind, t)}</span>
+                <div className="bell-row-subject">{localizeNoticeText(n.subject, t) || '(no subject)'}</div>
+                <div className="bell-row-body">{localizeNoticeText(n.body, t) || ' '}</div>
               </button>
             )
           })}

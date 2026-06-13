@@ -97,8 +97,14 @@ export function useArcPending(): number {
 
 // Resident side: how many of MY conversations have an unread board reply (the
 // board's message is the latest and I haven't opened it). Drives the resident's
-// home banner and the Contact tab badge. "Read" state is the per-device
-// contact_thread_read localStorage map; a 'contact-read' window event lets the
+// home banner and the Contact tab badge.
+//
+// "Read" state is server-side in board_read_receipts (item_type
+// 'request_resident', per profile), so opening a reply on the web also clears
+// the badge on the phone — the old per-device localStorage map didn't, which is
+// why the notification kept "resetting" across devices. We still merge the
+// localStorage map as a fallback so this keeps working before the SQL migration
+// (resident-read-receipts.sql) runs. A 'contact-read' window event lets the
 // Contact page tell this hook to refresh the moment a thread is opened.
 export function useMyPendingReplies(): number {
   const { profile } = useAuth() || {}
@@ -118,8 +124,23 @@ export function useMyPendingReplies(): number {
           .select('id, last_message_at, last_message_role, status')
           .eq('profile_id', profileId)
           .eq('last_message_role', 'board')
-        let readAt: Record<string, string> = {}
-        try { readAt = JSON.parse(window.localStorage.getItem('contact_thread_read') || '{}') } catch { /* ignore */ }
+        // Server receipts first (cross-device), then merge the local map so the
+        // newer of the two wins — and so it still works pre-migration.
+        const readAt: Record<string, string> = {}
+        try {
+          const { data: rec } = await supabase!
+            .from('board_read_receipts')
+            .select('item_id, read_at')
+            .eq('profile_id', profileId)
+            .eq('item_type', 'request_resident')
+          for (const r of (rec || []) as any[]) readAt[r.item_id] = r.read_at
+        } catch { /* receipts table/type not migrated yet — fall back to local */ }
+        try {
+          const local = JSON.parse(window.localStorage.getItem('contact_thread_read') || '{}')
+          for (const id of Object.keys(local)) {
+            if (!readAt[id] || readAt[id] < local[id]) readAt[id] = local[id]
+          }
+        } catch { /* ignore */ }
         const unread = (data || []).filter((r: any) =>
           r.last_message_at && (!readAt[r.id] || readAt[r.id] < r.last_message_at)).length
         if (!cancelled) setCount(unread)

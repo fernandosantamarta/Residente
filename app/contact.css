@@ -161,23 +161,36 @@
 .con-chev-ic.open { transform: rotate(180deg); color: #E14909; }
 .con-reply-dot { width: 7px; height: 7px; border-radius: 50%; background: #3e7cb1; flex-shrink: 0; }
 
-/* Pulsing red dot — a fresh, unread reply from the board. */
+/* Pulsing orange dot — a fresh, unread reply from the board. */
 .con-pending-dot {
-  width: 8px; height: 8px; border-radius: 50%; background: #E5484D; flex-shrink: 0;
-  box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.55);
+  width: 8px; height: 8px; border-radius: 50%; background: #E14909; flex-shrink: 0;
+  box-shadow: 0 0 0 0 rgba(225, 73, 9, 0.55);
   animation: conPendingPulse 1.4s ease-out infinite;
 }
 @keyframes conPendingPulse {
-  0%   { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.55); }
-  70%  { box-shadow: 0 0 0 7px rgba(229, 72, 77, 0); }
-  100% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0); }
+  0%   { box-shadow: 0 0 0 0 rgba(225, 73, 9, 0.55); }
+  70%  { box-shadow: 0 0 0 7px rgba(225, 73, 9, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(225, 73, 9, 0); }
+}
+/* On phones the row is denser, so make the unread dot bigger and give it a
+   wider pulse halo — the resident can't miss that the board replied. */
+@media (max-width: 640px) {
+  .con-pending-dot {
+    width: 12px; height: 12px;
+    animation: conPendingPulseMobile 1.4s ease-out infinite;
+  }
+  @keyframes conPendingPulseMobile {
+    0%   { box-shadow: 0 0 0 0 rgba(225, 73, 9, 0.6); }
+    70%  { box-shadow: 0 0 0 11px rgba(225, 73, 9, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(225, 73, 9, 0); }
+  }
 }
 
 /* Count badge on the resident Contact tab (Easy Voice). */
 .con-pending-badge {
   margin-left: 6px; display: inline-block; min-width: 17px; text-align: center;
   font-size: 10px; font-weight: 800; line-height: 16px; color: #fff;
-  background: #E5484D; border-radius: 999px; padding: 0 5px; vertical-align: middle;
+  background: #E14909; border-radius: 999px; padding: 0 5px; vertical-align: middle;
   animation: conPendingPulse 1.6s ease-out infinite;
 }
 

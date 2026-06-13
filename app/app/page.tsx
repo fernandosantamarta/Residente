@@ -123,6 +123,19 @@ export default function Home() {
   const paceRatio = expectedPctNum > 0 ? actualPctNum / expectedPctNum : 1
   const healthPct = Math.max(0, Math.min(100, Math.round((1 - Math.max(0, paceRatio - 1)) * 100)))
 
+  // Real grading scores for "Where your dues go". Community = how the community's
+  // money is being run (budget pace, with a reserve-funded bonus). Personal = the
+  // resident's own standing (paid up = 100, each month of arrears costs points).
+  // Demo (logged-out preview) keeps the illustrative sample figures.
+  const communityRating = demo
+    ? 92
+    : Math.max(0, Math.min(100, Math.round(healthPct * 0.85) + (reserveTotal > 0 ? 15 : 0)))
+  const personalRating = demo
+    ? 100
+    : (myBalance == null || myBalance <= 0
+        ? 100
+        : Math.max(0, 100 - Math.round((myBalance / Math.max(monthlyDues, 1)) * 25)))
+
   return (
     <>
       {/* HERO — full-width sunset photo with text/chips overlaid on the left.
@@ -220,6 +233,8 @@ export default function Home() {
         unitNumber={profile?.unit_number ?? null}
         demo={demo}
         cats={cats}
+        communityRating={communityRating}
+        personalRating={personalRating}
       />
     </>
   )
@@ -271,8 +286,8 @@ function weatherIcon(condition: string): ChipIconName {
 // ---------- Where your dues go (tabbed) ----------
 
 function DuesSection({
-  monthlyDues, unitCount, unitNumber, demo, cats,
-}: { monthlyDues: number; unitCount: number; unitNumber: string | null; demo: boolean; cats: any[] }) {
+  monthlyDues, unitCount, unitNumber, demo, cats, communityRating, personalRating,
+}: { monthlyDues: number; unitCount: number; unitNumber: string | null; demo: boolean; cats: any[]; communityRating: number; personalRating: number }) {
   const t = useT()
   // Real community: derive the allocation from its own budget categories.
   // Demo (logged-out preview): the illustrative vendor sample.
@@ -331,12 +346,10 @@ function DuesSection({
             {t('home.duesLastUpdated', { date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) })}
           </div>
         </div>
-        {demo && (
-          <RatingRing
-            value={isCommunity ? 92 : 100}
-            label={isCommunity ? t('home.duesCommunityRating') : t('home.duesYourRating')}
-          />
-        )}
+        <RatingRing
+          value={isCommunity ? communityRating : personalRating}
+          label={isCommunity ? t('home.duesCommunityRating') : t('home.duesYourRating')}
+        />
       </div>
 
       <div className="dues-breakdown">

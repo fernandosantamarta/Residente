@@ -413,7 +413,7 @@ button { font-family: inherit; }
 
 .bell-panel {
   position: absolute; top: calc(100% + 8px); right: 0;
-  width: 360px; max-height: 480px; overflow-y: auto;
+  width: 360px; max-height: 600px; overflow-y: auto;
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.5);
   z-index: 100;
@@ -2658,6 +2658,101 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 }
 .inbox-load-more:hover:not(:disabled) { color: var(--text); border-color: var(--border-hover); }
 .inbox-load-more:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.inbox-pager {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-top: 18px;
+}
+.inbox-pager-btn {
+  background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--text-dim); font-family: inherit; font-size: 13px; font-weight: 600;
+  padding: 8px 16px; border-radius: 999px; cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.inbox-pager-btn:hover:not(:disabled) { color: var(--text); border-color: var(--border-hover); }
+.inbox-pager-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.inbox-pager-info { font-size: 12.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+/* ---- Notifications inbox, light (sketch) theme — match the bell popup ---- */
+[data-theme="sketch"] .inbox-title { color: #0A2440; }
+[data-theme="sketch"] .inbox-sub   { color: rgba(10, 36, 64, 0.62); }
+[data-theme="sketch"] .inbox-empty { color: rgba(10, 36, 64, 0.55); }
+
+/* Back to home — a clear white button, not a faint link. */
+[data-theme="sketch"] .inbox-back {
+  display: inline-flex; align-items: center;
+  background: #FFFFFF; color: #C45F2A; font-weight: 700;
+  border: 1px solid rgba(15, 28, 46, 0.12); border-radius: 999px;
+  padding: 9px 16px; padding-top: 9px;
+  box-shadow: 0 1px 2px rgba(10, 36, 64, 0.06);
+}
+[data-theme="sketch"] .inbox-back {
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+[data-theme="sketch"] .inbox-back:hover {
+  color: #FFFFFF;
+  border-color: #0A2440;
+  background: #0A2440;
+  box-shadow: 0 2px 10px rgba(10, 36, 64, 0.28);
+}
+
+/* Themed filter dropdown — give the custom Dropdown a sensible width and let
+   its trigger fill it (the .ad-dd-* chrome is already sketch-themed). */
+.inbox-filter-dd { width: 260px; max-width: 60%; }
+.inbox-filter-dd .ad-dd { width: 100%; }
+[data-theme="sketch"] .inbox-filter-dd .ad-dd-trigger { width: 100%; }
+
+/* Filter + mark-all — match the app's white pill controls. */
+[data-theme="sketch"] .inbox-filter,
+[data-theme="sketch"] .inbox-mark-all {
+  background: #FFFFFF; border: 1px solid rgba(15, 28, 46, 0.12);
+  color: #0A2440; border-radius: 10px;
+}
+[data-theme="sketch"] .inbox-filter:hover, [data-theme="sketch"] .inbox-filter:focus,
+[data-theme="sketch"] .inbox-mark-all:hover:not(:disabled) {
+  border-color: rgba(225, 73, 9, 0.4);
+}
+
+/* Rows — same squared, tone-coded card as the bell popup. */
+[data-theme="sketch"] .inbox-row {
+  background: #FFFFFF;
+  border: 1px solid rgba(15, 28, 46, 0.10);
+  border-left: 4px solid var(--bell-tone, rgba(10, 36, 64, 0.45));
+  border-radius: 10px;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+[data-theme="sketch"] .inbox-row:hover {
+  background: var(--bell-tone-tint, rgba(10, 36, 64, 0.05));
+  border-color: var(--bell-tone, rgba(15, 28, 46, 0.3));
+  box-shadow: 0 3px 12px rgba(10, 36, 64, 0.12);
+  transform: translateY(-1px);
+}
+[data-theme="sketch"] .inbox-row.unread {
+  background: var(--bell-tone-tint, rgba(225, 73, 9, 0.07));
+  border-color: rgba(15, 28, 46, 0.12);
+  border-left-color: var(--bell-tone, #E14909);
+}
+[data-theme="sketch"] .inbox-row[data-tone="alert"]   { --bell-tone: #C2410C; --bell-tone-tint: rgba(194, 65, 12, 0.10); }
+[data-theme="sketch"] .inbox-row[data-tone="success"] { --bell-tone: #15683A; --bell-tone-tint: rgba(21, 104, 58, 0.10); }
+[data-theme="sketch"] .inbox-row[data-tone="info"]    { --bell-tone: #1E3A5F; --bell-tone-tint: rgba(30, 58, 95, 0.10); }
+[data-theme="sketch"] .inbox-row[data-tone="neutral"] { --bell-tone: #2A3B52; --bell-tone-tint: rgba(42, 59, 82, 0.10); }
+[data-theme="sketch"] .inbox-row-kind {
+  display: inline-block; padding: 2px 7px; border-radius: 5px;
+  color: var(--bell-tone, #5B6B7F);
+  background: var(--bell-tone-tint, rgba(10, 36, 64, 0.06));
+}
+[data-theme="sketch"] .inbox-row.unread .inbox-row-kind { color: var(--bell-tone, #E14909); }
+[data-theme="sketch"] .inbox-row-subject { color: #0A2440; }
+[data-theme="sketch"] .inbox-row-body { color: rgba(10, 36, 64, 0.62); }
+[data-theme="sketch"] .inbox-row-ts { color: rgba(10, 36, 64, 0.45); }
+[data-theme="sketch"] .inbox-row-dot { background: var(--bell-tone, #E14909); }
+
+/* Pager — white pills on the light theme. */
+[data-theme="sketch"] .inbox-pager-btn {
+  background: #FFFFFF; border: 1px solid rgba(15, 28, 46, 0.12); color: #0A2440;
+}
+[data-theme="sketch"] .inbox-pager-btn:hover:not(:disabled) { border-color: rgba(225, 73, 9, 0.4); color: #E14909; }
+[data-theme="sketch"] .inbox-pager-info { color: rgba(10, 36, 64, 0.6); }
 
 /* ============================================================
    IMAGE-MATCHED OVERRIDES (sketch theme = the "Sunset Lakes" UI)
@@ -6745,6 +6840,8 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   [data-theme="sketch"] .set-grid {
     grid-template-columns: 1fr;
   }
+  /* Single column — no left-hand title to line up against, so drop the offset. */
+  [data-theme="sketch"] .set-aside { margin-top: 0; }
 }
 
 [data-theme="sketch"] .set-col {
@@ -6761,6 +6858,7 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 [data-theme="sketch"] .set-section-title {
   font-family: 'AmpFix', 'Fraunces', Georgia, serif;
   font-size: 11px;
+  line-height: 1.2;
   font-weight: 700;
   letter-spacing: 1.8px;
   text-transform: uppercase;
@@ -6882,6 +6980,11 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   position: sticky;
   top: 16px;
   align-self: start;
+  /* The left column puts a section title (line-height ~13px) above its first
+     white box, with the .set-section gap (12px) below it. Drop the sidebar by
+     that much so the "Account summary" tile lines up with the "Account &
+     Profile" box instead of floating ~25px higher. */
+  margin-top: 25px;
 }
 [data-theme="sketch"] .set-tile {
   display: flex; flex-direction: column;
@@ -7558,6 +7661,88 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 .bell-panel {
   z-index: 500;
 }
+
+/* Notification bell rows, light-theme treatment. The base rules were tuned for
+   the dark platform shell (white-on-white hovers, no colour coding). On the
+   resident (sketch) theme we render each notice as its own squared card with a
+   tone-coloured left edge + kind chip, so the list scans by colour and matches
+   the rest of the white-card UI. */
+[data-theme="sketch"] .bell-panel {
+  background: #FFFFFF;
+  border: 1px solid rgba(15, 28, 46, 0.10);
+  border-radius: 14px;
+  box-shadow: 0 16px 44px rgba(10, 36, 64, 0.16);
+  padding-bottom: 6px;
+  overflow-x: hidden;   /* never a sideways scrollbar */
+}
+[data-theme="sketch"] .bell-panel-head {
+  color: #0A2440;
+  border-bottom: 1px solid rgba(15, 28, 46, 0.08);
+}
+[data-theme="sketch"] .bell-panel-empty { color: rgba(10, 36, 64, 0.55); }
+
+[data-theme="sketch"] .bell-row {
+  /* Every card is the SAME width: an explicit calc (not width:auto, which a
+     <button> resolves from its content) + border-box keeps the side margins,
+     padding and borders INSIDE the panel — uniform width, no horizontal
+     scrollbar. */
+  display: block;
+  box-sizing: border-box;
+  width: calc(100% - 16px);
+  margin: 6px 8px 0;
+  padding: 10px 12px 11px;
+  background: #FFFFFF;
+  border: 1px solid rgba(15, 28, 46, 0.10);
+  border-left: 4px solid var(--bell-tone, rgba(10, 36, 64, 0.45));
+  border-radius: 10px;
+  transition: background-color .12s ease, border-color .12s ease;
+  overflow-wrap: anywhere;   /* long unbroken words/URLs can't force width */
+}
+[data-theme="sketch"] .bell-row:last-child { border-bottom: 1px solid rgba(15, 28, 46, 0.10); }
+[data-theme="sketch"] .bell-row:hover {
+  background: var(--bell-tone-tint, rgba(10, 36, 64, 0.04));
+  border-color: rgba(15, 28, 46, 0.16);
+}
+[data-theme="sketch"] .bell-row.unread {
+  background: var(--bell-tone-tint, rgba(225, 73, 9, 0.07));
+}
+
+/* Per-tone accent colour + matching tint, keyed off data-tone on the row. */
+[data-theme="sketch"] .bell-row[data-tone="alert"]   { --bell-tone: #C2410C; --bell-tone-tint: rgba(194, 65, 12, 0.10); }
+[data-theme="sketch"] .bell-row[data-tone="success"] { --bell-tone: #15683A; --bell-tone-tint: rgba(21, 104, 58, 0.10); }
+[data-theme="sketch"] .bell-row[data-tone="info"]    { --bell-tone: #1E3A5F; --bell-tone-tint: rgba(30, 58, 95, 0.10); }
+[data-theme="sketch"] .bell-row[data-tone="neutral"] { --bell-tone: #2A3B52; --bell-tone-tint: rgba(42, 59, 82, 0.10); }
+
+/* Kind label becomes a small squared chip in the row's tone. */
+[data-theme="sketch"] .bell-row-kind {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--bell-tone, #5B6B7F);
+  background: var(--bell-tone-tint, rgba(10, 36, 64, 0.06));
+}
+[data-theme="sketch"] .bell-row.unread .bell-row-kind { color: var(--bell-tone, #E14909); }
+/* One line each for subject + body so every row is the SAME height — uniform,
+   scannable tabs instead of some cards growing two lines taller than others. */
+[data-theme="sketch"] .bell-row-subject {
+  color: #0A2440;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+[data-theme="sketch"] .bell-row-body {
+  /* Always one line tall — even when a notice has no body the line is reserved
+     (the markup renders a space), so every card is the SAME height. */
+  display: block;
+  color: rgba(10, 36, 64, 0.62);
+  min-height: 1.15em; line-height: 1.15;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+[data-theme="sketch"] .bell-panel-footer {
+  color: #C45F2A; font-weight: 700;
+  border-top: 1px solid rgba(15, 28, 46, 0.08);
+}
+[data-theme="sketch"] .bell-panel-footer:hover { color: #E14909; background: rgba(225, 73, 9, 0.06); }
 
 /* Saved payment methods on /app/pay (read from Settings prefs). */
 [data-theme="sketch"] .pay-methods {
@@ -10014,7 +10199,18 @@ textarea[disabled] {
 }
 @media (max-width: 767px) {
   /* Full-width notification dropdown (was a fixed 360px box half-off the bell). */
-  .bell-panel { position: fixed; top: 58px; left: 10px; right: 10px; width: auto; max-height: 72vh; }
+  .bell-panel { position: fixed; top: 58px; left: 10px; right: 10px; width: auto; max-height: 88vh; }
+  /* Compact the 5 cards on phones so the whole peek (header + 5 rows + footer)
+     fits without an internal scrollbar. */
+  [data-theme="sketch"] .bell-panel-head { padding: 9px 14px; }
+  [data-theme="sketch"] .bell-row {
+    margin: 5px 8px 0;
+    padding: 8px 11px 8px;
+  }
+  [data-theme="sketch"] .bell-row-kind { margin-bottom: 3px; padding: 1px 6px; font-size: 9.5px; }
+  [data-theme="sketch"] .bell-row-subject { font-size: 12.5px; margin-bottom: 1px; }
+  [data-theme="sketch"] .bell-row-body { font-size: 11px; min-height: 1.1em; line-height: 1.1; }
+  [data-theme="sketch"] .bell-panel-footer { padding: 9px 14px; }
   /* Square calendar day cells; events render as a row of colour dots. */
   [data-theme="sketch"] .sched-cell { min-height: 58px; }
   [data-theme="sketch"] .sched-cell-events { flex-direction: row; flex-wrap: wrap; gap: 3px; margin-top: 1px; }
@@ -10038,7 +10234,7 @@ textarea[disabled] {
   [data-theme="sketch"] .ev-hub-head { padding-top: 64px; }
   /* Settings: Account summary aside moves to the TOP, and every row is one
      line (ellipsis) so they're all the same height. */
-  [data-theme="sketch"] .set-aside { order: -1; }
+  [data-theme="sketch"] .set-aside { order: -1; margin-top: 0; }
   [data-theme="sketch"] .set-row-title,
   [data-theme="sketch"] .set-row-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   [data-theme="sketch"] .set-row-right { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }

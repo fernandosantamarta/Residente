@@ -73,8 +73,9 @@ export function ContactSection() {
   }, [])
 
   const markRead = useCallback((requestId: string) => {
+    const at = lastBoardAt[requestId] || new Date().toISOString()
     setReadAt(prev => {
-      const next = { ...prev, [requestId]: lastBoardAt[requestId] || new Date().toISOString() }
+      const next = { ...prev, [requestId]: at }
       if (typeof window !== 'undefined') {
         try { window.localStorage.setItem(READ_KEY, JSON.stringify(next)) } catch { /* ignore */ }
         // Tell the home banner + Contact tab badge to refresh right away.
@@ -82,7 +83,16 @@ export function ContactSection() {
       }
       return next
     })
-  }, [lastBoardAt])
+    // Persist server-side so the read state syncs across this resident's devices
+    // (opening a reply on the web clears the badge on their phone too). Best
+    // effort — localStorage above is the fallback before the migration runs.
+    if (supabase && profile?.id) {
+      void supabase.from('board_read_receipts').upsert(
+        { profile_id: profile.id, item_type: 'request_resident', item_id: requestId, read_at: at },
+        { onConflict: 'profile_id,item_type,item_id' },
+      ).then(() => { /* ignore result */ }, () => { /* table/type not migrated yet */ })
+    }
+  }, [lastBoardAt, profile?.id])
 
   const isUnread = useCallback((r: Request) => {
     const board = lastBoardAt[r.id]
@@ -103,6 +113,28 @@ export function ContactSection() {
       if (error) throw error
       const list = (data as Request[]) || []
       setRows(list)
+      // Pull this resident's server-side read receipts and merge them into the
+      // read map (newer of server/local wins). Keeps the unread dots in sync
+      // across devices instead of trusting only this device's localStorage.
+      try {
+        const { data: rec } = await supabase
+          .from('board_read_receipts')
+          .select('item_id, read_at')
+          .eq('profile_id', profile.id)
+          .eq('item_type', 'request_resident')
+        if (rec && rec.length) {
+          setReadAt(prev => {
+            const next = { ...prev }
+            for (const r of rec as any[]) {
+              if (!next[r.item_id] || next[r.item_id] < r.read_at) next[r.item_id] = r.read_at
+            }
+            if (typeof window !== 'undefined') {
+              try { window.localStorage.setItem(READ_KEY, JSON.stringify(next)) } catch { /* ignore */ }
+            }
+            return next
+          })
+        }
+      } catch { /* receipts not migrated yet — localStorage map still applies */ }
       // Latest board-message time per thread, for the unread dots.
       if (list.length) {
         const { data: msgs } = await supabase
@@ -189,7 +221,7 @@ export function ContactSection() {
           <h2 className="con-card-title">
             {t('board.pastSubmissions')}
             {unreadCount > 0 && (
-              <span style={{ marginLeft: 10, fontSize: 12.5, fontWeight: 700, color: '#E5484D', verticalAlign: 'middle', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ marginLeft: 10, fontSize: 12.5, fontWeight: 700, color: '#E14909', verticalAlign: 'middle', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
                 <span className="con-pending-dot" />
                 You have {unreadCount} pending {unreadCount === 1 ? 'message' : 'messages'}
               </span>
