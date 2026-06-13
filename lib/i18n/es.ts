@@ -1787,6 +1787,7 @@ export const es: Record<string, string> = {
   "admin.compliance.severityToDo": "Por hacer",
   "admin.compliance.sortedByDeadline": "Ordenado por fecha límite",
   "admin.compliance.statCompliant": "Cumpliendo",
+  "admin.compliance.statReady": "Listo",
   "admin.compliance.statDueSoon": "Próximo a vencer",
   "admin.compliance.statOnTrack": "Al día",
   "admin.compliance.statOverdue": "Vencido",

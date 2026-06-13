@@ -14,7 +14,7 @@ import { sortSignals, type ComplianceSignal, type Severity } from '@/lib/complia
 import { AttorneyNote } from '../AttorneyNote'
 import { communityDuesConfig } from '@/lib/dues'
 import { foundationSignals } from '@/lib/compliance/signals'
-import { setupSignals } from '@/lib/compliance/setup'
+import { setupSignals, SETUP_TASK_COUNT } from '@/lib/compliance/setup'
 import { estoppelSignals, type EstoppelRequestRow } from '@/lib/compliance/estoppel'
 import {
   collectionsSignals, paymentPlanSignals, delinquencySignals, delinquentOwnersWithoutCase,
@@ -305,7 +305,14 @@ export default function CompliancePage() {
     () => visibleWs.filter(w => { const c = wsCounts[wsBase(w.href)]; return !c || (!c.overdue && !c.soon) }).length,
     [visibleWs, wsCounts],
   )
-  const compliantPct = visibleWs.length ? Math.round((clearWs / visibleWs.length) * 100) : 100
+  // Readiness blends two halves so a brand-new community reads as "getting
+  // started", not "fully compliant": how much of the day-one setup is done, and
+  // how many workspaces are statutorily on track. Each weighs 50%, so an unset
+  // community lands low and climbs to 100% as setup + compliance are completed.
+  const openSetup = useMemo(() => signals.filter(s => s.id.startsWith('setup:')).length, [signals])
+  const setupScore = SETUP_TASK_COUNT ? Math.max(0, SETUP_TASK_COUNT - openSetup) / SETUP_TASK_COUNT : 1
+  const complianceScore = visibleWs.length ? clearWs / visibleWs.length : 1
+  const compliantPct = Math.round(((setupScore + complianceScore) / 2) * 100)
 
   return (
     <div className="admin-page cset">
@@ -341,7 +348,7 @@ export default function CompliancePage() {
               { v: counts.soon, l: t('admin.compliance.statDueSoon'), c: '#B54708' },
               { v: counts.info, l: t('admin.compliance.statToDo'), c: '#175CD3' },
               { v: clearWs, l: t('admin.compliance.statOnTrack'), c: '#067647' },
-              { v: `${compliantPct}%`, l: t('admin.compliance.statCompliant'), c: '#2A1206' },
+              { v: `${compliantPct}%`, l: t('admin.compliance.statReady'), c: '#2A1206' },
             ].map(s => (
               <div key={s.l} style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, padding: '16px 18px' }}>
                 <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, color: s.c }}>{s.v}</div>

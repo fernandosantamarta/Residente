@@ -23,6 +23,11 @@ export interface SetupInput {
 
 const DOMAIN = 'Setup'
 
+/** Number of day-one setup checks in setupSignals() below. The compliance
+ *  dashboard weights "% set up" against this so a brand-new community reads as
+ *  getting started rather than fully ready. Keep in sync with the checks. */
+export const SETUP_TASK_COUNT = 6
+
 /**
  * Emit a "To do" signal for each day-one essential that has not been set up yet.
  * Side-effect free; tolerates partial/empty inputs; never throws. Each signal
