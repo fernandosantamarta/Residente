@@ -8,7 +8,7 @@ import { EasyVoiceTabs } from '../EasyVoiceTabs'
 import { useRequestThread, sendThreadMessage, systemLine, SYS_REOPENED, type ThreadMessage } from '@/lib/requestThread'
 import { useT } from '@/lib/i18n'
 
-const withTimeout = <T,>(p: Promise<T>, ms = 10000): Promise<T> =>
+const withTimeout = <T,>(p: PromiseLike<T>, ms = 10000): Promise<T> =>
   Promise.race([
     p,
     new Promise<T>((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms)),

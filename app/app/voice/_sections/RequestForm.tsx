@@ -10,7 +10,7 @@ import { useT } from '@/lib/i18n'
 // actions (in a popup, via RequestFormDialog). Single source of truth so the
 // submit/upload logic lives in one place.
 
-const withTimeout = <T,>(p: Promise<T>, ms = 10000): Promise<T> =>
+const withTimeout = <T,>(p: PromiseLike<T>, ms = 10000): Promise<T> =>
   Promise.race([
     p,
     new Promise<T>((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms)),
