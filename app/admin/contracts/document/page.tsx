@@ -9,6 +9,7 @@
 import { Suspense, useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/providers'
+import { useT } from '@/lib/i18n'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd } from '@/lib/compliance/rules-core'
 import {
@@ -34,14 +35,16 @@ const TITLES: Record<DocType, string> = {
 const KIND_LABEL: Record<string, string> = { products: 'Products / equipment', services: 'Services', management: 'Management / maintenance' }
 
 export default function ContractsDocumentPage() {
+  const t = useT()
   return (
-    <Suspense fallback={<div style={{ padding: 40 }}>Loading…</div>}>
+    <Suspense fallback={<div style={{ padding: 40 }}>{t('admin.contractsDocument.loading')}</div>}>
       <DocInner />
     </Suspense>
   )
 }
 
 function DocInner() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const search = useSearchParams()
@@ -74,7 +77,7 @@ function DocInner() {
     return () => { cancelled = true }
   }, [communityId, type])
 
-  if (status === 'loading') return <div style={{ padding: 40 }}>Loading…</div>
+  if (status === 'loading') return <div style={{ padding: 40 }}>{t('admin.contractsDocument.loading')}</div>
   if (status === 'error') return <div style={{ padding: 40, color: '#B42318' }}>{error}</div>
 
   const today = ymd(new Date())
@@ -92,16 +95,15 @@ function DocInner() {
 
       <div className="no-print" style={{ display: 'flex', gap: 10, justifyContent: 'space-between', marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
         <div style={{ fontSize: 12, background: '#FEF3F2', color: '#B42318', padding: '8px 12px', borderRadius: 8, maxWidth: 540 }}>
-          ⚠ DRAFT — an aid, not an official filing or a contract. Confirm every figure, date, and the legal
-          language with your association attorney and the controlling statute before relying on it.
+          {t('admin.contractsDocument.draftWarning')}
         </div>
-        <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', height: 'fit-content' }}>Print / Save as PDF</button>
+        <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', height: 'fit-content' }}>{t('admin.contractsDocument.printButton')}</button>
       </div>
 
       {/* Letterhead */}
       <div style={{ textAlign: 'center', marginBottom: 14 }}>
-        <div style={{ fontSize: 18, fontWeight: 700 }}>{community?.name || 'Association'}</div>
-        <div style={{ fontSize: 12.5, color: '#555' }}>{community?.association_address || <Em>set the association address in Community settings</Em>}</div>
+        <div style={{ fontSize: 18, fontWeight: 700 }}>{community?.name || t('admin.contractsDocument.associationFallback')}</div>
+        <div style={{ fontSize: 12.5, color: '#555' }}>{community?.association_address || <Em>{t('admin.contractsDocument.setAssociationAddress')}</Em>}</div>
       </div>
       <div style={{ fontSize: 12.5, color: '#555', marginBottom: 4 }}>{today}</div>
       <h1 style={{ fontSize: 19, marginBottom: 8 }}>{TITLES[type]}</h1>

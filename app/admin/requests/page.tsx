@@ -6,6 +6,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { Dropdown } from '@/components/Dropdown'
 import { EasyVoiceTabs } from '../EasyVoiceTabs'
 import { useRequestThread, sendThreadMessage, systemLine, SYS_REOPENED, type ThreadMessage } from '@/lib/requestThread'
+import { useT } from '@/lib/i18n'
 
 const withTimeout = <T,>(p: Promise<T>, ms = 10000): Promise<T> =>
   Promise.race([
@@ -91,6 +92,7 @@ const MAX_FILE = 10 * 1024 * 1024  // 10MB
 // from /app/contact — maintenance issues, appeals, questions. Set the status
 // to move each one New → In progress → Resolved.
 export default function RequestsAdmin() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const [rows, setRows] = useState<Request[]>([])
@@ -112,6 +114,25 @@ export default function RequestsAdmin() {
   const [composeFile, setComposeFile] = useState<File | null>(null)
   const [composeErr, setComposeErr] = useState('')
   const [sending, setSending] = useState(false)
+
+  // Translated category labels (hook-safe, inside the component).
+  const tCatLabel: Record<string, string> = {
+    maintenance: t('admin.requests.catMaintenance'),
+    appeal:      t('admin.requests.catAppeal'),
+    account:     t('admin.requests.catAccount'),
+    other:       t('admin.requests.catOther'),
+  }
+  // Translated status labels.
+  const tStatusLabel: Record<string, string> = {
+    new:         t('admin.requests.statusNew'),
+    in_progress: t('admin.requests.statusInProgress'),
+    resolved:    t('admin.requests.statusResolved'),
+  }
+  const tStatuses: { value: Status; label: string }[] = [
+    { value: 'new',         label: tStatusLabel['new'] },
+    { value: 'in_progress', label: tStatusLabel['in_progress'] },
+    { value: 'resolved',    label: tStatusLabel['resolved'] },
+  ]
 
   useEffect(() => {
     if (!successMsg) return
@@ -136,7 +157,7 @@ export default function RequestsAdmin() {
       if (/schema cache|does not exist|find the table/i.test(msg)) {
         setStatus('none')
       } else {
-        setError(msg || 'Could not load requests')
+        setError(msg || t('admin.requests.errorLoadRequests'))
         setStatus('error')
       }
     }
@@ -177,7 +198,7 @@ export default function RequestsAdmin() {
           .order('full_name', { ascending: true })
         if (cancelled) return
         setResidents((data || []).map((p: any) => ({
-          id: p.id, name: p.full_name || 'Resident', unit: p.unit_number ?? null, email: p.email ?? null,
+          id: p.id, name: p.full_name || t('admin.requests.residentFallback'), unit: p.unit_number ?? null, email: p.email ?? null,
         })))
       } catch { /* leave empty */ }
     })()
@@ -191,10 +212,10 @@ export default function RequestsAdmin() {
   // so the seed trigger doesn't also create a duplicate text-only message.
   const sendMessage = async () => {
     const target = residents.find(r => r.id === compose.residentId)
-    if (!target) { setComposeErr('Pick a resident.'); return }
-    if (!compose.subject.trim()) { setComposeErr('Add a subject.'); return }
-    if (!compose.message.trim()) { setComposeErr('Write a message.'); return }
-    if (composeFile && composeFile.size > MAX_FILE) { setComposeErr('Photo must be 10MB or smaller.'); return }
+    if (!target) { setComposeErr(t('admin.requests.errPickResident')); return }
+    if (!compose.subject.trim()) { setComposeErr(t('admin.requests.errAddSubject')); return }
+    if (!compose.message.trim()) { setComposeErr(t('admin.requests.errWriteMessage')); return }
+    if (composeFile && composeFile.size > MAX_FILE) { setComposeErr(t('admin.requests.errPhotoSize')); return }
     setSending(true); setComposeErr('')
     try {
       // Upload first (into the resident's folder so their read policy covers it)
@@ -255,13 +276,13 @@ export default function RequestsAdmin() {
       setTab('all')
       setSelectedId(newId)
       setSuccessMsg(
-        emailed ? `Message sent and emailed to ${target.name}.`
-          : target.email ? `Message saved for ${target.name}, but the email could not be sent.`
-          : `Message saved for ${target.name} (no email on file to send to).`
+        emailed ? t('admin.requests.successMsgEmailed', { name: target.name })
+          : target.email ? t('admin.requests.successMsgEmailFailed', { name: target.name })
+          : t('admin.requests.successMsgNoEmail', { name: target.name })
       )
       await load()
     } catch (err: any) {
-      setComposeErr(err?.message || 'Could not send the message.')
+      setComposeErr(err?.message || t('admin.requests.errCouldNotSend'))
     } finally {
       setSending(false)
     }
@@ -295,10 +316,12 @@ export default function RequestsAdmin() {
           })
         } catch { /* non-blocking */ }
       }
-      setSuccessMsg(next === 'resolved' ? `Conversation with ${r.submitter_name || 'the resident'} closed.` : `"${r.subject}" → ${STATUS_LABEL[next]}.`)
+      setSuccessMsg(next === 'resolved'
+        ? t('admin.requests.successConversationClosed', { name: r.submitter_name || t('admin.requests.theResident') })
+        : t('admin.requests.successStatusChanged', { subject: r.subject, status: tStatusLabel[next] || next }))
     } catch (err: any) {
       setRows(rs => rs.map(x => x.id === r.id ? { ...x, ...prev } : x))   // roll back
-      setError(err?.message || 'Could not update that request')
+      setError(err?.message || t('admin.requests.errorUpdateRequest'))
     }
   }
 
@@ -311,10 +334,10 @@ export default function RequestsAdmin() {
         supabase!.from('resident_requests').update({ replies_locked: locked }).eq('id', r.id)
       )
       if (error) throw error
-      setSuccessMsg(locked ? 'Replies turned off — the resident can read but not reply.' : 'Replies turned back on.')
+      setSuccessMsg(locked ? t('admin.requests.successRepliesOff') : t('admin.requests.successRepliesOn'))
     } catch (err: any) {
       setRows(rs => rs.map(x => x.id === r.id ? { ...x, replies_locked: !locked } : x))   // roll back
-      setError(err?.message || 'Could not update that request')
+      setError(err?.message || t('admin.requests.errorUpdateRequest'))
     }
   }
 
@@ -386,14 +409,14 @@ export default function RequestsAdmin() {
   return (
     <div className="admin-page cset">
       <EasyVoiceTabs active="contact" />
-      <div className="admin-kicker">Contact</div>
+      <div className="admin-kicker">{t('admin.requests.kicker')}</div>
       <h1 className="admin-h1" style={{ display: 'inline-flex', alignItems: 'center' }}>
-        Messages
-        {awaitingCount > 0 && <span className="admin-nav-badge" title="Messages awaiting your reply">{awaitingCount}</span>}
+        {t('admin.requests.heading')}
+        {awaitingCount > 0 && <span className="admin-nav-badge" title={t('admin.requests.badgeTitle')}>{awaitingCount}</span>}
       </h1>
       <p className="admin-dek">
-        Two-way messages with residents — every conversation in one place.
-        <strong> Needs reply</strong> flags the ones waiting on you.
+        {t('admin.requests.dek')}
+        <strong> {t('admin.requests.dekNeedsReply')}</strong> {t('admin.requests.dekSuffix')}
       </p>
 
       {(status === 'ready' || status === 'loading') && awaitingCount > 0 && (
@@ -404,22 +427,23 @@ export default function RequestsAdmin() {
         >
           <span className="con-pending-dot" />
           <span style={{ fontSize: 13.5, fontWeight: 700, color: '#B42318' }}>
-            You have {awaitingCount} message{awaitingCount === 1 ? '' : 's'} awaiting your reply
+            {awaitingCount === 1
+              ? t('admin.requests.awaitingBannerSingular')
+              : t('admin.requests.awaitingBannerPlural', { count: awaitingCount })}
           </span>
-          <span style={{ marginLeft: 'auto', fontWeight: 800, color: '#E5484D' }}>View &rarr;</span>
+          <span style={{ marginLeft: 'auto', fontWeight: 800, color: '#E5484D' }}>{t('admin.requests.viewArrow')}</span>
         </button>
       )}
 
       {status === 'none' && (
         <div className="admin-note admin-note-warn">
-          No community is linked yet, or the requests table isn&rsquo;t set up. Run the
-          resident requests setup SQL (see supabase/resident-requests.sql), then reload.
+          {t('admin.requests.noCommunityNote')}
         </div>
       )}
       {status === 'error' && (
         <div className="admin-note admin-note-err">
           {error}
-          <button type="button" className="admin-btn-ghost" onClick={load}>Retry</button>
+          <button type="button" className="admin-btn-ghost" onClick={load}>{t('admin.requests.retry')}</button>
         </div>
       )}
 
@@ -438,18 +462,18 @@ export default function RequestsAdmin() {
               <button type="button" role="tab" aria-selected={tab === 'needs'}
                 className={`seg-tab${tab === 'needs' ? ' active' : ''}`}
                 onClick={() => { setTab('needs'); setComposing(false) }}>
-                Needs reply
+                {t('admin.requests.tabNeedsReply')}
                 {awaitingCount > 0 && <span className="admin-nav-badge">{awaitingCount}</span>}
               </button>
               <button type="button" role="tab" aria-selected={tab === 'resolved'}
                 className={`seg-tab${tab === 'resolved' ? ' active' : ''}`}
                 onClick={() => { setTab('resolved'); setComposing(false) }}>
-                Resolved
+                {t('admin.requests.tabResolved')}
               </button>
               <button type="button" role="tab" aria-selected={tab === 'all'}
                 className={`seg-tab${tab === 'all' ? ' active' : ''}`}
                 onClick={() => { setTab('all'); setComposing(false) }}>
-                All
+                {t('admin.requests.tabAll')}
               </button>
             </div>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
@@ -457,13 +481,13 @@ export default function RequestsAdmin() {
                 <Dropdown<'all' | Category>
                   value={catFilter}
                   onChange={setCatFilter}
-                  ariaLabel="Filter by category"
-                  options={[{ value: 'all', label: 'All categories' }, ...CATS.map(c => ({ value: c.value, label: c.label }))]}
+                  ariaLabel={t('admin.requests.filterByCategoryLabel')}
+                  options={[{ value: 'all', label: t('admin.requests.allCategories') }, ...CATS.map(c => ({ value: c.value, label: tCatLabel[c.value] || c.label }))]}
                 />
               </div>
               <button type="button" className="admin-primary-btn"
                 onClick={() => { setComposing(true); setSelectedId(null) }}>
-                New message
+                {t('admin.requests.newMessage')}
               </button>
             </span>
           </div>
@@ -482,21 +506,21 @@ export default function RequestsAdmin() {
                     type="search"
                     value={search}
                     onChange={e => setSearch(e.target.value)}
-                    placeholder="Search name or subject…"
+                    placeholder={t('admin.requests.searchPlaceholder')}
                     style={{ width: '100%', boxSizing: 'border-box', padding: '7px 9px 7px 28px', fontSize: 12.5, font: 'inherit', color: 'var(--text)', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: 4, outline: 'none' }}
                   />
                 </div>
               </div>
-              {status === 'loading' && <div className="admin-note" style={{ margin: 12 }}>Loading…</div>}
+              {status === 'loading' && <div className="admin-note" style={{ margin: 12 }}>{t('admin.requests.loading')}</div>}
               {status === 'ready' && activeList.length === 0 && (
                 <div style={{ padding: '24px 16px', color: 'var(--text-dim)', fontSize: 13 }}>
-                  {tab === 'needs' ? 'Nothing awaiting your reply — you’re all caught up.'
-                    : tab === 'resolved' ? 'No resolved conversations yet.'
-                    : 'No messages yet — they’ll appear here as residents reach out.'}
+                  {tab === 'needs' ? t('admin.requests.emptyNeedsReply')
+                    : tab === 'resolved' ? t('admin.requests.emptyResolved')
+                    : t('admin.requests.emptyAll')}
                 </div>
               )}
               {status === 'ready' && activeList.length > 0 && shownList.length === 0 && (
-                <div style={{ padding: '20px 16px', color: 'var(--text-dim)', fontSize: 13 }}>No matches for “{search}”.</div>
+                <div style={{ padding: '20px 16px', color: 'var(--text-dim)', fontSize: 13 }}>{t('admin.requests.noMatches', { search })}</div>
               )}
               {pagedList.map(r => {
                 const sel = selected?.id === r.id
@@ -507,20 +531,20 @@ export default function RequestsAdmin() {
                     style={{ display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none', borderRadius: 0, borderBottom: '1px solid var(--border)', borderLeft: `3px solid ${sel ? '#E14909' : 'transparent'}`, background: sel ? 'rgba(225,73,9,0.06)' : 'transparent', padding: '10px 14px', font: 'inherit' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'baseline' }}>
                       <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                        {r.submitter_name || 'Resident'}
+                        {r.submitter_name || t('admin.requests.residentFallback')}
                       </span>
                       <span style={{ fontSize: 11, color: 'var(--text-dim)', whiteSpace: 'nowrap', flexShrink: 0 }}>{fmtDate(lastActivity(r))}</span>
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{r.subject}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5, minHeight: 16, flexWrap: 'wrap' }}>
-                      <span style={catTag(r.category)}>{CAT_LABEL[r.category] || r.category}</span>
+                      <span style={catTag(r.category)}>{tCatLabel[r.category] || r.category}</span>
                       {need && (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: '#E14909' }}>
-                          <span style={{ width: 6, height: 6, borderRadius: 1, background: '#E14909' }} />Awaiting reply
+                          <span style={{ width: 6, height: 6, borderRadius: 1, background: '#E14909' }} />{t('admin.requests.awaitingReply')}
                         </span>
                       )}
-                      {!need && r.status === 'resolved' && <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>Resolved</span>}
-                      {r.replies_locked && <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>· Replies off</span>}
+                      {!need && r.status === 'resolved' && <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>{t('admin.requests.statusResolved')}</span>}
+                      {r.replies_locked && <span style={{ fontSize: 11, color: 'var(--text-dim)' }}>· {t('admin.requests.repliesOff')}</span>}
                     </div>
                   </button>
                 )
@@ -528,10 +552,10 @@ export default function RequestsAdmin() {
               {listPageCount > 1 && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, padding: '10px 12px', borderTop: '1px solid var(--border)', position: 'sticky', bottom: 0, background: 'var(--bg-elev)' }}>
                   <button type="button" className="admin-btn-ghost" style={{ marginLeft: 0 }}
-                    onClick={() => setListPage(p => Math.max(0, p - 1))} disabled={listPg === 0}>‹ Prev</button>
+                    onClick={() => setListPage(p => Math.max(0, p - 1))} disabled={listPg === 0}>{t('admin.requests.prevPage')}</button>
                   <span style={{ fontSize: 11.5, color: 'var(--text-dim)' }}>{listPg + 1} / {listPageCount}</span>
                   <button type="button" className="admin-btn-ghost" style={{ marginLeft: 0 }}
-                    onClick={() => setListPage(p => Math.min(listPageCount - 1, p + 1))} disabled={listPg >= listPageCount - 1}>Next ›</button>
+                    onClick={() => setListPage(p => Math.min(listPageCount - 1, p + 1))} disabled={listPg >= listPageCount - 1}>{t('admin.requests.nextPage')}</button>
                 </div>
               )}
             </div>
@@ -540,32 +564,32 @@ export default function RequestsAdmin() {
             <div style={{ padding: 16, minWidth: 0 }}>
               {composing ? (
                 <div>
-                  <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: '0 0 4px' }}>New message</h2>
-                  <p style={{ fontSize: 12.5, color: 'var(--text-dim)', margin: '0 0 14px' }}>Start a conversation — it lands on their Contact page and emails them.</p>
+                  <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: '0 0 4px' }}>{t('admin.requests.newMessage')}</h2>
+                  <p style={{ fontSize: 12.5, color: 'var(--text-dim)', margin: '0 0 14px' }}>{t('admin.requests.composerDek')}</p>
                   <div style={{ display: 'grid', gap: 12 }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 5 }}>Resident</label>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 5 }}>{t('admin.requests.labelResident')}</label>
                       <Dropdown<string>
                         value={compose.residentId}
                         onChange={v => setCompose(c => ({ ...c, residentId: v }))}
-                        ariaLabel="Resident"
+                        ariaLabel={t('admin.requests.labelResident')}
                         options={[
-                          { value: '', label: 'Select a resident…' },
-                          ...residents.map(r => ({ value: r.id, label: `${r.name}${r.unit ? ` · ${r.unit}` : ''}${r.email ? '' : ' (no email)'}` })),
+                          { value: '', label: t('admin.requests.selectResident') },
+                          ...residents.map(r => ({ value: r.id, label: `${r.name}${r.unit ? ` · ${r.unit}` : ''}${r.email ? '' : ` (${t('admin.requests.noEmail')})`}` })),
                         ]}
                       />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 5 }}>Subject</label>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 5 }}>{t('admin.requests.labelSubject')}</label>
                       <input className="admin-input" style={{ width: '100%', boxSizing: 'border-box' }}
                         value={compose.subject} onChange={e => setCompose(c => ({ ...c, subject: e.target.value }))}
-                        placeholder="e.g. Reminder: gate code change Friday" />
+                        placeholder={t('admin.requests.subjectPlaceholder')} />
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 5 }}>Message</label>
+                      <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 5 }}>{t('admin.requests.labelMessage')}</label>
                       <textarea className="admin-input admin-textarea" rows={4} style={{ width: '100%', boxSizing: 'border-box' }}
                         value={compose.message} onChange={e => setCompose(c => ({ ...c, message: e.target.value }))}
-                        placeholder="Write your message to the resident…" />
+                        placeholder={t('admin.requests.messagePlaceholder')} />
                     </div>
                     {composeErr && <div className="admin-note admin-note-err">{composeErr}</div>}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>
@@ -573,17 +597,17 @@ export default function RequestsAdmin() {
                         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#E14909' }}>
                           <input type="file" accept="image/*" hidden onChange={e => setComposeFile(e.target.files?.[0] || null)} />
                           <Clip />
-                          {composeFile ? composeFile.name : 'Attach a photo'}
+                          {composeFile ? composeFile.name : t('admin.requests.attachPhoto')}
                         </label>
                         <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12.5, color: 'var(--text-dim)' }}>
                           <input type="checkbox" checked={compose.allowReplies} onChange={e => setCompose(c => ({ ...c, allowReplies: e.target.checked }))} />
-                          Allow the resident to reply
+                          {t('admin.requests.allowResidentReply')}
                         </label>
                       </span>
                       <span style={{ display: 'inline-flex', gap: 8 }}>
-                        <button type="button" className="admin-btn-ghost admin-btn-ghost-orange" onClick={() => { setComposing(false); setComposeFile(null) }}>Cancel</button>
+                        <button type="button" className="admin-btn-ghost admin-btn-ghost-orange" onClick={() => { setComposing(false); setComposeFile(null) }}>{t('admin.requests.cancel')}</button>
                         <button type="button" className="admin-primary-btn" onClick={sendMessage} disabled={sending}>
-                          {sending ? 'Sending…' : 'Send message'}
+                          {sending ? t('admin.requests.sending') : t('admin.requests.sendMessage')}
                         </button>
                       </span>
                     </div>
@@ -595,14 +619,14 @@ export default function RequestsAdmin() {
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontWeight: 700, fontSize: 16, color: 'var(--text)' }}>{selected.subject}</div>
                       <div style={{ fontSize: 12.5, color: 'var(--text-dim)', marginTop: 2 }}>
-                        {selected.submitter_name || 'Resident'}{selected.submitter_unit ? ` · ${selected.submitter_unit}` : ''} · {fmtDate(selected.created_at)}
+                        {selected.submitter_name || t('admin.requests.residentFallback')}{selected.submitter_unit ? ` · ${selected.submitter_unit}` : ''} · {fmtDate(selected.created_at)}
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                      <span style={chip(catColor(selected.category))}>{CAT_LABEL[selected.category] || selected.category}</span>
-                      {selected.replies_locked && <span style={chip('#475467')}>Replies off</span>}
-                      {selected.origin === 'board' && <span style={chip('#7C3AED')}>Outbound</span>}
-                      <span style={chip(STATUS_COLOR[selected.status] || '#475467')}>{STATUS_LABEL[selected.status] || selected.status}</span>
+                      <span style={chip(catColor(selected.category))}>{tCatLabel[selected.category] || selected.category}</span>
+                      {selected.replies_locked && <span style={chip('#475467')}>{t('admin.requests.repliesOff')}</span>}
+                      {selected.origin === 'board' && <span style={chip('#7C3AED')}>{t('admin.requests.outbound')}</span>}
+                      <span style={chip(STATUS_COLOR[selected.status] || '#475467')}>{tStatusLabel[selected.status] || selected.status}</span>
                     </div>
                   </div>
                   <AdminThread
@@ -620,7 +644,7 @@ export default function RequestsAdmin() {
                     <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="var(--border-hover)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" style={{ marginBottom: 10 }}>
                       <rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" />
                     </svg>
-                    <div>Select a message to read it,<br />or hit <strong>New message</strong>.</div>
+                    <div>{t('admin.requests.emptySelectHint')}</div>
                   </div>
                 </div>
               )}
@@ -656,6 +680,7 @@ function AdminThread({
   onSetStatus: (r: Request, next: Status) => Promise<void>
   onSetLocked: (r: Request, locked: boolean) => Promise<void>
 }) {
+  const t = useT()
   const { messages, loading, reload } = useRequestThread(request.id)
   const [draft, setDraft] = useState('')
   const [file, setFile] = useState<File | null>(null)
@@ -673,7 +698,7 @@ function AdminThread({
   const send = async () => {
     const text = draft.trim()
     if (!text && !file) return
-    if (file && file.size > MAX_FILE) { setErr('Photo must be 10MB or smaller.'); return }
+    if (file && file.size > MAX_FILE) { setErr(t('admin.requests.errPhotoSize')); return }
     setSending(true); setErr('')
     try {
       let attachmentPath: string | null = null
@@ -703,15 +728,15 @@ function AdminThread({
           body: { request_id: request.id, note: text },
         })
         if (!fnErr && (data as any)?.email_sent) emailed = true
-        else setErr((data as any)?.error || fnErr?.message || 'Reply posted, but the email could not be sent.')
+        else setErr((data as any)?.error || fnErr?.message || t('admin.requests.errEmailNotSent'))
       }
       setDraft(''); setFile(null)
       await reload()
       onSent(emailed
-        ? `Reply sent and emailed to ${request.submitter_name || 'the resident'}.`
-        : `Reply posted for ${request.submitter_name || 'the resident'}.`)
+        ? t('admin.requests.successReplySentEmailed', { name: request.submitter_name || t('admin.requests.theResident') })
+        : t('admin.requests.successReplyPosted', { name: request.submitter_name || t('admin.requests.theResident') }))
     } catch (e: any) {
-      setErr(e?.message || 'Could not send the reply.')
+      setErr(e?.message || t('admin.requests.errCouldNotSendReply'))
     } finally {
       setSending(false)
     }
@@ -719,7 +744,7 @@ function AdminThread({
 
   const messageLog = (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-      {loading && messages.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>Loading…</div>}
+      {loading && messages.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>{t('admin.requests.loading')}</div>}
       {messages.map(m => {
         const sys = systemLine(m.body)
         if (sys) {
@@ -742,14 +767,14 @@ function AdminThread({
               padding: '8px 12px',
             }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: board ? '#E14909' : 'var(--text-dim)', marginBottom: 2 }}>
-                {board ? (m.authorName || 'Board') : (m.authorName || 'Resident')}
+                {board ? (m.authorName || 'Board') : (m.authorName || t('admin.requests.residentFallback'))}
                 <span style={{ fontWeight: 400, opacity: 0.6 }}>{' · '}{fmtMsgTime(m.createdAt)}</span>
               </div>
               <div style={{ fontSize: 13, color: 'var(--text)', whiteSpace: 'pre-wrap' }}>{m.body}</div>
               {m.attachmentPath && (
                 <button type="button" onClick={() => openAttachment(m.attachmentPath!)}
                   style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#E14909', font: 'inherit', fontSize: 12, padding: '4px 0 0', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                  <Clip />{m.attachmentName || 'View photo'}
+                  <Clip />{m.attachmentName || t('admin.requests.viewPhoto')}
                 </button>
               )}
             </div>
@@ -771,15 +796,17 @@ function AdminThread({
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 13 4 4L19 7" /></svg>
             </span>
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: 12.5 }}>
-              <span style={{ color: '#1F7A4D', fontWeight: 700 }}>Resolved</span>
+              <span style={{ color: '#1F7A4D', fontWeight: 700 }}>{t('admin.requests.statusResolved')}</span>
               <span style={{ color: 'var(--text-dim)', fontWeight: 500 }}>
-                {request.closed_at ? ` · ${fmtDate(request.closed_at)}` : ''} · {messages.length} message{messages.length === 1 ? '' : 's'}
+                {request.closed_at ? ` · ${fmtDate(request.closed_at)}` : ''} · {messages.length === 1
+                  ? t('admin.requests.messageCountSingular')
+                  : t('admin.requests.messageCountPlural', { count: messages.length })}
               </span>
             </span>
           </span>
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
             <span style={{ fontSize: 11.5, color: 'var(--text-dim)', whiteSpace: 'nowrap', fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-              {expanded ? 'Hide' : 'View conversation'}
+              {expanded ? t('admin.requests.hide') : t('admin.requests.viewConversation')}
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
                 style={{ transform: expanded ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }}>
                 <path d="m6 9 6 6 6-6" />
@@ -787,7 +814,7 @@ function AdminThread({
             </span>
             <button type="button" onClick={e => { e.stopPropagation(); onSetStatus(request, 'in_progress') }}
               style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#E14909', font: 'inherit', fontSize: 12, fontWeight: 700, padding: 0, whiteSpace: 'nowrap' }}>
-              Reopen
+              {t('admin.requests.reopen')}
             </button>
           </span>
         </div>
@@ -802,15 +829,15 @@ function AdminThread({
       {(
         <>
           <label htmlFor={`reply-${request.id}`} style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 5 }}>
-            Reply to resident{' '}
-            <span style={{ fontWeight: 400, color: 'var(--text-dim)' }}>— shown on their Contact page</span>
+            {t('admin.requests.replyLabel')}{' '}
+            <span style={{ fontWeight: 400, color: 'var(--text-dim)' }}>— {t('admin.requests.replyLabelSuffix')}</span>
           </label>
           <textarea
             id={`reply-${request.id}`}
             className="admin-input admin-textarea"
             rows={2}
             style={{ width: '100%', boxSizing: 'border-box' }}
-            placeholder="Write a reply…  (Enter to send)"
+            placeholder={t('admin.requests.replyPlaceholder')}
             value={draft}
             onChange={e => setDraft(e.target.value)}
             onKeyDown={onKeyDown}
@@ -821,41 +848,45 @@ function AdminThread({
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#E14909' }}>
               <input type="file" accept="image/*" hidden onChange={e => setFile(e.target.files?.[0] || null)} />
               <Clip />
-              {file ? file.name : 'Attach a photo'}
+              {file ? file.name : t('admin.requests.attachPhoto')}
             </label>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12.5, color: 'var(--text-dim)' }}>
               <input type="checkbox" checked={emailIt} onChange={e => setEmailIt(e.target.checked)} />
-              Email resident
+              {t('admin.requests.emailResident')}
             </label>
             <button type="button" className="admin-secondary-btn" style={{ marginLeft: 'auto' }} onClick={send} disabled={sending || (!draft.trim() && !file)}>
-              {sending ? 'Sending…' : 'Send reply'}
+              {sending ? t('admin.requests.sending') : t('admin.requests.sendReply')}
             </button>
           </div>
           {/* Row 2 — status (left) + conversation management (right) */}
           <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 10 }}>
             <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-dim)' }}>Status</span>
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-dim)' }}>{t('admin.requests.statusLabel')}</span>
               <div style={{ width: 140 }}>
                 <Dropdown<Status>
                   value={request.status as Status}
                   onChange={v => onSetStatus(request, v)}
-                  ariaLabel="Conversation status"
-                  options={STATUSES}
+                  ariaLabel={t('admin.requests.conversationStatusLabel')}
+                  options={[
+                    { value: 'new',         label: t('admin.requests.statusNew') },
+                    { value: 'in_progress', label: t('admin.requests.statusInProgress') },
+                    { value: 'resolved',    label: t('admin.requests.statusResolved') },
+                  ]}
                 />
               </div>
             </span>
             <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', marginLeft: 'auto' }}>
               <button type="button" className="admin-btn-ghost admin-btn-ghost-orange" style={{ marginLeft: 0 }} onClick={() => onSetLocked(request, !locked)}>
-                {locked ? 'Allow replies' : 'Turn off replies'}
+                {locked ? t('admin.requests.allowReplies') : t('admin.requests.turnOffReplies')}
               </button>
               <button type="button" className="admin-btn-ghost admin-btn-ghost-orange" style={{ marginLeft: 0 }} onClick={() => onSetStatus(request, 'resolved')}>
-                Close conversation
+                {t('admin.requests.closeConversation')}
               </button>
             </span>
           </div>
           {locked && (
             <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 8 }}>
-              Replies are off — the resident can read this thread but can’t reply. They’d start a new message.
+              {t('admin.requests.repliesLockedNote')}
             </div>
           )}
         </>

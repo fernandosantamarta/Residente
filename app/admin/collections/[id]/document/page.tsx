@@ -10,6 +10,7 @@
 
 import { Suspense, useState, useEffect } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
+import { useT } from '@/lib/i18n'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { fmtMoney, casePayoff, type PayoffResult } from '@/lib/dues'
 import { ymd, addCalendarDays } from '@/lib/compliance/rules-core'
@@ -31,14 +32,16 @@ const TITLES: Record<DocType, string> = {
 }
 
 export default function CollectionDocumentPage() {
+  const t = useT()
   return (
-    <Suspense fallback={<div style={{ padding: 40 }}>Loading…</div>}>
+    <Suspense fallback={<div style={{ padding: 40 }}>{t('admin.collectionsDetailDocument.loading')}</div>}>
       <DocInner />
     </Suspense>
   )
 }
 
 function DocInner() {
+  const t = useT()
   const params = useParams()
   const search = useSearchParams()
   const id = params?.id as string
@@ -79,7 +82,7 @@ function DocInner() {
     return () => { cancelled = true }
   }, [id, type])
 
-  if (status === 'loading') return <div style={{ padding: 40 }}>Loading…</div>
+  if (status === 'loading') return <div style={{ padding: 40 }}>{t('admin.collectionsDetailDocument.loading')}</div>
   if (status === 'error') return <div style={{ padding: 40, color: '#B42318' }}>{error}</div>
 
   const isCondo = community?.association_type !== 'hoa'
@@ -115,9 +118,9 @@ function DocInner() {
 
       <div className="no-print" style={{ display: 'flex', gap: 10, justifyContent: 'space-between', marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
         <div style={{ fontSize: 12, background: '#FEF3F2', color: '#B42318', padding: '8px 12px', borderRadius: 8, maxWidth: 520 }}>
-          ⚠ DRAFT — an aid, not an official filing. Confirm every figure, the amounts owed, the recipient address, and the legal language with your association attorney before sending or recording.
+          {t('admin.collectionsDetailDocument.draftWarning')}
         </div>
-        <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', height: 'fit-content' }}>Print / Save as PDF</button>
+        <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', height: 'fit-content' }}>{t('admin.collectionsDetailDocument.printButton')}</button>
       </div>
 
       {/* Letterhead */}

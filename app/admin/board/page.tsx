@@ -7,6 +7,7 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { PERMISSION_GROUPS, PERMISSION_LABEL, ALL_PERMISSIONS } from '@/lib/permissions'
 import { Dropdown } from '@/components/Dropdown'
 import { EasyVoiceTabs } from '../EasyVoiceTabs'
+import { useT } from '@/lib/i18n'
 
 const withTimeout = (p, ms = 10000) =>
   Promise.race([
@@ -15,12 +16,11 @@ const withTimeout = (p, ms = 10000) =>
   ])
 
 const STATUSES = [
-  { value: 'approved',   label: 'Approved' },
-  { value: 'pending',    label: 'Pending' },
-  { value: 'paid',       label: 'Paid' },
-  { value: 'discussion', label: 'Discussion' },
+  { value: 'approved',   label: 'approved' },
+  { value: 'pending',    label: 'pending' },
+  { value: 'paid',       label: 'paid' },
+  { value: 'discussion', label: 'discussion' },
 ]
-const statusLabel = (s) => (STATUSES.find(x => x.value === s) || STATUSES[3]).label
 const fmtMoney = (n) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
 const fmtDate = (d) => {
   if (!d) return ''
@@ -38,6 +38,7 @@ const EMPTY = { title: '', vendor: '', amount: '', status: 'approved', decided_o
 // Board page — board members (drawn from the resident roster) + the decisions
 // feed that surfaces on every resident's Home.
 export default function Board() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const { can } = usePermissions()
@@ -72,6 +73,17 @@ export default function Board() {
     return () => clearTimeout(id)
   }, [successMsg])
 
+  const statusLabel = (s) => {
+    const key = (STATUSES.find(x => x.value === s) || STATUSES[3]).label
+    const map = {
+      approved:   t('admin.board.statusApproved'),
+      pending:    t('admin.board.statusPending'),
+      paid:       t('admin.board.statusPaid'),
+      discussion: t('admin.board.statusDiscussion'),
+    }
+    return map[key] ?? key
+  }
+
   const load = useCallback(async () => {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
@@ -94,7 +106,7 @@ export default function Board() {
       setRoles(roleR.error ? [] : (roleR.data || []))
       setStatus('ready')
     } catch (err) {
-      setError(err?.message || 'Could not load the board'); setStatus('error')
+      setError(err?.message || t('admin.board.errLoadBoard')); setStatus('error')
     }
   }, [communityId])
   useEffect(() => { load() }, [load])
@@ -130,10 +142,10 @@ export default function Board() {
         supabase.from('residents').update(patch).eq('id', id)
       )
       if (error) throw error
-      setSuccessMsg(value ? 'Added to the board.' : 'Removed from the board.')
+      setSuccessMsg(value ? t('admin.board.addedToBoard') : t('admin.board.removedFromBoard'))
     } catch (err) {
       setResidents(prev) // roll back
-      setError(err?.message || 'Could not update board membership')
+      setError(err?.message || t('admin.board.errUpdateMembership'))
     }
   }
 
@@ -145,10 +157,10 @@ export default function Board() {
         supabase.from('residents').update({ board_position }).eq('id', id)
       )
       if (error) throw error
-      setSuccessMsg(board_position ? `Set position to ${board_position}.` : 'Cleared position.')
+      setSuccessMsg(board_position ? t('admin.board.setPositionTo', { position: board_position }) : t('admin.board.clearedPosition'))
     } catch (err) {
       setResidents(prev) // roll back
-      setError(err?.message || 'Could not update the position')
+      setError(err?.message || t('admin.board.errUpdatePosition'))
     }
   }
 
@@ -156,7 +168,7 @@ export default function Board() {
 
   const add = async (e) => {
     e.preventDefault()
-    if (!form.title.trim()) { setError('Give the decision a title'); return }
+    if (!form.title.trim()) { setError(t('admin.board.errDecisionTitle')); return }
     setSaving(true); setError('')
     try {
       const row = {
@@ -173,9 +185,9 @@ export default function Board() {
       if (error) throw error
       setRows(rs => [data, ...rs])
       setForm(EMPTY)
-      setSuccessMsg(`Logged "${row.title}".`)
+      setSuccessMsg(t('admin.board.loggedDecision', { title: row.title }))
     } catch (err) {
-      setError(err?.message || 'Could not add the decision')
+      setError(err?.message || t('admin.board.errAddDecision'))
     } finally {
       setSaving(false)
     }
@@ -191,7 +203,7 @@ export default function Board() {
       if (error) throw error
     } catch (err) {
       setRows(prev) // roll back
-      setError(err?.message || 'Could not remove that decision')
+      setError(err?.message || t('admin.board.errRemoveDecision'))
     }
   }
 
@@ -226,7 +238,7 @@ export default function Board() {
 
   const saveCommittee = async (e) => {
     e.preventDefault()
-    if (!comForm.name.trim()) { setError('Give the committee a name'); return }
+    if (!comForm.name.trim()) { setError(t('admin.board.errCommitteeName')); return }
     setComSaving(true); setError('')
     try {
       const payload = {
@@ -250,14 +262,14 @@ export default function Board() {
       const data = res.data
       if (comEditId) {
         setCommittees(cs => cs.map(c => (c.id === comEditId ? data : c)))
-        setSuccessMsg(`Updated the ${payload.name}.`)
+        setSuccessMsg(t('admin.board.updatedCommittee', { name: payload.name }))
       } else {
         setCommittees(cs => [...cs, data])
-        setSuccessMsg(`Added the ${payload.name}.`)
+        setSuccessMsg(t('admin.board.addedCommittee', { name: payload.name }))
       }
       closeCommittee()
     } catch (err) {
-      setError(err?.message || 'Could not save the committee')
+      setError(err?.message || t('admin.board.errSaveCommittee'))
     } finally {
       setComSaving(false)
     }
@@ -272,7 +284,7 @@ export default function Board() {
       if (error) throw error
     } catch (err) {
       setCommittees(prev) // roll back
-      setError(err?.message || 'Could not remove that committee')
+      setError(err?.message || t('admin.board.errRemoveCommittee'))
     }
   }
 
@@ -303,7 +315,7 @@ export default function Board() {
   const toggleAllPerms = () => setRolePerms(allPermsSelected ? new Set() : new Set(ALL_PERMISSIONS))
 
   const saveRole = async () => {
-    if (!roleName.trim()) { setError('Name the role.'); return }
+    if (!roleName.trim()) { setError(t('admin.board.errSaveRole')); return }
     const cap = Math.max(0, parseInt(roleMax, 10) || 0)
     const multi = cap !== 1
     setRoleSaving(true); setError('')
@@ -322,21 +334,21 @@ export default function Board() {
         })))
       }
       if (error) throw error
-      setSuccessMsg(roleEditId ? 'Role updated.' : 'Role created.')
+      setSuccessMsg(roleEditId ? t('admin.board.roleUpdated') : t('admin.board.roleCreated'))
       startNewRole(); load()
-    } catch (err) { setError(err?.message || 'Could not save the role.') }
+    } catch (err) { setError(err?.message || t('admin.board.errSaveRole')) }
     finally { setRoleSaving(false) }
   }
 
   const deleteRole = async (r) => {
-    if (!window.confirm(`Delete the "${r.name}" role? Members holding it will lose its access.`)) return
+    if (!window.confirm(t('admin.board.deleteRoleConfirm', { name: r.name }))) return
     setError('')
     try {
       const { error } = await withTimeout(supabase.rpc('ev_role_delete', { p_id: r.id }))
       if (error) throw error
       if (roleEditId === r.id) startNewRole()
-      setSuccessMsg(`Removed "${r.name}".`); load()
-    } catch (err) { setError(err?.message || 'Could not delete the role.') }
+      setSuccessMsg(t('admin.board.removedRole', { name: r.name })); load()
+    } catch (err) { setError(err?.message || t('admin.board.errDeleteRole')) }
   }
 
   const assignRole = async (residentId, roleId) => {
@@ -347,7 +359,7 @@ export default function Board() {
       if (error) throw error
       setSavedRoleFor(residentId)
       setTimeout(() => setSavedRoleFor(s => (s === residentId ? null : s)), 2500)
-    } catch (err) { setError(err?.message || 'Could not assign the role.'); load() }
+    } catch (err) { setError(err?.message || t('admin.board.errAssignRole')); load() }
   }
 
   const editingRole = useMemo(() => roles.find(r => r.id === roleEditId) || null, [roles, roleEditId])
@@ -358,20 +370,20 @@ export default function Board() {
   const comEditor = (
     <form className="admin-form" onSubmit={saveCommittee} style={{ maxWidth: 'none' }}>
       <label className="admin-field">
-        <span className="admin-field-label">Committee name</span>
-        <input name="com-name" className="admin-input" placeholder="Finance Committee"
+        <span className="admin-field-label">{t('admin.board.committeeName')}</span>
+        <input name="com-name" className="admin-input" placeholder={t('admin.board.committeeNamePlaceholder')}
           value={comForm.name} onChange={e => setComForm(f => ({ ...f, name: e.target.value }))} />
       </label>
 
       <div className="admin-field">
-        <span className="admin-field-label">Members</span>
+        <span className="admin-field-label">{t('admin.board.membersLabel')}</span>
         <div className="bm-search" style={{ maxWidth: 'none', marginBottom: 0 }}>
-          <input name="com-member-search" className="admin-input" placeholder="Type a resident's name to add…"
+          <input name="com-member-search" className="admin-input" placeholder={t('admin.board.comMemberSearchPlaceholder')}
             value={comQuery} onChange={e => setComQuery(e.target.value)} />
           {comQuery.trim() && (
             <div className="bm-dropdown">
               {comMatches.length === 0 ? (
-                <div className="bm-empty">No roster match — add them on the Residents page first.</div>
+                <div className="bm-empty">{t('admin.board.noRosterMatchCom')}</div>
               ) : comMatches.map(m => (
                 <button type="button" key={m.id} className="bm-option" onClick={() => addComMember(m.id)}>
                   <span className="bm-option-name">{m.full_name}</span>
@@ -386,7 +398,7 @@ export default function Board() {
             {comSelected.map(m => (
               <span className="cmem-chip" key={m.id}>
                 {m.full_name}
-                <button type="button" onClick={() => removeComMember(m.id)} aria-label={`Remove ${m.full_name}`}>&times;</button>
+                <button type="button" onClick={() => removeComMember(m.id)} aria-label={t('admin.board.removeMember', { name: m.full_name })}>&times;</button>
               </span>
             ))}
           </div>
@@ -395,13 +407,13 @@ export default function Board() {
 
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
         <div className="admin-field" style={{ flex: '1 1 200px' }}>
-          <span className="admin-field-label">Chair (optional)</span>
+          <span className="admin-field-label">{t('admin.board.chairOptional')}</span>
           <Dropdown<string>
             value={comForm.chair}
             onChange={v => setComForm(f => ({ ...f, chair: v }))}
-            ariaLabel="Committee chair"
+            ariaLabel={t('admin.board.committeeAriaLabel')}
             options={[
-              { value: '', label: comSelected.length ? 'No chair' : 'Add members to pick a chair' },
+              { value: '', label: comSelected.length ? t('admin.board.noChair') : t('admin.board.addMembersToPickChair') },
               ...comSelected.map(m => ({ value: m.full_name, label: m.full_name })),
               ...(comForm.chair && !comSelected.some(m => m.full_name === comForm.chair)
                 ? [{ value: comForm.chair, label: comForm.chair }] : []),
@@ -409,25 +421,25 @@ export default function Board() {
           />
         </div>
         <div className="admin-field" style={{ width: 170 }}>
-          <span className="admin-field-label">Icon</span>
+          <span className="admin-field-label">{t('admin.board.iconLabel')}</span>
           <Dropdown<string>
             value={comForm.icon}
             onChange={v => setComForm(f => ({ ...f, icon: v }))}
-            ariaLabel="Committee icon"
+            ariaLabel={t('admin.board.committeeIconAriaLabel')}
             options={[
-              { value: 'finance', label: 'Finance' },
-              { value: 'leaf', label: 'Landscape' },
-              { value: 'home', label: 'Architectural' },
-              { value: 'shield', label: 'Security' },
-              { value: 'megaphone', label: 'Communications' },
+              { value: 'finance', label: t('admin.board.iconFinance') },
+              { value: 'leaf', label: t('admin.board.iconLandscape') },
+              { value: 'home', label: t('admin.board.iconArchitectural') },
+              { value: 'shield', label: t('admin.board.iconSecurity') },
+              { value: 'megaphone', label: t('admin.board.iconCommunications') },
             ]}
           />
         </div>
       </div>
       <div className="card-cta" style={{ display: 'flex', gap: 10 }}>
-        <button type="button" className="admin-btn-ghost" onClick={closeCommittee}>Cancel</button>
+        <button type="button" className="admin-btn-ghost" onClick={closeCommittee}>{t('admin.board.cancel')}</button>
         <button type="submit" className="admin-primary-btn" disabled={comSaving}>
-          {comSaving ? 'Saving…' : comEditId ? 'Save changes' : 'Add committee'}
+          {comSaving ? t('admin.board.saving') : comEditId ? t('admin.board.saveChanges') : t('admin.board.addCommittee')}
         </button>
         {error && <span className="admin-err-inline">{error}</span>}
       </div>
@@ -437,24 +449,22 @@ export default function Board() {
   return (
     <div className="admin-page cset">
       <EasyVoiceTabs active="board" />
-      <div className="admin-kicker">Easy Voice</div>
-      <h1 className="admin-h1">Board <span className="amp">&</span> roles</h1>
+      <div className="admin-kicker">{t('admin.board.kicker')}</div>
+      <h1 className="admin-h1">{t('admin.board.heading')}</h1>
       <p className="admin-dek">
-        Who sits on the board, the role each one holds, committees, and the
-        decisions they make — every decision shows on each resident's Home
-        under &ldquo;This Week on the Board.&rdquo;
+        {t('admin.board.dek')}
       </p>
 
       {status === 'none' && (
         <div className="admin-note admin-note-warn">
-          No community is linked to your account yet. Run the one-time setup SQL, then reload.
+          {t('admin.board.noCommLinked')}
         </div>
       )}
 
       {status === 'error' && (
         <div className="admin-note admin-note-err">
           {error}
-          <button type="button" className="admin-btn-ghost" onClick={load}>Retry</button>
+          <button type="button" className="admin-btn-ghost" onClick={load}>{t('admin.board.retry')}</button>
         </div>
       )}
 
@@ -470,19 +480,19 @@ export default function Board() {
           <div className="card">
             <div className="card-head">
               <div>
-                <h2>Board members</h2>
-                <div className="sub">Add anyone from your resident roster — start typing their name.{canRoles ? ' Set each one’s position and role.' : ''}</div>
+                <h2>{t('admin.board.boardMembersTitle')}</h2>
+                <div className="sub">{canRoles ? t('admin.board.boardMembersSubRoles') : t('admin.board.boardMembersSub')}</div>
               </div>
             </div>
 
             <div className="bm-search">
-              <input name="member-search" className="admin-input" placeholder="Type a resident's name…"
+              <input name="member-search" className="admin-input" placeholder={t('admin.board.memberSearchPlaceholder')}
                 value={memberQuery} onChange={e => setMemberQuery(e.target.value)} />
               {memberQuery.trim() && (
                 <div className="bm-dropdown">
                   {matches.length === 0 ? (
                     <div className="bm-empty">
-                      No roster match — add them on the Residents page first.
+                      {t('admin.board.noRosterMatch')}
                     </div>
                   ) : matches.map(m => (
                     <button type="button" key={m.id} className="bm-option"
@@ -496,7 +506,7 @@ export default function Board() {
             </div>
 
             {boardMembers.length === 0 ? (
-              <div className="bc-empty">No board members yet — search above to add one.</div>
+              <div className="bc-empty">{t('admin.board.noBoardMembers')}</div>
             ) : (
               <div className="bm-list">
                 {boardMembers.map(m => (
@@ -509,15 +519,15 @@ export default function Board() {
                       </div>
                     </div>
                     {canRoles && savedRoleFor === m.id && (
-                      <span style={{ color: '#067647', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>Saved ✓</span>
+                      <span style={{ color: '#067647', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{t('admin.board.saved')}</span>
                     )}
                     <div style={{ width: 160, flexShrink: 0 }}>
                       <Dropdown<string>
                         value={m.board_position || ''}
                         onChange={v => setPosition(m.id, v || null)}
-                        ariaLabel={`Position for ${m.full_name}`}
+                        ariaLabel={t('admin.board.positionFor', { name: m.full_name })}
                         options={[
-                          { value: '', label: 'No position' },
+                          { value: '', label: t('admin.board.noPosition') },
                           ...POSITIONS.map(p => ({ value: p, label: p })),
                         ]}
                       />
@@ -527,13 +537,13 @@ export default function Board() {
                         <Dropdown<string>
                           value={m.role_id || ''}
                           onChange={v => assignRole(m.id, v || null)}
-                          ariaLabel={`Role for ${m.full_name}`}
-                          options={[{ value: '', label: 'No role' }, ...rolesForMember(m.id, m.role_id).map(r => ({ value: r.id, label: r.name }))]}
+                          ariaLabel={t('admin.board.roleFor', { name: m.full_name })}
+                          options={[{ value: '', label: t('admin.board.noRole') }, ...rolesForMember(m.id, m.role_id).map(r => ({ value: r.id, label: r.name }))]}
                         />
                       </div>
                     )}
                     <button type="button" className="bc-del" onClick={() => setBoard(m.id, false)}
-                      aria-label="Remove from board">&times;</button>
+                      aria-label={t('admin.board.removeFromBoard')}>&times;</button>
                   </div>
                 ))}
               </div>
@@ -544,36 +554,36 @@ export default function Board() {
             <div className="card">
               <div className="card-head">
                 <div>
-                  <h2>{roleEditId ? (editingProtected ? `Viewing “${roleName}”` : `Edit “${roleName}”`) : 'Roles & permissions'}</h2>
+                  <h2>{roleEditId ? (editingProtected ? t('admin.board.viewingRole', { name: roleName }) : t('admin.board.editingRole', { name: roleName })) : t('admin.board.rolesPermissionsTitle')}</h2>
                   <div className="sub">
                     {editingProtected
-                      ? 'The Admin role has full access and can’t be edited.'
-                      : 'Build a role, set how many board members can hold it, then assign it above.'}
+                      ? t('admin.board.adminRoleSub')
+                      : t('admin.board.buildRoleSub')}
                   </div>
                 </div>
               </div>
 
               <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                 <label className="admin-field" style={{ flex: '1 1 240px', maxWidth: 320 }}>
-                  <span className="admin-field-label">Role name</span>
+                  <span className="admin-field-label">{t('admin.board.roleName')}</span>
                   <input className="admin-input" value={roleName} disabled={editingProtected}
-                    placeholder="e.g. Secretary" onChange={e => setRoleName(e.target.value)} />
+                    placeholder={t('admin.board.roleNamePlaceholder')} onChange={e => setRoleName(e.target.value)} />
                 </label>
                 <label className="admin-field" style={{ width: 190 }}>
-                  <span className="admin-field-label">How many can hold it?</span>
+                  <span className="admin-field-label">{t('admin.board.howManyCanHoldIt')}</span>
                   <input className="admin-input" type="number" min={0} step={1} value={roleMax}
                     disabled={editingProtected} placeholder="1" onChange={e => setRoleMax(e.target.value)} />
                   <span style={{ fontSize: 12, opacity: 0.6, marginTop: 4, textTransform: 'none', letterSpacing: 0, fontWeight: 400 }}>
-                    e.g. 2 secretaries, 5 board members. Use 0 for no limit.
+                    {t('admin.board.holdLimitHint')}
                   </span>
                 </label>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
-                <span className="admin-field-label" style={{ marginBottom: 0 }}>Permissions</span>
+                <span className="admin-field-label" style={{ marginBottom: 0 }}>{t('admin.board.permissions')}</span>
                 {!editingProtected && (
                   <button type="button" className="admin-btn-ghost" onClick={toggleAllPerms}>
-                    {allPermsSelected ? 'Clear all' : 'Select all'}
+                    {allPermsSelected ? t('admin.board.clearAll') : t('admin.board.selectAll')}
                   </button>
                 )}
               </div>
@@ -595,13 +605,13 @@ export default function Board() {
 
               {!editingProtected && (
                 <div className="card-cta" style={{ display: 'flex', gap: 10 }}>
-                  {roleEditId && <button className="admin-btn-ghost" type="button" onClick={startNewRole}>Cancel</button>}
+                  {roleEditId && <button className="admin-btn-ghost" type="button" onClick={startNewRole}>{t('admin.board.cancel')}</button>}
                   <button className="admin-primary-btn" disabled={roleSaving} onClick={saveRole}>
-                    {roleSaving ? 'Saving…' : roleEditId ? 'Save changes' : 'Create role'}
+                    {roleSaving ? t('admin.board.saving') : roleEditId ? t('admin.board.saveChanges') : t('admin.board.createRole')}
                   </button>
                 </div>
               )}
-              {editingProtected && <button className="admin-btn-ghost" type="button" onClick={startNewRole}>Back to new role</button>}
+              {editingProtected && <button className="admin-btn-ghost" type="button" onClick={startNewRole}>{t('admin.board.backToNewRole')}</button>}
 
               {roles.length > 0 && (
                 <div className="bm-list" style={{ marginTop: 18 }}>
@@ -610,22 +620,22 @@ export default function Board() {
                       <div className="bm-row-main">
                         <div className="bm-row-name">
                           {r.name}
-                          {r.is_admin && <span className="amen-pay-tag paid" style={{ marginLeft: 8 }}>Full access</span>}
-                          {r.is_system && !r.is_admin && <span className="amen-pay-tag pending" style={{ marginLeft: 8 }}>Default</span>}
+                          {r.is_admin && <span className="amen-pay-tag paid" style={{ marginLeft: 8 }}>{t('admin.board.fullAccess')}</span>}
+                          {r.is_system && !r.is_admin && <span className="amen-pay-tag pending" style={{ marginLeft: 8 }}>{t('admin.board.defaultLabel')}</span>}
                           {!r.is_admin && (() => { const cap = capOf(r); const held = residents.filter(m => m.role_id === r.id).length; return (
                             <span className="amen-pay-tag" style={{ marginLeft: 8, opacity: 0.85 }}>
-                              {cap === 0 ? `${held} held · no limit` : `${held}/${cap} held`}
+                              {cap === 0 ? t('admin.board.heldNoLimit', { held }) : t('admin.board.heldOfCap', { held, cap })}
                             </span>
                           ) })()}
                         </div>
                         <div className="bm-row-sub">
-                          {r.is_admin ? 'Every permission' : (r.permissions?.length ? r.permissions.map(p => PERMISSION_LABEL[p] || p).join(' · ') : 'No permissions yet')}
+                          {r.is_admin ? t('admin.board.everyPermission') : (r.permissions?.length ? r.permissions.map(p => PERMISSION_LABEL[p] || p).join(' · ') : t('admin.board.noPermissionsYet'))}
                         </div>
                       </div>
                       {!r.is_admin && (
                         <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-                          <button type="button" className="admin-sched-row-del" onClick={() => startEditRole(r)}>Edit</button>
-                          <button type="button" className="admin-sched-row-del" onClick={() => deleteRole(r)}>Delete</button>
+                          <button type="button" className="admin-sched-row-del" onClick={() => startEditRole(r)}>{t('admin.board.editBtn')}</button>
+                          <button type="button" className="admin-sched-row-del" onClick={() => deleteRole(r)}>{t('admin.board.deleteBtn')}</button>
                         </div>
                       )}
                     </div>
@@ -638,14 +648,14 @@ export default function Board() {
           <div className="card">
             <div className="card-head">
               <div>
-                <h2>Committees</h2>
-                <div className="sub">Assign members from your roster, name a chair, and it shows on every resident's Board page.</div>
+                <h2>{t('admin.board.committeesTitle')}</h2>
+                <div className="sub">{t('admin.board.committeesSub')}</div>
               </div>
-              <button type="button" className="admin-primary-btn" onClick={openAddCommittee}>Add committee</button>
+              <button type="button" className="admin-primary-btn" onClick={openAddCommittee}>{t('admin.board.addCommittee')}</button>
             </div>
 
             {committees.length === 0 && !(comOpen && !comEditId) ? (
-              <div className="bc-empty">No committees yet — click “Add committee” to create one.</div>
+              <div className="bc-empty">{t('admin.board.noCommittees')}</div>
             ) : (
               <div className="rulelist">
                 {committees.map((c, i) => {
@@ -656,17 +666,17 @@ export default function Board() {
                       <div className="rulemain">
                         <div className="ruletitle">{c.name}</div>
                         <div className="rulemeta">
-                          {c.chair ? `${c.chair} · ` : ''}{c.member_count || 0} {Number(c.member_count) === 1 ? 'member' : 'members'}
+                          {c.chair ? `${c.chair} · ` : ''}{c.member_count || 0} {Number(c.member_count) === 1 ? t('admin.board.memberSingular') : t('admin.board.memberPlural')}
                         </div>
                         {open && <div className="rule-detail" style={{ background: '#fff' }}>{comEditor}</div>}
                       </div>
                       <div className="ruleactions">
                         <button type="button" className="rule-edit"
                           onClick={() => (open ? closeCommittee() : startEditCommittee(c))} aria-expanded={open}>
-                          {open ? 'Close' : 'Edit'} →
+                          {open ? t('admin.board.close') : t('admin.board.editArrow')}
                         </button>
                         <button type="button" className="vdel" onClick={() => removeCommittee(c.id)}
-                          aria-label={`Remove ${c.name}`}>&times;</button>
+                          aria-label={t('admin.board.removeCommittee', { name: c.name })}>&times;</button>
                       </div>
                     </div>
                   )
@@ -676,12 +686,12 @@ export default function Board() {
                   <div className="rulerow">
                     <span className="rulenum">{committees.length + 1}</span>
                     <div className="rulemain">
-                      <div className="ruletitle">{comForm.name.trim() || 'New committee'}</div>
-                      <div className="rulemeta">Add members and a chair below.</div>
+                      <div className="ruletitle">{comForm.name.trim() || t('admin.board.newCommittee')}</div>
+                      <div className="rulemeta">{t('admin.board.addMembersChair')}</div>
                       <div className="rule-detail" style={{ background: '#fff' }}>{comEditor}</div>
                     </div>
                     <div className="ruleactions">
-                      <button type="button" className="rule-edit" onClick={closeCommittee}>Close →</button>
+                      <button type="button" className="rule-edit" onClick={closeCommittee}>{t('admin.board.close')}</button>
                     </div>
                   </div>
                 )}
@@ -692,46 +702,46 @@ export default function Board() {
           <div className="card">
             <div className="card-head">
               <div>
-                <h2>Log a decision</h2>
-                <div className="sub">Approvals, payments and motions.</div>
+                <h2>{t('admin.board.logDecisionTitle')}</h2>
+                <div className="sub">{t('admin.board.logDecisionSub')}</div>
               </div>
             </div>
 
             <form className="admin-form" onSubmit={add}>
               <label className="admin-field">
-                <span className="admin-field-label">What was decided</span>
-                <input name="title" className="admin-input" placeholder="Approved landscaping contract"
+                <span className="admin-field-label">{t('admin.board.whatWasDecided')}</span>
+                <input name="title" className="admin-input" placeholder={t('admin.board.decisionTitlePlaceholder')}
                   value={form.title} onChange={e => setField('title', e.target.value)} />
               </label>
               <label className="admin-field">
-                <span className="admin-field-label">Vendor / who (optional)</span>
-                <input name="vendor" className="admin-input" placeholder="Oak Ridge Nursery"
+                <span className="admin-field-label">{t('admin.board.vendorOptional')}</span>
+                <input name="vendor" className="admin-input" placeholder={t('admin.board.vendorPlaceholder')}
                   value={form.vendor} onChange={e => setField('vendor', e.target.value)} />
               </label>
               <div className="bd-form-row">
                 <label className="admin-field">
-                  <span className="admin-field-label">Amount $ (optional)</span>
+                  <span className="admin-field-label">{t('admin.board.amountOptional')}</span>
                   <input name="amount" className="admin-input" type="number" placeholder="5200"
                     value={form.amount} onChange={e => setField('amount', e.target.value)} />
                 </label>
                 <div className="admin-field">
-                  <span className="admin-field-label">Status</span>
+                  <span className="admin-field-label">{t('admin.board.statusLabel')}</span>
                   <Dropdown<string>
                     value={form.status}
                     onChange={v => setField('status', v)}
-                    ariaLabel="Decision status"
-                    options={STATUSES}
+                    ariaLabel={t('admin.board.decisionStatusAria')}
+                    options={STATUSES.map(s => ({ value: s.value, label: statusLabel(s.value) }))}
                   />
                 </div>
                 <label className="admin-field">
-                  <span className="admin-field-label">Date</span>
+                  <span className="admin-field-label">{t('admin.board.dateLabel')}</span>
                   <input name="decided_on" className="admin-input" type="date"
                     value={form.decided_on} onChange={e => setField('decided_on', e.target.value)} />
                 </label>
               </div>
               <div className="card-cta">
                 <button type="submit" className="admin-primary-btn" disabled={saving}>
-                  {saving ? 'Adding…' : 'Add decision'}
+                  {saving ? t('admin.board.adding') : t('admin.board.addDecision')}
                 </button>
                 {error && <span className="admin-err-inline">{error}</span>}
               </div>
@@ -741,15 +751,15 @@ export default function Board() {
           <div className="card">
             <div className="card-head">
               <div>
-                <h2>Decision feed</h2>
-                <div className="sub">Most recent first — the newest five appear on Home.</div>
+                <h2>{t('admin.board.decisionFeedTitle')}</h2>
+                <div className="sub">{t('admin.board.decisionFeedSub')}</div>
               </div>
             </div>
 
             <div className="bd-list">
-              {status === 'loading' && <div className="admin-note">Loading…</div>}
+              {status === 'loading' && <div className="admin-note">{t('admin.board.loading')}</div>}
               {status === 'ready' && rows.length === 0 && (
-                <div className="bc-empty">No decisions logged yet — add the first one above.</div>
+                <div className="bc-empty">{t('admin.board.noDecisions')}</div>
               )}
               {rows.map(r => (
                 <div className="bd-row" key={r.id}>
@@ -763,7 +773,7 @@ export default function Board() {
                   {r.amount != null && <div className="bd-amount">{fmtMoney(r.amount)}</div>}
                   <span className={`bd-status bd-${r.status}`}>{statusLabel(r.status)}</span>
                   <button type="button" className="bc-del" onClick={() => remove(r.id)}
-                    aria-label="Remove decision">&times;</button>
+                    aria-label={t('admin.board.removeDecision')}>&times;</button>
                 </div>
               ))}
             </div>

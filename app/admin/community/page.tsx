@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { Dropdown } from '@/components/Dropdown'
+import { useT } from '@/lib/i18n'
 
 // Hardening (carried from Genie): wrap network promises, never .catch on Supabase.
 const withTimeout = (p, ms = 10000) =>
@@ -16,6 +17,7 @@ const withTimeout = (p, ms = 10000) =>
 const numOrNull = (v) => (v === '' || v == null ? null : Number(v))
 
 export default function CommunitySettings() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const [form, setForm] = useState(null)
@@ -65,9 +67,9 @@ export default function CommunitySettings() {
     if (!transferSel) return
     const who = candidates.find(c => c.profile_id === transferSel)
     const tail = stepDown
-      ? 'You will step down to a regular resident — your admin access ends immediately.'
-      : 'You keep your admin role.'
-    if (!window.confirm(`Transfer ownership of ${form?.name || 'your community'} to ${who?.full_name || 'this member'}? They become the owner with full admin access. ${tail}`)) return
+      ? t('admin.community.transferConfirmStepDown')
+      : t('admin.community.transferConfirmKeepRole')
+    if (!window.confirm(t('admin.community.transferConfirmMsg', { community: form?.name || t('admin.community.yourCommunity'), member: who?.full_name || t('admin.community.thisMember'), tail }))) return
     setTransferBusy(true); setTransferErr('')
     try {
       const { error } = await withTimeout(
@@ -75,13 +77,13 @@ export default function CommunitySettings() {
       )
       if (error) throw error
       setTransferSel('')
-      setSuccessMsg(`Ownership transferred to ${who?.full_name || 'the new owner'}.`)
+      setSuccessMsg(t('admin.community.transferSuccess', { member: who?.full_name || t('admin.community.theNewOwner') }))
       // Stepping down ends your own admin access — leave the admin area now
       // rather than waiting for the next permissions check to bounce you.
       if (stepDown) { window.location.href = '/app'; return }
       await loadOwner()
     } catch (err) {
-      setTransferErr(err?.message || 'Transfer failed')
+      setTransferErr(err?.message || t('admin.community.transferFailed'))
     }
     setTransferBusy(false)
   }
@@ -103,7 +105,7 @@ export default function CommunitySettings() {
       if (error) throw error
       setForm(data); setStatus('ready')
     } catch (err) {
-      setError(err?.message || 'Could not load the community'); setStatus('error')
+      setError(err?.message || t('admin.community.loadError')); setStatus('error')
     }
   }, [communityId])
   useEffect(() => { load() }, [load])
@@ -137,7 +139,9 @@ export default function CommunitySettings() {
           ? { association_type: form.association_type === 'condo' ? 'condo' : 'hoa' }
           : {}),
         unit_count: numOrNull(form.unit_count),
-        fiscal_year: numOrNull(form.fiscal_year),
+        // Fiscal year is not hand-editable — it tracks the current calendar year
+        // automatically, so the board never has to remember to bump it.
+        fiscal_year: new Date().getFullYear(),
         monthly_dues: numOrNull(form.monthly_dues),
         // FL compliance config — annual APR replaces the legacy monthly rate.
         // null = charge nothing (the platform never invents interest/fees).
@@ -153,9 +157,9 @@ export default function CommunitySettings() {
         supabase.from('communities').update(patch).eq('id', communityId)
       )
       if (error) throw error
-      setStatus('ready'); setSuccessMsg('Community settings saved.')
+      setStatus('ready'); setSuccessMsg(t('admin.community.settingsSaved'))
     } catch (err) {
-      setError(err?.message || 'Save failed'); setStatus('error')
+      setError(err?.message || t('admin.community.saveFailed')); setStatus('error')
     }
   }
 
@@ -187,10 +191,10 @@ export default function CommunitySettings() {
 
   return (
     <div className="admin-page cset">
-      <div className="admin-kicker">Community</div>
-      <h1 className="admin-h1">Community settings</h1>
+      <div className="admin-kicker">{t('admin.community.kicker')}</div>
+      <h1 className="admin-h1">{t('admin.community.pageTitle')}</h1>
       <p className="admin-dek">
-        Your association&rsquo;s details, dues, and operating budget. Changes here flow to every resident&rsquo;s cockpit.
+        {t('admin.community.pageDek')}
       </p>
 
       {successMsg && (
@@ -200,18 +204,18 @@ export default function CommunitySettings() {
         </div>
       )}
 
-      {status === 'loading' && <div className="admin-note">Loading…</div>}
+      {status === 'loading' && <div className="admin-note">{t('admin.community.loading')}</div>}
 
       {status === 'none' && (
         <div className="admin-note admin-note-warn">
-          No community is linked to your account yet. Run the one-time setup SQL, then reload.
+          {t('admin.community.noCommunity')}
         </div>
       )}
 
       {status === 'error' && !form && (
         <div className="admin-note admin-note-err">
           {error}
-          <button type="button" className="admin-btn-ghost" onClick={load}>Retry</button>
+          <button type="button" className="admin-btn-ghost" onClick={load}>{t('admin.community.retry')}</button>
         </div>
       )}
 
@@ -222,34 +226,48 @@ export default function CommunitySettings() {
             <div className="card">
               <div className="card-head">
                 <div>
-                  <h2>Association details</h2>
-                  <div className="sub">Shown across the app</div>
+                  <h2>{t('admin.community.assocDetailsTitle')}</h2>
+                  <div className="sub">{t('admin.community.assocDetailsSub')}</div>
                 </div>
               </div>
-              {field('name', 'Community name', { placeholder: 'Sunset Lakes' })}
-              {field('location', 'Location', { placeholder: 'Miramar, FL' })}
+              {field('name', t('admin.community.fieldCommunityName'), { placeholder: 'Sunset Lakes' })}
+              {field('location', t('admin.community.fieldLocation'), { placeholder: 'Miramar, FL' })}
               <div className="grid2" style={{ gap: 16 }}>
                 <label className="admin-field">
-                  <span className="admin-field-label">Type</span>
+                  <span className="admin-field-label">{t('admin.community.fieldType')}</span>
                   <Dropdown
                     value={form.association_type === 'condo' ? 'condo' : 'hoa'}
                     onChange={v => setField('association_type', v)}
-                    ariaLabel="Association type"
+                    ariaLabel={t('admin.community.ariaAssocType')}
                     options={[
-                      { value: 'hoa', label: 'Homeowners (Ch. 720)' },
-                      { value: 'condo', label: 'Condominium (Ch. 718)' },
+                      { value: 'hoa', label: t('admin.community.typeHoa') },
+                      { value: 'condo', label: t('admin.community.typeCondo') },
                     ]}
                   />
                 </label>
-                {field('unit_count', 'Homes / units', { type: 'number', placeholder: '120' })}
+                {field('unit_count', t('admin.community.fieldHomesUnits'), { type: 'number', placeholder: '120' })}
               </div>
               <div className="grid2" style={{ gap: 16 }}>
-                {field('fiscal_year', 'Fiscal year', { type: 'number', placeholder: '2026' })}
-                {field('monthly_dues', 'Per-home monthly dues', { type: 'number', placeholder: '38', prefix: '$' })}
+                <label className="admin-field">
+                  <span className="admin-field-label">{t('admin.community.fieldFiscalYear')}</span>
+                  <div className="admin-input-wrap">
+                    <input
+                      name="fiscal_year"
+                      type="number"
+                      className="admin-input"
+                      value={new Date().getFullYear()}
+                      readOnly
+                      disabled
+                      aria-readonly="true"
+                    />
+                  </div>
+                  <span className="field-hint">{t('admin.community.hintFiscalYear')}</span>
+                </label>
+                {field('monthly_dues', t('admin.community.fieldMonthlyDues'), { type: 'number', placeholder: '38', prefix: '$' })}
               </div>
               <div className="card-cta">
                 <button type="button" onClick={save} className="admin-primary-btn" disabled={status === 'saving'}>
-                  {status === 'saving' ? 'Saving…' : 'Save details'}
+                  {status === 'saving' ? t('admin.community.saving') : t('admin.community.saveDetails')}
                 </button>
               </div>
             </div>
@@ -258,8 +276,8 @@ export default function CommunitySettings() {
             <div className="card">
               <div className="card-head">
                 <div>
-                  <h2>At a glance</h2>
-                  <div className="sub">Updates automatically from your homes &amp; dues</div>
+                  <h2>{t('admin.community.atAGlanceTitle')}</h2>
+                  <div className="sub">{t('admin.community.atAGlanceSub')}</div>
                 </div>
               </div>
               {/* Projections compute live from the homes & dues set in Association
@@ -267,18 +285,18 @@ export default function CommunitySettings() {
                   from the live community dues summary. Nothing to save here. */}
               <div className="dues-stats">
                 {[
-                  { l: 'Billed / month',   v: billedMonth ? money(billedMonth) : '—',
-                    hint: homes ? `${homes} home${homes === 1 ? '' : 's'} × ${money(dues)}` : 'Set homes & dues' },
-                  { l: 'Billed / year',    v: billedMonth ? money(billedMonth * 12) : '—',
-                    hint: 'Monthly dues × 12' },
-                  { l: 'Per home / year',  v: dues ? money(dues * 12) : '—',
-                    hint: 'What each home pays annually' },
-                  { l: 'Collection rate',  v: summary ? `${summary.rate}%` : '—',
-                    hint: summary ? `${summary.paid} paid · ${summary.due} due · ${summary.late} late` : 'Collected of what’s billed' },
-                  { l: 'Collected to date', v: summary ? money(summary.collected) : '—',
-                    hint: 'Payments recorded across the roster' },
-                  { l: 'Outstanding',      v: summary ? money(summary.outstanding) : '—',
-                    hint: 'Balances still owed today' },
+                  { l: t('admin.community.statBilledMonth'),   v: billedMonth ? money(billedMonth) : '—',
+                    hint: homes ? `${homes} home${homes === 1 ? '' : 's'} × ${money(dues)}` : t('admin.community.hintSetHomesDues') },
+                  { l: t('admin.community.statBilledYear'),    v: billedMonth ? money(billedMonth * 12) : '—',
+                    hint: t('admin.community.hintBilledYear') },
+                  { l: t('admin.community.statPerHomeYear'),   v: dues ? money(dues * 12) : '—',
+                    hint: t('admin.community.hintPerHomeYear') },
+                  { l: t('admin.community.statCollectionRate'), v: summary ? `${summary.rate}%` : '—',
+                    hint: summary ? `${summary.paid} paid · ${summary.due} due · ${summary.late} late` : t('admin.community.hintCollectionRate') },
+                  { l: t('admin.community.statCollectedToDate'), v: summary ? money(summary.collected) : '—',
+                    hint: t('admin.community.hintCollectedToDate') },
+                  { l: t('admin.community.statOutstanding'),   v: summary ? money(summary.outstanding) : '—',
+                    hint: t('admin.community.hintOutstanding') },
                 ].map(s => (
                   <div className="dues-stat" key={s.l}>
                     <div className="dues-stat-main">
@@ -296,36 +314,36 @@ export default function CommunitySettings() {
           <div className="card">
             <div className="card-head">
               <div>
-                <h2>Billing &amp; compliance</h2>
-                <div className="sub">Florida late-payment, amenity, and lien settings (FS 718 / 720)</div>
+                <h2>{t('admin.community.billingTitle')}</h2>
+                <div className="sub">{t('admin.community.billingSub')}</div>
               </div>
             </div>
-            {field('interest_apr', 'Late-payment interest (% per year)', {
+            {field('interest_apr', t('admin.community.fieldInterestApr'), {
               type: 'number', placeholder: '18',
-              hint: 'Florida cap is 18%/year, simple interest. Leave blank to charge no interest.',
+              hint: t('admin.community.hintInterestApr'),
             })}
             <div className="grid2" style={{ gap: 12 }}>
-              {field('late_fee_flat', 'Admin late fee — flat', { type: 'number', placeholder: '25', prefix: '$' })}
-              {field('late_fee_pct', 'Admin late fee — percent', { type: 'number', placeholder: '5' })}
+              {field('late_fee_flat', t('admin.community.fieldLateFeeFlat'), { type: 'number', placeholder: '25', prefix: '$' })}
+              {field('late_fee_pct', t('admin.community.fieldLateFeePct'), { type: 'number', placeholder: '5' })}
             </div>
             <span className="field-hint" style={{ display: 'block', marginTop: 8 }}>
-              Per delinquent month. The statute caps the late fee at the greater of $25 or 5% of the installment; the platform applies the greater of the two values above.
+              {t('admin.community.hintLateFee')}
             </span>
-            {field('amenity_refund_cutoff_hours', 'Amenity cancellation window (hours)', {
+            {field('amenity_refund_cutoff_hours', t('admin.community.fieldAmenityCutoff'), {
               type: 'number', placeholder: '24',
-              hint: 'Residents who cancel a paid booking at least this many hours before the slot are refunded automatically. After it, the board can still refund manually. Default 24.',
+              hint: t('admin.community.hintAmenityCutoff'),
             })}
-            {field('association_address', 'Association mailing address', {
+            {field('association_address', t('admin.community.fieldAssocAddress'), {
               placeholder: '123 Main St, Miramar, FL 33025',
-              hint: 'Used on liens, statutory notices, and estoppel certificates.',
+              hint: t('admin.community.hintAssocAddress'),
             })}
-            {field('association_officer_name', 'Authorized officer', {
+            {field('association_officer_name', t('admin.community.fieldOfficerName'), {
               placeholder: 'Jane Doe, President',
-              hint: 'Signs liens and certificates.',
+              hint: t('admin.community.hintOfficerName'),
             })}
             <div className="card-cta">
               <button type="button" onClick={save} className="admin-primary-btn" disabled={status === 'saving'}>
-                {status === 'saving' ? 'Saving…' : 'Save compliance'}
+                {status === 'saving' ? t('admin.community.saving') : t('admin.community.saveCompliance')}
               </button>
               {status === 'error' && <span className="admin-err-inline" style={{ marginLeft: 12 }}>{error}</span>}
             </div>
@@ -339,8 +357,8 @@ export default function CommunitySettings() {
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><rect x="7" y="11" width="3" height="6" /><rect x="12" y="7" width="3" height="10" /><rect x="17" y="13" width="3" height="4" /></svg>
                 </span>
                 <div className="wsrow-main">
-                  <div className="wsrow-title">Operating budget</div>
-                  <div className="wsrow-desc">Annual budget, categories, bank tracking &amp; expenses now live on the Budget page.</div>
+                  <div className="wsrow-title">{t('admin.community.budgetRowTitle')}</div>
+                  <div className="wsrow-desc">{t('admin.community.budgetRowDesc')}</div>
                 </div>
                 <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
               </Link>
@@ -355,11 +373,11 @@ export default function CommunitySettings() {
             <div className="card">
               <div className="card-head" style={{ marginBottom: 0 }}>
                 <div>
-                  <h2>Community ownership</h2>
+                  <h2>{t('admin.community.ownershipTitle')}</h2>
                   <div className="sub">
-                    Owner: <strong>{owner.owner_name || owner.owner_email || '—'}</strong>
+                    {t('admin.community.ownershipOwnerLabel')}: <strong>{owner.owner_name || owner.owner_email || '—'}</strong>
                     {owner.owner_email && owner.owner_name ? ` (${owner.owner_email})` : ''}
-                    {isOwner ? ' — that’s you.' : ''}
+                    {isOwner ? ` — ${t('admin.community.ownershipThatIsYou')}` : ''}
                   </div>
                 </div>
               </div>
@@ -367,18 +385,17 @@ export default function CommunitySettings() {
                 <div style={{ marginTop: 14 }}>
                   {candidates.length === 0 ? (
                     <div className="sub">
-                      To transfer ownership, another board member needs a Residente account first —
-                      once they sign up, they’ll appear here.
+                      {t('admin.community.ownershipNoCandidates')}
                     </div>
                   ) : (
                     <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                       <label className="admin-field" style={{ flex: '1 1 260px', marginBottom: 0 }}>
-                        <span className="admin-field-label">Transfer ownership to</span>
+                        <span className="admin-field-label">{t('admin.community.transferFieldLabel')}</span>
                         <Dropdown
                           value={transferSel}
                           onChange={setTransferSel}
-                          placeholder="Choose a member…"
-                          ariaLabel="New community owner"
+                          placeholder={t('admin.community.transferPlaceholder')}
+                          ariaLabel={t('admin.community.ariaNewOwner')}
                           options={candidates.map(c => ({
                             value: c.profile_id,
                             label: `${c.full_name || c.email || 'Member'}${c.board_position ? ` · ${c.board_position}` : ''}`,
@@ -392,18 +409,17 @@ export default function CommunitySettings() {
                         onClick={transferOwnership}
                         style={{ whiteSpace: 'nowrap' }}
                       >
-                        {transferBusy ? 'Transferring…' : 'Transfer ownership'}
+                        {transferBusy ? t('admin.community.transferring') : t('admin.community.transferBtn')}
                       </button>
                     </div>
                   )}
                   {transferErr && <div className="admin-err-inline" style={{ display: 'block', marginTop: 10 }}>{transferErr}</div>}
                   <label style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 12, cursor: 'pointer', fontSize: 13 }}>
                     <input type="checkbox" checked={stepDown} onChange={e => setStepDown(e.target.checked)} style={{ marginTop: 2 }} />
-                    <span>I’m stepping down — make me a regular resident (removes my admin access, board seat, and assigned role)</span>
+                    <span>{t('admin.community.stepDownLabel')}</span>
                   </label>
                   <div className="field-hint" style={{ marginTop: 10 }}>
-                    The new owner gets full admin access. Unless you step down, you keep your admin
-                    role — they can adjust roles afterwards. This can’t be undone from your side.
+                    {t('admin.community.ownershipHint')}
                   </div>
                 </div>
               )}
@@ -414,10 +430,9 @@ export default function CommunitySettings() {
           <div className="card">
             <div className="card-head" style={{ marginBottom: 0, alignItems: 'center' }}>
               <div>
-                <h2>Delete community</h2>
+                <h2>{t('admin.community.deleteTitle')}</h2>
                 <div className="sub">
-                  Closing {form?.name || 'your community'}? Deleting removes every resident,
-                  payment, document, and record — so we do it for you, safely.
+                  {t('admin.community.deleteSub', { community: form?.name || t('admin.community.yourCommunity') })}
                 </div>
               </div>
               <Link
@@ -425,7 +440,7 @@ export default function CommunitySettings() {
                 className="admin-primary-btn"
                 style={{ textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0, alignSelf: 'center' }}
               >
-                Contact Residente
+                {t('admin.community.contactResidente')}
               </Link>
             </div>
           </div>

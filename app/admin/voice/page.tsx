@@ -18,6 +18,7 @@ import {
   decryptAnswer, exportKeyCard, bytesToBase64,
 } from '@/lib/ballotCrypto'
 import { Dropdown } from '@/components/Dropdown'
+import { useT } from '@/lib/i18n'
 
 const withTimeout = (p, ms = 10000) =>
   Promise.race([
@@ -52,6 +53,7 @@ const toLocalDtInput = (iso?: string | null) => {
 }
 
 export default function Meetings() {
+  const t = useT()
   const { meetings, loading, error, reload } = useVoiceMeetings()
   const [view, setView] = useState('list') // list | create | detail
   const [selectedId, setSelectedId] = useState(null)
@@ -70,24 +72,24 @@ export default function Meetings() {
       <div className="admin-section-head" style={{ marginTop: 18 }}>
         <div>
           <div className="admin-kicker">Easy Voice</div>
-          <h1 className="admin-h1">Meetings</h1>
-          <p className="admin-dek">Create meetings, manage documents, and run votes.</p>
+          <h1 className="admin-h1">{t('admin.voice.pageTitle')}</h1>
+          <p className="admin-dek">{t('admin.voice.pageDek')}</p>
         </div>
-        <button className="admin-primary-btn" onClick={() => setView('create')}>+ New Meeting</button>
+        <button className="admin-primary-btn" onClick={() => setView('create')}>{t('admin.voice.newMeeting')}</button>
       </div>
 
-      {loading && <div className="admin-placeholder">Loading meetings…</div>}
+      {loading && <div className="admin-placeholder">{t('admin.voice.loadingMeetings')}</div>}
       {error && <div className="admin-err">{error}</div>}
 
       {!loading && !error && meetings.length === 0 && (
         <div className="admin-placeholder">
-          No meetings yet. Create your first one above.
+          {t('admin.voice.noMeetings')}
         </div>
       )}
 
       {!loading && meetings.length > 0 && (
         <div className="card">
-          <div className="card-head"><div><h2>All meetings</h2><div className="sub">Tap a meeting to manage documents, notices, and settings</div></div></div>
+          <div className="card-head"><div><h2>{t('admin.voice.allMeetings')}</h2><div className="sub">{t('admin.voice.allMeetingsSub')}</div></div></div>
           <div className="voice-meeting-list">
             {meetings.map(m => (
               <MeetingRow
@@ -104,6 +106,7 @@ export default function Meetings() {
 }
 
 function MeetingRow({ meeting: m, onClick }) {
+  const t = useT()
   const typeLabel = MEETING_TYPES.find(t => t.value === m.type)?.label ?? m.type
   const votes = m.ev_votes ?? []
   const openVotes = votes.filter(v => v.status === 'open').length
@@ -121,7 +124,7 @@ function MeetingRow({ meeting: m, onClick }) {
           {MEETING_STATUS_LABELS[m.status] ?? m.status}
         </span>
         {openVotes > 0 && (
-          <span className="voice-badge-open">{openVotes} vote{openVotes > 1 ? 's' : ''} open</span>
+          <span className="voice-badge-open">{t('admin.voice.openVotes', { count: openVotes, s: openVotes > 1 ? 's' : '' })}</span>
         )}
       </div>
     </button>
@@ -129,6 +132,7 @@ function MeetingRow({ meeting: m, onClick }) {
 }
 
 function MeetingForm({ onSaved, onCancel, existing, embedded }: { onSaved: (id) => void; onCancel: () => void; existing?: any; embedded?: boolean }) {
+  const t = useT()
   const { profile } = useAuth() || {}
   const [form, setForm] = useState(
     existing
@@ -156,7 +160,7 @@ function MeetingForm({ onSaved, onCancel, existing, embedded }: { onSaved: (id) 
     e.preventDefault()
     if (!hasSupabase || !profile?.community_id) return
     if (!form.title.trim() || !form.scheduled_at) {
-      setErr('Title and date/time are required.')
+      setErr(t('admin.voice.errTitleDateRequired'))
       return
     }
     setSaving(true)
@@ -186,7 +190,7 @@ function MeetingForm({ onSaved, onCancel, existing, embedded }: { onSaved: (id) 
       }
       onSaved(id)
     } catch (e) {
-      setErr(e?.message ?? 'Failed to save meeting.')
+      setErr(e?.message ?? t('admin.voice.errFailedSaveMeeting'))
     } finally {
       setSaving(false)
     }
@@ -195,29 +199,29 @@ function MeetingForm({ onSaved, onCancel, existing, embedded }: { onSaved: (id) 
   const fields = (
     <>
       <div className="voice-form-row">
-        <label>Meeting type</label>
+        <label>{t('admin.voice.fieldMeetingType')}</label>
         <Dropdown<string>
           value={form.type}
           onChange={v => set('type', v)}
-          ariaLabel="Meeting type"
+          ariaLabel={t('admin.voice.fieldMeetingType')}
           options={MEETING_TYPES}
         />
       </div>
 
       <div className="voice-form-row">
-        <label>Title</label>
+        <label>{t('admin.voice.fieldTitle')}</label>
         <input
           name="title"
           type="text"
           value={form.title}
           onChange={e => set('title', e.target.value)}
-          placeholder="e.g. Q2 Board Meeting"
+          placeholder={t('admin.voice.placeholderTitle')}
           required
         />
       </div>
 
       <div className="voice-form-row">
-        <label>Date &amp; time</label>
+        <label>{t('admin.voice.fieldDateTime')}</label>
         <input
           name="scheduled_at"
           type="datetime-local"
@@ -238,18 +242,18 @@ function MeetingForm({ onSaved, onCancel, existing, embedded }: { onSaved: (id) 
       )}
 
       <div className="voice-form-row">
-        <label>Location <span className="voice-opt">(optional)</span></label>
+        <label>{t('admin.voice.fieldLocation')} <span className="voice-opt">{t('admin.voice.optional')}</span></label>
         <input
           name="location"
           type="text"
           value={form.location}
           onChange={e => set('location', e.target.value)}
-          placeholder="e.g. Clubhouse Meeting Room"
+          placeholder={t('admin.voice.placeholderLocation')}
         />
       </div>
 
       <div className="voice-form-row">
-        <label>Virtual link <span className="voice-opt">(optional)</span></label>
+        <label>{t('admin.voice.fieldVirtualLink')} <span className="voice-opt">{t('admin.voice.optional')}</span></label>
         <input
           name="virtual_link"
           type="url"
@@ -260,25 +264,25 @@ function MeetingForm({ onSaved, onCancel, existing, embedded }: { onSaved: (id) 
       </div>
 
       <div className="voice-form-row">
-        <label>Quorum % <span className="voice-opt">(optional — overrides community default)</span></label>
+        <label>{t('admin.voice.fieldQuorum')} <span className="voice-opt">{t('admin.voice.optionalQuorum')}</span></label>
         <input
           name="quorum_required_pct"
           type="number"
           min="1" max="100" step="0.1"
           value={form.quorum_required_pct}
           onChange={e => set('quorum_required_pct', e.target.value)}
-          placeholder="e.g. 30"
+          placeholder={t('admin.voice.placeholderQuorum')}
         />
       </div>
 
       <div className="voice-form-row">
-        <label>Summary / recap <span className="voice-opt">(optional — what was said, shown to residents)</span></label>
+        <label>{t('admin.voice.fieldSummary')} <span className="voice-opt">{t('admin.voice.optionalSummary')}</span></label>
         <textarea
           name="summary"
           value={form.summary}
           onChange={e => set('summary', e.target.value)}
           rows={4}
-          placeholder="A short recap of what was discussed and decided…"
+          placeholder={t('admin.voice.placeholderSummary')}
         />
       </div>
     </>
@@ -289,13 +293,13 @@ function MeetingForm({ onSaved, onCancel, existing, embedded }: { onSaved: (id) 
   if (embedded) {
     return (
       <div className="card">
-        <div className="card-head"><div><h2>Meeting settings</h2><div className="sub">Edit the details and add a recap after the meeting.</div></div></div>
+        <div className="card-head"><div><h2>{t('admin.voice.meetingSettings')}</h2><div className="sub">{t('admin.voice.meetingSettingsSub')}</div></div></div>
         <form className="voice-form" onSubmit={save}>
           {fields}
           {err && <div className="admin-err">{err}</div>}
           <div className="card-cta voice-form-actions">
             <button type="submit" className="admin-primary-btn" disabled={saving}>
-              {saving ? 'Saving…' : 'Save changes'}
+              {saving ? t('admin.voice.saving') : t('admin.voice.saveChanges')}
             </button>
           </div>
         </form>
@@ -309,9 +313,9 @@ function MeetingForm({ onSaved, onCancel, existing, embedded }: { onSaved: (id) 
       <div className="admin-section-head">
         <div>
           <div className="admin-kicker">Easy Voice</div>
-          <h1 className="admin-h1">{existing ? 'Edit Meeting' : 'New Meeting'}</h1>
+          <h1 className="admin-h1">{existing ? t('admin.voice.editMeeting') : t('admin.voice.newMeeting')}</h1>
         </div>
-        <button className="admin-btn-ghost" onClick={onCancel}>Cancel</button>
+        <button className="admin-btn-ghost" onClick={onCancel}>{t('admin.voice.cancel')}</button>
       </div>
 
       <form className="card voice-form" onSubmit={save}>
@@ -319,9 +323,9 @@ function MeetingForm({ onSaved, onCancel, existing, embedded }: { onSaved: (id) 
         {err && <div className="admin-err">{err}</div>}
         <div className="card-cta voice-form-actions">
           <button type="submit" className="admin-primary-btn" disabled={saving}>
-            {saving ? 'Saving…' : existing ? 'Save changes' : 'Create meeting'}
+            {saving ? t('admin.voice.saving') : existing ? t('admin.voice.saveChanges') : t('admin.voice.createMeeting')}
           </button>
-          <button type="button" className="admin-btn-ghost" onClick={onCancel}>Cancel</button>
+          <button type="button" className="admin-btn-ghost" onClick={onCancel}>{t('admin.voice.cancel')}</button>
         </div>
       </form>
     </div>
@@ -329,6 +333,7 @@ function MeetingForm({ onSaved, onCancel, existing, embedded }: { onSaved: (id) 
 }
 
 function MeetingDetail({ meetingId, onBack }) {
+  const t = useT()
   const { meeting, loading, error, reload } = useVoiceMeeting(meetingId)
   const [advancing, setAdvancing] = useState(false)
   const [advErr, setAdvErr] = useState(null)
@@ -375,24 +380,28 @@ function MeetingDetail({ meetingId, onBack }) {
       }
       reload()
     } catch (e) {
-      setAdvErr(e?.message ?? 'Failed to update status.')
+      setAdvErr(e?.message ?? t('admin.voice.errFailedUpdateStatus'))
     } finally {
       setAdvancing(false)
     }
   }
 
-  if (loading) return <div className="admin-page cset"><div className="admin-placeholder">Loading…</div></div>
+  if (loading) return <div className="admin-page cset"><div className="admin-placeholder">{t('admin.voice.loading')}</div></div>
   if (error)   return <div className="admin-page cset"><div className="admin-err">{error}</div></div>
   if (!meeting) return null
 
   const typeLabel = MEETING_TYPES.find(t => t.value === meeting.type)?.label ?? meeting.type
-  const nextStatusLabel = { draft: 'Mark Notice Sent', notice_sent: 'Start Meeting', in_progress: 'Complete Meeting' }[meeting.status]
+  const nextStatusLabel = {
+    draft: t('admin.voice.markNoticeSent'),
+    notice_sent: t('admin.voice.startMeeting'),
+    in_progress: t('admin.voice.completeMeeting'),
+  }[meeting.status]
 
   return (
     <div className="admin-page cset">
       <button type="button" className="admin-backlink" onClick={onBack}
         style={{ background: 'none', border: 'none', padding: 0, cursor: 'pointer', fontFamily: 'inherit' }}>
-        <span aria-hidden>←</span> Meetings
+        <span aria-hidden>←</span> {t('admin.voice.backToMeetings')}
       </button>
 
       <div className="card voice-detail-header">
@@ -402,7 +411,7 @@ function MeetingDetail({ meetingId, onBack }) {
           <span>{fmtDt(meeting.scheduled_at)}</span>
           {meeting.location && <span>· {meeting.location}</span>}
           {meeting.virtual_link && (
-            <a className="voice-link" href={meeting.virtual_link} target="_blank" rel="noreferrer">Virtual link ↗</a>
+            <a className="voice-link" href={meeting.virtual_link} target="_blank" rel="noreferrer">{t('admin.voice.virtualLink')}</a>
           )}
         </div>
         <div className="voice-detail-status-row">
@@ -418,9 +427,9 @@ function MeetingDetail({ meetingId, onBack }) {
         {advErr && <div className="admin-err" style={{ marginTop: 8 }}>{advErr}</div>}
         {meeting.quorum_required_pct && (
           <div className="voice-quorum-row">
-            Quorum required: {meeting.quorum_required_pct}%
+            {t('admin.voice.quorumRequired', { pct: meeting.quorum_required_pct })}
             {meeting.quorum_confirmed
-              ? <span className="voice-badge-quorum">Quorum confirmed</span>
+              ? <span className="voice-badge-quorum">{t('admin.voice.quorumConfirmed')}</span>
               : meeting.status === 'in_progress'
                 ? <QuorumConfirmBtn meetingId={meetingId} communityId={meeting.community_id} onDone={reload} />
                 : null}
@@ -439,6 +448,7 @@ function MeetingDetail({ meetingId, onBack }) {
 }
 
 function NotifyPanel({ meeting }) {
+  const t = useT()
   const [subject, setSubject] = useState('')
   const [body, setBody]       = useState('')
   const [channels, setChannels] = useState<NoticeChannel[]>(DEFAULT_CHANNELS)
@@ -453,11 +463,11 @@ function NotifyPanel({ meeting }) {
   const send = async (e) => {
     e.preventDefault()
     if (!subject.trim() && !body.trim()) {
-      setErr('Add a subject or body before sending.')
+      setErr(t('admin.voice.errNoticeSubjectOrBody'))
       return
     }
     if (channels.length === 0) {
-      setErr('Pick at least one channel.')
+      setErr(t('admin.voice.errNoticeChannel'))
       return
     }
     setSending(true)
@@ -487,7 +497,7 @@ function NotifyPanel({ meeting }) {
       setBody('')
       reload()
     } catch (e) {
-      setErr(e?.message ?? 'Failed to send notice.')
+      setErr(e?.message ?? t('admin.voice.errFailedSendNotice'))
     } finally {
       setSending(false)
     }
@@ -496,31 +506,31 @@ function NotifyPanel({ meeting }) {
   return (
     <div className="voice-panel">
       <div className="card">
-      <div className="card-head"><div><h2>Send a notice to all residents</h2></div></div>
+      <div className="card-head"><div><h2>{t('admin.voice.sendNoticeHeading')}</h2></div></div>
 
       <form className="voice-form" onSubmit={send}>
         <div className="voice-form-row">
-          <label>Subject</label>
+          <label>{t('admin.voice.fieldSubject')}</label>
           <input
             name="notice-subject"
             type="text"
             value={subject}
             onChange={e => setSubject(e.target.value)}
-            placeholder="e.g. Reminder: meeting starts in 1 hour"
+            placeholder={t('admin.voice.placeholderSubject')}
           />
         </div>
         <div className="voice-form-row">
-          <label>Body</label>
+          <label>{t('admin.voice.fieldBody')}</label>
           <textarea
             name="notice-body"
             value={body}
             onChange={e => setBody(e.target.value)}
             rows={3}
-            placeholder="What do residents need to know?"
+            placeholder={t('admin.voice.placeholderBody')}
           />
         </div>
         <div className="voice-form-row">
-          <label>Channels</label>
+          <label>{t('admin.voice.fieldChannels')}</label>
           <div className="voice-channels">
             <label className="voice-channel-opt">
               <input
@@ -528,7 +538,7 @@ function NotifyPanel({ meeting }) {
                 checked={channels.includes('in_app')}
                 onChange={() => toggleChannel('in_app')}
               />
-              <span>In-app</span>
+              <span>{t('admin.voice.channelInApp')}</span>
             </label>
             <label className="voice-channel-opt">
               <input
@@ -536,36 +546,36 @@ function NotifyPanel({ meeting }) {
                 checked={channels.includes('email')}
                 onChange={() => toggleChannel('email')}
               />
-              <span>Email</span>
+              <span>{t('admin.voice.channelEmail')}</span>
             </label>
           </div>
         </div>
         {err && <div className="admin-err">{err}</div>}
         <div className="card-cta voice-form-actions">
           <button type="submit" className="admin-primary-btn" disabled={sending}>
-            {sending ? 'Sending…' : 'Send notice'}
+            {sending ? t('admin.voice.sending') : t('admin.voice.sendNotice')}
           </button>
         </div>
       </form>
       </div>
 
       <div className="card">
-      <div className="card-head"><div><h2>Notice history</h2></div></div>
-      {loading && <div className="admin-placeholder">Loading…</div>}
+      <div className="card-head"><div><h2>{t('admin.voice.noticeHistory')}</h2></div></div>
+      {loading && <div className="admin-placeholder">{t('admin.voice.loading')}</div>}
       {!loading && notices.length === 0 && (
-        <div className="admin-placeholder">No notices sent for this meeting yet.</div>
+        <div className="admin-placeholder">{t('admin.voice.noNotices')}</div>
       )}
       {!loading && notices.map((n: any) => (
         <div key={n.id} className="voice-notice-row">
           <div className="voice-notice-left">
             <div className="voice-notice-kind">{NOTICE_KIND_LABELS[n.kind] ?? n.kind}</div>
-            <div className="voice-notice-subject">{n.subject || '(no subject)'}</div>
+            <div className="voice-notice-subject">{n.subject || t('admin.voice.noSubject')}</div>
             {n.body && <div className="voice-notice-body">{n.body}</div>}
           </div>
           <div className="voice-notice-right">
             <div className="voice-notice-meta">{fmtDt(n.sent_at)}</div>
             <div className="voice-notice-stats">
-              Sent to {n.recipient_count ?? 0} · {n.in_app_read_count ?? 0} read
+              {t('admin.voice.noticeStats', { sent: n.recipient_count ?? 0, read: n.in_app_read_count ?? 0 })}
             </div>
           </div>
         </div>
@@ -576,6 +586,7 @@ function NotifyPanel({ meeting }) {
 }
 
 function QuorumConfirmBtn({ meetingId, communityId, onDone }) {
+  const t = useT()
   const [confirming, setConfirming] = useState(false)
   const { profile } = useAuth() || {}
 
@@ -606,12 +617,13 @@ function QuorumConfirmBtn({ meetingId, communityId, onDone }) {
 
   return (
     <button className="admin-btn-sm" onClick={confirm} disabled={confirming}>
-      {confirming ? '…' : 'Confirm quorum'}
+      {confirming ? '…' : t('admin.voice.confirmQuorum')}
     </button>
   )
 }
 
 export function VoteRow({ vote: v, meetingStatus, onChanged, onEdit }: any) {
+  const t = useT()
   const typeLabel = VOTE_TYPES.find(t => t.value === v.type)?.label ?? v.type
   const [acting, setActing] = useState(false)
 
@@ -692,7 +704,7 @@ export function VoteRow({ vote: v, meetingStatus, onChanged, onEdit }: any) {
       })
       onChanged()
     } catch (e: any) {
-      setCloseErr(e?.message ?? 'Could not close the vote.')
+      setCloseErr(e?.message ?? t('admin.voice.errCouldNotCloseVote'))
     } finally {
       setActing(false)
     }
@@ -703,7 +715,7 @@ export function VoteRow({ vote: v, meetingStatus, onChanged, onEdit }: any) {
   // The DB tally trigger picks up the UPDATE and updates the counts.
   const decryptAndTally = async (password: string) => {
     if (!v.wrapped_secret_key) {
-      setCloseErr('This vote is missing its wrapped secret key — cannot tally.')
+      setCloseErr(t('admin.voice.errMissingSecretKey'))
       return
     }
     setClosing(true); setCloseErr(null)
@@ -772,7 +784,7 @@ export function VoteRow({ vote: v, meetingStatus, onChanged, onEdit }: any) {
       setPwdPrompt(false)
       onChanged()
     } catch (e: any) {
-      setCloseErr(e?.message ?? 'Could not tally the vote.')
+      setCloseErr(e?.message ?? t('admin.voice.errCouldNotTallyVote'))
     } finally {
       setClosing(false)
     }
@@ -809,7 +821,7 @@ export function VoteRow({ vote: v, meetingStatus, onChanged, onEdit }: any) {
   const publishResult = async () => {
     setActing(true)
     try { await doPublish(revealKeyB64) }
-    catch (e: any) { setCloseErr(e?.message ?? 'Could not publish the result.') }
+    catch (e: any) { setCloseErr(e?.message ?? t('admin.voice.errCouldNotPublish')) }
     finally { setActing(false) }
   }
 
@@ -823,7 +835,7 @@ export function VoteRow({ vote: v, meetingStatus, onChanged, onEdit }: any) {
       setRevealKeyB64(b64)
       await doPublish(b64)
     } catch (e: any) {
-      setCloseErr(e?.message ?? 'Wrong tally password.')
+      setCloseErr(e?.message ?? t('admin.voice.errWrongTallyPassword'))
     } finally { setActing(false) }
   }
 
@@ -834,16 +846,16 @@ export function VoteRow({ vote: v, meetingStatus, onChanged, onEdit }: any) {
           <div className="voice-vote-title">{v.title}</div>
           <div className="voice-vote-meta">
             {typeLabel}
-            {' · '}{v.ballot_type === 'secret' ? '🔒 Secret ballot' : 'Open ballot'}
+            {' · '}{v.ballot_type === 'secret' ? t('admin.voice.secretBallot') : t('admin.voice.openBallot')}
           </div>
           {(v.status === 'tallied' || v.status === 'published') && (
             <div className="voice-tally">
-              <span className="voice-tally-yes">✓ {v.yes_count ?? 0} yes</span>
-              <span className="voice-tally-no">✗ {v.no_count ?? 0} no</span>
-              <span className="voice-tally-abs">{v.abstain_count ?? 0} abstain</span>
+              <span className="voice-tally-yes">✓ {v.yes_count ?? 0} {t('admin.voice.tallyYes')}</span>
+              <span className="voice-tally-no">✗ {v.no_count ?? 0} {t('admin.voice.tallyNo')}</span>
+              <span className="voice-tally-abs">{v.abstain_count ?? 0} {t('admin.voice.tallyAbstain')}</span>
               {v.result && (
                 <span className={`voice-result voice-result-${v.result}`}>
-                  {v.result === 'pass' ? 'PASSED' : 'FAILED'}
+                  {v.result === 'pass' ? t('admin.voice.resultPassed') : t('admin.voice.resultFailed')}
                 </span>
               )}
             </div>
@@ -854,23 +866,23 @@ export function VoteRow({ vote: v, meetingStatus, onChanged, onEdit }: any) {
             {VOTE_STATUS_LABELS[v.status] ?? v.status}
           </span>
           {v.status === 'draft' && (meetingStatus === 'in_progress' || !meetingStatus) && (
-            <button className="admin-btn-sm" onClick={openVote} disabled={acting}>Open vote</button>
+            <button className="admin-btn-sm" onClick={openVote} disabled={acting}>{t('admin.voice.openVote')}</button>
           )}
           {v.status === 'open' && (
             <button className="admin-btn-sm admin-btn-warn" onClick={closeVote} disabled={acting}>
-              {v.ballot_type === 'secret' ? 'Close vote' : 'Close & tally'}
+              {v.ballot_type === 'secret' ? t('admin.voice.closeVote') : t('admin.voice.closeAndTally')}
             </button>
           )}
           {v.status === 'closed' && v.ballot_type === 'secret' && (
             <button className="admin-btn-sm" onClick={() => setPwdPrompt(true)} disabled={acting}>
-              Decrypt &amp; tally
+              {t('admin.voice.decryptAndTally')}
             </button>
           )}
           {v.status === 'tallied' && (
-            <button className="admin-btn-sm" onClick={publishResult} disabled={acting}>Publish result</button>
+            <button className="admin-btn-sm" onClick={publishResult} disabled={acting}>{t('admin.voice.publishResult')}</button>
           )}
           {onEdit && (
-            <button className="admin-btn-sm admin-btn-ghost" onClick={() => onEdit(v)} disabled={acting}>Edit</button>
+            <button className="admin-btn-sm admin-btn-ghost" onClick={() => onEdit(v)} disabled={acting}>{t('admin.voice.edit')}</button>
           )}
         </div>
       </div>
@@ -900,6 +912,7 @@ function TallyPasswordPrompt({
   onSubmit: (password: string) => Promise<void> | void
   busy: boolean
 }) {
+  const t = useT()
   const [pwd, setPwd] = useState('')
   return (
     <form
@@ -907,16 +920,15 @@ function TallyPasswordPrompt({
       onSubmit={(e) => { e.preventDefault(); onSubmit(pwd) }}
     >
       <div>
-        <strong>Tally this secret vote</strong>
+        <strong>{t('admin.voice.tallyPromptTitle')}</strong>
         <div style={{ fontSize: 13, color: 'var(--text-dim)', marginTop: 4 }}>
-          Enter the tally password you set when creating the vote. Decryption
-          runs in your browser — the platform operator never sees your key.
+          {t('admin.voice.tallyPromptBody')}
         </div>
       </div>
       <input
         type="password"
         autoComplete="current-password"
-        placeholder="Tally password"
+        placeholder={t('admin.voice.tallyPasswordPlaceholder')}
         value={pwd}
         onChange={e => setPwd(e.target.value)}
         autoFocus
@@ -924,10 +936,10 @@ function TallyPasswordPrompt({
       />
       <div className="voice-form-actions">
         <button type="submit" className="admin-btn" disabled={busy || !pwd}>
-          {busy ? 'Decrypting…' : 'Decrypt & tally'}
+          {busy ? t('admin.voice.decrypting') : t('admin.voice.decryptAndTally')}
         </button>
         <button type="button" className="admin-btn-ghost" onClick={onCancel} disabled={busy}>
-          Cancel
+          {t('admin.voice.cancel')}
         </button>
       </div>
     </form>
@@ -935,6 +947,7 @@ function TallyPasswordPrompt({
 }
 
 export function VoteForm({ meetingId = null, communityId, onSaved, onCancel, existing = null }) {
+  const t = useT()
   const { profile } = useAuth() || {}
   const isEditing = !!existing?.id
   const [form, setForm] = useState(
@@ -964,7 +977,7 @@ export function VoteForm({ meetingId = null, communityId, onSaved, onCancel, exi
 
   const save = async (e) => {
     e.preventDefault()
-    if (!form.title.trim()) { setErr('Title is required.'); return }
+    if (!form.title.trim()) { setErr(t('admin.voice.errVoteTitleRequired')); return }
 
     // Editing an existing vote — update the safe metadata fields only, allowed
     // at any status (incl. published). Ballot type and the secret key are never
@@ -986,7 +999,7 @@ export function VoteForm({ meetingId = null, communityId, onSaved, onCancel, exi
         if (error) throw error
         onSaved()
       } catch (e: any) {
-        setErr(e?.message ?? 'Failed to update vote.')
+        setErr(e?.message ?? t('admin.voice.errFailedUpdateVote'))
       } finally {
         setSaving(false)
       }
@@ -999,13 +1012,13 @@ export function VoteForm({ meetingId = null, communityId, onSaved, onCancel, exi
 
     if (isSecret) {
       if (tallyPwd.length < 6) {
-        setErr('Tally password must be at least 6 characters.'); return
+        setErr(t('admin.voice.errTallyPwdMinLength')); return
       }
       if (tallyPwd !== tallyPwd2) {
-        setErr('Tally passwords do not match.'); return
+        setErr(t('admin.voice.errTallyPwdMismatch')); return
       }
       if (!savedCard) {
-        setErr('Confirm you have saved the tally password before continuing.'); return
+        setErr(t('admin.voice.errSaveCardFirst')); return
       }
     }
 
@@ -1050,7 +1063,7 @@ export function VoteForm({ meetingId = null, communityId, onSaved, onCancel, exi
         onSaved()
       }
     } catch (e) {
-      setErr(e?.message ?? 'Failed to save vote.')
+      setErr(e?.message ?? t('admin.voice.errFailedSaveVote'))
     } finally {
       setSaving(false)
     }
@@ -1059,17 +1072,13 @@ export function VoteForm({ meetingId = null, communityId, onSaved, onCancel, exi
   if (keyCard) {
     return (
       <div className="voice-vote-form">
-        <div className="voice-keycard-banner">Secret vote created — save the tally key card</div>
+        <div className="voice-keycard-banner">{t('admin.voice.keycardBanner')}</div>
         <p style={{ fontSize: 14, color: 'var(--text-dim)', marginBottom: 12 }}>
-          A text file with the tally key card was downloaded. Keep it offline
-          (printed, safe, or password manager). It's your only recovery path
-          if you forget the tally password — without either, ballots are
-          permanently unrecoverable, which is the legal point of a secret
-          ballot.
+          {t('admin.voice.keycardBody')}
         </p>
         <pre className="voice-keycard-block">{keyCard}</pre>
         <div className="voice-form-actions">
-          <button type="button" className="admin-btn" onClick={onSaved}>I've saved it — continue</button>
+          <button type="button" className="admin-btn" onClick={onSaved}>{t('admin.voice.keycardContinue')}</button>
         </div>
       </div>
     )
@@ -1078,88 +1087,84 @@ export function VoteForm({ meetingId = null, communityId, onSaved, onCancel, exi
   return (
     <form className="voice-vote-form" onSubmit={save}>
       <div className="voice-form-row">
-        <label>Vote title</label>
+        <label>{t('admin.voice.fieldVoteTitle')}</label>
         <input name="vote-title" type="text" value={form.title} onChange={e => set('title', e.target.value)}
-          placeholder="e.g. Approve pool renovation special assessment" required />
+          placeholder={t('admin.voice.placeholderVoteTitle')} required />
       </div>
       <div className="voice-form-row">
-        <label>Description <span className="voice-opt">(optional)</span></label>
+        <label>{t('admin.voice.fieldVoteDescription')} <span className="voice-opt">{t('admin.voice.optional')}</span></label>
         <textarea name="vote-description" value={form.description} onChange={e => set('description', e.target.value)}
-          rows={2} placeholder="Additional details visible to residents…" />
+          rows={2} placeholder={t('admin.voice.placeholderVoteDescription')} />
       </div>
       <div className="voice-form-row">
-        <label>Due date <span className="voice-opt">(when voting closes)</span></label>
+        <label>{t('admin.voice.fieldDueDate')} <span className="voice-opt">{t('admin.voice.optionalDueDate')}</span></label>
         <input name="vote-closes" type="datetime-local" value={form.closes_at}
           onChange={e => set('closes_at', e.target.value)} />
       </div>
       <div className="voice-form-inline">
         <div className="voice-form-row">
-          <label>Type</label>
+          <label>{t('admin.voice.fieldVoteType')}</label>
           <Dropdown<string>
             value={form.type}
             onChange={v => set('type', v)}
-            ariaLabel="Vote type"
+            ariaLabel={t('admin.voice.fieldVoteType')}
             options={VOTE_TYPES}
           />
         </div>
         <div className="voice-form-row">
-          <label>Ballot type</label>
+          <label>{t('admin.voice.fieldBallotType')}</label>
           {form.type === 'election' ? (
             <>
-              <div className="voice-channels-readonly">Secret ballot</div>
-              <div className="voice-hard-block">Elections must use secret ballot (FL 718.112(2)(d)(3))</div>
+              <div className="voice-channels-readonly">{t('admin.voice.secretBallotLabel')}</div>
+              <div className="voice-hard-block">{t('admin.voice.electionsMustUseSecret')}</div>
             </>
           ) : isEditing ? (
-            <div className="voice-channels-readonly">{form.ballot_type === 'secret' ? 'Secret ballot' : 'Open'}</div>
+            <div className="voice-channels-readonly">{form.ballot_type === 'secret' ? t('admin.voice.secretBallotLabel') : t('admin.voice.openBallotLabel')}</div>
           ) : (
             <Dropdown<string>
               value={form.ballot_type}
               onChange={v => set('ballot_type', v)}
-              ariaLabel="Ballot type"
+              ariaLabel={t('admin.voice.fieldBallotType')}
               options={[
-                { value: 'open', label: 'Open' },
-                { value: 'secret', label: 'Secret' },
+                { value: 'open', label: t('admin.voice.openBallotLabel') },
+                { value: 'secret', label: t('admin.voice.secretBallotLabel') },
               ]}
             />
           )}
         </div>
       </div>
       <div className="voice-form-row">
-        <label>Category <span className="voice-opt">(how it's grouped for residents)</span></label>
+        <label>{t('admin.voice.fieldCategory')} <span className="voice-opt">{t('admin.voice.optionalCategory')}</span></label>
         <Dropdown<string>
           value={form.category}
           onChange={v => set('category', v)}
-          ariaLabel="Voting category"
+          ariaLabel={t('admin.voice.fieldCategoryAria')}
           options={VOTE_CATEGORIES}
         />
       </div>
       <div className="voice-form-row">
-        <label>Meeting <span className="voice-opt">(optional — tags this vote to a meeting)</span></label>
+        <label>{t('admin.voice.fieldMeeting')} <span className="voice-opt">{t('admin.voice.optionalMeeting')}</span></label>
         <Dropdown<string>
           value={form.meeting_id}
           onChange={v => set('meeting_id', v)}
-          ariaLabel="Meeting"
-          options={[{ value: '', label: 'No meeting' }, ...tagMeetings.map((m: any) => ({ value: m.id, label: m.title }))]}
+          ariaLabel={t('admin.voice.fieldMeeting')}
+          options={[{ value: '', label: t('admin.voice.noMeetingOption') }, ...tagMeetings.map((m: any) => ({ value: m.id, label: m.title }))]}
         />
       </div>
       {isSecret && !isEditing && (
         <div className="voice-secret-config">
-          <div className="voice-secret-config-title">Tally password (required for secret ballots)</div>
+          <div className="voice-secret-config-title">{t('admin.voice.tallyPwdSectionTitle')}</div>
           <p className="voice-secret-config-body">
-            Only you will be able to decrypt and tally these ballots. The
-            password is wrapped around the vote's secret key and stored in
-            the DB; the platform operator never sees the unwrapped key.
-            Forgetting both the password <em>and</em> the key card means
-            ballots are unrecoverable.
+            {t('admin.voice.tallyPwdSectionBody')}
           </p>
           <div className="voice-form-inline">
             <div className="voice-form-row">
-              <label>Tally password</label>
+              <label>{t('admin.voice.fieldTallyPassword')}</label>
               <input type="password" autoComplete="new-password" minLength={6}
                 value={tallyPwd} onChange={e => setTallyPwd(e.target.value)} />
             </div>
             <div className="voice-form-row">
-              <label>Confirm password</label>
+              <label>{t('admin.voice.fieldConfirmPassword')}</label>
               <input type="password" autoComplete="new-password" minLength={6}
                 value={tallyPwd2} onChange={e => setTallyPwd2(e.target.value)} />
             </div>
@@ -1167,16 +1172,16 @@ export function VoteForm({ meetingId = null, communityId, onSaved, onCancel, exi
           <label className="voice-secret-confirm">
             <input type="checkbox" checked={savedCard}
               onChange={e => setSavedCard(e.target.checked)} />
-            <span>I will save the tally password and downloaded key card in a safe place.</span>
+            <span>{t('admin.voice.savedCardConfirm')}</span>
           </label>
         </div>
       )}
       {err && <div className="admin-err">{err}</div>}
       <div className="card-cta voice-form-actions">
         <button type="submit" className="admin-primary-btn" disabled={saving}>
-          {saving ? 'Saving…' : isEditing ? 'Save changes' : 'Add vote item'}
+          {saving ? t('admin.voice.saving') : isEditing ? t('admin.voice.saveChanges') : t('admin.voice.addVoteItem')}
         </button>
-        <button type="button" className="admin-btn-ghost" onClick={onCancel}>Cancel</button>
+        <button type="button" className="admin-btn-ghost" onClick={onCancel}>{t('admin.voice.cancel')}</button>
       </div>
     </form>
   )
@@ -1205,6 +1210,7 @@ function downloadKeyCard(card: string, title: string) {
 }
 
 function DocsPanel({ meeting, reload }) {
+  const t = useT()
   const [uploading, setUploading] = useState(false)
   const [docType, setDocType] = useState('agenda')
   const [docTitle, setDocTitle] = useState('')
@@ -1214,8 +1220,8 @@ function DocsPanel({ meeting, reload }) {
 
   const upload = async (e) => {
     const file = e.target.files?.[0]
-    if (!file || !docTitle.trim()) { setErr('Title is required before uploading.'); return }
-    if (!hasSupabase) { setErr('Supabase not configured.'); return }
+    if (!file || !docTitle.trim()) { setErr(t('admin.voice.errDocTitleRequired')); return }
+    if (!hasSupabase) { setErr(t('admin.voice.errSupabaseNotConfigured')); return }
     setUploading(true)
     setErr(null)
     try {
@@ -1274,7 +1280,7 @@ function DocsPanel({ meeting, reload }) {
       setDocTitle('')
       reload()
     } catch (e) {
-      setErr(e?.message ?? 'Upload failed.')
+      setErr(e?.message ?? t('admin.voice.errUploadFailed'))
     } finally {
       setUploading(false)
     }
@@ -1282,14 +1288,14 @@ function DocsPanel({ meeting, reload }) {
 
   return (
     <div className="card voice-panel">
-      <div className="card-head"><div><h2>Meeting documents</h2></div></div>
+      <div className="card-head"><div><h2>{t('admin.voice.meetingDocuments')}</h2></div></div>
 
       <div className="voice-upload-row">
         <div style={{ minWidth: 190 }}>
           <Dropdown<string>
             value={docType}
             onChange={setDocType}
-            ariaLabel="Document type"
+            ariaLabel={t('admin.voice.docTypeAria')}
             options={DOC_TYPES}
           />
         </div>
@@ -1298,10 +1304,10 @@ function DocsPanel({ meeting, reload }) {
           type="text"
           value={docTitle}
           onChange={e => setDocTitle(e.target.value)}
-          placeholder="Document title"
+          placeholder={t('admin.voice.placeholderDocTitle')}
         />
         <label className={`admin-btn-sm voice-upload-btn${uploading ? ' disabled' : ''}`}>
-          {uploading ? 'Uploading…' : 'Choose file'}
+          {uploading ? t('admin.voice.uploading') : t('admin.voice.chooseFile')}
           <input name="meeting-doc" type="file" accept=".pdf,.doc,.docx,.xls,.xlsx" onChange={upload} disabled={uploading} style={{ display: 'none' }} />
         </label>
       </div>
@@ -1309,7 +1315,7 @@ function DocsPanel({ meeting, reload }) {
       {err && <div className="admin-err" style={{ marginTop: 8 }}>{err}</div>}
 
       {docs.length === 0 && (
-        <div className="admin-placeholder">No documents attached yet.</div>
+        <div className="admin-placeholder">{t('admin.voice.noDocuments')}</div>
       )}
 
       {docs.map(d => <DocRow key={d.id} doc={d} communityId={meeting.community_id} onDeleted={reload} />)}
@@ -1318,6 +1324,7 @@ function DocsPanel({ meeting, reload }) {
 }
 
 function DocRow({ doc: d, communityId, onDeleted }) {
+  const t = useT()
   const [deleting, setDeleting] = useState(false)
   const [url, setUrl] = useState(null)
   const typeLabel = DOC_TYPES.find(t => t.value === d.type)?.label ?? d.type
@@ -1331,7 +1338,7 @@ function DocRow({ doc: d, communityId, onDeleted }) {
   }
 
   const del = async () => {
-    if (!window.confirm(`Delete "${d.title}"?`)) return
+    if (!window.confirm(t('admin.voice.confirmDeleteDoc', { title: d.title }))) return
     setDeleting(true)
     try {
       await supabase.storage.from('ev-documents').remove([d.storage_path])
@@ -1356,10 +1363,9 @@ function DocRow({ doc: d, communityId, onDeleted }) {
           <span className="voice-doc-meta">{(d.file_size / 1024).toFixed(0)} KB</span>
         )}
       </div>
-      <button className="voice-doc-del" onClick={del} disabled={deleting} aria-label="Delete document">
+      <button className="voice-doc-del" onClick={del} disabled={deleting} aria-label={t('admin.voice.deleteDocAria')}>
         {deleting ? '…' : '×'}
       </button>
     </div>
   )
 }
-

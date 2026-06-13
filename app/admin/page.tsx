@@ -7,6 +7,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { planForHomes } from '@/lib/plan'
 import { docSectionsFor, type DocSection } from '@/lib/documents/checklist'
 import { uploadSignupDocuments, saveSignupNotes, type PropertyType } from '@/lib/signup'
+import { useT } from '@/lib/i18n'
 
 // Admin home — replaces the old redirect-to-/community. A real dashboard:
 // quick stats + a "Get your community live" checklist whose items tick off
@@ -19,6 +20,7 @@ const withTimeout = (p, ms = 10000) =>
 type Counts = { residents: number; board: number; documents: number; budgets: number }
 
 export default function AdminHome() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const [community, setCommunity] = useState<any>(null)
@@ -148,18 +150,18 @@ export default function AdminHome() {
     w.document.close()
   }
 
-  if (status === 'loading') return <div className="admin-page"><div className="admin-note">Loading…</div></div>
+  if (status === 'loading') return <div className="admin-page"><div className="admin-note">{t('admin.overview.loading')}</div></div>
   if (status === 'none') return (
     <div className="admin-page">
-      <div className="admin-kicker">Overview</div>
-      <h1 className="admin-h1">Welcome</h1>
-      <div className="admin-note admin-note-warn">No community is linked to your account yet.</div>
+      <div className="admin-kicker">{t('admin.overview.overviewKicker')}</div>
+      <h1 className="admin-h1">{t('admin.overview.welcomeHeading')}</h1>
+      <div className="admin-note admin-note-warn">{t('admin.overview.noCommunityLinked')}</div>
     </div>
   )
   if (status === 'error') return (
     <div className="admin-page">
-      <div className="admin-note admin-note-err">Couldn&apos;t load your dashboard.
-        <button className="admin-btn-ghost" onClick={load}>Retry</button>
+      <div className="admin-note admin-note-err">{t('admin.overview.dashboardLoadError')}
+        <button className="admin-btn-ghost" onClick={load}>{t('admin.overview.retry')}</button>
       </div>
     </div>
   )
@@ -169,16 +171,16 @@ export default function AdminHome() {
   // the exact tab to open (matching the admin nav) plus the action to take, so
   // it reads as step-by-step instructions, not just a label.
   const items = [
-    { label: 'Add your board members', done: (counts?.board || 0) >= 1, href: '/admin/voice',
-      hint: 'Open Easy Voice → Board and add your President, Treasurer, and Secretary. They get admin access too.' },
-    { label: 'Review your budget', done: (counts?.budgets || 0) > 0, href: '/admin/community',
-      hint: 'Open the Community tab, edit the starter categories, and set this year’s amounts.' },
-    { label: 'Set your monthly dues', done: dues > 0, href: '/admin/community',
-      hint: 'In the Community tab, enter what each home pays per month — residents then see their balance.' },
-    { label: 'Add your residents', done: (counts?.residents || 0) > 1, href: '/admin/residents',
-      hint: 'Open Easy Track → Residents, then import your owner roster by CSV or add them one at a time.' },
-    { label: 'Upload key documents', done: (counts?.documents || 0) >= 1, href: '/admin/documents',
-      hint: 'Open Easy Documents and upload your bylaws, declaration, budget, insurance, and latest minutes.' },
+    { label: t('admin.overview.itemLabelBoard'), done: (counts?.board || 0) >= 1, href: '/admin/voice',
+      hint: t('admin.overview.itemHintBoard') },
+    { label: t('admin.overview.itemLabelBudget'), done: (counts?.budgets || 0) > 0, href: '/admin/community',
+      hint: t('admin.overview.itemHintBudget') },
+    { label: t('admin.overview.itemLabelDues'), done: dues > 0, href: '/admin/community',
+      hint: t('admin.overview.itemHintDues') },
+    { label: t('admin.overview.itemLabelResidents'), done: (counts?.residents || 0) > 1, href: '/admin/residents',
+      hint: t('admin.overview.itemHintResidents') },
+    { label: t('admin.overview.itemLabelDocuments'), done: (counts?.documents || 0) >= 1, href: '/admin/documents',
+      hint: t('admin.overview.itemHintDocuments') },
   ]
   const doneCount = items.filter(i => i.done).length
   const pct = Math.round((doneCount / items.length) * 100)
@@ -198,9 +200,9 @@ export default function AdminHome() {
 
   return (
     <div className="admin-page">
-      <div className="admin-kicker">Get started</div>
-      <h1 className="admin-h1">Let&rsquo;s get <span style={{ color: '#E14909' }}>{community?.name || 'your community'}</span> live.</h1>
-      <p className="admin-dek">Three quick moves and your neighbors are in. Each step ticks off on its own as you go.</p>
+      <div className="admin-kicker">{t('admin.overview.getStartedKicker')}</div>
+      <h1 className="admin-h1">{t('admin.overview.heroHeadingPre')}<span style={{ color: '#E14909' }}>{community?.name || t('admin.overview.yourCommunity')}</span>{t('admin.overview.heroHeadingPost')}</h1>
+      <p className="admin-dek">{t('admin.overview.heroDek')}</p>
 
       {needsActivation && (
         <Link href="/admin/billing" style={{
@@ -210,12 +212,12 @@ export default function AdminHome() {
         }}>
           <span style={{ fontSize: 13.5, color: '#6b5544' }}>
             <strong style={{ color: '#2a1206' }}>
-              {pastDue ? 'Your subscription payment failed.' : `Activate your ${planForHomes(homes).label} plan.`}
+              {pastDue ? t('admin.overview.subscriptionFailed') : t('admin.overview.activatePlan', { label: planForHomes(homes).label })}
             </strong>{' '}
-            {pastDue ? 'Update it in Billing to keep your community running.' : 'Subscribe in Billing to keep it active.'}
+            {pastDue ? t('admin.overview.updateBillingPrompt') : t('admin.overview.subscribeBillingPrompt')}
           </span>
           <span className="admin-primary-btn" style={{ whiteSpace: 'nowrap' }}>
-            {pastDue ? 'Go to Billing →' : 'Subscribe →'}
+            {pastDue ? t('admin.overview.goToBilling') : t('admin.overview.subscribeCta')}
           </span>
         </Link>
       )}
@@ -224,14 +226,14 @@ export default function AdminHome() {
       <div style={{ display: 'flex', alignItems: 'center', gap: 18, margin: '6px 0 26px', flexWrap: 'wrap' }}>
         <div className="admin-dash-ring" style={{ ['--pct' as any]: `${pct}%` }}>{pct}%</div>
         <div style={{ flex: 1, minWidth: 180 }}>
-          <div style={{ fontSize: 18, fontWeight: 700 }}>{doneCount} of {items.length} steps done</div>
+          <div style={{ fontSize: 18, fontWeight: 700 }}>{t('admin.overview.stepsDone', { doneCount, total: items.length })}</div>
           <div style={{ fontSize: 13.5, color: '#6b5544', marginTop: 2 }}>
-            {doneCount === items.length ? 'All set — your community is live. 🎉' : `Next: ${nextStep || 'finish setup'}.`}
+            {doneCount === items.length ? t('admin.overview.allSetLive') : t('admin.overview.nextStep', { step: nextStep || t('admin.overview.finishSetup') })}
           </div>
         </div>
         {doneCount < items.length && (
           <Link href="/admin/setup" className="admin-primary-btn" style={{ textDecoration: 'none', whiteSpace: 'nowrap' }}>
-            Start guided setup &rarr;
+            {t('admin.overview.startGuidedSetup')}
           </Link>
         )}
       </div>
@@ -239,9 +241,9 @@ export default function AdminHome() {
       {/* The 3 "ease" cards — mock layout: pill, title, blurb, full-width button. */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 16, margin: '0 0 22px' }}>
         {[
-          { tag: 'No CSV needed', title: 'Paste your roster', blurb: 'Copy owners straight from Excel — we match the columns.', cta: 'Paste & import', primary: true, action: () => setShowPaste(true) },
-          { tag: 'Sets itself up', title: 'Upload your docs', blurb: 'Drop your CC&Rs — we pre-fill rules, fines & reserves.', cta: 'Choose file', primary: true, action: () => setShowDocs(true) },
-          { tag: 'No emails? No problem', title: 'Print join poster', blurb: 'A lobby flyer with a QR code. Residents scan to join.', cta: 'Download poster', primary: true, action: openPoster },
+          { tag: t('admin.overview.cardTagNoCsv'), title: t('admin.overview.cardTitlePasteRoster'), blurb: t('admin.overview.cardBlurbPasteRoster'), cta: t('admin.overview.cardCtaPasteImport'), primary: true, action: () => setShowPaste(true) },
+          { tag: t('admin.overview.cardTagSetsItself'), title: t('admin.overview.cardTitleUploadDocs'), blurb: t('admin.overview.cardBlurbUploadDocs'), cta: t('admin.overview.cardCtaChooseFile'), primary: true, action: () => setShowDocs(true) },
+          { tag: t('admin.overview.cardTagNoEmails'), title: t('admin.overview.cardTitlePrintPoster'), blurb: t('admin.overview.cardBlurbPrintPoster'), cta: t('admin.overview.cardCtaDownloadPoster'), primary: true, action: openPoster },
         ].map(c => (
           <div key={c.title} style={{ display: 'flex', flexDirection: 'column', gap: 9, border: '1px solid #efe1d2', background: '#fff', borderRadius: 18, padding: '20px 18px 18px', boxShadow: '0 1px 2px rgba(42,18,6,0.05)' }}>
             <span style={{ alignSelf: 'flex-start', fontSize: 10.5, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: '#b5481f', background: 'rgba(229,96,31,0.12)', padding: '3px 9px', borderRadius: 999 }}>{c.tag}</span>
@@ -259,11 +261,11 @@ export default function AdminHome() {
       <div className="admin-dash-card">
         <div className="admin-dash-card-head">
           <div>
-            <h2 className="admin-dash-card-title">Set up your community</h2>
+            <h2 className="admin-dash-card-title">{t('admin.overview.setupCardTitle')}</h2>
             <span className="admin-dash-card-sub">
               {doneCount === items.length
-                ? 'All set — your community is live. 🎉'
-                : `Follow these ${items.length} steps top to bottom. ${doneCount} of ${items.length} done.`}
+                ? t('admin.overview.allSetLive')
+                : t('admin.overview.setupCardSubSteps', { doneCount, total: items.length })}
             </span>
           </div>
           <div className="admin-dash-ring" style={{ ['--pct' as any]: `${pct}%` }}>{pct}%</div>
@@ -280,34 +282,34 @@ export default function AdminHome() {
               {i.href === '/admin/documents' ? (
                 <button type="button" className="admin-check-go" onClick={() => setShowDocs(true)}
                   style={{ cursor: 'pointer', border: 'none', background: 'none', font: 'inherit' }}>
-                  {i.done ? 'Edit →' : 'Start →'}
+                  {i.done ? t('admin.overview.checklistEditBtn') : t('admin.overview.checklistStartBtn')}
                 </button>
               ) : (
-                <Link href={i.href} className="admin-check-go">{i.done ? 'Edit →' : 'Start →'}</Link>
+                <Link href={i.href} className="admin-check-go">{i.done ? t('admin.overview.checklistEditBtn') : t('admin.overview.checklistStartBtn')}</Link>
               )}
             </li>
           ))}
         </ul>
         <p className="admin-dash-card-foot">
-          Last step: share your join code below so owners can sign in to their homes.
+          {t('admin.overview.lastStepFooter')}
         </p>
       </div>
 
       {community?.join_code && (
         <div className="admin-dash-card admin-dash-code">
           <div>
-            <div className="admin-dash-card-sub">Resident join code</div>
+            <div className="admin-dash-card-sub">{t('admin.overview.residentJoinCode')}</div>
             <div className="admin-dash-code-val">{community.join_code}</div>
-            <div className="admin-dash-card-sub">Residents enter this at the Get started page to join.</div>
+            <div className="admin-dash-card-sub">{t('admin.overview.joinCodeHelp')}</div>
           </div>
-          <button className="admin-secondary-btn" onClick={copyCode}>{copied ? 'Copied ✓' : 'Copy'}</button>
+          <button className="admin-secondary-btn" onClick={copyCode}>{copied ? t('admin.overview.copied') : t('admin.overview.copy')}</button>
         </div>
       )}
 
       {/* Persistent entry to the subscription tab (the bar no longer carries it). */}
       <p className="admin-dek" style={{ marginTop: 18 }}>
-        Manage your plan, payment, and invoices on the{' '}
-        <Link href="/admin/billing" style={{ color: '#E14909', fontWeight: 700 }}>Plan &amp; billing</Link> page.
+        {t('admin.overview.managePlanText')}{' '}
+        <Link href="/admin/billing" style={{ color: '#E14909', fontWeight: 700 }}>{t('admin.overview.planBillingLink')}</Link> {t('admin.overview.managePlanSuffix')}
       </p>
 
       {showDocs && (
@@ -390,6 +392,7 @@ function PasteRosterModal({
   onClose: () => void
   onSaved: () => void
 }) {
+  const t = useT()
   const [grid, setGrid] = useState(() => [blankGridRow(), blankGridRow(), blankGridRow()])
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -406,9 +409,9 @@ function PasteRosterModal({
     reader.onload = () => {
       const parsed = parseCsvToGridRows(String(reader.result))
       if (parsed.length) { setGrid([...parsed.map((r) => ({ ...r })), blankGridRow()]); setError('') }
-      else setError('No rows found in that file — check it has an Owner column.')
+      else setError(t('admin.overview.errorNoCsvRows'))
     }
-    reader.onerror = () => setError('Could not read that file')
+    reader.onerror = () => setError(t('admin.overview.errorReadFile'))
     reader.readAsText(file)
   }
 
@@ -450,7 +453,7 @@ function PasteRosterModal({
   const filled = grid.filter((r) => r.name.trim())
 
   const save = async () => {
-    if (!filled.length) { setError('Type or paste at least one row — Owner is required.'); return }
+    if (!filled.length) { setError(t('admin.overview.errorOwnerRequired')); return }
     if (!communityId || !hasSupabase || !supabase) { onClose(); return }
     setSaving(true); setError('')
     try {
@@ -467,9 +470,12 @@ function PasteRosterModal({
       onSaved()
       onClose()
     } catch (err: any) {
-      setError(err?.message || 'Import failed'); setSaving(false)
+      setError(err?.message || t('admin.overview.importFailed')); setSaving(false)
     }
   }
+
+  const colLabels = [t('admin.overview.colOwner'), t('admin.overview.colUnitAddress'), t('admin.overview.colEmail'), t('admin.overview.colPhone')]
+  const placeholders = [t('admin.overview.placeholderName'), t('admin.overview.placeholderUnit'), t('admin.overview.placeholderEmail'), t('admin.overview.placeholderPhone')]
 
   return (
     <div role="dialog" aria-modal="true" onClick={onClose}
@@ -480,13 +486,13 @@ function PasteRosterModal({
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '18px 20px 14px', borderBottom: '1px solid #f0e6da' }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: orange }}>Paste your roster</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: ink, marginTop: 2 }}>Import owners in seconds</div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: orange }}>{t('admin.overview.pasteRosterLabel')}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: ink, marginTop: 2 }}>{t('admin.overview.pasteRosterTitle')}</div>
             <div style={{ fontSize: 12.5, color: '#6b5544', marginTop: 2 }}>
-              Type a row, or paste a block straight from Excel or Google Sheets — we map the columns for you.
+              {t('admin.overview.pasteRosterSub')}
             </div>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close"
+          <button type="button" onClick={onClose} aria-label={t('admin.overview.closeAriaLabel')}
             style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 999, border: '1px solid #e7d9c9', background: '#fff', color: ink, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
         </div>
 
@@ -494,25 +500,25 @@ function PasteRosterModal({
         <div style={{ padding: '16px 20px 4px', overflow: 'auto' }}>
           <div className="import-sheet">
             <div className="import-sheet-row import-sheet-head">
-              <span>Owner</span><span>Unit / Address</span><span>Email</span><span>Phone</span>
+              <span>{t('admin.overview.colOwner')}</span><span>{t('admin.overview.colUnitAddress')}</span><span>{t('admin.overview.colEmail')}</span><span>{t('admin.overview.colPhone')}</span>
             </div>
             <div>
               {grid.map((row, ri) => (
                 <div className="import-sheet-row" key={ri}>
                   {GRID_COLS.map((key, ci) => (
                     <input key={key} className="import-cell" value={(row as any)[key]}
-                      placeholder={ri === 0 ? ['Jane Doe', '4B or 1247 Oak St', 'jane@email.com', '305-555-0142'][ci] : ''}
-                      aria-label={`${['Owner', 'Unit / Address', 'Email', 'Phone'][ci]} row ${ri + 1}`}
+                      placeholder={ri === 0 ? placeholders[ci] : ''}
+                      aria-label={t('admin.overview.inputAriaLabel', { col: colLabels[ci], row: ri + 1 })}
                       onChange={(e) => setCell(ri, key, e.target.value)}
                       onPaste={(e) => onPasteCell(e, ri, ci)} />
                   ))}
                   <button type="button" className="import-del" onClick={() => removeRow(ri)}
-                    tabIndex={-1} aria-label={`Delete row ${ri + 1}`}>&times;</button>
+                    tabIndex={-1} aria-label={t('admin.overview.deleteRowAriaLabel', { row: ri + 1 })}>&times;</button>
                 </div>
               ))}
             </div>
           </div>
-          <button type="button" className="import-addrow" onClick={addRow}>+ Add row</button>
+          <button type="button" className="import-addrow" onClick={addRow}>{t('admin.overview.addRow')}</button>
           <input ref={fileRef} type="file" accept=".csv,text/csv,text/plain"
             onChange={onPickFile} style={{ display: 'none' }} />
         </div>
@@ -520,16 +526,18 @@ function PasteRosterModal({
         {/* Footer — Upload CSV sits next to Import. */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 20px 16px', borderTop: '1px solid #f0e6da' }}>
           <div style={{ fontSize: 12.5, color: error ? '#b5481f' : '#6b5544', marginRight: 'auto' }}>
-            {error || (filled.length ? `${filled.length} household${filled.length === 1 ? '' : 's'} ready to import` : 'Type or paste rows to begin')}
+            {error || (filled.length
+              ? (filled.length === 1 ? t('admin.overview.householdsReadySingular') : t('admin.overview.householdsReadyPlural', { count: filled.length }))
+              : t('admin.overview.pasteToBegin'))}
           </div>
           <button type="button" className="admin-secondary-btn"
-            title="CSV columns: name, unit/address, email, phone (a header row is auto-detected)"
+            title={t('admin.overview.uploadCsvTitle')}
             onClick={() => fileRef.current?.click()}>
-            Upload CSV
+            {t('admin.overview.uploadCsv')}
           </button>
           <button type="button" className="admin-primary-btn" onClick={save} disabled={saving || !filled.length}
             style={{ cursor: saving || !filled.length ? 'default' : 'pointer', border: 'none', font: 'inherit', opacity: saving || !filled.length ? 0.6 : 1 }}>
-            {saving ? 'Importing…' : filled.length ? `Import ${filled.length}` : 'Import'}
+            {saving ? t('admin.overview.importing') : filled.length ? t('admin.overview.importCount', { count: filled.length }) : t('admin.overview.importBtn')}
           </button>
         </div>
       </div>
@@ -557,6 +565,7 @@ function DocsChecklistModal({
   onClose: () => void
   onSaved: () => void
 }) {
+  const t = useT()
   const [docs] = useState<DocSection[]>(() => docSectionsFor(propertyType))
   const [state, setState] = useState<DocSecState[]>(
     () => docs.map((s) => ({ items: s.items.map(() => ({ checked: false, file: null, onFile: false })), note: '' })),
@@ -632,7 +641,7 @@ function DocsChecklistModal({
   const dots = (
     <div style={{ display: 'flex', justifyContent: 'center', flexWrap: 'wrap', gap: 6, margin: '0 0 16px' }}>
       {docs.map((sec, i) => (
-        <button key={sec.label} type="button" aria-label={`Go to ${sec.label}`}
+        <button key={sec.label} type="button" aria-label={t('admin.overview.goToSectionAriaLabel', { label: sec.label })}
           onClick={() => setSection(i)}
           style={{
             width: i === section ? 22 : 8, height: 8, borderRadius: 999, padding: 0, border: 'none', cursor: 'pointer',
@@ -651,13 +660,13 @@ function DocsChecklistModal({
         {/* Header */}
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12, padding: '18px 20px 14px', borderBottom: '1px solid #f0e6da' }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: orange }}>Upload documents</div>
-            <div style={{ fontSize: 18, fontWeight: 800, color: ink, marginTop: 2 }}>Your document checklist</div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', textTransform: 'uppercase', color: orange }}>{t('admin.overview.uploadDocsLabel')}</div>
+            <div style={{ fontSize: 18, fontWeight: 800, color: ink, marginTop: 2 }}>{t('admin.overview.uploadDocsTitle')}</div>
             <div style={{ fontSize: 12.5, color: '#6b5544', marginTop: 2 }}>
-              The same list from setup — anything already in your vault is checked off. Attach the rest now or later.
+              {t('admin.overview.uploadDocsSub')}
             </div>
           </div>
-          <button type="button" onClick={onClose} aria-label="Close"
+          <button type="button" onClick={onClose} aria-label={t('admin.overview.closeAriaLabel')}
             style={{ flexShrink: 0, width: 32, height: 32, borderRadius: 999, border: '1px solid #e7d9c9', background: '#fff', color: ink, cursor: 'pointer', fontSize: 16, lineHeight: 1 }}>×</button>
         </div>
 
@@ -667,13 +676,13 @@ function DocsChecklistModal({
 
           {onSummary ? (
             <>
-              <div style={{ fontSize: 13.5, fontWeight: 700, color: ink, marginBottom: 4 }}>Review your documents</div>
+              <div style={{ fontSize: 13.5, fontWeight: 700, color: ink, marginBottom: 4 }}>{t('admin.overview.reviewDocsHeading')}</div>
               <p style={{ fontSize: 12.5, color: '#6b5544', margin: '0 0 12px' }}>
-                Here&apos;s what you&apos;ve gathered. Attached files save to your vault; you can add the rest anytime.
+                {t('admin.overview.reviewDocsSub')}
               </p>
               {docs.map((sec, i) => {
-                const d = doneCount(i), t = sec.items.length
-                const cls = d === t ? 'all' : d > 0 ? 'partial' : 'none'
+                const d = doneCount(i), tt = sec.items.length
+                const cls = d === tt ? 'all' : d > 0 ? 'partial' : 'none'
                 const pill = cls === 'all'
                   ? { background: orange, color: '#fff' }
                   : cls === 'partial'
@@ -687,7 +696,7 @@ function DocsChecklistModal({
                       <span style={{ fontSize: 13.5, fontWeight: 700 }}>{sec.label}</span>
                     </span>
                     <span style={{ flexShrink: 0, fontSize: 11, fontWeight: 800, padding: '3px 10px', borderRadius: 999, ...pill }}>
-                      {d === t ? 'All done' : `${d}/${t}`}
+                      {d === tt ? t('admin.overview.allDonePill') : `${d}/${tt}`}
                     </span>
                   </button>
                 )
@@ -696,23 +705,23 @@ function DocsChecklistModal({
           ) : (() => {
             const sec = docs[section]
             const s = state[section]
-            const d = doneCount(section), t = sec.items.length
+            const d = doneCount(section), tt = sec.items.length
             return (
               <>
                 <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase', color: 'rgba(42,18,6,0.45)' }}>
-                  Step {section + 1} of {total} · Your documents
+                  {t('admin.overview.stepOfTotal', { step: section + 1, total })}
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, margin: '2px 0 2px' }}>
                   <span style={{ fontSize: 22 }} aria-hidden="true">{sec.emoji}</span>
                   <span style={{ fontSize: 16, fontWeight: 800, color: ink }}>{sec.label}</span>
                 </div>
                 <p style={{ fontSize: 12.5, color: '#6b5544', margin: '0 0 12px' }}>
-                  {d === t ? 'All set for this category ✓' : 'Confirm or upload each — listed most important first. Skip and add the rest later.'}
+                  {d === tt ? t('admin.overview.allSetCategory') : t('admin.overview.confirmOrUploadHint')}
                 </p>
 
                 <div style={{ background: cream, borderRadius: 16, overflow: 'hidden', border: '1px solid #f0e2d2' }}>
                   <div style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'rgba(42,18,6,0.45)', padding: '9px 16px 1px' }}>
-                    Most important first ↓
+                    {t('admin.overview.mostImportantFirst')}
                   </div>
                   <div style={{ padding: '2px 0' }}>
                     {sec.items.map((item, i) => {
@@ -726,7 +735,7 @@ function DocsChecklistModal({
                           style={{ borderTop: i === 0 ? 'none' : '1px solid rgba(42,18,6,0.07)' }}>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 11, padding: '7px 16px' }}>
                             <button type="button" onClick={() => toggle(section, i)}
-                              aria-label={`${it.checked ? 'Uncheck' : 'Check'} ${item.name}`}
+                              aria-label={it.checked ? t('admin.overview.uncheckAriaLabel', { name: item.name }) : t('admin.overview.checkAriaLabel', { name: item.name })}
                               style={{
                                 width: 22, height: 22, flexShrink: 0, padding: 0, display: 'grid', placeItems: 'center', cursor: 'pointer',
                                 borderRadius: 7, transition: 'all 0.14s',
@@ -748,7 +757,7 @@ function DocsChecklistModal({
                                 flexShrink: 0, whiteSpace: 'nowrap', fontSize: 12, fontWeight: 700, padding: '6px 12px',
                                 borderRadius: 999, border: `1.5px solid ${orange}`, background: 'rgba(225,73,9,0.12)', color: orange,
                               }}>
-                                ✓ On file
+                                {t('admin.overview.onFileBadge')}
                               </span>
                             ) : (
                               <label style={{
@@ -758,7 +767,7 @@ function DocsChecklistModal({
                                 background: it.file ? 'rgba(225,73,9,0.12)' : 'transparent',
                                 color: it.file ? orange : 'rgba(42,18,6,0.7)',
                               }}>
-                                {it.file ? '✓ Saved' : 'Upload'}
+                                {it.file ? t('admin.overview.savedBadge') : t('admin.overview.uploadFileBtn')}
                                 <input type="file" style={{ display: 'none' }}
                                   onChange={(e) => attach(section, i, e.target.files?.[0] ?? null)} />
                               </label>
@@ -774,9 +783,9 @@ function DocsChecklistModal({
                     })}
                   </div>
                   <div style={{ padding: '10px 16px 12px', borderTop: '1px solid rgba(42,18,6,0.1)' }}>
-                    <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'rgba(42,18,6,0.5)', marginBottom: 6 }}>Notes</div>
+                    <div style={{ fontSize: 10.5, fontWeight: 700, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'rgba(42,18,6,0.5)', marginBottom: 6 }}>{t('admin.overview.notesLabel')}</div>
                     <textarea value={s.note} onChange={(e) => setNote(section, e.target.value)}
-                      placeholder="Missing items, context, or questions…"
+                      placeholder={t('admin.overview.notesPlaceholder')}
                       style={{ width: '100%', resize: 'none', minHeight: 52, border: '1.5px solid rgba(42,18,6,0.18)', borderRadius: 12, padding: '9px 11px', fontSize: 13, font: 'inherit', color: ink, background: '#fff', outline: 'none' }} />
                   </div>
                 </div>
@@ -788,23 +797,25 @@ function DocsChecklistModal({
         {/* Footer */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '12px 20px 16px', borderTop: '1px solid #f0e6da' }}>
           <div style={{ fontSize: 12, color: '#6b5544', marginRight: 'auto' }}>
-            {attachedCount > 0 ? `${attachedCount} file${attachedCount === 1 ? '' : 's'} ready to upload` : 'Attach files anytime'}
+            {attachedCount > 0
+              ? (attachedCount === 1 ? t('admin.overview.filesReadySingular') : t('admin.overview.filesReadyPlural', { count: attachedCount }))
+              : t('admin.overview.attachFilesAnytime')}
           </div>
           {!onSummary && section > 0 && (
             <button type="button" onClick={() => setSection(section - 1)}
               style={{ padding: '9px 14px', borderRadius: 999, border: '1px solid #d8c3ad', background: '#fff', color: ink, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
-              ← Back
+              {t('admin.overview.back')}
             </button>
           )}
           {onSummary ? (
             <button type="button" className="admin-primary-btn" onClick={save} disabled={saving}
               style={{ cursor: saving ? 'default' : 'pointer', border: 'none', font: 'inherit', opacity: saving ? 0.7 : 1 }}>
-              {saving ? 'Saving…' : attachedCount > 0 ? 'Save to vault' : 'Done'}
+              {saving ? t('admin.overview.saving') : attachedCount > 0 ? t('admin.overview.saveToVault') : t('admin.overview.done')}
             </button>
           ) : (
             <button type="button" className="admin-primary-btn" onClick={() => setSection(section + 1)}
               style={{ cursor: 'pointer', border: 'none', font: 'inherit' }}>
-              {section === total - 1 ? 'Review →' : 'Next →'}
+              {section === total - 1 ? t('admin.overview.reviewArrow') : t('admin.overview.nextArrow')}
             </button>
           )}
         </div>

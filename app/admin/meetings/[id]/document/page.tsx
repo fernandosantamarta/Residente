@@ -14,6 +14,7 @@ import {
   noticeDeadline,
   type MeetingRow,
 } from '@/lib/compliance/meetings'
+import { useT } from '@/lib/i18n'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -27,14 +28,16 @@ const TITLES: Record<DocType, string> = {
 }
 
 export default function MeetingDocumentPage() {
+  const t = useT()
   return (
-    <Suspense fallback={<div style={{ padding: 40 }}>Loading…</div>}>
+    <Suspense fallback={<div style={{ padding: 40 }}>{t('admin.meetingsDetailDocument.loading')}</div>}>
       <DocInner />
     </Suspense>
   )
 }
 
 function DocInner() {
+  const t = useT()
   const params = useParams()
   const search = useSearchParams()
   const id = params?.id as string
@@ -68,9 +71,9 @@ function DocInner() {
     return () => { cancelled = true }
   }, [id, type])
 
-  if (status === 'loading') return <div style={{ padding: 40 }}>Loading…</div>
+  if (status === 'loading') return <div style={{ padding: 40 }}>{t('admin.meetingsDetailDocument.loading')}</div>
   if (status === 'error') return <div style={{ padding: 40, color: '#B42318' }}>{error}</div>
-  if (!meeting) return <div style={{ padding: 40, color: '#B42318' }}>Meeting not found.</div>
+  if (!meeting) return <div style={{ padding: 40, color: '#B42318' }}>{t('admin.meetingsDetailDocument.meetingNotFound')}</div>
 
   const isCondo = community?.association_type !== 'hoa'
   const today = ymd(new Date())
@@ -89,13 +92,13 @@ function DocInner() {
       {/* Draft banner + print button */}
       <div className="no-print" style={{ display: 'flex', gap: 10, justifyContent: 'space-between', marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
         <div style={{ fontSize: 12, background: '#FEF3F2', color: '#B42318', padding: '8px 12px', borderRadius: 8, maxWidth: 520 }}>
-          ⚠ DRAFT — an aid, not an official document. Confirm all dates, statutory citations, and the legal language with your association attorney before distributing or recording.
+          {t('admin.meetingsDetailDocument.draftBanner')}
         </div>
         <button
           onClick={() => window.print()}
           style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', height: 'fit-content' }}
         >
-          Print / Save as PDF
+          {t('admin.meetingsDetailDocument.printButton')}
         </button>
       </div>
 

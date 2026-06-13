@@ -11,6 +11,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
+import { useT } from '@/lib/i18n'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd } from '@/lib/compliance/rules-core'
 import {
@@ -24,6 +25,7 @@ const withTimeout = (p: any, ms = 10000) =>
 const fmt$ = (n: any) => '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US')
 
 export default function SuspensionNoticePage() {
+  const t = useT()
   const params = useParams()
   const id = params?.id as string
   const [s, setS] = useState<SuspensionRow | null>(null)
@@ -48,8 +50,8 @@ export default function SuspensionNoticePage() {
     return () => { cancelled = true }
   }, [id])
 
-  if (status === 'loading') return <div style={{ padding: 40 }}>Loading…</div>
-  if (status === 'error' || !s) return <div style={{ padding: 40, color: '#B42318' }}>{error || 'Not found'}</div>
+  if (status === 'loading') return <div style={{ padding: 40 }}>{t('admin.enforcementSuspensionDetailNotice.loading')}</div>
+  if (status === 'error' || !s) return <div style={{ padding: 40, color: '#B42318' }}>{error || t('admin.enforcementSuspensionDetailNotice.notFound')}</div>
 
   const isCondo = community?.association_type !== 'hoa'
   const today = ymd(new Date())
@@ -65,14 +67,14 @@ export default function SuspensionNoticePage() {
 
       <div className="no-print" style={{ display: 'flex', gap: 10, justifyContent: 'space-between', marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
         <div style={{ fontSize: 12, background: '#FEF3F2', color: '#B42318', padding: '8px 12px', borderRadius: 8, maxWidth: 520 }}>
-          ⚠ DRAFT — an aid, not an official filing. Confirm the basis, the amount owed, and the legal language with your association attorney before sending.
+          {t('admin.enforcementSuspensionDetailNotice.draftWarning')}
         </div>
-        <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', height: 'fit-content' }}>Print / Save as PDF</button>
+        <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', height: 'fit-content' }}>{t('admin.enforcementSuspensionDetailNotice.printButton')}</button>
       </div>
 
       <div style={{ textAlign: 'center', marginBottom: 14 }}>
         <div style={{ fontSize: 18, fontWeight: 700 }}>{community?.name || 'Association'}</div>
-        <div style={{ fontSize: 12.5, color: '#555' }}>{community?.association_address || <Em>set the association address in Community settings</Em>}</div>
+        <div style={{ fontSize: 12.5, color: '#555' }}>{community?.association_address || <Em>{t('admin.enforcementSuspensionDetailNotice.setAssociationAddress')}</Em>}</div>
       </div>
       <div style={{ fontSize: 12.5, color: '#555', marginBottom: 4 }}>{today}</div>
 

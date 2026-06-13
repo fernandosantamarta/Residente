@@ -10,6 +10,7 @@
 
 import { Suspense, useState, useEffect } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
+import { useT } from '@/lib/i18n'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd, toDate, ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
 import {
@@ -33,14 +34,16 @@ const TITLES: Record<DocType, string> = {
 }
 
 export default function ElectionDocumentPage() {
+  const t = useT()
   return (
-    <Suspense fallback={<div style={{ padding: 40 }}>Loading…</div>}>
+    <Suspense fallback={<div style={{ padding: 40 }}>{t('admin.electionsDetailDocument.loading')}</div>}>
       <DocInner />
     </Suspense>
   )
 }
 
 function DocInner() {
+  const t = useT()
   const params = useParams()
   const search = useSearchParams()
   const id = params?.id as string
@@ -73,7 +76,7 @@ function DocInner() {
     return () => { cancelled = true }
   }, [id, type])
 
-  if (status === 'loading') return <div style={{ padding: 40 }}>Loading…</div>
+  if (status === 'loading') return <div style={{ padding: 40 }}>{t('admin.electionsDetailDocument.loading')}</div>
   if (status === 'error') return <div style={{ padding: 40, color: '#B42318' }}>{error}</div>
 
   const isCondo = community?.association_type !== 'hoa'
@@ -96,16 +99,16 @@ function DocInner() {
       {/* Draft banner + print button */}
       <div className="no-print" style={{ display: 'flex', gap: 10, justifyContent: 'space-between', marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
         <div style={{ fontSize: 12, background: '#FEF3F2', color: '#B42318', padding: '8px 12px', borderRadius: 8, maxWidth: 520 }}>
-          ⚠ DRAFT — an aid, not an official document. Confirm the election date, deadlines, statutory citations, and all legal language with your association attorney before sending to members.
+          {t('admin.electionsDetailDocument.draftWarning')}
         </div>
-        <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', height: 'fit-content' }}>Print / Save as PDF</button>
+        <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', height: 'fit-content' }}>{t('admin.electionsDetailDocument.printSaveAsPdf')}</button>
       </div>
 
       {/* Letterhead */}
       <div style={{ textAlign: 'center', marginBottom: 14 }}>
         <div style={{ fontSize: 18, fontWeight: 700 }}>{assocName}</div>
         <div style={{ fontSize: 12.5, color: '#555' }}>
-          {assocAddr || <Em>set the association address in Community settings</Em>}
+          {assocAddr || <Em>{t('admin.electionsDetailDocument.setAddressHint')}</Em>}
         </div>
       </div>
       <div style={{ fontSize: 12.5, color: '#555', marginBottom: 4 }}>{today}</div>

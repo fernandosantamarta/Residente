@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { usePlatformThread, sendPlatformBoardMessage, uploadPlatformAttachment } from '@/hooks/usePlatform'
+import { useT } from '@/lib/i18n'
 
 type Ticket = { id: string; subject: string; body: string | null; status: string; created_at: string }
 
@@ -17,6 +18,7 @@ const STATUS_LABEL: Record<string, string> = { open: 'Open', in_progress: 'In pr
 function BoardTicketThread({ requestId, authorId, authorName }: {
   requestId: string; authorId: string; authorName: string | null
 }) {
+  const t = useT()
   const { messages, loading, reload } = usePlatformThread(requestId)
   const [text, setText] = useState('')
   const [photo, setPhoto] = useState<{ file: File; url: string; name: string } | null>(null)
@@ -46,7 +48,7 @@ function BoardTicketThread({ requestId, authorId, authorName }: {
     <div style={{ marginTop: 12, borderTop: '1px solid var(--border)', paddingTop: 12 }}>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {loading && messages.length === 0 ? (
-          <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>Loading…</div>
+          <div style={{ fontSize: 13, color: 'var(--text-dim)' }}>{t('admin.support.loading')}</div>
         ) : messages.map(m => {
           const mine = m.authorRole === 'board'
           return (
@@ -60,29 +62,29 @@ function BoardTicketThread({ requestId, authorId, authorName }: {
                   </a>
                 )}
               </div>
-              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 3 }}>{mine ? 'You' : (m.authorName || 'Residente')} · {fmtDate(m.createdAt)}</div>
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 3 }}>{mine ? t('admin.support.you') : (m.authorName || 'Residente')} · {fmtDate(m.createdAt)}</div>
             </div>
           )
         })}
       </div>
-      <textarea value={text} onChange={e => setText(e.target.value)} placeholder="Write a reply…  (Enter to send, Shift+Enter for a new line)" rows={2}
+      <textarea value={text} onChange={e => setText(e.target.value)} placeholder={t('admin.support.replyPlaceholder')} rows={2}
         className="admin-input admin-textarea" style={{ marginTop: 12, width: '100%' }}
         onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }} />
       {photo && (
         <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 10 }}>
           <img src={photo.url} alt="attachment" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
           <span style={{ fontSize: 12.5, color: 'var(--text-dim)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{photo.name}</span>
-          <button type="button" className="admin-btn-ghost" style={{ margin: 0 }} onClick={() => setPhoto(null)}>Remove</button>
+          <button type="button" className="admin-btn-ghost" style={{ margin: 0 }} onClick={() => setPhoto(null)}>{t('admin.support.remove')}</button>
         </div>
       )}
       {err && <div className="admin-err-inline" style={{ marginTop: 6 }}>{err}</div>}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginTop: 8 }}>
         <label className="admin-btn-ghost" style={{ margin: 0, cursor: 'pointer' }}>
-          📎 Add image
+          📎 {t('admin.support.addImage')}
           <input type="file" accept="image/*" onChange={pickPhoto} style={{ display: 'none' }} />
         </label>
         <div style={{ flex: 1 }} />
-        <button className="admin-primary-btn" onClick={send} disabled={sending || (!text.trim() && !photo)}>{sending ? 'Sending…' : 'Send reply'}</button>
+        <button className="admin-primary-btn" onClick={send} disabled={sending || (!text.trim() && !photo)}>{sending ? t('admin.support.sending') : t('admin.support.sendReply')}</button>
       </div>
     </div>
   )
@@ -91,6 +93,7 @@ function BoardTicketThread({ requestId, authorId, authorName }: {
 // Contact Residente — a board/admin reaches the platform operators (billing,
 // setup, bugs). Writes to platform_requests; the founders triage in /platform.
 export default function AdminSupport() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const [form, setForm] = useState({ subject: '', body: '' })
   const [saving, setSaving] = useState(false)
@@ -123,8 +126,8 @@ export default function AdminSupport() {
 
   const submit = async (e?: React.FormEvent) => {
     e?.preventDefault()
-    if (!form.subject.trim()) { setError('Give your message a subject.'); return }
-    if (!hasSupabase || !supabase || !profile?.id) { setError('Not signed in.'); return }
+    if (!form.subject.trim()) { setError(t('admin.support.errorNoSubject')); return }
+    if (!hasSupabase || !supabase || !profile?.id) { setError(t('admin.support.errorNotSignedIn')); return }
     setSaving(true); setError('')
     try {
       const { data, error: err } = await supabase.from('platform_requests').insert({
@@ -148,18 +151,18 @@ export default function AdminSupport() {
         }
       }
       setForm({ subject: '', body: '' }); setNewPhoto(null)
-      setSuccessMsg('Sent to Residente. We’ll get back to you.')
+      setSuccessMsg(t('admin.support.successSent'))
       await load()
       if (newId) setSelectedId(newId)
     } catch (err: any) {
-      setError(err?.message || 'Could not send your message')
+      setError(err?.message || t('admin.support.errorCouldNotSend'))
     } finally {
       setSaving(false)
     }
   }
 
   // The conversation open in the mailbox's right pane — the picked one, else newest.
-  const active = tickets.find(t => t.id === selectedId) || tickets[0] || null
+  const active = tickets.find(tk => tk.id === selectedId) || tickets[0] || null
 
   // Opening an in-progress ticket (Residente sent last) marks it read — clears it
   // from the "Contact Residente" notification badge in the admin header.
@@ -177,11 +180,11 @@ export default function AdminSupport() {
 
   return (
     <div className="admin-page cset">
-      <div className="admin-kicker">Support</div>
-      <h1 className="admin-h1">Contact Residente</h1>
+      <div className="admin-kicker">{t('admin.support.kicker')}</div>
+      <h1 className="admin-h1">{t('admin.support.pageTitle')}</h1>
       <p className="admin-dek">
-        Reach the Residente team for billing, setup help, or to report a problem with the platform.<br />
-        <span style={{ fontSize: 13, color: 'var(--text-faint)' }}>(For resident maintenance issues, use Easy Voice → Contact instead.)</span>
+        {t('admin.support.pageDek')}<br />
+        <span style={{ fontSize: 13, color: 'var(--text-faint)' }}>{t('admin.support.pageDekHint')}</span>
       </p>
 
       {successMsg && (
@@ -190,30 +193,30 @@ export default function AdminSupport() {
 
       {/* New message composer (always available) */}
       <div className="card">
-        <div className="card-head"><div><h2>New message</h2><div className="sub">Reach the Residente team — billing, setup, or a problem with the platform. We reply right here.</div></div></div>
+        <div className="card-head"><div><h2>{t('admin.support.newMessage')}</h2><div className="sub">{t('admin.support.newMessageSub')}</div></div></div>
         <form onSubmit={submit}>
           <div className="sup-composer">
-            <input name="subject" className="sup-subject" placeholder="Subject — e.g. How do I enable card payments?"
+            <input name="subject" className="sup-subject" placeholder={t('admin.support.subjectPlaceholder')}
               value={form.subject} onChange={e => setForm(f => ({ ...f, subject: e.target.value }))} />
-            <textarea name="body" className="sup-body" rows={4} placeholder="Write your message…  (Enter to send, Shift+Enter for a new line)"
+            <textarea name="body" className="sup-body" rows={4} placeholder={t('admin.support.bodyPlaceholder')}
               value={form.body} onChange={e => setForm(f => ({ ...f, body: e.target.value }))}
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit() } }} />
             {newPhoto && (
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '0 16px 12px' }}>
                 <img src={newPhoto.url} alt="attachment" style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 8, border: '1px solid var(--border)' }} />
                 <span style={{ fontSize: 12.5, color: 'var(--text-dim)', flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{newPhoto.name}</span>
-                <button type="button" className="admin-btn-ghost" style={{ margin: 0 }} onClick={() => setNewPhoto(null)}>Remove</button>
+                <button type="button" className="admin-btn-ghost" style={{ margin: 0 }} onClick={() => setNewPhoto(null)}>{t('admin.support.remove')}</button>
               </div>
             )}
             <div className="sup-composer-bar">
               <label className="admin-btn-ghost" style={{ margin: 0, cursor: 'pointer' }}>
-                📎 Add image
+                📎 {t('admin.support.addImage')}
                 <input type="file" accept="image/*" onChange={pickNewPhoto} style={{ display: 'none' }} />
               </label>
               {error && <span className="admin-err-inline" style={{ margin: 0 }}>{error}</span>}
               <div style={{ flex: 1 }} />
               <button type="submit" className="admin-primary-btn" disabled={saving || !form.subject.trim()}>
-                {saving ? 'Sending…' : 'Send to Residente →'}
+                {saving ? t('admin.support.sending') : t('admin.support.sendToResidente')}
               </button>
             </div>
           </div>
@@ -223,20 +226,20 @@ export default function AdminSupport() {
       {/* Mailbox — conversations on the left, the thread on the right */}
       {tickets.length > 0 && (
         <div className="card">
-          <div className="card-head"><div><h2>Your conversations</h2></div></div>
+          <div className="card-head"><div><h2>{t('admin.support.yourConversations')}</h2></div></div>
           <div className="sup-mail">
             <div className="sup-mail-list">
-              {tickets.map(t => {
-                const on = active?.id === t.id
-                const dot = t.status === 'resolved' ? '#1B9E6B' : t.status === 'in_progress' ? '#3B72C4' : '#E14909'
+              {tickets.map(tk => {
+                const on = active?.id === tk.id
+                const dot = tk.status === 'resolved' ? '#1B9E6B' : tk.status === 'in_progress' ? '#3B72C4' : '#E14909'
                 return (
-                  <button type="button" key={t.id} className={`sup-mail-item${on ? ' active' : ''}`}
-                    onClick={() => setSelectedId(t.id)}>
+                  <button type="button" key={tk.id} className={`sup-mail-item${on ? ' active' : ''}`}
+                    onClick={() => setSelectedId(tk.id)}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center' }}>
-                      <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{t.subject}</span>
+                      <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{tk.subject}</span>
                       <span style={{ width: 7, height: 7, borderRadius: '50%', flexShrink: 0, background: dot }} />
                     </div>
-                    <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 3 }}>You → Residente · {fmtDate(t.created_at)}</div>
+                    <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 3 }}>{t('admin.support.youToResidente')} · {fmtDate(tk.created_at)}</div>
                   </button>
                 )
               })}
@@ -248,10 +251,10 @@ export default function AdminSupport() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                     <div style={{ minWidth: 0 }}>
                       <h2 style={{ margin: 0, fontSize: 16, fontWeight: 800 }}>{active.subject}</h2>
-                      <div style={{ color: 'var(--text-dim)', fontSize: 12.5, marginTop: 2 }}>You → Residente Support · {fmtDate(active.created_at)}</div>
+                      <div style={{ color: 'var(--text-dim)', fontSize: 12.5, marginTop: 2 }}>{t('admin.support.youToResidenteSupport')} · {fmtDate(active.created_at)}</div>
                     </div>
                     <span className={`brd-pill ${active.status === 'resolved' ? 'brd-pill-on' : 'brd-pill-off'}`}>
-                      {STATUS_LABEL[active.status] || active.status}
+                      {active.status === 'open' ? t('admin.support.statusOpen') : active.status === 'in_progress' ? t('admin.support.statusInProgress') : active.status === 'resolved' ? t('admin.support.statusResolved') : active.status}
                     </span>
                   </div>
                   {profile?.id && (
@@ -259,7 +262,7 @@ export default function AdminSupport() {
                   )}
                 </>
               ) : (
-                <div style={{ color: 'var(--text-dim)', fontSize: 13.5, padding: 20, textAlign: 'center' }}>Pick a conversation.</div>
+                <div style={{ color: 'var(--text-dim)', fontSize: 13.5, padding: 20, textAlign: 'center' }}>{t('admin.support.pickConversation')}</div>
               )}
             </div>
           </div>

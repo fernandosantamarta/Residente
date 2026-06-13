@@ -7,20 +7,21 @@
 import { useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useT } from '@/lib/i18n'
 
 export default function RolesMoved() {
+  const t = useT()
   const router = useRouter()
   useEffect(() => { router.replace('/admin/board') }, [router])
   return (
     <div className="admin-page cset">
-      <div className="admin-kicker">Easy Voice</div>
-      <h1 className="admin-h1">Roles moved</h1>
+      <div className="admin-kicker">{t('admin.roles.kicker')}</div>
+      <h1 className="admin-h1">{t('admin.roles.heading')}</h1>
       <p className="admin-dek">
-        Roles &amp; permissions now live on the Board page, next to the board members
-        who hold them. Taking you there…
+        {t('admin.roles.description')}
       </p>
       <p style={{ marginTop: 12 }}>
-        <Link className="admin-primary-btn" href="/admin/board">Go to Board</Link>
+        <Link className="admin-primary-btn" href="/admin/board">{t('admin.roles.goToBoard')}</Link>
       </p>
     </div>
   )

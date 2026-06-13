@@ -12,6 +12,7 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
+import { useT } from '@/lib/i18n'
 import { AttorneyNote } from '../AttorneyNote'
 import { ComplianceBackLink } from '../ComplianceBackLink'
 import {
@@ -41,6 +42,7 @@ const STATUS_COLOR: Record<string, string> = {
 const PERFORMER_TYPES = ['PE', 'RA', 'CAI-RS', 'APRA-PRA', 'other'] as const
 
 export default function StructuralPage() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const [community, setCommunity] = useState<any>(null)
@@ -77,7 +79,7 @@ export default function StructuralPage() {
       setComponents(comp || [])
       setStatus('ready')
     } catch (err: any) {
-      setError(err?.message || 'Could not load structural data'); setStatus('error')
+      setError(err?.message || t('admin.structural.loadError')); setStatus('error')
     }
   }, [communityId])
   useEffect(() => { load() }, [load])
@@ -105,8 +107,8 @@ export default function StructuralPage() {
       }
       const { error } = (await withTimeout(supabase.from('communities').update(patch).eq('id', communityId))) as any
       if (error) throw error
-      setMsg('DBPR settings saved.'); load()
-    } catch (err: any) { setError(err?.message || 'Could not save DBPR settings') }
+      setMsg(t('admin.structural.dbprSaved')); load()
+    } catch (err: any) { setError(err?.message || t('admin.structural.dbprSaveError')) }
     finally { setDbprSaving(false) }
   }
 
@@ -134,9 +136,9 @@ export default function StructuralPage() {
       if (error) throw error
       if (ins?.id) await logAudit({ community_id: communityId!, event_type: 'structural.building_added', target_type: 'building', target_id: ins.id })
       setBForm({ coastal: false })
-      setMsg('Building added.')
+      setMsg(t('admin.structural.buildingAdded'))
       load()
-    } catch (err: any) { setError(err?.message || 'Could not add the building') }
+    } catch (err: any) { setError(err?.message || t('admin.structural.buildingAddError')) }
     finally { setBSaving(false) }
   }
 
@@ -187,9 +189,9 @@ export default function StructuralPage() {
       }
 
       setAForm({ kind })
-      setMsg('Assessment recorded.')
+      setMsg(t('admin.structural.assessmentRecorded'))
       load()
-    } catch (err: any) { setError(err?.message || 'Could not record the assessment') }
+    } catch (err: any) { setError(err?.message || t('admin.structural.assessmentRecordError')) }
     finally { setASaving(false) }
   }
 
@@ -200,7 +202,7 @@ export default function StructuralPage() {
       if (error) throw error
       if (patch.status) await logAudit({ community_id: communityId!, event_type: 'structural.assessment_status_changed', target_type: 'structural_assessment', target_id: id, metadata: { status: patch.status } })
       load()
-    } catch (err: any) { setError(err?.message || 'Could not update'); }
+    } catch (err: any) { setError(err?.message || t('admin.structural.updateError')); }
   }
 
   const componentsByAssessment = useMemo(() => {
@@ -209,17 +211,36 @@ export default function StructuralPage() {
     return m
   }, [components])
 
+  // Translation helpers for kind and status labels
+  const kindLabel = (kind: string) => {
+    const map: Record<string, string> = {
+      milestone: t('admin.structural.kindMilestone'),
+      sirs: t('admin.structural.kindSirs'),
+      turnover: t('admin.structural.kindTurnover'),
+    }
+    return map[kind] || kind
+  }
+  const statusLabel = (s: string) => {
+    const map: Record<string, string> = {
+      not_started: t('admin.structural.statusNotStarted'),
+      scheduled: t('admin.structural.statusScheduled'),
+      in_progress: t('admin.structural.statusInProgress'),
+      report_received: t('admin.structural.statusReportReceived'),
+      completed: t('admin.structural.statusCompleted'),
+      cancelled: t('admin.structural.statusCancelled'),
+    }
+    return map[s] || s
+  }
+
   // ---------- N/A for HOAs ----------
   if (status === 'ready' && regime === 'hoa') {
     return (
       <div className="admin-page cset">
         <ComplianceBackLink />
-        <div className="admin-kicker">Florida compliance</div>
-        <h1 className="admin-h1">Structural integrity</h1>
+        <div className="admin-kicker">{t('admin.structural.kicker')}</div>
+        <h1 className="admin-h1">{t('admin.structural.pageTitle')}</h1>
         <div className="admin-note" style={{ marginTop: 16 }}>
-          Milestone inspections and Structural Integrity Reserve Studies are condominium
-          obligations under FS 553.899 and FS 718.112(2)(g). They do not apply to homeowners’
-          associations (FS 720), so there is nothing to track here for this community.
+          {t('admin.structural.hoaNotApplicable')}
         </div>
       </div>
     )
@@ -228,12 +249,10 @@ export default function StructuralPage() {
   return (
     <div className="admin-page cset">
       <ComplianceBackLink />
-      <div className="admin-kicker">Florida compliance</div>
-      <h1 className="admin-h1">Structural integrity</h1>
+      <div className="admin-kicker">{t('admin.structural.kicker')}</div>
+      <h1 className="admin-h1">{t('admin.structural.pageTitle')}</h1>
       <p className="admin-dek">
-        Track milestone structural inspections (FS 553.899) and the Structural Integrity Reserve
-        Study (SIRS, FS 718.112(2)(g)) for each building. We compute every deadline from the
-        building’s height and certificate-of-occupancy date; you decide each step.
+        {t('admin.structural.pageDek')}
       </p>
 
       <AttorneyNote />
@@ -241,71 +260,68 @@ export default function StructuralPage() {
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
 
       {status === 'none' && (
-        <div className="admin-note admin-note-warn">No community is linked to your account yet. Run the setup SQL, then reload.</div>
+        <div className="admin-note admin-note-warn">{t('admin.structural.noCommunity')}</div>
       )}
       {status === 'error' && (
-        <div className="admin-note admin-note-err">{error}<button type="button" className="admin-btn-ghost" onClick={load}>Retry</button></div>
+        <div className="admin-note admin-note-err">{error}<button type="button" className="admin-btn-ghost" onClick={load}>{t('admin.structural.retry')}</button></div>
       )}
-      {status === 'loading' && <div className="admin-note">Loading…</div>}
+      {status === 'loading' && <div className="admin-note">{t('admin.structural.loading')}</div>}
 
       {status === 'ready' && (
         <>
           {/* DBPR (Division of Florida Condominiums) settings */}
           <div className="card">
             <div className="card-head"><div>
-              <h2>DBPR (Division) filings</h2>
+              <h2>{t('admin.structural.dbprTitle')}</h2>
               <div className="sub">
-                Record your condominium&apos;s Division filings so the dashboard can track them:
-                the online account (FS 718.501(1)), the ${DBPR_FEE_PER_UNIT.value}/unit annual fee
-                due January 1 (FS 718.501(2) — associations operating more than {DBPR_FEE_MIN_UNITS.value} units),
-                and the {DBPR_BUILDING_REPORT_MIN_STORIES.value}+-story building report (FS 718.501(3)).
+                {t('admin.structural.dbprSub', { feePerUnit: String(DBPR_FEE_PER_UNIT.value), minUnits: String(DBPR_FEE_MIN_UNITS.value), minStories: String(DBPR_BUILDING_REPORT_MIN_STORIES.value) })}
               </div>
             </div></div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
-              <label className="admin-field"><span className="admin-field-label">DBPR online account created</span>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.structural.dbprAccountCreated')}</span>
                 <input className="admin-input" type="date" value={dbprForm.dbpr_account_created_at ?? ''} onChange={e => setDbprForm((f: any) => ({ ...f, dbpr_account_created_at: e.target.value }))} /></label>
               <label className="admin-field">
-                <span className="admin-field-label">Annual fee — last year paid{(Number(community?.unit_count) || 0) > 0 ? ` (~${'$' + dbprAnnualFee(community?.unit_count).toLocaleString('en-US')})` : ''}</span>
+                <span className="admin-field-label">{t('admin.structural.dbprFeeLabel')}{(Number(community?.unit_count) || 0) > 0 ? ` (~${'$' + dbprAnnualFee(community?.unit_count).toLocaleString('en-US')})` : ''}</span>
                 <input className="admin-input" type="number" min="2000" max="2100" step="1" placeholder="e.g. 2026" value={dbprForm.dbpr_fee_paid_year ?? ''} onChange={e => setDbprForm((f: any) => ({ ...f, dbpr_fee_paid_year: e.target.value }))} /></label>
-              <label className="admin-field"><span className="admin-field-label">{DBPR_BUILDING_REPORT_MIN_STORIES.value}+-story building report filed</span>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.structural.dbprBuildingReport', { minStories: String(DBPR_BUILDING_REPORT_MIN_STORIES.value) })}</span>
                 <input className="admin-input" type="date" value={dbprForm.dbpr_building_report_filed_at ?? ''} onChange={e => setDbprForm((f: any) => ({ ...f, dbpr_building_report_filed_at: e.target.value }))} /></label>
             </div>
             <div className="card-cta">
-              <button className="admin-primary-btn" disabled={dbprSaving} onClick={saveDbpr}>{dbprSaving ? 'Saving…' : 'Save DBPR settings'}</button>
+              <button className="admin-primary-btn" disabled={dbprSaving} onClick={saveDbpr}>{dbprSaving ? t('admin.structural.saving') : t('admin.structural.saveDbpr')}</button>
             </div>
           </div>
 
           {/* Building intake */}
           <div className="card">
-            <div className="card-head"><div><h2>Add a building</h2></div></div>
+            <div className="card-head"><div><h2>{t('admin.structural.addBuildingTitle')}</h2></div></div>
             <form className="admin-form" onSubmit={createBuilding}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-                <label className="admin-field"><span className="admin-field-label">Name</span>
+                <label className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldName')}</span>
                   <input className="admin-input" value={bForm.name ?? ''} placeholder="Tower A" onChange={e => setBF('name', e.target.value)} /></label>
-                <label className="admin-field"><span className="admin-field-label">Address</span>
+                <label className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldAddress')}</span>
                   <input className="admin-input" value={bForm.address ?? ''} onChange={e => setBF('address', e.target.value)} /></label>
-                <label className="admin-field"><span className="admin-field-label">Stories</span>
+                <label className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldStories')}</span>
                   <input className="admin-input" type="number" min="1" step="1" value={bForm.stories ?? ''} onChange={e => setBF('stories', e.target.value)} /></label>
-                <label className="admin-field"><span className="admin-field-label">Units</span>
+                <label className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldUnits')}</span>
                   <input className="admin-input" type="number" min="0" step="1" value={bForm.units ?? ''} onChange={e => setBF('units', e.target.value)} /></label>
-                <label className="admin-field"><span className="admin-field-label">Certificate-of-occupancy date</span>
+                <label className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldCoa')}</span>
                   <input className="admin-input" type="date" value={bForm.coa ?? ''} onChange={e => setBF('coa', e.target.value)} /></label>
               </div>
               <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '10px 0' }}>
                 <input type="checkbox" checked={!!bForm.coastal} onChange={e => setBF('coastal', e.target.checked)} />
-                Within 3 miles of the coastline (25-year milestone trigger instead of 30)
+                {t('admin.structural.coastalLabel')}
               </label>
               <div className="card-cta">
                 {error && <span className="admin-err-inline">{error}</span>}
-                <button type="submit" className="admin-primary-btn" disabled={bSaving}>{bSaving ? 'Adding…' : 'Add building'}</button>
+                <button type="submit" className="admin-primary-btn" disabled={bSaving}>{bSaving ? t('admin.structural.adding') : t('admin.structural.addBuilding')}</button>
               </div>
             </form>
           </div>
 
           {/* Buildings list */}
           <div className="card">
-            <div className="card-head"><div><h2>Buildings <span style={{ opacity: 0.55, fontWeight: 400 }}>({buildings.length})</span></h2></div></div>
-            {buildings.length === 0 && <div className="admin-note">No buildings yet. Add one above to start tracking milestone and SIRS deadlines.</div>}
+            <div className="card-head"><div><h2>{t('admin.structural.buildingsTitle')} <span style={{ opacity: 0.55, fontWeight: 400 }}>({buildings.length})</span></h2></div></div>
+            {buildings.length === 0 && <div className="admin-note">{t('admin.structural.noBuildingsYet')}</div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {buildings.map(b => {
               const due = milestoneInitialDueDate(b.certificate_of_occupancy_date, b.coastal)
@@ -314,14 +330,14 @@ export default function StructuralPage() {
                 <div key={b.id} style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: '4px solid #175CD3', borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>{b.name || b.address || b.id.slice(0, 8)}</div>
                   <div style={{ fontSize: 12.5, opacity: 0.75, marginTop: 3 }}>
-                    {b.stories != null ? `${b.stories} stories` : 'stories unknown'} · {b.coastal ? 'coastal' : 'inland'}
-                    {b.certificate_of_occupancy_date ? ` · CO ${b.certificate_of_occupancy_date}` : ' · no CO date'}
-                    {b.units != null ? ` · ${b.units} units` : ''}
+                    {b.stories != null ? t('admin.structural.storiesCount', { count: String(b.stories) }) : t('admin.structural.storiesUnknown')} · {b.coastal ? t('admin.structural.coastal') : t('admin.structural.inland')}
+                    {b.certificate_of_occupancy_date ? ` · CO ${b.certificate_of_occupancy_date}` : ` · ${t('admin.structural.noCoDate')}`}
+                    {b.units != null ? ` · ${t('admin.structural.unitsCount', { count: String(b.units) })}` : ''}
                   </div>
                   <div style={{ fontSize: 12.5, marginTop: 4 }}>
-                    {!eligible && <span style={{ opacity: 0.6 }}>Below {SIRS_MIN_STORIES.value} stories — milestone/SIRS scheme does not apply.</span>}
-                    {eligible && due && <span>Milestone trigger ({milestoneTriggerYears(b.coastal)} yr): <strong>{ymd(due)}</strong></span>}
-                    {eligible && !due && <span style={{ color: '#B54708' }}>Add a certificate-of-occupancy date to compute the milestone trigger.</span>}
+                    {!eligible && <span style={{ opacity: 0.6 }}>{t('admin.structural.belowMinStories', { minStories: String(SIRS_MIN_STORIES.value) })}</span>}
+                    {eligible && due && <span>{t('admin.structural.milestoneTrigger', { years: String(milestoneTriggerYears(b.coastal)) })}: <strong>{ymd(due)}</strong></span>}
+                    {eligible && !due && <span style={{ color: '#B54708' }}>{t('admin.structural.addCoDateHint')}</span>}
                   </div>
                 </div>
               )
@@ -331,48 +347,48 @@ export default function StructuralPage() {
 
           {/* Assessment intake */}
           <div className="card">
-            <div className="card-head"><div><h2>Record an assessment</h2></div></div>
+            <div className="card-head"><div><h2>{t('admin.structural.recordAssessmentTitle')}</h2></div></div>
             <form className="admin-form" onSubmit={createAssessment}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-                <label className="admin-field"><span className="admin-field-label">Type</span>
+                <label className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldType')}</span>
                   <select className="admin-input" value={aForm.kind} onChange={e => setAF('kind', e.target.value)}>
-                    <option value="milestone">Milestone inspection</option>
-                    <option value="sirs">SIRS</option>
-                    <option value="turnover">Turnover inspection</option>
+                    <option value="milestone">{t('admin.structural.kindMilestone')}</option>
+                    <option value="sirs">{t('admin.structural.kindSirs')}</option>
+                    <option value="turnover">{t('admin.structural.kindTurnover')}</option>
                   </select></label>
-                <label className="admin-field"><span className="admin-field-label">Building (optional)</span>
+                <label className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldBuilding')}</span>
                   <select className="admin-input" value={aForm.building_id ?? ''} onChange={e => setAF('building_id', e.target.value)}>
-                    <option value="">— community-wide —</option>
+                    <option value="">{t('admin.structural.communityWide')}</option>
                     {buildings.map(b => <option key={b.id} value={b.id}>{b.name || b.address || b.id.slice(0, 8)}</option>)}
                   </select></label>
-                <label className="admin-field"><span className="admin-field-label">Status</span>
+                <label className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldStatus')}</span>
                   <select className="admin-input" value={aForm.status ?? 'not_started'} onChange={e => setAF('status', e.target.value)}>
-                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
                   </select></label>
-                <label className="admin-field"><span className="admin-field-label">{aForm.kind === 'milestone' ? 'Phase 1 due date' : 'Deadline'}</span>
+                <label className="admin-field"><span className="admin-field-label">{aForm.kind === 'milestone' ? t('admin.structural.phase1DueDate') : t('admin.structural.deadline')}</span>
                   <input className="admin-input" type="date" value={aForm.due_date ?? ''} onChange={e => setAF('due_date', e.target.value)} /></label>
-                <label className="admin-field"><span className="admin-field-label">Inspection date</span>
+                <label className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldInspectionDate')}</span>
                   <input className="admin-input" type="date" value={aForm.inspection_date ?? ''} onChange={e => setAF('inspection_date', e.target.value)} /></label>
-                <label className="admin-field"><span className="admin-field-label">Performer name</span>
+                <label className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldPerformerName')}</span>
                   <input className="admin-input" value={aForm.performer_name ?? ''} onChange={e => setAF('performer_name', e.target.value)} /></label>
-                <label className="admin-field"><span className="admin-field-label">Performer credential</span>
+                <label className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldPerformerCredential')}</span>
                   <select className="admin-input" value={aForm.performer_type ?? ''} onChange={e => setAF('performer_type', e.target.value)}>
                     <option value="">—</option>
                     {PERFORMER_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
                   </select></label>
-                <label className="admin-field"><span className="admin-field-label">License #</span>
+                <label className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldLicense')}</span>
                   <input className="admin-input" value={aForm.performer_license ?? ''} onChange={e => setAF('performer_license', e.target.value)} /></label>
               </div>
               <div className="card-cta">
-                <button type="submit" className="admin-primary-btn" disabled={aSaving}>{aSaving ? 'Saving…' : 'Record assessment'}</button>
+                <button type="submit" className="admin-primary-btn" disabled={aSaving}>{aSaving ? t('admin.structural.saving') : t('admin.structural.recordAssessment')}</button>
               </div>
             </form>
           </div>
 
           {/* Assessments list */}
           <div className="card">
-            <div className="card-head"><div><h2>Assessments <span style={{ opacity: 0.55, fontWeight: 400 }}>({assessments.length})</span></h2></div></div>
-            {assessments.length === 0 && <div className="admin-note">No assessments recorded yet.</div>}
+            <div className="card-head"><div><h2>{t('admin.structural.assessmentsTitle')} <span style={{ opacity: 0.55, fontWeight: 400 }}>({assessments.length})</span></h2></div></div>
+            {assessments.length === 0 && <div className="admin-note">{t('admin.structural.noAssessmentsYet')}</div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {assessments.map(a => (
                 <AssessmentCard
@@ -392,13 +408,13 @@ export default function StructuralPage() {
 
           {/* Documents: generate or view each statutory artifact */}
           <div className="card">
-            <div className="card-head"><div><h2>Documents</h2><div className="sub">Generate or view each statutory artifact</div></div></div>
+            <div className="card-head"><div><h2>{t('admin.structural.documentsTitle')}</h2><div className="sub">{t('admin.structural.documentsSub')}</div></div></div>
             <div className="wslist">
               {[
-                { type: 'summary', label: 'Structural-compliance summary' },
-                { type: 'sirs_notice', label: 'SIRS owner-notification letter' },
-                { type: 'dbpr_packet', label: 'DBPR reporting data packet (draft)' },
-                { type: 'reserve_worksheet', label: 'Reserve baseline-funding worksheet' },
+                { type: 'summary', label: t('admin.structural.docSummary') },
+                { type: 'sirs_notice', label: t('admin.structural.docSirsNotice') },
+                { type: 'dbpr_packet', label: t('admin.structural.docDbprPacket') },
+                { type: 'reserve_worksheet', label: t('admin.structural.docReserveWorksheet') },
               ].map(d => (
                 <Link key={d.type} href={`/admin/structural/document?type=${d.type}`} className="wsrow">
                   <span className="wsrow-glyph" style={{ color: '#7A5AF8', background: '#7A5AF8' + '18' }}>
@@ -406,7 +422,7 @@ export default function StructuralPage() {
                   </span>
                   <div className="wsrow-main">
                     <div className="wsrow-title">{d.label}</div>
-                    <div className="wsrow-desc">Draft template</div>
+                    <div className="wsrow-desc">{t('admin.structural.draftTemplate')}</div>
                   </div>
                   <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
                 </Link>
@@ -431,10 +447,23 @@ function AssessmentCard({
   onChanged: () => void
   onError: (m: string) => void
 }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const b = buildings.find(x => x.id === a.building_id)
-  const where = b ? (b.name || b.address || b.id.slice(0, 8)) : 'Community-wide'
+  const where = b ? (b.name || b.address || b.id.slice(0, 8)) : t('admin.structural.communityWideLabel')
   const color = STATUS_COLOR[String(a.status)] || '#475467'
+
+  const statusLabel = (s: string) => {
+    const map: Record<string, string> = {
+      not_started: t('admin.structural.statusNotStarted'),
+      scheduled: t('admin.structural.statusScheduled'),
+      in_progress: t('admin.structural.statusInProgress'),
+      report_received: t('admin.structural.statusReportReceived'),
+      completed: t('admin.structural.statusCompleted'),
+      cancelled: t('admin.structural.statusCancelled'),
+    }
+    return map[s] || s
+  }
 
   const seedComponents = async () => {
     onError('')
@@ -448,7 +477,7 @@ function AssessmentCard({
       if (error) throw error
       await logAudit({ community_id: communityId, event_type: 'structural.sirs_recorded', target_type: 'sirs_component', target_id: a.id })
       onChanged()
-    } catch (err: any) { onError(err?.message || 'Could not seed components') }
+    } catch (err: any) { onError(err?.message || t('admin.structural.seedError')) }
   }
 
   const updateComponent = async (id: string, patch: Record<string, any>) => {
@@ -457,7 +486,7 @@ function AssessmentCard({
       const { error } = (await withTimeout(supabase.from('ev_sirs_components').update(patch).eq('id', id))) as any
       if (error) throw error
       onChanged()
-    } catch (err: any) { onError(err?.message || 'Could not update component') }
+    } catch (err: any) { onError(err?.message || t('admin.structural.componentUpdateError')) }
   }
 
   return (
@@ -466,15 +495,15 @@ function AssessmentCard({
         <div>
           <div style={{ fontWeight: 700, fontSize: 15 }}>{KIND_LABEL[String(a.kind)] || String(a.kind)} · {where}</div>
           <div style={{ fontSize: 12.5, opacity: 0.75, marginTop: 2 }}>
-            {a.due_date ? `Due ${a.due_date}` : 'no deadline'}
-            {a.inspection_date ? ` · inspected ${a.inspection_date}` : ''}
+            {a.due_date ? `${t('admin.structural.due')} ${a.due_date}` : t('admin.structural.noDeadline')}
+            {a.inspection_date ? ` · ${t('admin.structural.inspected')} ${a.inspection_date}` : ''}
             {a.performer_name ? ` · ${a.performer_name}${a.performer_type ? ` (${a.performer_type})` : ''}` : ''}
           </div>
         </div>
         <label className="admin-field" style={{ maxWidth: 180 }}>
-          <span className="admin-field-label">Status</span>
+          <span className="admin-field-label">{t('admin.structural.fieldStatus')}</span>
           <select className="admin-input" value={String(a.status)} onChange={e => onUpdate(a.id, { status: e.target.value })}>
-            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{STATUS_LABEL[s]}</option>)}
+            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
           </select>
         </label>
       </div>
@@ -482,16 +511,16 @@ function AssessmentCard({
       {/* Milestone lifecycle quick-fields */}
       {a.kind === 'milestone' && (
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 10, fontSize: 12.5 }}>
-          <DateField label="Report received" value={a.report_received_at} onSet={v => onUpdate(a.id, { report_received_at: v })} />
-          <DateField label="Owner summary sent" value={a.owner_notice_sent_at} onSet={v => onUpdate(a.id, { owner_notice_sent_at: v })} />
+          <DateField label={t('admin.structural.reportReceived')} value={a.report_received_at} onSet={v => onUpdate(a.id, { report_received_at: v })} />
+          <DateField label={t('admin.structural.ownerSummarySent')} value={a.owner_notice_sent_at} onSet={v => onUpdate(a.id, { owner_notice_sent_at: v })} />
           <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
             <input type="checkbox" checked={!!a.requires_phase_2} onChange={e => onUpdate(a.id, { requires_phase_2: e.target.checked })} />
-            Phase 2 required
+            {t('admin.structural.phase2Required')}
           </label>
           {a.requires_phase_2 && (
             <>
-              <DateField label="Phase 2 due" value={a.phase_2_due} onSet={v => onUpdate(a.id, { phase_2_due: v })} />
-              <DateField label="Repairs commence by" value={a.repair_commence_due} onSet={v => onUpdate(a.id, { repair_commence_due: v })} />
+              <DateField label={t('admin.structural.phase2Due')} value={a.phase_2_due} onSet={v => onUpdate(a.id, { phase_2_due: v })} />
+              <DateField label={t('admin.structural.repairsCommenceBy')} value={a.repair_commence_due} onSet={v => onUpdate(a.id, { repair_commence_due: v })} />
             </>
           )}
         </div>
@@ -501,31 +530,31 @@ function AssessmentCard({
       {a.kind === 'sirs' && (
         <div style={{ marginTop: 10 }}>
           <button className="admin-btn-ghost" onClick={() => setOpen(o => !o)}>
-            {open ? 'Hide' : 'Manage'} components ({components.length}/{SIRS_COMPONENTS.value.length})
+            {open ? t('admin.structural.hideComponents') : t('admin.structural.manageComponents')} ({components.length}/{SIRS_COMPONENTS.value.length})
           </button>
           {open && (
             <div style={{ marginTop: 10 }}>
               {components.length === 0 && (
-                <button className="admin-primary-btn" onClick={seedComponents}>Seed the {SIRS_COMPONENTS.value.length} mandatory components</button>
+                <button className="admin-primary-btn" onClick={seedComponents}>{t('admin.structural.seedComponents', { count: String(SIRS_COMPONENTS.value.length) })}</button>
               )}
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
                 {components.map(c => (
                   <div key={c.id} style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', borderBottom: '1px solid rgba(0,0,0,0.06)', paddingBottom: 6 }}>
                     <span style={{ flex: '1 1 200px', fontSize: 13, fontWeight: 600 }}>{c.component}</span>
-                    <input className="admin-input" style={{ maxWidth: 130 }} type="number" min="0" step="100" placeholder="est. cost"
+                    <input className="admin-input" style={{ maxWidth: 130 }} type="number" min="0" step="100" placeholder={t('admin.structural.estCostPlaceholder')}
                       defaultValue={c.estimated_cost ?? ''} onBlur={e => updateComponent(c.id, { estimated_cost: e.target.value === '' ? null : Number(e.target.value) })} />
                     <select className="admin-input" style={{ maxWidth: 150 }} value={String(c.funding_status ?? 'not_funded')}
                       onChange={e => updateComponent(c.id, { funding_status: e.target.value })}>
-                      <option value="not_funded">Not funded</option>
-                      <option value="underfunded">Underfunded</option>
-                      <option value="fully_funded">Fully funded</option>
+                      <option value="not_funded">{t('admin.structural.fundingNotFunded')}</option>
+                      <option value="underfunded">{t('admin.structural.fundingUnderfunded')}</option>
+                      <option value="fully_funded">{t('admin.structural.fundingFullyFunded')}</option>
                     </select>
                   </div>
                 ))}
               </div>
               {components.length > 0 && (
                 <div style={{ fontSize: 12, opacity: 0.7, marginTop: 6 }}>
-                  Total estimated component cost: {fmt$(components.reduce((s, c) => s + (Number(c.estimated_cost) || 0), 0))}
+                  {t('admin.structural.totalEstCost')} {fmt$(components.reduce((s, c) => s + (Number(c.estimated_cost) || 0), 0))}
                 </div>
               )}
             </div>

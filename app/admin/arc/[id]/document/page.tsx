@@ -25,19 +25,22 @@ import {
   type ArcLetterInput,
   type LetterBlock,
 } from '@/lib/compliance/arc-letter'
+import { useT } from '@/lib/i18n'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
 
 export default function ArcDocumentPage() {
+  const t = useT()
   return (
-    <Suspense fallback={<div style={{ padding: 40 }}>Loading…</div>}>
+    <Suspense fallback={<div style={{ padding: 40 }}>{t('admin.arcDetailDocument.loading')}</div>}>
       <DocInner />
     </Suspense>
   )
 }
 
 function DocInner() {
+  const t           = useT()
   const params      = useParams()
   const search      = useSearchParams()
   const id          = params?.id as string
@@ -69,8 +72,8 @@ function DocInner() {
     return () => { cancelled = true }
   }, [id])
 
-  if (status === 'loading') return <div style={{ padding: 40 }}>Loading…</div>
-  if (status === 'error' || !req) return <div style={{ padding: 40, color: '#B42318' }}>{error || 'Request not found'}</div>
+  if (status === 'loading') return <div style={{ padding: 40 }}>{t('admin.arcDetailDocument.loading')}</div>
+  if (status === 'error' || !req) return <div style={{ padding: 40, color: '#B42318' }}>{error || t('admin.arcDetailDocument.requestNotFound')}</div>
 
   const isCondo  = community?.association_type !== 'hoa'
   const today    = ymd(new Date())
@@ -119,20 +122,19 @@ function DocInner() {
         href="/admin/arc"
         style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14, fontFamily: 'system-ui, sans-serif', fontSize: 13, fontWeight: 600, color: '#E14909', textDecoration: 'none' }}
       >
-        ← Back to Architectural review
+        {t('admin.arcDetailDocument.backToArc')}
       </a>
 
       {/* Screen-only bar */}
       <div className="no-print" style={{ display: 'flex', gap: 10, justifyContent: 'space-between', marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
         <div style={{ fontSize: 12, background: '#FEF3F2', color: '#B42318', padding: '8px 12px', borderRadius: 8, maxWidth: 520 }}>
-          ⚠ DRAFT — an aid, not an official document. Confirm every detail and the legal language
-          with your association attorney before sending.
+          {t('admin.arcDetailDocument.draftWarning')}
         </div>
         <button
           onClick={() => window.print()}
           style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', height: 'fit-content' }}
         >
-          Print / Save as PDF
+          {t('admin.arcDetailDocument.printSaveAsPdf')}
         </button>
       </div>
 
@@ -140,7 +142,7 @@ function DocInner() {
       <div style={{ textAlign: 'center', marginBottom: 18 }}>
         <div style={{ fontSize: 18, fontWeight: 700 }}>{community?.name || 'Association'}</div>
         <div style={{ fontSize: 12.5, color: '#555' }}>
-          {community?.association_address || <Em>set the association address in Community settings</Em>}
+          {community?.association_address || <Em>{t('admin.arcDetailDocument.setAddressHint')}</Em>}
         </div>
       </div>
 
@@ -150,7 +152,7 @@ function DocInner() {
 
       {/* Addressee */}
       <div style={{ fontSize: 13.5, marginBottom: 18 }}>
-        <div>{req.unit_label || <Em>owner name / unit</Em>}</div>
+        <div>{req.unit_label || <Em>{t('admin.arcDetailDocument.ownerUnitPlaceholder')}</Em>}</div>
         <div>Re: ARC Request — {typeLabel}</div>
         {req.submitted_at && <div>Submitted: {req.submitted_at}</div>}
         {deadline && <div>Response due: {ymd(deadline)}</div>}
@@ -171,9 +173,14 @@ function DocInner() {
         {/* ---- Catch-all for non-decided statuses ---- */}
         {!isDecided && (
           <div className="no-print" style={{ border: '1px dashed #d6b8a8', borderRadius: 8, padding: '14px 16px', background: '#fdf6f1', fontFamily: 'system-ui, sans-serif', fontSize: 13.5 }}>
-            <strong>No decision recorded yet</strong> — this request is currently <strong>{statusLabel.toLowerCase()}</strong>.
-            The decision letter fills in automatically once you Approve, Approve with conditions, or Deny it
-            on the <a href="/admin/arc" style={{ color: '#E14909', fontWeight: 700 }}>Architectural review</a> page.
+            <strong>{t('admin.arcDetailDocument.noDecisionYet')}</strong>
+            {' — '}
+            {t('admin.arcDetailDocument.noDecisionStatus', { status: statusLabel.toLowerCase() })}
+            {' '}
+            {t('admin.arcDetailDocument.noDecisionFillsIn')}
+            {' '}
+            <a href="/admin/arc" style={{ color: '#E14909', fontWeight: 700 }}>{t('admin.arcDetailDocument.arcPageLink')}</a>
+            {t('admin.arcDetailDocument.noDecisionPageSuffix')}
           </div>
         )}
 

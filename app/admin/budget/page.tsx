@@ -12,6 +12,7 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { BudgetCategories } from '../BudgetCategories'
 import { ExpensesLog } from '../community/ExpensesLog'
+import { useT } from '@/lib/i18n'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -51,8 +52,9 @@ export default function BudgetPage() {
   const [plaidBusy, setPlaidBusy] = useState(false)
   const [plaidErr, setPlaidErr] = useState('')
   const [syncBusy, setSyncBusy] = useState(false)
+  const t = useT()
 
-  useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(''), 4000); return () => clearTimeout(t) }, [msg])
+  useEffect(() => { if (!msg) return; const timer = setTimeout(() => setMsg(''), 4000); return () => clearTimeout(timer) }, [msg])
 
   const load = useCallback(async () => {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
@@ -71,7 +73,7 @@ export default function BudgetPage() {
       setCommunity(c || null); setBudgets(b || []); setBankTx(bt || [])
       setStatus('ready')
     } catch (err: any) {
-      setError(err?.message || 'Could not load budget data'); setStatus('error')
+      setError(err?.message || t('admin.budget.errorLoadBudget')); setStatus('error')
     }
   }, [communityId])
   useEffect(() => { load() }, [load])
@@ -86,8 +88,8 @@ export default function BudgetPage() {
       const patch = { annual_budget: annual === '' ? null : Number(annual) }
       const { error } = (await withTimeout(supabase.from('communities').update(patch).eq('id', communityId))) as any
       if (error) throw error
-      setMsg('Annual budget saved.'); load()
-    } catch (err: any) { setError(err?.message || 'Could not save the annual budget') }
+      setMsg(t('admin.budget.annualBudgetSaved')); load()
+    } catch (err: any) { setError(err?.message || t('admin.budget.errorSaveAnnual')) }
     finally { setAnnualSaving(false) }
   }
 
@@ -96,10 +98,10 @@ export default function BudgetPage() {
   const actuals = useMemo(() => {
     const byCat = new Map<string, number>()
     let unmapped = 0
-    for (const t of bankTx) {
-      const amt = Number(t.amount) || 0
+    for (const tx of bankTx) {
+      const amt = Number(tx.amount) || 0
       if (amt <= 0) continue
-      if (t.mapped_budget_category_id) byCat.set(t.mapped_budget_category_id, (byCat.get(t.mapped_budget_category_id) || 0) + amt)
+      if (tx.mapped_budget_category_id) byCat.set(tx.mapped_budget_category_id, (byCat.get(tx.mapped_budget_category_id) || 0) + amt)
       else unmapped += amt
     }
     return { byCat, unmapped }
@@ -113,7 +115,7 @@ export default function BudgetPage() {
       const { data, error } = await supabase.functions.invoke('plaid-link-token', { body: {} })
       if (error) throw error
       const linkToken = data?.link_token
-      if (!linkToken) throw new Error(data?.error || 'Could not start bank linking')
+      if (!linkToken) throw new Error(data?.error || t('admin.budget.errorStartBankLink'))
       const Plaid = await loadPlaid()
       const handler = Plaid.create({
         token: linkToken,
@@ -123,20 +125,20 @@ export default function BudgetPage() {
               body: { public_token, institution_name: metadata?.institution?.name ?? null },
             })
             if (exErr) throw exErr
-            setMsg('Bank linked. Syncing transactions…')
+            setMsg(t('admin.budget.bankLinkedSyncing'))
             await syncBank()
           } catch (err: any) {
-            setPlaidErr(err?.message || 'Could not finish bank linking')
+            setPlaidErr(err?.message || t('admin.budget.errorFinishBankLink'))
           } finally { setPlaidBusy(false) }
         },
         onExit: (err: any) => {
-          if (err) setPlaidErr(err?.display_message || err?.error_message || 'Bank linking cancelled')
+          if (err) setPlaidErr(err?.display_message || err?.error_message || t('admin.budget.bankLinkCancelled'))
           setPlaidBusy(false)
         },
       })
       handler.open()
     } catch (err: any) {
-      setPlaidErr(err?.message || 'Could not start bank linking'); setPlaidBusy(false)
+      setPlaidErr(err?.message || t('admin.budget.errorStartBankLink')); setPlaidBusy(false)
     }
   }
 
@@ -145,39 +147,37 @@ export default function BudgetPage() {
     try {
       const { error } = await supabase.functions.invoke('plaid-sync-transactions', { body: {} })
       if (error) throw error
-      setMsg('Bank feed synced.'); await load()
+      setMsg(t('admin.budget.bankFeedSynced')); await load()
     } catch (err: any) {
-      setPlaidErr(err?.message || 'Could not sync the bank feed')
+      setPlaidErr(err?.message || t('admin.budget.errorSyncBankFeed'))
     } finally { setSyncBusy(false) }
   }
 
   return (
     <div className="admin-page cset">
-      <div className="admin-kicker">Money</div>
-      <h1 className="admin-h1">Budget</h1>
+      <div className="admin-kicker">{t('admin.budget.kicker')}</div>
+      <h1 className="admin-h1">{t('admin.budget.pageTitle')}</h1>
       <p className="admin-dek">
-        Your association&rsquo;s operating budget in one place — set the annual figure and categories
-        (they feed every resident&rsquo;s Home cards), link the bank to track actual spending against
-        each line, and log expenses. Collecting dues lives on <Link href="/admin/financials" style={{ color: 'var(--pink)', fontWeight: 600 }}>Financial reporting</Link>.
+        {t('admin.budget.dekBefore')}<Link href="/admin/financials" style={{ color: 'var(--pink)', fontWeight: 600 }}>{t('admin.budget.dekLink')}</Link>{t('admin.budget.dekAfter')}
       </p>
 
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
-      {status === 'none' && <div className="admin-note admin-note-warn">No community is linked to your account yet. Run the setup SQL, then reload.</div>}
-      {status === 'error' && <div className="admin-note admin-note-err">{error}<button type="button" className="admin-btn-ghost" onClick={load}>Retry</button></div>}
-      {status === 'loading' && <div className="admin-note">Loading…</div>}
+      {status === 'none' && <div className="admin-note admin-note-warn">{t('admin.budget.noCommunity')}</div>}
+      {status === 'error' && <div className="admin-note admin-note-err">{error}<button type="button" className="admin-btn-ghost" onClick={load}>{t('admin.budget.retry')}</button></div>}
+      {status === 'loading' && <div className="admin-note">{t('admin.budget.loading')}</div>}
 
       {status === 'ready' && (
         <>
           {/* Annual operating budget — the headline figure residents' rings use. */}
           <div className="card">
-            <div className="card-head"><div><h2>Annual operating budget</h2><div className="sub">The headline figure your residents&rsquo; Home cards measure against.</div></div></div>
+            <div className="card-head"><div><h2>{t('admin.budget.annualBudgetTitle')}</h2><div className="sub">{t('admin.budget.annualBudgetSub')}</div></div></div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-              <label className="admin-field"><span className="admin-field-label">Annual budget ($)</span>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.budget.annualBudgetLabel')}</span>
                 <input className="admin-input" type="number" min="0" step="1000" placeholder="62000"
                   value={annual} onChange={e => setAnnual(e.target.value)} /></label>
             </div>
             <div className="card-cta">
-              <button className="admin-primary-btn" disabled={annualSaving} onClick={saveAnnual}>{annualSaving ? 'Saving…' : 'Save annual budget'}</button>
+              <button className="admin-primary-btn" disabled={annualSaving} onClick={saveAnnual}>{annualSaving ? t('admin.budget.saving') : t('admin.budget.saveAnnualBtn')}</button>
             </div>
           </div>
 
@@ -187,26 +187,26 @@ export default function BudgetPage() {
           {/* Budget vs actual — actuals auto-tracked from the Plaid bank feed. */}
           <div className="card">
             <div className="card-head">
-              <div><h2>Budget vs actual</h2>
-                <div className="sub">Link the bank read-only; we match each transaction to a budget line. Residente reads the feed — it never moves money.</div></div>
+              <div><h2>{t('admin.budget.budgetVsActualTitle')}</h2>
+                <div className="sub">{t('admin.budget.budgetVsActualSub')}</div></div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 12, opacity: 0.65 }}>
-                  {bankTx.length > 0 ? `${bankTx.length} bank transactions synced` : 'no bank feed yet'}
+                  {bankTx.length > 0 ? t('admin.budget.txSynced', { count: bankTx.length }) : t('admin.budget.noBankFeed')}
                 </span>
                 {community?.plaid_status === 'active' ? (
                   <>
-                    <span className="admin-success" style={{ margin: 0, fontSize: 12 }}><span className="admin-success-check" aria-hidden>✓</span>Bank linked</span>
-                    <button className="admin-btn-ghost" disabled={syncBusy} onClick={syncBank}>{syncBusy ? 'Syncing…' : 'Sync now'}</button>
+                    <span className="admin-success" style={{ margin: 0, fontSize: 12 }}><span className="admin-success-check" aria-hidden>✓</span>{t('admin.budget.bankLinked')}</span>
+                    <button className="admin-btn-ghost" disabled={syncBusy} onClick={syncBank}>{syncBusy ? t('admin.budget.syncing') : t('admin.budget.syncNow')}</button>
                   </>
                 ) : (
-                  <button className="admin-primary-btn" disabled={plaidBusy} onClick={linkBank}>{plaidBusy ? 'Opening…' : 'Link bank account'}</button>
+                  <button className="admin-primary-btn" disabled={plaidBusy} onClick={linkBank}>{plaidBusy ? t('admin.budget.opening') : t('admin.budget.linkBankBtn')}</button>
                 )}
               </div>
             </div>
             {plaidErr && <div className="admin-note admin-note-err" style={{ marginTop: 10 }}>{plaidErr}</div>}
 
             {opBudgets.length === 0 ? (
-              <p style={{ fontSize: 13, opacity: 0.7, margin: '8px 0 0' }}>Add budget categories above to see budget-vs-actual.</p>
+              <p style={{ fontSize: 13, opacity: 0.7, margin: '8px 0 0' }}>{t('admin.budget.noCategoriesHint')}</p>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 12 }}>
                 {opBudgets.map(b => {
@@ -218,7 +218,7 @@ export default function BudgetPage() {
                   return (
                     <div key={b.id} style={{ border: '1px solid rgba(0,0,0,0.06)', borderRadius: 10, padding: '10px 12px' }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontSize: 13.5 }}>
-                        <span style={{ fontWeight: 600 }}>{b.name || 'Untitled'}</span>
+                        <span style={{ fontWeight: 600 }}>{b.name || t('admin.budget.untitled')}</span>
                         <span style={{ opacity: 0.8 }}>
                           {fmt$(actual)} <span style={{ opacity: 0.5 }}>/ {fmt$(budgeted)}</span>
                           {pct != null && <span style={{ color: barColor, fontWeight: 600 }}> · {pct}%</span>}
@@ -227,7 +227,7 @@ export default function BudgetPage() {
                       <div style={{ height: 6, borderRadius: 4, background: 'rgba(0,0,0,0.06)', marginTop: 6, overflow: 'hidden' }}>
                         <div style={{ height: '100%', width: `${Math.min(100, pct ?? 0)}%`, background: barColor }} />
                       </div>
-                      {over && <div style={{ fontSize: 11.5, color: '#B42318', marginTop: 4 }}>Over budget by {fmt$(actual - budgeted)}</div>}
+                      {over && <div style={{ fontSize: 11.5, color: '#B42318', marginTop: 4 }}>{t('admin.budget.overBudget', { amount: fmt$(actual - budgeted) })}</div>}
                     </div>
                   )
                 })}
@@ -236,7 +236,7 @@ export default function BudgetPage() {
 
             {actuals.unmapped > 0 && (
               <div className="admin-note admin-note-warn" style={{ marginTop: 10, fontSize: 12.5 }}>
-                {fmt$(actuals.unmapped)} of synced spending isn&rsquo;t mapped to a budget line yet — map those categories so it counts.
+                {t('admin.budget.unmappedSpending', { amount: fmt$(actuals.unmapped) })}
               </div>
             )}
           </div>

@@ -6,6 +6,7 @@ import { useExpensesAdmin } from '@/hooks/useExpenses'
 import { Dropdown } from '@/components/Dropdown'
 import { Pagination, paginate } from '@/components/Pagination'
 import { downloadCsv, exportFilename } from '@/lib/exportCsv'
+import { useT } from '@/lib/i18n'
 
 const LEDGER_PAGE_SIZE = 10
 
@@ -28,6 +29,7 @@ const LEDGER_COLS = '104px minmax(0,1fr) minmax(0,1.4fr) 88px 32px'
 // "Financial Overview" chart, which builds a real month-by-month spend curve
 // from this ledger. Mirrors the Budget categories editor's look + behavior.
 export function ExpensesLog({ communityId }: { communityId: string | undefined }) {
+  const t = useT()
   const { expenses, loading, addExpense, removeExpense } = useExpensesAdmin()
   const [cats, setCats] = useState<{ id: string; name: string }[]>([])
   const [form, setForm] = useState(EMPTY)
@@ -51,7 +53,7 @@ export function ExpensesLog({ communityId }: { communityId: string | undefined }
 
   const add = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (form.amount === '' || Number(form.amount) <= 0) { setError('Enter an amount.'); return }
+    if (form.amount === '' || Number(form.amount) <= 0) { setError(t('admin.communityExpensesLog.errorEnterAmount')); return }
     setSaving(true); setError('')
     try {
       await addExpense({
@@ -63,7 +65,7 @@ export function ExpensesLog({ communityId }: { communityId: string | undefined }
       })
       setForm({ ...EMPTY, spent_on: form.spent_on })
     } catch (err: any) {
-      setError(err?.message || 'Could not log the expense')
+      setError(err?.message || t('admin.communityExpensesLog.errorCouldNotLog'))
     } finally { setSaving(false) }
   }
 
@@ -76,11 +78,11 @@ export function ExpensesLog({ communityId }: { communityId: string | undefined }
   // Download the expense ledger as CSV (shared lib/exportCsv helper).
   const exportExpenses = () => {
     const cols = [
-      { label: 'Date', value: (x: typeof expenses[number]) => x.spent_on || '' },
-      { label: 'Category', value: (x: typeof expenses[number]) => (x.category_id ? catName(x.category_id) : '') },
-      { label: 'Vendor', value: (x: typeof expenses[number]) => x.vendor || '' },
-      { label: 'Description', value: (x: typeof expenses[number]) => x.description || '' },
-      { label: 'Amount', value: (x: typeof expenses[number]) => (Number(x.amount) || 0).toFixed(2) },
+      { label: t('admin.communityExpensesLog.colDate'), value: (x: typeof expenses[number]) => x.spent_on || '' },
+      { label: t('admin.communityExpensesLog.colCategory'), value: (x: typeof expenses[number]) => (x.category_id ? catName(x.category_id) : '') },
+      { label: t('admin.communityExpensesLog.colVendor'), value: (x: typeof expenses[number]) => x.vendor || '' },
+      { label: t('admin.communityExpensesLog.colDescription'), value: (x: typeof expenses[number]) => x.description || '' },
+      { label: t('admin.communityExpensesLog.colAmount'), value: (x: typeof expenses[number]) => (Number(x.amount) || 0).toFixed(2) },
     ]
     downloadCsv(exportFilename('residente-expenses', todayISO()), expenses, cols)
   }
@@ -89,21 +91,21 @@ export function ExpensesLog({ communityId }: { communityId: string | undefined }
     <div className="card">
       <div className="card-head">
         <div>
-          <h2>Expense ledger</h2>
+          <h2>{t('admin.communityExpensesLog.heading')}</h2>
           <div className="sub">
-            Dated spending that powers the residents&rsquo; Financial Overview chart. {expenses.length} logged · {fmtMoney(total)} total.
+            {t('admin.communityExpensesLog.subHeading', { count: expenses.length, total: fmtMoney(total) })}
           </div>
         </div>
         <button type="button" className="admin-btn-ghost" onClick={exportExpenses}
-          disabled={expenses.length === 0} title="Download the expense ledger as CSV">
-          Export CSV
+          disabled={expenses.length === 0} title={t('admin.communityExpensesLog.exportCsvTitle')}>
+          {t('admin.communityExpensesLog.exportCsv')}
         </button>
       </div>
 
       <form className="admin-form" onSubmit={add}>
         <div className="admin-2col">
           <label className="admin-field">
-            <span className="admin-field-label">Amount</span>
+            <span className="admin-field-label">{t('admin.communityExpensesLog.fieldAmount')}</span>
             <div className="admin-input-wrap">
               <span className="admin-input-prefix">$</span>
               <input name="amount" className="admin-input" type="number" placeholder="1200"
@@ -111,58 +113,58 @@ export function ExpensesLog({ communityId }: { communityId: string | undefined }
             </div>
           </label>
           <label className="admin-field">
-            <span className="admin-field-label">Date</span>
+            <span className="admin-field-label">{t('admin.communityExpensesLog.fieldDate')}</span>
             <input name="spent_on" className="admin-input" type="date"
               value={form.spent_on} onChange={e => setField('spent_on', e.target.value)} />
           </label>
         </div>
         <div className="admin-2col">
           <div className="admin-field">
-            <span className="admin-field-label">Category (optional)</span>
+            <span className="admin-field-label">{t('admin.communityExpensesLog.fieldCategoryOptional')}</span>
             <Dropdown<string>
               value={form.category_id}
               onChange={v => setField('category_id', v)}
-              ariaLabel="Category"
-              placeholder={cats.length ? 'Pick a category…' : 'No categories yet'}
+              ariaLabel={t('admin.communityExpensesLog.fieldCategoryAria')}
+              placeholder={cats.length ? t('admin.communityExpensesLog.categoryPickPlaceholder') : t('admin.communityExpensesLog.categoryNonePlaceholder')}
               searchable
-              options={[{ value: '', label: '— No category —' }, ...cats.map(c => ({ value: c.id, label: c.name }))]}
+              options={[{ value: '', label: t('admin.communityExpensesLog.categoryNoneOption') }, ...cats.map(c => ({ value: c.id, label: c.name }))]}
             />
           </div>
           <label className="admin-field">
-            <span className="admin-field-label">Vendor (optional)</span>
-            <input name="vendor" className="admin-input" placeholder="Greenscape Landscaping"
+            <span className="admin-field-label">{t('admin.communityExpensesLog.fieldVendorOptional')}</span>
+            <input name="vendor" className="admin-input" placeholder={t('admin.communityExpensesLog.vendorPlaceholder')}
               value={form.vendor} onChange={e => setField('vendor', e.target.value)} />
           </label>
         </div>
         <label className="admin-field">
-          <span className="admin-field-label">Description (optional)</span>
-          <input name="description" className="admin-input" placeholder="Quarterly landscaping invoice"
+          <span className="admin-field-label">{t('admin.communityExpensesLog.fieldDescriptionOptional')}</span>
+          <input name="description" className="admin-input" placeholder={t('admin.communityExpensesLog.descriptionPlaceholder')}
             value={form.description} onChange={e => setField('description', e.target.value)} />
         </label>
         <div className="admin-form-actions" style={{ justifyContent: 'flex-end' }}>
           {error && <span className="admin-err-inline">{error}</span>}
           <button type="submit" className="admin-primary-btn" disabled={saving}>
-            {saving ? 'Logging…' : 'Log expense'}
+            {saving ? t('admin.communityExpensesLog.btnLogging') : t('admin.communityExpensesLog.btnLogExpense')}
           </button>
         </div>
       </form>
 
       {loading ? (
-        <div className="admin-note">Loading…</div>
+        <div className="admin-note">{t('admin.communityExpensesLog.loading')}</div>
       ) : expenses.length === 0 ? (
-        <div className="bc-empty">No expenses logged yet — add one above to start the spending curve.</div>
+        <div className="bc-empty">{t('admin.communityExpensesLog.emptyState')}</div>
       ) : (
         <div style={{ marginTop: 22 }}>
           <div className="card-head" style={{ marginBottom: 6 }}>
             <div>
-              <h3 style={{ margin: 0, fontSize: 15, letterSpacing: '-0.2px' }}>Logged expenses</h3>
-              <div className="sub">{expenses.length} entr{expenses.length === 1 ? 'y' : 'ies'} · {fmtMoney(total)} total</div>
+              <h3 style={{ margin: 0, fontSize: 15, letterSpacing: '-0.2px' }}>{t('admin.communityExpensesLog.loggedExpenses')}</h3>
+              <div className="sub">{expenses.length === 1 ? t('admin.communityExpensesLog.entriesCountOne', { total: fmtMoney(total) }) : t('admin.communityExpensesLog.entriesCountMany', { count: expenses.length, total: fmtMoney(total) })}</div>
             </div>
           </div>
           <div className="bc exp-ledger" style={{ marginTop: 16 }}>
             <div className="bc-row bc-row-head" style={{ gridTemplateColumns: LEDGER_COLS }}>
-              <span>Date</span><span>Category</span><span>Vendor / note</span>
-              <span style={{ textAlign: 'right' }}>Amount</span><span />
+              <span>{t('admin.communityExpensesLog.colDate')}</span><span>{t('admin.communityExpensesLog.colCategory')}</span><span>{t('admin.communityExpensesLog.colVendorNote')}</span>
+              <span style={{ textAlign: 'right' }}>{t('admin.communityExpensesLog.colAmount')}</span><span />
             </div>
             {paginate([...expenses].reverse(), pageClamped, LEDGER_PAGE_SIZE).map(x => (
               <div className="bc-row" key={x.id} style={{ gridTemplateColumns: LEDGER_COLS }}>
@@ -171,7 +173,7 @@ export function ExpensesLog({ communityId }: { communityId: string | undefined }
                 <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-dim)' }}>{x.vendor || x.description || '—'}</span>
                 <span className="exp-amount" style={{ fontWeight: 700, textAlign: 'right' }}>{fmtMoney(x.amount)}</span>
                 <button type="button" className="bc-del" onClick={() => removeExpense(x.id)}
-                  aria-label="Remove expense">&times;</button>
+                  aria-label={t('admin.communityExpensesLog.removeExpenseAria')}>&times;</button>
               </div>
             ))}
           </div>

@@ -4,12 +4,14 @@
 // admin-note stripe. Not a link, so no arrow and no hover treatment.
 
 import { ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
+import { useT } from '@/lib/i18n'
 
 // The shared constant is one string: "⚠ REQUIRES ATTORNEY REVIEW — <body>".
 // Drop the leading marker so the card can show a bold title + dim body.
 const BODY = ATTORNEY_REVIEW_BANNER.split('—').slice(1).join('—').trim() || ATTORNEY_REVIEW_BANNER
 
 export function AttorneyNote() {
+  const t = useT()
   return (
     <div className="card" style={{ marginTop: 18 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
@@ -20,7 +22,7 @@ export function AttorneyNote() {
           </svg>
         </span>
         <div className="wsrow-main">
-          <div className="wsrow-title">Requires attorney review</div>
+          <div className="wsrow-title">{t('admin.attorneyNote.requiresAttorneyReview')}</div>
           <div className="wsrow-desc">{BODY}</div>
         </div>
       </div>

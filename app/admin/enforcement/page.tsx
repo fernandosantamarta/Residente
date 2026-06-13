@@ -24,6 +24,7 @@ import {
 import { decideDispute } from '@/lib/violations'
 import { AttorneyNote } from '../AttorneyNote'
 import { ComplianceBackLink } from '../ComplianceBackLink'
+import { useT } from '@/lib/i18n'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -37,6 +38,7 @@ const STAGE_COLOR: Record<string, string> = {
 }
 
 export default function EnforcementPage() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const [community, setCommunity] = useState<any>(null)
@@ -92,7 +94,7 @@ export default function EnforcementPage() {
       setResidents(res || [])
       setStatus('ready')
     } catch (err: any) {
-      setError(err?.message || 'Could not load enforcement data'); setStatus('error')
+      setError(err?.message || t('admin.enforcement.loadError')); setStatus('error')
     }
   }, [communityId])
   useEffect(() => { load() }, [load])
@@ -131,7 +133,7 @@ export default function EnforcementPage() {
       if (error) throw error
       if (ok) setMsg(ok)
       await load()
-    } catch (err: any) { setError(err?.message || 'Could not update') }
+    } catch (err: any) { setError(err?.message || t('admin.enforcement.couldNotUpdate')) }
   }
 
   const sendHearingNotice = async (v: ViolationRow) => {
@@ -145,8 +147,8 @@ export default function EnforcementPage() {
         created_by: profile?.id ?? null,
       }))) as any
       if (error) throw error
-      await patchViolation(v.id, { enforcement_stage: 'notice_sent' }, '14-day hearing notice logged — the owner has been notified.')
-    } catch (err: any) { setError(err?.message || 'Could not log the notice') }
+      await patchViolation(v.id, { enforcement_stage: 'notice_sent' }, t('admin.enforcement.noticeSentMsg'))
+    } catch (err: any) { setError(err?.message || t('admin.enforcement.couldNotLogNotice')) }
   }
 
   const scheduleHearing = async (v: ViolationRow, h: HearingRow | undefined, date: string) => {
@@ -155,8 +157,8 @@ export default function EnforcementPage() {
     try {
       const { error } = (await withTimeout(supabase.from('ev_violation_hearings').update({ scheduled_at: date }).eq('id', h.id))) as any
       if (error) throw error
-      await patchViolation(v.id, { enforcement_stage: 'hearing_set' }, `Hearing scheduled for ${date}.`)
-    } catch (err: any) { setError(err?.message || 'Could not schedule the hearing') }
+      await patchViolation(v.id, { enforcement_stage: 'hearing_set' }, t('admin.enforcement.hearingScheduledMsg', { date }))
+    } catch (err: any) { setError(err?.message || t('admin.enforcement.couldNotSchedule')) }
   }
 
   const recordDecision = async (
@@ -180,13 +182,13 @@ export default function EnforcementPage() {
         if (error) throw error
       }
       await patchViolation(v.id, { enforcement_stage: d.decision }, d.decision === 'upheld'
-        ? 'Recorded — the committee upheld the fine.'
-        : 'Recorded — the committee rejected the fine; it may not be imposed.')
-    } catch (err: any) { setError(err?.message || 'Could not record the decision') }
+        ? t('admin.enforcement.decisionUpheldMsg')
+        : t('admin.enforcement.decisionRejectedMsg'))
+    } catch (err: any) { setError(err?.message || t('admin.enforcement.couldNotRecordDecision')) }
   }
 
   const markLevied = (v: ViolationRow) =>
-    patchViolation(v.id, { enforcement_stage: 'levied', levied_at: todayYmd() }, 'Fine recorded as levied.')
+    patchViolation(v.id, { enforcement_stage: 'levied', levied_at: todayYmd() }, t('admin.enforcement.fineLeviedMsg'))
 
   // ---- owner-contested fines (HB 1021 / HB 1203) ----
   const contestedFines = useMemo(
@@ -203,9 +205,9 @@ export default function EnforcementPage() {
     setError('')
     const err = await decideDispute(v.id, decision, note, reducedAmount)
     if (err) { setError(err); return }
-    setMsg(decision === 'dismissed' ? 'Recorded — the fine was dismissed; the owner has been notified.'
-      : decision === 'reduced' ? 'Recorded — the reduced fine is now payable; the owner has been notified.'
-      : 'Recorded — the committee upheld the fine; the owner has been notified.')
+    setMsg(decision === 'dismissed' ? t('admin.enforcement.contestDismissedMsg')
+      : decision === 'reduced' ? t('admin.enforcement.contestReducedMsg')
+      : t('admin.enforcement.contestUpheldMsg'))
     await load()
   }
 
@@ -213,7 +215,7 @@ export default function EnforcementPage() {
     try {
       const { data } = await supabase.storage.from('request-attachments').createSignedUrl(path, 3600)
       if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener')
-    } catch { setError('Could not open the evidence file.') }
+    } catch { setError(t('admin.enforcement.couldNotOpenEvidence')) }
   }
 
   // ---- propose-fine intake ----
@@ -226,7 +228,7 @@ export default function EnforcementPage() {
     setSaving(true); setError('')
     try {
       const res = residents.find(r => r.id === form.resident_id)
-      const label = res ? `${res.full_name || 'Owner'}${res.unit_number ? ` · ${res.unit_number}` : ''}`.trim() : (form.resident_label || '').trim() || null
+      const label = res ? `${res.full_name || t('admin.enforcement.ownerFallback')}${res.unit_number ? ` · ${res.unit_number}` : ''}`.trim() : (form.resident_label || '').trim() || null
       const insert: Record<string, any> = {
         community_id: communityId,
         profile_id: res?.profile_id ?? null,
@@ -250,9 +252,9 @@ export default function EnforcementPage() {
       const { error } = (await withTimeout(supabase.from('ev_violations').insert(insert))) as any
       if (error) throw error
       setForm({ resident_id: '', continuing: false, hearing_required: true })
-      setMsg('Fine proposed. Send the 14-day hearing notice when ready.')
+      setMsg(t('admin.enforcement.fineProposedMsg'))
       load()
-    } catch (err: any) { setError(err?.message || 'Could not propose the fine') }
+    } catch (err: any) { setError(err?.message || t('admin.enforcement.couldNotPropose')) }
     finally { setSaving(false) }
   }
 
@@ -267,9 +269,9 @@ export default function EnforcementPage() {
         created_by: profile?.id ?? null,
       }))) as any
       if (error) throw error
-      setMsg('Suspension recorded as proposed.')
+      setMsg(t('admin.enforcement.suspensionRecordedMsg'))
       load()
-    } catch (err: any) { setError(err?.message || 'Could not record the suspension') }
+    } catch (err: any) { setError(err?.message || t('admin.enforcement.couldNotRecordSuspension')) }
   }
 
   const patchSuspension = async (id: string, patch: Record<string, any>, ok?: string) => {
@@ -279,27 +281,24 @@ export default function EnforcementPage() {
       if (error) throw error
       if (ok) setMsg(ok)
       await load()
-    } catch (err: any) { setError(err?.message || 'Could not update the suspension') }
+    } catch (err: any) { setError(err?.message || t('admin.enforcement.couldNotUpdateSuspension')) }
   }
 
   return (
     <div className="admin-page cset">
       <ComplianceBackLink />
-      <div className="admin-kicker">Florida compliance</div>
-      <h1 className="admin-h1">Violations, fines <span className="amp">&</span> hearings</h1>
+      <div className="admin-kicker">{t('admin.enforcement.kicker')}</div>
+      <h1 className="admin-h1">{t('admin.enforcement.pageTitle')}</h1>
       <p className="admin-dek">
-        Run a fine or a use-rights suspension through the statutory process — an independent fining
-        committee, the {HEARING_NOTICE_DAYS.value}-day notice and opportunity for a hearing, the
-        ${FINE_PER_VIOLATION_MAX.value}/day and ${FINE_AGGREGATE_CAP.value.toLocaleString('en-US')}-aggregate
-        caps, and voting / use-rights suspensions. We track each deadline; you decide every step.
+        {t('admin.enforcement.pageDek', { noticeDays: HEARING_NOTICE_DAYS.value, fineMax: FINE_PER_VIOLATION_MAX.value, aggregateCap: FINE_AGGREGATE_CAP.value.toLocaleString('en-US') })}
       </p>
 
       <AttorneyNote />
 
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
-      {status === 'none' && <div className="admin-note admin-note-warn">No community is linked to your account yet. Run the setup SQL, then reload.</div>}
-      {status === 'error' && <div className="admin-note admin-note-err">{error}<button type="button" className="admin-btn-ghost" onClick={load}>Retry</button></div>}
-      {status === 'loading' && <div className="admin-note">Loading…</div>}
+      {status === 'none' && <div className="admin-note admin-note-warn">{t('admin.enforcement.noCommunity')}</div>}
+      {status === 'error' && <div className="admin-note admin-note-err">{error}<button type="button" className="admin-btn-ghost" onClick={load}>{t('admin.enforcement.retry')}</button></div>}
+      {status === 'loading' && <div className="admin-note">{t('admin.enforcement.loading')}</div>}
 
       {status === 'ready' && (
         <>
@@ -308,14 +307,13 @@ export default function EnforcementPage() {
             <div className="card">
               <div className="card-head">
                 <div>
-                  <h2>Contested fines ({contestedFines.length})</h2>
+                  <h2>{t('admin.enforcement.contestedFinesTitle', { count: contestedFines.length })}</h2>
                   <div className="sub">
-                    An owner has exercised their right to contest. Send the {HEARING_NOTICE_DAYS.value}-day hearing notice,
-                    convene the independent committee, then record the decision. Do not impose the fine until the committee rules.
+                    {t('admin.enforcement.contestedFinesDek', { noticeDays: HEARING_NOTICE_DAYS.value })}
                   </div>
                 </div>
                 <span style={chip(committeeOk ? '#067647' : '#B42318')}>
-                  {committeeOk ? 'Committee ready ✓' : `Committee short — ${independents.length}/${FINING_COMMITTEE_MIN.value}`}
+                  {committeeOk ? t('admin.enforcement.committeeReady') : t('admin.enforcement.committeeShort', { current: independents.length, min: FINING_COMMITTEE_MIN.value })}
                 </span>
               </div>
               {contestedFines.map(v => (
@@ -337,15 +335,13 @@ export default function EnforcementPage() {
           <div className="card">
             <div className="card-head">
               <div>
-                <h2>Independent fining committee</h2>
+                <h2>{t('admin.enforcement.committeeTitle')}</h2>
                 <div className="sub">
-                  A fine or covenant-violation suspension can&apos;t be imposed without a hearing before a committee of at
-                  least {FINING_COMMITTEE_MIN.value} members the board appoints who are <strong>not</strong> officers, directors,
-                  employees, or their relatives ({FINING_COMMITTEE_MIN.citation}).
+                  {t('admin.enforcement.committeeDek', { min: FINING_COMMITTEE_MIN.value, citation: FINING_COMMITTEE_MIN.citation })}
                 </div>
               </div>
               <span style={chip(committeeOk ? '#067647' : '#B42318')}>
-                {independents.length} of {FINING_COMMITTEE_MIN.value} independent {committeeOk ? '✓' : 'required'}
+                {t('admin.enforcement.committeeCount', { current: independents.length, min: FINING_COMMITTEE_MIN.value, status: committeeOk ? '✓' : t('admin.enforcement.committeeRequired') })}
               </span>
             </div>
             <CommitteeManager
@@ -356,51 +352,51 @@ export default function EnforcementPage() {
 
           {/* ---- Propose a fine ---- */}
           <div className="card">
-            <div className="card-head"><div><h2>Propose a fine</h2></div></div>
+            <div className="card-head"><div><h2>{t('admin.enforcement.proposeFineTitle')}</h2></div></div>
             <form className="admin-form" onSubmit={proposeFine}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-              <label className="admin-field"><span className="admin-field-label">Owner (from roster)</span>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldOwner')}</span>
                 <select className="admin-input" value={form.resident_id} onChange={e => setF('resident_id', e.target.value)}>
-                  <option value="">— select —</option>
-                  {residents.map(r => <option key={r.id} value={r.id}>{[r.full_name || 'Owner', r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>)}
+                  <option value="">{t('admin.enforcement.selectPlaceholder')}</option>
+                  {residents.map(r => <option key={r.id} value={r.id}>{[r.full_name || t('admin.enforcement.ownerFallback'), r.unit_number ? `${t('admin.enforcement.unitPrefix')} ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>)}
                 </select></label>
-              <label className="admin-field"><span className="admin-field-label">Violation / rule</span>
-                <input className="admin-input" value={form.rule_title ?? ''} placeholder="e.g. Unapproved exterior paint" onChange={e => setF('rule_title', e.target.value)} /></label>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldViolationRule')}</span>
+                <input className="admin-input" value={form.rule_title ?? ''} placeholder={t('admin.enforcement.violationRulePlaceholder')} onChange={e => setF('rule_title', e.target.value)} /></label>
               {form.continuing ? (
                 <>
-                  <label className="admin-field"><span className="admin-field-label">Fine per day ($, max {FINE_PER_VIOLATION_MAX.value})</span>
+                  <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldFinePerDay', { max: FINE_PER_VIOLATION_MAX.value })}</span>
                     <input className="admin-input" type="number" min="0" max={FINE_PER_VIOLATION_MAX.value} step="1" value={form.fine_per_day ?? ''} onChange={e => setF('fine_per_day', e.target.value)} /></label>
-                  <label className="admin-field"><span className="admin-field-label">Accrues from</span>
+                  <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldAccruesFrom')}</span>
                     <input className="admin-input" type="date" value={form.fine_started_on ?? ''} onChange={e => setF('fine_started_on', e.target.value)} /></label>
                 </>
               ) : (
-                <label className="admin-field"><span className="admin-field-label">Fine amount ($, max {FINE_PER_VIOLATION_MAX.value})</span>
+                <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldFineAmount', { max: FINE_PER_VIOLATION_MAX.value })}</span>
                   <input className="admin-input" type="number" min="0" max={FINE_PER_VIOLATION_MAX.value} step="1" value={form.amount ?? ''} onChange={e => setF('amount', e.target.value)} /></label>
               )}
-              <label className="admin-field"><span className="admin-field-label">Cure-by date (optional)</span>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldCureBy')}</span>
                 <input className="admin-input" type="date" value={form.cure_by ?? ''} onChange={e => setF('cure_by', e.target.value)} /></label>
             </div>
             <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', margin: '10px 0' }}>
               <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
                 <input type="checkbox" checked={!!form.continuing} onChange={e => setF('continuing', e.target.checked)} />
-                Continuing violation (per-day fine, capped at ${FINE_AGGREGATE_CAP.value.toLocaleString('en-US')})
+                {t('admin.enforcement.checkContinuing', { cap: FINE_AGGREGATE_CAP.value.toLocaleString('en-US') })}
               </label>
               <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
                 <input type="checkbox" checked={form.hearing_required !== false} onChange={e => setF('hearing_required', e.target.checked)} />
-                Requires a hearing (recommended)
+                {t('admin.enforcement.checkHearingRequired')}
               </label>
             </div>
             <div className="card-cta">
               {error && status === 'ready' && <span className="admin-err-inline">{error}</span>}
-              <button type="submit" className="admin-primary-btn" disabled={saving || !form.resident_id}>{saving ? 'Saving…' : 'Propose fine'}</button>
+              <button type="submit" className="admin-primary-btn" disabled={saving || !form.resident_id}>{saving ? t('admin.enforcement.saving') : t('admin.enforcement.btnProposeFine')}</button>
             </div>
             </form>
           </div>
 
           {/* ---- Fines on the hearing track ---- */}
           <div className="card">
-            <div className="card-head"><div><h2>Fines <span className="amp">&</span> hearings ({trackViolations.length})</h2></div></div>
-            {trackViolations.length === 0 && <div className="admin-note">No fines are working through the hearing process.</div>}
+            <div className="card-head"><div><h2>{t('admin.enforcement.finesHearingsTitle', { count: trackViolations.length })}</h2></div></div>
+            {trackViolations.length === 0 && <div className="admin-note">{t('admin.enforcement.noFinesInTrack')}</div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {trackViolations.map(v => (
                 <ViolationCard
@@ -418,24 +414,18 @@ export default function EnforcementPage() {
 
           {/* ---- Suspensions ---- */}
           <div className="card">
-            <div className="card-head"><div><h2>Voting <span className="amp">&</span> use-rights suspensions</h2></div></div>
+            <div className="card-head"><div><h2>{t('admin.enforcement.suspensionsTitle')}</h2></div></div>
             <SuspensionForm residents={residents} onRecord={recordSuspension} />
 
           {/* Suggested voting suspensions (>90 days delinquent, no hearing required) */}
           {candidates.length > 0 && (
             <section style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, padding: '14px 16px', background: '#fafafa', marginTop: 16 }}>
-              <h3 className="bc-title" style={{ margin: '0 0 4px', fontSize: 15 }}>Eligible for voting suspension ({candidates.length})</h3>
+              <h3 className="bc-title" style={{ margin: '0 0 4px', fontSize: 15 }}>{t('admin.enforcement.eligibleSuspensionTitle', { count: candidates.length })}</h3>
               <p style={{ fontSize: 12.5, opacity: 0.72, margin: '0 0 10px' }}>
                 {community?.association_type === 'hoa' ? (
-                  <>Owners more than {SUSPENSION_DELINQUENCY_DAYS.value} days delinquent with an open collection case and no
-                  suspension on file. The board may suspend voting + use rights at a properly noticed meeting — no hearing required.</>
+                  t('admin.enforcement.eligibleSuspensionDekHoa', { days: SUSPENSION_DELINQUENCY_DAYS.value })
                 ) : (
-                  <>Owners more than ${VOTING_SUSPENSION_MONETARY_FLOOR.value.toLocaleString('en-US')} <strong>and</strong> more
-                  than {SUSPENSION_DELINQUENCY_DAYS.value} days delinquent, with an open collection case and no suspension on file.
-                  A condominium may suspend voting rights only above the ${VOTING_SUSPENSION_MONETARY_FLOOR.value.toLocaleString('en-US')} floor;
-                  proof of the obligation must reach the owner {VOTING_SUSPENSION_PROOF_DAYS.value} days before the suspension takes
-                  effect, and owners must be told at least {VOTING_SUSPENSION_ELECTION_NOTICE_DAYS.value} days before an election
-                  that nonpayment may suspend voting rights ({VOTING_SUSPENSION_MONETARY_FLOOR.citation}).</>
+                  t('admin.enforcement.eligibleSuspensionDekCondo', { floor: VOTING_SUSPENSION_MONETARY_FLOOR.value.toLocaleString('en-US'), days: SUSPENSION_DELINQUENCY_DAYS.value, proofDays: VOTING_SUSPENSION_PROOF_DAYS.value, electionDays: VOTING_SUSPENSION_ELECTION_NOTICE_DAYS.value, citation: VOTING_SUSPENSION_MONETARY_FLOOR.citation })
                 )}
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -443,13 +433,13 @@ export default function EnforcementPage() {
                   <div key={c.case_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', border: '1px solid rgba(0,0,0,0.08)', borderLeft: '4px solid #B54708', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 14 }}>{c.unit_label}</div>
-                      <div style={{ fontSize: 12, opacity: 0.7 }}>{c.days} days delinquent{c.balance ? ` · ${fmt$(c.balance)} owed` : ''}</div>
+                      <div style={{ fontSize: 12, opacity: 0.7 }}>{t('admin.enforcement.candidateDaysDelinquent', { days: c.days })}{c.balance ? ` · ${fmt$(c.balance)} ${t('admin.enforcement.owed')}` : ''}</div>
                     </div>
                     <button className="admin-primary-btn" onClick={() => recordSuspension({
                       resident_id: c.resident_id, profile_id: c.profile_id, unit_label: c.unit_label,
                       rights: 'both', basis: 'delinquency_90', requires_hearing: false,
                       amount_owed: c.balance || null,
-                    })}>Record suspension</button>
+                    })}>{t('admin.enforcement.btnRecordSuspension')}</button>
                   </div>
                 ))}
               </div>
@@ -458,12 +448,12 @@ export default function EnforcementPage() {
 
           {/* Suspension list */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 14 }}>
-            {suspensions.length === 0 && <div className="admin-note">No suspensions on file.</div>}
+            {suspensions.length === 0 && <div className="admin-note">{t('admin.enforcement.noSuspensions')}</div>}
             {suspensions.map(s => (
               <SuspensionCard
                 key={s.id} s={s}
-                onActivate={() => patchSuspension(s.id, { status: 'active', started_at: todayYmd(), approved_at: todayYmd() }, 'Suspension activated.')}
-                onLift={() => patchSuspension(s.id, { status: 'lifted', ended_at: todayYmd() }, 'Suspension lifted.')}
+                onActivate={() => patchSuspension(s.id, { status: 'active', started_at: todayYmd(), approved_at: todayYmd() }, t('admin.enforcement.suspensionActivatedMsg'))}
+                onLift={() => patchSuspension(s.id, { status: 'lifted', ended_at: todayYmd() }, t('admin.enforcement.suspensionLiftedMsg'))}
               />
             ))}
           </div>
@@ -491,6 +481,7 @@ function ContestedFineRow({ v, hearing, committeeOk, onSendNotice, onScheduleHea
   onOpenEvidence: (path: string) => void
   onDecide: (v: ViolationRow, decision: 'upheld' | 'dismissed' | 'reduced', note: string, reducedAmount?: number | null) => void
 }) {
+  const t = useT()
   const [mode, setMode] = useState<null | 'uphold' | 'reduce' | 'dismiss'>(null)
   const [note, setNote] = useState('')
   const [reduced, setReduced] = useState('')
@@ -509,61 +500,61 @@ function ContestedFineRow({ v, hearing, committeeOk, onSendNotice, onScheduleHea
     <div style={{ border: '1px solid rgba(0,0,0,0.1)', borderRadius: 12, padding: '14px 16px', background: '#fff', marginTop: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
         <div style={{ fontWeight: 700 }}>
-          {v.resident_label || 'Owner'} · {v.amount != null ? fmt$(v.amount) : '—'}
+          {v.resident_label || t('admin.enforcement.ownerFallback')} · {v.amount != null ? fmt$(v.amount) : '—'}
           {v.rule_title ? ` · ${v.rule_title}` : ''}
         </div>
-        <span style={chip('#B54708')}>Contested {v.dispute_filed_at || ''}</span>
+        <span style={chip('#B54708')}>{t('admin.enforcement.contestedChip')} {v.dispute_filed_at || ''}</span>
       </div>
       {v.dispute_reason && (
         <div style={{ marginTop: 8, fontSize: 13, color: '#0A2440', background: '#FAFAFA', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 8, padding: '8px 10px' }}>
-          <span style={{ fontWeight: 600 }}>Owner&rsquo;s reason: </span>{v.dispute_reason}
+          <span style={{ fontWeight: 600 }}>{t('admin.enforcement.ownerReasonLabel')} </span>{v.dispute_reason}
         </div>
       )}
       {v.dispute_attachment_path && (
         <button type="button" className="admin-btn-ghost" style={{ marginTop: 8 }}
           onClick={() => onOpenEvidence(v.dispute_attachment_path!)}>
-          View evidence{v.dispute_attachment_name ? ` · ${v.dispute_attachment_name}` : ''}
+          {t('admin.enforcement.viewEvidence')}{v.dispute_attachment_name ? ` · ${v.dispute_attachment_name}` : ''}
         </button>
       )}
 
       {/* Hearing notice / schedule */}
       <div style={{ marginTop: 10, fontSize: 12.5, color: 'rgba(10,36,64,0.7)' }}>
         {noticed
-          ? <>14-day notice sent {hearing?.notice_sent_at}{ready ? ` · hearing can be held on/after ${ymd(ready)}` : ''}{hearing?.scheduled_at ? ` · scheduled ${hearing.scheduled_at}` : ''}</>
-          : 'No hearing notice sent yet.'}
+          ? <>{t('admin.enforcement.noticeSentOn')} {hearing?.notice_sent_at}{ready ? ` · ${t('admin.enforcement.hearingCanBeHeld')} ${ymd(ready)}` : ''}{hearing?.scheduled_at ? ` · ${t('admin.enforcement.scheduledOn')} ${hearing.scheduled_at}` : ''}</>
+          : t('admin.enforcement.noNoticeSent')}
       </div>
       <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-        {!noticed && <button type="button" className="admin-primary-btn" onClick={onSendNotice}>Send 14-day hearing notice</button>}
+        {!noticed && <button type="button" className="admin-primary-btn" onClick={onSendNotice}>{t('admin.enforcement.btnSendHearingNotice')}</button>}
         {noticed && !hearing?.scheduled_at && (
           <>
             <input className="admin-input" type="date" value={date} onChange={e => setDate(e.target.value)} style={{ maxWidth: 170 }} />
-            <button type="button" className="admin-btn-ghost" disabled={!date} onClick={() => onScheduleHearing(date)}>Schedule hearing</button>
+            <button type="button" className="admin-btn-ghost" disabled={!date} onClick={() => onScheduleHearing(date)}>{t('admin.enforcement.btnScheduleHearing')}</button>
           </>
         )}
       </div>
 
       {/* Committee decision */}
-      {!committeeOk && <div className="admin-note admin-note-warn" style={{ marginTop: 10, fontSize: 12.5 }}>Add at least {FINING_COMMITTEE_MIN.value} independent committee members before ruling.</div>}
+      {!committeeOk && <div className="admin-note admin-note-warn" style={{ marginTop: 10, fontSize: 12.5 }}>{t('admin.enforcement.committeeNotReadyWarn', { min: FINING_COMMITTEE_MIN.value })}</div>}
       {mode ? (
         <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
           {mode === 'reduce' && (
-            <label className="admin-field"><span className="admin-field-label">Reduced amount ($)</span>
+            <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldReducedAmount')}</span>
               <input className="admin-input" type="number" min="0" step="0.01" value={reduced} onChange={e => setReduced(e.target.value)} /></label>
           )}
-          <label className="admin-field"><span className="admin-field-label">Decision note (shared with the owner)</span>
+          <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldDecisionNote')}</span>
             <textarea className="admin-input" rows={2} value={note} onChange={e => setNote(e.target.value)} /></label>
           <div style={{ display: 'flex', gap: 8 }}>
             <button type="button" className="admin-primary-btn" disabled={mode === 'reduce' && !(Number(reduced) > 0)} onClick={submit}>
-              Confirm {mode === 'uphold' ? 'uphold' : mode === 'reduce' ? 'reduction' : 'dismissal'}
+              {t('admin.enforcement.btnConfirm')} {mode === 'uphold' ? t('admin.enforcement.modeUphold') : mode === 'reduce' ? t('admin.enforcement.modeReduction') : t('admin.enforcement.modeDismissal')}
             </button>
-            <button type="button" className="admin-btn-ghost" onClick={() => { setMode(null); setNote(''); setReduced('') }}>Back</button>
+            <button type="button" className="admin-btn-ghost" onClick={() => { setMode(null); setNote(''); setReduced('') }}>{t('admin.enforcement.btnBack')}</button>
           </div>
         </div>
       ) : (
         <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-          <button type="button" className="admin-primary-btn" disabled={!committeeOk} onClick={() => setMode('uphold')}>Uphold fine</button>
-          <button type="button" className="admin-btn-ghost" disabled={!committeeOk} onClick={() => setMode('reduce')}>Reduce fine</button>
-          <button type="button" className="admin-btn-ghost" disabled={!committeeOk} onClick={() => setMode('dismiss')}>Dismiss fine</button>
+          <button type="button" className="admin-primary-btn" disabled={!committeeOk} onClick={() => setMode('uphold')}>{t('admin.enforcement.btnUpholdFine')}</button>
+          <button type="button" className="admin-btn-ghost" disabled={!committeeOk} onClick={() => setMode('reduce')}>{t('admin.enforcement.btnReduceFine')}</button>
+          <button type="button" className="admin-btn-ghost" disabled={!committeeOk} onClick={() => setMode('dismiss')}>{t('admin.enforcement.btnDismissFine')}</button>
         </div>
       )}
     </div>
@@ -576,6 +567,7 @@ function ContestedFineRow({ v, hearing, committeeOk, onSendNotice, onScheduleHea
 function CommitteeManager({ members, communityId, createdBy, onChange, setError }: {
   members: FiningCommitteeMemberRow[]; communityId: string | undefined; createdBy: string | null; onChange: () => void; setError: (s: string) => void
 }) {
+  const t = useT()
   const [name, setName] = useState('')
   const [independent, setIndependent] = useState(true)
   const [note, setNote] = useState('')
@@ -591,7 +583,7 @@ function CommitteeManager({ members, communityId, createdBy, onChange, setError 
       }))) as any
       if (error) throw error
       setName(''); setIndependent(true); setNote(''); onChange()
-    } catch (err: any) { setError(err?.message || 'Could not add the member') }
+    } catch (err: any) { setError(err?.message || t('admin.enforcement.couldNotAddMember')) }
     finally { setBusy(false) }
   }
 
@@ -601,7 +593,7 @@ function CommitteeManager({ members, communityId, createdBy, onChange, setError 
       const { error } = (await withTimeout(supabase.from('ev_fining_committee_members').update({ active: false }).eq('id', id))) as any
       if (error) throw error
       onChange()
-    } catch (err: any) { setError(err?.message || 'Could not remove the member') }
+    } catch (err: any) { setError(err?.message || t('admin.enforcement.couldNotRemoveMember')) }
   }
 
   const active = members.filter(m => m.active !== false)
@@ -614,26 +606,26 @@ function CommitteeManager({ members, communityId, createdBy, onChange, setError 
               <span>
                 {m.full_name}
                 {m.is_independent === false
-                  ? <span style={{ ...chip('#B42318'), marginLeft: 8 }}>NOT independent{m.relationship_note ? ` — ${m.relationship_note}` : ''}</span>
-                  : <span style={{ ...chip('#067647'), marginLeft: 8 }}>independent</span>}
+                  ? <span style={{ ...chip('#B42318'), marginLeft: 8 }}>{t('admin.enforcement.notIndependent')}{m.relationship_note ? ` — ${m.relationship_note}` : ''}</span>
+                  : <span style={{ ...chip('#067647'), marginLeft: 8 }}>{t('admin.enforcement.independent')}</span>}
               </span>
-              <button className="admin-btn-ghost" onClick={() => remove(m.id)}>Remove</button>
+              <button className="admin-btn-ghost" onClick={() => remove(m.id)}>{t('admin.enforcement.btnRemove')}</button>
             </div>
           ))}
         </div>
       )}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <label className="admin-field" style={{ maxWidth: 220 }}><span className="admin-field-label">Member name</span>
-          <input className="admin-input" value={name} onChange={e => setName(e.target.value)} placeholder="Full name" /></label>
+        <label className="admin-field" style={{ maxWidth: 220 }}><span className="admin-field-label">{t('admin.enforcement.fieldMemberName')}</span>
+          <input className="admin-input" value={name} onChange={e => setName(e.target.value)} placeholder={t('admin.enforcement.memberNamePlaceholder')} /></label>
         <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, paddingBottom: 8 }}>
           <input type="checkbox" checked={independent} onChange={e => setIndependent(e.target.checked)} />
-          Independent of the board
+          {t('admin.enforcement.checkIndependentOfBoard')}
         </label>
         {!independent && (
-          <label className="admin-field" style={{ maxWidth: 220 }}><span className="admin-field-label">Relationship (why not independent)</span>
-            <input className="admin-input" value={note} onChange={e => setNote(e.target.value)} placeholder="e.g. director's spouse" /></label>
+          <label className="admin-field" style={{ maxWidth: 220 }}><span className="admin-field-label">{t('admin.enforcement.fieldRelationship')}</span>
+            <input className="admin-input" value={note} onChange={e => setNote(e.target.value)} placeholder={t('admin.enforcement.relationshipPlaceholder')} /></label>
         )}
-        <button className="admin-primary-btn" disabled={busy || !name.trim()} onClick={add}>{busy ? 'Adding…' : 'Add member'}</button>
+        <button className="admin-primary-btn" disabled={busy || !name.trim()} onClick={add}>{busy ? t('admin.enforcement.adding') : t('admin.enforcement.btnAddMember')}</button>
       </div>
     </div>
   )
@@ -647,6 +639,7 @@ function ViolationCard({ v, hearing, regime, committeeOk, onSendNotice, onSchedu
   onSendNotice: () => void; onSchedule: (date: string) => void; onDecision: (d: any) => void; onLevy: () => void
   onPatch: (patch: Record<string, any>, ok?: string) => void
 }) {
+  const t = useT()
   const stage = String(v.enforcement_stage ?? 'none') as EnforcementStage
   const color = STAGE_COLOR[stage] || '#475467'
   const fine = fineAccrued(v)
@@ -656,14 +649,14 @@ function ViolationCard({ v, hearing, regime, committeeOk, onSendNotice, onSchedu
 
   let chipText: string | null = null
   let chipColor = '#175CD3'
-  if (stage === 'proposed') { chipText = 'Send 14-day notice'; chipColor = '#175CD3' }
+  if (stage === 'proposed') { chipText = t('admin.enforcement.chipSend14Day'); chipColor = '#175CD3' }
   else if ((stage === 'notice_sent' || stage === 'hearing_set') && ready) {
     const d = calendarDaysUntil(ready, new Date())
-    chipText = d > 0 ? `Hearing window to ${ymd(ready)}` : `May hold hearing (since ${ymd(ready)})`
+    chipText = d > 0 ? t('admin.enforcement.chipHearingWindow', { date: ymd(ready) }) : t('admin.enforcement.chipMayHoldHearing', { date: ymd(ready) })
     chipColor = d > 0 ? '#175CD3' : '#B54708'
-  } else if (stage === 'upheld') { chipText = 'Upheld — levy when ready'; chipColor = '#067647' }
-  else if (stage === 'rejected') { chipText = 'Rejected — may not impose'; chipColor = '#98A2B3' }
-  else if (stage === 'levied') { chipText = 'Levied'; chipColor = '#B42318' }
+  } else if (stage === 'upheld') { chipText = t('admin.enforcement.chipUpheld'); chipColor = '#067647' }
+  else if (stage === 'rejected') { chipText = t('admin.enforcement.chipRejected'); chipColor = '#98A2B3' }
+  else if (stage === 'levied') { chipText = t('admin.enforcement.chipLevied'); chipColor = '#B42318' }
 
   const docHref = (type: string) => `/admin/enforcement/${v.id}/document?type=${type}`
 
@@ -673,9 +666,9 @@ function ViolationCard({ v, hearing, regime, committeeOk, onSendNotice, onSchedu
         <div>
           <div style={{ fontWeight: 700, fontSize: 15 }}>{v.resident_label || v.id.slice(0, 8)}</div>
           <div style={{ fontSize: 12.5, opacity: 0.72, marginTop: 2 }}>
-            {v.rule_title || 'Rule violation'} · {STAGE_LABELS[stage]}
+            {v.rule_title || t('admin.enforcement.ruleViolation')} · {STAGE_LABELS[stage]}
             {v.fine_continuing
-              ? ` · ${fmt$(v.fine_per_day)}/day → ${fmt$(fine.capped)}${fine.atCap ? ' (at cap)' : ''}`
+              ? ` · ${fmt$(v.fine_per_day)}/day → ${fmt$(fine.capped)}${fine.atCap ? ` (${t('admin.enforcement.atCap')})` : ''}`
               : v.amount != null ? ` · ${fmt$(v.amount)}` : ''}
           </div>
         </div>
@@ -685,25 +678,25 @@ function ViolationCard({ v, hearing, regime, committeeOk, onSendNotice, onSchedu
       {/* Stage actions */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
         {stage === 'proposed' && (
-          <button className="admin-primary-btn" onClick={onSendNotice}>Send 14-day hearing notice</button>
+          <button className="admin-primary-btn" onClick={onSendNotice}>{t('admin.enforcement.btnSendHearingNotice')}</button>
         )}
         {(stage === 'notice_sent' || stage === 'hearing_set') && (
           <>
             <input type="date" className="admin-input" style={{ maxWidth: 170 }} value={schedDate} onChange={e => setSchedDate(e.target.value)} />
             <button className="admin-btn-ghost" disabled={!schedDate} onClick={() => onSchedule(schedDate)}>
-              {stage === 'hearing_set' ? 'Reschedule' : 'Schedule hearing'}
+              {stage === 'hearing_set' ? t('admin.enforcement.btnReschedule') : t('admin.enforcement.btnScheduleHearing')}
             </button>
-            <button className="admin-primary-btn" onClick={() => setDecideOpen(o => !o)}>{decideOpen ? 'Cancel' : 'Record decision'}</button>
-            {!committeeOk && <span style={{ fontSize: 12, color: '#B42318' }}>⚠ committee not yet independent/quorate</span>}
+            <button className="admin-primary-btn" onClick={() => setDecideOpen(o => !o)}>{decideOpen ? t('admin.enforcement.btnCancel') : t('admin.enforcement.btnRecordDecision')}</button>
+            {!committeeOk && <span style={{ fontSize: 12, color: '#B42318' }}>⚠ {t('admin.enforcement.committeeNotQuorate')}</span>}
           </>
         )}
         {stage === 'upheld' && !v.levied_at && (
-          <button className="admin-primary-btn" onClick={onLevy}>Mark fine levied</button>
+          <button className="admin-primary-btn" onClick={onLevy}>{t('admin.enforcement.btnMarkLevied')}</button>
         )}
         {/* document links */}
-        <a className="admin-btn-ghost" href={docHref('violation_notice')} target="_blank" rel="noopener noreferrer">Violation notice</a>
-        {(stage !== 'proposed' && stage !== 'none') && <a className="admin-btn-ghost" href={docHref('hearing_notice')} target="_blank" rel="noopener noreferrer">Hearing notice</a>}
-        {(stage === 'upheld' || stage === 'rejected' || stage === 'levied') && <a className="admin-btn-ghost" href={docHref('decision')} target="_blank" rel="noopener noreferrer">Decision</a>}
+        <a className="admin-btn-ghost" href={docHref('violation_notice')} target="_blank" rel="noopener noreferrer">{t('admin.enforcement.linkViolationNotice')}</a>
+        {(stage !== 'proposed' && stage !== 'none') && <a className="admin-btn-ghost" href={docHref('hearing_notice')} target="_blank" rel="noopener noreferrer">{t('admin.enforcement.linkHearingNotice')}</a>}
+        {(stage === 'upheld' || stage === 'rejected' || stage === 'levied') && <a className="admin-btn-ghost" href={docHref('decision')} target="_blank" rel="noopener noreferrer">{t('admin.enforcement.linkDecision')}</a>}
       </div>
 
       {decideOpen && <DecisionForm onSubmit={(d: any) => { setDecideOpen(false); onDecision(d) }} />}
@@ -711,21 +704,21 @@ function ViolationCard({ v, hearing, regime, committeeOk, onSendNotice, onSchedu
       {/* HOA post-hearing fining clock — findings notice (7d) + payment window (≥30d) */}
       {regime === 'hoa' && (stage === 'upheld' || stage === 'levied') && (
         <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px dashed rgba(0,0,0,0.12)' }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: '#475467', marginBottom: 6 }}>HOA fining clock ({HOA_FINDINGS_NOTICE_DAYS.citation} / {HOA_FINE_PAYMENT_MIN_DAYS.citation})</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: '#475467', marginBottom: 6 }}>{t('admin.enforcement.hoaFiningClockLabel', { citationFindings: HOA_FINDINGS_NOTICE_DAYS.citation, citationPayment: HOA_FINE_PAYMENT_MIN_DAYS.citation })}</div>
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11.5 }}>
-              <span style={{ opacity: 0.7 }}>Findings notice sent{hearing?.held_at ? ` (due ${ymd(hoaFindingsNoticeDue(hearing.held_at)!)})` : ''}</span>
+              <span style={{ opacity: 0.7 }}>{t('admin.enforcement.findingsNoticeSent')}{hearing?.held_at ? ` (${t('admin.enforcement.due')} ${ymd(hoaFindingsNoticeDue(hearing.held_at)!)})` : ''}</span>
               <input className="admin-input" style={{ maxWidth: 160 }} type="date" defaultValue={v.findings_sent_at ?? ''}
-                onChange={e => onPatch({ findings_sent_at: e.target.value || null }, 'Findings notice date saved.')} />
+                onChange={e => onPatch({ findings_sent_at: e.target.value || null }, t('admin.enforcement.findingsNoticeSavedMsg'))} />
             </label>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11.5 }}>
-              <span style={{ opacity: 0.7 }}>Payment due by{v.findings_sent_at ? ` (≥ ${ymd(hoaPaymentMinDue(v.findings_sent_at)!)})` : ''}</span>
+              <span style={{ opacity: 0.7 }}>{t('admin.enforcement.paymentDueBy')}{v.findings_sent_at ? ` (≥ ${ymd(hoaPaymentMinDue(v.findings_sent_at)!)})` : ''}</span>
               <input className="admin-input" style={{ maxWidth: 160 }} type="date" defaultValue={v.fine_due_on ?? ''}
-                onChange={e => onPatch({ fine_due_on: e.target.value || null }, 'Payment deadline saved.')} />
+                onChange={e => onPatch({ fine_due_on: e.target.value || null }, t('admin.enforcement.paymentDeadlineSavedMsg'))} />
             </label>
           </div>
           <p style={{ fontSize: 11.5, opacity: 0.7, margin: '6px 0 0' }}>
-            Written notice of the committee&apos;s findings is due within {HOA_FINDINGS_NOTICE_DAYS.value} days of the hearing; the payment deadline must be at least {HOA_FINE_PAYMENT_MIN_DAYS.value} days after that notice.
+            {t('admin.enforcement.hoaFiningClockNote', { findingsDays: HOA_FINDINGS_NOTICE_DAYS.value, paymentDays: HOA_FINE_PAYMENT_MIN_DAYS.value })}
           </p>
         </div>
       )}
@@ -734,6 +727,7 @@ function ViolationCard({ v, hearing, regime, committeeOk, onSendNotice, onSchedu
 }
 
 function DecisionForm({ onSubmit }: { onSubmit: (d: any) => void }) {
+  const t = useT()
   const [present, setPresent] = useState('3')
   const [forV, setForV] = useState('')
   const [against, setAgainst] = useState('')
@@ -742,19 +736,19 @@ function DecisionForm({ onSubmit }: { onSubmit: (d: any) => void }) {
   return (
     <div style={{ border: '1px dashed #cbd5e1', borderRadius: 10, padding: 12, marginTop: 10 }}>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <label className="admin-field" style={{ maxWidth: 130 }}><span className="admin-field-label">Members present</span>
+        <label className="admin-field" style={{ maxWidth: 130 }}><span className="admin-field-label">{t('admin.enforcement.fieldMembersPresent')}</span>
           <input className="admin-input" type="number" min="0" value={present} onChange={e => setPresent(e.target.value)} /></label>
-        <label className="admin-field" style={{ maxWidth: 110 }}><span className="admin-field-label">Votes to uphold</span>
+        <label className="admin-field" style={{ maxWidth: 110 }}><span className="admin-field-label">{t('admin.enforcement.fieldVotesToUphold')}</span>
           <input className="admin-input" type="number" min="0" value={forV} onChange={e => setForV(e.target.value)} /></label>
-        <label className="admin-field" style={{ maxWidth: 110 }}><span className="admin-field-label">Votes against</span>
+        <label className="admin-field" style={{ maxWidth: 110 }}><span className="admin-field-label">{t('admin.enforcement.fieldVotesAgainst')}</span>
           <input className="admin-input" type="number" min="0" value={against} onChange={e => setAgainst(e.target.value)} /></label>
       </div>
-      <label className="admin-field" style={{ marginTop: 8 }}><span className="admin-field-label">Minutes / notes</span>
+      <label className="admin-field" style={{ marginTop: 8 }}><span className="admin-field-label">{t('admin.enforcement.fieldMinutesNotes')}</span>
         <textarea className="admin-input" rows={2} value={minutes} onChange={e => setMinutes(e.target.value)} /></label>
       <div style={{ display: 'flex', gap: 10, marginTop: 8, alignItems: 'center' }}>
-        <button className="admin-primary-btn" onClick={() => onSubmit({ decision: 'upheld', present: Number(present) || 0, forV: Number(forV) || 0, against: Number(against) || 0, minutes })}>Record: upheld</button>
-        <button className="admin-btn-ghost" onClick={() => onSubmit({ decision: 'rejected', present: Number(present) || 0, forV: Number(forV) || 0, against: Number(against) || 0, minutes })}>Record: rejected</button>
-        <span style={{ fontSize: 12, opacity: 0.7 }}>By the votes entered, a majority {proposed.decision === 'upheld' ? 'upholds' : 'does not uphold'} the fine.</span>
+        <button className="admin-primary-btn" onClick={() => onSubmit({ decision: 'upheld', present: Number(present) || 0, forV: Number(forV) || 0, against: Number(against) || 0, minutes })}>{t('admin.enforcement.btnRecordUpheld')}</button>
+        <button className="admin-btn-ghost" onClick={() => onSubmit({ decision: 'rejected', present: Number(present) || 0, forV: Number(forV) || 0, against: Number(against) || 0, minutes })}>{t('admin.enforcement.btnRecordRejected')}</button>
+        <span style={{ fontSize: 12, opacity: 0.7 }}>{t('admin.enforcement.votesSummary', { outcome: proposed.decision === 'upheld' ? t('admin.enforcement.voteOutcomeUpholds') : t('admin.enforcement.voteOutcomeDoesNotUphold') })}</span>
       </div>
     </div>
   )
@@ -764,6 +758,7 @@ function DecisionForm({ onSubmit }: { onSubmit: (d: any) => void }) {
 // Suspension form + card
 // ----------------------------------------------------------------------------
 function SuspensionForm({ residents, onRecord }: { residents: any[]; onRecord: (s: any) => void }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const [residentId, setResidentId] = useState('')
   const [rights, setRights] = useState<SuspensionRights>('voting')
@@ -771,11 +766,11 @@ function SuspensionForm({ residents, onRecord }: { residents: any[]; onRecord: (
   const [amount, setAmount] = useState('')
   const [since, setSince] = useState('')
 
-  if (!open) return <button className="admin-btn-ghost" onClick={() => setOpen(true)}>+ Record a suspension</button>
+  if (!open) return <button className="admin-btn-ghost" onClick={() => setOpen(true)}>{t('admin.enforcement.btnOpenRecordSuspension')}</button>
 
   const submit = () => {
     const res = residents.find(r => r.id === residentId)
-    const label = res ? `${res.full_name || 'Owner'}${res.unit_number ? ` · ${res.unit_number}` : ''}`.trim() : null
+    const label = res ? `${res.full_name || t('admin.enforcement.ownerFallback')}${res.unit_number ? ` · ${res.unit_number}` : ''}`.trim() : null
     onRecord({
       resident_id: res?.id ?? null, profile_id: res?.profile_id ?? null, unit_label: label,
       rights, basis, requires_hearing: basis === 'rule_violation',
@@ -787,38 +782,39 @@ function SuspensionForm({ residents, onRecord }: { residents: any[]; onRecord: (
   return (
     <div style={{ border: '1px dashed #cbd5e1', borderRadius: 12, padding: 14 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
-        <label className="admin-field"><span className="admin-field-label">Owner</span>
+        <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldOwnerSuspension')}</span>
           <select className="admin-input" value={residentId} onChange={e => setResidentId(e.target.value)}>
-            <option value="">— select —</option>
-            {residents.map(r => <option key={r.id} value={r.id}>{[r.full_name || 'Owner', r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>)}
+            <option value="">{t('admin.enforcement.selectPlaceholder')}</option>
+            {residents.map(r => <option key={r.id} value={r.id}>{[r.full_name || t('admin.enforcement.ownerFallback'), r.unit_number ? `${t('admin.enforcement.unitPrefix')} ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>)}
           </select></label>
-        <label className="admin-field"><span className="admin-field-label">Rights suspended</span>
+        <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldRightsSuspended')}</span>
           <select className="admin-input" value={rights} onChange={e => setRights(e.target.value as SuspensionRights)}>
             {Object.entries(SUSPENSION_RIGHTS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select></label>
-        <label className="admin-field"><span className="admin-field-label">Basis</span>
+        <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldBasis')}</span>
           <select className="admin-input" value={basis} onChange={e => setBasis(e.target.value as SuspensionBasis)}>
             {Object.entries(SUSPENSION_BASIS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
           </select></label>
-        <label className="admin-field"><span className="admin-field-label">Amount owed ($, optional)</span>
+        <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldAmountOwed')}</span>
           <input className="admin-input" type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} /></label>
-        <label className="admin-field"><span className="admin-field-label">Delinquent since (optional)</span>
+        <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldDelinquentSince')}</span>
           <input className="admin-input" type="date" value={since} onChange={e => setSince(e.target.value)} /></label>
       </div>
       {basis === 'rule_violation' && (
         <p style={{ fontSize: 12, color: '#B54708', margin: '8px 0 0' }}>
-          A covenant-violation use-rights suspension requires the 14-day notice + committee hearing first.
+          {t('admin.enforcement.ruleViolationHearingWarn')}
         </p>
       )}
       <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
-        <button className="admin-primary-btn" disabled={!residentId} onClick={submit}>Record suspension</button>
-        <button className="admin-btn-ghost" onClick={() => setOpen(false)}>Cancel</button>
+        <button className="admin-primary-btn" disabled={!residentId} onClick={submit}>{t('admin.enforcement.btnRecordSuspension')}</button>
+        <button className="admin-btn-ghost" onClick={() => setOpen(false)}>{t('admin.enforcement.btnCancel')}</button>
       </div>
     </div>
   )
 }
 
 function SuspensionCard({ s, onActivate, onLift }: { s: SuspensionRow; onActivate: () => void; onLift: () => void }) {
+  const t = useT()
   const st = String(s.status ?? 'proposed')
   const color = st === 'active' ? '#B42318' : st === 'lifted' ? '#98A2B3' : '#175CD3'
   const basis = String(s.basis ?? 'delinquency_90') as SuspensionBasis
@@ -831,20 +827,20 @@ function SuspensionCard({ s, onActivate, onLift }: { s: SuspensionRow; onActivat
           <div style={{ fontWeight: 700, fontSize: 15 }}>{s.unit_label || s.id.slice(0, 8)}</div>
           <div style={{ fontSize: 12.5, opacity: 0.72, marginTop: 2 }}>
             {SUSPENSION_RIGHTS_LABELS[(s.rights ?? 'voting') as SuspensionRights]} · {SUSPENSION_BASIS_LABELS[basis]}
-            {s.started_at ? ` · since ${s.started_at}` : ''}
+            {s.started_at ? ` · ${t('admin.enforcement.since')} ${s.started_at}` : ''}
           </div>
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={chip(color)}>{st}</span>
-          {hearingMissing && <span style={chip('#B42318')}>hearing required</span>}
+          {hearingMissing && <span style={chip('#B42318')}>{t('admin.enforcement.hearingRequired')}</span>}
         </div>
       </div>
       <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
         {st === 'proposed' && (
-          <button className="admin-primary-btn" disabled={hearingMissing} onClick={onActivate} title={hearingMissing ? 'Record an approved committee hearing first' : ''}>Activate</button>
+          <button className="admin-primary-btn" disabled={hearingMissing} onClick={onActivate} title={hearingMissing ? t('admin.enforcement.activateTooltip') : ''}>{t('admin.enforcement.btnActivate')}</button>
         )}
-        {st !== 'lifted' && <button className="admin-btn-ghost" onClick={onLift}>Lift suspension</button>}
-        <a className="admin-btn-ghost" href={`/admin/enforcement/suspension/${s.id}/notice`} target="_blank" rel="noopener noreferrer">Suspension notice</a>
+        {st !== 'lifted' && <button className="admin-btn-ghost" onClick={onLift}>{t('admin.enforcement.btnLiftSuspension')}</button>}
+        <a className="admin-btn-ghost" href={`/admin/enforcement/suspension/${s.id}/notice`} target="_blank" rel="noopener noreferrer">{t('admin.enforcement.linkSuspensionNotice')}</a>
       </div>
     </div>
   )

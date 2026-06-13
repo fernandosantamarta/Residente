@@ -14,11 +14,13 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { fmtMoney, casePayoff, type PayoffResult } from '@/lib/dues'
 import { ymd } from '@/lib/compliance/rules-core'
 import { estoppelFee, ESTOPPEL_CPI_NEXT_ADJUST } from '@/lib/compliance/estoppel'
+import { useT } from '@/lib/i18n'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
 
 export default function EstoppelCertificate() {
+  const t = useT()
   const params = useParams()
   const id = params?.id as string
   const [req, setReq] = useState<any>(null)
@@ -79,7 +81,7 @@ export default function EstoppelCertificate() {
     return () => { cancelled = true }
   }, [id])
 
-  if (status === 'loading') return <div style={{ padding: 40 }}>Loading…</div>
+  if (status === 'loading') return <div style={{ padding: 40 }}>{t('admin.estoppelDetailCertificate.loading')}</div>
   if (status === 'error') return <div style={{ padding: 40, color: '#B42318' }}>{error}</div>
 
   const isCondo = community?.association_type !== 'hoa'
@@ -122,10 +124,10 @@ export default function EstoppelCertificate() {
 
       <div className="no-print" style={{ display: 'flex', gap: 10, justifyContent: 'space-between', marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
         <div style={{ fontSize: 12, background: '#FEF3F2', color: '#B42318', padding: '8px 12px', borderRadius: 8, maxWidth: 520 }}>
-          ⚠ Draft — attorney review required before issuance. Confirm the financial figures and all amounts owed before delivering.
+          {t('admin.estoppelDetailCertificate.draftWarning')}
         </div>
         <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', height: 'fit-content' }}>
-          Print / Save as PDF
+          {t('admin.estoppelDetailCertificate.printButton')}
         </button>
       </div>
 

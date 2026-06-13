@@ -13,6 +13,7 @@ import { usePlatformAdmin, usePlatformRoles } from '@/hooks/usePlatform'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useAwaitingMessages, useArcPending } from '@/hooks/useAwaitingMessages'
 import type { Permission } from '@/lib/permissions'
+import { useT } from '@/lib/i18n'
 
 // Board-only admin section. Gated by role check — only board_member/admin
 // (or local dev without Supabase) reach here.
@@ -24,16 +25,17 @@ import type { Permission } from '@/lib/permissions'
 //   Easy Documents → Rules, Documents, Violations (EasyDocsTabs)
 // The admin-only setup section (Community) leads.
 type AdminNavItem = { href: string; label: string; match?: string[]; exact?: boolean; anyPerm?: Permission[] }
+// `label` holds the i18n key (rendered with t()); badge logic keys off href.
 const ADMIN_NAV: AdminNavItem[] = [
-  { href: '/admin',            label: 'Overview', exact: true },
-  { href: '/admin/community',  label: 'Community', anyPerm: ['community.manage'] },
-  { href: '/admin/compliance', label: 'Compliance', anyPerm: ['compliance.manage', 'financials.view', 'payments.view', 'violations.manage'], match: ['/admin/estoppel', '/admin/collections', '/admin/structural', '/admin/financials', '/admin/governance', '/admin/enforcement', '/admin/meetings', '/admin/elections', '/admin/insurance', '/admin/contracts', '/admin/advisories'] },
-  { href: '/admin/budget',     label: 'Budget', anyPerm: ['community.manage', 'financials.view'] },
-  { href: '/admin/reports',    label: 'Reports', anyPerm: ['financials.view', 'payments.view'] },
-  { href: '/admin/residents',  label: 'Easy Track', anyPerm: ['residents.view', 'residents.manage'], match: ['/admin/vendor'] },
-  { href: '/admin/board',      label: 'Easy Voice', anyPerm: ['voice.manage', 'roles.manage'], match: ['/admin/voice', '/admin/requests', '/admin/roles', '/admin/arc'] },
-  { href: '/admin/documents',  label: 'Easy Documents', anyPerm: ['documents.manage', 'violations.manage'], match: ['/admin/rules', '/admin/violations'] },
-  { href: '/admin/schedule',   label: 'Easy Schedule', anyPerm: ['schedule.manage'] },
+  { href: '/admin',            label: 'admin.nav.overview', exact: true },
+  { href: '/admin/community',  label: 'admin.nav.community', anyPerm: ['community.manage'] },
+  { href: '/admin/compliance', label: 'admin.nav.compliance', anyPerm: ['compliance.manage', 'financials.view', 'payments.view', 'violations.manage'], match: ['/admin/estoppel', '/admin/collections', '/admin/structural', '/admin/financials', '/admin/governance', '/admin/enforcement', '/admin/meetings', '/admin/elections', '/admin/insurance', '/admin/contracts', '/admin/advisories'] },
+  { href: '/admin/budget',     label: 'admin.nav.budget', anyPerm: ['community.manage', 'financials.view'] },
+  { href: '/admin/reports',    label: 'admin.nav.reports', anyPerm: ['financials.view', 'payments.view'] },
+  { href: '/admin/residents',  label: 'admin.nav.easyTrack', anyPerm: ['residents.view', 'residents.manage'], match: ['/admin/vendor'] },
+  { href: '/admin/board',      label: 'admin.nav.easyVoice', anyPerm: ['voice.manage', 'roles.manage'], match: ['/admin/voice', '/admin/requests', '/admin/roles', '/admin/arc'] },
+  { href: '/admin/documents',  label: 'admin.nav.easyDocuments', anyPerm: ['documents.manage', 'violations.manage'], match: ['/admin/rules', '/admin/violations'] },
+  { href: '/admin/schedule',   label: 'admin.nav.easySchedule', anyPerm: ['schedule.manage'] },
 ]
 
 // "View as" team previews — platform-only. Owner (DB role 'owner') = full
@@ -65,6 +67,7 @@ const navActive = (pathname: string, item: AdminNavItem) => {
 }
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
+  const t = useT()
   const { session, profile } = useAuth()
   const router = useRouter()
   const pathname = usePathname() || '/admin'
@@ -181,7 +184,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             <img src="/residente-logo.png" alt="" className="brand-logo admin-brand-logo" />
             <span className="admin-brand-word">Residente</span>
           </Link>
-          <span className="admin-tag">Admin</span>
+          <span className="admin-tag">{t('admin.tag')}</span>
         </div>
         {/* Mock-parity bar: a founder/platform-only "View as" team switcher, then
             Contact Residente (pill) + Back to app. Regular admins see no switcher. */}
@@ -190,7 +193,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               the full owner switcher while their teams load. */}
           {isPlatformAdmin && !!platformRoles && (
             <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(255,255,255,0.16)', borderRadius: 999, padding: '4px 6px 4px 13px' }}>
-              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '1.2px', color: 'rgba(255,255,255,0.85)', marginRight: 3 }}>VIEW AS</span>
+              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '1.2px', color: 'rgba(255,255,255,0.85)', marginRight: 3 }}>{t('admin.viewAs')}</span>
               {teamViews ? (
                 // Non-owner staff: only the teams they're on. One team = a
                 // locked pill; several teams = switchable between just those.
@@ -220,9 +223,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               })}
             </div>
           )}
-          <Link href="/admin/support" title={residenteUnread > 0 ? `${residenteUnread} new from Residente` : 'Contact Residente'}
+          <Link href="/admin/support" title={residenteUnread > 0 ? t('admin.contactResidenteNew', { count: residenteUnread }) : t('admin.contactResidente')}
             style={{ textDecoration: 'none', fontSize: 13, fontWeight: 700, color: '#fff', background: 'rgba(255,255,255,0.16)', borderRadius: 999, padding: '7px 15px', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-            Contact Residente
+            {t('admin.contactResidente')}
             {residenteUnread > 0 && (
               <span className="cr-badge">{residenteUnread}</span>
             )}
@@ -231,16 +234,16 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       </header>
 
       <nav className="admin-nav">
-        <Link href="/app" className="admin-nav-item admin-nav-back">&larr; Back to app</Link>
+        <Link href="/app" className="admin-nav-item admin-nav-back">{t('admin.nav.backToApp')}</Link>
         {ADMIN_NAV.filter(item => !item.anyPerm || permLoading || canAny(item.anyPerm)).map(item => (
           <Link
             key={item.href}
             href={item.href}
             className={`admin-nav-item${navActive(pathname, item) ? ' active' : ''}`}
           >
-            {item.label}
-            {item.label === 'Easy Voice' && awaitingMsgs > 0 && (
-              <span className="admin-nav-badge" title={`${awaitingMsgs} message${awaitingMsgs === 1 ? '' : 's'} awaiting your reply`}>
+            {t(item.label)}
+            {item.href === '/admin/board' && awaitingMsgs > 0 && (
+              <span className="admin-nav-badge" title={t('admin.voiceBadgeTitle', { count: awaitingMsgs })}>
                 {awaitingMsgs}
               </span>
             )}
@@ -249,7 +252,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         {isPlatformAdmin && (
           <Link href="/platform" className="admin-nav-item" style={{ color: '#FF6B3D', fontWeight: 700 }}
             onClick={() => { if (typeof window !== 'undefined') window.localStorage.setItem('admin_return_to', pathname) }}>
-            Platform Console
+            {t('admin.nav.platformConsole')}
           </Link>
         )}
         {/* Search lives in the far-right gutter, mirroring "Back to app" on the
@@ -270,6 +273,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 // it (set via the Platform Console). Lets them restore their own community and
 // return to the console in one click. Hidden once they're back home.
 function OperatorBanner({ isPlatformAdmin, currentCommunity }: { isPlatformAdmin: boolean | null; currentCommunity: string | null }) {
+  const t = useT()
   const router = useRouter()
   const [returnTo, setReturnTo] = useState<string | null>(null)
   useEffect(() => {
@@ -293,9 +297,9 @@ function OperatorBanner({ isPlatformAdmin, currentCommunity }: { isPlatformAdmin
 
   return (
     <div style={{ background: '#FF6B3D', color: '#1a0d07', padding: '9px 18px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, fontSize: 13, fontWeight: 600, flexWrap: 'wrap' }}>
-      <span>⚙ Operator mode — you’re managing this community as Residente.</span>
+      <span>{t('admin.operatorMode')}</span>
       <button onClick={exit} style={{ cursor: 'pointer', background: '#1a0d07', color: '#FF6B3D', border: 'none', padding: '6px 14px', borderRadius: 7, fontWeight: 700, fontSize: 12.5 }}>
-        Exit to Console
+        {t('admin.exitToConsole')}
       </button>
     </div>
   )

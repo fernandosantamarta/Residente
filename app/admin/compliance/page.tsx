@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
+import { useT } from '@/lib/i18n'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { sortSignals, type ComplianceSignal, type Severity } from '@/lib/compliance/rules-core'
 import { AttorneyNote } from '../AttorneyNote'
@@ -165,6 +166,7 @@ function gatherSignals(
 }
 
 export default function CompliancePage() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const [community, setCommunity] = useState<any>(null)
@@ -261,7 +263,7 @@ export default function CompliancePage() {
       setGlRevenue(await fetchGlCurrentFyRevenue(supabase, communityId, Number(data?.fiscal_year_start_month) || 1))
       setStatus('ready')
     } catch (err: any) {
-      setError(err?.message || 'Could not load compliance data'); setStatus('error')
+      setError(err?.message || t('admin.compliance.loadError')); setStatus('error')
     }
   }, [communityId])
   useEffect(() => { load() }, [load])
@@ -304,27 +306,26 @@ export default function CompliancePage() {
 
   return (
     <div className="admin-page cset">
-      <div className="admin-kicker">Florida compliance</div>
-      <h1 className="admin-h1">Compliance dashboard</h1>
+      <div className="admin-kicker">{t('admin.compliance.kicker')}</div>
+      <h1 className="admin-h1">{t('admin.compliance.pageTitle')}</h1>
       <p className="admin-dek">
-        What your association needs to attend to under Florida statutes (FS 718 / 720). These are
-        advisory reminders — you decide how to act on them.
+        {t('admin.compliance.pageDek')}
       </p>
 
       <AttorneyNote />
 
-      {status === 'loading' && <div className="admin-note">Loading…</div>}
+      {status === 'loading' && <div className="admin-note">{t('admin.compliance.loading')}</div>}
 
       {status === 'none' && (
         <div className="admin-note admin-note-warn">
-          No community is linked to your account yet. Run the setup SQL, then reload.
+          {t('admin.compliance.noCommunity')}
         </div>
       )}
 
       {status === 'error' && (
         <div className="admin-note admin-note-err">
           {error}
-          <button type="button" className="admin-btn-ghost" onClick={load}>Retry</button>
+          <button type="button" className="admin-btn-ghost" onClick={load}>{t('admin.compliance.retry')}</button>
         </div>
       )}
 
@@ -333,10 +334,10 @@ export default function CompliancePage() {
           {/* Stat tiles (mock parity) — flagged counts + an on-track / compliant read. */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14, margin: '18px 0 22px' }}>
             {[
-              { v: counts.overdue, l: 'Overdue', c: '#B42318' },
-              { v: counts.soon, l: 'Due soon', c: '#B54708' },
-              { v: clearWs, l: 'On track', c: '#067647' },
-              { v: `${compliantPct}%`, l: 'Compliant', c: '#2A1206' },
+              { v: counts.overdue, l: t('admin.compliance.statOverdue'), c: '#B42318' },
+              { v: counts.soon, l: t('admin.compliance.statDueSoon'), c: '#B54708' },
+              { v: clearWs, l: t('admin.compliance.statOnTrack'), c: '#067647' },
+              { v: `${compliantPct}%`, l: t('admin.compliance.statCompliant'), c: '#2A1206' },
             ].map(s => (
               <div key={s.l} style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, padding: '16px 18px' }}>
                 <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, color: s.c }}>{s.v}</div>
@@ -348,14 +349,14 @@ export default function CompliancePage() {
           {/* Needs attention — one deadline-sorted list with a filter toggle. */}
           <div className="card" style={{ marginBottom: 24 }}>
             <div className="card-head">
-              <div><h2>Needs attention</h2><div className="sub">Sorted by deadline</div></div>
+              <div><h2>{t('admin.compliance.needsAttentionTitle')}</h2><div className="sub">{t('admin.compliance.sortedByDeadline')}</div></div>
               <div style={{ display: 'inline-flex', gap: 2, padding: 3, background: 'rgba(0,0,0,0.05)', borderRadius: 999 }}>
                 {(['all', 'overdue', 'soon'] as const).map(k => (
                   <button key={k} type="button" onClick={() => setSeg(k)}
                     style={{ border: 'none', cursor: 'pointer', borderRadius: 999, padding: '5px 13px', fontSize: 12.5, fontWeight: 700,
                       background: seg === k ? '#fff' : 'transparent', color: seg === k ? '#2A1206' : 'rgba(0,0,0,0.5)',
                       boxShadow: seg === k ? '0 1px 3px rgba(0,0,0,0.12)' : 'none' }}>
-                    {k === 'all' ? 'All' : k === 'overdue' ? 'Overdue' : 'Due soon'}
+                    {k === 'all' ? t('admin.compliance.filterAll') : k === 'overdue' ? t('admin.compliance.filterOverdue') : t('admin.compliance.filterDueSoon')}
                   </button>
                 ))}
               </div>
@@ -364,8 +365,8 @@ export default function CompliancePage() {
               <div style={{ textAlign: 'center', padding: '26px 16px', color: 'rgba(0,0,0,0.55)' }}>
                 <div style={{ fontSize: 22, marginBottom: 6 }}>✓</div>
                 {seg === 'all'
-                  ? 'Nothing flagged right now. As you add buildings, budgets, meetings, and records, this dashboard tracks the statutory deadlines for you.'
-                  : `No ${seg === 'overdue' ? 'overdue' : 'due-soon'} items.`}
+                  ? t('admin.compliance.emptyAll')
+                  : seg === 'overdue' ? t('admin.compliance.emptyOverdue') : t('admin.compliance.emptyDueSoon')}
               </div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -376,19 +377,22 @@ export default function CompliancePage() {
 
           {/* Workspaces — every compliance domain as a clean row list, grouped
               and badged with its own count (matches the Needs-attention rows). */}
-          <h2 className="bc-title" style={{ margin: '4px 0 14px' }}>Workspaces</h2>
+          <h2 className="bc-title" style={{ margin: '4px 0 14px' }}>{t('admin.compliance.workspacesTitle')}</h2>
           {WORKSPACE_GROUPS.map(group => {
             const items = WORKSPACES.filter(w => w.group === group && !(w.href === '/admin/structural' && community?.association_type === 'hoa'))
             if (!items.length) return null
+            const groupLabel = group === 'Money & assessments' ? t('admin.compliance.groupMoney')
+              : group === 'Governance' ? t('admin.compliance.groupGovernance')
+              : t('admin.compliance.groupProperty')
             return (
               <div className="card" key={group} style={{ marginBottom: 16 }}>
-                <div className="card-head"><div><h2>{group}</h2></div></div>
+                <div className="card-head"><div><h2>{groupLabel}</h2></div></div>
                 <div className="wslist">
                   {items.map(w => {
                     const c = wsCounts[wsBase(w.href)] || { overdue: 0, soon: 0 }
-                    const badge = c.overdue ? { t: `${c.overdue} overdue`, col: '#B42318' }
-                      : c.soon ? { t: `${c.soon} due soon`, col: '#B54708' }
-                      : { t: 'On track', col: '#067647' }
+                    const badge = c.overdue ? { t: t('admin.compliance.badgeOverdue', { count: c.overdue }), col: '#B42318' }
+                      : c.soon ? { t: t('admin.compliance.badgeDueSoon', { count: c.soon }), col: '#B54708' }
+                      : { t: t('admin.compliance.badgeOnTrack'), col: '#067647' }
                     return (
                       <Link key={w.href} href={w.href} className="wsrow">
                         <span className="wsrow-glyph" style={{ color: w.color, background: w.color + '18' }}><WsGlyph /></span>
@@ -414,7 +418,11 @@ export default function CompliancePage() {
 // One row in the "Needs attention" list (mock .lrow): severity pill, title +
 // statute/detail meta, Review link. Rows are separated by a hairline top border.
 function SignalRow({ signal: s }: { signal: ComplianceSignal }) {
+  const t = useT()
   const meta = SEVERITY_META[s.severity]
+  const severityLabel = s.severity === 'overdue' ? t('admin.compliance.severityOverdue')
+    : s.severity === 'soon' ? t('admin.compliance.severityDueSoon')
+    : t('admin.compliance.severityToDo')
   const body = (
     <div style={{
       display: 'flex', gap: 12, alignItems: 'flex-start',
@@ -424,14 +432,14 @@ function SignalRow({ signal: s }: { signal: ComplianceSignal }) {
         fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px',
         color: meta.color, background: meta.bg, padding: '3px 0', borderRadius: 999, whiteSpace: 'nowrap', marginTop: 1,
         width: 84, textAlign: 'center', flexShrink: 0, boxSizing: 'border-box',
-      }}>{meta.label}</span>
+      }}>{severityLabel}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14.5, fontWeight: 600 }}>{s.title}</div>
         <div style={{ fontSize: 12.5, opacity: 0.62, marginTop: 1 }}>
           {s.domain}{s.citation ? ` · ${s.citation}` : ''}{s.detail ? ` · ${s.detail}` : ''}
         </div>
       </div>
-      {s.href && <span style={{ fontSize: 13, color: meta.color, fontWeight: 700, whiteSpace: 'nowrap', marginTop: 1 }}>Review →</span>}
+      {s.href && <span style={{ fontSize: 13, color: meta.color, fontWeight: 700, whiteSpace: 'nowrap', marginTop: 1 }}>{t('admin.compliance.review')} →</span>}
     </div>
   )
   return s.href ? <Link href={s.href} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>{body}</Link> : body

@@ -8,20 +8,21 @@
 import { useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useT } from '@/lib/i18n'
 
 export default function VoiceRosterMoved() {
+  const t = useT()
   const router = useRouter()
   useEffect(() => { router.replace('/admin/residents') }, [router])
   return (
     <div className="admin-page cset">
       <div className="admin-kicker">Easy Voice</div>
-      <h1 className="admin-h1">Roster moved</h1>
+      <h1 className="admin-h1">{t('admin.voiceRoster.heading')}</h1>
       <p className="admin-dek">
-        The owner roster and magic-link invites now live in Easy Track → Residents.
-        Taking you there…
+        {t('admin.voiceRoster.body')}
       </p>
       <p style={{ marginTop: 12 }}>
-        <Link className="admin-primary-btn" href="/admin/residents">Go to Residents</Link>
+        <Link className="admin-primary-btn" href="/admin/residents">{t('admin.voiceRoster.goToResidents')}</Link>
       </p>
     </div>
   )

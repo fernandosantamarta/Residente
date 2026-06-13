@@ -9,6 +9,7 @@
 import { Suspense, useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/providers'
+import { useT } from '@/lib/i18n'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd } from '@/lib/compliance/rules-core'
 import {
@@ -28,14 +29,16 @@ const TITLES: Record<DocType, string> = {
 }
 
 export default function AdvisoryDocumentPage() {
+  const t = useT()
   return (
-    <Suspense fallback={<div style={{ padding: 40 }}>Loading…</div>}>
+    <Suspense fallback={<div style={{ padding: 40 }}>{t('admin.advisoriesDocument.loading')}</div>}>
       <DocInner />
     </Suspense>
   )
 }
 
 function DocInner() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const search = useSearchParams()
@@ -48,7 +51,7 @@ function DocInner() {
   useEffect(() => {
     let cancelled = false
     ;(async () => {
-      if (!hasSupabase || !communityId) { setStatus('error'); setError('No community'); return }
+      if (!hasSupabase || !communityId) { setStatus('error'); setError(t('admin.advisoriesDocument.errNoCommunity')); return }
       try {
         const { data: comm, error: cErr } = (await withTimeout(supabase.from('communities').select('*').eq('id', communityId).single())) as any
         if (cErr) throw cErr
@@ -56,13 +59,13 @@ function DocInner() {
         setCommunity(comm || null)
         setStatus('ready')
       } catch (err: any) {
-        if (!cancelled) { setError(err?.message || 'Could not load'); setStatus('error') }
+        if (!cancelled) { setError(err?.message || t('admin.advisoriesDocument.errCouldNotLoad')); setStatus('error') }
       }
     })()
     return () => { cancelled = true }
   }, [communityId, type])
 
-  if (status === 'loading') return <div style={{ padding: 40 }}>Loading…</div>
+  if (status === 'loading') return <div style={{ padding: 40 }}>{t('admin.advisoriesDocument.loading')}</div>
   if (status === 'error') return <div style={{ padding: 40, color: '#B42318' }}>{error}</div>
 
   const today = ymd(new Date())
@@ -77,15 +80,14 @@ function DocInner() {
 
       <div className="no-print" style={{ display: 'flex', gap: 10, justifyContent: 'space-between', marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
         <div style={{ fontSize: 12, background: '#FEF3F2', color: '#B42318', padding: '8px 12px', borderRadius: 8, maxWidth: 540 }}>
-          ⚠ DRAFT — an aid, not an official filing or legal advice. The statutory notice forms and the turnover
-          list must be confirmed against the current statute and with the association attorney before use.
+          {t('admin.advisoriesDocument.draftBanner')}
         </div>
-        <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', height: 'fit-content' }}>Print / Save as PDF</button>
+        <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', height: 'fit-content' }}>{t('admin.advisoriesDocument.printButton')}</button>
       </div>
 
       <div style={{ textAlign: 'center', marginBottom: 14 }}>
         <div style={{ fontSize: 18, fontWeight: 700 }}>{community?.name || 'Association'}</div>
-        <div style={{ fontSize: 12.5, color: '#555' }}>{community?.association_address || <Em>set the association address in Community settings</Em>}</div>
+        <div style={{ fontSize: 12.5, color: '#555' }}>{community?.association_address || <Em>{t('admin.advisoriesDocument.setAddressHint')}</Em>}</div>
       </div>
       <div style={{ fontSize: 12.5, color: '#555', marginBottom: 4 }}>{today}</div>
       <h1 style={{ fontSize: 19, marginBottom: 8 }}>{TITLES[type]}</h1>

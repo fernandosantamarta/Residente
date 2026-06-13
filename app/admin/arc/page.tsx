@@ -25,6 +25,7 @@ import { logAudit } from '@/lib/audit'
 import { Tip } from '@/components/Tip'
 import { AttorneyNote } from '../AttorneyNote'
 import { EasyVoiceTabs } from '../EasyVoiceTabs'
+import { useT } from '@/lib/i18n'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -40,6 +41,7 @@ const OPEN_STATUSES: ArcStatus[] = ['submitted', 'under_review']
 export default function ArcPage() {
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
+  const t = useT()
 
   const [community, setCommunity]   = useState<any>(null)
   const [requests, setRequests]     = useState<ArcRequestRow[]>([])
@@ -97,7 +99,7 @@ export default function ArcPage() {
 
       setStatus('ready')
     } catch (err: any) {
-      setError(err?.message || 'Could not load ARC data'); setStatus('error')
+      setError(err?.message || t('admin.arc.errLoadArc')); setStatus('error')
     }
   }, [communityId])
 
@@ -112,7 +114,7 @@ export default function ArcPage() {
       if (ok) setMsg(ok)
       await load()
       return true
-    } catch (err: any) { setError(err?.message || 'Could not update the request'); return false }
+    } catch (err: any) { setError(err?.message || t('admin.arc.errUpdateRequest')); return false }
   }
 
   // Invoke the arc-decision-letter edge function to render the decision letter
@@ -130,7 +132,7 @@ export default function ArcPage() {
       if (error) {
         // functions.invoke surfaces a non-2xx as FunctionsHttpError; dig out the
         // JSON {error} the function returns so the board sees a real message.
-        let msg = error.message || 'Could not send the letter.'
+        let msg = error.message || t('admin.arc.errSendLetter')
         try {
           const ctx = (error as any).context
           if (ctx && typeof ctx.json === 'function') {
@@ -151,7 +153,7 @@ export default function ArcPage() {
       } catch { /* audit must not block */ }
       return { ok: true }
     } catch (err: any) {
-      return { ok: false, error: err?.message || 'Could not send the letter.' }
+      return { ok: false, error: err?.message || t('admin.arc.errSendLetter') }
     }
   }
 
@@ -176,21 +178,21 @@ export default function ArcPage() {
     const sent = await deliverLetter(r.id)
     await load()
     setMsg(sent.ok
-      ? `Request ${label} — decision letter sent to the resident.`
-      : `Request ${label}. The letter wasn't sent automatically${sent.error ? ` (${sent.error})` : ''} — use "Send letter to resident".`)
+      ? t('admin.arc.msgDecidedSent', { label })
+      : t('admin.arc.msgDecidedNotSent', { label, detail: sent.error ? ` (${sent.error})` : '' }))
   }
 
   // Explicit (re)send from the card button.
   const sendLetter = async (r: ArcRequestRow): Promise<boolean> => {
     setError('')
     const sent = await deliverLetter(r.id)
-    if (sent.ok) { setMsg('Decision letter sent to the resident.'); await load() }
-    else setError(sent.error || 'Could not send the letter.')
+    if (sent.ok) { setMsg(t('admin.arc.msgLetterSent')); await load() }
+    else setError(sent.error || t('admin.arc.errSendLetter'))
     return sent.ok
   }
 
   const withdraw = async (r: ArcRequestRow) => {
-    await patchRequest(r.id, { status: 'withdrawn' }, 'Request withdrawn.')
+    await patchRequest(r.id, { status: 'withdrawn' }, t('admin.arc.msgWithdrawn'))
     try {
       await logAudit({
         community_id: communityId!,
@@ -246,9 +248,9 @@ export default function ArcPage() {
         })
       } catch { /* audit must not block */ }
       setForm({ resident_id: '', request_type: 'exterior_alteration', description: '', is_material_alteration: false })
-      setMsg('ARC request logged.')
+      setMsg(t('admin.arc.msgRequestLogged'))
       load()
-    } catch (err: any) { setError(err?.message || 'Could not log the request') }
+    } catch (err: any) { setError(err?.message || t('admin.arc.errLogRequest')) }
     finally { setSaving(false) }
   }
 
@@ -257,14 +259,14 @@ export default function ArcPage() {
   // Category (request type) + status filters + pagination over the worklist.
   const catOptions = useMemo(
     () => [
-      { value: 'all' as const, label: 'All categories' },
+      { value: 'all' as const, label: t('admin.arc.filterAllCategories') },
       ...(Object.entries(ARC_TYPE_LABELS) as [ArcRequestType, string][]).map(([value, label]) => ({ value, label })),
     ],
     [],
   )
   const statusOptions = useMemo(
     () => [
-      { value: 'all' as const, label: 'All statuses' },
+      { value: 'all' as const, label: t('admin.arc.filterAllStatuses') },
       ...(Object.entries(ARC_STATUS_LABELS) as [ArcStatus, string][]).map(([value, label]) => ({ value, label })),
     ],
     [],
@@ -313,21 +315,17 @@ export default function ArcPage() {
   return (
     <div className="admin-page cset">
       <EasyVoiceTabs active="architectural" />
-      <div className="admin-kicker" style={{ marginTop: 18 }}>Florida compliance</div>
-      <h1 className="admin-h1">Architectural review</h1>
+      <div className="admin-kicker" style={{ marginTop: 18 }}>{t('admin.arc.kicker')}</div>
+      <h1 className="admin-h1">{t('admin.arc.heading')}</h1>
       <p className="admin-dek">
-        Track owner ARC applications and respond within the governing-document window
-        ({arcResponseDays(community)} days configured). A written denial must state the specific reason(s).
-        Advisory only — every decision stays with the board and the ARC committee.
+        {t('admin.arc.dek', { days: String(arcResponseDays(community)) })}
       </p>
 
       <AttorneyNote />
 
       {community?.arc_deemed_approval && (
         <div className="admin-note admin-note-warn" style={{ fontWeight: 600, fontSize: 13 }}>
-          ⚠ Your governing documents provide for DEEMED APPROVAL — if the association does not respond
-          within the configured window ({arcResponseDays(community)} days), the request may be
-          automatically approved by operation of the governing documents. Respond in writing before the deadline.
+          {t('admin.arc.deemedApprovalWarn', { days: String(arcResponseDays(community)) })}
         </div>
       )}
 
@@ -338,37 +336,37 @@ export default function ArcPage() {
       )}
       {status === 'none' && (
         <div className="admin-note admin-note-warn">
-          No community is linked to your account yet. Run the setup SQL, then reload.
+          {t('admin.arc.noCommunity')}
         </div>
       )}
       {status === 'error' && (
         <div className="admin-note admin-note-err">
           {error}
-          <button type="button" className="admin-btn-ghost" onClick={load}>Retry</button>
+          <button type="button" className="admin-btn-ghost" onClick={load}>{t('admin.arc.retry')}</button>
         </div>
       )}
-      {status === 'loading' && <div className="admin-note">Loading…</div>}
+      {status === 'loading' && <div className="admin-note">{t('admin.arc.loading')}</div>}
 
       {status === 'ready' && (
         <>
           {/* ---- Log a request ---- */}
           <div className="card">
-            <div className="card-head"><div><h2>Log an ARC request</h2></div></div>
+            <div className="card-head"><div><h2>{t('admin.arc.logCardHeading')}</h2></div></div>
             <form className="admin-form" onSubmit={logRequest}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
                 <label className="admin-field">
-                  <span className="admin-field-label">Owner (from roster)</span>
+                  <span className="admin-field-label">{t('admin.arc.fieldOwner')}</span>
                   <select className="admin-input" value={form.resident_id} onChange={e => setF('resident_id', e.target.value)}>
-                    <option value="">— select —</option>
+                    <option value="">{t('admin.arc.selectPlaceholder')}</option>
                     {residents.map(r => (
                       <option key={r.id} value={r.id}>
-                        {[r.full_name || 'Owner', r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}
+                        {[r.full_name || 'Owner', r.unit_number ? `${t('admin.arc.unitPrefix')} ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}
                       </option>
                     ))}
                   </select>
                 </label>
                 <label className="admin-field">
-                  <span className="admin-field-label">Request type</span>
+                  <span className="admin-field-label">{t('admin.arc.fieldRequestType')}</span>
                   <select className="admin-input" value={form.request_type} onChange={e => setF('request_type', e.target.value)}>
                     {(Object.entries(ARC_TYPE_LABELS) as [ArcRequestType, string][]).map(([k, v]) => (
                       <option key={k} value={k}>{v}</option>
@@ -377,11 +375,11 @@ export default function ArcPage() {
                 </label>
               </div>
               <label className="admin-field" style={{ marginTop: 10 }}>
-                <span className="admin-field-label">Description of proposed work</span>
+                <span className="admin-field-label">{t('admin.arc.fieldDescription')}</span>
                 <textarea
                   className="admin-input" rows={3}
                   value={form.description}
-                  placeholder="Describe the alteration, construction, or landscaping work…"
+                  placeholder={t('admin.arc.descriptionPlaceholder')}
                   onChange={e => setF('description', e.target.value)}
                 />
               </label>
@@ -391,10 +389,10 @@ export default function ArcPage() {
                   checked={!!form.is_material_alteration}
                   onChange={e => setF('is_material_alteration', e.target.checked)}
                 />
-                Material alteration of common elements
+                {t('admin.arc.materialAlterationLabel')}
                 {isCondo && (
                   <span style={{ fontSize: 12, color: '#B54708', marginLeft: 4 }}>
-                    (condo: may require {community?.material_alteration_threshold_pct || MATERIAL_ALTERATION_APPROVAL_PCT.value}% membership vote — FS 718.113(2))
+                    {t('admin.arc.condoMaterialNote', { pct: String(community?.material_alteration_threshold_pct || MATERIAL_ALTERATION_APPROVAL_PCT.value) })}
                   </span>
                 )}
               </label>
@@ -404,7 +402,7 @@ export default function ArcPage() {
                   type="submit" className="admin-primary-btn"
                   disabled={saving || !form.resident_id}
                 >
-                  {saving ? 'Saving…' : 'Log request'}
+                  {saving ? t('admin.arc.saving') : t('admin.arc.logRequestBtn')}
                 </button>
               </div>
             </form>
@@ -413,7 +411,7 @@ export default function ArcPage() {
           {/* ---- Worklist ---- */}
           <div className="card">
             <div className="card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-              <div><h2>ARC requests <span style={{ opacity: 0.55, fontWeight: 400 }}>({filtered.length})</span></h2></div>
+              <div><h2>{t('admin.arc.worklistHeading')} <span style={{ opacity: 0.55, fontWeight: 400 }}>({filtered.length})</span></h2></div>
               {requests.length > 0 && (
                 // Native <select>s styled with admin-input — the same control the
                 // intake form on this page already renders. Two filters: request
@@ -424,7 +422,7 @@ export default function ArcPage() {
                     style={{ width: 220, flexShrink: 0 }}
                     value={catFilter}
                     onChange={e => setCatFilter(e.target.value as 'all' | ArcRequestType)}
-                    aria-label="Filter by category"
+                    aria-label={t('admin.arc.ariaFilterCategory')}
                   >
                     {catOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
@@ -433,7 +431,7 @@ export default function ArcPage() {
                     style={{ width: 220, flexShrink: 0 }}
                     value={statusFilter}
                     onChange={e => setStatusFilter(e.target.value as 'all' | ArcStatus)}
-                    aria-label="Filter by status"
+                    aria-label={t('admin.arc.ariaFilterStatus')}
                   >
                     {statusOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
@@ -441,10 +439,10 @@ export default function ArcPage() {
               )}
             </div>
             {requests.length === 0 && (
-              <div className="admin-note">No ARC requests on file.</div>
+              <div className="admin-note">{t('admin.arc.emptyNoRequests')}</div>
             )}
             {requests.length > 0 && filtered.length === 0 && (
-              <div className="admin-note">No requests match these filters.</div>
+              <div className="admin-note">{t('admin.arc.emptyNoFiltered')}</div>
             )}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {paged.map(r => (
@@ -462,10 +460,10 @@ export default function ArcPage() {
             {pageCount > 1 && (
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
                 <button type="button" className="admin-btn-ghost" style={{ marginLeft: 0 }}
-                  onClick={() => setListPage(p => Math.max(0, p - 1))} disabled={pg === 0}>‹ Prev</button>
+                  onClick={() => setListPage(p => Math.max(0, p - 1))} disabled={pg === 0}>{t('admin.arc.pagePrev')}</button>
                 <span style={{ fontSize: 11.5, color: 'var(--text-dim)' }}>{pg + 1} / {pageCount}</span>
                 <button type="button" className="admin-btn-ghost" style={{ marginLeft: 0 }}
-                  onClick={() => setListPage(p => Math.min(pageCount - 1, p + 1))} disabled={pg >= pageCount - 1}>Next ›</button>
+                  onClick={() => setListPage(p => Math.min(pageCount - 1, p + 1))} disabled={pg >= pageCount - 1}>{t('admin.arc.pageNext')}</button>
               </div>
             )}
           </div>
@@ -488,6 +486,7 @@ function ArcRequestCard({
   onWithdraw: (r: ArcRequestRow) => Promise<void>
   onSendLetter: (r: ArcRequestRow) => Promise<boolean>
 }) {
+  const t = useT()
   const st = String(r.status ?? 'submitted') as ArcStatus
   const isOpen = OPEN_STATUSES.includes(st)
   const isDecided = ['approved', 'approved_with_conditions', 'denied'].includes(st)
@@ -552,11 +551,11 @@ function ArcRequestCard({
           </div>
           <div style={{ fontSize: 12.5, opacity: 0.72, marginTop: 2 }}>
             {ARC_TYPE_LABELS[(r.request_type ?? 'other') as ArcRequestType] || r.request_type}
-            {r.submitted_at ? ` · Submitted ${r.submitted_at}` : ''}
+            {r.submitted_at ? ` · ${t('admin.arc.submittedOn')} ${r.submitted_at}` : ''}
             {r.description ? ` · ${r.description}` : ''}
           </div>
           {r.decision_reason && (
-            <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>Reason: {r.decision_reason}</div>
+            <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>{t('admin.arc.reasonLabel')}: {r.decision_reason}</div>
           )}
           {(r as any).attachment_path && (
             <button type="button" onClick={async () => {
@@ -569,18 +568,18 @@ function ArcRequestCard({
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M21 11.5 12.5 20a5 5 0 0 1-7-7l8.5-8.5a3.5 3.5 0 0 1 5 5L10.5 18a2 2 0 0 1-3-3l7.5-7.5" />
               </svg>
-              {(r as any).attachment_name || 'View attachment'}
+              {(r as any).attachment_name || t('admin.arc.viewAttachment')}
             </button>
           )}
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
           {isCondo && r.is_material_alteration && (
-            <span style={chip('#7C3AED')}>Material alteration</span>
+            <span style={chip('#7C3AED')}>{t('admin.arc.chipMaterialAlteration')}</span>
           )}
           <Tip text={ARC_STATUS_DESC[st] || ''}><span style={chip(statusColor)}>{ARC_STATUS_LABELS[st] || st}</span></Tip>
           {deadline && (
             <span style={chip(deadlineColor)}>
-              Respond by {ymd(deadline)}
+              {t('admin.arc.respondBy')} {ymd(deadline)}
             </span>
           )}
         </div>
@@ -590,13 +589,13 @@ function ArcRequestCard({
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
         {isOpen && (
           <>
-            <Tip text={`${ARC_STATUS_DESC.approved} Records the decision and sends the official letter to the owner automatically.`}>
+            <Tip text={`${ARC_STATUS_DESC.approved} ${t('admin.arc.tipApprove')}`}>
               <button
                 className="admin-primary-btn"
                 disabled={busy}
                 onClick={() => { setDecideMode(null); setReason(''); submit('approved') }}
               >
-                {busy ? 'Sending…' : 'Approve & send'}
+                {busy ? t('admin.arc.sending') : t('admin.arc.btnApproveAndSend')}
               </button>
             </Tip>
             <Tip text={ARC_STATUS_DESC.approved_with_conditions}>
@@ -606,7 +605,7 @@ function ArcRequestCard({
                 disabled={busy}
                 onClick={() => setDecideMode(decideMode === 'approve_conditions' ? null : 'approve_conditions')}
               >
-                Approve w/ conditions
+                {t('admin.arc.btnApproveWithConditions')}
               </button>
             </Tip>
             <Tip text={ARC_STATUS_DESC.denied}>
@@ -616,7 +615,7 @@ function ArcRequestCard({
                 disabled={busy}
                 onClick={() => setDecideMode(decideMode === 'deny' ? null : 'deny')}
               >
-                Deny
+                {t('admin.arc.btnDeny')}
               </button>
             </Tip>
             <Tip text={ARC_STATUS_DESC.withdrawn}>
@@ -626,26 +625,26 @@ function ArcRequestCard({
                 disabled={busy}
                 onClick={() => onWithdraw(r)}
               >
-                Withdraw
+                {t('admin.arc.btnWithdraw')}
               </button>
             </Tip>
           </>
         )}
         {isDecided && (
-          <Tip text="Generates the decision letter as a PDF and delivers it to the owner — saved to their Architectural review page and announced with an in-app notice. The letter is a draft; confirm the language with counsel first.">
+          <Tip text={t('admin.arc.tipSendLetter')}>
             <button
               className="admin-btn-ghost"
               style={{ marginLeft: 0 }}
               disabled={sending}
               onClick={() => setConfirmSend(s => !s)}
             >
-              {letterSentAt ? 'Resend letter to resident' : 'Send letter to resident'}
+              {letterSentAt ? t('admin.arc.btnResendLetter') : t('admin.arc.btnSendLetter')}
             </button>
           </Tip>
         )}
         {letterSentAt && !confirmSend && (
           <span style={{ fontSize: 12, color: '#067647', fontWeight: 600 }}>
-            ✓ Letter sent {ymd(toDate(letterSentAt) || new Date())}
+            ✓ {t('admin.arc.letterSentOn')} {ymd(toDate(letterSentAt) || new Date())}
           </span>
         )}
 
@@ -653,7 +652,7 @@ function ArcRequestCard({
             not a decision action. Same-tab nav (admin auth lives in sessionStorage,
             which a new tab doesn't inherit — a fresh tab loses the session). */}
         <div style={{ marginLeft: 'auto' }}>
-          <Tip text="Opens the printable draft letter stating the board's decision (and any reason or conditions) — view it and print to mail a paper copy if needed. Confirm the language with counsel.">
+          <Tip text={t('admin.arc.tipDecisionLetter')}>
             <a
               href={`/admin/arc/${r.id}/document?type=decision`}
               style={{ background: '#0A2440', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontWeight: 700, fontSize: 13, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap' }}
@@ -661,7 +660,7 @@ function ArcRequestCard({
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M6 9V3h12v6" /><path d="M6 18H4a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2h-2" /><path d="M6 14h12v7H6z" />
               </svg>
-              Decision letter
+              {t('admin.arc.decisionLetterLink')}
             </a>
           </Tip>
         </div>
@@ -671,19 +670,18 @@ function ArcRequestCard({
       {confirmSend && (
         <div style={{ border: '1px dashed #d6b8a8', borderRadius: 10, padding: 12, marginTop: 10, background: '#fdf6f1' }}>
           <div style={{ fontSize: 13, color: '#7a4a2b', fontWeight: 600, marginBottom: 4 }}>
-            Send the official decision letter to {r.unit_label || 'the owner'}?
+            {t('admin.arc.confirmSendTitle', { owner: r.unit_label || t('admin.arc.theOwner') })}
           </div>
           <div style={{ fontSize: 12.5, color: '#8a5a38', marginBottom: 10 }}>
-            This is a DRAFT aid, not legal advice — confirm the letter language with your association
-            attorney before sending. The owner will be able to download the PDF and receives an in-app notice.
-            {!r.profile_id && <><br /><strong>This request has no linked owner account, so the letter can&apos;t be delivered.</strong></>}
+            {t('admin.arc.confirmSendBody')}
+            {!r.profile_id && <><br /><strong>{t('admin.arc.noOwnerAccount')}</strong></>}
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button className="admin-primary-btn" disabled={sending || !r.profile_id} onClick={doSend}>
-              {sending ? 'Sending…' : letterSentAt ? 'Resend official letter' : 'Send official letter'}
+              {sending ? t('admin.arc.sending') : letterSentAt ? t('admin.arc.btnResendOfficialLetter') : t('admin.arc.btnSendOfficialLetter')}
             </button>
             <button className="admin-btn-ghost" disabled={sending} onClick={() => setConfirmSend(false)}>
-              Cancel
+              {t('admin.arc.cancel')}
             </button>
           </div>
         </div>
@@ -695,16 +693,16 @@ function ArcRequestCard({
           <label className="admin-field">
             <span className="admin-field-label">
               {decideMode === 'deny'
-                ? 'Reason for denial (required — FS 720.3035(3))'
-                : 'Conditions of approval'}
+                ? t('admin.arc.labelDenialReason')
+                : t('admin.arc.labelConditions')}
             </span>
             <textarea
               className="admin-input" rows={3}
               value={reason}
               placeholder={
                 decideMode === 'deny'
-                  ? 'State the specific reason(s) for the denial…'
-                  : 'Describe the conditions that apply to this approval…'
+                  ? t('admin.arc.placeholderDenialReason')
+                  : t('admin.arc.placeholderConditions')
               }
               onChange={e => setReason(e.target.value)}
             />
@@ -715,10 +713,10 @@ function ArcRequestCard({
               disabled={busy || (decideMode === 'deny' && !reason.trim())}
               onClick={() => submit(decideMode === 'deny' ? 'denied' : 'approved_with_conditions')}
             >
-              {busy ? 'Sending…' : decideMode === 'deny' ? 'Deny & send letter' : 'Approve w/ conditions & send'}
+              {busy ? t('admin.arc.sending') : decideMode === 'deny' ? t('admin.arc.btnDenyAndSend') : t('admin.arc.btnApproveConditionsAndSend')}
             </button>
             <button className="admin-btn-ghost" onClick={() => { setDecideMode(null); setReason('') }}>
-              Cancel
+              {t('admin.arc.cancel')}
             </button>
           </div>
         </div>

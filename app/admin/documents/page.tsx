@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, ChangeEvent } from 'react'
 import { AdminModal } from '../AdminModal'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
+import { useT } from '@/lib/i18n'
 import {
   addStoredCategory,
   hideBuiltInCategory,
@@ -96,6 +97,7 @@ const DOC_EMPTY: { title: string; category: DocCategory } = { title: '', categor
 export default function AdminEasyDocs() {
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
+  const t = useT()
 
   // Which section shows: 'rules' or 'documents'. Switched in-page (instant) by
   // the Easy Documents sub-nav; only the active section renders. Read the hash
@@ -474,11 +476,10 @@ export default function AdminEasyDocs() {
       {tab === 'rules' && (
       <section id="easydocs-rules" style={{ scrollMarginTop: 56 }}>
         <div className="admin-page cset">
-          <div className="admin-kicker">Rules</div>
-          <h1 className="admin-h1">Rule book</h1>
+          <div className="admin-kicker">{t('admin.documents.rulesKicker')}</div>
+          <h1 className="admin-h1">{t('admin.documents.ruleBookTitle')}</h1>
           <p className="admin-dek" style={{ maxWidth: 560 }}>
-            Covenants and house rules. Everything here shows on each resident&rsquo;s
-            Rules page, grouped by section.
+            {t('admin.documents.ruleBookDek')}
           </p>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', margin: '6px 0 8px' }}>
@@ -487,7 +488,7 @@ export default function AdminEasyDocs() {
                 try { await restoreDemo(); setRuleSuccessMsg('Starter rules added.') }
                 catch (err) { setRuleError((err as any)?.message || 'Could not restore samples') }
               }}>
-              Restore samples
+              {t('admin.documents.restoreSamples')}
             </button>
             <button type="button" className="admin-rules-danger"
               onClick={async () => {
@@ -496,9 +497,9 @@ export default function AdminEasyDocs() {
                   catch (err) { setRuleError((err as any)?.message || 'Could not delete rules') }
                 }
               }}>
-              Delete all
+              {t('admin.documents.deleteAll')}
             </button>
-            <button type="button" className="admin-primary-btn" onClick={() => setShowAddRule(true)}>+ Add rule</button>
+            <button type="button" className="admin-primary-btn" onClick={() => setShowAddRule(true)}>{t('admin.documents.addRuleBtn')}</button>
           </div>
 
           {ruleSuccessMsg && (
@@ -512,27 +513,27 @@ export default function AdminEasyDocs() {
           <div className="card lever">
             <div className="card-head">
               <div>
-                <h2>Set up from a rule book PDF</h2>
-                <div className="sub">Got a CC&amp;R packet or rule book PDF? We&rsquo;ll pull the rule titles, sections &amp; fines out automatically.</div>
+                <h2>{t('admin.documents.ruleBookPdfTitle')}</h2>
+                <div className="sub">{t('admin.documents.ruleBookPdfSub')}</div>
               </div>
-              <span className="doc-badge">Sets itself up</span>
+              <span className="doc-badge">{t('admin.documents.setsItselfUp')}</span>
             </div>
             <div className="docsetup" onClick={() => pdfInputRef.current?.click()}>
               <UploadGlyph />
-              <div className="docsetup-title">Drop a PDF here</div>
-              <div className="docsetup-sub">CC&amp;Rs &middot; Rules &amp; Regulations &middot; Bylaws</div>
+              <div className="docsetup-title">{t('admin.documents.dropPdfHere')}</div>
+              <div className="docsetup-sub">{t('admin.documents.ruleBookPdfTypes')}</div>
             </div>
             {pdfFile && <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--text-dim)' }}>{pdfFile.name}</div>}
             {pdfStatus && <div className="admin-note" style={{ marginTop: 10 }}>{pdfStatus}</div>}
             <div className="docsetup-actions">
               <input name="rule-book-pdf" ref={pdfInputRef} type="file" accept="application/pdf"
                 onChange={onPickPdf} style={{ display: 'none' }} />
-              <span className="docsetup-hint">We&rsquo;ll show you what we found before anything is saved.</span>
+              <span className="docsetup-hint">{t('admin.documents.pdfFoundHint')}</span>
               <div style={{ display: 'flex', gap: 10 }}>
                 <button type="button" className="admin-secondary-btn" onClick={() => pdfInputRef.current?.click()}>
-                  {pdfFile ? 'Pick another' : 'Choose file'}
+                  {pdfFile ? t('admin.documents.pickAnother') : t('admin.documents.chooseFile')}
                 </button>
-                <button type="button" className="admin-primary-btn" onClick={importPdf} disabled={!pdfFile}>Import</button>
+                <button type="button" className="admin-primary-btn" onClick={importPdf} disabled={!pdfFile}>{t('admin.documents.importBtn')}</button>
               </div>
             </div>
           </div>
@@ -541,17 +542,17 @@ export default function AdminEasyDocs() {
           <div className="card">
             <div className="card-head">
               <div>
-                <h2>Rule book</h2>
-                <div className="sub">Published to residents · {rows.length} {rows.length === 1 ? 'rule' : 'rules'}</div>
+                <h2>{t('admin.documents.ruleBookCardTitle')}</h2>
+                <div className="sub">{t('admin.documents.publishedToResidents')} · {rows.length} {rows.length === 1 ? t('admin.documents.ruleOne') : t('admin.documents.ruleMany')}</div>
               </div>
               <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                 <div style={{ minWidth: 160 }}>
                   <Dropdown<string>
                     value={filterCategory}
                     onChange={setFilterCategory}
-                    ariaLabel="Filter rules by category"
+                    ariaLabel={t('admin.documents.filterByCategoryAriaLabel')}
                     options={[
-                      { value: 'all', label: `All sections (${rows.length})` },
+                      { value: 'all', label: `${t('admin.documents.allSections')} (${rows.length})` },
                       ...categories.map(c => ({
                         value: c,
                         label: `${c} (${rows.filter((r: any) => (r.section || '') === c).length})`,
@@ -563,14 +564,14 @@ export default function AdminEasyDocs() {
                   <Dropdown<typeof filterPeriod>
                     value={filterPeriod}
                     onChange={setFilterPeriod}
-                    ariaLabel="Filter rules by when added"
+                    ariaLabel={t('admin.documents.filterByPeriodAriaLabel')}
                     options={[
-                      { value: 'all',        label: 'All time' },
-                      { value: 'week',       label: 'This week' },
-                      { value: 'month',      label: 'This month' },
-                      { value: 'past-week',  label: 'Past week' },
-                      { value: 'past-month', label: 'Past month' },
-                      { value: 'past-year',  label: 'Past year' },
+                      { value: 'all',        label: t('admin.documents.periodAll') },
+                      { value: 'week',       label: t('admin.documents.periodWeek') },
+                      { value: 'month',      label: t('admin.documents.periodMonth') },
+                      { value: 'past-week',  label: t('admin.documents.periodPastWeek') },
+                      { value: 'past-month', label: t('admin.documents.periodPastMonth') },
+                      { value: 'past-year',  label: t('admin.documents.periodPastYear') },
                     ]}
                   />
                 </div>
@@ -578,7 +579,7 @@ export default function AdminEasyDocs() {
             </div>
 
             {rows.length === 0 ? (
-              <div className="bc-empty" style={{ margin: 0 }}>No rules yet — click &ldquo;+ Add rule&rdquo; or drop a PDF above.</div>
+              <div className="bc-empty" style={{ margin: 0 }}>{t('admin.documents.noRulesYet')}</div>
             ) : (() => {
               const filtered = rows.filter((r: any) => {
                 if (filterCategory !== 'all' && (r.section || '') !== filterCategory) return false
@@ -600,7 +601,7 @@ export default function AdminEasyDocs() {
                   case 'past-year':  return added >= past365
                 }
               })
-              if (filtered.length === 0) return <div className="bc-empty" style={{ margin: 0 }}>No rules match these filters.</div>
+              if (filtered.length === 0) return <div className="bc-empty" style={{ margin: 0 }}>{t('admin.documents.noRulesFilter')}</div>
               const visible = paginate(filtered, rulePage, RULE_BOOK_PAGE_SIZE)
               const startIdx = (rulePage - 1) * RULE_BOOK_PAGE_SIZE
               return (
@@ -614,15 +615,15 @@ export default function AdminEasyDocs() {
                           <div className="rulemain">
                             <div className="ruletitle">{r.title}</div>
                             <div className="rulemeta">
-                              {r.section ? `${r.section} · ` : ''}{r.body ? r.body.slice(0, 80) + (r.body.length > 80 ? '…' : '') : `Published ${fmtPubDate(r.created_at) || '—'}`}
+                              {r.section ? `${r.section} · ` : ''}{r.body ? r.body.slice(0, 80) + (r.body.length > 80 ? '…' : '') : `${t('admin.documents.publishedLabel')} ${fmtPubDate(r.created_at) || '—'}`}
                             </div>
                             {open && (
                               <div className="rule-detail">
-                                {r.body ? <p style={{ margin: '0 0 8px' }}>{r.body}</p> : <p style={{ margin: '0 0 8px', opacity: 0.7 }}>No additional detail for this rule.</p>}
+                                {r.body ? <p style={{ margin: '0 0 8px' }}>{r.body}</p> : <p style={{ margin: '0 0 8px', opacity: 0.7 }}>{t('admin.documents.noRuleDetail')}</p>}
                                 <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12.5 }}>
-                                  <span><strong>Section:</strong> {r.section || 'Unsectioned'}</span>
-                                  <span><strong>Published:</strong> {fmtPubDate(r.created_at) || 'unknown'}</span>
-                                  {r.fine != null && Number(r.fine) > 0 && <span><strong>Fine:</strong> {fmtMoney(r.fine)}</span>}
+                                  <span><strong>{t('admin.documents.sectionLabel')}:</strong> {r.section || t('admin.documents.unsectioned')}</span>
+                                  <span><strong>{t('admin.documents.publishedLabel')}:</strong> {fmtPubDate(r.created_at) || t('admin.documents.unknownDate')}</span>
+                                  {r.fine != null && Number(r.fine) > 0 && <span><strong>{t('admin.documents.fineLabel')}:</strong> {fmtMoney(r.fine)}</span>}
                                 </div>
                               </div>
                             )}
@@ -630,9 +631,9 @@ export default function AdminEasyDocs() {
                           <div className="ruleactions">
                             {r.fine != null && Number(r.fine) > 0 && <div className="bd-amount">{fmtMoney(r.fine)}</div>}
                             <button type="button" className="rule-edit" onClick={() => setExpandedId(open ? null : r.id)} aria-expanded={open}>
-                              {open ? 'Close' : 'Edit'} →
+                              {open ? t('admin.documents.closeBtn') : t('admin.documents.editBtn')} →
                             </button>
-                            <button type="button" className="vdel" onClick={() => removeRule(r.id)} aria-label="Remove rule">&times;</button>
+                            <button type="button" className="vdel" onClick={() => removeRule(r.id)} aria-label={t('admin.documents.removeRuleAriaLabel')}>&times;</button>
                           </div>
                         </div>
                       )
@@ -647,17 +648,17 @@ export default function AdminEasyDocs() {
 
           {/* Add-rule popup — opens over the page from "+ Add rule". */}
           {showAddRule && (
-            <AdminModal title="Add a rule"
-              sub="It shows on every resident's Rules page under its section."
+            <AdminModal title={t('admin.documents.addRuleModalTitle')}
+              sub={t('admin.documents.addRuleModalSub')}
               onClose={() => setShowAddRule(false)}>
               <form className="admin-form" onSubmit={addRule}>
                 <div className="admin-field">
-                  <span className="admin-field-label">Section</span>
+                  <span className="admin-field-label">{t('admin.documents.sectionFieldLabel')}</span>
                   <Dropdown<string>
                     value={ruleForm.section}
                     onChange={v => setRuleField('section', v)}
-                    ariaLabel="Rule section"
-                    placeholder="Choose a section…"
+                    ariaLabel={t('admin.documents.ruleSectionAriaLabel')}
+                    placeholder={t('admin.documents.chooseSectionPlaceholder')}
                     searchable
                     onCreate={name => {
                       addStoredCategory(name)
@@ -673,27 +674,27 @@ export default function AdminEasyDocs() {
                     }}
                     options={categories.map(c => ({ value: c, label: c }))}
                   />
-                  <span className="admin-field-hint">Search to filter, or type a new section and click <strong>Add</strong>.</span>
+                  <span className="admin-field-hint">{t('admin.documents.sectionFieldHint')}</span>
                 </div>
                 <label className="admin-field">
-                  <span className="admin-field-label">Rule</span>
-                  <input name="title" className="admin-input" placeholder="Trash bins stored out of street view"
+                  <span className="admin-field-label">{t('admin.documents.ruleFieldLabel')}</span>
+                  <input name="title" className="admin-input" placeholder={t('admin.documents.ruleFieldPlaceholder')}
                     value={ruleForm.title} onChange={e => setRuleField('title', e.target.value)} />
                 </label>
                 <label className="admin-field">
-                  <span className="admin-field-label">Detail (optional)</span>
+                  <span className="admin-field-label">{t('admin.documents.detailFieldLabel')}</span>
                   <textarea name="body" className="admin-input admin-textarea" rows={3}
-                    placeholder="Plain-language explanation residents will read."
+                    placeholder={t('admin.documents.detailFieldPlaceholder')}
                     value={ruleForm.body} onChange={e => setRuleField('body', e.target.value)} />
                 </label>
                 <label className="admin-field" style={{ maxWidth: 200 }}>
-                  <span className="admin-field-label">Fine $ (optional)</span>
+                  <span className="admin-field-label">{t('admin.documents.fineFieldLabel')}</span>
                   <input name="fine" className="admin-input" type="number" placeholder="50"
                     value={ruleForm.fine} onChange={e => setRuleField('fine', e.target.value)} />
                 </label>
                 <div className="admin-form-actions">
                   <button type="submit" className="admin-primary-btn" disabled={ruleSaving}>
-                    {ruleSaving ? 'Adding…' : 'Add rule'}
+                    {ruleSaving ? t('admin.documents.addingBtn') : t('admin.documents.addRuleSubmitBtn')}
                   </button>
                   {ruleError && <span className="admin-err-inline">{ruleError}</span>}
                 </div>
@@ -710,36 +711,33 @@ export default function AdminEasyDocs() {
       {tab === 'documents' && (
       <section id="easydocs-documents" style={{ scrollMarginTop: 56 }}>
         <div className="admin-page cset">
-          <div className="admin-kicker">Documents</div>
-          <h1 className="admin-h1">Document archive</h1>
+          <div className="admin-kicker">{t('admin.documents.documentsKicker')}</div>
+          <h1 className="admin-h1">{t('admin.documents.documentArchiveTitle')}</h1>
           <p className="admin-dek" style={{ maxWidth: 560 }}>
-            Your community&rsquo;s official records and rule book. Drop your governing
-            docs and Residente pre-fills the rules.
+            {t('admin.documents.documentArchiveDek')}
           </p>
           {docStatus === 'ready' && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap', margin: '6px 0 8px' }}>
               <input ref={bulkFileRef} type="file" multiple onChange={onBulkUpload} style={{ display: 'none' }} />
               <button type="button" className="admin-secondary-btn" disabled={docSaving}
                 onClick={() => bulkFileRef.current?.click()}>
-                {docSaving ? 'Uploading…' : 'Bulk upload'}
+                {docSaving ? t('admin.documents.uploadingBtn') : t('admin.documents.bulkUploadBtn')}
               </button>
               <button type="button" className="admin-primary-btn" onClick={() => setShowUpload(s => !s)}>
-                {showUpload ? 'Close' : 'Add document'}
+                {showUpload ? t('admin.documents.closeBtn') : t('admin.documents.addDocumentBtn')}
               </button>
             </div>
           )}
 
           {docStatus === 'none' && (
             <div className="admin-note admin-note-warn">
-              No community is linked yet, or the documents table and storage bucket
-              aren't set up. Run the rules &amp; documents setup SQL (see
-              supabase/rules-and-documents.sql), then reload.
+              {t('admin.documents.noCommunityNote')}
             </div>
           )}
           {docStatus === 'error' && (
             <div className="admin-note admin-note-err">
               {docError}
-              <button type="button" className="admin-btn-ghost" onClick={loadDocs}>Retry</button>
+              <button type="button" className="admin-btn-ghost" onClick={loadDocs}>{t('admin.documents.retryBtn')}</button>
             </div>
           )}
 
@@ -752,62 +750,62 @@ export default function AdminEasyDocs() {
 
           <SetupNotesPanel communityId={communityId} />
 
-          {docStatus === 'loading' && <div className="admin-note">Loading…</div>}
+          {docStatus === 'loading' && <div className="admin-note">{t('admin.documents.loadingMsg')}</div>}
           {docStatus === 'ready' && (
             <>
               {/* Set up from your governing docs — drop a PDF, file it, pre-fill rules. */}
               <div className="card lever">
                 <div className="card-head">
                   <div>
-                    <h2>Set up from your governing docs</h2>
-                    <div className="sub">Drop your declaration or bylaws &mdash; we read them into your rules, fine schedule &amp; reserves.</div>
+                    <h2>{t('admin.documents.govDocsTitle')}</h2>
+                    <div className="sub">{t('admin.documents.govDocsSub')}</div>
                   </div>
-                  <span className="doc-badge">Sets itself up</span>
+                  <span className="doc-badge">{t('admin.documents.setsItselfUp')}</span>
                 </div>
                 <div className="docsetup" onClick={() => { if (!docSaving) govFileRef.current?.click() }}>
                   <UploadGlyph />
-                  <div className="docsetup-title">Drop a PDF here</div>
-                  <div className="docsetup-sub">Declaration &middot; Bylaws &middot; Articles &middot; Rules &amp; Regulations</div>
+                  <div className="docsetup-title">{t('admin.documents.dropPdfHere')}</div>
+                  <div className="docsetup-sub">{t('admin.documents.govDocsPdfTypes')}</div>
                 </div>
                 <div className="docsetup-actions">
                   <input ref={govFileRef} type="file" accept="application/pdf"
                     onChange={onPickGoverningDoc} style={{ display: 'none' }} />
-                  <span className="docsetup-hint">We&rsquo;ll show you what we found before anything is saved.</span>
+                  <span className="docsetup-hint">{t('admin.documents.pdfFoundHint')}</span>
                   <button type="button" className="admin-primary-btn" disabled={docSaving}
                     onClick={() => govFileRef.current?.click()}>
-                    {docSaving ? 'Uploading…' : 'Choose file'}
+                    {docSaving ? t('admin.documents.uploadingBtn') : t('admin.documents.chooseFile')}
                   </button>
                 </div>
               </div>
 
               {/* Add-a-document popup — opens over the page from the header button. */}
               {showUpload && (
-                <AdminModal title="Add a document"
-                  sub="Minutes, financials, insurance certificates, contracts."
+                <AdminModal title={t('admin.documents.addDocModalTitle')}
+                  sub={t('admin.documents.addDocModalSub')}
                   onClose={() => setShowUpload(false)}>
                   <form className="admin-form" onSubmit={uploadDoc}>
                     <label className="admin-field">
-                      <span className="admin-field-label">Title</span>
-                      <input name="title" className="admin-input" placeholder="April 2026 board meeting minutes"
+                      <span className="admin-field-label">{t('admin.documents.titleFieldLabel')}</span>
+                      <input name="title" className="admin-input" placeholder={t('admin.documents.titleFieldPlaceholder')}
                         value={docForm.title} onChange={e => setDocField('title', e.target.value)} />
                     </label>
                     <div className="admin-field" style={{ maxWidth: 240 }}>
-                      <span className="admin-field-label">Category</span>
+                      <span className="admin-field-label">{t('admin.documents.categoryFieldLabel')}</span>
                       <Dropdown
                         value={docForm.category}
                         onChange={v => setDocField('category', v)}
-                        ariaLabel="Document category"
+                        ariaLabel={t('admin.documents.docCategoryAriaLabel')}
                         options={[...DOC_CATEGORIES].map(c => ({ value: c, label: c }))}
                       />
                     </div>
                     <label className="admin-field">
-                      <span className="admin-field-label">File</span>
+                      <span className="admin-field-label">{t('admin.documents.fileFieldLabel')}</span>
                       <input name="document" ref={docFileRef} type="file" className="admin-file"
                         onChange={e => setDocFile(e.target.files?.[0] || null)} />
                     </label>
                     <div className="admin-form-actions">
                       <button type="submit" className="admin-primary-btn" disabled={docSaving}>
-                        {docSaving ? 'Uploading…' : 'Upload document'}
+                        {docSaving ? t('admin.documents.uploadingBtn') : t('admin.documents.uploadDocumentBtn')}
                       </button>
                       {docError && <span className="admin-err-inline">{docError}</span>}
                     </div>
@@ -817,12 +815,10 @@ export default function AdminEasyDocs() {
 
               {/* Florida compliance — required document types (kept from the live page). */}
               <div className="card">
-                <div className="card-head"><div><h2>Florida compliance</h2>
-                  <div className="sub">Required document types &mdash; missing types are flagged.</div></div></div>
+                <div className="card-head"><div><h2>{t('admin.documents.floridaComplianceTitle')}</h2>
+                  <div className="sub">{t('admin.documents.floridaComplianceSub')}</div></div></div>
                 <p style={{ margin: '0 0 12px', fontSize: 13, color: 'var(--text-dim)' }}>
-                  FL 718.111(12)(g) (condos, 25+ units) and FL 720.303(4)(b) (HOAs, 100+ parcels)
-                  require associations to post these document types online within 30 days of
-                  creation or receipt.
+                  {t('admin.documents.floridaComplianceDesc')}
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 8 }}>
                   {FL_REQUIRED_CATEGORIES.map(({ label, statute }) => {
@@ -852,24 +848,22 @@ export default function AdminEasyDocs() {
                   })}
                 </div>
                 <p style={{ margin: '12px 0 0', fontSize: 12, color: 'var(--text-faint)' }}>
-                  <strong>Public notices (HOA only):</strong> FL 720.303(4)(b)(1)(l) requires
-                  meeting notices to be posted in plain view on a public homepage or &ldquo;Notices&rdquo;
-                  subpage &mdash; not just behind login.
+                  <strong>{t('admin.documents.publicNoticesLabel')}</strong> {t('admin.documents.publicNoticesDesc')}
                 </p>
               </div>
 
               {/* Archive — clean table (mock columns + preserved posting/amendment). */}
               <div className="card">
                 <div className="card-head">
-                  <div><h2>Archive</h2>
-                    <div className="sub">{docRows.length} {docRows.length === 1 ? 'document' : 'documents'}</div></div>
+                  <div><h2>{t('admin.documents.archiveTitle')}</h2>
+                    <div className="sub">{docRows.length} {docRows.length === 1 ? t('admin.documents.documentOne') : t('admin.documents.documentMany')}</div></div>
                   <div style={{ minWidth: 180 }}>
                     <Dropdown<string>
                       value={docCatFilter}
                       onChange={(v) => { setDocCatFilter(v); setDocPage(1) }}
-                      ariaLabel="Filter documents by category"
+                      ariaLabel={t('admin.documents.filterByDocCategoryAriaLabel')}
                       options={[
-                        { value: 'all', label: `All categories (${docRows.length})` },
+                        { value: 'all', label: `${t('admin.documents.allCategories')} (${docRows.length})` },
                         ...[...DOC_CATEGORIES].map(c => ({
                           value: c,
                           label: `${c} (${docRows.filter((d: any) => (d.category || '') === c).length})`,
@@ -882,7 +876,7 @@ export default function AdminEasyDocs() {
                   const filteredDocs = docRows.filter((d: any) => docCatFilter === 'all' || (d.category || '') === docCatFilter)
                   if (filteredDocs.length === 0) {
                     return <div className="bc-empty" style={{ margin: 0 }}>
-                      {docRows.length === 0 ? 'No documents yet — drop a PDF above or add one.' : 'No documents in this category.'}
+                      {docRows.length === 0 ? t('admin.documents.noDocsYet') : t('admin.documents.noDocsInCategory')}
                     </div>
                   }
                   const pageRows = paginate(filteredDocs, docPage, DOCS_PAGE_SIZE)
@@ -891,7 +885,7 @@ export default function AdminEasyDocs() {
                       <table className="doctbl">
                         <thead>
                           <tr>
-                            <th>Document</th><th>Category</th><th>Uploaded</th><th className="act" aria-label="Actions" />
+                            <th>{t('admin.documents.colDocument')}</th><th>{t('admin.documents.colCategory')}</th><th>{t('admin.documents.colUploaded')}</th><th className="act" aria-label={t('admin.documents.colActionsAriaLabel')} />
                           </tr>
                         </thead>
                         {pageRows.map((d: any) => {
@@ -910,7 +904,7 @@ export default function AdminEasyDocs() {
                                           {fmtSize(d.file_size) && recordsApplies && ' · '}
                                           {recordsApplies && (
                                             <span style={{ color: d.posted_to_portal ? '#067647' : '#B54708', fontWeight: 600 }}>
-                                              {d.posted_to_portal ? '✓ Posted to portal' : 'Not posted'}
+                                              {d.posted_to_portal ? t('admin.documents.postedToPortal') : t('admin.documents.notPosted')}
                                             </span>
                                           )}
                                         </div>
@@ -921,8 +915,8 @@ export default function AdminEasyDocs() {
                                 <td>{d.category ? <span className={docCatClass(d.category)}>{d.category}</span> : <span className="muted">—</span>}</td>
                                 <td className="muted">{fmtDate(d.uploaded_at)}</td>
                                 <td className="act">
-                                  <button type="button" className="doc-open" onClick={() => openDoc(d)}>Open →</button>
-                                  <button type="button" className="vdel" onClick={() => removeDoc(d)} aria-label="Remove document">&times;</button>
+                                  <button type="button" className="doc-open" onClick={() => openDoc(d)}>{t('admin.documents.openDocBtn')}</button>
+                                  <button type="button" className="vdel" onClick={() => removeDoc(d)} aria-label={t('admin.documents.removeDocAriaLabel')}>&times;</button>
                                 </td>
                               </tr>
                               {hasSub && (
@@ -932,7 +926,7 @@ export default function AdminEasyDocs() {
                                       {recordsApplies && (
                                         <button type="button" className="admin-btn-ghost" style={{ fontSize: 12 }}
                                           onClick={() => togglePosted(d)}>
-                                          {d.posted_to_portal ? 'Mark unposted' : 'Mark posted'}
+                                          {d.posted_to_portal ? t('admin.documents.markUnpostedBtn') : t('admin.documents.markPostedBtn')}
                                         </button>
                                       )}
                                       {isHoa && <AmendmentControl doc={d} onPatch={patchDoc} />}
@@ -955,15 +949,15 @@ export default function AdminEasyDocs() {
               <div id="records-requests" className="card" style={{ scrollMarginTop: 56 }}>
                 <div className="card-head">
                   <div>
-                    <h2>Records-inspection requests</h2>
+                    <h2>{t('admin.documents.recordsRequestsTitle')}</h2>
                     <div className="sub">
-                      {openRecRequests.length} open · 10 {community?.association_type === 'hoa' ? 'business' : 'working'}-day statutory deadline.
+                      {openRecRequests.length} {t('admin.documents.openRequests')} · {t('admin.documents.statutoryDeadline', { dayType: community?.association_type === 'hoa' ? t('admin.documents.businessDay') : t('admin.documents.workingDay') })}
                     </div>
                   </div>
-                  <a href="/admin/documents/records-print?type=manifest" target="_blank" rel="noreferrer" className="admin-btn-ghost" style={{ textDecoration: 'none' }}>📄 Records index</a>
+                  <a href="/admin/documents/records-print?type=manifest" target="_blank" rel="noreferrer" className="admin-btn-ghost" style={{ textDecoration: 'none' }}>📄 {t('admin.documents.recordsIndexLink')}</a>
                 </div>
                 {recRequests.length === 0 ? (
-                  <div className="bc-empty" style={{ margin: 0 }}>No records-inspection requests. Residents can submit one from their Documents page.</div>
+                  <div className="bc-empty" style={{ margin: 0 }}>{t('admin.documents.noRecordsRequests')}</div>
                 ) : (
                   <div className="bd-list">
                     {recRequests.map(r => {
@@ -973,13 +967,13 @@ export default function AdminEasyDocs() {
                       return (
                         <div className="bd-row" key={r.id} style={overdue ? { borderLeft: '4px solid #B42318' } : undefined}>
                           <div className="bd-main">
-                            <div className="bd-title">{r.subject || 'Records request'}</div>
+                            <div className="bd-title">{r.subject || t('admin.documents.recordsRequestFallback')}</div>
                             <div className="bd-meta">
                               {r.submitter_name && <><span>{r.submitter_name}</span><span className="bd-dot">·</span></>}
-                              <span>requested {fmtDate(r.created_at)}</span>
+                              <span>{t('admin.documents.requestedOn')} {fmtDate(r.created_at)}</span>
                               {due && <><span className="bd-dot">·</span>
                                 <span style={{ color: answered ? '#067647' : overdue ? '#B42318' : '#475467', fontWeight: 600 }}>
-                                  {answered ? `answered ${fmtDate(r.responded_at)}` : `due ${ymd(due)}`}
+                                  {answered ? `${t('admin.documents.answeredOn')} ${fmtDate(r.responded_at)}` : `${t('admin.documents.dueOn')} ${ymd(due)}`}
                                 </span></>}
                             </div>
                             {r.body && <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>{r.body}</div>}
@@ -987,11 +981,11 @@ export default function AdminEasyDocs() {
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
                             {!answered && (
                               <button type="button" className="admin-primary-btn" onClick={() => respondToRequest(r)}>
-                                Mark answered
+                                {t('admin.documents.markAnsweredBtn')}
                               </button>
                             )}
-                            <a href={`/admin/documents/records-print?type=acknowledgement&request=${r.id}`} target="_blank" rel="noreferrer" className="doc-card-link" style={{ fontSize: 12 }}>Acknowledgement</a>
-                            <a href={`/admin/documents/records-print?type=checklist&request=${r.id}`} target="_blank" rel="noreferrer" className="doc-card-link" style={{ fontSize: 12 }}>Checklist</a>
+                            <a href={`/admin/documents/records-print?type=acknowledgement&request=${r.id}`} target="_blank" rel="noreferrer" className="doc-card-link" style={{ fontSize: 12 }}>{t('admin.documents.acknowledgementLink')}</a>
+                            <a href={`/admin/documents/records-print?type=checklist&request=${r.id}`} target="_blank" rel="noreferrer" className="doc-card-link" style={{ fontSize: 12 }}>{t('admin.documents.checklistLink')}</a>
                           </div>
                         </div>
                       )
@@ -1013,6 +1007,7 @@ export default function AdminEasyDocs() {
 // recording + member-distribution dates that drive the 30-day advisory signal.
 // Rendered below each archive row for HOA communities only.
 function AmendmentControl({ doc, onPatch }: { doc: any; onPatch: (id: string, patch: Record<string, any>) => void }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const isAmend = !!doc.is_amendment
   const recorded = doc.amendment_recorded_at || null
@@ -1024,12 +1019,12 @@ function AmendmentControl({ doc, onPatch }: { doc: any; onPatch: (id: string, pa
     if (!isAmend) {
       return (
         <button type="button" className="admin-btn-ghost" style={{ fontSize: 12, marginTop: 2 }} onClick={() => setOpen(true)}
-          title="Flag a recorded governing-document amendment to track the 30-day member-distribution duty (FS 720.306(1)(b))">
-          ⚖ Recorded amendment?
+          title={t('admin.documents.recordedAmendmentTitle')}>
+          ⚖ {t('admin.documents.recordedAmendmentBtn')}
         </button>
       )
     }
-    const label = distributed ? '⚖ Amendment · distributed' : overdue ? '⚖ Amendment · distribute now' : '⚖ Amendment · pending'
+    const label = distributed ? `⚖ ${t('admin.documents.amendmentDistributed')}` : overdue ? `⚖ ${t('admin.documents.amendmentDistributeNow')}` : `⚖ ${t('admin.documents.amendmentPending')}`
     const col = distributed ? '#067647' : overdue ? '#B42318' : '#B54708'
     return (
       <button type="button" className="admin-btn-ghost" style={{ fontSize: 12, marginTop: 2, color: col, fontWeight: 600 }} onClick={() => setOpen(true)}>
@@ -1042,28 +1037,28 @@ function AmendmentControl({ doc, onPatch }: { doc: any; onPatch: (id: string, pa
     <div style={{ border: '1px dashed #cbd5e1', borderRadius: 10, padding: '10px 12px', marginTop: 4, background: '#fafafa' }}>
       <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13, fontWeight: 600 }}>
         <input type="checkbox" checked={isAmend} onChange={e => onPatch(doc.id, { is_amendment: e.target.checked })} />
-        Recorded governing-document amendment (FS 720.306(1)(b))
+        {t('admin.documents.recordedAmendmentCheckbox')}
       </label>
       {isAmend && (
         <>
           <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap', marginTop: 8 }}>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11.5 }}>
-              <span style={{ opacity: 0.7 }}>Recorded on{due ? ` (distribute by ${ymd(due)})` : ''}</span>
+              <span style={{ opacity: 0.7 }}>{t('admin.documents.recordedOnLabel')}{due ? ` (${t('admin.documents.distributeByLabel')} ${ymd(due)})` : ''}</span>
               <input className="admin-input" style={{ maxWidth: 170 }} type="date" defaultValue={recorded ?? ''}
                 onChange={e => onPatch(doc.id, { amendment_recorded_at: e.target.value || null })} />
             </label>
             <label style={{ display: 'flex', flexDirection: 'column', gap: 2, fontSize: 11.5 }}>
-              <span style={{ opacity: 0.7 }}>Members served on</span>
+              <span style={{ opacity: 0.7 }}>{t('admin.documents.membersServedOnLabel')}</span>
               <input className="admin-input" style={{ maxWidth: 170 }} type="date" defaultValue={distributed ?? ''}
                 onChange={e => onPatch(doc.id, { members_distributed_at: e.target.value || null })} />
             </label>
           </div>
           <p style={{ fontSize: 11.5, opacity: 0.7, margin: '6px 0 0' }}>
-            Provide members a copy (or written notice identifying the recorded instrument, with copies free on request) within {AMENDMENT_DISTRIBUTION_DAYS.value} days of recording. A late distribution does not invalidate the amendment.
+            {t('admin.documents.amendmentDistributionNote', { days: AMENDMENT_DISTRIBUTION_DAYS.value })}
           </p>
         </>
       )}
-      <button type="button" className="admin-btn-ghost" style={{ fontSize: 12, marginTop: 8 }} onClick={() => setOpen(false)}>Close</button>
+      <button type="button" className="admin-btn-ghost" style={{ fontSize: 12, marginTop: 8 }} onClick={() => setOpen(false)}>{t('admin.documents.closeBtn')}</button>
     </div>
   )
 }
@@ -1075,6 +1070,7 @@ function AmendmentControl({ doc, onPatch }: { doc: any; onPatch: (id: string, pa
 type SetupNote = { id: string; section: string; note: string; created_at?: string | null }
 
 function SetupNotesPanel({ communityId }: { communityId?: string | null }) {
+  const t = useT()
   const [notes, setNotes] = useState<SetupNote[]>([])
 
   useEffect(() => {
@@ -1098,10 +1094,9 @@ function SetupNotesPanel({ communityId }: { communityId?: string | null }) {
 
   return (
     <div className="admin-note admin-note-info" style={{ marginBottom: 24 }}>
-      <strong>Notes from your onboarding</strong>
+      <strong>{t('admin.documents.onboardingNotesTitle')}</strong>
       <p style={{ margin: '8px 0 12px', fontSize: 13, opacity: 0.85 }}>
-        What you jotted down while gathering documents at sign-up. For your reference —
-        residents don&apos;t see these.
+        {t('admin.documents.onboardingNotesDesc')}
       </p>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         {notes.map((n) => (

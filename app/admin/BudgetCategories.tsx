@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { useT } from '@/lib/i18n'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, reject) => setTimeout(() => reject(new Error("Can't reach the server")), ms))])
@@ -31,6 +32,7 @@ function parseCsv(text: string) {
 }
 
 export function BudgetCategories({ communityId, onSaved }: { communityId: string; onSaved?: (msg: string) => void }) {
+  const t = useT()
   const [rows, setRows] = useState<any[]>([])
   const [status, setStatus] = useState('loading') // loading | ready | error | saving | saved
   const [error, setError] = useState('')
@@ -47,7 +49,7 @@ export function BudgetCategories({ communityId, onSaved }: { communityId: string
       setRows((data || []).map((r: any) => ({ ...r })))
       setStatus('ready')
     } catch (err: any) {
-      setError(err?.message || 'Could not load categories'); setStatus('error')
+      setError(err?.message || t('admin.budgetCategories.errorLoadFailed')); setStatus('error')
     }
   }, [communityId])
   useEffect(() => { load() }, [load])
@@ -66,9 +68,9 @@ export function BudgetCategories({ communityId, onSaved }: { communityId: string
     reader.onload = () => {
       const parsed = parseCsv(reader.result as string)
       if (parsed.length) { setRows(parsed); setStatus('ready'); setError('') }
-      else { setError('No category rows found in that file'); setStatus('error') }
+      else { setError(t('admin.budgetCategories.errorNoCsvRows')); setStatus('error') }
     }
-    reader.onerror = () => { setError('Could not read that file'); setStatus('error') }
+    reader.onerror = () => { setError(t('admin.budgetCategories.errorFileRead')); setStatus('error') }
     reader.readAsText(file)
   }
 
@@ -105,9 +107,9 @@ export function BudgetCategories({ communityId, onSaved }: { communityId: string
         }
         if (ins.error) throw ins.error
       }
-      setStatus('ready'); setEditing(false); onSaved?.('Budget categories saved.')
+      setStatus('ready'); setEditing(false); onSaved?.(t('admin.budgetCategories.savedMessage'))
     } catch (err: any) {
-      setError(err?.message || 'Save failed'); setStatus('error')
+      setError(err?.message || t('admin.budgetCategories.errorSaveFailed')); setStatus('error')
     }
   }
 
@@ -125,31 +127,31 @@ export function BudgetCategories({ communityId, onSaved }: { communityId: string
     <div className="card">
       <div className="card-head">
         <div>
-          <h2>Budget categories</h2>
-          <div className="sub">This year&rsquo;s operating budget — feeds the Home cards &amp; rings.</div>
+          <h2>{t('admin.budgetCategories.heading')}</h2>
+          <div className="sub">{t('admin.budgetCategories.subHeading')}</div>
         </div>
         {!editing && status !== 'loading' && status !== 'error' && (
-          <button type="button" className="admin-btn-ghost" onClick={startAdd}>+ Add category</button>
+          <button type="button" className="admin-btn-ghost" onClick={startAdd}>{t('admin.budgetCategories.addCategory')}</button>
         )}
       </div>
 
-      {status === 'loading' && <div className="admin-note">Loading categories…</div>}
+      {status === 'loading' && <div className="admin-note">{t('admin.budgetCategories.loading')}</div>}
 
       {status === 'error' && (
         <div className="admin-note admin-note-err">
           {error}
-          <button type="button" className="admin-btn-ghost" onClick={load}>Retry</button>
+          <button type="button" className="admin-btn-ghost" onClick={load}>{t('admin.budgetCategories.retry')}</button>
         </div>
       )}
 
       {/* Read mode — the mock's clean table, no boxes. */}
       {status !== 'loading' && status !== 'error' && !editing && (
         rows.length === 0 ? (
-          <div className="bc-empty">No categories yet — use “+ Add category” to start your budget.</div>
+          <div className="bc-empty">{t('admin.budgetCategories.emptyRead')}</div>
         ) : (
           <table className="tbl">
             <thead>
-              <tr><th>Category</th><th>Annual amount</th><th>% of budget</th><th /></tr>
+              <tr><th>{t('admin.budgetCategories.colCategory')}</th><th>{t('admin.budgetCategories.colAnnualAmount')}</th><th>{t('admin.budgetCategories.colPctOfBudget')}</th><th /></tr>
             </thead>
             <tbody>
               {rows.map((r, i) => (
@@ -157,7 +159,7 @@ export function BudgetCategories({ communityId, onSaved }: { communityId: string
                   <td className="strong">{r.name}</td>
                   <td>{money(r.budget)}</td>
                   <td className="muted">{pctOf(r)}</td>
-                  <td className="go-cell"><button type="button" className="go" onClick={() => setEditing(true)}>Edit &rarr;</button></td>
+                  <td className="go-cell"><button type="button" className="go" onClick={() => setEditing(true)}>{t('admin.budgetCategories.editBtn')}</button></td>
                 </tr>
               ))}
             </tbody>
@@ -169,36 +171,36 @@ export function BudgetCategories({ communityId, onSaved }: { communityId: string
       {status !== 'loading' && status !== 'error' && editing && (
         <div className="bc">
           <div className="bc-row bc-row-head">
-            <span>Category</span><span>Budget&nbsp;$</span><span>Spent&nbsp;$</span><span />
+            <span>{t('admin.budgetCategories.colCategory')}</span><span>{t('admin.budgetCategories.editColBudget')}</span><span>{t('admin.budgetCategories.editColSpent')}</span><span />
           </div>
           {rows.length === 0 && (
-            <div className="bc-empty">No categories yet — add your first one below.</div>
+            <div className="bc-empty">{t('admin.budgetCategories.emptyEdit')}</div>
           )}
           {rows.map((r, i) => (
             <div className="bc-row" key={r.id || `new-${i}`}>
-              <input name={`cat-name-${i}`} className="admin-input" placeholder="Landscape"
+              <input name={`cat-name-${i}`} className="admin-input" placeholder={t('admin.budgetCategories.placeholderName')}
                 value={r.name ?? ''} onChange={e => setCell(i, 'name', e.target.value)} />
               <input name={`cat-budget-${i}`} className="admin-input" type="number" placeholder="0"
                 value={r.budget ?? ''} onChange={e => setCell(i, 'budget', e.target.value)} />
               <input name={`cat-spent-${i}`} className="admin-input" type="number" placeholder="0"
                 value={r.spent ?? ''} onChange={e => setCell(i, 'spent', e.target.value)} />
               <button type="button" className="bc-del" onClick={() => removeRow(i)}
-                aria-label="Remove category">&times;</button>
+                aria-label={t('admin.budgetCategories.removeCategory')}>&times;</button>
             </div>
           ))}
           <div className="bc-actions">
-            <button type="button" className="admin-btn-ghost" onClick={addRow}>+ Add category</button>
+            <button type="button" className="admin-btn-ghost" onClick={addRow}>{t('admin.budgetCategories.addCategory')}</button>
             <button type="button" className="admin-secondary-btn"
-              title="CSV columns: name, budget, spent"
+              title={t('admin.budgetCategories.importCsvTitle')}
               onClick={() => fileRef.current && fileRef.current.click()}>
-              Import CSV
+              {t('admin.budgetCategories.importCsv')}
             </button>
             <input name="categories-csv" ref={fileRef} type="file" accept=".csv,text/csv"
               onChange={onImport} style={{ display: 'none' }} />
-            <button type="button" className="admin-btn-ghost" onClick={cancel}>Cancel</button>
+            <button type="button" className="admin-btn-ghost" onClick={cancel}>{t('admin.budgetCategories.cancel')}</button>
             <button type="button" className="admin-primary-btn" onClick={save}
               disabled={status === 'saving'}>
-              {status === 'saving' ? 'Saving…' : 'Save categories'}
+              {status === 'saving' ? t('admin.budgetCategories.saving') : t('admin.budgetCategories.saveCategories')}
             </button>
           </div>
         </div>

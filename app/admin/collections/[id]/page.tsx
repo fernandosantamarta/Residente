@@ -16,6 +16,7 @@ import { ymd, toDate, addCalendarDays, calendarDaysUntil } from '@/lib/complianc
 import { casePayoff, fmtMoney, type PayoffResult } from '@/lib/dues'
 import { RecordPaymentForm } from '@/components/RecordPaymentForm'
 import { AttorneyNote } from '../../AttorneyNote'
+import { useT } from '@/lib/i18n'
 import {
   STAGE_LABELS, NOTICE_KIND_LABELS, nextEscalation, lienEnforceDeadline, noticeMethodWarning, isOpenStage,
   dualAddressRule, resolveNoticeAddresses, noticeAddressWarning, ownerNoticeAddresses,
@@ -29,6 +30,8 @@ const withTimeout = (p: any, ms = 10000) =>
 const todayYmd = () => ymd(new Date())
 const fmt$ = (n: any) => '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US')
 
+// NOTE: METHODS labels are module-scope and cannot use the useT hook.
+// They are left in English. See i18n notes.
 const METHODS = [
   { value: 'both', label: 'Certified + first-class mail (statutory dual delivery)' },
   { value: 'certified_mail', label: 'Certified / registered mail (return receipt)' },
@@ -47,6 +50,8 @@ interface Advance {
   needsNotice: boolean
 }
 
+// NOTE: advanceFor is a plain helper function (not a React component) and
+// cannot call useT. Its label strings are left in English. See i18n notes.
 function advanceFor(stage: CollectionStage): Advance | null {
   switch (stage) {
     case 'delinquent':
@@ -68,6 +73,7 @@ export default function CollectionCaseDetail() {
   const params = useParams()
   const id = params?.id as string
   const { profile } = useAuth() || {}
+  const t = useT()
 
   const [c, setC] = useState<CollectionCaseRow | null>(null)
   const [community, setCommunity] = useState<any>(null)
@@ -113,7 +119,7 @@ export default function CollectionCaseDetail() {
       setC(cs); setCommunity(comm || null); setResident(res); setPayments(pays)
       setNotices(ns || []); setPlans(pl || []); setStatus('ready')
     } catch (err: any) {
-      setError(err?.message || 'Could not load the case'); setStatus('error')
+      setError(err?.message || t('admin.collectionsDetail.couldNotLoadCase')); setStatus('error')
     }
   }, [id])
   useEffect(() => { load() }, [load])
@@ -123,7 +129,7 @@ export default function CollectionCaseDetail() {
       const { error } = (await withTimeout(supabase.from('ev_collection_cases').update(p).eq('id', id))) as any
       if (error) throw error
       setMsg(okMsg); load()
-    } catch (err: any) { setError(err?.message || 'Update failed') }
+    } catch (err: any) { setError(err?.message || t('admin.collectionsDetail.updateFailed')) }
   }
 
   // Record an offline DUES payment against this case's owner via the append-only
@@ -132,7 +138,7 @@ export default function CollectionCaseDetail() {
   const recordPayment = async (
     { amount, method, paidOn, memo }: { amount: number; method: string; paidOn: string; memo: string },
   ): Promise<{ error?: string } | void> => {
-    if (!resident || !c) return { error: 'Link an owner to this case first' }
+    if (!resident || !c) return { error: t('admin.collectionsDetail.linkOwnerFirst') }
     const client_key = (globalThis.crypto?.randomUUID?.() || `${id}:${paidOn}:${amount}`)
     const { error } = await supabase.rpc('record_offline_payment', {
       p_community: c.community_id,
@@ -150,8 +156,8 @@ export default function CollectionCaseDetail() {
     setMsg(`Recorded ${fmtMoney(amount)}`)
   }
 
-  if (status === 'loading') return <div className="admin-page"><div className="admin-note">Loading…</div></div>
-  if (status === 'error' || !c) return <div className="admin-page"><div className="admin-note admin-note-err">{error || 'Not found'} <Link className="admin-btn-ghost" href="/admin/collections">Back</Link></div></div>
+  if (status === 'loading') return <div className="admin-page"><div className="admin-note">{t('admin.collectionsDetail.loading')}</div></div>
+  if (status === 'error' || !c) return <div className="admin-page"><div className="admin-note admin-note-err">{error || t('admin.collectionsDetail.notFound')} <Link className="admin-btn-ghost" href="/admin/collections">{t('admin.collectionsDetail.back')}</Link></div></div>
 
   const regime: 'condo' | 'hoa' = community?.association_type === 'hoa' ? 'hoa' : 'condo'
   const stage = String(c.stage ?? 'delinquent') as CollectionStage
@@ -170,12 +176,12 @@ export default function CollectionCaseDetail() {
 
   return (
     <div className="admin-page">
-      <div style={{ marginBottom: 6 }}><Link className="admin-back" href="/admin/collections">&larr; All cases</Link></div>
-      <div className="admin-kicker">Florida compliance · Collections</div>
+      <div style={{ marginBottom: 6 }}><Link className="admin-back" href="/admin/collections">&larr; {t('admin.collectionsDetail.allCases')}</Link></div>
+      <div className="admin-kicker">{t('admin.collectionsDetail.breadcrumb')}</div>
       <h1 className="admin-h1" style={{ marginBottom: 2 }}>{c.unit_label || c.id.slice(0, 8)}</h1>
       <p className="admin-dek" style={{ marginTop: 0 }}>
-        Opened {c.opened_at} · stage: <strong>{STAGE_LABELS[stage]}</strong>
-        {c.delinquent_since ? ` · delinquent since ${c.delinquent_since}` : ''}
+        {t('admin.collectionsDetail.opened')} {c.opened_at} · {t('admin.collectionsDetail.stageLabel')}: <strong>{STAGE_LABELS[stage]}</strong>
+        {c.delinquent_since ? ` · ${t('admin.collectionsDetail.delinquentSince')} ${c.delinquent_since}` : ''}
       </p>
 
       <AttorneyNote />
@@ -184,7 +190,7 @@ export default function CollectionCaseDetail() {
 
       {/* ---- Stage ladder ---- */}
       <section style={card}>
-        <h2 className="bc-title" style={{ marginBottom: 10 }}>Statutory ladder</h2>
+        <h2 className="bc-title" style={{ marginBottom: 10 }}>{t('admin.collectionsDetail.statutoryLadder')}</h2>
         <StageBar stage={stage} />
 
         {open && (
@@ -192,15 +198,15 @@ export default function CollectionCaseDetail() {
             {esc?.readyAt && (
               <div className="admin-note" style={{ fontSize: 12.5, marginBottom: 10, borderColor: gateReady ? '#067647' : '#B54708' }}>
                 {gateReady
-                  ? `The statutory waiting period elapsed ${ymd(esc.readyAt)} — you may ${esc.label}. (${esc.citation})`
-                  : `Waiting period runs until ${ymd(esc.readyAt)} (${calendarDaysUntil(esc.readyAt, now)} days). You may proceed earlier, but the statute expects the full period. (${esc.citation})`}
+                  ? `${t('admin.collectionsDetail.waitingPeriodElapsed')} ${ymd(esc.readyAt)} — ${t('admin.collectionsDetail.youMayProceed')} ${esc.label}. (${esc.citation})`
+                  : `${t('admin.collectionsDetail.waitingPeriodRunsUntil')} ${ymd(esc.readyAt)} (${calendarDaysUntil(esc.readyAt, now)} ${t('admin.collectionsDetail.days')}). ${t('admin.collectionsDetail.mayProceedEarlier')} (${esc.citation})`}
               </div>
             )}
             {stage === 'lien_recorded' && lienDeadline && (
               <div className="admin-note admin-note-warn" style={{ fontSize: 12.5, marginBottom: 10 }}>
                 {regime === 'condo'
-                  ? `A condo claim of lien must be foreclosed within 1 year of recording — by ${ymd(lienDeadline)}.`
-                  : `Enforce the lien within the 5-year limitations period — by ${ymd(lienDeadline)}.`}
+                  ? `${t('admin.collectionsDetail.condoLienDeadline')} ${ymd(lienDeadline)}.`
+                  : `${t('admin.collectionsDetail.hoaLienDeadline')} ${ymd(lienDeadline)}.`}
                 {' '}({LIEN_CITE})
               </div>
             )}
@@ -217,41 +223,41 @@ export default function CollectionCaseDetail() {
             />
 
             <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
-              <button className="admin-btn-ghost" onClick={() => patchCase({ stage: 'resolved', resolved_at: todayYmd() }, 'Case resolved.').then(() => logAudit({ community_id: c.community_id!, event_type: 'collection.resolved', target_type: 'collection_case', target_id: id }))}>Mark resolved (paid in full)</button>
-              <button className="admin-btn-ghost" onClick={() => patchCase({ stage: 'cancelled', resolved_at: todayYmd() }, 'Case cancelled.')}>Cancel case</button>
+              <button className="admin-btn-ghost" onClick={() => patchCase({ stage: 'resolved', resolved_at: todayYmd() }, t('admin.collectionsDetail.caseResolved')).then(() => logAudit({ community_id: c.community_id!, event_type: 'collection.resolved', target_type: 'collection_case', target_id: id }))}>{t('admin.collectionsDetail.markResolved')}</button>
+              <button className="admin-btn-ghost" onClick={() => patchCase({ stage: 'cancelled', resolved_at: todayYmd() }, t('admin.collectionsDetail.caseCancelled'))}>{t('admin.collectionsDetail.cancelCase')}</button>
             </div>
           </div>
         )}
         {!open && (
           <div className="admin-note" style={{ marginTop: 12 }}>
-            This case is {STAGE_LABELS[stage].toLowerCase()}{c.resolved_at ? ` (${c.resolved_at})` : ''}.
-            <button className="admin-btn-ghost" onClick={() => patchCase({ stage: 'delinquent', resolved_at: null }, 'Case reopened.')}>Reopen</button>
+            {t('admin.collectionsDetail.caseIs')} {STAGE_LABELS[stage].toLowerCase()}{c.resolved_at ? ` (${c.resolved_at})` : ''}.
+            <button className="admin-btn-ghost" onClick={() => patchCase({ stage: 'delinquent', resolved_at: null }, t('admin.collectionsDetail.caseReopened'))}>{t('admin.collectionsDetail.reopen')}</button>
           </div>
         )}
       </section>
 
       {/* ---- Sworn ledger / payoff ---- */}
       <section style={card}>
-        <h2 className="bc-title" style={{ marginBottom: 10 }}>Payoff ledger</h2>
+        <h2 className="bc-title" style={{ marginBottom: 10 }}>{t('admin.collectionsDetail.payoffLedger')}</h2>
         {!resident && (
           <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>
-            Link this case to a roster owner (from the Collections list intake) to compute the statutory payoff from the dues ledger.
+            {t('admin.collectionsDetail.linkOwnerWarning')}
           </div>
         )}
         {payoff && (
           <>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
               <tbody>
-                <LedgerRow label="Delinquent assessments (principal)" value={fmt$(payoff.gross.principal)} />
-                <LedgerRow label="Interest (simple, daily-accrued)" value={fmt$(payoff.gross.interest)} />
-                <LedgerRow label="Administrative late fees" value={fmt$(payoff.gross.lateFee)} />
-                <LedgerRow label="Collection / attorney costs" value={fmt$(payoff.gross.cost)} />
-                <LedgerRow label="Less: payments applied (interest → fees → costs → principal)" value={'– ' + fmt$(payoff.gross.principal + payoff.gross.interest + payoff.gross.lateFee + payoff.gross.cost - payoff.payoff)} />
-                <tr><td style={{ padding: '8px 10px', fontWeight: 800, borderTop: '2px solid #111' }}>Total to bring current (as of {payoff.asOf})</td><td style={{ padding: '8px 10px', fontWeight: 800, borderTop: '2px solid #111', textAlign: 'right' }}>{fmt$(payoff.payoff)}</td></tr>
+                <LedgerRow label={t('admin.collectionsDetail.ledgerPrincipal')} value={fmt$(payoff.gross.principal)} />
+                <LedgerRow label={t('admin.collectionsDetail.ledgerInterest')} value={fmt$(payoff.gross.interest)} />
+                <LedgerRow label={t('admin.collectionsDetail.ledgerLateFees')} value={fmt$(payoff.gross.lateFee)} />
+                <LedgerRow label={t('admin.collectionsDetail.ledgerCosts')} value={fmt$(payoff.gross.cost)} />
+                <LedgerRow label={t('admin.collectionsDetail.ledgerPaymentsApplied')} value={'– ' + fmt$(payoff.gross.principal + payoff.gross.interest + payoff.gross.lateFee + payoff.gross.cost - payoff.payoff)} />
+                <tr><td style={{ padding: '8px 10px', fontWeight: 800, borderTop: '2px solid #111' }}>{t('admin.collectionsDetail.ledgerTotal')} ({payoff.asOf})</td><td style={{ padding: '8px 10px', fontWeight: 800, borderTop: '2px solid #111', textAlign: 'right' }}>{fmt$(payoff.payoff)}</td></tr>
               </tbody>
             </table>
             <p style={{ fontSize: 11.5, opacity: 0.6, marginTop: 6 }}>
-              Computed from the dues ledger (opening balance + {fmtMoney(Number(community?.monthly_dues) || 0)}/mo) at the community&apos;s configured interest rate. Confirm before relying on it.
+              {t('admin.collectionsDetail.ledgerFootnote', { mo: fmtMoney(Number(community?.monthly_dues) || 0) })}
             </p>
           </>
         )}
@@ -259,7 +265,7 @@ export default function CollectionCaseDetail() {
         {resident && (
           <div style={{ marginTop: 14, padding: '14px 16px', background: 'rgba(0,0,0,0.025)', borderRadius: 10 }}>
             <span className="admin-field-label" style={{ display: 'block', marginBottom: 8 }}>
-              Record an offline payment on this case (check / cash / money order)
+              {t('admin.collectionsDetail.recordOfflinePayment')}
             </span>
             <RecordPaymentForm onSubmit={recordPayment} />
           </div>
@@ -274,14 +280,14 @@ export default function CollectionCaseDetail() {
             late_fee_balance: payoff!.remaining.lateFee,
             cost_balance: payoff!.remaining.cost,
             total_balance: payoff!.payoff,
-          }, 'Balance snapshot saved.')}>Save balance snapshot to case</button>
+          }, t('admin.collectionsDetail.balanceSnapshotSaved'))}>{t('admin.collectionsDetail.saveBalanceSnapshot')}</button>
         )}
       </section>
 
       {/* ---- Notices ledger ---- */}
       <section style={card}>
-        <h2 className="bc-title" style={{ marginBottom: 10 }}>Statutory notices</h2>
-        {notices.length === 0 && <div className="admin-note">No notices logged yet.</div>}
+        <h2 className="bc-title" style={{ marginBottom: 10 }}>{t('admin.collectionsDetail.statutoryNotices')}</h2>
+        {notices.length === 0 && <div className="admin-note">{t('admin.collectionsDetail.noNoticesLogged')}</div>}
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {notices.map(n => {
             const warn = noticeMethodWarning(n.kind, n.method)
@@ -289,15 +295,15 @@ export default function CollectionCaseDetail() {
               <div key={n.id} style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
                 <div style={{ fontWeight: 700, fontSize: 13.5 }}>{NOTICE_KIND_LABELS[n.kind as CollectionNoticeKind] || n.kind}</div>
                 <div style={{ fontSize: 12, opacity: 0.7 }}>
-                  Sent {n.sent_at}{n.method ? ` · ${METHODS.find(m => m.value === n.method)?.label || n.method}` : ''}
+                  {t('admin.collectionsDetail.sent')} {n.sent_at}{n.method ? ` · ${METHODS.find(m => m.value === n.method)?.label || n.method}` : ''}
                   {n.tracking_number ? ` · #${n.tracking_number}` : ''}
-                  {n.return_receipt_at ? ` · receipt ${n.return_receipt_at}` : ''}
+                  {n.return_receipt_at ? ` · ${t('admin.collectionsDetail.receipt')} ${n.return_receipt_at}` : ''}
                 </div>
                 {(n.mailed_to_record_address || n.mailed_to_unit_address) && (
                   <div style={{ fontSize: 11.5, opacity: 0.75, marginTop: 4 }}>
-                    Mailed to {n.mailed_to_record_address || '—'}
+                    {t('admin.collectionsDetail.mailedTo')} {n.mailed_to_record_address || '—'}
                     {n.dual_address_required && n.mailed_to_unit_address
-                      ? <> + unit/parcel copy <span style={{ background: '#175CD314', color: '#175CD3', fontWeight: 700, padding: '1px 6px', borderRadius: 999, marginLeft: 4 }}>both addresses</span></>
+                      ? <> + {t('admin.collectionsDetail.unitParcelCopy')} <span style={{ background: '#175CD314', color: '#175CD3', fontWeight: 700, padding: '1px 6px', borderRadius: 999, marginLeft: 4 }}>{t('admin.collectionsDetail.bothAddresses')}</span></>
                       : null}
                   </div>
                 )}
@@ -313,8 +319,8 @@ export default function CollectionCaseDetail() {
 
       {/* ---- Generate documents ---- */}
       <section style={card}>
-        <h2 className="bc-title" style={{ marginBottom: 4 }}>Generate documents</h2>
-        <p style={{ fontSize: 12, opacity: 0.7, marginTop: 0 }}>Draft letters / ledger — open, review with counsel, print or save as PDF.</p>
+        <h2 className="bc-title" style={{ marginBottom: 4 }}>{t('admin.collectionsDetail.generateDocuments')}</h2>
+        <p style={{ fontSize: 12, opacity: 0.7, marginTop: 0 }}>{t('admin.collectionsDetail.generateDocumentsHint')}</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {DOC_LINKS.map(d => (
             <a key={d.type} className="admin-secondary-btn" href={`/admin/collections/${id}/document?type=${d.type}`} target="_blank" rel="noopener noreferrer">{d.label}</a>
@@ -327,6 +333,8 @@ export default function CollectionCaseDetail() {
 
 const LIEN_CITE = 'FS 718.116(5)(b) / FS 95.11(2)(c)'
 
+// NOTE: DOC_LINKS labels are module-scope and cannot use the useT hook.
+// They are left in English. See i18n notes.
 const DOC_LINKS = [
   { type: 'notice_30', label: '30-day notice of late assessment' },
   { type: 'intent_to_lien', label: '45-day intent to record lien' },
@@ -344,13 +352,14 @@ function LedgerRow({ label, value }: { label: string; value: string }) {
 }
 
 function StageBar({ stage }: { stage: CollectionStage }) {
+  const t = useT()
   const steps: { key: CollectionStage; short: string }[] = [
-    { key: 'delinquent', short: 'Delinquent' },
-    { key: 'notice_30', short: '30-day' },
-    { key: 'intent_to_lien', short: 'Intent-to-lien' },
-    { key: 'lien_recorded', short: 'Lien' },
-    { key: 'intent_to_foreclose', short: 'Intent-to-foreclose' },
-    { key: 'foreclosure', short: 'Foreclosure' },
+    { key: 'delinquent', short: t('admin.collectionsDetail.stageDelinquent') },
+    { key: 'notice_30', short: t('admin.collectionsDetail.stage30day') },
+    { key: 'intent_to_lien', short: t('admin.collectionsDetail.stageIntentToLien') },
+    { key: 'lien_recorded', short: t('admin.collectionsDetail.stageLien') },
+    { key: 'intent_to_foreclose', short: t('admin.collectionsDetail.stageIntentToForeclose') },
+    { key: 'foreclosure', short: t('admin.collectionsDetail.stageForeclosure') },
   ]
   const order = ['delinquent', 'notice_30', 'intent_to_lien', 'lien_recorded', 'intent_to_foreclose', 'foreclosure']
   const cur = order.indexOf(stage)
@@ -381,10 +390,11 @@ function StageActions({ adv, caseRow, communityId, profileId, resident, regime, 
   resident: any; regime: 'condo' | 'hoa'
   onAdvanced: () => void; onError: (m: string) => void
 }) {
+  const t = useT()
   const [openComposer, setOpenComposer] = useState(false)
   const [form, setForm] = useState<any>({ date: todayYmd(), method: 'both', tracking: '', recipient: '' })
   const [busy, setBusy] = useState(false)
-  if (!adv) return <div className="admin-note" style={{ fontSize: 12.5 }}>Foreclosure filed — no further automated step. Use resolve/cancel when concluded.</div>
+  if (!adv) return <div className="admin-note" style={{ fontSize: 12.5 }}>{t('admin.collectionsDetail.foreclosureFiled')}</div>
 
   // The statutory dual-address rule for this notice, resolved against the owner's
   // roster addresses (mailing address of record vs. the unit/parcel address).
@@ -422,7 +432,7 @@ function StageActions({ adv, caseRow, communityId, profileId, resident, regime, 
       setOpenComposer(false)
       setForm({ date: todayYmd(), method: 'both', tracking: '', recipient: '' })
       onAdvanced()
-    } catch (err: any) { onError(err?.message || 'Could not advance the case') }
+    } catch (err: any) { onError(err?.message || t('admin.collectionsDetail.couldNotAdvanceCase')) }
     finally { setBusy(false) }
   }
 
@@ -432,18 +442,18 @@ function StageActions({ adv, caseRow, communityId, profileId, resident, regime, 
     <div style={{ border: '1px dashed #cbd5e1', borderRadius: 10, padding: 12 }}>
       <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 8 }}>{adv.label}</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
-        <label className="admin-field"><span className="admin-field-label">{adv.needsNotice ? 'Date sent' : 'Date'}</span>
+        <label className="admin-field"><span className="admin-field-label">{adv.needsNotice ? t('admin.collectionsDetail.dateSent') : t('admin.collectionsDetail.date')}</span>
           <input className="admin-input" type="date" value={form.date} onChange={e => setForm((f: any) => ({ ...f, date: e.target.value }))} /></label>
         {adv.needsNotice && (
           <>
-            <label className="admin-field"><span className="admin-field-label">Delivery method</span>
+            <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.deliveryMethod')}</span>
               <select className="admin-input" value={form.method} onChange={e => setForm((f: any) => ({ ...f, method: e.target.value }))}>
                 {METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
               </select></label>
-            <label className="admin-field"><span className="admin-field-label">Tracking #</span>
-              <input className="admin-input" value={form.tracking} placeholder="certified mail #" onChange={e => setForm((f: any) => ({ ...f, tracking: e.target.value }))} /></label>
-            <label className="admin-field"><span className="admin-field-label">Addressed to</span>
-              <input className="admin-input" value={form.recipient} placeholder="owner of record" onChange={e => setForm((f: any) => ({ ...f, recipient: e.target.value }))} /></label>
+            <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.trackingNumber')}</span>
+              <input className="admin-input" value={form.tracking} placeholder={t('admin.collectionsDetail.trackingPlaceholder')} onChange={e => setForm((f: any) => ({ ...f, tracking: e.target.value }))} /></label>
+            <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.addressedTo')}</span>
+              <input className="admin-input" value={form.recipient} placeholder={t('admin.collectionsDetail.addressedToPlaceholder')} onChange={e => setForm((f: any) => ({ ...f, recipient: e.target.value }))} /></label>
           </>
         )}
       </div>
@@ -451,35 +461,36 @@ function StageActions({ adv, caseRow, communityId, profileId, resident, regime, 
       {/* Dual-address advisory for the statutory collection notices */}
       {adv.needsNotice && rule?.applies && (
         <div className="admin-note" style={{ fontSize: 12, marginTop: 10, borderColor: addrWarn ? '#B54708' : (resolved.dualRequired ? '#175CD3' : 'rgba(0,0,0,0.1)') }}>
-          <div style={{ fontWeight: 700, marginBottom: 4 }}>Mailing address{resolved.dualRequired ? 'es' : ''} ({rule.citation})</div>
+          <div style={{ fontWeight: 700, marginBottom: 4 }}>{t('admin.collectionsDetail.mailingAddress')}{resolved.dualRequired ? t('admin.collectionsDetail.mailingAddressPlural') : ''} ({rule.citation})</div>
           {resolved.addresses.length > 0 ? (
             <ul style={{ margin: '0 0 0 16px', padding: 0 }}>
-              <li>Address of record: <strong>{resolved.recordAddress || '—'}</strong></li>
-              {resolved.dualRequired && <li>+ Unit/parcel copy (addresses differ): <strong>{resolved.unitAddress}</strong></li>}
+              <li>{t('admin.collectionsDetail.addressOfRecord')}: <strong>{resolved.recordAddress || '—'}</strong></li>
+              {resolved.dualRequired && <li>+ {t('admin.collectionsDetail.unitParcelCopyDiffer')}: <strong>{resolved.unitAddress}</strong></li>}
             </ul>
-          ) : <div>No address on file for this owner.</div>}
-          {resolved.dualRequired && !addrWarn && <div style={{ marginTop: 4 }}>Logged as mailed to <strong>both</strong> addresses.</div>}
+          ) : <div>{t('admin.collectionsDetail.noAddressOnFile')}</div>}
+          {resolved.dualRequired && !addrWarn && <div style={{ marginTop: 4 }}>{t('admin.collectionsDetail.loggedAsBothAddresses')}</div>}
           {addrWarn && <div style={{ marginTop: 4, color: '#B54708' }}>{addrWarn}</div>}
-          <div style={{ marginTop: 4, opacity: 0.7 }}>{rule.note} Update the owner’s addresses on the Residents roster.</div>
+          <div style={{ marginTop: 4, opacity: 0.7 }}>{rule.note} {t('admin.collectionsDetail.updateAddressesOnRoster')}</div>
         </div>
       )}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-        <button className="admin-primary-btn" disabled={busy} onClick={run}>{busy ? 'Saving…' : 'Confirm'}</button>
-        <button className="admin-btn-ghost" disabled={busy} onClick={() => setOpenComposer(false)}>Cancel</button>
+        <button className="admin-primary-btn" disabled={busy} onClick={run}>{busy ? t('admin.collectionsDetail.saving') : t('admin.collectionsDetail.confirm')}</button>
+        <button className="admin-btn-ghost" disabled={busy} onClick={() => setOpenComposer(false)}>{t('admin.collectionsDetail.cancel')}</button>
       </div>
     </div>
   )
 }
 
 function CostEditor({ caseRow, onSaved }: { caseRow: CollectionCaseRow; onSaved: (p: any, m: string) => void }) {
+  const t = useT()
   const [amt, setAmt] = useState('')
   return (
     <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 12, flexWrap: 'wrap' }}>
-      <label className="admin-field" style={{ maxWidth: 200 }}><span className="admin-field-label">Add collection / attorney cost ($)</span>
+      <label className="admin-field" style={{ maxWidth: 200 }}><span className="admin-field-label">{t('admin.collectionsDetail.addCostLabel')}</span>
         <input className="admin-input" type="number" min="0" step="0.01" value={amt} onChange={e => setAmt(e.target.value)} /></label>
-      <button className="admin-btn-ghost" disabled={!amt} onClick={() => { onSaved({ cost_balance: (Number(caseRow.cost_balance) || 0) + Number(amt) }, 'Cost recorded.'); setAmt('') }}>Add cost</button>
-      <span style={{ fontSize: 12.5, opacity: 0.7 }}>Current costs: {'$' + (Math.round((Number(caseRow.cost_balance) || 0) * 100) / 100).toLocaleString('en-US')}</span>
+      <button className="admin-btn-ghost" disabled={!amt} onClick={() => { onSaved({ cost_balance: (Number(caseRow.cost_balance) || 0) + Number(amt) }, t('admin.collectionsDetail.costRecorded')); setAmt('') }}>{t('admin.collectionsDetail.addCost')}</button>
+      <span style={{ fontSize: 12.5, opacity: 0.7 }}>{t('admin.collectionsDetail.currentCosts')}: {'$' + (Math.round((Number(caseRow.cost_balance) || 0) * 100) / 100).toLocaleString('en-US')}</span>
     </div>
   )
 }
@@ -488,6 +499,7 @@ function PaymentPlanSection({ caseRow, plans, profileId, onChange, onError }: {
   caseRow: CollectionCaseRow; plans: PaymentPlanRow[]; profileId: string | null
   onChange: () => void; onError: (m: string) => void
 }) {
+  const t = useT()
   // A resident-requested plan awaiting review takes priority over the active
   // panel (it still has status='active', so split it out by request_status).
   const requested = plans.find(p => p.request_status === 'requested')
@@ -518,7 +530,7 @@ function PaymentPlanSection({ caseRow, plans, profileId, onChange, onError }: {
       await withTimeout(supabase.from('ev_collection_cases').update({ on_payment_plan: true }).eq('id', caseRow.id))
       await logAudit({ community_id: caseRow.community_id!, event_type: 'collection.payment_plan_created', target_type: 'payment_plan', target_id: newPlan?.id ?? null })
       onChange()
-    } catch (err: any) { onError(err?.message || 'Could not create the plan') }
+    } catch (err: any) { onError(err?.message || t('admin.collectionsDetail.couldNotCreatePlan')) }
     finally { setBusy(false) }
   }
 
@@ -538,7 +550,7 @@ function PaymentPlanSection({ caseRow, plans, profileId, onChange, onError }: {
       if (done) await withTimeout(supabase.from('ev_collection_cases').update({ on_payment_plan: false }).eq('id', caseRow.id))
       await logAudit({ community_id: caseRow.community_id!, event_type: 'collection.payment_plan_updated', target_type: 'payment_plan', target_id: p.id, metadata: { paid_count: paid } })
       onChange()
-    } catch (err: any) { onError(err?.message || 'Update failed') }
+    } catch (err: any) { onError(err?.message || t('admin.collectionsDetail.updateFailed')) }
   }
 
   const endPlan = async (p: PaymentPlanRow, status: 'defaulted' | 'cancelled') => {
@@ -546,7 +558,7 @@ function PaymentPlanSection({ caseRow, plans, profileId, onChange, onError }: {
       await withTimeout(supabase.from('ev_payment_plans').update({ status }).eq('id', p.id))
       await withTimeout(supabase.from('ev_collection_cases').update({ on_payment_plan: false }).eq('id', caseRow.id))
       onChange()
-    } catch (err: any) { onError(err?.message || 'Update failed') }
+    } catch (err: any) { onError(err?.message || t('admin.collectionsDetail.updateFailed')) }
   }
 
   // Decide a resident's plan request (ARC-style). 'modified' lets the board
@@ -582,87 +594,87 @@ function PaymentPlanSection({ caseRow, plans, profileId, onChange, onError }: {
       })
       setReview({ mode: null, amount: '', count: '', freq: '', reason: '' })
       onChange()
-    } catch (err: any) { onError(err?.message || 'Could not record the decision') }
+    } catch (err: any) { onError(err?.message || t('admin.collectionsDetail.couldNotRecordDecision')) }
     finally { setBusy(false) }
   }
 
   return (
     <section style={card}>
-      <h2 className="bc-title" style={{ marginBottom: 10 }}>Payment plan</h2>
+      <h2 className="bc-title" style={{ marginBottom: 10 }}>{t('admin.collectionsDetail.paymentPlan')}</h2>
       {requested ? (
         <div style={{ border: '1px solid rgba(225,73,9,0.3)', borderRadius: 10, padding: '12px 14px', background: 'rgba(225,73,9,0.04)' }}>
-          <div style={{ fontWeight: 800, color: '#B54708', fontSize: 12.5, letterSpacing: 0.3, textTransform: 'uppercase' }}>Owner requested a plan</div>
+          <div style={{ fontWeight: 800, color: '#B54708', fontSize: 12.5, letterSpacing: 0.3, textTransform: 'uppercase' }}>{t('admin.collectionsDetail.ownerRequestedPlan')}</div>
           <div style={{ fontWeight: 700, marginTop: 6 }}>
             {fmt$(requested.requested_amount ?? requested.installment_amount)} × {requested.requested_count ?? requested.installment_count ?? '—'}
-            {' '}every {requested.requested_frequency_days ?? requested.frequency_days ?? 30} days
+            {' '}{t('admin.collectionsDetail.every')} {requested.requested_frequency_days ?? requested.frequency_days ?? 30} {t('admin.collectionsDetail.days')}
           </div>
-          {requested.autopay_opt_in && <div style={{ fontSize: 12.5, opacity: 0.75, marginTop: 2 }}>Owner opted into autopay for installments.</div>}
+          {requested.autopay_opt_in && <div style={{ fontSize: 12.5, opacity: 0.75, marginTop: 2 }}>{t('admin.collectionsDetail.autopayOptIn')}</div>}
 
           {review.mode === 'modify' ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, alignItems: 'flex-end', marginTop: 10 }}>
-              <label className="admin-field"><span className="admin-field-label">Installment $</span>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.installmentAmount')}</span>
                 <input className="admin-input" type="number" min="0" step="0.01"
                   value={review.amount === '' ? (requested.requested_amount ?? requested.installment_amount ?? '') : review.amount}
                   onChange={e => setReview((r: any) => ({ ...r, amount: e.target.value }))} /></label>
-              <label className="admin-field"><span className="admin-field-label"># of installments</span>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.numberOfInstallments')}</span>
                 <input className="admin-input" type="number" min="1" step="1"
                   value={review.count === '' ? (requested.requested_count ?? requested.installment_count ?? '') : review.count}
                   onChange={e => setReview((r: any) => ({ ...r, count: e.target.value }))} /></label>
-              <label className="admin-field"><span className="admin-field-label">Every (days)</span>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.everyDays')}</span>
                 <input className="admin-input" type="number" min="1" step="1"
                   value={review.freq === '' ? (requested.requested_frequency_days ?? requested.frequency_days ?? 30) : review.freq}
                   onChange={e => setReview((r: any) => ({ ...r, freq: e.target.value }))} /></label>
               <button className="admin-primary-btn" disabled={busy}
                 onClick={() => decideRequest(requested, 'modified', { amount: review.amount, count: review.count, freq: review.freq })}>
-                {busy ? 'Saving…' : 'Approve with these terms'}
+                {busy ? t('admin.collectionsDetail.saving') : t('admin.collectionsDetail.approveWithTerms')}
               </button>
-              <button className="admin-btn-ghost" onClick={() => setReview({ mode: null, amount: '', count: '', freq: '', reason: '' })}>Back</button>
+              <button className="admin-btn-ghost" onClick={() => setReview({ mode: null, amount: '', count: '', freq: '', reason: '' })}>{t('admin.collectionsDetail.back')}</button>
             </div>
           ) : review.mode === 'deny' ? (
             <div style={{ marginTop: 10 }}>
-              <label className="admin-field"><span className="admin-field-label">Reason (shared with the owner)</span>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.denialReasonLabel')}</span>
                 <textarea className="admin-input" rows={2} value={review.reason}
                   onChange={e => setReview((r: any) => ({ ...r, reason: e.target.value }))} /></label>
               <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
                 <button className="admin-primary-btn" disabled={busy || !review.reason.trim()}
                   onClick={() => decideRequest(requested, 'denied', { reason: review.reason })}>
-                  {busy ? 'Saving…' : 'Confirm denial'}
+                  {busy ? t('admin.collectionsDetail.saving') : t('admin.collectionsDetail.confirmDenial')}
                 </button>
-                <button className="admin-btn-ghost" onClick={() => setReview({ mode: null, amount: '', count: '', freq: '', reason: '' })}>Back</button>
+                <button className="admin-btn-ghost" onClick={() => setReview({ mode: null, amount: '', count: '', freq: '', reason: '' })}>{t('admin.collectionsDetail.back')}</button>
               </div>
             </div>
           ) : (
             <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-              <button className="admin-primary-btn" disabled={busy} onClick={() => decideRequest(requested, 'approved')}>Approve as proposed</button>
-              <button className="admin-btn-ghost" onClick={() => setReview((r: any) => ({ ...r, mode: 'modify' }))}>Modify terms</button>
-              <button className="admin-btn-ghost" onClick={() => setReview((r: any) => ({ ...r, mode: 'deny' }))}>Deny</button>
+              <button className="admin-primary-btn" disabled={busy} onClick={() => decideRequest(requested, 'approved')}>{t('admin.collectionsDetail.approveAsProposed')}</button>
+              <button className="admin-btn-ghost" onClick={() => setReview((r: any) => ({ ...r, mode: 'modify' }))}>{t('admin.collectionsDetail.modifyTerms')}</button>
+              <button className="admin-btn-ghost" onClick={() => setReview((r: any) => ({ ...r, mode: 'deny' }))}>{t('admin.collectionsDetail.deny')}</button>
             </div>
           )}
         </div>
       ) : active ? (
         <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '12px 14px', background: '#fff' }}>
           <div style={{ fontWeight: 700 }}>
-            {fmt$(active.installment_amount)} every {active.frequency_days} days
-            {active.installment_count ? ` · ${active.paid_count ?? 0}/${active.installment_count} paid` : ` · ${active.paid_count ?? 0} paid`}
+            {fmt$(active.installment_amount)} {t('admin.collectionsDetail.every')} {active.frequency_days} {t('admin.collectionsDetail.days')}
+            {active.installment_count ? ` · ${active.paid_count ?? 0}/${active.installment_count} ${t('admin.collectionsDetail.paid')}` : ` · ${active.paid_count ?? 0} ${t('admin.collectionsDetail.paid')}`}
           </div>
-          <div style={{ fontSize: 12.5, opacity: 0.7, marginTop: 2 }}>Started {active.start_date} · next due {active.next_due_at || '—'}</div>
+          <div style={{ fontSize: 12.5, opacity: 0.7, marginTop: 2 }}>{t('admin.collectionsDetail.started')} {active.start_date} · {t('admin.collectionsDetail.nextDue')} {active.next_due_at || '—'}</div>
           <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-            <button className="admin-primary-btn" onClick={() => recordInstallment(active)}>Record installment paid</button>
-            <button className="admin-btn-ghost" onClick={() => endPlan(active, 'defaulted')}>Mark defaulted</button>
-            <button className="admin-btn-ghost" onClick={() => endPlan(active, 'cancelled')}>Cancel plan</button>
+            <button className="admin-primary-btn" onClick={() => recordInstallment(active)}>{t('admin.collectionsDetail.recordInstallmentPaid')}</button>
+            <button className="admin-btn-ghost" onClick={() => endPlan(active, 'defaulted')}>{t('admin.collectionsDetail.markDefaulted')}</button>
+            <button className="admin-btn-ghost" onClick={() => endPlan(active, 'cancelled')}>{t('admin.collectionsDetail.cancelPlan')}</button>
           </div>
         </div>
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, alignItems: 'flex-end' }}>
-          <label className="admin-field"><span className="admin-field-label">Installment $</span>
+          <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.installmentAmount')}</span>
             <input className="admin-input" type="number" min="0" step="0.01" value={form.installment_amount} onChange={e => setForm((f: any) => ({ ...f, installment_amount: e.target.value }))} /></label>
-          <label className="admin-field"><span className="admin-field-label"># of installments</span>
+          <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.numberOfInstallments')}</span>
             <input className="admin-input" type="number" min="1" step="1" value={form.installment_count} onChange={e => setForm((f: any) => ({ ...f, installment_count: e.target.value }))} /></label>
-          <label className="admin-field"><span className="admin-field-label">Every (days)</span>
+          <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.everyDays')}</span>
             <input className="admin-input" type="number" min="1" step="1" value={form.frequency_days} onChange={e => setForm((f: any) => ({ ...f, frequency_days: e.target.value }))} /></label>
-          <label className="admin-field"><span className="admin-field-label">Start</span>
+          <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.start')}</span>
             <input className="admin-input" type="date" value={form.start_date} onChange={e => setForm((f: any) => ({ ...f, start_date: e.target.value }))} /></label>
-          <button className="admin-primary-btn" disabled={busy} onClick={create}>{busy ? 'Saving…' : 'Create plan'}</button>
+          <button className="admin-primary-btn" disabled={busy} onClick={create}>{busy ? t('admin.collectionsDetail.saving') : t('admin.collectionsDetail.createPlan')}</button>
         </div>
       )}
     </section>
