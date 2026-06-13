@@ -13,6 +13,7 @@ import { logAudit } from '@/lib/audit'
 import { AttorneyNote } from '../AttorneyNote'
 import { SignalRow } from '../SignalRow'
 import { ComplianceBackLink } from '../ComplianceBackLink'
+import { Dropdown } from '@/components/Dropdown'
 import {
   requiredAuditTier, estimateAnnualRevenue, AUDIT_TIER_LABEL, financialSignals,
   type BudgetCategoryRow, type ReserveComponentRow, type FinancialFilingRow, type FilingType,
@@ -242,10 +243,17 @@ export default function FinancialsPage() {
                 <input className="admin-input" type="number" min="1" max="12" step="1" value={cForm.fiscal_year_start_month ?? 1} onChange={e => setCForm((f: any) => ({ ...f, fiscal_year_start_month: e.target.value }))} /></label>
               <label className="admin-field"><span className="admin-field-label">{t('admin.financials.lastReserveStudy')}</span>
                 <input className="admin-input" type="date" value={cForm.reserve_study_last_completed ?? ''} onChange={e => setCForm((f: any) => ({ ...f, reserve_study_last_completed: e.target.value }))} /></label>
-              <label className="admin-field"><span className="admin-field-label">{t('admin.financials.reserveStudyType')}</span>
-                <select className="admin-input" value={cForm.reserve_study_type ?? ''} onChange={e => setCForm((f: any) => ({ ...f, reserve_study_type: e.target.value }))}>
-                  <option value="">—</option><option value="sirs">SIRS</option><option value="general">{t('admin.financials.optionGeneral')}</option>
-                </select></label>
+              <div className="admin-field"><span className="admin-field-label">{t('admin.financials.reserveStudyType')}</span>
+                <Dropdown<string>
+                  value={cForm.reserve_study_type ?? ''}
+                  onChange={v => setCForm((f: any) => ({ ...f, reserve_study_type: v }))}
+                  ariaLabel={t('admin.financials.reserveStudyType')}
+                  options={[
+                    { value: '', label: '—' },
+                    { value: 'sirs', label: 'SIRS' },
+                    { value: 'general', label: t('admin.financials.optionGeneral') },
+                  ]}
+                /></div>
             </div>
             <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '4px 0 10px' }}>
               <input type="checkbox" checked={!!cForm.reserves_established} onChange={e => setCForm((f: any) => ({ ...f, reserves_established: e.target.checked }))} />
@@ -339,20 +347,35 @@ export default function FinancialsPage() {
             <div className="card-head"><div><h2>{t('admin.financials.filingsTitle')}</h2></div></div>
             <form className="admin-form" onSubmit={addFiling}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12 }}>
-                <label className="admin-field"><span className="admin-field-label">{t('admin.financials.filingTypeFieldLabel')}</span>
-                  <select className="admin-input" value={fForm.filing_type} onChange={e => setFF('filing_type', e.target.value)}>
-                    {FILING_TYPES.map(ft => <option key={ft.value} value={ft.value}>{filingTypeLabel[ft.value] ?? ft.label}</option>)}
-                  </select></label>
+                <div className="admin-field"><span className="admin-field-label">{t('admin.financials.filingTypeFieldLabel')}</span>
+                  <Dropdown<string>
+                    value={fForm.filing_type}
+                    onChange={v => setFF('filing_type', v)}
+                    ariaLabel={t('admin.financials.filingTypeFieldLabel')}
+                    options={FILING_TYPES.map(ft => ({ value: ft.value, label: filingTypeLabel[ft.value] ?? ft.label }))}
+                  /></div>
                 <label className="admin-field"><span className="admin-field-label">{t('admin.financials.fiscalYear')}</span>
                   <input className="admin-input" type="number" step="1" value={fForm.fiscal_year ?? ''} onChange={e => setFF('fiscal_year', e.target.value)} /></label>
-                <label className="admin-field"><span className="admin-field-label">{t('admin.financials.filingStatus')}</span>
-                  <select className="admin-input" value={fForm.status} onChange={e => setFF('status', e.target.value)}>
-                    {STATUSES.map(s => <option key={s} value={s}>{statusLabel[s] ?? s.replace('_', ' ')}</option>)}
-                  </select></label>
-                <label className="admin-field"><span className="admin-field-label">{t('admin.financials.statementLevel')}</span>
-                  <select className="admin-input" value={fForm.audit_tier ?? ''} onChange={e => setFF('audit_tier', e.target.value)}>
-                    <option value="">—</option><option value="cash">cash</option><option value="compiled">compiled</option><option value="reviewed">reviewed</option><option value="audited">audited</option>
-                  </select></label>
+                <div className="admin-field"><span className="admin-field-label">{t('admin.financials.filingStatus')}</span>
+                  <Dropdown<string>
+                    value={fForm.status}
+                    onChange={v => setFF('status', v)}
+                    ariaLabel={t('admin.financials.filingStatus')}
+                    options={STATUSES.map(s => ({ value: s, label: statusLabel[s] ?? s.replace('_', ' ') }))}
+                  /></div>
+                <div className="admin-field"><span className="admin-field-label">{t('admin.financials.statementLevel')}</span>
+                  <Dropdown<string>
+                    value={fForm.audit_tier ?? ''}
+                    onChange={v => setFF('audit_tier', v)}
+                    ariaLabel={t('admin.financials.statementLevel')}
+                    options={[
+                      { value: '', label: '—' },
+                      { value: 'cash', label: 'cash' },
+                      { value: 'compiled', label: 'compiled' },
+                      { value: 'reviewed', label: 'reviewed' },
+                      { value: 'audited', label: 'audited' },
+                    ]}
+                  /></div>
                 <label className="admin-field"><span className="admin-field-label">{t('admin.financials.completedLabel')}</span>
                   <input className="admin-input" type="date" value={fForm.completed_at ?? ''} onChange={e => setFF('completed_at', e.target.value)} /></label>
               </div>
@@ -366,9 +389,14 @@ export default function FinancialsPage() {
                   <div style={{ fontWeight: 700, fontSize: 14 }}>FY{f.fiscal_year} · {filingTypeLabel[String(f.filing_type)] || FILING_LABEL[String(f.filing_type)] || f.filing_type}{f.audit_tier ? ` · ${f.audit_tier}` : ''}</div>
                   <div style={{ fontSize: 12.5, opacity: 0.75 }}>{f.completed_at ? `${t('admin.financials.completedOn')} ${f.completed_at}` : ''}{f.delivered_at ? ` · ${t('admin.financials.deliveredOn')} ${f.delivered_at}` : ''}</div>
                 </div>
-                <select className="admin-input" style={{ maxWidth: 160 }} value={String(f.status)} onChange={e => updateFiling(f.id, { status: e.target.value })}>
-                  {STATUSES.map(s => <option key={s} value={s}>{statusLabel[s] ?? s.replace('_', ' ')}</option>)}
-                </select>
+                <div style={{ width: 160 }}>
+                  <Dropdown<string>
+                    value={String(f.status)}
+                    onChange={v => updateFiling(f.id, { status: v })}
+                    ariaLabel={t('admin.financials.filingStatus')}
+                    options={STATUSES.map(s => ({ value: s, label: statusLabel[s] ?? s.replace('_', ' ') }))}
+                  />
+                </div>
               </div>
             ))}
             </div>
