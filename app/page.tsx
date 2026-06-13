@@ -520,8 +520,8 @@ const STREET    = '#3A3E55'
 // Hand-drawn ink stroke applied to every shape so the whole scene reads
 // as someone's pencil sketch instead of a vector diagram.
 const INK = '#1F2233'
-const inkStroke = { stroke: INK, strokeWidth: 2.2, strokeLinejoin: 'round', strokeLinecap: 'round' }
-const thinInk   = { stroke: INK, strokeWidth: 1.4, strokeOpacity: 0.6, strokeLinecap: 'round' }
+const inkStroke = { stroke: INK, strokeWidth: 2.2, strokeLinejoin: 'round', strokeLinecap: 'round' } as const
+const thinInk   = { stroke: INK, strokeWidth: 1.4, strokeOpacity: 0.6, strokeLinecap: 'round' } as const
 
 // The "sketch wobble" filter — feTurbulence + feDisplacementMap pushes
 // every pixel a few units in a noise pattern, which turns straight SVG
