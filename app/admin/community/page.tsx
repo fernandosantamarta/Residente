@@ -261,7 +261,7 @@ export default function CommunitySettings() {
                       aria-readonly="true"
                     />
                   </div>
-                  <span className="field-hint">{t('admin.community.hintFiscalYear')}</span>
+                  <span className="field-hint" style={{ whiteSpace: 'pre-line' }}>{t('admin.community.hintFiscalYear')}</span>
                 </label>
                 {field('monthly_dues', t('admin.community.fieldMonthlyDues'), { type: 'number', placeholder: '38', prefix: '$' })}
               </div>
