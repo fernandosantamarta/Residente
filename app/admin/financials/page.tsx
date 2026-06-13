@@ -289,6 +289,7 @@ export default function FinancialsPage() {
                 <div className="wsrow-main">
                   <div className="wsrow-title">{t('admin.financials.budgetRowTitle')} <span className="amp">&</span> {t('admin.financials.budgetRowTitleSpending')}</div>
                   <div className="wsrow-desc">{t('admin.financials.budgetRowDesc')}</div>
+                  <div className="wsrow-desc">{t('admin.financials.budgetRowBankHint')}</div>
                 </div>
                 <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
               </Link>
