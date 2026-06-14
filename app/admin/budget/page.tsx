@@ -189,7 +189,7 @@ export default function BudgetPage() {
             <div className="card-head">
               <div><h2>{t('admin.budget.budgetVsActualTitle')}</h2>
                 <div className="sub">{t('admin.budget.budgetVsActualSub')}</div></div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+              <div className="bv-bankfeed" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                 <span style={{ fontSize: 12, opacity: 0.65 }}>
                   {bankTx.length > 0 ? t('admin.budget.txSynced', { count: bankTx.length }) : t('admin.budget.noBankFeed')}
                 </span>

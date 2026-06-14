@@ -19,9 +19,11 @@ const SRC = join(root, 'public', 'residente-logo.png')
 const OUT = join(root, 'public', 'apple-touch-icon.png')
 
 const CANVAS = 180          // standard apple-touch-icon size
-const MARK_H = 122          // target mark height on the 180 canvas
+const MARK_BOX = 132        // longest side of the mark on the 180 canvas — big &
+                            // bold but still inside iOS's rounded-corner mask
 const ORANGE = '#E14909'
-const ALPHA_CUTOFF = 80     // drop the source's faint dither noise
+const ALPHA_CUTOFF = 24     // drop only the faintest dither noise (high cutoffs
+                            // chop the soft anti-aliased edges); turdSize kills specks
 const TRACE_SS = 12         // upscale the mask this much before tracing so
                             // potrace produces smooth curves, not stairsteps
 
@@ -59,14 +61,18 @@ const svg = await trace(mask, {
   optTolerance: 0.4,
 })
 
-// 4) Rasterise the vector at the target mark height, then composite centred on
-//    an opaque white field at supersampled size and downsample once.
-const aspect = info.width / info.height
+// 4) Rasterise the vector, TRIM its transparent margins, fit to MARK_BOX, and
+//    centre on opaque white. Trimming to the true ink bounds also fixes the
+//    source PNG's uneven transparent padding so the mark is centred.
 const SS = 4
-const markH = Math.round(MARK_H * SS)
-const markW = Math.round(markH * aspect)
-const mark = await sharp(Buffer.from(svg), { density: 384 })
-  .resize(markW, markH, { fit: 'fill' })
+const box = Math.round(MARK_BOX * SS)
+const trimmed = await sharp(Buffer.from(svg), { density: 512 })
+  .resize({ height: box * 2, fit: 'inside' })
+  .trim({ threshold: 10 })
+  .png()
+  .toBuffer()
+const mark = await sharp(trimmed)
+  .resize({ width: box, height: box, fit: 'inside' })
   .png()
   .toBuffer()
 
@@ -84,4 +90,4 @@ await sharp(composed)
   .png()
   .toFile(OUT)
 
-console.log(`Wrote ${OUT} — ${CANVAS}x${CANVAS}, vector-traced mark ~${MARK_H}px tall, centred, opaque white.`)
+console.log(`Wrote ${OUT} — ${CANVAS}x${CANVAS}, vector-traced mark fit to ~${MARK_BOX}px box, trimmed + centred, opaque white.`)

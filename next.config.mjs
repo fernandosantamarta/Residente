@@ -10,6 +10,9 @@ const nextConfig = {
   // Same logic for ESLint — the bulk-converted files would otherwise
   // trip a hundred no-unused-vars / no-explicit-any warnings.
   eslint: { ignoreDuringBuilds: true },
+  // Hide the dev-mode overlay badge — it sits bottom-left and overlaps the
+  // floating mobile tab bar while testing on a phone. (Dev only; never shipped.)
+  devIndicators: false,
 };
 
 export default nextConfig;

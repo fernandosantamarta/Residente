@@ -500,7 +500,7 @@ export default function Residents() {
                   <Dropdown value={subFilter} onChange={setSubFilter} options={subOptions} ariaLabel={t('admin.residents.ariaSubdivision')} />
                 )}
               </div>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div className="etrack-actions" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                 {uninvited.length > 0 && (
                   <button type="button" className="admin-primary-btn" disabled={bulkBusy}
                     title={t('admin.residents.inviteOwnersTitle')}

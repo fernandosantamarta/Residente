@@ -57,6 +57,35 @@ export default function Landing() {
   useEffect(() => {
     if (session) router.replace('/app')
   }, [session, router])
+
+  // Banded chrome: the navy header and navy footer get a navy toolbar tint; the
+  // cream middle gets a cream tint. iOS Safari re-tints its toolbars whenever
+  // theme-color changes, so the status bar matches whatever band is on screen —
+  // which a single static theme-color can't do. Harmless in the installed app.
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]')
+    const head = document.querySelector('.ln-nav')
+    const foot = document.querySelector('.site-foot')
+    if (!meta) return
+    const CREAM = '#F4EFE8', NAVY = '#1F2233'
+    let headerIn = true, footerIn = false
+    const update = () => meta.setAttribute('content', (headerIn || footerIn) ? NAVY : CREAM)
+    const observers: IntersectionObserver[] = []
+    if (head) {
+      const o = new IntersectionObserver(([e]) => { headerIn = e.isIntersecting; update() })
+      o.observe(head); observers.push(o)
+    }
+    if (foot) {
+      const o = new IntersectionObserver(([e]) => { footerIn = e.isIntersecting; update() })
+      o.observe(foot); observers.push(o)
+    }
+    update()
+    // Don't force a colour on unmount — the destination page (e.g. /login) sets
+    // its own theme-color, and forcing one here can overwrite it depending on
+    // effect ordering during client navigation.
+    return () => { observers.forEach(o => o.disconnect()) }
+  }, [])
+
   useScrollReveal()
   return (
     <div className="landing-screen">
@@ -106,9 +135,14 @@ function LandingNav() {
           <a href="#residents" onClick={(e) => scrollToHash(e, '#residents')}>For residents</a>
           <a href="#demo" onClick={(e) => scrollToHash(e, '#demo')}>Demo</a>
           <a href="#pricing" onClick={(e) => scrollToHash(e, '#pricing')}>Pricing</a>
-          <Link href="/login" className="ln-nav-signin">Sign in</Link>
         </nav>
-        <Link href="/signup" className="ln-cta-pill">Sign up</Link>
+        {/* Sign in + Sign up live in their own group (not inside ln-nav-links)
+            so returning users keep a visible Sign in on mobile, where the
+            section-anchor nav collapses. */}
+        <div className="ln-nav-cta">
+          <Link href="/login" className="ln-nav-signin">Sign in</Link>
+          <Link href="/signup" className="ln-cta-pill">Sign up</Link>
+        </div>
       </div>
     </header>
   )
@@ -430,6 +464,34 @@ function Hero() {
 
   return (
     <section className="ln-hero" id="top">
+      {/* Mobile hero — a clean stacked layout (framed scene + copy on cream)
+          that replaces the squeezed cinematic on phones. Shown ≤720px via
+          CSS; the cinematic pin below is hidden there. Desktop hides this. */}
+      <div className="ln-hero-m">
+        <div className="ln-hero-m-copy">
+          <div className="ln-hero-eyebrow ln-hero-eyebrow-light">Resident portal · Early access</div>
+          <h1 className="ln-hero-m-title">And you,<br />in the loop.</h1>
+          <p className="ln-hero-m-sub">
+            The resident portal that shows where your dues go, what the
+            board is up to, and how to pay. All in one place.
+          </p>
+        </div>
+        {/* Time-of-day aware like the desktop cinematic — the matching sky
+            palettes for .ln-hero-m-art live in landing.css so the sky/ground
+            change with the clock and the sun↔moon stays consistent. */}
+        <div className="ln-hero-m-art" data-time={mode} aria-hidden="true">
+          <CommunitySvg mode={mode} />
+          <SunOverlay mode={mode} />
+          <PlaneOverlay />
+        </div>
+        <div className="ln-hero-m-ctas">
+          <Link href="/signup" className="ln-hero-btn ln-hero-btn-block">Sign up</Link>
+          <a href="#what" className="ln-hero-m-ghost">
+            See how it works <span aria-hidden="true">↓</span>
+          </a>
+        </div>
+      </div>
+
       <div className={`ln-hero-pin${enabled ? '' : ' is-static'}`} ref={pinRef}>
         <div
           className="ln-hero-stage"

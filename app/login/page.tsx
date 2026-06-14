@@ -45,6 +45,17 @@ export default function Login() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Tint the status bar to the login page's warm background so it doesn't read
+  // as a white strip above the orange card (standalone app; and Safari once the
+  // toolbar minimizes). Restored on unmount so other pages keep their colour.
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (!meta) return
+    const prev = meta.getAttribute('content')
+    meta.setAttribute('content', '#FFEADC')
+    return () => { if (prev) meta.setAttribute('content', prev) }
+  }, [])
+
   // If already signed in, bounce to the cockpit at the user's preferred landing
   // page — but first finish any sign-up left mid-flight by email confirmation.
   useEffect(() => {

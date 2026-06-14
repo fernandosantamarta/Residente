@@ -69,14 +69,17 @@ body:has(.landing-screen) { min-width: 0; }
 .ln-nav {
   position: relative;
   z-index: 50;
-  padding: 18px var(--ln-side);
+  /* +safe-area-inset-top so the header clears the notch/island when the page
+     draws under a translucent status bar in the installed (standalone) app.
+     0px in normal Safari, so this is a no-op there. */
+  padding: calc(18px + env(safe-area-inset-top, 0px)) var(--ln-side) 18px;
   border-bottom: 1px solid transparent;
 }
 .ln-nav.scrolled {
   background: rgba(244,239,232,0.72);
   backdrop-filter: saturate(160%) blur(14px);
   -webkit-backdrop-filter: saturate(160%) blur(14px);
-  padding-top: 12px;
+  padding-top: calc(12px + env(safe-area-inset-top, 0px));
   padding-bottom: 12px;
   border-bottom-color: var(--ln-border);
   box-shadow: 0 6px 28px -18px rgba(31,34,51,0.20);
@@ -128,7 +131,20 @@ body:has(.landing-screen) { min-width: 0; }
 }
 .ln-nav-links a { transition: color 160ms var(--ln-ease); }
 .ln-nav-links a:hover { color: var(--ln-ink); }
-.ln-nav-signin { font-weight: 500; }
+
+/* Right-side auth group — always visible (brand | nav | cta). */
+.ln-nav-cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 22px;
+}
+.ln-nav-signin {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ln-ink-dim);
+  transition: color 160ms var(--ln-ease);
+}
+.ln-nav-signin:hover { color: var(--ln-ink); }
 
 .ln-cta-pill {
   display: inline-flex;
@@ -151,6 +167,10 @@ body:has(.landing-screen) { min-width: 0; }
 .ln-hero {
   padding: 12px var(--ln-side) 0;
 }
+
+/* Mobile hero (stacked art + copy on cream). Hidden on desktop, where the
+   cinematic pin runs instead; the ≤720px block below swaps them. */
+.ln-hero-m { display: none; }
 
 /* Tall outer rail = scroll fuel. Its height drives how long the pinned
    stage stays in view. ~380vh gives ~3 viewports of scroll to play the
@@ -294,26 +314,43 @@ body:has(.landing-screen) { min-width: 0; }
    .ln-hero-stage has data-time="sunset" or data-time="night" — set by the
    Hero component based on the wall clock (or ?mock= for previewing). */
 
+/* These palettes apply to BOTH the desktop cinematic stage (.ln-hero-stage)
+   and the mobile hero card (.ln-hero-m-art) so the mobile hero changes with the
+   wall clock just like desktop — no more moon on a daytime sky. */
+
 /* Sunrise — orange-red sky (the "warmer, fierier" palette, since that
    one reads more like dawn rolling in). */
-.ln-hero-stage[data-time="sunrise"] #cm-sky stop:nth-child(1) { stop-color: #FF8C5C; }
-.ln-hero-stage[data-time="sunrise"] #cm-sky stop:nth-child(2) { stop-color: #FFD0A0; }
-.ln-hero-stage[data-time="sunrise"] #cm-ground stop:nth-child(1) { stop-color: #A89888; }
-.ln-hero-stage[data-time="sunrise"] #cm-ground stop:nth-child(2) { stop-color: #7A6C58; }
+.ln-hero-stage[data-time="sunrise"] #cm-sky stop:nth-child(1),
+.ln-hero-m-art[data-time="sunrise"] #cm-sky stop:nth-child(1) { stop-color: #FF8C5C; }
+.ln-hero-stage[data-time="sunrise"] #cm-sky stop:nth-child(2),
+.ln-hero-m-art[data-time="sunrise"] #cm-sky stop:nth-child(2) { stop-color: #FFD0A0; }
+.ln-hero-stage[data-time="sunrise"] #cm-ground stop:nth-child(1),
+.ln-hero-m-art[data-time="sunrise"] #cm-ground stop:nth-child(1) { stop-color: #A89888; }
+.ln-hero-stage[data-time="sunrise"] #cm-ground stop:nth-child(2),
+.ln-hero-m-art[data-time="sunrise"] #cm-ground stop:nth-child(2) { stop-color: #7A6C58; }
 
 /* Sunset — orange-pink sky (cooler, with a pink/coral lean). */
-.ln-hero-stage[data-time="sunset"] #cm-sky stop:nth-child(1) { stop-color: #FF8A75; }
-.ln-hero-stage[data-time="sunset"] #cm-sky stop:nth-child(2) { stop-color: #FFD0B8; }
-.ln-hero-stage[data-time="sunset"] #cm-ground stop:nth-child(1) { stop-color: #A89888; }
-.ln-hero-stage[data-time="sunset"] #cm-ground stop:nth-child(2) { stop-color: #7A6C58; }
+.ln-hero-stage[data-time="sunset"] #cm-sky stop:nth-child(1),
+.ln-hero-m-art[data-time="sunset"] #cm-sky stop:nth-child(1) { stop-color: #FF8A75; }
+.ln-hero-stage[data-time="sunset"] #cm-sky stop:nth-child(2),
+.ln-hero-m-art[data-time="sunset"] #cm-sky stop:nth-child(2) { stop-color: #FFD0B8; }
+.ln-hero-stage[data-time="sunset"] #cm-ground stop:nth-child(1),
+.ln-hero-m-art[data-time="sunset"] #cm-ground stop:nth-child(1) { stop-color: #A89888; }
+.ln-hero-stage[data-time="sunset"] #cm-ground stop:nth-child(2),
+.ln-hero-m-art[data-time="sunset"] #cm-ground stop:nth-child(2) { stop-color: #7A6C58; }
 
-.ln-hero-stage[data-time="night"] #cm-sky stop:nth-child(1) { stop-color: #0E1430; }
-.ln-hero-stage[data-time="night"] #cm-sky stop:nth-child(2) { stop-color: #2A2342; }
-.ln-hero-stage[data-time="night"] #cm-ground stop:nth-child(1) { stop-color: #36364A; }
-.ln-hero-stage[data-time="night"] #cm-ground stop:nth-child(2) { stop-color: #1F2235; }
+.ln-hero-stage[data-time="night"] #cm-sky stop:nth-child(1),
+.ln-hero-m-art[data-time="night"] #cm-sky stop:nth-child(1) { stop-color: #0E1430; }
+.ln-hero-stage[data-time="night"] #cm-sky stop:nth-child(2),
+.ln-hero-m-art[data-time="night"] #cm-sky stop:nth-child(2) { stop-color: #2A2342; }
+.ln-hero-stage[data-time="night"] #cm-ground stop:nth-child(1),
+.ln-hero-m-art[data-time="night"] #cm-ground stop:nth-child(1) { stop-color: #36364A; }
+.ln-hero-stage[data-time="night"] #cm-ground stop:nth-child(2),
+.ln-hero-m-art[data-time="night"] #cm-ground stop:nth-child(2) { stop-color: #1F2235; }
 /* Plane at night: silver fill + dark navy outline so it's still readable
    when it crosses the moon (which is also light-colored). */
-.ln-hero-stage[data-time="night"] .ln-hero-plane {
+.ln-hero-stage[data-time="night"] .ln-hero-plane,
+.ln-hero-m-art[data-time="night"] .ln-hero-plane {
   --plane-color: #F4EFE8;
   --plane-stroke: #0E1430;
   --plane-stroke-w: 0.6;
@@ -1734,18 +1771,152 @@ body:has(.landing-screen) { min-width: 0; }
   .ln-included-grid { grid-template-columns: repeat(2, 1fr); }
 }
 @media (max-width: 720px) {
+  /* Collapse the section-anchor nav. The hero already carries the Sign up
+     CTA, so drop the duplicate header pill and leave Sign in flush right.
+     With nav-links hidden, drop to a 2-track grid so the cta lands in the
+     right column (otherwise grid auto-placement parks it in the empty 1fr). */
+  /* Flex (not grid) on mobile: with nav-links hidden, space-between puts the
+     brand left and the Sign in group hard right — no empty grid track to trap
+     it in the middle. */
+  .ln-nav-inner { display: flex; justify-content: space-between; gap: 16px; }
   .ln-nav-links { display: none; }
+  .ln-nav-cta .ln-cta-pill { display: none; }
 
-  /* Static fallback is applied via JS adding .is-static to .ln-hero-pin;
-     this just tightens the static stage on phones. */
-  .ln-hero-pin.is-static .ln-hero-stage { height: min(78vh, 640px); }
-  .ln-hero-title { font-size: clamp(32px, 9vw, 48px); }
-  .ln-hero-sub   { font-size: 15px; }
-  .ln-hero-eyebrow { font-size: 11px; padding: 6px 12px; margin-bottom: 18px; }
-  .ln-hero-ctas { flex-direction: column; align-items: flex-start; gap: 10px; }
-  .ln-hero-btn { width: 100%; justify-content: center; }
-  .ln-hero-ghost { padding-left: 0; }
+  /* Navy header row so it matches the navy status bar above it (the
+     safe-area padding lets the navy bleed up behind the notch/island). */
+  .ln-nav,
+  .ln-nav.scrolled {
+    background: #1F2233;
+    border-bottom-color: transparent;
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+  .ln-nav .ln-brand-word { color: #F4EFE8; }
+  .ln-nav .ln-nav-signin { color: rgba(244, 239, 232, 0.82); }
+  .ln-nav .ln-nav-signin:hover { color: #FFFFFF; }
+
+  /* Navy page backing (mobile only) so the top (behind the navy header) and the
+     bottom (below the navy footer) read navy on overscroll. The cream
+     .landing-screen covers the middle content. Desktop is untouched. */
+  body:has(.landing-screen) { background: #1F2233; }
+
+  /* Swap the cinematic for the clean stacked mobile hero. */
+  .ln-hero { padding: 8px var(--ln-side) 0; }
+  .ln-hero-pin { display: none; }
+  .ln-hero-m { display: block; }
+
+  /* Framed scene — the signature neighbourhood, presented as an intentional
+     hero image. Sits between the copy and the Sign up CTA. */
+  .ln-hero-m-art {
+    position: relative;
+    margin: 22px 0 24px;
+    height: clamp(208px, 32vh, 300px);
+    border-radius: var(--ln-radius-md);
+    overflow: hidden;
+    background: #1F2233;
+    box-shadow: 0 24px 48px -28px rgba(31,34,51,0.45);
+  }
+  .ln-hero-m-art svg { width: 100%; height: 100%; display: block; }
+  /* Re-scale the sun + plane overlays for the small card — their desktop
+     vw/vh positions are tuned for a full-screen stage. */
+  .ln-hero-m-art .ln-hero-sun {
+    top: 14px; right: 14px;
+    width: 84px; height: 84px;
+  }
+  .ln-hero-m-art .ln-hero-sun.ln-hero-sun-low { top: 14px; }
+  .ln-hero-m-art .ln-hero-moon {
+    top: 14px; right: 14px; width: 76px; height: 76px;
+  }
+  .ln-hero-m-art .ln-hero-plane { top: 30px; width: 60px; }
+  .ln-hero-m-art .ln-hero-sun svg,
+  .ln-hero-m-art .ln-hero-plane svg,
+  .ln-hero-m-art .ln-hero-moon svg { height: auto; }
+  /* Soft warm vignette at the base so the card sits on the cream page
+     instead of ending in a hard edge. */
+  .ln-hero-m-art::after {
+    content: '';
+    position: absolute;
+    inset: auto 0 0;
+    height: 38%;
+    background: linear-gradient(180deg, rgba(31,34,51,0) 0%, rgba(31,34,51,0.28) 100%);
+    pointer-events: none;
+  }
+
+  .ln-hero-m-copy { padding: 16px 2px 0; }
+
+  /* Light-theme eyebrow: terracotta on a soft tint (the dark-bg variant is
+     invisible on cream). */
+  .ln-hero-eyebrow-light {
+    color: var(--ln-accent);
+    background: rgba(225,73,9,0.08);
+    border-color: rgba(225,73,9,0.22);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    font-size: 11px;
+    margin-bottom: 16px;
+  }
+
+  .ln-hero-m-title {
+    margin: 0 0 14px;
+    font-size: clamp(36px, 10.5vw, 52px);
+    line-height: 1.0;
+    letter-spacing: -0.035em;
+    font-weight: 500;
+    color: var(--ln-ink);
+  }
+  .ln-hero-m-sub {
+    margin: 0;
+    font-size: 15.5px;
+    line-height: 1.5;
+    color: var(--ln-ink-dim);
+    max-width: 38ch;
+  }
+
+  .ln-hero-m-ctas {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+  }
+  .ln-hero-btn-block {
+    width: 100%;
+    justify-content: center;
+    padding: 16px 24px;
+    font-size: 16px;
+    box-shadow: 0 14px 30px -14px rgba(225,73,9,0.55);
+  }
+  .ln-hero-m-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--ln-ink-dim);
+    font-size: 15px;
+    font-weight: 500;
+    padding: 4px;
+  }
+  .ln-hero-m-ghost:hover { color: var(--ln-ink); }
+
   .ln-hero-scroll { display: none; }
+
+  /* Tighten the vertical rhythm between sections — the desktop
+     clamp(96px,14vh,160px) gaps leave huge dead space on a phone. */
+  .ln-what,
+  .ln-uses,
+  .ln-vs,
+  .ln-preview,
+  .ln-waitlist,
+  .ln-pricing { margin-top: clamp(44px, 8vh, 64px); }
+  .ln-cards   { margin-top: 22px; }
+
+  /* Trim the scroll on phones: drop the heavier mid-page sections (numbers
+     band, trust row, "vs a management company" comparison) and keep the core
+     conversion path — hero → intro → features → boards/residents → demo →
+     pricing → sign up. Desktop keeps everything. */
+  .ln-stats,
+  .ln-trust,
+  .ln-vs { display: none; }
 
   .ln-cards { grid-template-columns: 1fr; gap: 14px; }
   .ln-card  { min-height: auto; padding: 30px 26px; }

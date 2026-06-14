@@ -5,6 +5,7 @@
 
 import { ATTORNEY_REVIEW_BANNER } from '@/lib/compliance/rules-core'
 import { useT } from '@/lib/i18n'
+import { ClampText } from '@/components/ClampText'
 
 // The shared constant is one string: "⚠ REQUIRES ATTORNEY REVIEW — <body>".
 // Drop the leading marker so the card can show a bold title + dim body.
@@ -23,7 +24,7 @@ export function AttorneyNote() {
         </span>
         <div className="wsrow-main">
           <div className="wsrow-title">{t('admin.attorneyNote.requiresAttorneyReview')}</div>
-          <div className="wsrow-desc">{BODY}</div>
+          <ClampText text={BODY} lines={2} className="wsrow-desc" />
         </div>
       </div>
     </div>

@@ -419,10 +419,10 @@ export default function ArcPage() {
             <div className="card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
               <div><h2>{t('admin.arc.worklistHeading')} <span style={{ opacity: 0.55, fontWeight: 400 }}>({filtered.length})</span></h2></div>
               {requests.length > 0 && (
-                // Native <select>s styled with admin-input — the same control the
-                // intake form on this page already renders. Two filters: request
-                // type ("All categories") and status ("All statuses").
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                // Themed Dropdowns (the same control the intake form renders).
+                // Two filters: request type ("All categories") and status
+                // ("All statuses"). The arc-filters class carries mobile layout.
+                <div className="arc-filters" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   <div style={{ width: 220, flexShrink: 0 }}>
                     <Dropdown<string>
                       value={catFilter}
@@ -593,6 +593,9 @@ function ArcRequestCard({
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
         {isOpen && (
           <>
+            {/* Desktop: individual decision buttons. Mobile: one dropdown (below)
+                so the four actions don't cram the card. */}
+            <span className="arc-decide-btns">
             <Tip text={`${ARC_STATUS_DESC.approved} ${t('admin.arc.tipApprove')}`}>
               <button
                 className="admin-primary-btn"
@@ -632,6 +635,27 @@ function ArcRequestCard({
                 {t('admin.arc.btnWithdraw')}
               </button>
             </Tip>
+            </span>
+            <select
+              className="arc-decide-select"
+              value=""
+              disabled={busy}
+              aria-label={t('admin.arc.decisionPlaceholder')}
+              onChange={(e) => {
+                const v = e.target.value
+                e.currentTarget.value = ''
+                if (v === 'approved') { setDecideMode(null); setReason(''); submit('approved') }
+                else if (v === 'approve_conditions') setDecideMode('approve_conditions')
+                else if (v === 'deny') setDecideMode('deny')
+                else if (v === 'withdraw') onWithdraw(r)
+              }}
+            >
+              <option value="" disabled>{t('admin.arc.decisionPlaceholder')}</option>
+              <option value="approved">{t('admin.arc.btnApproveAndSend')}</option>
+              <option value="approve_conditions">{t('admin.arc.btnApproveWithConditions')}</option>
+              <option value="deny">{t('admin.arc.btnDeny')}</option>
+              <option value="withdraw">{t('admin.arc.btnWithdraw')}</option>
+            </select>
           </>
         )}
         {isDecided && (

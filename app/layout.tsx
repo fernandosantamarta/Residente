@@ -19,6 +19,23 @@ export const metadata: Metadata = {
     shortcut: '/residente-logo.png',
     apple: '/apple-touch-icon.png',
   },
+  // When launched from the iOS home screen, iOS ignores theme-color and uses
+  // these. `black-translucent` makes the web content draw UNDER the status bar
+  // so the page's own cream background fills it (instead of the default white
+  // opaque strip). Pages add `padding-top: env(safe-area-inset-top)` so their
+  // header clears the notch/island — the cockpit already bleeds its hero photo
+  // up the same way.
+  appleWebApp: {
+    capable: true,
+    title: 'Residente',
+    statusBarStyle: 'black-translucent',
+  },
+  // Belt-and-suspenders: emit the legacy apple-prefixed capable flag too.
+  // iOS keys the status-bar style off THIS tag; some Next versions only emit
+  // the generic `mobile-web-app-capable`, which iOS ignores for the bar style.
+  other: {
+    'apple-mobile-web-app-capable': 'yes',
+  },
 }
 
 export const viewport: Viewport = {
