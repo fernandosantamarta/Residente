@@ -221,6 +221,16 @@ export function useRulesAdmin() {
     await reload()
   }, [reload])
 
+  const updateRule = useCallback(async (
+    id: string,
+    patch: Partial<Pick<Rule, 'section' | 'title' | 'body' | 'fine'>>,
+  ) => {
+    if (!hasSupabase || !supabase) return
+    const { error } = await supabase.from('rules').update(patch).eq('id', id)
+    if (error) throw error
+    await reload()
+  }, [reload])
+
   const deleteAll = useCallback(async () => {
     if (!hasSupabase || !supabase || !communityId) return
     const { error } = await supabase.from('rules').delete().eq('community_id', communityId)
@@ -242,5 +252,5 @@ export function useRulesAdmin() {
     await reload()
   }, [communityId, rules, reload])
 
-  return { rules, loading, reload, addRule, removeRule, deleteAll, restoreDemo }
+  return { rules, loading, reload, addRule, removeRule, updateRule, deleteAll, restoreDemo }
 }

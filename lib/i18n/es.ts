@@ -3626,7 +3626,7 @@ export const es: Record<string, string> = {
   "admin.voiceRoster.goToResidents": "Ir a Residentes",
   "admin.voiceRoster.heading": "Padrón trasladado",
   "admin.voiceVotes.cancel": "Cancelar",
-  "admin.voiceVotes.dek": "Crea y gestiona votaciones comunitarias — sin necesidad de reunión.",
+  "admin.voiceVotes.dek": "Crea y gestiona votaciones comunitarias.\nSin necesidad de reunión.",
   "admin.voiceVotes.emptyState": "Aún no hay votaciones. Crea la primera arriba.",
   "admin.voiceVotes.heading": "Votaciones",
   "admin.voiceVotes.listHeading": "Votaciones",

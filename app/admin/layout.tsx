@@ -6,6 +6,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { hasSupabase, supabase } from '@/lib/supabase'
 import { AdminErrorBoundary } from '@/components/AdminErrorBoundary'
 import { AdminSearch } from '@/components/AdminSearch'
+import { Dropdown } from '@/components/Dropdown'
 import { SectionScroll } from '@/components/SectionScroll'
 import { SiteFooterSlim } from '@/components/SiteFooter'
 import { useAuth } from '../providers'
@@ -264,17 +265,17 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </Link>
         )}
         {/* Mobile section picker — replaces the scrolling tab row on phones.
-            Sits at the far right; "Back" stays at the far left. */}
-        <select
-          className="admin-nav-select"
-          value={activeNavHref}
-          onChange={(e) => router.push(e.target.value)}
-          aria-label={t('admin.tag')}
-        >
-          {visibleNav.map(item => (
-            <option key={item.href} value={item.href}>{t(item.label)}</option>
-          ))}
-        </select>
+            Sits at the far right; "Back" stays at the far left. Uses the themed
+            Dropdown (not a native <select>) so the open list matches the theme
+            instead of the iOS-default picker. */}
+        <div className="admin-nav-dd">
+          <Dropdown<string>
+            value={activeNavHref}
+            onChange={(v) => router.push(v)}
+            ariaLabel={t('admin.tag')}
+            options={visibleNav.map(item => ({ value: item.href, label: t(item.label) }))}
+          />
+        </div>
         {/* Search lives in the far-right gutter, mirroring "Back to app" on the
             left, so the centered tab row stays balanced. */}
         <AdminSearch />

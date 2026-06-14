@@ -457,27 +457,27 @@ export default function RequestsAdmin() {
       {(status === 'ready' || status === 'loading') && (
         <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
           {/* Folder tabs + compose */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '12px 14px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
+          <div className="msg-head-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, padding: '12px 14px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap' }}>
             <div className="seg-tabs" role="tablist">
+              <button type="button" role="tab" aria-selected={tab === 'all'}
+                className={`seg-tab${tab === 'all' ? ' active' : ''}`}
+                onClick={() => { setTab('all'); setComposing(false) }}>
+                {t('admin.requests.tabAll')}
+              </button>
               <button type="button" role="tab" aria-selected={tab === 'needs'}
                 className={`seg-tab${tab === 'needs' ? ' active' : ''}`}
                 onClick={() => { setTab('needs'); setComposing(false) }}>
                 {t('admin.requests.tabNeedsReply')}
-                {awaitingCount > 0 && <span className="admin-nav-badge">{awaitingCount}</span>}
+                {awaitingCount > 0 && <span className="seg-tab-badge">{awaitingCount}</span>}
               </button>
               <button type="button" role="tab" aria-selected={tab === 'resolved'}
                 className={`seg-tab${tab === 'resolved' ? ' active' : ''}`}
                 onClick={() => { setTab('resolved'); setComposing(false) }}>
                 {t('admin.requests.tabResolved')}
               </button>
-              <button type="button" role="tab" aria-selected={tab === 'all'}
-                className={`seg-tab${tab === 'all' ? ' active' : ''}`}
-                onClick={() => { setTab('all'); setComposing(false) }}>
-                {t('admin.requests.tabAll')}
-              </button>
             </div>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
-              <div style={{ width: 180 }}>
+            <span className="msg-head-actions" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+              <div className="msg-head-cat" style={{ width: 180 }}>
                 <Dropdown<'all' | Category>
                   value={catFilter}
                   onChange={setCatFilter}
@@ -492,8 +492,9 @@ export default function RequestsAdmin() {
             </span>
           </div>
 
-          {/* Two-pane: mailbox list | conversation */}
-          <div className="msg-layout" style={{ display: 'grid', gridTemplateColumns: 'minmax(230px, 320px) 1fr', minHeight: 460 }}>
+          {/* Two-pane on desktop; single-pane Messages flow on mobile (the
+              has-selection class drives which pane shows — see admin.css). */}
+          <div className={`msg-layout${(selected || composing) ? ' has-selection' : ''}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(230px, 320px) 1fr', minHeight: 460 }}>
             {/* LEFT — mailbox list */}
             <div style={{ borderRight: '1px solid var(--border)', maxHeight: 640, overflowY: 'auto' }}>
               {/* Search */}
@@ -562,6 +563,11 @@ export default function RequestsAdmin() {
 
             {/* RIGHT — composer / conversation / empty */}
             <div style={{ padding: 16, minWidth: 0 }}>
+              {/* Mobile-only: back to the conversation list. */}
+              <button type="button" className="msg-back" onClick={() => { setSelectedId(null); setComposing(false) }}>
+                <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
+                {t('admin.requests.backToList')}
+              </button>
               {composing ? (
                 <div>
                   <h2 style={{ fontSize: 16, fontWeight: 700, color: 'var(--text)', margin: '0 0 4px' }}>{t('admin.requests.newMessage')}</h2>
@@ -743,41 +749,30 @@ function AdminThread({
   }
 
   const messageLog = (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-      {loading && messages.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--text-dim)' }}>{t('admin.requests.loading')}</div>}
-      {messages.map(m => {
+    <div className="imsg-log">
+      {loading && messages.length === 0 && <div style={{ fontSize: 12.5, color: 'var(--text-dim)', textAlign: 'center' }}>{t('admin.requests.loading')}</div>}
+      {messages.map((m, i) => {
         const sys = systemLine(m.body)
         if (sys) {
-          return (
-            <div key={m.id} style={{ display: 'flex', justifyContent: 'center', margin: '2px 0' }}>
-              <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-dim)', background: 'rgba(42,18,6,0.04)', border: '1px solid var(--border)', borderRadius: 999, padding: '3px 12px' }}>
-                ↻ {sys} · {fmtMsgTime(m.createdAt)}
-              </span>
-            </div>
-          )
+          return <div key={m.id} className="imsg-sys">↻ {sys} · {fmtMsgTime(m.createdAt)}</div>
         }
         const board = m.authorRole === 'board'
+        const prev = messages[i - 1]
+        const next = messages[i + 1]
+        const newGroup = !prev || !!systemLine(prev.body) || prev.authorRole !== m.authorRole
+        const lastOfGroup = !next || !!systemLine(next.body) || next.authorRole !== m.authorRole
+        const who = board ? (m.authorName || 'Board') : (m.authorName || t('admin.requests.residentFallback'))
         return (
-          <div key={m.id} style={{ display: 'flex', justifyContent: board ? 'flex-end' : 'flex-start' }}>
-            <div style={{
-              maxWidth: '78%',
-              background: board ? 'rgba(225, 73, 9, 0.07)' : 'rgba(42, 18, 6, 0.04)',
-              border: `1px solid ${board ? 'rgba(225, 73, 9, 0.18)' : 'var(--border)'}`,
-              borderRadius: 5,
-              padding: '8px 12px',
-            }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: board ? '#E14909' : 'var(--text-dim)', marginBottom: 2 }}>
-                {board ? (m.authorName || 'Board') : (m.authorName || t('admin.requests.residentFallback'))}
-                <span style={{ fontWeight: 400, opacity: 0.6 }}>{' · '}{fmtMsgTime(m.createdAt)}</span>
-              </div>
-              <div style={{ fontSize: 13, color: 'var(--text)', whiteSpace: 'pre-wrap' }}>{m.body}</div>
+          <div key={m.id} className={`imsg-row ${board ? 'sent' : 'recv'}${newGroup ? ' newgroup' : ''}`}>
+            <div className="imsg-bubble">
+              {m.body}
               {m.attachmentPath && (
-                <button type="button" onClick={() => openAttachment(m.attachmentPath!)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#E14909', font: 'inherit', fontSize: 12, padding: '4px 0 0', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                <button type="button" className="imsg-attach" onClick={() => openAttachment(m.attachmentPath!)}>
                   <Clip />{m.attachmentName || t('admin.requests.viewPhoto')}
                 </button>
               )}
             </div>
+            {lastOfGroup && <div className="imsg-meta">{who} · {fmtMsgTime(m.createdAt)}</div>}
           </div>
         )
       })}
@@ -828,61 +823,45 @@ function AdminThread({
       {messageLog}
       {(
         <>
-          <label htmlFor={`reply-${request.id}`} style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text)', marginBottom: 5 }}>
-            {t('admin.requests.replyLabel')}{' '}
-            <span style={{ fontWeight: 400, color: 'var(--text-dim)' }}>— {t('admin.requests.replyLabelSuffix')}</span>
-          </label>
-          <textarea
-            id={`reply-${request.id}`}
-            className="admin-input admin-textarea"
-            rows={2}
-            style={{ width: '100%', boxSizing: 'border-box' }}
-            placeholder={t('admin.requests.replyPlaceholder')}
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            onKeyDown={onKeyDown}
-          />
-          {err && <div className="admin-note admin-note-err" style={{ marginTop: 8 }}>{err}</div>}
-          {/* Row 1 — reply actions (Send reply pinned right) */}
-          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 14, marginTop: 8 }}>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#E14909' }}>
-              <input type="file" accept="image/*" hidden onChange={e => setFile(e.target.files?.[0] || null)} />
-              <Clip />
-              {file ? file.name : t('admin.requests.attachPhoto')}
-            </label>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12.5, color: 'var(--text-dim)' }}>
-              <input type="checkbox" checked={emailIt} onChange={e => setEmailIt(e.target.checked)} />
-              {t('admin.requests.emailResident')}
-            </label>
-            <button type="button" className="admin-secondary-btn" style={{ marginLeft: 'auto' }} onClick={send} disabled={sending || (!draft.trim() && !file)}>
-              {sending ? t('admin.requests.sending') : t('admin.requests.sendReply')}
+          {/* iMessage-style composer: a rounded field with an attach clip, plus a
+              circular send button. */}
+          <div className="imsg-composer">
+            <div className="imsg-field">
+              <textarea
+                id={`reply-${request.id}`}
+                rows={1}
+                placeholder={t('admin.requests.replyPlaceholder')}
+                value={draft}
+                onChange={e => setDraft(e.target.value)}
+                onKeyDown={onKeyDown}
+                aria-label={t('admin.requests.replyLabel')}
+              />
+              <label className={`imsg-clip${file ? ' has-file' : ''}`} title={file ? file.name : t('admin.requests.attachPhoto')}>
+                <input type="file" accept="image/*" hidden onChange={e => setFile(e.target.files?.[0] || null)} />
+                <Clip />
+              </label>
+            </div>
+            <button type="button" className="imsg-send" onClick={send} disabled={sending || (!draft.trim() && !file)} aria-label={t('admin.requests.sendReply')}>
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20V5M5 12l7-7 7 7" /></svg>
             </button>
           </div>
-          {/* Row 2 — status (left) + conversation management (right) */}
-          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 10 }}>
-            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-dim)' }}>{t('admin.requests.statusLabel')}</span>
-              <div style={{ width: 140 }}>
-                <Dropdown<Status>
-                  value={request.status as Status}
-                  onChange={v => onSetStatus(request, v)}
-                  ariaLabel={t('admin.requests.conversationStatusLabel')}
-                  options={[
-                    { value: 'new',         label: t('admin.requests.statusNew') },
-                    { value: 'in_progress', label: t('admin.requests.statusInProgress') },
-                    { value: 'resolved',    label: t('admin.requests.statusResolved') },
-                  ]}
-                />
-              </div>
-            </span>
-            <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center', marginLeft: 'auto' }}>
-              <button type="button" className="admin-btn-ghost admin-btn-ghost-orange" style={{ marginLeft: 0 }} onClick={() => onSetLocked(request, !locked)}>
-                {locked ? t('admin.requests.allowReplies') : t('admin.requests.turnOffReplies')}
-              </button>
-              <button type="button" className="admin-btn-ghost admin-btn-ghost-orange" style={{ marginLeft: 0 }} onClick={() => onSetStatus(request, 'resolved')}>
-                {t('admin.requests.closeConversation')}
-              </button>
-            </span>
+          {file && <div className="imsg-composer-opts" style={{ color: '#E14909' }}>{file.name}</div>}
+          {err && <div className="admin-note admin-note-err" style={{ marginTop: 8 }}>{err}</div>}
+          {/* Email toggle — on-theme orange. */}
+          <div className="imsg-composer-opts">
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: '#E14909', fontWeight: 600 }}>
+              <input type="checkbox" checked={emailIt} onChange={e => setEmailIt(e.target.checked)} style={{ accentColor: '#E14909' }} />
+              {t('admin.requests.emailResident')}
+            </label>
+          </div>
+          {/* Secondary management — both actions on one row, pushed right, orange. */}
+          <div className="imsg-composer-opts" style={{ justifyContent: 'flex-end', marginTop: 20 }}>
+            <button type="button" className="admin-btn-ghost admin-btn-ghost-orange" style={{ marginLeft: 0, color: '#E14909', borderColor: 'rgba(225,73,9,0.45)' }} onClick={() => onSetLocked(request, !locked)}>
+              {locked ? t('admin.requests.allowReplies') : t('admin.requests.turnOffReplies')}
+            </button>
+            <button type="button" className="admin-btn-ghost admin-btn-ghost-orange" style={{ marginLeft: 0, color: '#E14909', borderColor: 'rgba(225,73,9,0.45)' }} onClick={() => onSetStatus(request, 'resolved')}>
+              {t('admin.requests.closeConversation')}
+            </button>
           </div>
           {locked && (
             <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 8 }}>

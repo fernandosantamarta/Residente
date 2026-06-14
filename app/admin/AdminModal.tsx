@@ -34,13 +34,11 @@ export function AdminModal({ title, sub, onClose, children }: {
           casing, input pills — match here too. A compound `.admin.cset` would
           skip those descendant rules and leave the tracked sketch uppercase. */}
       <div className="admin" onClick={e => e.stopPropagation()}
-        style={{ width: 'min(560px, 100%)', maxHeight: '90vh', overflow: 'auto' }}>
+        style={{ width: 'min(560px, 100%)', minHeight: 0, maxHeight: '90vh', overflow: 'auto' }}>
         <div className="cset">
           <div className="card" style={{ margin: 0 }}>
             <div className="card-head">
               <div><h2>{title}</h2>{sub && <div className="sub">{sub}</div>}</div>
-              <button type="button" className="vdel" onClick={onClose} aria-label={t('admin.adminModal.closeLabel')}
-                style={{ fontSize: 24, lineHeight: 1 }}>&times;</button>
             </div>
             {children}
           </div>

@@ -636,26 +636,27 @@ function ArcRequestCard({
               </button>
             </Tip>
             </span>
-            <select
-              className="arc-decide-select"
-              value=""
-              disabled={busy}
-              aria-label={t('admin.arc.decisionPlaceholder')}
-              onChange={(e) => {
-                const v = e.target.value
-                e.currentTarget.value = ''
-                if (v === 'approved') { setDecideMode(null); setReason(''); submit('approved') }
-                else if (v === 'approve_conditions') setDecideMode('approve_conditions')
-                else if (v === 'deny') setDecideMode('deny')
-                else if (v === 'withdraw') onWithdraw(r)
-              }}
-            >
-              <option value="" disabled>{t('admin.arc.decisionPlaceholder')}</option>
-              <option value="approved">{t('admin.arc.btnApproveAndSend')}</option>
-              <option value="approve_conditions">{t('admin.arc.btnApproveWithConditions')}</option>
-              <option value="deny">{t('admin.arc.btnDeny')}</option>
-              <option value="withdraw">{t('admin.arc.btnWithdraw')}</option>
-            </select>
+            {/* Mobile-only decision menu — themed Dropdown (not a native select)
+                so it matches the app instead of the iOS picker. */}
+            <div className="arc-decide-dd" style={busy ? { pointerEvents: 'none', opacity: 0.5 } : undefined}>
+              <Dropdown<string>
+                value=""
+                ariaLabel={t('admin.arc.decisionPlaceholder')}
+                placeholder={t('admin.arc.decisionPlaceholder')}
+                options={[
+                  { value: 'approved', label: t('admin.arc.btnApproveAndSend') },
+                  { value: 'approve_conditions', label: t('admin.arc.btnApproveWithConditions') },
+                  { value: 'deny', label: t('admin.arc.btnDeny') },
+                  { value: 'withdraw', label: t('admin.arc.btnWithdraw') },
+                ]}
+                onChange={(v) => {
+                  if (v === 'approved') { setDecideMode(null); setReason(''); submit('approved') }
+                  else if (v === 'approve_conditions') setDecideMode('approve_conditions')
+                  else if (v === 'deny') setDecideMode('deny')
+                  else if (v === 'withdraw') onWithdraw(r)
+                }}
+              />
+            </div>
           </>
         )}
         {isDecided && (

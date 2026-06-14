@@ -82,6 +82,8 @@ export default function Residents() {
   const [subFilter, setSubFilter] = useState('all')
   const [grid, setGrid] = useState(() => [blankGridRow(), blankGridRow(), blankGridRow()])
   const fileRef = useRef(null)
+  // "More →" hint fades out as the import sheet is scrolled right.
+  const [hintOpacity, setHintOpacity] = useState(1)
   // Magic-link invites (ported from the old Voice Roster).
   const [inviteBusyId, setInviteBusyId] = useState(null)
   const [bulkBusy, setBulkBusy] = useState(false)
@@ -435,7 +437,12 @@ export default function Residents() {
               </div>
               <span className="pill dim">{t('admin.residents.pillNoCSV')}</span>
             </div>
-            <div className="import-sheet">
+            <div className="import-sheet"
+              onScroll={e => {
+                const el = e.currentTarget
+                const max = el.scrollWidth - el.clientWidth
+                setHintOpacity(max > 4 ? Math.max(0, 1 - el.scrollLeft / max) : 1)
+              }}>
               <div className="import-sheet-row import-sheet-head">
                 <span>{t('admin.residents.colOwner')}</span><span>{t('admin.residents.colUnit')}</span><span>{t('admin.residents.colEmail')}</span><span>{t('admin.residents.colPhone')}</span>
               </div>
@@ -443,11 +450,14 @@ export default function Residents() {
                 {grid.map((row, ri) => (
                   <div className="import-sheet-row" key={ri}>
                     {GRID_COLS.map((key, ci) => (
-                      <input key={key} className="import-cell" value={row[key]}
-                        placeholder={ri === 0 ? gridColPlaceholders[ci] : ''}
-                        aria-label={t('admin.residents.ariaGridCell', { col: gridColLabels[ci], row: String(ri + 1) })}
-                        onChange={e => setCell(ri, key, e.target.value)}
-                        onPaste={e => onPasteCell(e, ri, ci)} />
+                      <label key={key} className="import-field">
+                        <span className="import-field-label">{gridColLabels[ci]}</span>
+                        <input className="import-cell" value={row[key]}
+                          placeholder={ri === 0 ? gridColPlaceholders[ci] : ''}
+                          aria-label={t('admin.residents.ariaGridCell', { col: gridColLabels[ci], row: String(ri + 1) })}
+                          onChange={e => setCell(ri, key, e.target.value)}
+                          onPaste={e => onPasteCell(e, ri, ci)} />
+                      </label>
                     ))}
                     <button type="button" className="import-del" onClick={() => removeRow(ri)}
                       tabIndex={-1} aria-label={t('admin.residents.ariaDeleteRow', { row: String(ri + 1) })}>&times;</button>
@@ -455,7 +465,10 @@ export default function Residents() {
                 ))}
               </div>
             </div>
-            <button type="button" className="import-addrow" onClick={addRow}>{t('admin.residents.addRow')}</button>
+            <div className="import-addrow-bar">
+              <button type="button" className="import-addrow" onClick={addRow}>{t('admin.residents.addRow')}</button>
+              <span className="import-scroll-hint" aria-hidden="true" style={{ opacity: hintOpacity }}>{t('admin.residents.scrollMore')}</span>
+            </div>
             <div className="row-actions">
               <button type="button" className="admin-primary-btn" onClick={importGrid} disabled={!gridHasData}>
                 {t('admin.residents.pasteImport')}

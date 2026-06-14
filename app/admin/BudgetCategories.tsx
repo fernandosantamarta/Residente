@@ -130,9 +130,6 @@ export function BudgetCategories({ communityId, onSaved }: { communityId: string
           <h2>{t('admin.budgetCategories.heading')}</h2>
           <div className="sub">{t('admin.budgetCategories.subHeading')}</div>
         </div>
-        {!editing && status !== 'loading' && status !== 'error' && (
-          <button type="button" className="admin-btn-ghost" onClick={startAdd}>{t('admin.budgetCategories.addCategory')}</button>
-        )}
       </div>
 
       {status === 'loading' && <div className="admin-note">{t('admin.budgetCategories.loading')}</div>}
@@ -146,25 +143,31 @@ export function BudgetCategories({ communityId, onSaved }: { communityId: string
 
       {/* Read mode — the mock's clean table, no boxes. */}
       {status !== 'loading' && status !== 'error' && !editing && (
-        rows.length === 0 ? (
-          <div className="bc-empty">{t('admin.budgetCategories.emptyRead')}</div>
-        ) : (
-          <table className="tbl">
-            <thead>
-              <tr><th>{t('admin.budgetCategories.colCategory')}</th><th>{t('admin.budgetCategories.colAnnualAmount')}</th><th>{t('admin.budgetCategories.colPctOfBudget')}</th><th /></tr>
-            </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={r.id || `row-${i}`}>
-                  <td className="strong">{r.name}</td>
-                  <td>{money(r.budget)}</td>
-                  <td className="muted">{pctOf(r)}</td>
-                  <td className="go-cell"><button type="button" className="go" onClick={() => setEditing(true)}>{t('admin.budgetCategories.editBtn')}</button></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )
+        <>
+          {rows.length === 0 ? (
+            <div className="bc-empty">{t('admin.budgetCategories.emptyRead')}</div>
+          ) : (
+            <table className="tbl">
+              <thead>
+                <tr><th>{t('admin.budgetCategories.colCategory')}</th><th>{t('admin.budgetCategories.colAnnualAmount')}</th><th>{t('admin.budgetCategories.colPctOfBudget')}</th><th /></tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => (
+                  <tr key={r.id || `row-${i}`}>
+                    <td className="strong">{r.name}</td>
+                    <td>{money(r.budget)}</td>
+                    <td className="muted">{pctOf(r)}</td>
+                    <td className="go-cell"><button type="button" className="go" onClick={() => setEditing(true)}>{t('admin.budgetCategories.editBtn')}</button></td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {/* Add lives at the END of the list, not the top. */}
+          <button type="button" className="admin-btn-ghost bc-add-end" onClick={startAdd}>
+            {t('admin.budgetCategories.addCategory')}
+          </button>
+        </>
       )}
 
       {/* Edit mode — borderless inline editor. */}
@@ -178,12 +181,21 @@ export function BudgetCategories({ communityId, onSaved }: { communityId: string
           )}
           {rows.map((r, i) => (
             <div className="bc-row" key={r.id || `new-${i}`}>
-              <input name={`cat-name-${i}`} className="admin-input" placeholder={t('admin.budgetCategories.placeholderName')}
-                value={r.name ?? ''} onChange={e => setCell(i, 'name', e.target.value)} />
-              <input name={`cat-budget-${i}`} className="admin-input" type="number" placeholder="0"
-                value={r.budget ?? ''} onChange={e => setCell(i, 'budget', e.target.value)} />
-              <input name={`cat-spent-${i}`} className="admin-input" type="number" placeholder="0"
-                value={r.spent ?? ''} onChange={e => setCell(i, 'spent', e.target.value)} />
+              <label className="bc-field bc-field-name">
+                <span className="bc-field-label">{t('admin.budgetCategories.colCategory')}</span>
+                <input name={`cat-name-${i}`} className="admin-input" placeholder={t('admin.budgetCategories.placeholderName')}
+                  value={r.name ?? ''} onChange={e => setCell(i, 'name', e.target.value)} />
+              </label>
+              <label className="bc-field">
+                <span className="bc-field-label">{t('admin.budgetCategories.editColBudget')}</span>
+                <input name={`cat-budget-${i}`} className="admin-input" type="number" placeholder="0"
+                  value={r.budget ?? ''} onChange={e => setCell(i, 'budget', e.target.value)} />
+              </label>
+              <label className="bc-field">
+                <span className="bc-field-label">{t('admin.budgetCategories.editColSpent')}</span>
+                <input name={`cat-spent-${i}`} className="admin-input" type="number" placeholder="0"
+                  value={r.spent ?? ''} onChange={e => setCell(i, 'spent', e.target.value)} />
+              </label>
               <button type="button" className="bc-del" onClick={() => removeRow(i)}
                 aria-label={t('admin.budgetCategories.removeCategory')}>&times;</button>
             </div>

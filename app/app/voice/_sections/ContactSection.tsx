@@ -1,6 +1,6 @@
 'use client'
 
-import React, { Fragment, ReactNode, useState, useEffect, useCallback } from 'react'
+import React, { Fragment, ReactNode, useState, useEffect, useCallback, useRef } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
@@ -312,6 +312,13 @@ function ConThread({ requestId, closed, locked, openAttachment }: {
   const MAX_FILE = 10 * 1024 * 1024
   const noReply = closed || locked
 
+  // Keep the capped message window pinned to the newest message.
+  const logRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = logRef.current
+    if (el) el.scrollTop = el.scrollHeight
+  }, [messages.length])
+
   // No reply box → nudge them to the new-message form.
   const startNewMessage = () => {
     if (typeof document === 'undefined') return
@@ -372,41 +379,30 @@ function ConThread({ requestId, closed, locked, openAttachment }: {
 
   return (
     <div>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 10 }}>
+      <div className="imsg-log con-imsg-log" ref={logRef}>
         {loading && messages.length === 0 && <div className="con-empty">{t('board.loading')}</div>}
-        {messages.map(m => {
+        {messages.map((m, i) => {
           const sys = systemLine(m.body)
           if (sys) {
-            return (
-              <div key={m.id} style={{ display: 'flex', justifyContent: 'center', margin: '2px 0' }}>
-                <span style={{ fontSize: 11.5, fontWeight: 600, color: 'rgba(10,36,64,0.6)', background: 'rgba(10,36,64,0.05)', border: '1px solid rgba(10,36,64,0.10)', borderRadius: 999, padding: '3px 12px' }}>
-                  ↻ {sys} · {fmtMsgTime(m.createdAt)}
-                </span>
-              </div>
-            )
+            return <div key={m.id} className="imsg-sys">↻ {sys} · {fmtMsgTime(m.createdAt)}</div>
           }
           const me = m.authorRole === 'resident'
+          const prev = messages[i - 1]
+          const next = messages[i + 1]
+          const newGroup = !prev || !!systemLine(prev.body) || prev.authorRole !== m.authorRole
+          const lastOfGroup = !next || !!systemLine(next.body) || next.authorRole !== m.authorRole
+          const who = me ? (m.authorName || 'You') : (m.authorName || t('board.boardTag'))
           return (
-            <div key={m.id} style={{ display: 'flex', justifyContent: me ? 'flex-end' : 'flex-start' }}>
-              <div style={{
-                maxWidth: '80%',
-                background: me ? 'rgba(225, 73, 9, 0.08)' : 'rgba(10, 36, 64, 0.05)',
-                border: `1px solid ${me ? 'rgba(225, 73, 9, 0.18)' : 'rgba(10, 36, 64, 0.10)'}`,
-                borderRadius: 12,
-                padding: '8px 12px',
-              }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: me ? '#E14909' : 'rgba(10,36,64,0.7)', marginBottom: 2 }}>
-                  {me ? (m.authorName || 'You') : (m.authorName || t('board.boardTag'))}
-                  <span style={{ fontWeight: 400, opacity: 0.6 }}>{' · '}{fmtMsgTime(m.createdAt)}</span>
-                </div>
-                <div style={{ fontSize: 13, color: '#1F2233', whiteSpace: 'pre-wrap' }}>{m.body}</div>
+            <div key={m.id} className={`imsg-row ${me ? 'sent' : 'recv'}${newGroup ? ' newgroup' : ''}`}>
+              <div className="imsg-bubble">
+                {m.body}
                 {m.attachmentPath && (
-                  <button type="button" className="con-note-photo" style={{ marginLeft: 0 }}
-                    onClick={() => openAttachment(m.attachmentPath!)}>
+                  <button type="button" className="imsg-attach" onClick={() => openAttachment(m.attachmentPath!)}>
                     <IconClip /> {m.attachmentName || t('board.viewPhoto')}
                   </button>
                 )}
               </div>
+              {lastOfGroup && <div className="imsg-meta">{who} · {fmtMsgTime(m.createdAt)}</div>}
             </div>
           )
         })}
@@ -422,26 +418,28 @@ function ConThread({ requestId, closed, locked, openAttachment }: {
         </div>
       ) : (
         <>
-          <textarea
-            rows={2}
-            className="con-reply-input"
-            style={{ width: '100%', boxSizing: 'border-box', borderRadius: 10, border: '1px solid rgba(10,36,64,0.18)', padding: '8px 10px', font: 'inherit', fontSize: 13, resize: 'vertical' }}
-            placeholder="Write a reply…  (Enter to send)"
-            value={draft}
-            onChange={e => setDraft(e.target.value)}
-            onKeyDown={onKeyDown}
-          />
-          {err && <div style={{ color: '#B42318', fontSize: 12, marginTop: 6 }}>{err}</div>}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginTop: 8 }}>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#E14909' }}>
-              <input type="file" accept="image/*" hidden onChange={e => setFile(e.target.files?.[0] || null)} />
-              <Clip />
-              {file ? file.name : 'Attach a photo'}
-            </label>
-            <button type="button" className="con-send-btn" onClick={send} disabled={sending || (!draft.trim() && !file)}>
-              {sending ? 'Sending…' : 'Send reply'}
+          {/* iMessage-style composer — matches the board side. */}
+          <div className="imsg-composer">
+            <div className="imsg-field">
+              <textarea
+                rows={1}
+                placeholder="Write a reply…"
+                value={draft}
+                onChange={e => setDraft(e.target.value)}
+                onKeyDown={onKeyDown}
+                aria-label="Write a reply"
+              />
+              <label className={`imsg-clip${file ? ' has-file' : ''}`} title={file ? file.name : 'Attach a photo'}>
+                <input type="file" accept="image/*" hidden onChange={e => setFile(e.target.files?.[0] || null)} />
+                <Clip />
+              </label>
+            </div>
+            <button type="button" className="imsg-send" onClick={send} disabled={sending || (!draft.trim() && !file)} aria-label="Send reply">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 20V5M5 12l7-7 7 7" /></svg>
             </button>
           </div>
+          {file && <div className="imsg-composer-opts" style={{ color: '#E14909' }}>{file.name}</div>}
+          {err && <div style={{ color: '#B42318', fontSize: 12, marginTop: 6 }}>{err}</div>}
         </>
       )}
     </div>

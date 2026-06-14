@@ -581,7 +581,7 @@ export default function Board() {
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 16 }}>
-                <span className="admin-field-label" style={{ marginBottom: 0 }}>{t('admin.board.permissions')}</span>
+                <span className="admin-field-label" style={{ marginBottom: 0, fontSize: 16, fontWeight: 700, letterSpacing: '-0.2px', color: 'var(--text)' }}>{t('admin.board.permissions')}</span>
                 {!editingProtected && (
                   <button type="button" className="admin-btn-ghost" onClick={toggleAllPerms}>
                     {allPermsSelected ? t('admin.board.clearAll') : t('admin.board.selectAll')}

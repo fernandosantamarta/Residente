@@ -125,7 +125,10 @@ export default function AdminEasyDocs() {
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [showAddRule, setShowAddRule] = useState(false)
   const [ruleSuccessMsg, setRuleSuccessMsg] = useState('')
-  const { rules: rows, addRule: insertRule, removeRule: deleteRule, deleteAll, restoreDemo } = useRulesAdmin()
+  const { rules: rows, addRule: insertRule, removeRule: deleteRule, updateRule, deleteAll } = useRulesAdmin()
+  // Inline edit state for the expanded rule (null when none / view-only).
+  const [ruleEdit, setRuleEdit] = useState<{ title: string; section: string; body: string; fine: string } | null>(null)
+  const [ruleEditSaving, setRuleEditSaving] = useState(false)
   const ruleStatus = 'ready' as const
 
   useEffect(() => {
@@ -209,6 +212,7 @@ export default function AdminEasyDocs() {
   const [docError, setDocError] = useState('')
   const [docForm, setDocForm] = useState(DOC_EMPTY)
   const [docFile, setDocFile] = useState(null)
+  const [govFile, setGovFile] = useState(null)
   const [docSaving, setDocSaving] = useState(false)
   const [docSuccessMsg, setDocSuccessMsg] = useState('')
   const [docPage, setDocPage] = useState(1)
@@ -357,9 +361,14 @@ export default function AdminEasyDocs() {
   // "Set up from your governing docs" — pick a PDF and file it under Governing
   // Documents immediately. Same upload path as the form; auto-extraction into
   // rules/fines is a later slice (the extract-setup edge fn), noted in the card.
-  const onPickGoverningDoc = async (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (e.target) e.target.value = ''
+  // Pick first (so the file shows + Import enables), then Import files it — the
+  // same two-step the rule-book PDF card uses.
+  const onPickGoverningDoc = (e: ChangeEvent<HTMLInputElement>) => {
+    setGovFile(e.target.files?.[0] || null)
+    setDocError('')
+  }
+  const importGoverningDoc = async () => {
+    const file = govFile
     if (!file) return
     setDocSaving(true); setDocError('')
     try {
@@ -376,6 +385,7 @@ export default function AdminEasyDocs() {
       )
       if (error) { supabase.storage.from('documents').remove([path]); throw error }
       setDocRows((rs: any[]) => [data, ...rs])
+      setGovFile(null)
       setDocSuccessMsg(`Filed "${title}" under Governing Documents.`)
     } catch (err: any) {
       setDocError(err?.message || 'Could not upload that file')
@@ -389,7 +399,7 @@ export default function AdminEasyDocs() {
     const files = Array.from(e.target.files || [])
     if (e.target) e.target.value = ''
     if (!files.length) return
-    const category = (docCatFilter !== 'all' ? docCatFilter : 'Governing Documents') as DocCategory
+    const category = (docForm.category || (docCatFilter !== 'all' ? docCatFilter : 'Governing Documents')) as DocCategory
     setDocSaving(true); setDocError('')
     let ok = 0
     try {
@@ -410,7 +420,7 @@ export default function AdminEasyDocs() {
           ok++
         } catch { /* skip this file, keep going */ }
       }
-      if (ok) setDocSuccessMsg(`Uploaded ${ok} document${ok === 1 ? '' : 's'} to ${category}.`)
+      if (ok) { setDocSuccessMsg(`Uploaded ${ok} document${ok === 1 ? '' : 's'} to ${category}.`); setShowUpload(false) }
       if (ok < files.length) setDocError(`${files.length - ok} file${files.length - ok === 1 ? '' : 's'} failed to upload.`)
     } finally { setDocSaving(false) }
   }
@@ -483,22 +493,6 @@ export default function AdminEasyDocs() {
           </p>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', margin: '6px 0 8px' }}>
-            <button type="button" className="admin-btn-ghost"
-              onClick={async () => {
-                try { await restoreDemo(); setRuleSuccessMsg('Starter rules added.') }
-                catch (err) { setRuleError((err as any)?.message || 'Could not restore samples') }
-              }}>
-              {t('admin.documents.restoreSamples')}
-            </button>
-            <button type="button" className="admin-rules-danger"
-              onClick={async () => {
-                if (window.confirm('Delete every rule? You can restore the samples afterward.')) {
-                  try { await deleteAll(); setRuleSuccessMsg('All rules deleted.') }
-                  catch (err) { setRuleError((err as any)?.message || 'Could not delete rules') }
-                }
-              }}>
-              {t('admin.documents.deleteAll')}
-            </button>
             <button type="button" className="admin-primary-btn" onClick={() => setShowAddRule(true)}>{t('admin.documents.addRuleBtn')}</button>
           </div>
 
@@ -523,7 +517,7 @@ export default function AdminEasyDocs() {
               <div className="docsetup-title">{t('admin.documents.dropPdfHere')}</div>
               <div className="docsetup-sub">{t('admin.documents.ruleBookPdfTypes')}</div>
             </div>
-            {pdfFile && <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--text-dim)' }}>{pdfFile.name}</div>}
+            {pdfFile && <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pdfFile.name}</div>}
             {pdfStatus && <div className="admin-note" style={{ marginTop: 10 }}>{pdfStatus}</div>}
             <div className="docsetup-actions">
               <input name="rule-book-pdf" ref={pdfInputRef} type="file" accept="application/pdf"
@@ -617,24 +611,64 @@ export default function AdminEasyDocs() {
                             <div className="rulemeta">
                               {r.section ? `${r.section} · ` : ''}{r.body ? r.body.slice(0, 80) + (r.body.length > 80 ? '…' : '') : `${t('admin.documents.publishedLabel')} ${fmtPubDate(r.created_at) || '—'}`}
                             </div>
-                            {open && (
-                              <div className="rule-detail">
-                                {r.body ? <p style={{ margin: '0 0 8px' }}>{r.body}</p> : <p style={{ margin: '0 0 8px', opacity: 0.7 }}>{t('admin.documents.noRuleDetail')}</p>}
-                                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: 12.5 }}>
-                                  <span><strong>{t('admin.documents.sectionLabel')}:</strong> {r.section || t('admin.documents.unsectioned')}</span>
-                                  <span><strong>{t('admin.documents.publishedLabel')}:</strong> {fmtPubDate(r.created_at) || t('admin.documents.unknownDate')}</span>
-                                  {r.fine != null && Number(r.fine) > 0 && <span><strong>{t('admin.documents.fineLabel')}:</strong> {fmtMoney(r.fine)}</span>}
-                                </div>
-                              </div>
-                            )}
                           </div>
                           <div className="ruleactions">
                             {r.fine != null && Number(r.fine) > 0 && <div className="bd-amount">{fmtMoney(r.fine)}</div>}
-                            <button type="button" className="rule-edit" onClick={() => setExpandedId(open ? null : r.id)} aria-expanded={open}>
+                            <button type="button" className="rule-edit" aria-expanded={open}
+                              onClick={() => {
+                                if (open) { setExpandedId(null); setRuleEdit(null) }
+                                else { setExpandedId(r.id); setRuleEdit({ title: r.title || '', section: r.section || '', body: r.body || '', fine: r.fine != null ? String(r.fine) : '' }) }
+                              }}>
                               {open ? t('admin.documents.closeBtn') : t('admin.documents.editBtn')} →
                             </button>
                             <button type="button" className="vdel" onClick={() => removeRule(r.id)} aria-label={t('admin.documents.removeRuleAriaLabel')}>&times;</button>
                           </div>
+                          {open && ruleEdit && (
+                            <div className="rule-edit-form">
+                              <label className="admin-field">
+                                <span className="admin-field-label">{t('admin.documents.ruleFieldLabel')}</span>
+                                <input className="admin-input" value={ruleEdit.title}
+                                  onChange={e => setRuleEdit(s => s && { ...s, title: e.target.value })} />
+                              </label>
+                              <div className="rule-edit-grid">
+                                <label className="admin-field">
+                                  <span className="admin-field-label">{t('admin.documents.sectionFieldLabel')}</span>
+                                  <input className="admin-input" value={ruleEdit.section}
+                                    onChange={e => setRuleEdit(s => s && { ...s, section: e.target.value })} />
+                                </label>
+                                <label className="admin-field">
+                                  <span className="admin-field-label">{t('admin.documents.fineFieldLabel')}</span>
+                                  <input className="admin-input" type="number" value={ruleEdit.fine}
+                                    onChange={e => setRuleEdit(s => s && { ...s, fine: e.target.value })} />
+                                </label>
+                              </div>
+                              <label className="admin-field">
+                                <span className="admin-field-label">{t('admin.documents.detailFieldLabel')}</span>
+                                <textarea className="admin-input admin-textarea" rows={3} value={ruleEdit.body}
+                                  onChange={e => setRuleEdit(s => s && { ...s, body: e.target.value })} />
+                              </label>
+                              <div className="rule-edit-actions">
+                                <span className="rule-edit-pub">{t('admin.documents.publishedLabel')}: {fmtPubDate(r.created_at) || t('admin.documents.unknownDate')}</span>
+                                <button type="button" className="admin-primary-btn" disabled={ruleEditSaving || !ruleEdit.title.trim()}
+                                  onClick={async () => {
+                                    setRuleEditSaving(true); setRuleError('')
+                                    try {
+                                      await updateRule(r.id, {
+                                        title: ruleEdit.title.trim(),
+                                        section: ruleEdit.section.trim(),
+                                        body: ruleEdit.body.trim(),
+                                        fine: ruleEdit.fine === '' ? 0 : Number(ruleEdit.fine),
+                                      })
+                                      setRuleSuccessMsg('Rule updated.')
+                                      setExpandedId(null); setRuleEdit(null)
+                                    } catch (err) { setRuleError((err as any)?.message || 'Could not update rule') }
+                                    finally { setRuleEditSaving(false) }
+                                  }}>
+                                  {ruleEditSaving ? t('admin.documents.ruleSavingBtn') : t('admin.documents.ruleSaveBtn')}
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       )
                     })}
@@ -644,6 +678,19 @@ export default function AdminEasyDocs() {
                 </>
               )
             })()}
+            {rows.length > 0 && (
+              <div className="rulebook-footer">
+                <button type="button" className="admin-rules-danger"
+                  onClick={async () => {
+                    if (window.confirm('Delete every rule?')) {
+                      try { await deleteAll(); setRuleSuccessMsg('All rules deleted.') }
+                      catch (err) { setRuleError((err as any)?.message || 'Could not delete rules') }
+                    }
+                  }}>
+                  {t('admin.documents.deleteAll')}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Add-rule popup — opens over the page from "+ Add rule". */}
@@ -693,10 +740,11 @@ export default function AdminEasyDocs() {
                     value={ruleForm.fine} onChange={e => setRuleField('fine', e.target.value)} />
                 </label>
                 <div className="admin-form-actions">
+                  {ruleError && <span className="admin-err-inline">{ruleError}</span>}
+                  <button type="button" className="admin-btn-ghost" onClick={() => setShowAddRule(false)}>{t('admin.documents.cancelBtn')}</button>
                   <button type="submit" className="admin-primary-btn" disabled={ruleSaving}>
                     {ruleSaving ? t('admin.documents.addingBtn') : t('admin.documents.addRuleSubmitBtn')}
                   </button>
-                  {ruleError && <span className="admin-err-inline">{ruleError}</span>}
                 </div>
               </form>
             </AdminModal>
@@ -719,10 +767,6 @@ export default function AdminEasyDocs() {
           {docStatus === 'ready' && (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap', margin: '6px 0 8px' }}>
               <input ref={bulkFileRef} type="file" multiple onChange={onBulkUpload} style={{ display: 'none' }} />
-              <button type="button" className="admin-secondary-btn" disabled={docSaving}
-                onClick={() => bulkFileRef.current?.click()}>
-                {docSaving ? t('admin.documents.uploadingBtn') : t('admin.documents.bulkUploadBtn')}
-              </button>
               <button type="button" className="admin-primary-btn" onClick={() => setShowUpload(s => !s)}>
                 {showUpload ? t('admin.documents.closeBtn') : t('admin.documents.addDocumentBtn')}
               </button>
@@ -767,14 +811,21 @@ export default function AdminEasyDocs() {
                   <div className="docsetup-title">{t('admin.documents.dropPdfHere')}</div>
                   <div className="docsetup-sub">{t('admin.documents.govDocsPdfTypes')}</div>
                 </div>
+                {govFile && <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{govFile.name}</div>}
                 <div className="docsetup-actions">
                   <input ref={govFileRef} type="file" accept="application/pdf"
                     onChange={onPickGoverningDoc} style={{ display: 'none' }} />
                   <span className="docsetup-hint">{t('admin.documents.pdfFoundHint')}</span>
-                  <button type="button" className="admin-primary-btn" disabled={docSaving}
-                    onClick={() => govFileRef.current?.click()}>
-                    {docSaving ? t('admin.documents.uploadingBtn') : t('admin.documents.chooseFile')}
-                  </button>
+                  <div style={{ display: 'flex', gap: 10 }}>
+                    <button type="button" className="admin-secondary-btn" disabled={docSaving}
+                      onClick={() => govFileRef.current?.click()}>
+                      {govFile ? t('admin.documents.pickAnother') : t('admin.documents.chooseFile')}
+                    </button>
+                    <button type="button" className="admin-primary-btn" disabled={!govFile || docSaving}
+                      onClick={importGoverningDoc}>
+                      {docSaving ? t('admin.documents.uploadingBtn') : t('admin.documents.importBtn')}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -803,11 +854,20 @@ export default function AdminEasyDocs() {
                       <input name="document" ref={docFileRef} type="file" className="admin-file"
                         onChange={e => setDocFile(e.target.files?.[0] || null)} />
                     </label>
+                    {/* Bulk option — file many at once into the selected category. */}
+                    <div className="adddoc-bulk">
+                      <span className="adddoc-bulk-label">{t('admin.documents.bulkUploadHint')}</span>
+                      <button type="button" className="admin-btn-ghost" disabled={docSaving}
+                        onClick={() => bulkFileRef.current?.click()}>
+                        {docSaving ? t('admin.documents.uploadingBtn') : t('admin.documents.bulkUploadBtn')}
+                      </button>
+                    </div>
                     <div className="admin-form-actions">
+                      {docError && <span className="admin-err-inline">{docError}</span>}
+                      <button type="button" className="admin-btn-ghost" onClick={() => setShowUpload(false)}>{t('admin.documents.cancelBtn')}</button>
                       <button type="submit" className="admin-primary-btn" disabled={docSaving}>
                         {docSaving ? t('admin.documents.uploadingBtn') : t('admin.documents.uploadDocumentBtn')}
                       </button>
-                      {docError && <span className="admin-err-inline">{docError}</span>}
                     </div>
                   </form>
                 </AdminModal>
@@ -954,7 +1014,12 @@ export default function AdminEasyDocs() {
                       {openRecRequests.length} {t('admin.documents.openRequests')} · {t('admin.documents.statutoryDeadline', { dayType: community?.association_type === 'hoa' ? t('admin.documents.businessDay') : t('admin.documents.workingDay') })}
                     </div>
                   </div>
-                  <a href="/admin/documents/records-print?type=manifest" target="_blank" rel="noreferrer" className="admin-btn-ghost" style={{ textDecoration: 'none' }}>📄 {t('admin.documents.recordsIndexLink')}</a>
+                  <a href="/admin/documents/records-print?type=manifest" target="_blank" rel="noreferrer" className="records-index-link">
+                    <span className="doc-ic" aria-hidden="true">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
+                    </span>
+                    {t('admin.documents.recordsIndexLink')}
+                  </a>
                 </div>
                 {recRequests.length === 0 ? (
                   <div className="bc-empty" style={{ margin: 0 }}>{t('admin.documents.noRecordsRequests')}</div>

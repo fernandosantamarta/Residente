@@ -23,15 +23,15 @@ export default function VotesAdmin() {
     <div className="admin-page cset">
       <EasyVoiceTabs active="votes" />
 
-      <div className="admin-section-head" style={{ marginTop: 18 }}>
-        <div>
-          <div className="admin-kicker">Easy Voice</div>
-          <h1 className="admin-h1">{t('admin.voiceVotes.heading')}</h1>
+      <div className="admin-section-head voice-votes-head" style={{ marginTop: 18 }}>
+        <div className="admin-kicker">Easy Voice</div>
+        <h1 className="admin-h1">{t('admin.voiceVotes.heading')}</h1>
+        <div className="vvh-dek-row">
           <p className="admin-dek">{t('admin.voiceVotes.dek')}</p>
+          <button className="admin-primary-btn" onClick={() => { setEditing(null); setShowForm(v => !v) }}>
+            {showForm ? t('admin.voiceVotes.cancel') : t('admin.voiceVotes.newVote')}
+          </button>
         </div>
-        <button className="admin-primary-btn" onClick={() => { setEditing(null); setShowForm(v => !v) }}>
-          {showForm ? t('admin.voiceVotes.cancel') : t('admin.voiceVotes.newVote')}
-        </button>
       </div>
 
       {showForm && !editing && (

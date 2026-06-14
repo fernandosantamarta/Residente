@@ -11,6 +11,7 @@
 // That means a screen not yet translated renders English — never a blank or a
 // raw `nav.home` key. Safe to roll out screen by screen.
 
+import { useMemo } from 'react'
 import { usePreferences, type LanguageCode } from '../preferences'
 import { en } from './en'
 import { es } from './es'
@@ -26,10 +27,17 @@ const DICTS: Record<LanguageCode, Dict> = { en, es, pt }
 export function useT() {
   const [prefs] = usePreferences()
   const lang = (prefs.language || 'en') as LanguageCode
-  const dict = DICTS[lang] || en
-  return (key: string, vars?: Record<string, string | number>): string => {
-    let s = dict[key] ?? en[key] ?? key
-    if (vars) for (const k of Object.keys(vars)) s = s.split(`{${k}}`).join(String(vars[k]))
-    return s
-  }
+  // Memoize on `lang` so the returned `t` keeps a STABLE identity across
+  // re-renders. A fresh function each render breaks any useEffect/useCallback
+  // that lists `t` as a dependency — e.g. the admin vendor page's
+  // `useEffect(() => load(), [load])` would re-fetch every render, an infinite
+  // loop that visibly flickered the page.
+  return useMemo(() => {
+    const dict = DICTS[lang] || en
+    return (key: string, vars?: Record<string, string | number>): string => {
+      let s = dict[key] ?? en[key] ?? key
+      if (vars) for (const k of Object.keys(vars)) s = s.split(`{${k}}`).join(String(vars[k]))
+      return s
+    }
+  }, [lang])
 }

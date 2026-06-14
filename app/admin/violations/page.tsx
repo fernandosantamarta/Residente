@@ -376,10 +376,11 @@ export default function AdminViolations() {
             </label>
 
             <div className="admin-form-actions">
+              {error && <span className="admin-err-inline">{error}</span>}
+              <button type="button" className="admin-btn-ghost" onClick={() => setShowAdd(false)}>{t('admin.documents.cancelBtn')}</button>
               <button type="submit" className="admin-primary-btn" disabled={saving}>
                 {saving ? t('admin.violations.btnLogging') : t('admin.violations.btnLogViolationSubmit')}
               </button>
-              {error && <span className="admin-err-inline">{error}</span>}
             </div>
           </form>
         </AdminModal>
