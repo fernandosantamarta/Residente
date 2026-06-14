@@ -631,7 +631,7 @@ function CommitteeManager({ members, communityId, createdBy, onChange, setError 
           <label className="admin-field" style={{ maxWidth: 220 }}><span className="admin-field-label">{t('admin.enforcement.fieldRelationship')}</span>
             <input className="admin-input" value={note} onChange={e => setNote(e.target.value)} placeholder={t('admin.enforcement.relationshipPlaceholder')} /></label>
         )}
-        <button className="admin-primary-btn" disabled={busy || !name.trim()} onClick={add}>{busy ? t('admin.enforcement.adding') : t('admin.enforcement.btnAddMember')}</button>
+        <button className="admin-primary-btn" style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }} disabled={busy || !name.trim()} onClick={add}>{busy ? t('admin.enforcement.adding') : t('admin.enforcement.btnAddMember')}</button>
       </div>
     </div>
   )
@@ -700,9 +700,9 @@ function ViolationCard({ v, hearing, regime, committeeOk, onSendNotice, onSchedu
           <button className="admin-primary-btn" onClick={onLevy}>{t('admin.enforcement.btnMarkLevied')}</button>
         )}
         {/* document links */}
-        <a className="admin-btn-ghost" href={docHref('violation_notice')} target="_blank" rel="noopener noreferrer">{t('admin.enforcement.linkViolationNotice')}</a>
-        {(stage !== 'proposed' && stage !== 'none') && <a className="admin-btn-ghost" href={docHref('hearing_notice')} target="_blank" rel="noopener noreferrer">{t('admin.enforcement.linkHearingNotice')}</a>}
-        {(stage === 'upheld' || stage === 'rejected' || stage === 'levied') && <a className="admin-btn-ghost" href={docHref('decision')} target="_blank" rel="noopener noreferrer">{t('admin.enforcement.linkDecision')}</a>}
+        <a className="admin-btn-ghost" href={docHref('violation_notice')}>{t('admin.enforcement.linkViolationNotice')}</a>
+        {(stage !== 'proposed' && stage !== 'none') && <a className="admin-btn-ghost" href={docHref('hearing_notice')}>{t('admin.enforcement.linkHearingNotice')}</a>}
+        {(stage === 'upheld' || stage === 'rejected' || stage === 'levied') && <a className="admin-btn-ghost" href={docHref('decision')}>{t('admin.enforcement.linkDecision')}</a>}
       </div>
 
       {decideOpen && <DecisionForm onSubmit={(d: any) => { setDecideOpen(false); onDecision(d) }} />}
@@ -857,7 +857,7 @@ function SuspensionCard({ s, onActivate, onLift }: { s: SuspensionRow; onActivat
           <button className="admin-primary-btn" disabled={hearingMissing} onClick={onActivate} title={hearingMissing ? t('admin.enforcement.activateTooltip') : ''}>{t('admin.enforcement.btnActivate')}</button>
         )}
         {st !== 'lifted' && <button className="admin-btn-ghost" onClick={onLift}>{t('admin.enforcement.btnLiftSuspension')}</button>}
-        <a className="admin-btn-ghost" href={`/admin/enforcement/suspension/${s.id}/notice`} target="_blank" rel="noopener noreferrer">{t('admin.enforcement.linkSuspensionNotice')}</a>
+        <a className="admin-btn-ghost" href={`/admin/enforcement/suspension/${s.id}/notice`}>{t('admin.enforcement.linkSuspensionNotice')}</a>
       </div>
     </div>
   )

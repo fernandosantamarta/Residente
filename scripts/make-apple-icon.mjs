@@ -17,6 +17,7 @@ const trace = promisify(potrace.trace)
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SRC = join(root, 'public', 'residente-logo.png')
 const OUT = join(root, 'public', 'apple-touch-icon.png')
+const OUT_BLACK = join(root, 'public', 'apple-touch-icon-black.png')
 
 const CANVAS = 180          // standard apple-touch-icon size
 const MARK_BOX = 132        // longest side of the mark on the 180 canvas — big &
@@ -76,18 +77,27 @@ const mark = await sharp(trimmed)
   .png()
   .toBuffer()
 
+// Emit BOTH background variants from the same traced mark so the resident
+// "App icon" setting can advertise a white- or black-background home-screen icon
+// (iOS paints transparency black in dark mode, so each variant is fully opaque).
 const big = CANVAS * SS
-const composed = await sharp({
-  create: { width: big, height: big, channels: 4, background: '#FFFFFF' },
-})
-  .composite([{ input: mark, gravity: 'centre' }])
-  .png()
-  .toBuffer()
+const VARIANTS = [
+  { bg: '#FFFFFF', out: OUT },
+  { bg: '#111111', out: OUT_BLACK },
+]
+for (const { bg, out } of VARIANTS) {
+  const composed = await sharp({
+    create: { width: big, height: big, channels: 4, background: bg },
+  })
+    .composite([{ input: mark, gravity: 'centre' }])
+    .png()
+    .toBuffer()
 
-await sharp(composed)
-  .resize(CANVAS, CANVAS, { kernel: sharp.kernel.lanczos3 })
-  .flatten({ background: '#FFFFFF' })
-  .png()
-  .toFile(OUT)
+  await sharp(composed)
+    .resize(CANVAS, CANVAS, { kernel: sharp.kernel.lanczos3 })
+    .flatten({ background: bg })
+    .png()
+    .toFile(out)
 
-console.log(`Wrote ${OUT} — ${CANVAS}x${CANVAS}, vector-traced mark fit to ~${MARK_BOX}px box, trimmed + centred, opaque white.`)
+  console.log(`Wrote ${out} — ${CANVAS}x${CANVAS}, vector-traced mark, opaque ${bg}.`)
+}

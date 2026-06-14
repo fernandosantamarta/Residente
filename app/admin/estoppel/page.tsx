@@ -281,7 +281,7 @@ function EstoppelRow({ r, onDeliver, onPatch, communityId, statusLabel }: any) {
       )}
 
       <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
-        <a className="admin-secondary-btn" href={`/admin/estoppel/${r.id}/certificate`} target="_blank" rel="noopener noreferrer">{t('admin.estoppel.generateCertificate')}</a>
+        <a className="admin-secondary-btn" href={`/admin/estoppel/${r.id}/certificate`}>{t('admin.estoppel.generateCertificate')}</a>
         {open && (
           <>
             {r.status === 'new' && <button className="admin-btn-ghost" onClick={() => onPatch(r.id, { status: 'in_progress' }, t('admin.estoppel.msgMarkedInProgress'))}>{t('admin.estoppel.start')}</button>}

@@ -174,9 +174,16 @@ function DocInner() {
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: 24, fontFamily: 'Georgia, serif', color: '#111', lineHeight: 1.55 }}>
-      <style>{`@media print { .no-print { display: none !important; } body { margin: 0 } }`}</style>
+      <style>{`
+        @media print { .no-print { display: none !important; } body { margin: 0 } }
+        @media (max-width: 640px) {
+          .rp-toolbar { flex-direction: column; align-items: stretch !important; }
+          .rp-actions { margin-left: 0 !important; }
+          .rp-actions button { flex: 1 1 0; }
+        }
+      `}</style>
 
-      <div className="no-print" style={{ display: 'flex', gap: 10, justifyContent: 'space-between', marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
+      <div className="no-print rp-toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
         <div style={{ fontSize: 12, background: LIVE[type] ? '#ECFDF3' : '#FEF3F2', color: LIVE[type] ? '#067647' : '#B42318', padding: '8px 12px', borderRadius: 8, maxWidth: 540 }}>
           {LIVE[type]
             ? GL_SOURCED[type]
@@ -184,7 +191,10 @@ function DocInner() {
               : t('admin.financialsDocument.bannerLiveCash', { fyLabel: fy.label })
             : t('admin.financialsDocument.bannerDraft')}
         </div>
-        <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', height: 'fit-content' }}>{t('admin.financialsDocument.printButton')}</button>
+        <div className="rp-actions" style={{ display: 'flex', gap: 8, flex: '0 0 auto', marginLeft: 'auto' }}>
+          <button onClick={() => history.back()} style={{ background: '#fff', color: '#111', border: '1px solid #d4d4d4', borderRadius: 8, padding: '9px 16px', fontWeight: 600, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>{t('admin.overview.back')}</button>
+          <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '9px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>{t('admin.financialsDocument.printButton')}</button>
+        </div>
       </div>
 
       <div style={{ textAlign: 'center', marginBottom: 14 }}>

@@ -14,6 +14,8 @@ import { sortSignals, type ComplianceSignal, type Severity } from '@/lib/complia
 import { AttorneyNote } from '../AttorneyNote'
 import { ClampText } from '@/components/ClampText'
 import { communityDuesConfig } from '@/lib/dues'
+import { useExpenses } from '@/hooks/useExpenses'
+import { computeCommunityRating } from '@/lib/community-health'
 import { foundationSignals } from '@/lib/compliance/signals'
 import { setupSignals, SETUP_TASK_COUNT } from '@/lib/compliance/setup'
 import { estoppelSignals, type EstoppelRequestRow } from '@/lib/compliance/estoppel'
@@ -172,6 +174,9 @@ export default function CompliancePage() {
   const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
+  // Expense ledger feeds the shared community-health rating (same number the
+  // resident Home "Where your dues go" card shows).
+  const { expenses } = useExpenses()
   const [community, setCommunity] = useState<any>(null)
   const [estoppel, setEstoppel] = useState<EstoppelRequestRow[]>([])
   const [cases, setCases] = useState<CollectionCaseRow[]>([])
@@ -314,6 +319,14 @@ export default function CompliancePage() {
   const setupScore = SETUP_TASK_COUNT ? Math.max(0, SETUP_TASK_COUNT - openSetup) / SETUP_TASK_COUNT : 1
   const complianceScore = visibleWs.length ? clearWs / visibleWs.length : 1
   const compliantPct = Math.round(((setupScore + complianceScore) / 2) * 100)
+  // Community "health" — financial money-management grade, same rating the
+  // resident Home shows. Distinct from Ready (setup + statutory compliance), so
+  // they measure different things and don't contradict. Uses the budget_categories
+  // already loaded (as `budgets`) + the expense ledger.
+  const communityHealth = useMemo(
+    () => computeCommunityRating({ community, categories: budgets, expenses }),
+    [community, budgets, expenses],
+  )
 
   return (
     <div className="admin-page cset">
@@ -343,13 +356,14 @@ export default function CompliancePage() {
       {status === 'ready' && (
         <>
           {/* Stat tiles (mock parity) — flagged counts + an on-track / compliant read. */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14, margin: '18px 0 22px' }}>
+          <div className="cmp-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 14, margin: '18px 0 22px' }}>
             {[
               { v: counts.overdue, l: t('admin.compliance.statOverdue'), c: '#B42318' },
               { v: counts.soon, l: t('admin.compliance.statDueSoon'), c: '#B54708' },
               { v: counts.info, l: t('admin.compliance.statToDo'), c: '#175CD3' },
               { v: clearWs, l: t('admin.compliance.statOnTrack'), c: '#067647' },
               { v: `${compliantPct}%`, l: t('admin.compliance.statReady'), c: '#2A1206' },
+              { v: `${communityHealth}%`, l: t('admin.compliance.statHealth'), c: '#067647' },
             ].map(s => (
               <div key={s.l} style={{ background: '#fff', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, padding: '16px 18px' }}>
                 <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1, color: s.c }}>{s.v}</div>

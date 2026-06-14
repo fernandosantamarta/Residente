@@ -454,9 +454,9 @@ function ElectionCard({ e, regime, onFirstNotice, onCloseCandidates, onBallotsMa
           <button className="admin-btn-ghost" onClick={onAffidavit}>{t('admin.elections.btnRecordAffidavit')}</button>
         )}
         {e.affidavit_filed_at && <span style={chip('#067647')}>{t('admin.elections.affidavitFiled', { date: e.affidavit_filed_at })}</span>}
-        <a className="admin-btn-ghost" href={`/admin/elections/${e.id}/document?type=first_notice`} target="_blank" rel="noopener noreferrer">{t('admin.elections.linkFirstNoticeDoc')}</a>
-        <a className="admin-btn-ghost" href={`/admin/elections/${e.id}/document?type=second_notice`} target="_blank" rel="noopener noreferrer">{t('admin.elections.linkSecondNoticeDoc')}</a>
-        <a className="admin-btn-ghost" href={`/admin/elections/${e.id}/document?type=affidavit`} target="_blank" rel="noopener noreferrer">{t('admin.elections.linkAffidavitDoc')}</a>
+        <a className="admin-btn-ghost" href={`/admin/elections/${e.id}/document?type=first_notice`}>{t('admin.elections.linkFirstNoticeDoc')}</a>
+        <a className="admin-btn-ghost" href={`/admin/elections/${e.id}/document?type=second_notice`}>{t('admin.elections.linkSecondNoticeDoc')}</a>
+        <a className="admin-btn-ghost" href={`/admin/elections/${e.id}/document?type=affidavit`}>{t('admin.elections.linkAffidavitDoc')}</a>
       </div>
     </div>
   )

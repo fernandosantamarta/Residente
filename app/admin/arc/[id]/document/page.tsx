@@ -110,32 +110,28 @@ function DocInner() {
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: 24, fontFamily: 'Georgia, serif', color: '#111', lineHeight: 1.6 }}>
-      <style>{`@media print {
-        .no-print { display: none !important; }
-        .admin-top, .admin-nav, .admin-foot, .site-footer-slim, footer { display: none !important; }
-        body { margin: 0 }
-      }`}</style>
-
-      {/* Back to the worklist (screen only) */}
-      <a
-        className="no-print"
-        href="/admin/arc"
-        style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginBottom: 14, fontFamily: 'system-ui, sans-serif', fontSize: 13, fontWeight: 600, color: '#E14909', textDecoration: 'none' }}
-      >
-        {t('admin.arcDetailDocument.backToArc')}
-      </a>
+      <style>{`
+        @media print {
+          .no-print { display: none !important; }
+          .admin-top, .admin-nav, .admin-foot, .site-footer-slim, footer { display: none !important; }
+          body { margin: 0 }
+        }
+        @media (max-width: 640px) {
+          .rp-toolbar { flex-direction: column; align-items: stretch !important; }
+          .rp-actions { margin-left: 0 !important; }
+          .rp-actions button { flex: 1 1 0; }
+        }
+      `}</style>
 
       {/* Screen-only bar */}
-      <div className="no-print" style={{ display: 'flex', gap: 10, justifyContent: 'space-between', marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
+      <div className="no-print rp-toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
         <div style={{ fontSize: 12, background: '#FEF3F2', color: '#B42318', padding: '8px 12px', borderRadius: 8, maxWidth: 520 }}>
           {t('admin.arcDetailDocument.draftWarning')}
         </div>
-        <button
-          onClick={() => window.print()}
-          style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', height: 'fit-content' }}
-        >
-          {t('admin.arcDetailDocument.printSaveAsPdf')}
-        </button>
+        <div className="rp-actions" style={{ display: 'flex', gap: 8, flex: '0 0 auto', marginLeft: 'auto' }}>
+          <button onClick={() => history.back()} style={{ background: '#fff', color: '#111', border: '1px solid #d4d4d4', borderRadius: 8, padding: '9px 16px', fontWeight: 600, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>{t('admin.overview.back')}</button>
+          <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '9px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>{t('admin.arcDetailDocument.printSaveAsPdf')}</button>
+        </div>
       </div>
 
       {/* Letterhead */}

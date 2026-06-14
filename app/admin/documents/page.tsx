@@ -492,10 +492,6 @@ export default function AdminEasyDocs() {
             {t('admin.documents.ruleBookDek')}
           </p>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', margin: '6px 0 8px' }}>
-            <button type="button" className="admin-primary-btn" onClick={() => setShowAddRule(true)}>{t('admin.documents.addRuleBtn')}</button>
-          </div>
-
           {ruleSuccessMsg && (
             <div className="admin-success" role="status">
               <span className="admin-success-check" aria-hidden="true">✓</span>
@@ -517,7 +513,13 @@ export default function AdminEasyDocs() {
               <div className="docsetup-title">{t('admin.documents.dropPdfHere')}</div>
               <div className="docsetup-sub">{t('admin.documents.ruleBookPdfTypes')}</div>
             </div>
-            {pdfFile && <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{pdfFile.name}</div>}
+            {pdfFile && (
+              <div className="docsetup-picked">
+                <span className="docsetup-picked-name">{pdfFile.name}</span>
+                <button type="button" className="docsetup-picked-x" aria-label={t('admin.documents.removeFileAriaLabel')}
+                  onClick={() => { setPdfFile(null); setPdfStatus(''); if (pdfInputRef.current) pdfInputRef.current.value = '' }}>&times;</button>
+              </div>
+            )}
             {pdfStatus && <div className="admin-note" style={{ marginTop: 10 }}>{pdfStatus}</div>}
             <div className="docsetup-actions">
               <input name="rule-book-pdf" ref={pdfInputRef} type="file" accept="application/pdf"
@@ -539,8 +541,8 @@ export default function AdminEasyDocs() {
                 <h2>{t('admin.documents.ruleBookCardTitle')}</h2>
                 <div className="sub">{t('admin.documents.publishedToResidents')} · {rows.length} {rows.length === 1 ? t('admin.documents.ruleOne') : t('admin.documents.ruleMany')}</div>
               </div>
-              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                <div style={{ minWidth: 160 }}>
+              <div className="cset-arch-head-r" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <div className="cset-rule-filter" style={{ minWidth: 160 }}>
                   <Dropdown<string>
                     value={filterCategory}
                     onChange={setFilterCategory}
@@ -554,7 +556,7 @@ export default function AdminEasyDocs() {
                     ]}
                   />
                 </div>
-                <div style={{ minWidth: 140 }}>
+                <div className="cset-rule-filter" style={{ minWidth: 140 }}>
                   <Dropdown<typeof filterPeriod>
                     value={filterPeriod}
                     onChange={setFilterPeriod}
@@ -569,6 +571,7 @@ export default function AdminEasyDocs() {
                     ]}
                   />
                 </div>
+                <button type="button" className="admin-primary-btn cset-head-cta" onClick={() => setShowAddRule(true)}>{t('admin.documents.addRuleBtn')}</button>
               </div>
             </div>
 
@@ -764,15 +767,6 @@ export default function AdminEasyDocs() {
           <p className="admin-dek" style={{ maxWidth: 560 }}>
             {t('admin.documents.documentArchiveDek')}
           </p>
-          {docStatus === 'ready' && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap', margin: '6px 0 8px' }}>
-              <input ref={bulkFileRef} type="file" multiple onChange={onBulkUpload} style={{ display: 'none' }} />
-              <button type="button" className="admin-primary-btn" onClick={() => setShowUpload(s => !s)}>
-                {showUpload ? t('admin.documents.closeBtn') : t('admin.documents.addDocumentBtn')}
-              </button>
-            </div>
-          )}
-
           {docStatus === 'none' && (
             <div className="admin-note admin-note-warn">
               {t('admin.documents.noCommunityNote')}
@@ -811,7 +805,13 @@ export default function AdminEasyDocs() {
                   <div className="docsetup-title">{t('admin.documents.dropPdfHere')}</div>
                   <div className="docsetup-sub">{t('admin.documents.govDocsPdfTypes')}</div>
                 </div>
-                {govFile && <div style={{ marginTop: 10, fontSize: 12.5, color: 'var(--text-dim)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{govFile.name}</div>}
+                {govFile && (
+                  <div className="docsetup-picked">
+                    <span className="docsetup-picked-name">{govFile.name}</span>
+                    <button type="button" className="docsetup-picked-x" aria-label={t('admin.documents.removeFileAriaLabel')}
+                      onClick={() => { setGovFile(null); setDocError(''); if (govFileRef.current) govFileRef.current.value = '' }}>&times;</button>
+                  </div>
+                )}
                 <div className="docsetup-actions">
                   <input ref={govFileRef} type="file" accept="application/pdf"
                     onChange={onPickGoverningDoc} style={{ display: 'none' }} />
@@ -917,19 +917,25 @@ export default function AdminEasyDocs() {
                 <div className="card-head">
                   <div><h2>{t('admin.documents.archiveTitle')}</h2>
                     <div className="sub">{docRows.length} {docRows.length === 1 ? t('admin.documents.documentOne') : t('admin.documents.documentMany')}</div></div>
-                  <div style={{ minWidth: 180 }}>
-                    <Dropdown<string>
-                      value={docCatFilter}
-                      onChange={(v) => { setDocCatFilter(v); setDocPage(1) }}
-                      ariaLabel={t('admin.documents.filterByDocCategoryAriaLabel')}
-                      options={[
-                        { value: 'all', label: `${t('admin.documents.allCategories')} (${docRows.length})` },
-                        ...[...DOC_CATEGORIES].map(c => ({
-                          value: c,
-                          label: `${c} (${docRows.filter((d: any) => (d.category || '') === c).length})`,
-                        })),
-                      ]}
-                    />
+                  <div className="cset-arch-head-r" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <input ref={bulkFileRef} type="file" multiple onChange={onBulkUpload} style={{ display: 'none' }} />
+                    <div className="cset-arch-filter" style={{ minWidth: 180 }}>
+                      <Dropdown<string>
+                        value={docCatFilter}
+                        onChange={(v) => { setDocCatFilter(v); setDocPage(1) }}
+                        ariaLabel={t('admin.documents.filterByDocCategoryAriaLabel')}
+                        options={[
+                          { value: 'all', label: `${t('admin.documents.allCategories')} (${docRows.length})` },
+                          ...[...DOC_CATEGORIES].map(c => ({
+                            value: c,
+                            label: `${c} (${docRows.filter((d: any) => (d.category || '') === c).length})`,
+                          })),
+                        ]}
+                      />
+                    </div>
+                    <button type="button" className="admin-primary-btn cset-head-cta" onClick={() => setShowUpload(s => !s)}>
+                      {showUpload ? t('admin.documents.closeBtn') : t('admin.documents.addDocumentBtn')}
+                    </button>
                   </div>
                 </div>
                 {(() => {
@@ -1014,7 +1020,7 @@ export default function AdminEasyDocs() {
                       {openRecRequests.length} {t('admin.documents.openRequests')} · {t('admin.documents.statutoryDeadline', { dayType: community?.association_type === 'hoa' ? t('admin.documents.businessDay') : t('admin.documents.workingDay') })}
                     </div>
                   </div>
-                  <a href="/admin/documents/records-print?type=manifest" target="_blank" rel="noreferrer" className="records-index-link">
+                  <a href="/admin/documents/records-print?type=manifest" className="records-index-link">
                     <span className="doc-ic" aria-hidden="true">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /></svg>
                     </span>
@@ -1049,8 +1055,8 @@ export default function AdminEasyDocs() {
                                 {t('admin.documents.markAnsweredBtn')}
                               </button>
                             )}
-                            <a href={`/admin/documents/records-print?type=acknowledgement&request=${r.id}`} target="_blank" rel="noreferrer" className="doc-card-link" style={{ fontSize: 12 }}>{t('admin.documents.acknowledgementLink')}</a>
-                            <a href={`/admin/documents/records-print?type=checklist&request=${r.id}`} target="_blank" rel="noreferrer" className="doc-card-link" style={{ fontSize: 12 }}>{t('admin.documents.checklistLink')}</a>
+                            <a href={`/admin/documents/records-print?type=acknowledgement&request=${r.id}`} className="doc-card-link" style={{ fontSize: 12 }}>{t('admin.documents.acknowledgementLink')}</a>
+                            <a href={`/admin/documents/records-print?type=checklist&request=${r.id}`} className="doc-card-link" style={{ fontSize: 12 }}>{t('admin.documents.checklistLink')}</a>
                           </div>
                         </div>
                       )

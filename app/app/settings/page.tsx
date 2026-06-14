@@ -29,6 +29,7 @@ import {
 } from '@/lib/homeVault'
 import { loadNotificationPrefs, saveNotificationPrefs } from '@/lib/notificationPrefs'
 import { useT } from '@/lib/i18n'
+import { useAppIcon, type AppIconChoice } from '@/lib/appIcon'
 import { loadResidentLists, addContact, addVehicle, addPet, removeResidentRow } from '@/lib/residentLists'
 import {
   isPushSupported, isPushConfigured, pushPermission, isSubscribedHere, enablePush, disablePush,
@@ -45,7 +46,7 @@ type DialogKey =
   | 'email' | 'sms' | 'push' | 'quiet-hours'
   | 'homepage' | 'calendar' | 'payment' | 'privacy'
   | 'unit' | 'contacts' | 'vehicles' | 'pets'
-  | 'refer' | 'updates'
+  | 'refer' | 'updates' | 'appicon'
 
 export default function Settings() {
   const t = useT()
@@ -53,6 +54,16 @@ export default function Settings() {
   const { community } = useCommunityData()
   const [prefs, patch] = usePreferences()
   const [dialog, setDialog] = useState<DialogKey | null>(null)
+  // Home-screen icon background (white/black) — device-local, mobile only.
+  const [appIcon] = useAppIcon()
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
 
   // Translated value labels for the communication-preference rows + overview.
   const PREF_LABEL_KEY = {
@@ -218,6 +229,11 @@ export default function Settings() {
             <Row icon={<IconEye />}   title={t('settings.rowAccess')}            desc={t('settings.rowAccessDesc')}
               onClick={() => setDialog('accessibility')}
               right={accessibilitySummary(prefs, t)} />
+            {isMobile && (
+              <Row icon={<IconAppIcon />} title={t('settings.rowAppIcon')} desc={t('settings.rowAppIconDesc')}
+                onClick={() => setDialog('appicon')}
+                right={appIcon === 'black' ? t('settings.appIconBlack') : t('settings.appIconWhite')} />
+            )}
           </SectionCard>
 
           <SectionCard title={t('settings.secComm')}>
@@ -781,6 +797,7 @@ function dialogTitle(k: DialogKey, t: (key: string) => string): string {
     pets:           'settings.rowPets',
     refer:          'settings.referNeighbor',
     updates:        'settings.reloadLatest',
+    appicon:        'settings.dlgAppIconTitle',
   }
   return t(KEY[k])
 }
@@ -1113,9 +1130,52 @@ function DialogBody({
     case 'updates':
       return <UpdatesDialog />
 
+    case 'appicon':
+      return <AppIconDialog />
+
     default:
       return <p>{t('settings.dlgUnknown')}</p>
   }
+}
+
+// Home-screen icon background chooser (white / black). Self-contained: reads +
+// writes the device-local choice via useAppIcon (which also repoints the
+// apple-touch-icon link). iOS only applies it on the NEXT "Add to Home Screen".
+function AppIconDialog() {
+  const t = useT()
+  const [choice, setChoice] = useAppIcon()
+  const OPTIONS: { value: AppIconChoice; label: string; src: string }[] = [
+    { value: 'white', label: t('settings.appIconWhite'), src: '/apple-touch-icon.png' },
+    { value: 'black', label: t('settings.appIconBlack'), src: '/apple-touch-icon-black.png' },
+  ]
+  return (
+    <div>
+      <p className="set-dialog-field-label" style={{ marginBottom: 12, lineHeight: 1.5, textTransform: 'none', letterSpacing: 0 }}>
+        {t('settings.appIconHelp')}
+      </p>
+      <div style={{ display: 'flex', gap: 12 }}>
+        {OPTIONS.map(o => {
+          const selected = choice === o.value
+          return (
+            <button key={o.value} type="button" onClick={() => setChoice(o.value)} aria-pressed={selected}
+              style={{
+                flex: '1 1 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                padding: '14px 10px', cursor: 'pointer', borderRadius: 14, background: '#fff',
+                border: selected ? '2px solid #E14909' : '1.5px solid rgba(199,111,69,0.30)',
+                boxShadow: selected ? '0 0 0 3px rgba(225,73,9,0.14)' : 'none',
+              }}>
+              <img src={o.src} alt="" width={64} height={64}
+                style={{ borderRadius: 14, boxShadow: '0 1px 4px rgba(0,0,0,0.18)' }} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#0A2440', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {selected && <span aria-hidden="true" style={{ color: '#E14909' }}>✓</span>}
+                {o.label}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 // -- shared field/control components --------------------------------
@@ -1673,6 +1733,7 @@ function IconLock()    { return <Svg><><rect x="5" y="11" width="14" height="9" 
 function IconBell()    { return <Svg><><path d="M6 8a6 6 0 0 1 12 0v5l2 3H4l2-3z"/><path d="M10 19a2 2 0 0 0 4 0"/></></Svg> }
 function IconGlobe()   { return <Svg><><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></></Svg> }
 function IconEye()     { return <Svg><><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></></Svg> }
+function IconAppIcon() { return <Svg><><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 14 12 9l4 5"/><path d="M10.5 14v-2"/></></Svg> }
 function IconMail()    { return <Svg><><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 7 9-7"/></></Svg> }
 function IconChat()    { return <Svg><><path d="M21 12a8 8 0 0 1-12 7L3 21l2-5a8 8 0 1 1 16-4z"/></></Svg> }
 function IconPush()    { return <Svg><><rect x="6" y="3" width="12" height="18" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></></Svg> }

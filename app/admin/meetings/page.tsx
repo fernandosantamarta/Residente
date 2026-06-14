@@ -367,9 +367,9 @@ function MeetingCard({
         {isPast && minutesStatus !== 'published' && minutesStatus !== 'approved' && (
           <button className="admin-primary-btn" onClick={onPublishMinutes}>{t('admin.meetings.btnPublishMinutes')}</button>
         )}
-        <a className="admin-btn-ghost" href={docHref('notice')} target="_blank" rel="noopener noreferrer">{t('admin.meetings.linkNotice')}</a>
-        <a className="admin-btn-ghost" href={docHref('agenda')} target="_blank" rel="noopener noreferrer">{t('admin.meetings.linkAgenda')}</a>
-        <a className="admin-btn-ghost" href={docHref('affidavit')} target="_blank" rel="noopener noreferrer">{t('admin.meetings.linkAffidavit')}</a>
+        <a className="admin-btn-ghost" href={docHref('notice')}>{t('admin.meetings.linkNotice')}</a>
+        <a className="admin-btn-ghost" href={docHref('agenda')}>{t('admin.meetings.linkAgenda')}</a>
+        <a className="admin-btn-ghost" href={docHref('affidavit')}>{t('admin.meetings.linkAffidavit')}</a>
       </div>
     </div>
   )

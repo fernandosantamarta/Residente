@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import { useMyResident } from '@/hooks/useMyResident'
 import { useExpenses, cumulativeByMonth } from '@/hooks/useExpenses'
+import { computeCommunityRating } from '@/lib/community-health'
 import { useBoardDecisions } from '@/hooks/useBoardDecisions'
 import { useVoiceMeetings } from '@/hooks/useVoiceMeetings'
 import { useAuth } from '@/app/providers'
@@ -129,7 +130,7 @@ export default function Home() {
   // Demo (logged-out preview) keeps the illustrative sample figures.
   const communityRating = demo
     ? 92
-    : Math.max(0, Math.min(100, Math.round(healthPct * 0.85) + (reserveTotal > 0 ? 15 : 0)))
+    : computeCommunityRating({ community: c, categories: cats, expenses, now })
   const personalRating = demo
     ? 100
     : (myBalance == null || myBalance <= 0
@@ -171,7 +172,11 @@ export default function Home() {
           slot of the day; the band disappears entirely when no votes are
           open, so the dashboard quietly rearranges to demand attention only
           when it should. */}
-      <OpenVotesBand demo={demo} />
+      {/* `demo && !profile`: only a genuinely logged-out marketing visitor sees the
+          sample vote. A signed-in resident (profile set, community still loading on
+          first paint) must NOT flash the demo "Pool vendor" vote — they get their
+          real open votes, which are empty until meetings load (so no flicker). */}
+      <OpenVotesBand demo={demo && !profile} />
 
       {/* ROW 1 — Financial Overview (with embedded trend chart) + Quick Actions */}
       <section className="dash-row1">

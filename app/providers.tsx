@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase, hasSupabase, getProfile, type Profile } from '@/lib/supabase'
+import { applyAppIcon, getAppIcon } from '@/lib/appIcon'
 
 type AuthContextValue = {
   session: Session | null
@@ -48,6 +49,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!cancelled) setLoading(false)
       }
     }
+
+    // Point the iOS home-screen icon at the resident's saved choice on every load
+    // so a later "Add to Home Screen" (from any page) uses it.
+    applyAppIcon(getAppIcon())
 
     const bootstrap = async () => {
       try {

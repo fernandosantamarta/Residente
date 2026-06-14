@@ -170,23 +170,6 @@ export default function AdminViolations() {
         {t('admin.violations.pageDek')}
       </p>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap', margin: '6px 0 8px' }}>
-        {list.length > 0 && (
-          <button
-            type="button"
-            className="admin-rules-danger"
-            onClick={async () => {
-              if (window.confirm(t('admin.violations.confirmDeleteAll'))) {
-                try { await deleteAll() } catch (err: any) { setError(err?.message || t('admin.violations.errorCouldNotClear')) }
-              }
-            }}
-          >
-            {t('admin.violations.btnDeleteAll')}
-          </button>
-        )}
-        <button type="button" className="admin-primary-btn" onClick={() => setShowAdd(true)}>{t('admin.violations.btnLogViolation')}</button>
-      </div>
-
       {successMsg && (
         <div className="admin-success" role="status">
           <span className="admin-success-check" aria-hidden="true">✓</span>
@@ -235,8 +218,8 @@ export default function AdminViolations() {
             <h2>{t('admin.violations.violationLogTitle')}</h2>
             <div className="sub">{list.length} {list.length === 1 ? t('admin.violations.entryOne') : t('admin.violations.entryMany')}</div>
           </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <div style={{ minWidth: 150 }}>
+          <div className="cset-arch-head-r" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <div className="cset-rule-filter" style={{ minWidth: 150 }}>
               <Dropdown<'all' | ViolationKind>
                 value={filterKind}
                 onChange={(v) => { setFilterKind(v); setPage(1) }}
@@ -248,7 +231,7 @@ export default function AdminViolations() {
                 ]}
               />
             </div>
-            <div style={{ minWidth: 150 }}>
+            <div className="cset-rule-filter" style={{ minWidth: 150 }}>
               <Dropdown<'all' | ViolationStatus>
                 value={filterStatus}
                 onChange={(v) => { setFilterStatus(v); setPage(1) }}
@@ -261,6 +244,7 @@ export default function AdminViolations() {
                 ]}
               />
             </div>
+            <button type="button" className="admin-primary-btn cset-head-cta" onClick={() => setShowAdd(true)}>{t('admin.violations.btnLogViolation')}</button>
           </div>
         </div>
 
@@ -282,6 +266,21 @@ export default function AdminViolations() {
               onPageChange={setPage}
             />
           </>
+        )}
+        {list.length > 0 && (
+          <div className="rulebook-footer">
+            <button
+              type="button"
+              className="admin-rules-danger"
+              onClick={async () => {
+                if (window.confirm(t('admin.violations.confirmDeleteAll'))) {
+                  try { await deleteAll() } catch (err: any) { setError(err?.message || t('admin.violations.errorCouldNotClear')) }
+                }
+              }}
+            >
+              {t('admin.violations.btnDeleteAll')}
+            </button>
+          </div>
         )}
       </div>
 

@@ -445,6 +445,7 @@ function CalendarAdmin() {
             note={pdfStatus}
             onPick={onPickPdf}
             onImport={importPdf}
+            onClear={() => { setPdfFile(null); setPdfStatus('') }}
           />
           <BulkBox
             kind="xls"
@@ -456,6 +457,7 @@ function CalendarAdmin() {
             noteTone="err"
             onPick={onPickXls}
             onImport={importXls}
+            onClear={() => { setXlsFile(null); setPreview(null); setImportError('') }}
           />
         </div>
       </div>
@@ -690,7 +692,7 @@ function EventRow({
 }
 
 function BulkBox({
-  kind, title, sub, accept, file, note, noteTone = 'ok', onPick, onImport,
+  kind, title, sub, accept, file, note, noteTone = 'ok', onPick, onImport, onClear,
 }: {
   kind: 'pdf' | 'xls'
   title: string
@@ -701,6 +703,7 @@ function BulkBox({
   noteTone?: 'ok' | 'err'
   onPick: (e: ChangeEvent<HTMLInputElement>) => void
   onImport: () => void
+  onClear?: () => void
 }) {
   const t = useT()
   const ref = useRef<HTMLInputElement | null>(null)
@@ -724,7 +727,19 @@ function BulkBox({
       <div className="admin-bulk-body">
         <div className="admin-bulk-title">{title}</div>
         <div className="admin-bulk-sub">{sub}</div>
-        {file && <div className="admin-bulk-file">{file.name}</div>}
+        {file && (
+          <div className="admin-bulk-file admin-bulk-file-picked">
+            <span className="admin-bulk-file-name">{file.name}</span>
+            <button
+              type="button"
+              className="admin-bulk-file-x"
+              aria-label={t('admin.documents.removeFileAriaLabel')}
+              onClick={() => { if (ref.current) ref.current.value = ''; onClear?.() }}
+            >
+              &times;
+            </button>
+          </div>
+        )}
         {note && (
           <div
             className="admin-bulk-file"

@@ -3639,11 +3639,12 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
    "action needed" without screaming. Hidden entirely when no votes. */
 [data-theme="sketch"] .open-votes-band {
   /* Opaque (tint over solid white): the band sits against the hero photo,
-     and a translucent wash makes the text unreadable there. */
+     and a translucent wash makes the text unreadable there. Styled to match the
+     "Fines due" band (.pay-fines-band): no heavy border, just the soft shadow +
+     orange tint, so the home reminders read as one consistent family. */
   background: linear-gradient(rgba(225, 73, 9, 0.06), rgba(225, 73, 9, 0.06)), #FFFFFF;
-  border: 2px solid #E14909;
-  border-left: 6px solid #E14909;
-  border-radius: 22px;
+  border: none;
+  border-radius: 14px;
   padding: 18px 22px 16px;
   margin-top: 96px;   /* same breathing room Row 1 used to have below hero */
   margin-bottom: 0;
@@ -5686,8 +5687,8 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
 }
 [data-theme="sketch"] .admin-sched-card-head {
-  display: flex; align-items: baseline; justify-content: space-between;
-  gap: 12px;
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: 4px;
   margin-bottom: 14px;
 }
 [data-theme="sketch"] .admin-sched-card-head h2 {
@@ -5700,7 +5701,22 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 [data-theme="sketch"] .admin-sched-card-sub {
   font-size: 12px;
   color: rgba(10, 36, 64, 0.55);
-  text-align: right;
+  text-align: left;
+  white-space: pre-line;
+  line-height: 1.5;
+}
+/* Inline "edit amenity" panel under a row — visually distinct from the top
+   "add" form (orange-tinted) so edit ≠ add. */
+[data-theme="sketch"] .admin-sched-row.editing { background: rgba(225, 73, 9, 0.06); }
+[data-theme="sketch"] .admin-amen-edit {
+  padding: 14px 12px 16px;
+  border-top: 1px solid rgba(15, 28, 46, 0.10);
+  background: rgba(225, 73, 9, 0.04);
+  border-radius: 0 0 12px 12px;
+}
+[data-theme="sketch"] .admin-amen-edit-head {
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
+  color: #B23A06; margin-bottom: 10px;
 }
 [data-theme="sketch"] .admin-sched-form {
   display: grid;
@@ -5787,11 +5803,75 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 [data-theme="sketch"] .admin-field textarea:focus { border-color: #E14909; background-color: #FFFFFF; box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.14); }
 [data-theme="sketch"] .admin-field-check {
   grid-column: 1 / -1;
-  flex-direction: row; align-items: center; gap: 10px;
+  flex-direction: row; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  background: #FBF7F1;
+  border: 1.5px solid rgba(199, 111, 69, 0.30);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
 }
-[data-theme="sketch"] .admin-field-check input { width: 18px; height: 18px; flex: none; accent-color: #E14909; cursor: pointer; }
+[data-theme="sketch"] .admin-field-check:hover { border-color: rgba(225, 73, 9, 0.55); }
+/* Obvious on/off state — the whole row tints orange when checked. */
+[data-theme="sketch"] .admin-field-check:has(input:checked) {
+  background: rgba(225, 73, 9, 0.08);
+  border-color: #E14909;
+}
+/* Bookable checkbox — a clean round control. The generic `.admin-field input`
+   rule above pads it (10px 16px) with a pill radius, which stretched it into an
+   oval; reset that and draw a real circle (cream outline → orange when checked). */
+[data-theme="sketch"] .admin-field-check input {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  flex: none; width: 18px; height: 18px; padding: 0; margin: 0;
+  box-sizing: border-box;
+  border: 1.5px solid rgba(199, 111, 69, 0.55);
+  border-radius: 50%;
+  background-color: #FBF7F1;
+  cursor: pointer;
+  position: relative;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+[data-theme="sketch"] .admin-field-check input:hover { border-color: #E14909; }
+[data-theme="sketch"] .admin-field-check input:checked { background-color: #E14909; border-color: #E14909; }
+[data-theme="sketch"] .admin-field-check input:checked::after {
+  content: ''; position: absolute; left: 50%; top: 47%;
+  width: 4px; height: 8px;
+  border: solid #fff; border-width: 0 2px 2px 0;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+[data-theme="sketch"] .admin-field-check input:focus-visible { box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.18); }
+
+/* Orange circular checkbox across the ENTIRE admin (everything inside .admin,
+   incl. AdminModal). Native checkboxes — even ones that inherited text-input box
+   styling — all render as a clean cream circle that fills orange with a white
+   check when on, matching the amenities "bookable" control. Higher specificity
+   than the per-context checkbox rules so it unifies them. */
+[data-theme="sketch"] .admin input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  flex: none; width: 18px; height: 18px; min-width: 18px; padding: 0; margin: 0;
+  box-sizing: border-box;
+  border: 1.5px solid rgba(199, 111, 69, 0.55);
+  border-radius: 50%;
+  background-color: #FBF7F1;
+  cursor: pointer;
+  position: relative;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+[data-theme="sketch"] .admin input[type="checkbox"]:hover { border-color: #E14909; }
+[data-theme="sketch"] .admin input[type="checkbox"]:checked { background-color: #E14909; border-color: #E14909; }
+[data-theme="sketch"] .admin input[type="checkbox"]:checked::after {
+  content: ''; position: absolute; left: 50%; top: 47%;
+  width: 4px; height: 8px;
+  border: solid #fff; border-width: 0 2px 2px 0;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+[data-theme="sketch"] .admin input[type="checkbox"]:focus-visible { box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.18); }
+
 [data-theme="sketch"] .admin-field-check span {
   font-size: 13px; letter-spacing: 0; text-transform: none; font-weight: 600; color: #0A2440;
+  line-height: 1.4;
+  /* Even out the two lines so a single word never dangles on its own line. */
+  text-wrap: balance;
 }
 [data-theme="sketch"] .admin-amen-row-actions { display: flex; gap: 4px; flex-shrink: 0; }
 [data-theme="sketch"] .admin-schedule-tabs .seg-tabs { margin-bottom: 22px; }
@@ -5857,6 +5937,10 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   border-radius: 14px;
   background: rgba(15, 28, 46, 0.02);
   transition: border-color 0.12s ease, background 0.12s ease;
+  /* Grid items default to min-width:auto, so a long unbroken filename would
+     stretch the track past the card and overflow. Let the box shrink so the
+     filename's ellipsis (.admin-bulk-file) and the sub text wrapping kick in. */
+  min-width: 0;
 }
 [data-theme="sketch"] .admin-bulk-box:hover {
   border-color: #E14909;
@@ -5897,6 +5981,26 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Picked file chip with a × to clear the selection — orange-tinted like the
+   Documents/Rules picked-file chip. */
+[data-theme="sketch"] .admin-bulk-file-picked {
+  display: flex; align-items: center; gap: 8px;
+  white-space: normal; overflow: visible;
+  background: rgba(225, 73, 9, 0.08);
+  border: 1px solid rgba(225, 73, 9, 0.20);
+  color: #B23A06;
+}
+[data-theme="sketch"] .admin-bulk-file-name {
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+[data-theme="sketch"] .admin-bulk-file-x {
+  flex: 0 0 auto; width: 20px; height: 20px;
+  display: grid; place-items: center; line-height: 0; font-size: 16px;
+  border: none; background: transparent; border-radius: 6px;
+  color: #E14909; cursor: pointer;
+}
+[data-theme="sketch"] .admin-bulk-file-x:hover { background: rgba(225, 73, 9, 0.16); color: #B23A06; }
 [data-theme="sketch"] .admin-bulk-actions {
   display: flex; gap: 8px;
   margin-top: 12px;
@@ -6809,6 +6913,19 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   font-size: 11.5px;
   color: rgba(10, 36, 64, 0.60);
   line-height: 1.35;
+}
+
+/* Phone: the expanded row's action area was not mobile-friendly — the override
+   dropdown (260px, anchored right) overflowed the card and the buttons crowded.
+   Let each action button fill the width, and make the override toggle + its menu
+   span the row instead of popping out a fixed-width panel off the edge. */
+@media (max-width: 640px) {
+  [data-theme="sketch"] .admin-vi-actions { gap: 8px; }
+  [data-theme="sketch"] .admin-vi-actions > .admin-btn,
+  [data-theme="sketch"] .admin-vi-actions > .admin-btn-ghost { flex: 1 1 auto; text-align: center; }
+  [data-theme="sketch"] .admin-vi-override { display: block; width: 100%; }
+  [data-theme="sketch"] .admin-vi-override-toggle { width: 100%; justify-content: center; }
+  [data-theme="sketch"] .admin-vi-override-menu { left: 0; right: 0; min-width: 0; }
 }
 
 /* =====================================================================
@@ -10003,17 +10120,21 @@ textarea[disabled] {
     overflow: hidden; text-overflow: ellipsis;
   }
 
-  /* Filter bar: stack the filters and let each dropdown go full width so the
-     two pills don't fight for a single phone row. */
+  /* Filter bar: keep Category + Time period side by side on one row. Each takes
+     half the width with its label stacked over the dropdown pill so the two fit
+     without crowding. */
   [data-theme="sketch"] .admin-sched-filters {
     display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
+    flex-wrap: nowrap;
+    gap: 10px;
     width: 100%;
   }
   [data-theme="sketch"] .admin-sched-filter {
-    flex: 1 1 100%;
-    justify-content: space-between;
+    flex: 1 1 0;
+    min-width: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
   }
 }
 

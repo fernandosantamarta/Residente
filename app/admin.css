@@ -1243,6 +1243,16 @@
   font-weight: 500; font-size: 20px; letter-spacing: -0.01em;
 }
 .cset .card-head .sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+/* "Add document" / "Add rule" — compact button sitting opposite the card title,
+   far right of the header. */
+.cset .card-head .cset-head-cta { padding: 9px 17px; font-size: 13.5px; white-space: nowrap; }
+/* Compliance stat tiles — six tiles fill two even rows (3 + 3) on phones. */
+@media (max-width: 640px) {
+  .cmp-stats { grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important; }
+  .cmp-stats > div { padding: 12px 10px !important; }
+  .cmp-stats > div > div:first-child { font-size: 24px !important; }
+  .cmp-stats > div > div:last-child { font-size: 10px !important; letter-spacing: 0.3px !important; }
+}
 
 /* "Needs attention" signal detail + a clamped More/Less toggle. The toggle is
    plain orange text (no pill/bubble) so it reads as an inline link. */
@@ -1263,6 +1273,19 @@
      headers (ARC worklist, etc.) that would otherwise centre the title once the
      header stacks to a column on mobile. */
   .cset .card-head { flex-direction: column; align-items: stretch !important; gap: 12px; }
+  /* Add rule / Add document live in their list-card header (header = add,
+     body = list). On phones the header stacks, so pin the compact Add button to
+     the top-right (level with the title) and let the filters take the row below. */
+  .cset .card-head { position: relative; }
+  .cset .card-head > div:last-child { width: 100%; }
+  .cset .card-head .cset-head-cta {
+    position: absolute; top: 0; right: 0;
+    flex: 0 0 auto; width: auto; padding: 8px 15px; font-size: 13px;
+  }
+  /* Archive's single filter goes full-width; the rule book's two filters share
+     the row evenly. */
+  .cset .card-head .cset-arch-filter { width: 100%; min-width: 0; }
+  .cset .card-head .cset-rule-filter { flex: 1 1 0; min-width: 0; }
   /* "Needs attention" filter — full-width row with three evenly-spaced buttons. */
   .attn-filter { width: 100%; }
   .attn-filter button { flex: 1 1 0; }
@@ -1589,6 +1612,23 @@
   gap: 14px; flex-wrap: wrap;
 }
 .cset .docsetup-hint { font-size: 12.5px; color: var(--text-faint); }
+/* Chip showing a file that's been picked but not yet imported, with a × to clear
+   the pending selection (Documents + Rules setup cards). */
+.cset .docsetup-picked {
+  margin-top: 10px; display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 10px;
+  background: rgba(225, 73, 9, 0.07); border: 1px solid rgba(225, 73, 9, 0.18);
+}
+.cset .docsetup-picked-name {
+  flex: 1 1 auto; min-width: 0; font-size: 12.5px; color: var(--text-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cset .docsetup-picked-x {
+  flex: 0 0 auto; width: 24px; height: 24px; border-radius: 7px;
+  display: grid; place-items: center; line-height: 0; font-size: 18px;
+  background: transparent; border: none; cursor: pointer; color: var(--text-dim);
+}
+.cset .docsetup-picked-x:hover { background: rgba(225, 73, 9, 0.14); color: #B23A06; }
 .cset .doc-badge {
   display: inline-block; align-self: flex-start; flex: 0 0 auto;
   font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 999px;
@@ -1725,6 +1765,12 @@
   .cviol .bd-meta { flex-wrap: wrap; }
   /* Keep the row's delete "×" clear of the chevron + amount on small screens. */
   .cviol .bd-list .bd-row .bd-row-toggle { padding-right: 56px; }
+  /* Space each violation entry out so the log doesn't feel cramped, and let the
+     status pill sit with breathing room (it wraps under the name on a phone). */
+  .cviol .bd-list .bd-row .bd-row-toggle { padding-top: 18px; padding-bottom: 18px; }
+  .cviol .bd-list .bd-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+  .cviol .bd-list .bd-title .admin-vi-pill { margin-left: 0; }
+  .cviol .bd-list .bd-row .bd-meta { margin-top: 6px; }
 }
 .cset .tbl .strong { font-weight: 600; }
 .cset .tbl .go-cell { text-align: right; width: 1%; white-space: nowrap; }

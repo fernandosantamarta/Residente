@@ -324,7 +324,7 @@ export default function CollectionCaseDetail() {
         <p style={{ fontSize: 12, opacity: 0.7, marginTop: 0 }}>{t('admin.collectionsDetail.generateDocumentsHint')}</p>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           {DOC_LINKS.map(d => (
-            <a key={d.type} className="admin-secondary-btn" href={`/admin/collections/${id}/document?type=${d.type}`} target="_blank" rel="noopener noreferrer">{d.label}</a>
+            <a key={d.type} className="admin-secondary-btn" href={`/admin/collections/${id}/document?type=${d.type}`}>{d.label}</a>
           ))}
         </div>
       </section>
