@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import { RequestDialog } from './RequestDialog'
 import { DetailDialog } from './DetailDialog'
+import { Dropdown } from '@/components/Dropdown'
 
 // Vendor — board-curated list of trusted service providers, now a section
 // of the Easy Track hub. The data lives in code for now (demo seed); when
@@ -182,13 +183,15 @@ export function VendorSection() {
             placeholder={t('vendors.searchPlaceholder')}
           />
         </div>
-        <select name="vendor-category" className="ven-select" value={active}
-          onChange={e => setActive(e.target.value as any)}>
-          <option value="all">{t('vendors.allCategories')}</option>
-          {CATEGORY_GRID.map(c => (
-            <option key={c.key} value={c.key}>{catLabel(c.key)}</option>
-          ))}
-        </select>
+        <Dropdown<string>
+          value={active}
+          onChange={v => setActive(v as any)}
+          ariaLabel={t('vendors.allCategories')}
+          options={[
+            { value: 'all', label: t('vendors.allCategories') },
+            ...CATEGORY_GRID.map(c => ({ value: c.key, label: catLabel(c.key) })),
+          ]}
+        />
       </div>
 
       <div className="ven-grid">

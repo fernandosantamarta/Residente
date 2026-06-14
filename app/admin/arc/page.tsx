@@ -23,6 +23,7 @@ import {
 } from '@/lib/compliance/arc'
 import { logAudit } from '@/lib/audit'
 import { Tip } from '@/components/Tip'
+import { Dropdown } from '@/components/Dropdown'
 import { AttorneyNote } from '../AttorneyNote'
 import { EasyVoiceTabs } from '../EasyVoiceTabs'
 import { useT } from '@/lib/i18n'
@@ -354,25 +355,30 @@ export default function ArcPage() {
             <div className="card-head"><div><h2>{t('admin.arc.logCardHeading')}</h2></div></div>
             <form className="admin-form" onSubmit={logRequest}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
-                <label className="admin-field">
+                <div className="admin-field">
                   <span className="admin-field-label">{t('admin.arc.fieldOwner')}</span>
-                  <select className="admin-input" value={form.resident_id} onChange={e => setF('resident_id', e.target.value)}>
-                    <option value="">{t('admin.arc.selectPlaceholder')}</option>
-                    {residents.map(r => (
-                      <option key={r.id} value={r.id}>
-                        {[r.full_name || 'Owner', r.unit_number ? `${t('admin.arc.unitPrefix')} ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="admin-field">
+                  <Dropdown<string>
+                    value={form.resident_id}
+                    onChange={v => setF('resident_id', v)}
+                    ariaLabel={t('admin.arc.fieldOwner')}
+                    options={[
+                      { value: '', label: t('admin.arc.selectPlaceholder') },
+                      ...residents.map(r => ({
+                        value: r.id,
+                        label: [r.full_name || 'Owner', r.unit_number ? `${t('admin.arc.unitPrefix')} ${r.unit_number}` : null, r.address].filter(Boolean).join(' · '),
+                      })),
+                    ]}
+                  />
+                </div>
+                <div className="admin-field">
                   <span className="admin-field-label">{t('admin.arc.fieldRequestType')}</span>
-                  <select className="admin-input" value={form.request_type} onChange={e => setF('request_type', e.target.value)}>
-                    {(Object.entries(ARC_TYPE_LABELS) as [ArcRequestType, string][]).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
-                    ))}
-                  </select>
-                </label>
+                  <Dropdown<string>
+                    value={form.request_type}
+                    onChange={v => setF('request_type', v)}
+                    ariaLabel={t('admin.arc.fieldRequestType')}
+                    options={(Object.entries(ARC_TYPE_LABELS) as [ArcRequestType, string][]).map(([k, v]) => ({ value: k, label: v }))}
+                  />
+                </div>
               </div>
               <label className="admin-field" style={{ marginTop: 10 }}>
                 <span className="admin-field-label">{t('admin.arc.fieldDescription')}</span>
@@ -417,24 +423,22 @@ export default function ArcPage() {
                 // intake form on this page already renders. Two filters: request
                 // type ("All categories") and status ("All statuses").
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  <select
-                    className="admin-input"
-                    style={{ width: 220, flexShrink: 0 }}
-                    value={catFilter}
-                    onChange={e => setCatFilter(e.target.value as 'all' | ArcRequestType)}
-                    aria-label={t('admin.arc.ariaFilterCategory')}
-                  >
-                    {catOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                  <select
-                    className="admin-input"
-                    style={{ width: 220, flexShrink: 0 }}
-                    value={statusFilter}
-                    onChange={e => setStatusFilter(e.target.value as 'all' | ArcStatus)}
-                    aria-label={t('admin.arc.ariaFilterStatus')}
-                  >
-                    {statusOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
+                  <div style={{ width: 220, flexShrink: 0 }}>
+                    <Dropdown<string>
+                      value={catFilter}
+                      onChange={v => setCatFilter(v as 'all' | ArcRequestType)}
+                      ariaLabel={t('admin.arc.ariaFilterCategory')}
+                      options={catOptions.map(o => ({ value: o.value, label: o.label }))}
+                    />
+                  </div>
+                  <div style={{ width: 220, flexShrink: 0 }}>
+                    <Dropdown<string>
+                      value={statusFilter}
+                      onChange={v => setStatusFilter(v as 'all' | ArcStatus)}
+                      ariaLabel={t('admin.arc.ariaFilterStatus')}
+                      options={statusOptions.map(o => ({ value: o.value, label: o.label }))}
+                    />
+                  </div>
                 </div>
               )}
             </div>

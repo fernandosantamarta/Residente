@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { DetailDialog } from '@/app/app/track/_sections/DetailDialog'
 import { useT } from '@/lib/i18n'
+import { Dropdown } from '@/components/Dropdown'
 import {
   Amenity,
   AmenityKind,
@@ -116,14 +117,15 @@ export function AmenitiesSection() {
             aria-label={t('schedule.searchAmenities')}
           />
         </div>
-        <select className="ven-select" value={kindFilter}
-          onChange={e => setKindFilter(e.target.value as AmenityKind | 'all')}
-          aria-label={t('schedule.allCategories')}>
-          <option value="all">{t('schedule.allCategories')}</option>
-          {kinds.map(k => (
-            <option key={k} value={k}>{KIND_LABEL[k]}</option>
-          ))}
-        </select>
+        <Dropdown<string>
+          value={kindFilter}
+          onChange={v => setKindFilter(v as AmenityKind | 'all')}
+          ariaLabel={t('schedule.allCategories')}
+          options={[
+            { value: 'all', label: t('schedule.allCategories') },
+            ...kinds.map(k => ({ value: k, label: KIND_LABEL[k] })),
+          ]}
+        />
       </div>
 
       <div className="amen-layout">

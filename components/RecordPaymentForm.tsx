@@ -8,6 +8,7 @@
 
 import { useState } from 'react'
 import { fmtMoney } from '@/lib/dues'
+import { Dropdown } from '@/components/Dropdown'
 
 export type RecordPaymentValues = {
   amount: number
@@ -64,12 +65,15 @@ export function RecordPaymentForm({ onSubmit }: {
           <input className="admin-input" type="number" min="0" step="0.01" placeholder="0.00"
             value={amount} onChange={e => setAmount(e.target.value)} />
         </label>
-        <label className="admin-field" style={{ flex: '0 0 175px' }}>
+        <div className="admin-field" style={{ flex: '0 0 175px' }}>
           <span className="admin-field-label">Method</span>
-          <select className="admin-input" value={method} onChange={e => setMethod(e.target.value)}>
-            {METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-          </select>
-        </label>
+          <Dropdown<string>
+            value={method}
+            onChange={v => setMethod(v)}
+            ariaLabel="Method"
+            options={METHODS.map(m => ({ value: m.value, label: m.label }))}
+          />
+        </div>
         <label className="admin-field" style={{ flex: '0 0 160px' }}>
           <span className="admin-field-label">Date received</span>
           <input className="admin-input" type="date" value={paidOn} onChange={e => setPaidOn(e.target.value)} />

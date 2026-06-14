@@ -11,6 +11,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { useT } from '@/lib/i18n'
+import { Dropdown } from '@/components/Dropdown'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { AttorneyNote } from '../AttorneyNote'
 import { ComplianceBackLink } from '../ComplianceBackLink'
@@ -190,20 +191,28 @@ export default function ContractsPage() {
                 <input className="admin-input" value={form.description ?? ''} onChange={e => setF('description', e.target.value)} /></label>
               <label className="admin-field"><span className="admin-field-label">{t('admin.contracts.fieldAmount')}</span>
                 <input className="admin-input" type="number" min="0" step="100" value={form.amount ?? ''} onChange={e => setF('amount', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">{t('admin.contracts.fieldType')}</span>
-                <select className="admin-input" value={form.contract_kind} onChange={e => setF('contract_kind', e.target.value)}>
-                  <option value="products">{t('admin.contracts.optionProducts')}</option>
-                  <option value="services">{t('admin.contracts.optionServices')}</option>
-                  <option value="management">{t('admin.contracts.optionManagement')}</option>
-                </select></label>
+              <div className="admin-field"><span className="admin-field-label">{t('admin.contracts.fieldType')}</span>
+                <Dropdown<string>
+                  value={form.contract_kind}
+                  onChange={v => setF('contract_kind', v)}
+                  ariaLabel={t('admin.contracts.fieldType')}
+                  options={[
+                    { value: 'products', label: t('admin.contracts.optionProducts') },
+                    { value: 'services', label: t('admin.contracts.optionServices') },
+                    { value: 'management', label: t('admin.contracts.optionManagement') },
+                  ]}
+                /></div>
               <label className="admin-field"><span className="admin-field-label">{t('admin.contracts.fieldTerm')}</span>
                 <input className="admin-input" type="number" min="0" step="1" value={form.term_months ?? ''} onChange={e => setF('term_months', e.target.value)} /></label>
               <label className="admin-field"><span className="admin-field-label">{t('admin.contracts.fieldExecutedOn')}</span>
                 <input className="admin-input" type="date" value={form.executed_on ?? ''} onChange={e => setF('executed_on', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">{t('admin.contracts.fieldException')}</span>
-                <select className="admin-input" value={form.exception_basis ?? 'none'} onChange={e => setF('exception_basis', e.target.value)}>
-                  {Object.keys(EXCEPTION_LABEL).map(k => <option key={k} value={k}>{EXCEPTION_LABEL[k]}</option>)}
-                </select></label>
+              <div className="admin-field"><span className="admin-field-label">{t('admin.contracts.fieldException')}</span>
+                <Dropdown<string>
+                  value={form.exception_basis ?? 'none'}
+                  onChange={v => setF('exception_basis', v)}
+                  ariaLabel={t('admin.contracts.fieldException')}
+                  options={Object.keys(EXCEPTION_LABEL).map(k => ({ value: k, label: EXCEPTION_LABEL[k] }))}
+                /></div>
             </div>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', margin: '10px 0', fontSize: 14 }}>
               <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -337,12 +346,17 @@ function ContractCard({
             <input type="checkbox" checked={!!c.required_terms_attested} onChange={e => onUpdate(c.id, { required_terms_attested: e.target.checked })} /> {t('admin.contracts.toggleRequiredTerms')}
           </label>
         )}
-        <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <span style={{ opacity: 0.7 }}>{t('admin.contracts.exceptionLabel')}</span>
-          <select className="admin-input" style={{ maxWidth: 230, padding: '3px 6px' }} value={String(c.exception_basis ?? 'none')} onChange={e => onUpdate(c.id, { exception_basis: e.target.value === 'none' ? null : e.target.value })}>
-            {Object.keys(EXCEPTION_LABEL).map(k => <option key={k} value={k}>{EXCEPTION_LABEL[k]}</option>)}
-          </select>
-        </label>
+          <div style={{ width: 230 }}>
+            <Dropdown<string>
+              value={String(c.exception_basis ?? 'none')}
+              onChange={v => onUpdate(c.id, { exception_basis: v === 'none' ? null : v })}
+              ariaLabel={t('admin.contracts.exceptionLabel')}
+              options={Object.keys(EXCEPTION_LABEL).map(k => ({ value: k, label: EXCEPTION_LABEL[k] }))}
+            />
+          </div>
+        </div>
       </div>
     </div>
   )

@@ -12,6 +12,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd, calendarDaysUntil, businessDaysBetween, toDate } from '@/lib/compliance/rules-core'
 import { AttorneyNote } from '../AttorneyNote'
 import { ComplianceBackLink } from '../ComplianceBackLink'
+import { Dropdown } from '@/components/Dropdown'
 import {
   estoppelDueAt, estoppelFee, estoppelValidUntil,
   ESTOPPEL_DELIVERY_BUSINESS_DAYS, ESTOPPEL_EXPEDITED_BUSINESS_DAYS,
@@ -178,23 +179,40 @@ export default function EstoppelPage() {
         <div className="card-head"><div><h2>{t('admin.estoppel.newRequestTitle')}</h2><div className="sub">{t('admin.estoppel.newRequestSub')}</div></div></div>
         <form className="admin-form" onSubmit={create}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-            <label className="admin-field"><span className="admin-field-label">{t('admin.estoppel.fieldUnitOwner')}</span>
-              <select className="admin-input" value={form.resident_id ?? ''} onChange={e => setF('resident_id', e.target.value)}>
-                <option value="">{t('admin.estoppel.selectUnitOwner')}</option>
-                {residents.map((r: any) => (
-                  <option key={r.id} value={r.id}>{[r.full_name || t('admin.estoppel.ownerFallback'), r.unit_number ? `${t('admin.estoppel.unitPrefix')} ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>
-                ))}
-              </select></label>
+            <div className="admin-field"><span className="admin-field-label">{t('admin.estoppel.fieldUnitOwner')}</span>
+              <Dropdown<string>
+                value={form.resident_id ?? ''}
+                onChange={v => setF('resident_id', v)}
+                ariaLabel={t('admin.estoppel.fieldUnitOwner')}
+                options={[
+                  { value: '', label: t('admin.estoppel.selectUnitOwner') },
+                  ...residents.map((r: any) => ({
+                    value: r.id,
+                    label: [r.full_name || t('admin.estoppel.ownerFallback'), r.unit_number ? `${t('admin.estoppel.unitPrefix')} ${r.unit_number}` : null, r.address].filter(Boolean).join(' · '),
+                  })),
+                ]}
+              /></div>
             <label className="admin-field"><span className="admin-field-label">{t('admin.estoppel.fieldRequestorName')}</span>
               <input className="admin-input" value={form.requestor_name ?? ''} placeholder="Sunshine Title Co." onChange={e => setF('requestor_name', e.target.value)} /></label>
             <label className="admin-field"><span className="admin-field-label">{t('admin.estoppel.fieldRequestorEmail')}</span>
               <input className="admin-input" type="email" value={form.requestor_email ?? ''} placeholder="closer@title.com" onChange={e => setF('requestor_email', e.target.value)} /></label>
-            <label className="admin-field"><span className="admin-field-label">{t('admin.estoppel.fieldRequestorType')}</span>
-              <select className="admin-input" value={form.requestor_type} onChange={e => setF('requestor_type', e.target.value)}>
-                {REQUESTOR_TYPES.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}</select></label>
-            <label className="admin-field"><span className="admin-field-label">{t('admin.estoppel.fieldRequestMethod')}</span>
-              <select className="admin-input" value={form.request_method} onChange={e => setF('request_method', e.target.value)}>
-                <option value="electronic">{t('admin.estoppel.methodElectronic')}</option><option value="written">{t('admin.estoppel.methodWritten')}</option></select></label>
+            <div className="admin-field"><span className="admin-field-label">{t('admin.estoppel.fieldRequestorType')}</span>
+              <Dropdown<string>
+                value={form.requestor_type}
+                onChange={v => setF('requestor_type', v)}
+                ariaLabel={t('admin.estoppel.fieldRequestorType')}
+                options={REQUESTOR_TYPES.map(o => ({ value: o.value, label: o.label }))}
+              /></div>
+            <div className="admin-field"><span className="admin-field-label">{t('admin.estoppel.fieldRequestMethod')}</span>
+              <Dropdown<string>
+                value={form.request_method}
+                onChange={v => setF('request_method', v)}
+                ariaLabel={t('admin.estoppel.fieldRequestMethod')}
+                options={[
+                  { value: 'electronic', label: t('admin.estoppel.methodElectronic') },
+                  { value: 'written', label: t('admin.estoppel.methodWritten') },
+                ]}
+              /></div>
           </div>
           <div style={{ display: 'flex', gap: 20, margin: '12px 0', flexWrap: 'wrap' }}>
             <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
@@ -267,9 +285,14 @@ function EstoppelRow({ r, onDeliver, onPatch, communityId, statusLabel }: any) {
         {open && (
           <>
             {r.status === 'new' && <button className="admin-btn-ghost" onClick={() => onPatch(r.id, { status: 'in_progress' }, t('admin.estoppel.msgMarkedInProgress'))}>{t('admin.estoppel.start')}</button>}
-            <select className="admin-input" style={{ maxWidth: 220 }} value={method} onChange={e => setMethod(e.target.value)}>
-              {DELIVERY_METHODS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-            </select>
+            <div style={{ width: 220 }}>
+              <Dropdown<string>
+                value={method}
+                onChange={v => setMethod(v)}
+                ariaLabel={t('admin.estoppel.markDelivered')}
+                options={DELIVERY_METHODS.map(o => ({ value: o.value, label: o.label }))}
+              />
+            </div>
             <button className="admin-primary-btn" onClick={() => onDeliver(r, method)}>{t('admin.estoppel.markDelivered')}</button>
             <button className="admin-btn-ghost" onClick={() => onPatch(r.id, { status: 'cancelled' }, t('admin.estoppel.msgRequestCancelled'))}>{t('admin.estoppel.cancel')}</button>
           </>

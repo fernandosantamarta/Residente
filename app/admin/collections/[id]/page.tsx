@@ -15,6 +15,7 @@ import { logAudit } from '@/lib/audit'
 import { ymd, toDate, addCalendarDays, calendarDaysUntil } from '@/lib/compliance/rules-core'
 import { casePayoff, fmtMoney, type PayoffResult } from '@/lib/dues'
 import { RecordPaymentForm } from '@/components/RecordPaymentForm'
+import { Dropdown } from '@/components/Dropdown'
 import { AttorneyNote } from '../../AttorneyNote'
 import { useT } from '@/lib/i18n'
 import {
@@ -446,10 +447,13 @@ function StageActions({ adv, caseRow, communityId, profileId, resident, regime, 
           <input className="admin-input" type="date" value={form.date} onChange={e => setForm((f: any) => ({ ...f, date: e.target.value }))} /></label>
         {adv.needsNotice && (
           <>
-            <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.deliveryMethod')}</span>
-              <select className="admin-input" value={form.method} onChange={e => setForm((f: any) => ({ ...f, method: e.target.value }))}>
-                {METHODS.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
-              </select></label>
+            <div className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.deliveryMethod')}</span>
+              <Dropdown<string>
+                value={form.method}
+                onChange={v => setForm((f: any) => ({ ...f, method: v }))}
+                ariaLabel={t('admin.collectionsDetail.deliveryMethod')}
+                options={METHODS.map(m => ({ value: m.value, label: m.label }))}
+              /></div>
             <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.trackingNumber')}</span>
               <input className="admin-input" value={form.tracking} placeholder={t('admin.collectionsDetail.trackingPlaceholder')} onChange={e => setForm((f: any) => ({ ...f, tracking: e.target.value }))} /></label>
             <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.addressedTo')}</span>

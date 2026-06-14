@@ -23,6 +23,7 @@ import {
 import { logAudit } from '@/lib/audit'
 import { AttorneyNote } from '../AttorneyNote'
 import { ComplianceBackLink } from '../ComplianceBackLink'
+import { Dropdown } from '@/components/Dropdown'
 import { useT } from '@/lib/i18n'
 
 const withTimeout = (p: any, ms = 10000) =>
@@ -176,15 +177,20 @@ export default function MeetingsPage() {
             <div className="card-head"><div><h2>{t('admin.meetings.scheduleLog')}</h2></div></div>
             <form className="admin-form" onSubmit={scheduleMeeting}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-              <label className="admin-field">
+              <div className="admin-field">
                 <span className="admin-field-label">{t('admin.meetings.meetingType')}</span>
-                <select className="admin-input" value={form.type} onChange={e => setF('type', e.target.value)}>
-                  <option value="board">{t('admin.meetings.typeBoardMeeting')}</option>
-                  <option value="annual">{t('admin.meetings.typeAnnualMeeting')}</option>
-                  <option value="special">{t('admin.meetings.typeSpecialMeeting')}</option>
-                  <option value="committee">{t('admin.meetings.typeCommitteeMeeting')}</option>
-                </select>
-              </label>
+                <Dropdown<string>
+                  value={form.type}
+                  onChange={v => setF('type', v)}
+                  ariaLabel={t('admin.meetings.meetingType')}
+                  options={[
+                    { value: 'board', label: t('admin.meetings.typeBoardMeeting') },
+                    { value: 'annual', label: t('admin.meetings.typeAnnualMeeting') },
+                    { value: 'special', label: t('admin.meetings.typeSpecialMeeting') },
+                    { value: 'committee', label: t('admin.meetings.typeCommitteeMeeting') },
+                  ]}
+                />
+              </div>
               <label className="admin-field">
                 <span className="admin-field-label">{t('admin.meetings.titleOptional')}</span>
                 <input className="admin-input" value={form.title} placeholder={t('admin.meetings.titlePlaceholder')} onChange={e => setF('title', e.target.value)} />

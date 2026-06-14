@@ -24,6 +24,7 @@ import {
 import { decideDispute } from '@/lib/violations'
 import { AttorneyNote } from '../AttorneyNote'
 import { ComplianceBackLink } from '../ComplianceBackLink'
+import { Dropdown } from '@/components/Dropdown'
 import { useT } from '@/lib/i18n'
 
 const withTimeout = (p: any, ms = 10000) =>
@@ -355,11 +356,16 @@ export default function EnforcementPage() {
             <div className="card-head"><div><h2>{t('admin.enforcement.proposeFineTitle')}</h2></div></div>
             <form className="admin-form" onSubmit={proposeFine}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-              <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldOwner')}</span>
-                <select className="admin-input" value={form.resident_id} onChange={e => setF('resident_id', e.target.value)}>
-                  <option value="">{t('admin.enforcement.selectPlaceholder')}</option>
-                  {residents.map(r => <option key={r.id} value={r.id}>{[r.full_name || t('admin.enforcement.ownerFallback'), r.unit_number ? `${t('admin.enforcement.unitPrefix')} ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>)}
-                </select></label>
+              <div className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldOwner')}</span>
+                <Dropdown<string>
+                  value={form.resident_id}
+                  onChange={v => setF('resident_id', v)}
+                  ariaLabel={t('admin.enforcement.fieldOwner')}
+                  options={[
+                    { value: '', label: t('admin.enforcement.selectPlaceholder') },
+                    ...residents.map(r => ({ value: r.id, label: [r.full_name || t('admin.enforcement.ownerFallback'), r.unit_number ? `${t('admin.enforcement.unitPrefix')} ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ') })),
+                  ]}
+                /></div>
               <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldViolationRule')}</span>
                 <input className="admin-input" value={form.rule_title ?? ''} placeholder={t('admin.enforcement.violationRulePlaceholder')} onChange={e => setF('rule_title', e.target.value)} /></label>
               {form.continuing ? (
@@ -782,19 +788,30 @@ function SuspensionForm({ residents, onRecord }: { residents: any[]; onRecord: (
   return (
     <div style={{ border: '1px dashed #cbd5e1', borderRadius: 12, padding: 14 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
-        <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldOwnerSuspension')}</span>
-          <select className="admin-input" value={residentId} onChange={e => setResidentId(e.target.value)}>
-            <option value="">{t('admin.enforcement.selectPlaceholder')}</option>
-            {residents.map(r => <option key={r.id} value={r.id}>{[r.full_name || t('admin.enforcement.ownerFallback'), r.unit_number ? `${t('admin.enforcement.unitPrefix')} ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>)}
-          </select></label>
-        <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldRightsSuspended')}</span>
-          <select className="admin-input" value={rights} onChange={e => setRights(e.target.value as SuspensionRights)}>
-            {Object.entries(SUSPENSION_RIGHTS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select></label>
-        <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldBasis')}</span>
-          <select className="admin-input" value={basis} onChange={e => setBasis(e.target.value as SuspensionBasis)}>
-            {Object.entries(SUSPENSION_BASIS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-          </select></label>
+        <div className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldOwnerSuspension')}</span>
+          <Dropdown<string>
+            value={residentId}
+            onChange={v => setResidentId(v)}
+            ariaLabel={t('admin.enforcement.fieldOwnerSuspension')}
+            options={[
+              { value: '', label: t('admin.enforcement.selectPlaceholder') },
+              ...residents.map(r => ({ value: r.id, label: [r.full_name || t('admin.enforcement.ownerFallback'), r.unit_number ? `${t('admin.enforcement.unitPrefix')} ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ') })),
+            ]}
+          /></div>
+        <div className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldRightsSuspended')}</span>
+          <Dropdown<string>
+            value={rights}
+            onChange={v => setRights(v as SuspensionRights)}
+            ariaLabel={t('admin.enforcement.fieldRightsSuspended')}
+            options={Object.entries(SUSPENSION_RIGHTS_LABELS).map(([k, v]) => ({ value: k, label: v }))}
+          /></div>
+        <div className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldBasis')}</span>
+          <Dropdown<string>
+            value={basis}
+            onChange={v => setBasis(v as SuspensionBasis)}
+            ariaLabel={t('admin.enforcement.fieldBasis')}
+            options={Object.entries(SUSPENSION_BASIS_LABELS).map(([k, v]) => ({ value: k, label: v }))}
+          /></div>
         <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldAmountOwed')}</span>
           <input className="admin-input" type="number" min="0" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} /></label>
         <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldDelinquentSince')}</span>

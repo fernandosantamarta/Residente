@@ -14,6 +14,7 @@ import { logAudit } from '@/lib/audit'
 import { AttorneyNote } from '../AttorneyNote'
 import { SignalRow } from '../SignalRow'
 import { ComplianceBackLink } from '../ComplianceBackLink'
+import { Dropdown } from '@/components/Dropdown'
 import { useT } from '@/lib/i18n'
 import {
   governanceSignals, consecutiveServiceYears, certExpiry, camRequired,
@@ -220,10 +221,18 @@ export default function GovernancePage() {
                   <input className="admin-input" value={mForm.name ?? ''} onChange={e => setMF('name', e.target.value)} /></label>
                 <label className="admin-field"><span className="admin-field-label">{t('admin.governance.fieldLicenseNumber')}</span>
                   <input className="admin-input" value={mForm.license_number ?? ''} onChange={e => setMF('license_number', e.target.value)} /></label>
-                <label className="admin-field"><span className="admin-field-label">{t('admin.governance.fieldType')}</span>
-                  <select className="admin-input" value={mForm.license_type ?? ''} onChange={e => setMF('license_type', e.target.value)}>
-                    <option value="">—</option><option value="cam">CAM</option><option value="cab">{t('admin.governance.optionCab')}</option><option value="other">{t('admin.governance.optionOther')}</option>
-                  </select></label>
+                <div className="admin-field"><span className="admin-field-label">{t('admin.governance.fieldType')}</span>
+                  <Dropdown<string>
+                    value={mForm.license_type ?? ''}
+                    onChange={v => setMF('license_type', v)}
+                    ariaLabel={t('admin.governance.fieldType')}
+                    options={[
+                      { value: '', label: '—' },
+                      { value: 'cam', label: 'CAM' },
+                      { value: 'cab', label: t('admin.governance.optionCab') },
+                      { value: 'other', label: t('admin.governance.optionOther') },
+                    ]}
+                  /></div>
                 <label className="admin-field"><span className="admin-field-label">{t('admin.governance.fieldLicenseExpiry')}</span>
                   <input className="admin-input" type="date" value={mForm.license_expiry ?? ''} onChange={e => setMF('license_expiry', e.target.value)} /></label>
               </div>
@@ -257,16 +266,26 @@ export default function GovernancePage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 12 }}>
                 <label className="admin-field"><span className="admin-field-label">{t('admin.governance.fieldWhatDisclosed')}</span>
                   <input className="admin-input" value={cForm.subject ?? ''} placeholder={t('admin.governance.placeholderWhatDisclosed')} onChange={e => setCForm((f: any) => ({ ...f, subject: e.target.value }))} /></label>
-                <label className="admin-field"><span className="admin-field-label">{t('admin.governance.fieldDirector')}</span>
-                  <select className="admin-input" value={cForm.resident_id ?? ''} onChange={e => setCForm((f: any) => ({ ...f, resident_id: e.target.value }))}>
-                    <option value="">—</option>
-                    {directors.map(d => <option key={d.id} value={d.id}>{d.full_name || d.id.slice(0, 8)}</option>)}
-                  </select></label>
-                <label className="admin-field"><span className="admin-field-label">{t('admin.governance.fieldRelatedVendor')}</span>
-                  <select className="admin-input" value={cForm.related_vendor_id ?? ''} onChange={e => setCForm((f: any) => ({ ...f, related_vendor_id: e.target.value }))}>
-                    <option value="">—</option>
-                    {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
-                  </select></label>
+                <div className="admin-field"><span className="admin-field-label">{t('admin.governance.fieldDirector')}</span>
+                  <Dropdown<string>
+                    value={cForm.resident_id ?? ''}
+                    onChange={v => setCForm((f: any) => ({ ...f, resident_id: v }))}
+                    ariaLabel={t('admin.governance.fieldDirector')}
+                    options={[
+                      { value: '', label: '—' },
+                      ...directors.map(d => ({ value: d.id, label: d.full_name || d.id.slice(0, 8) })),
+                    ]}
+                  /></div>
+                <div className="admin-field"><span className="admin-field-label">{t('admin.governance.fieldRelatedVendor')}</span>
+                  <Dropdown<string>
+                    value={cForm.related_vendor_id ?? ''}
+                    onChange={v => setCForm((f: any) => ({ ...f, related_vendor_id: v }))}
+                    ariaLabel={t('admin.governance.fieldRelatedVendor')}
+                    options={[
+                      { value: '', label: '—' },
+                      ...vendors.map(v => ({ value: v.id, label: v.name })),
+                    ]}
+                  /></div>
                 <label className="admin-field"><span className="admin-field-label">{t('admin.governance.fieldDisclosedOn')}</span>
                   <input className="admin-input" type="date" value={cForm.disclosed_at ?? ''} onChange={e => setCForm((f: any) => ({ ...f, disclosed_at: e.target.value }))} /></label>
               </div>
@@ -361,13 +380,18 @@ function DirectorCard({ d, regime, terms, certs, elig, onAddTerm, onAddCert, onS
             <div style={{ display: 'flex', gap: 8, marginTop: 6, alignItems: 'flex-end', flexWrap: 'wrap' }}>
               <label style={{ fontSize: 11.5 }}>{t('admin.governance.termStart')}<input className="admin-input" style={{ maxWidth: 150 }} type="date" value={ts} onChange={e => setTs(e.target.value)} /></label>
               {regime === 'condo' && (
-                <label style={{ fontSize: 11.5 }}>{t('admin.governance.beyond8yrException')}
-                  <select className="admin-input" style={{ maxWidth: 230 }} value={tex} onChange={e => setTex(e.target.value)}>
-                    <option value="">{t('admin.governance.optionNone')}</option>
-                    {(Object.keys(TERM_LIMIT_EXCEPTION_LABELS) as TermLimitException[]).map(k => (
-                      <option key={k} value={k}>{TERM_LIMIT_EXCEPTION_LABELS[k]}</option>
-                    ))}
-                  </select></label>
+                <div style={{ fontSize: 11.5 }}>{t('admin.governance.beyond8yrException')}
+                  <div style={{ width: 230 }}>
+                    <Dropdown<string>
+                      value={tex}
+                      onChange={v => setTex(v)}
+                      ariaLabel={t('admin.governance.beyond8yrException')}
+                      options={[
+                        { value: '', label: t('admin.governance.optionNone') },
+                        ...(Object.keys(TERM_LIMIT_EXCEPTION_LABELS) as TermLimitException[]).map(k => ({ value: k, label: TERM_LIMIT_EXCEPTION_LABELS[k] })),
+                      ]}
+                    />
+                  </div></div>
               )}
               <button type="button" className="admin-btn-ghost" disabled={!ts} onClick={() => { onAddTerm(d.id, ts, d.board_position || '', tex); setTs(''); setTex('') }}>{t('admin.governance.btnAddTerm')}</button>
             </div>
@@ -376,10 +400,19 @@ function DirectorCard({ d, regime, terms, certs, elig, onAddTerm, onAddCert, onS
           <div>
             <div style={{ fontSize: 12.5, fontWeight: 700, marginBottom: 4 }}>{t('admin.governance.certificationsHeading', { count: certs.length })}</div>
             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
-              <label style={{ fontSize: 11.5 }}>{t('admin.governance.fieldType')}
-                <select className="admin-input" style={{ maxWidth: 130 }} value={ck} onChange={e => setCk(e.target.value)}>
-                  <option value="initial">{t('admin.governance.certInitial')}</option><option value="continuing">{t('admin.governance.certContinuing')}</option><option value="recert">{t('admin.governance.certRecert')}</option>
-                </select></label>
+              <div style={{ fontSize: 11.5 }}>{t('admin.governance.fieldType')}
+                <div style={{ width: 130 }}>
+                  <Dropdown<string>
+                    value={ck}
+                    onChange={v => setCk(v)}
+                    ariaLabel={t('admin.governance.fieldType')}
+                    options={[
+                      { value: 'initial', label: t('admin.governance.certInitial') },
+                      { value: 'continuing', label: t('admin.governance.certContinuing') },
+                      { value: 'recert', label: t('admin.governance.certRecert') },
+                    ]}
+                  />
+                </div></div>
               <label style={{ fontSize: 11.5 }}>{t('admin.governance.fieldCompleted')}<input className="admin-input" style={{ maxWidth: 150 }} type="date" value={cd} onChange={e => setCd(e.target.value)} /></label>
               <label style={{ fontSize: 11.5 }}>{t('admin.governance.fieldHours')}<input className="admin-input" style={{ maxWidth: 80 }} type="number" min="0" step="0.5" value={ch} onChange={e => setCh(e.target.value)} /></label>
               <button type="button" className="admin-btn-ghost" disabled={!cd} onClick={() => { onAddCert(d.id, ck, cd, ch); setCd(''); setCh('') }}>{t('admin.governance.btnAdd')}</button>

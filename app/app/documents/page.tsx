@@ -10,6 +10,7 @@ import { useDocuments } from '@/hooks/useDocuments'
 import { supabase } from '@/lib/supabase'
 import { DetailDialog } from '../track/_sections/DetailDialog'
 import { ContestFineControl } from '../track/_sections/ContestFineControl'
+import { Dropdown } from '@/components/Dropdown'
 import { useT } from '@/lib/i18n'
 
 // ─── shared helpers ────────────────────────────────────────────────────────
@@ -350,13 +351,15 @@ export default function EasyDocs() {
                 placeholder={t('documents.rulesSearchPlaceholder')}
               />
             </div>
-            <select name="rules-category" className="rb-select" value={activeCategory}
-              onChange={e => setActiveCategory(e.target.value)}>
-              <option value="all">{t('documents.allRules')}</option>
-              {sections.map(name => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
+            <Dropdown<string>
+              value={activeCategory}
+              onChange={v => setActiveCategory(v)}
+              ariaLabel={t('documents.allRules')}
+              options={[
+                { value: 'all', label: t('documents.allRules') },
+                ...sections.map(name => ({ value: name, label: name })),
+              ]}
+            />
           </div>
 
           {rulesList.length === 0 && (
@@ -580,18 +583,26 @@ export default function EasyDocs() {
                 placeholder={t('documents.docsSearchPlaceholder')}
               />
             </div>
-            <select name="doc-category" className="doc-select" value={docFilterCategory}
-              onChange={e => setDocFilterCategory(e.target.value)}>
-              <option value="all">{t('documents.allCategories')}</option>
-              {CATEGORY_GRID.map(c => (
-                <option key={c.key} value={c.label}>{t(`documents.cat_${c.key}_label`)}</option>
-              ))}
-            </select>
-            <select name="doc-period" className="doc-select rsv-web" value={docFilterPeriod}
-              onChange={e => setDocFilterPeriod(e.target.value as any)}>
-              <option value="recent">{t('documents.recentlyUpdated')}</option>
-              <option value="oldest">{t('documents.oldestFirst')}</option>
-            </select>
+            <Dropdown<string>
+              value={docFilterCategory}
+              onChange={v => setDocFilterCategory(v)}
+              ariaLabel={t('documents.allCategories')}
+              options={[
+                { value: 'all', label: t('documents.allCategories') },
+                ...CATEGORY_GRID.map(c => ({ value: c.label, label: t(`documents.cat_${c.key}_label`) })),
+              ]}
+            />
+            <div className="rsv-web">
+              <Dropdown<string>
+                value={docFilterPeriod}
+                onChange={v => setDocFilterPeriod(v as any)}
+                ariaLabel={t('documents.recentlyUpdated')}
+                options={[
+                  { value: 'recent', label: t('documents.recentlyUpdated') },
+                  { value: 'oldest', label: t('documents.oldestFirst') },
+                ]}
+              />
+            </div>
           </div>
 
           <div className="doc-rows">

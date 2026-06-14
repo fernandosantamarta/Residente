@@ -13,6 +13,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
 import { useT } from '@/lib/i18n'
+import { Dropdown } from '@/components/Dropdown'
 import { AttorneyNote } from '../AttorneyNote'
 import { ComplianceBackLink } from '../ComplianceBackLink'
 import {
@@ -350,32 +351,50 @@ export default function StructuralPage() {
             <div className="card-head"><div><h2>{t('admin.structural.recordAssessmentTitle')}</h2></div></div>
             <form className="admin-form" onSubmit={createAssessment}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-                <label className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldType')}</span>
-                  <select className="admin-input" value={aForm.kind} onChange={e => setAF('kind', e.target.value)}>
-                    <option value="milestone">{t('admin.structural.kindMilestone')}</option>
-                    <option value="sirs">{t('admin.structural.kindSirs')}</option>
-                    <option value="turnover">{t('admin.structural.kindTurnover')}</option>
-                  </select></label>
-                <label className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldBuilding')}</span>
-                  <select className="admin-input" value={aForm.building_id ?? ''} onChange={e => setAF('building_id', e.target.value)}>
-                    <option value="">{t('admin.structural.communityWide')}</option>
-                    {buildings.map(b => <option key={b.id} value={b.id}>{b.name || b.address || b.id.slice(0, 8)}</option>)}
-                  </select></label>
-                <label className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldStatus')}</span>
-                  <select className="admin-input" value={aForm.status ?? 'not_started'} onChange={e => setAF('status', e.target.value)}>
-                    {STATUS_OPTIONS.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
-                  </select></label>
+                <div className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldType')}</span>
+                  <Dropdown<string>
+                    value={aForm.kind}
+                    onChange={v => setAF('kind', v)}
+                    ariaLabel={t('admin.structural.fieldType')}
+                    options={[
+                      { value: 'milestone', label: t('admin.structural.kindMilestone') },
+                      { value: 'sirs', label: t('admin.structural.kindSirs') },
+                      { value: 'turnover', label: t('admin.structural.kindTurnover') },
+                    ]}
+                  /></div>
+                <div className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldBuilding')}</span>
+                  <Dropdown<string>
+                    value={aForm.building_id ?? ''}
+                    onChange={v => setAF('building_id', v)}
+                    ariaLabel={t('admin.structural.fieldBuilding')}
+                    options={[
+                      { value: '', label: t('admin.structural.communityWide') },
+                      ...buildings.map(b => ({ value: b.id, label: b.name || b.address || b.id.slice(0, 8) })),
+                    ]}
+                  /></div>
+                <div className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldStatus')}</span>
+                  <Dropdown<string>
+                    value={aForm.status ?? 'not_started'}
+                    onChange={v => setAF('status', v)}
+                    ariaLabel={t('admin.structural.fieldStatus')}
+                    options={STATUS_OPTIONS.map(s => ({ value: s, label: statusLabel(s) }))}
+                  /></div>
                 <label className="admin-field"><span className="admin-field-label">{aForm.kind === 'milestone' ? t('admin.structural.phase1DueDate') : t('admin.structural.deadline')}</span>
                   <input className="admin-input" type="date" value={aForm.due_date ?? ''} onChange={e => setAF('due_date', e.target.value)} /></label>
                 <label className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldInspectionDate')}</span>
                   <input className="admin-input" type="date" value={aForm.inspection_date ?? ''} onChange={e => setAF('inspection_date', e.target.value)} /></label>
                 <label className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldPerformerName')}</span>
                   <input className="admin-input" value={aForm.performer_name ?? ''} onChange={e => setAF('performer_name', e.target.value)} /></label>
-                <label className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldPerformerCredential')}</span>
-                  <select className="admin-input" value={aForm.performer_type ?? ''} onChange={e => setAF('performer_type', e.target.value)}>
-                    <option value="">—</option>
-                    {PERFORMER_TYPES.map(p => <option key={p} value={p}>{p}</option>)}
-                  </select></label>
+                <div className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldPerformerCredential')}</span>
+                  <Dropdown<string>
+                    value={aForm.performer_type ?? ''}
+                    onChange={v => setAF('performer_type', v)}
+                    ariaLabel={t('admin.structural.fieldPerformerCredential')}
+                    options={[
+                      { value: '', label: '—' },
+                      ...PERFORMER_TYPES.map(p => ({ value: p, label: p })),
+                    ]}
+                  /></div>
                 <label className="admin-field"><span className="admin-field-label">{t('admin.structural.fieldLicense')}</span>
                   <input className="admin-input" value={aForm.performer_license ?? ''} onChange={e => setAF('performer_license', e.target.value)} /></label>
               </div>
@@ -500,12 +519,15 @@ function AssessmentCard({
             {a.performer_name ? ` · ${a.performer_name}${a.performer_type ? ` (${a.performer_type})` : ''}` : ''}
           </div>
         </div>
-        <label className="admin-field" style={{ maxWidth: 180 }}>
+        <div className="admin-field" style={{ maxWidth: 180 }}>
           <span className="admin-field-label">{t('admin.structural.fieldStatus')}</span>
-          <select className="admin-input" value={String(a.status)} onChange={e => onUpdate(a.id, { status: e.target.value })}>
-            {STATUS_OPTIONS.map(s => <option key={s} value={s}>{statusLabel(s)}</option>)}
-          </select>
-        </label>
+          <Dropdown<string>
+            value={String(a.status)}
+            onChange={v => onUpdate(a.id, { status: v })}
+            ariaLabel={t('admin.structural.fieldStatus')}
+            options={STATUS_OPTIONS.map(s => ({ value: s, label: statusLabel(s) }))}
+          />
+        </div>
       </div>
 
       {/* Milestone lifecycle quick-fields */}
@@ -543,12 +565,18 @@ function AssessmentCard({
                     <span style={{ flex: '1 1 200px', fontSize: 13, fontWeight: 600 }}>{c.component}</span>
                     <input className="admin-input" style={{ maxWidth: 130 }} type="number" min="0" step="100" placeholder={t('admin.structural.estCostPlaceholder')}
                       defaultValue={c.estimated_cost ?? ''} onBlur={e => updateComponent(c.id, { estimated_cost: e.target.value === '' ? null : Number(e.target.value) })} />
-                    <select className="admin-input" style={{ maxWidth: 150 }} value={String(c.funding_status ?? 'not_funded')}
-                      onChange={e => updateComponent(c.id, { funding_status: e.target.value })}>
-                      <option value="not_funded">{t('admin.structural.fundingNotFunded')}</option>
-                      <option value="underfunded">{t('admin.structural.fundingUnderfunded')}</option>
-                      <option value="fully_funded">{t('admin.structural.fundingFullyFunded')}</option>
-                    </select>
+                    <div style={{ width: 150 }}>
+                      <Dropdown<string>
+                        value={String(c.funding_status ?? 'not_funded')}
+                        onChange={v => updateComponent(c.id, { funding_status: v })}
+                        ariaLabel={t('admin.structural.fundingNotFunded')}
+                        options={[
+                          { value: 'not_funded', label: t('admin.structural.fundingNotFunded') },
+                          { value: 'underfunded', label: t('admin.structural.fundingUnderfunded') },
+                          { value: 'fully_funded', label: t('admin.structural.fundingFullyFunded') },
+                        ]}
+                      />
+                    </div>
                   </div>
                 ))}
               </div>

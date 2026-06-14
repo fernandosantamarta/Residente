@@ -19,6 +19,7 @@ import {
   delinquentOwnersWithoutCase,
   type CollectionCaseRow, type CollectionStage, type DelinquentCandidate,
 } from '@/lib/compliance/collections'
+import { Dropdown } from '@/components/Dropdown'
 import { useT } from '@/lib/i18n'
 
 const withTimeout = (p: any, ms = 10000) =>
@@ -213,11 +214,16 @@ export default function CollectionsPage() {
         <div className="card-head"><div><h2>{t('admin.collections.openCaseTitle')}</h2></div></div>
         <form className="admin-form" onSubmit={create}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-            <label className="admin-field"><span className="admin-field-label">{t('admin.collections.fieldOwner')}</span>
-              <select className="admin-input" value={form.resident_id} onChange={e => setF('resident_id', e.target.value)}>
-                <option value="">{t('admin.collections.selectPlaceholder')}</option>
-                {residents.map(r => <option key={r.id} value={r.id}>{[r.full_name || t('admin.collections.ownerFallback'), r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ')}</option>)}
-              </select></label>
+            <div className="admin-field"><span className="admin-field-label">{t('admin.collections.fieldOwner')}</span>
+              <Dropdown<string>
+                value={form.resident_id}
+                onChange={v => setF('resident_id', v)}
+                ariaLabel={t('admin.collections.fieldOwner')}
+                options={[
+                  { value: '', label: t('admin.collections.selectPlaceholder') },
+                  ...residents.map(r => ({ value: r.id, label: [r.full_name || t('admin.collections.ownerFallback'), r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ') })),
+                ]}
+              /></div>
             <label className="admin-field"><span className="admin-field-label">{t('admin.collections.fieldUnitLabel')}</span>
               <input className="admin-input" value={form.unit_label ?? ''} placeholder={t('admin.collections.placeholderAutoOwner')} onChange={e => setF('unit_label', e.target.value)} /></label>
             <label className="admin-field"><span className="admin-field-label">{t('admin.collections.fieldDelinquentSince')}</span>

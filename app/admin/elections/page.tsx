@@ -26,6 +26,7 @@ import {
 import { logAudit } from '@/lib/audit'
 import { AttorneyNote } from '../AttorneyNote'
 import { ComplianceBackLink } from '../ComplianceBackLink'
+import { Dropdown } from '@/components/Dropdown'
 import { useT } from '@/lib/i18n'
 
 const withTimeout = (p: any, ms = 10000) =>
@@ -285,11 +286,16 @@ export default function ElectionsPage() {
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 12 }}>
                 <label className="admin-field"><span className="admin-field-label">{t('admin.elections.fieldDateServed')}</span>
                   <input className="admin-input" type="date" value={rForm.served_at} onChange={e => setRF('served_at', e.target.value)} required /></label>
-                <label className="admin-field"><span className="admin-field-label">{t('admin.elections.fieldMethod')}</span>
-                  <select className="admin-input" value={rForm.method} onChange={e => setRF('method', e.target.value)}>
-                    <option value="written_agreement">{t('admin.elections.methodWrittenAgreement')}</option>
-                    <option value="meeting">{t('admin.elections.methodMeeting')}</option>
-                  </select></label>
+                <div className="admin-field"><span className="admin-field-label">{t('admin.elections.fieldMethod')}</span>
+                  <Dropdown<string>
+                    value={rForm.method}
+                    onChange={v => setRF('method', v)}
+                    ariaLabel={t('admin.elections.fieldMethod')}
+                    options={[
+                      { value: 'written_agreement', label: t('admin.elections.methodWrittenAgreement') },
+                      { value: 'meeting', label: t('admin.elections.methodMeeting') },
+                    ]}
+                  /></div>
                 <label className="admin-field"><span className="admin-field-label">{t('admin.elections.fieldVotingInterests')}</span>
                   <input className="admin-input" type="number" min="1" step="1" value={rForm.voting_interests_total} onChange={e => setRF('voting_interests_total', e.target.value)} placeholder={t('admin.elections.placeholderTotal')} /></label>
                 <label className="admin-field"><span className="admin-field-label">{t('admin.elections.fieldSignatures')}</span>

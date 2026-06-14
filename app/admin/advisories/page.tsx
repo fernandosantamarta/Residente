@@ -14,6 +14,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
 import { useT } from '@/lib/i18n'
+import { Dropdown } from '@/components/Dropdown'
 import { AttorneyNote } from '../AttorneyNote'
 import { ComplianceBackLink } from '../ComplianceBackLink'
 import {
@@ -170,11 +171,16 @@ export default function AdvisoriesPage() {
             <div className="card-head"><div><h2>{t('admin.advisories.recordEventHeading')}</h2></div></div>
             <form className="admin-form" onSubmit={createEvent}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-                <label className="admin-field"><span className="admin-field-label">{t('admin.advisories.fieldEventType')}</span>
-                  <select className="admin-input" value={form.kind ?? ''} onChange={e => setF('kind', e.target.value)}>
-                    <option value="">{t('admin.advisories.selectPlaceholder')}</option>
-                    {kindOptions.map(k => <option key={k} value={k}>{kindLabel[k]}</option>)}
-                  </select></label>
+                <div className="admin-field"><span className="admin-field-label">{t('admin.advisories.fieldEventType')}</span>
+                  <Dropdown<string>
+                    value={form.kind ?? ''}
+                    onChange={v => setF('kind', v)}
+                    ariaLabel={t('admin.advisories.fieldEventType')}
+                    options={[
+                      { value: '', label: t('admin.advisories.selectPlaceholder') },
+                      ...kindOptions.map(k => ({ value: k, label: kindLabel[k] })),
+                    ]}
+                  /></div>
                 <label className="admin-field"><span className="admin-field-label">{t('admin.advisories.fieldEventDate')}</span>
                   <input className="admin-input" type="date" value={form.event_date ?? ''} onChange={e => setF('event_date', e.target.value)} /></label>
                 <label className="admin-field"><span className="admin-field-label">{t('admin.advisories.fieldNotes')}</span>
