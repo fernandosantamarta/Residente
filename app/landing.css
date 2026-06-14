@@ -119,6 +119,10 @@ body:has(.landing-screen) { min-width: 0; }
   background: transparent;
   image-rendering: -webkit-optimize-contrast;
 }
+/* Navy app-icon tile (scripts/make-brand-mark.mjs, mark in --ln-accent #E14909)
+   — shown only on the navy mobile header; desktop keeps the plain transparent
+   mark on its cream nav. */
+.ln-brand-logo-mobile { display: none; }
 .ln-foot-brand .ln-brand-logo { width: 32px; height: 32px; }
 
 .ln-nav-links {
@@ -320,33 +324,33 @@ body:has(.landing-screen) { min-width: 0; }
 
 /* Sunrise — orange-red sky (the "warmer, fierier" palette, since that
    one reads more like dawn rolling in). */
-.ln-hero-stage[data-time="sunrise"] #cm-sky stop:nth-child(1),
-.ln-hero-m-art[data-time="sunrise"] #cm-sky stop:nth-child(1) { stop-color: #FF8C5C; }
-.ln-hero-stage[data-time="sunrise"] #cm-sky stop:nth-child(2),
-.ln-hero-m-art[data-time="sunrise"] #cm-sky stop:nth-child(2) { stop-color: #FFD0A0; }
-.ln-hero-stage[data-time="sunrise"] #cm-ground stop:nth-child(1),
-.ln-hero-m-art[data-time="sunrise"] #cm-ground stop:nth-child(1) { stop-color: #A89888; }
-.ln-hero-stage[data-time="sunrise"] #cm-ground stop:nth-child(2),
-.ln-hero-m-art[data-time="sunrise"] #cm-ground stop:nth-child(2) { stop-color: #7A6C58; }
+.ln-hero-stage[data-time="sunrise"] [id^="cm-sky"] stop:nth-child(1),
+.ln-hero-m-art[data-time="sunrise"] [id^="cm-sky"] stop:nth-child(1) { stop-color: #FF8C5C; }
+.ln-hero-stage[data-time="sunrise"] [id^="cm-sky"] stop:nth-child(2),
+.ln-hero-m-art[data-time="sunrise"] [id^="cm-sky"] stop:nth-child(2) { stop-color: #FFD0A0; }
+.ln-hero-stage[data-time="sunrise"] [id^="cm-ground"] stop:nth-child(1),
+.ln-hero-m-art[data-time="sunrise"] [id^="cm-ground"] stop:nth-child(1) { stop-color: #A89888; }
+.ln-hero-stage[data-time="sunrise"] [id^="cm-ground"] stop:nth-child(2),
+.ln-hero-m-art[data-time="sunrise"] [id^="cm-ground"] stop:nth-child(2) { stop-color: #7A6C58; }
 
 /* Sunset — orange-pink sky (cooler, with a pink/coral lean). */
-.ln-hero-stage[data-time="sunset"] #cm-sky stop:nth-child(1),
-.ln-hero-m-art[data-time="sunset"] #cm-sky stop:nth-child(1) { stop-color: #FF8A75; }
-.ln-hero-stage[data-time="sunset"] #cm-sky stop:nth-child(2),
-.ln-hero-m-art[data-time="sunset"] #cm-sky stop:nth-child(2) { stop-color: #FFD0B8; }
-.ln-hero-stage[data-time="sunset"] #cm-ground stop:nth-child(1),
-.ln-hero-m-art[data-time="sunset"] #cm-ground stop:nth-child(1) { stop-color: #A89888; }
-.ln-hero-stage[data-time="sunset"] #cm-ground stop:nth-child(2),
-.ln-hero-m-art[data-time="sunset"] #cm-ground stop:nth-child(2) { stop-color: #7A6C58; }
+.ln-hero-stage[data-time="sunset"] [id^="cm-sky"] stop:nth-child(1),
+.ln-hero-m-art[data-time="sunset"] [id^="cm-sky"] stop:nth-child(1) { stop-color: #FF8A75; }
+.ln-hero-stage[data-time="sunset"] [id^="cm-sky"] stop:nth-child(2),
+.ln-hero-m-art[data-time="sunset"] [id^="cm-sky"] stop:nth-child(2) { stop-color: #FFD0B8; }
+.ln-hero-stage[data-time="sunset"] [id^="cm-ground"] stop:nth-child(1),
+.ln-hero-m-art[data-time="sunset"] [id^="cm-ground"] stop:nth-child(1) { stop-color: #A89888; }
+.ln-hero-stage[data-time="sunset"] [id^="cm-ground"] stop:nth-child(2),
+.ln-hero-m-art[data-time="sunset"] [id^="cm-ground"] stop:nth-child(2) { stop-color: #7A6C58; }
 
-.ln-hero-stage[data-time="night"] #cm-sky stop:nth-child(1),
-.ln-hero-m-art[data-time="night"] #cm-sky stop:nth-child(1) { stop-color: #0E1430; }
-.ln-hero-stage[data-time="night"] #cm-sky stop:nth-child(2),
-.ln-hero-m-art[data-time="night"] #cm-sky stop:nth-child(2) { stop-color: #2A2342; }
-.ln-hero-stage[data-time="night"] #cm-ground stop:nth-child(1),
-.ln-hero-m-art[data-time="night"] #cm-ground stop:nth-child(1) { stop-color: #36364A; }
-.ln-hero-stage[data-time="night"] #cm-ground stop:nth-child(2),
-.ln-hero-m-art[data-time="night"] #cm-ground stop:nth-child(2) { stop-color: #1F2235; }
+.ln-hero-stage[data-time="night"] [id^="cm-sky"] stop:nth-child(1),
+.ln-hero-m-art[data-time="night"] [id^="cm-sky"] stop:nth-child(1) { stop-color: #0E1430; }
+.ln-hero-stage[data-time="night"] [id^="cm-sky"] stop:nth-child(2),
+.ln-hero-m-art[data-time="night"] [id^="cm-sky"] stop:nth-child(2) { stop-color: #2A2342; }
+.ln-hero-stage[data-time="night"] [id^="cm-ground"] stop:nth-child(1),
+.ln-hero-m-art[data-time="night"] [id^="cm-ground"] stop:nth-child(1) { stop-color: #36364A; }
+.ln-hero-stage[data-time="night"] [id^="cm-ground"] stop:nth-child(2),
+.ln-hero-m-art[data-time="night"] [id^="cm-ground"] stop:nth-child(2) { stop-color: #1F2235; }
 /* Plane at night: silver fill + dark navy outline so it's still readable
    when it crosses the moon (which is also light-colored). */
 .ln-hero-stage[data-time="night"] .ln-hero-plane,
@@ -1793,6 +1797,11 @@ body:has(.landing-screen) { min-width: 0; }
     -webkit-backdrop-filter: none;
   }
   .ln-nav .ln-brand-word { color: #F4EFE8; }
+
+  /* Swap the plain mark for the navy app-icon tile on the navy mobile header. */
+  .ln-brand-logo-desk { display: none; }
+  .ln-brand-logo-mobile { display: block; border-radius: 10px; }
+
   .ln-nav .ln-nav-signin { color: rgba(244, 239, 232, 0.82); }
   .ln-nav .ln-nav-signin:hover { color: #FFFFFF; }
 

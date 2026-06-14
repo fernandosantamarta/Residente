@@ -126,7 +126,8 @@ function LandingNav() {
     <header className={`ln-nav${scrolled ? ' scrolled' : ''}`}>
       <div className="ln-nav-inner">
         <a href="#top" className="ln-brand" onClick={(e) => scrollToHash(e, '#top')}>
-          <img src="/residente-logo.png" alt="" className="ln-brand-logo" />
+          <img src="/residente-logo.png" alt="" className="ln-brand-logo ln-brand-logo-desk" />
+          <img src="/residente-mark.png" alt="" className="ln-brand-logo ln-brand-logo-mobile" />
           <span className="ln-brand-word">Residente</span>
         </a>
         <nav className="ln-nav-links">
@@ -480,7 +481,7 @@ function Hero() {
             palettes for .ln-hero-m-art live in landing.css so the sky/ground
             change with the clock and the sun↔moon stays consistent. */}
         <div className="ln-hero-m-art" data-time={mode} aria-hidden="true">
-          <CommunitySvg mode={mode} />
+          <CommunitySvg mode={mode} uid="m" />
           <SunOverlay mode={mode} />
           <PlaneOverlay />
         </div>
@@ -499,7 +500,7 @@ function Hero() {
           ref={stageRef}
         >
           <div className="ln-zoom-scene" aria-hidden="true">
-            <CommunitySvg ref={svgRef} mode={mode} />
+            <CommunitySvg ref={svgRef} mode={mode} uid="d" />
           </div>
           <div
             className="ln-zoom-interior"
@@ -661,29 +662,34 @@ function Dog({ x, y, scale = 1 }) {
 // at the dead center (1200, 750) — that's the zoom anchor. Drawn from
 // back-to-front so the foreground layers (focal house, foreground trees)
 // occlude the rest correctly.
-export const CommunitySvg = forwardRef<SVGSVGElement, { viewBox?: string; mode?: TimeOfDay }>(function CommunitySvg(
-  { viewBox = '0 0 2400 1500', mode = 'day' },
+export const CommunitySvg = forwardRef<SVGSVGElement, { viewBox?: string; mode?: TimeOfDay; uid?: string }>(function CommunitySvg(
+  { viewBox = '0 0 2400 1500', mode = 'day', uid = 'cm' },
   ref,
 ) {
   const DX = 1200  // door anchor X
   const DY = 750   // door anchor Y (also: ground level / horizon-ish)
+  // Unique id namespace per instance. The mobile (.ln-hero-m-art) and desktop
+  // (.ln-hero-stage) heroes BOTH render a CommunitySvg, so shared ids collide:
+  // the desktop rect's url(#cm-sky) would resolve to the FIRST #cm-sky — inside
+  // the display:none mobile SVG — which Chrome refuses to paint, dropping the
+  // sky to the dark stage behind it (day looked like night on desktop).
   return (
     <svg ref={ref} viewBox={viewBox} preserveAspectRatio="xMidYMid slice" role="img" aria-label="A hand-drawn sketch of a small HOA community">
       <defs>
-        <linearGradient id="cm-sky" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={`cm-sky-${uid}`} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor={SKY_TOP} />
           <stop offset="1" stopColor={SKY_BOT} />
         </linearGradient>
-        <linearGradient id="ufo-beam" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={`ufo-beam-${uid}`} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor="#5BFF8C" stopOpacity="0.85" />
           <stop offset="0.55" stopColor="#7BFFB0" stopOpacity="0.35" />
           <stop offset="1" stopColor="#A0FFCC" stopOpacity="0" />
         </linearGradient>
-        <linearGradient id="cm-ground" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={`cm-ground-${uid}`} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor={GROUND_T} />
           <stop offset="1" stopColor={GROUND_B} />
         </linearGradient>
-        <SketchFilter id="cm-sketch" />
+        <SketchFilter id={`cm-sketch-${uid}`} />
       </defs>
       {/* Filter removed from the animating hero — feTurbulence +
           feDisplacementMap on a viewBox that changes every scroll
@@ -693,8 +699,8 @@ export const CommunitySvg = forwardRef<SVGSVGElement, { viewBox?: string; mode?:
       <g>
 
       {/* Sky + ground */}
-      <rect width="2400" height={DY + 50} fill="url(#cm-sky)" />
-      <rect y={DY + 50} width="2400" height={1500 - DY - 50} fill="url(#cm-ground)" />
+      <rect width="2400" height={DY + 50} fill={`url(#cm-sky-${uid})`} />
+      <rect y={DY + 50} width="2400" height={1500 - DY - 50} fill={`url(#cm-ground-${uid})`} />
 
       {/* UFO sequence: drifts in from the far left, hovers above the focal
           house, drops a green tractor beam onto the roof, then shoots
@@ -965,7 +971,7 @@ export const CommunitySvg = forwardRef<SVGSVGElement, { viewBox?: string; mode?:
           out with that abduction (beam on roughly 36 to 60 percent of the
           24s cycle). */}
       <g className="ln-ufo-beam2" aria-hidden="true">
-        <path d={`M${DX - 30} 175 L${DX + 30} 175 L${DX + 166} 1150 L${DX - 166} 1150 Z`} fill="url(#ufo-beam)" />
+        <path d={`M${DX - 30} 175 L${DX + 30} 175 L${DX + 166} 1150 L${DX - 166} 1150 Z`} fill={`url(#ufo-beam-${uid})`} />
       </g>
       </g>
     </svg>
