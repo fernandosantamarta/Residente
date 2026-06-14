@@ -776,7 +776,7 @@ button { font-family: inherit; }
    band at the top or bottom where the login screen meets the browser chrome.
    Also lock the page so the sign-in screen doesn't scroll / rubber-band. */
 body:has(.login-screen),
-html:has(.login-screen) { background: #FFF5EE; overflow: hidden; height: 100%; }
+html:has(.login-screen) { background: #FFEADC; overflow: hidden; height: 100%; }
 
 .login-glow {
   position: absolute;
@@ -950,7 +950,9 @@ html:has(.login-screen) { background: #FFF5EE; overflow: hidden; height: 100%; }
   display: none;
   position: fixed; inset: 0;
   background: rgba(0, 0, 0, 0.6);
-  z-index: 98;
+  /* Above the topbar/bell (z-index 500 in the sketch theme) so the bell button
+     doesn't float over the open More drawer. */
+  z-index: 590;
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -975,18 +977,28 @@ html:has(.login-screen) { background: #FFF5EE; overflow: hidden; height: 100%; }
     position: fixed;
     top: 0; left: 0;
     width: 260px;
+    /* 100dvh, not 100vh: on mobile Safari 100vh is taller than the visible area
+       (it spans behind the toolbars), which pushed the Sign Out button off the
+       bottom. dvh tracks the real visible height so the footer is reachable. */
     height: 100vh;
-    z-index: 99;
+    height: 100dvh;
+    /* Above the topbar/bell (z-index 500) so the open drawer covers it instead
+       of the bell button bleeding through over the panel. */
+    z-index: 600;
     transform: translateX(-100%);
     transition: transform 0.25s ease;
-    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.4);
     /* The drawer can be taller than the screen (nav + admin + footer), so let it
        scroll — otherwise the Sign Out button at the bottom is unreachable. */
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     padding-bottom: calc(24px + env(safe-area-inset-bottom));
   }
-  .rail-left.open { transform: translateX(0); }
+  /* Shadow only while open — on the base (closed, translated off-screen left)
+     rule it bled a dark smudge onto the left edge of the page. */
+  .rail-left.open {
+    transform: translateX(0);
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.4);
+  }
 
   .hamburger { display: flex; }
 
@@ -6574,7 +6586,14 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
    suppress it so the orange card's soft glow reads cleanly. */
 [data-theme="sketch"] .login-card::before { content: none; }
 
-[data-theme="sketch"] .login-screen { background: #FFF5EE; }
+/* Warm, immersive field behind the orange card so the page doesn't read as a
+   flat cream band with a floating card (especially on mobile, between the white
+   status bar and the card). A soft peach→cream gradient ties into the card. */
+[data-theme="sketch"] .login-screen {
+  background:
+    radial-gradient(90% 60% at 50% 32%, rgba(225,73,9,0.14) 0%, transparent 60%),
+    linear-gradient(180deg, #FFEADC 0%, #FFF5EE 46%, #FCEFE6 100%);
+}
 
 [data-theme="sketch"] .login-glow {
   width: 820px; height: 820px;
@@ -9795,6 +9814,9 @@ textarea[disabled] {
 .bottom-nav { display: none; }
 
 @media (max-width: 767px) {
+  /* Full-width bottom bar — anchored edge-to-edge at the very bottom so no page
+     content shows around or behind it. Rounded top + active-tab pill keep the
+     modern look. */
   [data-theme="sketch"] .bottom-nav {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -9803,26 +9825,46 @@ textarea[disabled] {
     z-index: 95;
     background: #FFFFFF;
     border-top: 1px solid rgba(10, 36, 64, 0.07);
-    box-shadow: 0 -4px 22px -10px rgba(31, 42, 58, 0.18);
-    padding: 8px 4px;
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -6px 26px -10px rgba(31, 42, 58, 0.20);
+    padding: 8px 8px;
     padding-bottom: calc(8px + env(safe-area-inset-bottom));
   }
   [data-theme="sketch"] .bn-item {
-    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
     position: relative;
-    padding: 4px 2px;
+    padding: 8px 2px 7px;
+    border-radius: 20px;
     background: none; border: none; cursor: pointer;
-    font-family: inherit; font-size: 11px; font-weight: 600; letter-spacing: 0;
+    font-family: inherit; font-size: 10.5px; font-weight: 600; letter-spacing: 0;
     color: rgba(10, 36, 64, 0.55);
     text-decoration: none;
-    transition: color 0.15s ease;
+    transition: color 0.15s ease, background 0.15s ease;
   }
-  [data-theme="sketch"] .bn-item svg { width: 25px; height: 25px; stroke-width: 1.9; }
-  [data-theme="sketch"] .bn-item.active { color: #EB5507; }
+  [data-theme="sketch"] .bn-item svg { width: 23px; height: 23px; stroke-width: 1.9; }
+  [data-theme="sketch"] .bn-item.active {
+    color: #EB5507;
+    background: rgba(10, 36, 64, 0.06);   /* soft pill behind the active tab */
+  }
   [data-theme="sketch"] .bn-dot {
-    position: absolute; top: 1px; left: 50%; transform: translateX(9px);
+    position: absolute; top: 5px; left: 50%; transform: translateX(9px);
     width: 7px; height: 7px; border-radius: 50%;
     background: #EB5507; border: 1.5px solid #fff;
+  }
+  /* Requests count — notification badge on the icon's top-right, matching the
+     Contact tab badge (same orange + conPendingPulse halo). */
+  [data-theme="sketch"] .bn-badge {
+    position: absolute; top: 1px; left: calc(50% + 5px);
+    min-width: 16px; height: 16px; padding: 0 4px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 999px;
+    background: #E14909; color: #fff;
+    font-size: 10px; font-weight: 800; line-height: 1;
+    border: 1.5px solid #fff;
+    animation: conPendingPulse 1.6s ease-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-theme="sketch"] .bn-badge { animation: none; }
   }
 
   /* The bottom bar is the phone nav now — retire the hamburger and give the
@@ -9908,6 +9950,33 @@ textarea[disabled] {
      the row evenly instead of bunching to the left. */
   [data-theme="sketch"] .sched-tabs .seg-tabs { overflow-x: visible; padding: 4px; gap: 3px; }
   [data-theme="sketch"] .sched-tabs .seg-tab { flex: 1 1 0; min-width: 0; padding: 9px 6px; font-size: 13px; white-space: nowrap; text-align: center; }
+
+  /* Admin Easy Schedule (Calendar / Amenities) — same equal-width fit so both
+     tabs fill the row and the strip "finishes" instead of bunching/scrolling. */
+  [data-theme="sketch"] .admin-schedule-tabs .seg-tabs { overflow-x: visible; padding: 4px; gap: 3px; }
+  [data-theme="sketch"] .admin-schedule-tabs .seg-tab { flex: 1 1 0; min-width: 0; padding: 9px 6px; font-size: 13px; white-space: nowrap; text-align: center; }
+
+  /* Admin sub-tabs (Easy Track residents/vendors, Easy Voice board/meetings/
+     votes/architectural/contact, Easy Documents): keep the pill content-width and
+     CENTERED — not stretched edge-to-edge — and shrink the tabs so even Easy
+     Voice's five all sit in one row instead of scrolling off the end. */
+  [data-theme="sketch"] .seg-tabs.admin-seg-tabs {
+    display: flex;
+    width: 100%;            /* fill the page, not a cramped centered pill */
+    overflow-x: visible;
+    padding: 4px;
+    gap: 3px;
+  }
+  /* flex: 1 1 auto — size by label, then grow to share the row evenly so even
+     the five Easy Voice tabs span the full width without squishing. */
+  [data-theme="sketch"] .seg-tabs.admin-seg-tabs .seg-tab {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 8px 4px;
+    font-size: 11.5px;
+    white-space: nowrap;
+    text-align: center;
+  }
 
   /* Search + category toolbars (Reports / Documents / Rules / Vendor) keep the
      search box and the All Categories dropdown on ONE row on phones. Without
@@ -9999,7 +10068,9 @@ textarea[disabled] {
 .site-foot-bar {
   max-width: 1200px;
   margin: clamp(40px, 6vw, 56px) auto 0;
-  padding: 22px 0 28px;
+  /* Extend the navy through the bottom safe-area so the page ends navy instead
+     of showing a white strip below the footer (home indicator / installed app). */
+  padding: 22px 0 calc(28px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid rgba(244, 239, 232, 0.12);
   display: flex; justify-content: space-between; align-items: center;
   flex-wrap: wrap; gap: 8px;

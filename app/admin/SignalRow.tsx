@@ -4,6 +4,7 @@
 
 import type { ComplianceSignal, Severity } from '@/lib/compliance/rules-core'
 import { useT } from '@/lib/i18n'
+import { ClampText } from '@/components/ClampText'
 
 const SEV: Record<Severity, { color: string; bg: string }> = {
   overdue: { color: '#B42318', bg: 'rgba(180,35,24,0.08)' },
@@ -27,7 +28,7 @@ export function SignalRow({ signal: s }: { signal: ComplianceSignal }) {
         <span style={{ fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.4px', color: m.color, background: m.bg, padding: '3px 10px', borderRadius: 999, whiteSpace: 'nowrap', marginTop: 1 }}>{label}</span>
         <div style={{ minWidth: 0 }}>
           <div style={{ fontWeight: 600, fontSize: 14 }}>{s.title}</div>
-          {s.detail && <div style={{ fontSize: 12.5, color: 'var(--text-dim)', marginTop: 2 }}>{s.detail}</div>}
+          {s.detail && <ClampText text={s.detail} lines={2} className="sig-detail" />}
         </div>
       </div>
     </div>

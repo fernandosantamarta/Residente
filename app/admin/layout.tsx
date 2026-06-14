@@ -175,6 +175,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   if (hasSupabase && !session) return null
 
+  // Visible nav items (perm-filtered) — shared by the desktop tab row and the
+  // mobile section dropdown. activeNavHref drives the dropdown's current value.
+  const visibleNav = ADMIN_NAV.filter(item => !item.anyPerm || permLoading || canAny(item.anyPerm))
+  const activeNavHref = (visibleNav.find(item => navActive(pathname, item)) || visibleNav[0])?.href || '/admin'
+
   return (
     <div className="admin">
       <OperatorBanner isPlatformAdmin={isPlatformAdmin} currentCommunity={profile?.community_id ?? null} />
@@ -188,11 +193,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </div>
         {/* Mock-parity bar: a founder/platform-only "View as" team switcher, then
             Contact Residente (pill) + Back to app. Regular admins see no switcher. */}
-        <div style={{ display: 'inline-flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+        <div className="admin-top-actions" style={{ display: 'inline-flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           {/* Wait for the roles to resolve so a support operator never flashes
               the full owner switcher while their teams load. */}
           {isPlatformAdmin && !!platformRoles && (
-            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(255,255,255,0.16)', borderRadius: 999, padding: '4px 6px 4px 13px' }}>
+            <div className="admin-viewas" style={{ display: 'inline-flex', alignItems: 'center', gap: 3, background: 'rgba(255,255,255,0.16)', borderRadius: 999, padding: '4px 6px 4px 13px' }}>
               <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '1.2px', color: 'rgba(255,255,255,0.85)', marginRight: 3 }}>{t('admin.viewAs')}</span>
               {teamViews ? (
                 // Non-owner staff: only the teams they're on. One team = a
@@ -234,8 +239,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       </header>
 
       <nav className="admin-nav">
-        <Link href="/app" className="admin-nav-item admin-nav-back">{t('admin.nav.backToApp')}</Link>
-        {ADMIN_NAV.filter(item => !item.anyPerm || permLoading || canAny(item.anyPerm)).map(item => (
+        <Link href="/app" className="admin-nav-item admin-nav-back">
+          <span className="admin-back-long">{t('admin.nav.backToApp')}</span>
+          <span className="admin-back-short" aria-hidden="true">{t('admin.nav.back')}</span>
+        </Link>
+        {visibleNav.map(item => (
           <Link
             key={item.href}
             href={item.href}
@@ -250,11 +258,23 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </Link>
         ))}
         {isPlatformAdmin && (
-          <Link href="/platform" className="admin-nav-item" style={{ color: '#FF6B3D', fontWeight: 700 }}
+          <Link href="/platform" className="admin-nav-item admin-nav-platform" style={{ color: '#FF6B3D', fontWeight: 700 }}
             onClick={() => { if (typeof window !== 'undefined') window.localStorage.setItem('admin_return_to', pathname) }}>
             {t('admin.nav.platformConsole')}
           </Link>
         )}
+        {/* Mobile section picker — replaces the scrolling tab row on phones.
+            Sits at the far right; "Back" stays at the far left. */}
+        <select
+          className="admin-nav-select"
+          value={activeNavHref}
+          onChange={(e) => router.push(e.target.value)}
+          aria-label={t('admin.tag')}
+        >
+          {visibleNav.map(item => (
+            <option key={item.href} value={item.href}>{t(item.label)}</option>
+          ))}
+        </select>
         {/* Search lives in the far-right gutter, mirroring "Back to app" on the
             left, so the centered tab row stays balanced. */}
         <AdminSearch />

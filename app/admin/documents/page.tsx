@@ -922,7 +922,7 @@ export default function AdminEasyDocs() {
                               {hasSub && (
                                 <tr className="doc-subrow">
                                   <td colSpan={4}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 10, flexWrap: 'wrap' }}>
                                       {recordsApplies && (
                                         <button type="button" className="admin-btn-ghost" style={{ fontSize: 12 }}
                                           onClick={() => togglePosted(d)}>
@@ -1018,7 +1018,7 @@ function AmendmentControl({ doc, onPatch }: { doc: any; onPatch: (id: string, pa
   if (!open) {
     if (!isAmend) {
       return (
-        <button type="button" className="admin-btn-ghost" style={{ fontSize: 12, marginTop: 2 }} onClick={() => setOpen(true)}
+        <button type="button" className="admin-btn-ghost" style={{ fontSize: 12, marginTop: 12, marginRight: 0, marginBottom: 8, color: '#E14909', borderColor: 'rgba(225,73,9,0.45)', fontWeight: 600 }} onClick={() => setOpen(true)}
           title={t('admin.documents.recordedAmendmentTitle')}>
           ⚖ {t('admin.documents.recordedAmendmentBtn')}
         </button>

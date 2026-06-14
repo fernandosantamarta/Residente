@@ -186,7 +186,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
               {showAdmin && (
                 <Link
                   href="/admin"
-                  className={`nav-item nav-desktop-only${pathname.startsWith('/admin') ? ' active' : ''}`}
+                  className={`nav-item${pathname.startsWith('/admin') ? ' active' : ''}`}
                 >
                   <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 2 4 6v6c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6z"/>
@@ -203,16 +203,6 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
                   <span>Platform Console</span>
                 </Link>
               )}
-              <div className="nav-desktop-note">
-                <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
-                </svg>
-                <span>{showAdmin && isPlatformAdmin
-                  ? 'Open Admin & the Platform Console on a desktop.'
-                  : isPlatformAdmin
-                  ? 'Open the Platform Console on a desktop.'
-                  : 'Open Admin on a desktop.'}</span>
-              </div>
             </>
           )}
         </nav>
@@ -319,7 +309,11 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
         <Link href={isPreview ? '/app/voice?preview=1' : '/app/voice'} className={`bn-item${pathname.startsWith('/app/voice') ? ' active' : ''}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           <span>Requests</span>
-          {pendingReplies > 0 && <span className="bn-dot" aria-hidden="true" />}
+          {pendingReplies > 0 && (
+            <span className="bn-badge" aria-label={`${pendingReplies} new`}>
+              {pendingReplies > 9 ? '9+' : pendingReplies}
+            </span>
+          )}
         </Link>
         <Link href={isPreview ? '/app/documents?preview=1' : '/app/documents'} className={`bn-item${(pathname.startsWith('/app/documents') || pathname.startsWith('/app/rules')) ? ' active' : ''}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h12l4 4v12H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>

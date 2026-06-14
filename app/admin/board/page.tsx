@@ -513,15 +513,16 @@ export default function Board() {
                   <div className="bm-row" key={m.id}>
                     <div className="bm-row-main">
                       <div className="bm-row-name">{m.full_name}</div>
-                      <div className="bm-row-sub">
-                        {subline(m) || '—'}
-                        {canRoles && m.role_id && <> · <span style={{ color: 'var(--pink)' }}>{roleLabel(m.role_id)}</span></>}
-                      </div>
+                      {m.board_position && (
+                        <div className="bm-row-sub">
+                          <span style={{ color: 'var(--pink)', fontWeight: 600 }}>{m.board_position}</span>
+                        </div>
+                      )}
                     </div>
                     {canRoles && savedRoleFor === m.id && (
-                      <span style={{ color: '#067647', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{t('admin.board.saved')}</span>
+                      <span className="bm-saved" style={{ color: '#067647', fontSize: 12.5, fontWeight: 600, whiteSpace: 'nowrap' }}>{t('admin.board.saved')}</span>
                     )}
-                    <div style={{ width: 160, flexShrink: 0 }}>
+                    <div className="bm-row-ctrl bm-row-pos" style={{ width: 160, flexShrink: 0 }}>
                       <Dropdown<string>
                         value={m.board_position || ''}
                         onChange={v => setPosition(m.id, v || null)}
@@ -533,7 +534,7 @@ export default function Board() {
                       />
                     </div>
                     {canRoles && (
-                      <div style={{ width: 170, flexShrink: 0 }}>
+                      <div className="bm-row-ctrl bm-row-role" style={{ width: 170, flexShrink: 0 }}>
                         <Dropdown<string>
                           value={m.role_id || ''}
                           onChange={v => assignRole(m.id, v || null)}
@@ -616,7 +617,7 @@ export default function Board() {
               {roles.length > 0 && (
                 <div className="bm-list" style={{ marginTop: 18 }}>
                   {roles.map(r => (
-                    <div className="bm-row" key={r.id}>
+                    <div className="bm-row bm-role-row" key={r.id}>
                       <div className="bm-row-main">
                         <div className="bm-row-name">
                           {r.name}
@@ -633,7 +634,7 @@ export default function Board() {
                         </div>
                       </div>
                       {!r.is_admin && (
-                        <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                        <div className="bm-role-actions" style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                           <button type="button" className="admin-sched-row-del" onClick={() => startEditRole(r)}>{t('admin.board.editBtn')}</button>
                           <button type="button" className="admin-sched-row-del" onClick={() => deleteRole(r)}>{t('admin.board.deleteBtn')}</button>
                         </div>

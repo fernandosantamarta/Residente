@@ -12,6 +12,7 @@ import { useT } from '@/lib/i18n'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { sortSignals, type ComplianceSignal, type Severity } from '@/lib/compliance/rules-core'
 import { AttorneyNote } from '../AttorneyNote'
+import { ClampText } from '@/components/ClampText'
 import { communityDuesConfig } from '@/lib/dues'
 import { foundationSignals } from '@/lib/compliance/signals'
 import { estoppelSignals, type EstoppelRequestRow } from '@/lib/compliance/estoppel'
@@ -350,7 +351,7 @@ export default function CompliancePage() {
           <div className="card" style={{ marginBottom: 24 }}>
             <div className="card-head">
               <div><h2>{t('admin.compliance.needsAttentionTitle')}</h2><div className="sub">{t('admin.compliance.sortedByDeadline')}</div></div>
-              <div style={{ display: 'inline-flex', gap: 2, padding: 3, background: 'rgba(0,0,0,0.05)', borderRadius: 999 }}>
+              <div className="attn-filter" style={{ display: 'inline-flex', gap: 2, padding: 3, background: 'rgba(0,0,0,0.05)', borderRadius: 999 }}>
                 {(['all', 'overdue', 'soon'] as const).map(k => (
                   <button key={k} type="button" onClick={() => setSeg(k)}
                     style={{ border: 'none', cursor: 'pointer', borderRadius: 999, padding: '5px 13px', fontSize: 12.5, fontWeight: 700,
@@ -435,9 +436,11 @@ function SignalRow({ signal: s }: { signal: ComplianceSignal }) {
       }}>{severityLabel}</span>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 14.5, fontWeight: 600 }}>{s.title}</div>
-        <div style={{ fontSize: 12.5, opacity: 0.62, marginTop: 1 }}>
-          {s.domain}{s.citation ? ` · ${s.citation}` : ''}{s.detail ? ` · ${s.detail}` : ''}
-        </div>
+        <ClampText
+          className="sig-meta"
+          lines={2}
+          text={`${s.domain}${s.citation ? ` · ${s.citation}` : ''}${s.detail ? ` · ${s.detail}` : ''}`}
+        />
       </div>
       {s.href && <span style={{ fontSize: 13, color: meta.color, fontWeight: 700, whiteSpace: 'nowrap', marginTop: 1 }}>{t('admin.compliance.review')} →</span>}
     </div>

@@ -428,7 +428,7 @@ export default function CommunitySettings() {
 
           {/* ---- Delete community — handled by Residente, not self-serve ---- */}
           <div className="card">
-            <div className="card-head" style={{ marginBottom: 0, alignItems: 'center' }}>
+            <div className="card-head comm-delete-head" style={{ marginBottom: 0, alignItems: 'center' }}>
               <div>
                 <h2>{t('admin.community.deleteTitle')}</h2>
                 <div className="sub">
@@ -437,7 +437,7 @@ export default function CommunitySettings() {
               </div>
               <Link
                 href="/admin/support"
-                className="admin-primary-btn"
+                className="admin-primary-btn comm-delete-btn"
                 style={{ textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0, alignSelf: 'center' }}
               >
                 {t('admin.community.contactResidente')}
