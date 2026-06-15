@@ -56,6 +56,8 @@ export type AuditEventType =
   // financial reporting & reserves (compliance domain C)
   | 'financial.filing_recorded'
   | 'financial.reserve_updated'
+  | 'financial.affidavit_signed'
+  | 'financial.cpa_bundle_exported'
   // directors / certification / conflicts / CAM (compliance domain D)
   | 'governance.term_recorded'
   | 'governance.cert_recorded'

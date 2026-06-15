@@ -427,7 +427,8 @@ export default function FinancialsPage() {
                 { type: 'budget_actual', label: t('admin.financials.docBudgetActual'), live: true },
                 { type: 'rev_exp', label: t('admin.financials.docRevExp'), live: true },
                 { type: 'balance_sheet', label: t('admin.financials.docBalanceSheet'), live: true },
-                { type: 'afr', label: t('admin.financials.docAfr'), live: false },
+                { type: 'cpa_bundle', label: t('admin.accounting.cardCpaTitle'), live: true },
+                { type: 'afr', label: t('admin.financials.docAfr'), live: true },
                 { type: 'budget', label: t('admin.financials.docBudget'), live: false },
                 { type: 'reserve_worksheet', label: t('admin.financials.docReserveWorksheet'), live: false },
               ].map(d => {

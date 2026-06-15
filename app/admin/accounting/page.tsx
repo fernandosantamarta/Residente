@@ -91,8 +91,8 @@ export default function AccountingPage() {
           title={t('admin.accounting.cardLedgerTitle')} desc={t('admin.accounting.cardLedgerDesc')} />
         <Row href={demo ? undefined : '/admin/budget'} color="#7A5AF8" icon={<IconBars />}
           title={t('admin.financials.budgetRowTitle')} desc={t('admin.financials.budgetRowDesc')} />
-        <Row color="#B54708" icon={<IconExport />}
-          title={t('admin.accounting.cardCpaTitle')} desc={t('admin.accounting.cardCpaDesc')} comingSoon />
+        <Row href={demo ? undefined : '/admin/financials/document?type=cpa_bundle'} color="#B54708" icon={<IconExport />}
+          title={t('admin.accounting.cardCpaTitle')} desc={t('admin.accounting.cardCpaDesc')} />
       </div>
     </div>
   )

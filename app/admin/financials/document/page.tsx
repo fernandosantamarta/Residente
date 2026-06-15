@@ -18,6 +18,9 @@ import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/providers'
 import { useT } from '@/lib/i18n'
 import { supabase, hasSupabase } from '@/lib/supabase'
+import { usePermissions } from '@/hooks/usePermissions'
+import { logAudit } from '@/lib/audit'
+import { downloadCsv, exportFilename } from '@/lib/exportCsv'
 import { ymd } from '@/lib/compliance/rules-core'
 import {
   requiredAuditTier, estimateAnnualRevenue, AUDIT_TIER_LABEL,
@@ -30,22 +33,23 @@ const withTimeout = (p: any, ms = 10000) =>
 
 const fmt$ = (n: any) => '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US')
 
-type DocType = 'statement' | 'budget_actual' | 'balance_sheet' | 'rev_exp' | 'afr' | 'budget' | 'reserve_worksheet'
+type DocType = 'statement' | 'budget_actual' | 'balance_sheet' | 'rev_exp' | 'cpa_bundle' | 'afr' | 'budget' | 'reserve_worksheet'
 const TITLES: Record<DocType, string> = {
   statement: 'Statement of Cash Receipts & Expenditures',
   budget_actual: 'Budget vs Actual',
   balance_sheet: 'Balance Sheet',
   rev_exp: 'Statement of Revenue & Expenses',
+  cpa_bundle: 'CPA Handoff Package',
   afr: 'Annual Financial Report',
   budget: 'Proposed Budget Package',
   reserve_worksheet: 'Reserve Funding Worksheet',
 }
 const LIVE: Record<DocType, boolean> = {
-  statement: true, budget_actual: true, balance_sheet: true, rev_exp: true, afr: false, budget: false, reserve_worksheet: false,
+  statement: true, budget_actual: true, balance_sheet: true, rev_exp: true, cpa_bundle: true, afr: true, budget: false, reserve_worksheet: false,
 }
 // The two GL-sourced reports are accrual (from the general ledger); the cash
 // statement + budget-vs-actual are cash basis. Drives the banner wording.
-const GL_SOURCED: Partial<Record<DocType, boolean>> = { balance_sheet: true, rev_exp: true }
+const GL_SOURCED: Partial<Record<DocType, boolean>> = { balance_sheet: true, rev_exp: true, cpa_bundle: true }
 
 export default function FinancialDocumentPage() {
   const t = useT()
@@ -59,10 +63,17 @@ export default function FinancialDocumentPage() {
 function DocInner() {
   const t = useT()
   const { profile } = useAuth() || {}
+  const { can } = usePermissions()
+  const canManage = can('financials.manage')
   const communityId = profile?.community_id
   const search = useSearchParams()
   const type = (search?.get('type') || 'statement') as DocType
 
+  const [afrFilings, setAfrFilings] = useState<any[]>([])
+  const [signName, setSignName] = useState('')
+  const [signing, setSigning] = useState(false)
+  const [signMsg, setSignMsg] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
   const [community, setCommunity] = useState<any>(null)
   const [budgets, setBudgets] = useState<any[]>([])
   const [reserves, setReserves] = useState<any[]>([])
@@ -104,17 +115,36 @@ function DocInner() {
           const { data: tf } = (await withTimeout(supabase.from('gl_trial_balance_fy').select('*').eq('community_id', communityId))) as any
           tbFy = tf || []
         } catch { /* no ledger yet */ }
+        // Annual financial report filings (for the delivery affidavit). Best-effort.
+        let afr: any[] = []
+        try {
+          const { data: af } = (await withTimeout(supabase.from('ev_financial_filings').select('*').eq('community_id', communityId).eq('filing_type', 'annual_financial_report'))) as any
+          afr = af || []
+        } catch { /* no filings yet */ }
         if (cancelled) return
         setCommunity(c || null); setBudgets(b || []); setReserves(r || [])
         setExpenses(ex || []); setPayments(pays || []); setDuesSummary(ds)
-        setGlTB(tb); setGlTBFy(tbFy)
+        setGlTB(tb); setGlTBFy(tbFy); setAfrFilings(afr)
         setStatus('ready')
       } catch (err: any) {
         if (!cancelled) { setError(err?.message || 'Could not load'); setStatus('error') }
       }
     })()
     return () => { cancelled = true }
-  }, [communityId, type])
+  }, [communityId, type, reloadKey])
+
+  // ---- delivery affidavit (condo; FS 718.111(13)) — the one human write path ----
+  const signAffidavit = async (filingId: string) => {
+    if (!filingId || !signName.trim()) return
+    setSigning(true); setSignMsg('')
+    try {
+      const { error } = await supabase.rpc('sign_delivery_affidavit', { p_filing: filingId, p_signer_name: signName.trim() })
+      if (error) throw error
+      setSignName(''); setReloadKey(k => k + 1)
+    } catch (err: any) {
+      setSignMsg(err?.message || t('admin.financialsDocument.affidavitSignError'))
+    } finally { setSigning(false) }
+  }
 
   if (status === 'loading') return <div style={{ padding: 40 }}>{t('admin.financialsDocument.loading')}</div>
   if (status === 'error') return <div style={{ padding: 40, color: '#B42318' }}>{error}</div>
@@ -140,6 +170,29 @@ function DocInner() {
     ? Math.round(glTB.filter((r: any) => r.code === '1100' && r.fund === 'operating')
         .reduce((s: number, r: any) => s + (Number(r.balance) || 0), 0) * 100) / 100
     : null
+
+  // The annual-financial-report filing for the displayed FY (drives the affidavit).
+  const afrFiling = afrFilings
+    .filter((f: any) => Number(f.fiscal_year) === fy.year)
+    .sort((a: any, b: any) => String(b.created_at).localeCompare(String(a.created_at)))[0] || null
+
+  // CPA handoff: export the trial balance as CSV (the "mint" — audited). Aggregate
+  // by account/fund — no resident names, so it carries no owner PII.
+  const exportCpaCsv = () => {
+    downloadCsv(
+      exportFilename(`cpa-trial-balance-${String(community?.name || 'community').replace(/\s+/g, '-')}`, today),
+      [...glTB].sort((a: any, b: any) => String(a.fund).localeCompare(String(b.fund)) || String(a.code).localeCompare(String(b.code))),
+      [
+        { label: 'Fund', value: (r: any) => r.fund },
+        { label: 'Account', value: (r: any) => r.code },
+        { label: 'Name', value: (r: any) => r.name },
+        { label: 'Debit', value: (r: any) => r.debit },
+        { label: 'Credit', value: (r: any) => r.credit },
+        { label: 'Balance', value: (r: any) => r.balance },
+      ],
+    )
+    if (communityId) logAudit({ community_id: communityId, event_type: 'financial.cpa_bundle_exported', target_type: 'financial_filing', metadata: { fiscal_year: fy.year } })
+  }
 
   // Live GL revenue drives the audit tier when a ledger exists (else budget estimate).
   const revenue = estimateAnnualRevenue(community, budgets as any, liveRevenue || undefined)
@@ -380,7 +433,83 @@ function DocInner() {
           )}
           <h3 style={h3}>{t('admin.financialsDocument.officerAffidavitHeading')}</h3>
           <p style={{ fontSize: 13 }}>STATE OF FLORIDA, COUNTY OF ______________. The undersigned officer of {community?.name || 'the association'} certifies that this annual financial report was prepared consistent with {isHoa ? 'section 720.303(7)' : 'section 718.111(13)'}, Florida Statutes, was completed within 90 days after the fiscal year-end, and {isHoa ? 'will be provided to members as required' : 'will be delivered to or made available to unit owners within 21 days after written request, but not later than the statutory deadline'}.</p>
-          <Sign name={community?.association_officer_name} assoc={community?.name} />
+
+          {isHoa ? (
+            // HOAs have no statutory delivery affidavit — keep the paper signature block.
+            <Sign name={community?.association_officer_name} assoc={community?.name} />
+          ) : afrFiling?.affidavit_signed_at ? (
+            // Executed e-signature (write-once). This IS the delivery affidavit of record.
+            <div style={{ marginTop: 28, fontSize: 13, border: '1px solid #067647', background: '#ECFDF3', borderRadius: 8, padding: '12px 14px' }}>
+              <div style={{ fontWeight: 700, color: '#067647' }}>✓ {t('admin.financialsDocument.affidavitExecuted')}</div>
+              <div style={{ marginTop: 6 }}>{t('admin.financialsDocument.affidavitSignedBy', { name: afrFiling.affidavit_signer_name || '—', date: String(afrFiling.affidavit_signed_at).slice(0, 10) })}</div>
+              <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>{community?.name} · FS 718.111(13)</div>
+            </div>
+          ) : (
+            // Not yet signed — show the e-sign control (officers) or guidance.
+            <div style={{ marginTop: 24 }}>
+              {!afrFiling ? (
+                <p style={{ ...cite }}>{t('admin.financialsDocument.affidavitNoFiling')}</p>
+              ) : !afrFiling.completed_at ? (
+                <p style={{ ...cite }}>{t('admin.financialsDocument.affidavitNotCompleted')}</p>
+              ) : canManage ? (
+                <div className="no-print" style={{ border: '1px solid #d4d4d4', borderRadius: 8, padding: '12px 14px', fontFamily: 'system-ui, sans-serif' }}>
+                  <div style={{ fontSize: 12.5, color: '#555', marginBottom: 8 }}>{t('admin.financialsDocument.affidavitSignPrompt')}</div>
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                    <input value={signName} onChange={e => setSignName(e.target.value)} placeholder={t('admin.financialsDocument.affidavitNamePlaceholder')}
+                      style={{ flex: '1 1 220px', padding: '8px 10px', border: '1px solid #d4d4d4', borderRadius: 6, fontSize: 14 }} />
+                    <button onClick={() => signAffidavit(afrFiling.id)} disabled={signing || !signName.trim()}
+                      style={{ background: '#111', color: '#fff', border: 0, borderRadius: 6, padding: '9px 16px', fontWeight: 700, fontSize: 14, cursor: 'pointer', opacity: signing || !signName.trim() ? 0.6 : 1 }}>
+                      {signing ? '…' : t('admin.financialsDocument.affidavitSignButton')}
+                    </button>
+                  </div>
+                  {signMsg && <div style={{ color: '#B42318', fontSize: 12.5, marginTop: 8 }}>{signMsg}</div>}
+                </div>
+              ) : (
+                <Sign name={community?.association_officer_name} assoc={community?.name} />
+              )}
+            </div>
+          )}
+        </Body>
+      )}
+
+      {/* ---------- CPA handoff package (read-only, for an outside accountant) ---------- */}
+      {type === 'cpa_bundle' && (
+        <Body>
+          <p>{t('admin.financialsDocument.cpaIntro', { tier: AUDIT_TIER_LABEL[required] })}</p>
+          {!hasLedger ? (
+            <p style={cite}><Em>{t('admin.financialsDocument.cpaNoLedger')}</Em></p>
+          ) : (
+            <>
+              <div className="no-print" style={{ margin: '10px 0' }}>
+                <button onClick={exportCpaCsv} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '9px 16px', fontWeight: 700, fontSize: 13, cursor: 'pointer', fontFamily: 'system-ui, sans-serif' }}>
+                  {t('admin.financialsDocument.cpaExportCsv')}
+                </button>
+              </div>
+              <h3 style={h3}>{t('admin.financialsDocument.cpaTrialBalanceHeading')}</h3>
+              <table style={tbl}><thead><tr>
+                <th style={th}>{t('admin.financialsDocument.colAccount')}</th><th style={th}>{t('admin.financialsDocument.colFund')}</th><th style={thR}>{t('admin.financialsDocument.colDebit')}</th><th style={thR}>{t('admin.financialsDocument.colCredit')}</th>
+              </tr></thead><tbody>
+                {[...glTB].sort((a: any, b: any) => String(a.fund).localeCompare(String(b.fund)) || String(a.code).localeCompare(String(b.code))).map((r: any, i: number) => (
+                  <tr key={i}><td style={td}>{r.code} · {r.name}</td><td style={td}>{r.fund}</td><td style={tdR}>{fmt$(r.debit)}</td><td style={tdR}>{fmt$(r.credit)}</td></tr>
+                ))}
+                <tr>
+                  <td style={totTd}>{t('admin.financialsDocument.totalLabel')}</td><td style={totTd}></td>
+                  <td style={totTdR}>{fmt$(glTB.reduce((s: number, r: any) => s + (Number(r.debit) || 0), 0))}</td>
+                  <td style={totTdR}>{fmt$(glTB.reduce((s: number, r: any) => s + (Number(r.credit) || 0), 0))}</td>
+                </tr>
+              </tbody></table>
+
+              <h3 style={h3}>{t('admin.financialsDocument.cpaPositionHeading')}</h3>
+              <table style={tbl}><tbody>
+                <tr><td style={td}>{t('admin.financialsDocument.cpaOperatingAssets')}</td><td style={tdR}>{fmt$(bsheet.funds.find((f: any) => f.fund === 'operating')?.totalAssets || 0)}</td></tr>
+                <tr><td style={td}>{t('admin.financialsDocument.cpaReserveAssets')}</td><td style={tdR}>{fmt$(bsheet.funds.find((f: any) => f.fund === 'reserve')?.totalAssets || 0)}</td></tr>
+                <tr><td style={td}>{t('admin.financialsDocument.cpaRevenueFy', { fy: fy.label })}</td><td style={tdR}>{fmt$(revexp.totalRevenue)}</td></tr>
+                <tr><td style={td}>{t('admin.financialsDocument.cpaExpenseFy', { fy: fy.label })}</td><td style={tdR}>{fmt$(revexp.totalExpense)}</td></tr>
+                <tr><td style={totTd}>{t('admin.financialsDocument.netSurplusDeficit')}</td><td style={{ ...totTdR, color: revexp.net < 0 ? '#B42318' : '#067647' }}>{fmt$(revexp.net)}</td></tr>
+              </tbody></table>
+              <p style={cite}>{t('admin.financialsDocument.cpaFootnote')}</p>
+            </>
+          )}
         </Body>
       )}
 
