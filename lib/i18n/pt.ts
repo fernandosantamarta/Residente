@@ -3837,4 +3837,11 @@ export const pt: Record<string, string> = {
   "admin.financialsDocument.cpaRevenueFy": "Receitas ({fy}, competência)",
   "admin.financialsDocument.cpaExpenseFy": "Despesas ({fy}, competência)",
   "admin.financialsDocument.cpaFootnote": "Preparado a partir do razão geral da Residente. O CPA independente revisa/audita conforme exigido (Regra 61B-22.006(1)); os limites legais são orientativos, aguardando o advogado.",
+  "admin.financialsDocument.cpaShareTitle": "Compartilhar com o contador (CPA)",
+  "admin.financialsDocument.cpaShareSub": "Crie um link somente leitura e sem login para o seu contador. Apenas valores agregados — sem nomes de proprietários ou unidades. Com prazo limitado e revogável.",
+  "admin.financialsDocument.cpaShareCreate": "Criar link de compartilhamento",
+  "admin.financialsDocument.cpaShareCopy": "Copiar",
+  "admin.financialsDocument.cpaShareCopied": "Copiado",
+  "admin.financialsDocument.cpaShareRevoke": "Revogar",
+  "admin.financialsDocument.cpaShareExpires": "expira {date}",
 }
