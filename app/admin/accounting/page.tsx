@@ -16,7 +16,7 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useT } from '@/lib/i18n'
-import { accountingEnabled } from '@/lib/accounting'
+import { useAccountingAccess } from '@/hooks/useAccountingAccess'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -33,11 +33,12 @@ export default function AccountingPage() {
   const communityId = profile?.community_id
   const { can, loading: permLoading } = usePermissions()
   const canView = can('financials.view')
+  const { enabled: acctEnabled } = useAccountingAccess()
 
   const [snapshot, setSnapshot] = useState<{ review: number; bankLinked: boolean } | null>(null)
 
   const load = useCallback(async () => {
-    if (!accountingEnabled || !hasSupabase || !communityId || !canView) return
+    if (!acctEnabled || !hasSupabase || !communityId || !canView) return
     try {
       // Light snapshot: how many bank rows still need review + is a bank linked.
       // Tolerant — a missing table/column just leaves the snapshot blank.
@@ -50,7 +51,7 @@ export default function AccountingPage() {
       const bankLinked = ((cRes as any)?.data?.plaid_status) === 'active'
       setSnapshot({ review, bankLinked })
     } catch { /* snapshot is a nicety; never block the page */ }
-  }, [communityId, canView])
+  }, [communityId, canView, acctEnabled])
   useEffect(() => { load() }, [load])
 
   const Header = () => (
@@ -105,7 +106,7 @@ export default function AccountingPage() {
         <div className="admin-note admin-note-warn">{t('admin.accounting.permNote')}</div>
       )}
 
-      {canView && !accountingEnabled && (
+      {canView && !acctEnabled && (
         <>
           {/* Upsell — the add-on is off (rollout flag). Phase-1 statements stay free. */}
           <div className="card">
@@ -122,7 +123,7 @@ export default function AccountingPage() {
         </>
       )}
 
-      {canView && accountingEnabled && (
+      {canView && acctEnabled && (
         <>
           {/* Live snapshot chips */}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>

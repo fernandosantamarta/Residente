@@ -132,11 +132,12 @@ const PLAN_CARDS: { key: TierKey; name: string; per: number; band: string; popul
   { key: 'premium',    name: 'Premium',    per: 500,  band: '101–500 homes' },
   { key: 'enterprise', name: 'Enterprise', per: 1000, band: '500+ homes' },
 ]
-// Optional add-ons (mirrors the landing Enterprise add-ons + the edge fn ADDONS).
+// Optional add-ons — ONLY the ones actually built (each is purchasable + billed).
+// Keep in sync with ADDONS in supabase/functions/manage-subscription. API access &
+// webhooks and SSO/SAML are not built yet, so they're intentionally NOT sold here
+// (they show as "coming soon" on the landing page only).
 const ADDONS: { key: string; name: string; cents: number; blurb: string }[] = [
-  { key: 'api',        name: 'API access & webhooks',  cents: 4900, blurb: 'Build on your data; push events out.' },
-  { key: 'sso',        name: 'SSO / SAML sign-in',      cents: 9900, blurb: 'Single sign-on for your board + staff.' },
-  { key: 'accounting', name: 'Accounting integrations', cents: 4900, blurb: 'Sync dues + expenses to your books.' },
+  { key: 'accounting', name: 'Accounting & bank reconciliation', cents: 4900, blurb: 'In-app general ledger, automatic bank reconciliation & CPA-ready exports.' },
 ]
 
 function SubscriptionDialog({ currentHomes, onClose, onChanged }: {

@@ -29,13 +29,13 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') ?? '', {
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
 
-// Optional add-ons (mirrors the landing "Premium & Enterprise add-ons" line),
-// billed as flat monthly subscription items alongside the per-home plan. Keep
-// in sync with the ADDONS list in app/admin/page.tsx.
+// Optional add-ons billed as flat monthly subscription items alongside the
+// per-home plan. ONLY list add-ons that are actually built — anything here can be
+// purchased and charged. 'api' (public API & webhooks) and 'sso' (SSO/SAML) are
+// NOT built yet, so they are intentionally absent and cannot be billed. Keep in
+// sync with the ADDONS list in app/admin/billing/page.tsx.
 const ADDONS: Record<string, { name: string; cents: number }> = {
-  api:        { name: 'API access & webhooks',  cents: 4900 },
-  sso:        { name: 'SSO / SAML sign-in',      cents: 9900 },
-  accounting: { name: 'Accounting integrations', cents: 4900 },
+  accounting: { name: 'Accounting & bank reconciliation', cents: 4900 },
 }
 
 // Bands mirror lib/plan.ts + create-subscription-checkout. A plan override lets
@@ -99,6 +99,12 @@ Deno.serve(async (req) => {
           addons = sub.items.data.map((i) => i.metadata?.addon).filter((k): k is string => !!k && !!ADDONS[k])
         } catch { /* sub may be gone — treat as none */ }
       }
+      // Mirror the accounting entitlement onto the community row so the app can
+      // gate the /admin/accounting workspace cheaply. Best-effort; never blocks.
+      try {
+        const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
+        await admin.from('communities').update({ accounting_addon: addons.includes('accounting') }).eq('id', community.id)
+      } catch { /* cache refresh is best-effort */ }
       return json({
         plan: community.plan, homes, status: community.subscription_status,
         cancel_at_period_end: cancelAtPeriodEnd, current_period_end: periodEnd,
@@ -166,6 +172,7 @@ Deno.serve(async (req) => {
       const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
       const { error } = await admin.from('communities').update({
         home_count: newHomes, unit_count: newHomes, plan: band.plan, subscription_status: 'active',
+        accounting_addon: wantAddons.includes('accounting'),
       }).eq('id', community.id)
       if (error) { console.error('community update failed:', error); return json({ error: 'Plan updated in Stripe but the community record failed to save.' }, 500) }
 
