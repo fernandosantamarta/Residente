@@ -3409,6 +3409,42 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   z-index: 3;
 }
 
+/* Home loading skeleton — greyed placeholders shown while a signed-in resident's
+   real community / dues / expenses load, so the demo fallback never flashes in. */
+[data-theme="sketch"] .hsk { position: relative; z-index: 3; }
+[data-theme="sketch"] .hsk-card,
+[data-theme="sketch"] .hsk-bar {
+  border-radius: 18px;
+  background:
+    linear-gradient(100deg,
+      rgba(15, 28, 46, 0.06) 30%,
+      rgba(15, 28, 46, 0.11) 50%,
+      rgba(15, 28, 46, 0.06) 70%) #FBF8F3;
+  background-size: 220% 100%;
+  animation: hskShimmer 1.4s ease-in-out infinite;
+}
+[data-theme="sketch"] .hsk-card-tall { min-height: 320px; }
+[data-theme="sketch"] .hsk-card-xl { min-height: 360px; margin-top: 16px; }
+[data-theme="sketch"] .hsk-glance { min-height: 116px; border-radius: 14px; }
+[data-theme="sketch"] .hsk-bar-head { width: 150px; height: 16px; border-radius: 8px; margin-bottom: 16px; }
+/* Chips sit over the dark hero photo, so they need a light shimmer to read. */
+[data-theme="sketch"] .hsk-chip {
+  display: inline-block; width: 116px; height: 32px; border-radius: 999px;
+  background: linear-gradient(100deg,
+    rgba(255, 255, 255, 0.16) 30%,
+    rgba(255, 255, 255, 0.34) 50%,
+    rgba(255, 255, 255, 0.16) 70%);
+  background-size: 220% 100%;
+  animation: hskShimmer 1.4s ease-in-out infinite;
+}
+@keyframes hskShimmer {
+  0%   { background-position: 180% 0; }
+  100% { background-position: -80% 0; }
+}
+[data-reduced-motion="reduce"] [data-theme="sketch"] .hsk-card,
+[data-reduced-motion="reduce"] [data-theme="sketch"] .hsk-bar,
+[data-reduced-motion="reduce"] [data-theme="sketch"] .hsk-chip { animation: none; }
+
 /* Financial Overview card — outer white shell, inset dark navy hero block */
 /* Whole card is now dark navy (no inner hero block). */
 [data-theme="sketch"] .fin-card {
@@ -4062,6 +4098,7 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   border-radius: 999px;
   padding: 4px;
   gap: 2px;
+  margin-left: auto;
 }
 [data-theme="sketch"] .dues-tab {
   appearance: none;
@@ -8819,6 +8856,47 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 }
 [data-theme="sketch"] .ven-select:focus { outline: none; border-color: #E14909; }
 
+/* The category control in the search toolbars (Vendors / Reports / Documents /
+   Rules / Amenities) is now the <Dropdown> component (.ad-dd), whose default
+   width:100% would fill the whole flex row and squash the flex:1 search. Size it
+   to its content here so the search gets the remaining width — same as the old
+   native <select>. */
+[data-theme="sketch"] .ven-toolbar .ad-dd,
+[data-theme="sketch"] .doc-toolbar .ad-dd,
+[data-theme="sketch"] .rep-toolbar .ad-dd,
+[data-theme="sketch"] .rb-toolbar .ad-dd { flex: 0 0 auto; width: auto; }
+
+/* Desktop only: signal hover/focus/open with an orange border + glow ring while
+   KEEPING the resting cream fill — so the control clearly reads as clicked/active
+   but no translucent fill washes out the navy text. Scoped to >=641px (<=640px is
+   the phone toolbar layout). */
+@media (min-width: 641px) {
+  [data-theme="sketch"] .ven-toolbar .ven-search:hover,
+  [data-theme="sketch"] .ven-toolbar .ven-search:focus-within,
+  [data-theme="sketch"] .doc-toolbar .doc-search:hover,
+  [data-theme="sketch"] .doc-toolbar .doc-search:focus-within,
+  [data-theme="sketch"] .rep-toolbar .rep-search:hover,
+  [data-theme="sketch"] .rep-toolbar .rep-search:focus-within,
+  [data-theme="sketch"] .rb-toolbar .rb-search:hover,
+  [data-theme="sketch"] .rb-toolbar .rb-search:focus-within,
+  [data-theme="sketch"] .ven-toolbar .ad-dd-trigger:hover,
+  [data-theme="sketch"] .doc-toolbar .ad-dd-trigger:hover,
+  [data-theme="sketch"] .rep-toolbar .ad-dd-trigger:hover,
+  [data-theme="sketch"] .rb-toolbar .ad-dd-trigger:hover,
+  [data-theme="sketch"] .ven-toolbar .ad-dd.open .ad-dd-trigger,
+  [data-theme="sketch"] .doc-toolbar .ad-dd.open .ad-dd-trigger,
+  [data-theme="sketch"] .rep-toolbar .ad-dd.open .ad-dd-trigger,
+  [data-theme="sketch"] .rb-toolbar .ad-dd.open .ad-dd-trigger,
+  [data-theme="sketch"] .ven-toolbar .ad-dd-trigger:focus-visible,
+  [data-theme="sketch"] .doc-toolbar .ad-dd-trigger:focus-visible,
+  [data-theme="sketch"] .rep-toolbar .ad-dd-trigger:focus-visible,
+  [data-theme="sketch"] .rb-toolbar .ad-dd-trigger:focus-visible {
+    background-color: #FBF7F1;
+    border-color: #E14909;
+    box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.14);
+  }
+}
+
 [data-theme="sketch"] .ven-grid {
   display: grid; grid-template-columns: minmax(0, 1fr) 340px;
   gap: 22px; align-items: start;
@@ -10115,7 +10193,11 @@ textarea[disabled] {
   [data-theme="sketch"] .rep-select,
   [data-theme="sketch"] .doc-select,
   [data-theme="sketch"] .ven-select,
-  [data-theme="sketch"] .rb-select {
+  [data-theme="sketch"] .rb-select,
+  [data-theme="sketch"] .ven-toolbar .ad-dd,
+  [data-theme="sketch"] .doc-toolbar .ad-dd,
+  [data-theme="sketch"] .rep-toolbar .ad-dd,
+  [data-theme="sketch"] .rb-toolbar .ad-dd {
     flex: 0 0 160px; width: 160px; white-space: nowrap;
     overflow: hidden; text-overflow: ellipsis;
   }

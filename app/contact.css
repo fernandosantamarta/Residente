@@ -21,6 +21,11 @@
   border-radius: 16px;
   padding: 22px 22px 24px;
   box-shadow: 0 1px 2px rgba(15, 28, 46, 0.04);
+  /* min-width:0 lets the card shrink below its content's intrinsic width — without
+     it, an unbreakable token (a long attachment filename) forces the card wider
+     than the viewport and .center{overflow:hidden} clips the right edge (taking
+     the per-row unread dot with it). With it, the filename truncates instead. */
+  min-width: 0;
 }
 .con-card-title { font-size: 17px; font-weight: 700; color: #0A2440; margin: 0 0 16px; }
 
@@ -77,8 +82,17 @@
 .con-attach-row:hover { border-color: #E14909; }
 .con-attach-ic { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; color: rgba(15, 28, 46, 0.5); }
 .con-attach-ic svg { width: 18px; height: 18px; }
-.con-attach-title { display: block; font-size: 13px; font-weight: 600; color: #0A2440; }
-.con-attach-sub { display: block; font-size: 11px; color: rgba(15, 28, 46, 0.5); margin-top: 2px; }
+/* min-width:0 lets the text column shrink so a long filename truncates with an
+   ellipsis instead of pushing the row off the page. */
+.con-attach-text { min-width: 0; flex: 1; }
+.con-attach-title { display: block; font-size: 13px; font-weight: 600; color: #0A2440; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.con-attach-sub { display: block; font-size: 11px; color: rgba(15, 28, 46, 0.5); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.con-attach-del {
+  flex-shrink: 0; display: grid; place-items: center; width: 26px; height: 26px;
+  border: none; border-radius: 8px; background: rgba(15, 28, 46, 0.06); color: #0A2440;
+  font-size: 18px; line-height: 1; cursor: pointer; transition: background .12s, color .12s;
+}
+.con-attach-del:hover { background: rgba(225, 73, 9, 0.12); color: #E14909; }
 
 .con-submit {
   width: 100%; border: none; cursor: pointer;
@@ -104,7 +118,9 @@
 .con-list-card { min-width: 0; }
 .con-thead, .con-trow {
   display: grid;
-  grid-template-columns: 84px 1.6fr 1fr 112px 96px 16px;
+  /* trailing column holds the chevron + the unread "new message" dot; sized so
+     both sit together at the row end without spilling past the card. */
+  grid-template-columns: 84px 1.6fr 1fr 112px 96px 32px;
   gap: 10px; align-items: center;
 }
 .con-thead {
@@ -214,15 +230,17 @@
 }
 .con-viewall:hover { text-decoration: underline; }
 
-/* narrow screens: keep ID / Subject / Status, drop the rest */
+/* narrow screens: keep ID / Subject / Status + a slim trailing column for the
+   unread "new message" dot, so the resident can still see WHICH submission the
+   board replied to. The chevron icon itself is dropped (tapping the row expands
+   it); only the pulsing dot remains in that last column. */
 @media (max-width: 700px) {
-  .con-thead, .con-trow { grid-template-columns: 64px 1fr 104px; }
+  .con-thead, .con-trow { grid-template-columns: 64px 1fr 104px 18px; }
   .con-thead span:nth-child(3),
   .con-thead span:nth-child(5),
-  .con-thead span:nth-child(6),
   .con-trow .con-cat-cell,
   .con-trow .con-date,
-  .con-trow .con-chev { display: none; }
+  .con-trow .con-chev-ic { display: none; }
 }
 
 /* emergency banner — solid orange */

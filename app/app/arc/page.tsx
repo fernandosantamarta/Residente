@@ -11,7 +11,7 @@
 // Reuses the shared global con-* styles (the Contact form's look) for visual
 // consistency; copy is local English for now (no i18n keys added).
 
-import { ReactNode, useState, useEffect, useCallback } from 'react'
+import { ReactNode, useState, useEffect, useCallback, useRef } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import {
@@ -58,6 +58,8 @@ export default function ArcPage() {
   const [type, setType] = useState<ArcRequestType>('exterior_alteration')
   const [description, setDescription] = useState('')
   const [file, setFile] = useState<File | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const clearFile = () => { setFile(null); if (fileRef.current) fileRef.current.value = '' }
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [ok, setOk] = useState('')
@@ -133,7 +135,7 @@ export default function ArcPage() {
       )) as any
       if (error) throw error
       setRows(rs => [data as ArcRequestRow, ...rs])
-      setDescription(''); setType('exterior_alteration'); setFile(null)
+      setDescription(''); setType('exterior_alteration'); clearFile()
       setOk('Request submitted. The board will review it and notify you.')
     } catch (err: any) {
       setError(err?.message || 'Could not submit your request. Please try again.')
@@ -184,13 +186,19 @@ export default function ArcPage() {
 
             <div className="con-attach">
               <label className="con-attach-row">
-                <input type="file" hidden accept="image/*,application/pdf"
+                <input ref={fileRef} type="file" hidden accept="image/*,application/pdf"
                   onChange={e => setFile(e.target.files?.[0] || null)} />
                 <span className="con-attach-ic"><IconClip /></span>
-                <span>
+                <span className="con-attach-text">
                   <span className="con-attach-title">{file ? file.name : 'Attach a photo or model'}</span>
                   <span className="con-attach-sub">Show the board what you want to change — a photo, sketch, or rendering (image or PDF).</span>
                 </span>
+                {file && (
+                  <button type="button" className="con-attach-del" aria-label="Remove file"
+                    onClick={e => { e.preventDefault(); e.stopPropagation(); clearFile() }}>
+                    ×
+                  </button>
+                )}
               </label>
             </div>
 

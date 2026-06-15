@@ -67,10 +67,10 @@ function extractFirstName(raw: string | null | undefined): string {
 
 export default function Home() {
   const t = useT()
-  const { community, categories } = useCommunityData()
+  const { community, categories, loading: communityLoading } = useCommunityData()
   const { profile } = useAuth() || {}
-  const { balance: myBalance, status: myDues } = useMyResident()
-  const { expenses } = useExpenses()
+  const { balance: myBalance, status: myDues, loading: residentLoading } = useMyResident()
+  const { expenses, loading: expensesLoading } = useExpenses()
 
   // Real community when one is linked; otherwise the demo (marketing preview
   // for logged-out visitors). A real signed-in community NEVER sees demo
@@ -78,6 +78,17 @@ export default function Home() {
   const demo = !community
   const c = community || DEMO
   const cats = community ? categories : DEMO_CATS
+
+  // While a signed-in resident's real data is still loading, `community` is null
+  // and `demo` flips true — which would paint demo values (Sunset Lakes, sample
+  // dues/rating) for a beat before swapping to the real data. Show a skeleton
+  // for that window instead. Gated on having a community_id so the genuinely
+  // community-less / logged-out preview goes straight to the demo with no
+  // skeleton flash (those hooks start loading:true for a frame before their
+  // effect resolves to false). `profile` is already resolved here — the auth
+  // provider blocks render until it is.
+  const dataLoading =
+    !!profile?.community_id && (communityLoading || residentLoading || expensesLoading)
 
   // --- derived numbers — everything here is computed, never stored ---
   const now = new Date()
@@ -151,97 +162,141 @@ export default function Home() {
           </h1>
           <div className="hero-sub">{t('home.heroSub')}</div>
           <div className="hero-chips">
-            <span className="hero-chip">
-              <ChipIcon name="home" />
-              {t('home.heroHomes', { count: unitCount || 0 })}
-            </span>
-            <span className="hero-chip">
-              <ChipIcon name="pin" />
-              {c.location || '—'}
-            </span>
-            <span className="hero-chip hero-chip-accent">
-              <ChipIcon name="clock" />
-              {t('home.heroThroughYear', { count: expectedPctNum })}
-            </span>
+            {dataLoading ? (
+              <>
+                <span className="hsk-chip" aria-hidden="true" />
+                <span className="hsk-chip" aria-hidden="true" />
+                <span className="hsk-chip" aria-hidden="true" />
+              </>
+            ) : (
+              <>
+                <span className="hero-chip">
+                  <ChipIcon name="home" />
+                  {t('home.heroHomes', { count: unitCount || 0 })}
+                </span>
+                <span className="hero-chip">
+                  <ChipIcon name="pin" />
+                  {c.location || '—'}
+                </span>
+                <span className="hero-chip hero-chip-accent">
+                  <ChipIcon name="clock" />
+                  {t('home.heroThroughYear', { count: expectedPctNum })}
+                </span>
+              </>
+            )}
           </div>
         </div>
       </section>
 
-      {/* OPEN VOTES — sits directly on top of Financial Overview when there's
-          a vote awaiting the resident. Time-bound work deserves the first
-          slot of the day; the band disappears entirely when no votes are
-          open, so the dashboard quietly rearranges to demand attention only
-          when it should. */}
-      {/* `demo && !profile`: only a genuinely logged-out marketing visitor sees the
-          sample vote. A signed-in resident (profile set, community still loading on
-          first paint) must NOT flash the demo "Pool vendor" vote — they get their
-          real open votes, which are empty until meetings load (so no flicker). */}
-      <OpenVotesBand demo={demo && !profile} />
+      {dataLoading ? (
+        <HomeBodySkeleton />
+      ) : (
+        <>
+          {/* OPEN VOTES — sits directly on top of Financial Overview when there's
+              a vote awaiting the resident. Time-bound work deserves the first
+              slot of the day; the band disappears entirely when no votes are
+              open, so the dashboard quietly rearranges to demand attention only
+              when it should. */}
+          {/* `demo && !profile`: only a genuinely logged-out marketing visitor sees the
+              sample vote. A signed-in resident (profile set, community still loading on
+              first paint) must NOT flash the demo "Pool vendor" vote — they get their
+              real open votes, which are empty until meetings load (so no flicker). */}
+          <OpenVotesBand demo={demo && !profile} />
 
-      {/* ROW 1 — Financial Overview (with embedded trend chart) + Quick Actions */}
+          {/* ROW 1 — Financial Overview (with embedded trend chart) + Quick Actions */}
+          <section className="dash-row1">
+            <FinancialOverview
+              totalSpent={totalSpent}
+              annualBudget={annualBudget}
+              actualPctNum={actualPctNum}
+              expectedPctNum={expectedPctNum}
+              deltaPp={deltaPp}
+              overPace={overPace}
+              monthIdx={monthIdx}
+              cats={cats}
+              monthlyCumulative={hasExpenses ? expenseCum : null}
+            />
+            <QuickActions />
+          </section>
+
+          {/* ROW 2 — At a Glance + Recent Activity side-by-side */}
+          <section className="dash-row2">
+            <section className="glance-row">
+              <div className="glance-head">{t('home.atAGlance')}</div>
+              <div className="glance-cards">
+                <GlanceCard
+                  icon="home" iconTone="orange"
+                  label={t('home.glanceYourBalance')}
+                  value={myBalance != null ? fmtMoney(myBalance) : fmtMoney(monthlyDues)}
+                  captionText={myBalance != null && myBalance > 0 ? t('home.glanceDueNow') : t('home.glancePaid')}
+                  captionTone={myBalance != null && myBalance > 0 ? 'red' : 'green'}
+                />
+                <GlanceCard
+                  icon="shield" iconTone="green"
+                  label={t('home.glanceReserveBalance')}
+                  value={fmtMoney(reserveTotal)}
+                  captionText={reserveTotal > 0 ? t('home.glanceHealthy') : t('home.glanceReserveNone')}
+                  captionTone={reserveTotal > 0 ? 'green' : 'muted'}
+                />
+                <GlanceCard
+                  icon="docs" iconTone="purple"
+                  label={t('home.glanceTotalAssessments')}
+                  value={fmtMoney(annualBudget)}
+                  captionText={t('home.glanceFyBudget', { year: now.getFullYear() })} captionTone="muted"
+                />
+                <GlanceCard
+                  icon="pie" iconTone="blue"
+                  label={t('home.glanceBudgetPace')}
+                  value={`${healthPct}%`}
+                  captionText={overPace ? t('home.glanceOverPace') : t('home.glanceOnTrack')}
+                  captionTone={overPace ? 'red' : 'green'}
+                />
+              </div>
+            </section>
+
+            <RecentActivity demo={demo} />
+          </section>
+
+          <DuesSection
+            monthlyDues={monthlyDues}
+            unitCount={unitCount}
+            unitNumber={profile?.unit_number ?? null}
+            demo={demo}
+            cats={cats}
+            communityRating={communityRating}
+            personalRating={personalRating}
+          />
+        </>
+      )}
+    </>
+  )
+}
+
+// Greyed placeholder for the data-driven body while a signed-in resident's real
+// community/dues/expenses load — keeps the warm hero but avoids painting the demo
+// fallback for a beat. Mirrors the real layout (row1 / row2 / dues) so the swap
+// to real content doesn't jump much.
+function HomeBodySkeleton() {
+  return (
+    <div className="hsk" aria-hidden="true">
       <section className="dash-row1">
-        <FinancialOverview
-          totalSpent={totalSpent}
-          annualBudget={annualBudget}
-          actualPctNum={actualPctNum}
-          expectedPctNum={expectedPctNum}
-          deltaPp={deltaPp}
-          overPace={overPace}
-          monthIdx={monthIdx}
-          cats={cats}
-          monthlyCumulative={hasExpenses ? expenseCum : null}
-        />
-        <QuickActions />
+        <div className="hsk-card hsk-card-tall" />
+        <div className="hsk-card hsk-card-tall" />
       </section>
-
-      {/* ROW 2 — At a Glance + Recent Activity side-by-side */}
       <section className="dash-row2">
         <section className="glance-row">
-          <div className="glance-head">{t('home.atAGlance')}</div>
+          <div className="hsk-bar hsk-bar-head" />
           <div className="glance-cards">
-            <GlanceCard
-              icon="home" iconTone="orange"
-              label={t('home.glanceYourBalance')}
-              value={myBalance != null ? fmtMoney(myBalance) : fmtMoney(monthlyDues)}
-              captionText={myBalance != null && myBalance > 0 ? t('home.glanceDueNow') : t('home.glancePaid')}
-              captionTone={myBalance != null && myBalance > 0 ? 'red' : 'green'}
-            />
-            <GlanceCard
-              icon="shield" iconTone="green"
-              label={t('home.glanceReserveBalance')}
-              value={fmtMoney(reserveTotal)}
-              captionText={reserveTotal > 0 ? t('home.glanceHealthy') : t('home.glanceReserveNone')}
-              captionTone={reserveTotal > 0 ? 'green' : 'muted'}
-            />
-            <GlanceCard
-              icon="docs" iconTone="purple"
-              label={t('home.glanceTotalAssessments')}
-              value={fmtMoney(annualBudget)}
-              captionText={t('home.glanceFyBudget', { year: now.getFullYear() })} captionTone="muted"
-            />
-            <GlanceCard
-              icon="pie" iconTone="blue"
-              label={t('home.glanceBudgetPace')}
-              value={`${healthPct}%`}
-              captionText={overPace ? t('home.glanceOverPace') : t('home.glanceOnTrack')}
-              captionTone={overPace ? 'red' : 'green'}
-            />
+            <div className="hsk-card hsk-glance" />
+            <div className="hsk-card hsk-glance" />
+            <div className="hsk-card hsk-glance" />
+            <div className="hsk-card hsk-glance" />
           </div>
         </section>
-
-        <RecentActivity demo={demo} />
+        <div className="hsk-card hsk-card-tall" />
       </section>
-
-      <DuesSection
-        monthlyDues={monthlyDues}
-        unitCount={unitCount}
-        unitNumber={profile?.unit_number ?? null}
-        demo={demo}
-        cats={cats}
-        communityRating={communityRating}
-        personalRating={personalRating}
-      />
-    </>
+      <div className="hsk-card hsk-card-xl" />
+    </div>
   )
 }
 

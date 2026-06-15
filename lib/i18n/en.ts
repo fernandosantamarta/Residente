@@ -30,6 +30,7 @@ export const en: Record<string, string> = {
   // --- resident app (auto-merged from i18n workflow) ---
   "board.attachFile": "Attach a file",
   "board.attachSub": "Photo or PDF — JPG, PNG up to 10MB",
+  "board.removeFile": "Remove file",
   "board.boardMeetings": "Board Meetings",
   "board.boardMembers": "Board Members",
   "board.boardReplied": "The board replied",
