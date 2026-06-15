@@ -10,6 +10,7 @@ import { Dropdown } from '@/components/Dropdown'
 import { SectionScroll } from '@/components/SectionScroll'
 import { SiteFooterSlim } from '@/components/SiteFooter'
 import { useAuth } from '../providers'
+import { accountingEnabled } from '@/lib/accounting'
 import { usePlatformAdmin, usePlatformRoles } from '@/hooks/usePlatform'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useAwaitingMessages, useArcPending } from '@/hooks/useAwaitingMessages'
@@ -25,14 +26,14 @@ import { useT } from '@/lib/i18n'
 //   Easy Voice     → Meetings, Roster, Board, Contact (EasyVoiceTabs)
 //   Easy Documents → Rules, Documents, Violations (EasyDocsTabs)
 // The admin-only setup section (Community) leads.
-type AdminNavItem = { href: string; label: string; match?: string[]; exact?: boolean; anyPerm?: Permission[] }
+type AdminNavItem = { href: string; label: string; match?: string[]; exact?: boolean; anyPerm?: Permission[]; requiresAccounting?: boolean }
 // `label` holds the i18n key (rendered with t()); badge logic keys off href.
 const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin',            label: 'admin.nav.overview', exact: true },
   { href: '/admin/community',  label: 'admin.nav.community', anyPerm: ['community.manage'] },
   { href: '/admin/compliance', label: 'admin.nav.compliance', anyPerm: ['compliance.manage', 'financials.view', 'payments.view', 'violations.manage'], match: ['/admin/estoppel', '/admin/collections', '/admin/structural', '/admin/financials', '/admin/governance', '/admin/enforcement', '/admin/meetings', '/admin/elections', '/admin/insurance', '/admin/contracts', '/admin/advisories'] },
   { href: '/admin/budget',     label: 'admin.nav.budget', anyPerm: ['community.manage', 'financials.view'] },
-  { href: '/admin/accounting', label: 'admin.nav.accounting', anyPerm: ['financials.view'] },
+  { href: '/admin/accounting', label: 'admin.nav.accounting', anyPerm: ['financials.view'], requiresAccounting: true },
   { href: '/admin/reports',    label: 'admin.nav.reports', anyPerm: ['financials.view', 'payments.view'] },
   { href: '/admin/residents',  label: 'admin.nav.easyTrack', anyPerm: ['residents.view', 'residents.manage'], match: ['/admin/vendor'] },
   { href: '/admin/board',      label: 'admin.nav.easyVoice', anyPerm: ['voice.manage', 'roles.manage'], match: ['/admin/voice', '/admin/requests', '/admin/roles', '/admin/arc'] },
@@ -179,7 +180,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   // Visible nav items (perm-filtered) — shared by the desktop tab row and the
   // mobile section dropdown. activeNavHref drives the dropdown's current value.
-  const visibleNav = ADMIN_NAV.filter(item => !item.anyPerm || permLoading || canAny(item.anyPerm))
+  const visibleNav = ADMIN_NAV
+    // Flag-gated tabs (e.g. the paid Accounting workspace) stay hidden until the
+    // rollout flag is on — the page is still reachable by direct URL for preview.
+    .filter(item => !item.requiresAccounting || accountingEnabled)
+    .filter(item => !item.anyPerm || permLoading || canAny(item.anyPerm))
   const activeNavHref = (visibleNav.find(item => navActive(pathname, item)) || visibleNav[0])?.href || '/admin'
 
   return (
