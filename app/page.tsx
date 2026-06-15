@@ -1521,7 +1521,7 @@ function Pricing() {
       <div className="ln-addons">
         <div className="ln-addons-text">
           <span className="ln-addons-label">Premium &amp; Enterprise add-ons</span>
-          <span className="ln-addons-list">Accounting &amp; bank reconciliation · API, webhooks &amp; SSO/SAML <em>(coming soon)</em></span>
+          <span className="ln-addons-list">Accounting &amp; bank reconciliation <em>(available)</em> · <em>coming soon:</em> API, webhooks &amp; SSO/SAML</span>
         </div>
         <a href="mailto:hello@residente.io?subject=Residente%20add-ons" className="ln-addons-link">
           Ask us about this <span aria-hidden="true">→</span>
