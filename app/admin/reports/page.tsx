@@ -15,6 +15,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { downloadCsv, exportFilename, type CsvColumn } from '@/lib/exportCsv'
 import { residentBalance, communityDuesConfig } from '@/lib/dues'
 import { Dropdown } from '@/components/Dropdown'
+import { useT } from '@/lib/i18n'
 
 // Period presets behind the "Year to date" dropdown. Each maps to a from/to
 // range; "custom" reveals the raw date inputs so any window is still reachable.
@@ -53,6 +54,7 @@ type Expense = { id: string; amount: number; spent_on: string; category_id: stri
 type Resident = { id: string; full_name: string | null; unit_number: string | null; address: string | null; opening_balance: number | null; created_at?: string | null }
 
 export default function ReportsPage() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
 
@@ -89,8 +91,9 @@ export default function ReportsPage() {
   }
 
   const categoryOptions = useMemo(
-    () => [{ value: 'all', label: 'All categories' }, ...cats.map(c => ({ value: c.id, label: c.name }))],
-    [cats],
+    () => [{ value: 'all', label: t('admin.reports.allCategories') }, ...cats.map(c => ({ value: c.id, label: c.name }))],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [cats, t],
   )
 
   const load = useCallback(async () => {
@@ -113,7 +116,7 @@ export default function ReportsPage() {
       setPayments(pay || []); setExpenses(exp || []); setResidents(res || []); setCats(bc || []); setCommunity(com || null)
       setStatus('ready')
     } catch (err: any) {
-      setError(err?.message || 'Could not load report data'); setStatus('error')
+      setError(err?.message || t('admin.reports.errorLoadData')); setStatus('error')
     }
   }, [communityId])
   useEffect(() => { load() }, [load])
@@ -173,10 +176,10 @@ export default function ReportsPage() {
   // aging workflow lives in Compliance → Collections.
   const brackets = useMemo(() => {
     const defs = [
-      { label: 'Current', pill: 'ok' as const, hit: (b: number) => b <= 0 },
-      { label: '< $500', pill: 'warn' as const, hit: (b: number) => b > 0 && b < 500 },
-      { label: '$500–$2k', pill: 'due' as const, hit: (b: number) => b >= 500 && b < 2000 },
-      { label: '$2k+', pill: 'due' as const, hit: (b: number) => b >= 2000 },
+      { label: t('admin.reports.bracketCurrent'), pill: 'ok' as const, hit: (b: number) => b <= 0 },
+      { label: t('admin.reports.bracketLt500'), pill: 'warn' as const, hit: (b: number) => b > 0 && b < 500 },
+      { label: t('admin.reports.bracket500to2k'), pill: 'due' as const, hit: (b: number) => b >= 500 && b < 2000 },
+      { label: t('admin.reports.bracket2kPlus'), pill: 'due' as const, hit: (b: number) => b >= 2000 },
     ]
     const rows = defs.map(d => ({ ...d, count: 0, owed: 0 }))
     for (const r of residents) {
@@ -260,38 +263,37 @@ export default function ReportsPage() {
     actions: { label: string; onClick: () => void; dim?: boolean }[]
   }[] = [
     {
-      name: 'Payment ledger (dues & fines)', period: rangeLabel, count: paysInRange.length,
+      name: t('admin.reports.reportPaymentLedger'), period: rangeLabel, count: paysInRange.length,
       actions: [
-        { label: 'Export CSV', onClick: exportPayments },
-        { label: 'QuickBooks', onClick: exportPaymentsQbo, dim: true },
+        { label: t('admin.reports.exportCsvBtn'), onClick: exportPayments },
+        { label: t('admin.reports.quickbooksBtn'), onClick: exportPaymentsQbo, dim: true },
       ],
     },
     {
-      name: 'Expense ledger', period: rangeLabel, count: expInRange.length,
+      name: t('admin.reports.reportExpenseLedger'), period: rangeLabel, count: expInRange.length,
       actions: [
-        { label: 'Export CSV', onClick: exportExpenses },
-        { label: 'QuickBooks', onClick: exportExpensesQbo, dim: true },
+        { label: t('admin.reports.exportCsvBtn'), onClick: exportExpenses },
+        { label: t('admin.reports.quickbooksBtn'), onClick: exportExpensesQbo, dim: true },
       ],
     },
     {
-      name: 'Household roster', period: 'Full roster', count: residents.length,
-      actions: [{ label: 'Export CSV', onClick: exportRoster }],
+      name: t('admin.reports.reportHouseholdRoster'), period: t('admin.reports.periodFullRoster'), count: residents.length,
+      actions: [{ label: t('admin.reports.exportCsvBtn'), onClick: exportRoster }],
     },
   ]
 
   return (
     <div className="admin-page crep">
-      <div className="admin-kicker">Reporting</div>
-      <h1 className="admin-h1">Reports</h1>
+      <div className="admin-kicker">{t('admin.reports.kicker')}</div>
+      <h1 className="admin-h1">{t('admin.reports.pageTitle')}</h1>
       <p className="admin-dek">
-        Financial <span className="amp">&</span> operational reports for your board
-        and owners. Filter the period, then view or export.
+        {t('admin.reports.pageDek')}
       </p>
 
-      {status === 'none' && <div className="admin-note admin-note-warn">No community is linked to your account yet.</div>}
-      {status === 'loading' && <div className="admin-note">Loading…</div>}
+      {status === 'none' && <div className="admin-note admin-note-warn">{t('admin.reports.statusNone')}</div>}
+      {status === 'loading' && <div className="admin-note">{t('admin.reports.statusLoading')}</div>}
       {status === 'error' && (
-        <div className="admin-note admin-note-err">{error}<button type="button" className="admin-btn-ghost" onClick={load}>Retry</button></div>
+        <div className="admin-note admin-note-err">{error}<button type="button" className="admin-btn-ghost" onClick={load}>{t('admin.reports.retryBtn')}</button></div>
       )}
 
       {status === 'ready' && (
@@ -304,27 +306,27 @@ export default function ReportsPage() {
               <Dropdown value={category} onChange={setCategory} options={categoryOptions} ariaLabel="Expense category" />
               {period === 'custom' && (
                 <>
-                  <label className="admin-field"><span className="admin-field-label">From</span>
+                  <label className="admin-field"><span className="admin-field-label">{t('admin.reports.labelFrom')}</span>
                     <input className="admin-input" type="date" value={from} max={to} onChange={e => setFrom(e.target.value)} /></label>
-                  <label className="admin-field"><span className="admin-field-label">To</span>
+                  <label className="admin-field"><span className="admin-field-label">{t('admin.reports.labelTo')}</span>
                     <input className="admin-input" type="date" value={to} min={from} max={todayISO()} onChange={e => setTo(e.target.value)} /></label>
                 </>
               )}
             </div>
             <button type="button" className="admin-primary-btn" onClick={exportPayments} disabled={paysInRange.length === 0}>
-              Export CSV
+              {t('admin.reports.exportCsvBtn')}
             </button>
           </div>
 
           {/* Stat tiles. */}
           <div className="stats">
             {[
-              { v: fmt$(collected), l: 'Collected' },
-              { v: fmt$(outstanding), l: 'Outstanding', c: 'var(--due)' },
-              { v: fmt$(spent), l: 'Expenses' },
-              { v: fmt$(collected - spent), l: 'Net', c: 'var(--ok)' },
+              { v: fmt$(collected), l: t('admin.reports.statCollected'), k: 'collected' },
+              { v: fmt$(outstanding), l: t('admin.reports.statOutstanding'), k: 'outstanding', c: 'var(--due)' },
+              { v: fmt$(spent), l: t('admin.reports.statExpenses'), k: 'expenses' },
+              { v: fmt$(collected - spent), l: t('admin.reports.statNet'), k: 'net', c: 'var(--ok)' },
             ].map(s => (
-              <div key={s.l} className="stat">
+              <div key={s.k} className="stat">
                 <div className="v" style={s.c ? { color: s.c } : undefined}>{s.v}</div>
                 <div className="l">{s.l}</div>
               </div>
@@ -334,14 +336,14 @@ export default function ReportsPage() {
           {/* Available reports — the mock's table, wired to the real exporters. */}
           <div className="card">
             <div className="card-head">
-              <div><h2>Available reports</h2><div className="sub">Export to CSV or a QuickBooks-ready file</div></div>
+              <div><h2>{t('admin.reports.availableReportsTitle')}</h2><div className="sub">{t('admin.reports.availableReportsSub')}</div></div>
             </div>
             <table className="tbl">
               <thead>
                 <tr>
-                  <th>Report</th>
-                  <th className="period-col">Period</th>
-                  <th>Rows</th>
+                  <th>{t('admin.reports.colReport')}</th>
+                  <th className="period-col">{t('admin.reports.colPeriod')}</th>
+                  <th>{t('admin.reports.colRows')}</th>
                   <th className="act"></th>
                 </tr>
               </thead>
@@ -368,11 +370,11 @@ export default function ReportsPage() {
           {/* Collections snapshot — owners by balance, bucketed. */}
           <div className="card">
             <div className="card-head">
-              <div><h2>Collections snapshot</h2><div className="sub">Owners by balance, bucketed by amount</div></div>
+              <div><h2>{t('admin.reports.collectionsSnapshotTitle')}</h2><div className="sub">{t('admin.reports.collectionsSnapshotSub')}</div></div>
             </div>
             {residents.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '22px 16px', color: 'var(--text-dim)', fontSize: 13.5 }}>
-                No households in the roster yet. Import or add residents to see collections at a glance.
+                {t('admin.reports.noHouseholdsCollections')}
               </div>
             ) : brackets.map((b, i) => {
               const isLast = i === brackets.length - 1
@@ -380,11 +382,11 @@ export default function ReportsPage() {
                 <div className="lrow" key={b.label}>
                   <span className={`pill ${b.pill}`} style={{ width: 86, textAlign: 'center', flexShrink: 0, boxSizing: 'border-box' }}>{b.label}</span>
                   <div className="body">
-                    <div className="ttl">{b.count} {b.count === 1 ? 'owner' : 'owners'}</div>
-                    <div className="meta">{b.owed > 0 ? `${fmt$(b.owed)} on file` : '$0 balance'}</div>
+                    <div className="ttl">{b.count} {b.count === 1 ? t('admin.reports.ownerSingular') : t('admin.reports.ownerPlural')}</div>
+                    <div className="meta">{b.owed > 0 ? `${fmt$(b.owed)} ${t('admin.reports.onFile')}` : t('admin.reports.zeroBalance')}</div>
                   </div>
                   {isLast && b.count > 0
-                    ? <Link href="/admin/collections" className="go" style={{ textDecoration: 'none' }}>Collections &rarr;</Link>
+                    ? <Link href="/admin/collections" className="go" style={{ textDecoration: 'none' }}>{t('admin.reports.collectionsLink')}</Link>
                     : <span className="pct">{b.pct}%</span>}
                 </div>
               )
@@ -395,32 +397,32 @@ export default function ReportsPage() {
           <div className="card">
             <div className="card-head">
               <div>
-                <h2>Who&rsquo;s behind on payments</h2>
-                <div className="sub">{delinquents.length} {delinquents.length === 1 ? 'household owes' : 'households owe'} a balance · most behind first</div>
+                <h2>{t('admin.reports.behindTitle')}</h2>
+                <div className="sub">{delinquents.length === 1 ? t('admin.reports.behindSubSingular', { count: delinquents.length }) : t('admin.reports.behindSubPlural', { count: delinquents.length })}</div>
               </div>
               <button type="button" className="admin-secondary-btn" onClick={exportDelinquents} disabled={delinquents.length === 0}>
-                Export CSV
+                {t('admin.reports.exportCsvBtn')}
               </button>
             </div>
             {delinquents.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '22px 16px', color: 'var(--text-dim)', fontSize: 13.5 }}>
                 {residents.length === 0
-                  ? 'No households in the roster yet.'
-                  : 'Everyone is current — no outstanding balances. 🎉'}
+                  ? t('admin.reports.noHouseholdsRoster')
+                  : t('admin.reports.everyoneCurrent')}
               </div>
             ) : (
               <table className="tbl">
                 <thead>
-                  <tr><th>Owner</th><th className="period-col">Unit</th><th>Balance owed</th><th className="act"></th></tr>
+                  <tr><th>{t('admin.reports.colOwner')}</th><th className="period-col">{t('admin.reports.colUnit')}</th><th>{t('admin.reports.colBalanceOwed')}</th><th className="act"></th></tr>
                 </thead>
                 <tbody>
                   {delinquents.map(({ r, bal }) => (
                     <tr key={r.id}>
-                      <td className="strong">{r.full_name || 'Resident'}</td>
+                      <td className="strong">{r.full_name || t('admin.reports.residentFallback')}</td>
                       <td className="muted period-col">{r.unit_number || r.address || '—'}</td>
                       <td className="due">{fmt$(bal)}</td>
                       <td className="act">
-                        <Link href={`/admin/collections?resident=${r.id}`} className="go" style={{ textDecoration: 'none' }}>Collect →</Link>
+                        <Link href={`/admin/collections?resident=${r.id}`} className="go" style={{ textDecoration: 'none' }}>{t('admin.reports.collectLink')}</Link>
                       </td>
                     </tr>
                   ))}
@@ -430,9 +432,7 @@ export default function ReportsPage() {
           </div>
 
           <p className="note">
-            QuickBooks files use the Date / Description / Amount bank-import format
-            (expenses as negative amounts). Figures come straight from your ledgers —
-            review before filing.
+            {t('admin.reports.quickbooksNote')}
           </p>
         </>
       )}

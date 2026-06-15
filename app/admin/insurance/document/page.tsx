@@ -9,6 +9,7 @@
 import { Suspense, useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/providers'
+import { useT } from '@/lib/i18n'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd } from '@/lib/compliance/rules-core'
 import {
@@ -32,14 +33,16 @@ const TITLES: Record<DocType, string> = {
 }
 
 export default function InsuranceDocumentPage() {
+  const t = useT()
   return (
-    <Suspense fallback={<div style={{ padding: 40 }}>Loading…</div>}>
+    <Suspense fallback={<div style={{ padding: 40 }}>{t('admin.insuranceDocument.loading')}</div>}>
       <DocInner />
     </Suspense>
   )
 }
 
 function DocInner() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const search = useSearchParams()
@@ -72,7 +75,7 @@ function DocInner() {
     return () => { cancelled = true }
   }, [communityId, type])
 
-  if (status === 'loading') return <div style={{ padding: 40 }}>Loading…</div>
+  if (status === 'loading') return <div style={{ padding: 40 }}>{t('admin.insuranceDocument.loading')}</div>
   if (status === 'error') return <div style={{ padding: 40, color: '#B42318' }}>{error}</div>
 
   const today = ymd(new Date())
@@ -88,14 +91,23 @@ function DocInner() {
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: 24, fontFamily: 'Georgia, serif', color: '#111', lineHeight: 1.55 }}>
-      <style>{`@media print { .no-print { display: none !important; } body { margin: 0 } }`}</style>
+      <style>{`
+        @media print { .no-print { display: none !important; } body { margin: 0 } }
+        @media (max-width: 640px) {
+          .rp-toolbar { flex-direction: column; align-items: stretch !important; }
+          .rp-actions { margin-left: 0 !important; }
+          .rp-actions button { flex: 1 1 0; }
+        }
+      `}</style>
 
-      <div className="no-print" style={{ display: 'flex', gap: 10, justifyContent: 'space-between', marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
+      <div className="no-print rp-toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
         <div style={{ fontSize: 12, background: '#FEF3F2', color: '#B42318', padding: '8px 12px', borderRadius: 8, maxWidth: 540 }}>
-          ⚠ DRAFT — an aid, not an official filing or a policy. Confirm every figure, date, and the legal
-          language with your association attorney, insurance agent, and the controlling statute before relying on it.
+          {t('admin.insuranceDocument.draftWarning')}
         </div>
-        <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', height: 'fit-content' }}>Print / Save as PDF</button>
+        <div className="rp-actions" style={{ display: 'flex', gap: 8, flex: '0 0 auto', marginLeft: 'auto' }}>
+          <button onClick={() => history.back()} style={{ background: '#fff', color: '#111', border: '1px solid #d4d4d4', borderRadius: 8, padding: '9px 16px', fontWeight: 600, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>{t('admin.overview.back')}</button>
+          <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '9px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>{t('admin.insuranceDocument.printSaveAsPdf')}</button>
+        </div>
       </div>
 
       {/* Letterhead */}

@@ -1,6 +1,6 @@
 'use client'
 
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from 'react'
+import { ChangeEvent, FormEvent, Fragment, useEffect, useMemo, useState } from 'react'
 import {
   AmenityInput,
   AmenityKind,
@@ -13,6 +13,7 @@ import {
 } from '@/lib/amenities'
 import { Dropdown } from '@/components/Dropdown'
 import { Pagination, paginate } from '@/components/Pagination'
+import { useT } from '@/lib/i18n'
 
 const PAGE_SIZE = 8
 
@@ -67,11 +68,85 @@ function formToInput(f: FormState): AmenityInput {
   }
 }
 
+// Shared amenity form fields — rendered by both the top "Add an amenity" form
+// and the inline "Edit amenity" panel under a row, so the two share fields but
+// live in clearly separate places (add = top card, edit = inline on the row).
+function AmenityFormFields({
+  form, onField,
+}: {
+  form: FormState
+  onField: <K extends keyof FormState>(k: K, v: FormState[K]) => void
+}) {
+  const t = useT()
+  return (
+    <>
+      <label className="admin-field">
+        <span>{t('admin.scheduleAmenitiesAdmin.fieldName')}</span>
+        <input type="text" value={form.name} onChange={e => onField('name', e.target.value)} placeholder={t('admin.scheduleAmenitiesAdmin.placeholderName')} required />
+      </label>
+
+      <div className="admin-field">
+        <span>{t('admin.scheduleAmenitiesAdmin.fieldKind')}</span>
+        <Dropdown<AmenityKind>
+          value={form.kind}
+          onChange={v => onField('kind', v)}
+          options={KIND_OPTIONS}
+          ariaLabel={t('admin.scheduleAmenitiesAdmin.ariaAmenityKind')}
+        />
+      </div>
+
+      <label className="admin-field">
+        <span>{t('admin.scheduleAmenitiesAdmin.fieldLocation')} <em>({t('admin.scheduleAmenitiesAdmin.optional')})</em></span>
+        <input type="text" value={form.location} onChange={e => onField('location', e.target.value)} placeholder={t('admin.scheduleAmenitiesAdmin.placeholderLocation')} />
+      </label>
+
+      <label className="admin-field">
+        <span>{t('admin.scheduleAmenitiesAdmin.fieldHours')} <em>({t('admin.scheduleAmenitiesAdmin.optional')})</em></span>
+        <input type="text" value={form.hours} onChange={e => onField('hours', e.target.value)} placeholder={t('admin.scheduleAmenitiesAdmin.placeholderHours')} />
+      </label>
+
+      <label className="admin-field">
+        <span>{t('admin.scheduleAmenitiesAdmin.fieldCapacity')} <em>({t('admin.scheduleAmenitiesAdmin.optional')})</em></span>
+        <input type="number" min={1} value={form.capacity} onChange={e => onField('capacity', e.target.value)} placeholder={t('admin.scheduleAmenitiesAdmin.placeholderCapacity')} />
+      </label>
+
+      <label className="admin-field">
+        <span>{t('admin.scheduleAmenitiesAdmin.fieldPrice')} <em>({t('admin.scheduleAmenitiesAdmin.fieldPriceNote')})</em></span>
+        <input type="number" min={0} step="1" value={form.priceDollars} onChange={e => onField('priceDollars', e.target.value)} placeholder="0" />
+      </label>
+
+      <label className="admin-field">
+        <span>{t('admin.scheduleAmenitiesAdmin.fieldSlotLength')} <em>({t('admin.scheduleAmenitiesAdmin.minutes')})</em></span>
+        <input type="number" min={15} step="15" value={form.slotMinutes} onChange={e => onField('slotMinutes', e.target.value)} placeholder="60" />
+      </label>
+
+      <label className="admin-field admin-field-check">
+        <input type="checkbox" checked={form.bookable} onChange={e => onField('bookable', e.target.checked)} />
+        <span>{t('admin.scheduleAmenitiesAdmin.checkBookable')}</span>
+      </label>
+
+      <label className="admin-field admin-field-wide">
+        <span>{t('admin.scheduleAmenitiesAdmin.fieldDescription')} <em>({t('admin.scheduleAmenitiesAdmin.optional')})</em></span>
+        <textarea rows={2} value={form.description} onChange={e => onField('description', e.target.value)} placeholder={t('admin.scheduleAmenitiesAdmin.placeholderDescription')} />
+      </label>
+
+      <label className="admin-field admin-field-wide">
+        <span>{t('admin.scheduleAmenitiesAdmin.fieldRules')} <em>({t('admin.scheduleAmenitiesAdmin.onePerLine')})</em></span>
+        <textarea rows={3} value={form.rules} onChange={e => onField('rules', e.target.value)} placeholder={t('admin.scheduleAmenitiesAdmin.placeholderRules')} />
+      </label>
+    </>
+  )
+}
+
 export function AmenitiesAdmin() {
+  const t = useT()
   const { amenities, addAmenity, updateAmenity, removeAmenity, canUseDb } = useManageAmenities()
-  const { reservations, residents, cancel: cancelReservation, refund: refundReservation, bookFor } = useAmenityBookings()
+  const { reservations, residents, cancel: cancelReservation, refund: refundReservation, bookFor, updateReservation } = useAmenityBookings()
 
   const [form, setForm] = useState<FormState>(EMPTY)
+  // Separate state for the inline "edit amenity" panel so editing a row never
+  // touches the top "add" form (the two are distinct surfaces now).
+  const [editForm, setEditForm] = useState<FormState>(EMPTY)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState('')
   const [error, setError] = useState('')
@@ -81,6 +156,12 @@ export function AmenitiesAdmin() {
   // "Book for a resident" form.
   const [bf, setBf] = useState({ residentId: '', amenityId: '', date: todayISO(), slot: '', party: '1', note: '' })
   const [bfErr, setBfErr] = useState('')
+
+  // Inline "edit a reservation" form — opens under the reservation row.
+  const [editingResId, setEditingResId] = useState<string | null>(null)
+  const [rf, setRf] = useState({ amenityId: '', date: '', slot: '', party: '1', note: '' })
+  const [rfErr, setRfErr] = useState('')
+  const [savingRes, setSavingRes] = useState(false)
 
   const amenityName = useMemo(() => {
     const m: Record<string, string> = {}
@@ -94,7 +175,7 @@ export function AmenitiesAdmin() {
   )
 
   const submitBookFor = async () => {
-    if (!bf.residentId || !bf.amenityId || !bf.slot) { setBfErr('Pick a resident, an amenity, and a time.'); return }
+    if (!bf.residentId || !bf.amenityId || !bf.slot) { setBfErr(t('admin.scheduleAmenitiesAdmin.errPickResidentAmenityTime')); return }
     const am = amenities.find(a => a.id === bf.amenityId)
     try {
       await bookFor({
@@ -108,34 +189,69 @@ export function AmenitiesAdmin() {
       })
       setBf(prev => ({ ...prev, slot: '', note: '' }))
       setBfErr('')
-      const who = residents.find(r => r.id === bf.residentId)?.name || 'the resident'
-      setSuccessMsg(`Booked ${am?.name || 'amenity'} for ${who}.`)
+      const who = residents.find(r => r.id === bf.residentId)?.name || t('admin.scheduleAmenitiesAdmin.theResident')
+      setSuccessMsg(t('admin.scheduleAmenitiesAdmin.successBooked', { amenity: am?.name || t('admin.scheduleAmenitiesAdmin.amenity'), who }))
     } catch (e: any) {
       const dup = e?.code === '23505' || /duplicate|unique/i.test(e?.message || '')
-      setBfErr(dup ? 'That slot is already booked. Pick another time.' : (e?.message || 'Could not book that slot.'))
+      setBfErr(dup ? t('admin.scheduleAmenitiesAdmin.errSlotAlreadyBooked') : (e?.message || t('admin.scheduleAmenitiesAdmin.errCouldNotBook')))
+    }
+  }
+
+  const startEditRes = (r: typeof reservations[number]) => {
+    setEditingResId(r.id)
+    setRf({
+      amenityId: r.amenityId,
+      date:      r.reservedDate,
+      slot:      r.startTime,
+      party:     String(r.partySize || 1),
+      note:      r.note ?? '',
+    })
+    setRfErr('')
+  }
+  const cancelEditRes = () => { setEditingResId(null); setRfErr('') }
+
+  const submitEditRes = async (id: string) => {
+    if (!rf.amenityId || !rf.slot) { setRfErr(t('admin.scheduleAmenitiesAdmin.errPickAmenityTime')); return }
+    setSavingRes(true)
+    try {
+      await updateReservation(id, {
+        amenityId:    rf.amenityId,
+        reservedDate: rf.date,
+        startTime:    rf.slot,
+        partySize:    Math.max(1, Number(rf.party) || 1),
+        note:         rf.note.trim() || null,
+      })
+      setEditingResId(null)
+      setRfErr('')
+      setSuccessMsg(t('admin.scheduleAmenitiesAdmin.successResUpdated'))
+    } catch (e: any) {
+      const dup = e?.code === '23505' || /duplicate|unique/i.test(e?.message || '')
+      setRfErr(dup ? t('admin.scheduleAmenitiesAdmin.errSlotAlreadyBooked') : (e?.message || t('admin.scheduleAmenitiesAdmin.errCouldNotUpdateRes')))
+    } finally {
+      setSavingRes(false)
     }
   }
 
   const onCancelRes = async (id: string, who: string) => {
-    if (!window.confirm(`Cancel ${who}'s reservation?`)) return
+    if (!window.confirm(t('admin.scheduleAmenitiesAdmin.confirmCancelRes', { who }))) return
     try {
       await cancelReservation(id)
-      setSuccessMsg('Reservation cancelled.')
+      setSuccessMsg(t('admin.scheduleAmenitiesAdmin.successResCancelled'))
     } catch (e: any) {
-      setError(e?.message || 'Could not cancel the reservation.')
+      setError(e?.message || t('admin.scheduleAmenitiesAdmin.errCouldNotCancelRes'))
     }
   }
 
   // Board override: refund a card-paid booking regardless of the cancellation
   // window (goodwill / past-cutoff). Issues a full Stripe refund.
   const onRefundRes = async (id: string, who: string) => {
-    if (!window.confirm(`Refund ${who}'s payment in full? This cannot be undone.`)) return
+    if (!window.confirm(t('admin.scheduleAmenitiesAdmin.confirmRefund', { who }))) return
     try {
       const r = await refundReservation(id)
-      if (r.refunded) setSuccessMsg('Refund issued.')
-      else setError(r.error || 'Could not issue the refund.')
+      if (r.refunded) setSuccessMsg(t('admin.scheduleAmenitiesAdmin.successRefundIssued'))
+      else setError(r.error || t('admin.scheduleAmenitiesAdmin.errCouldNotRefund'))
     } catch (e: any) {
-      setError(e?.message || 'Could not issue the refund.')
+      setError(e?.message || t('admin.scheduleAmenitiesAdmin.errCouldNotRefund'))
     }
   }
 
@@ -150,14 +266,13 @@ export function AmenitiesAdmin() {
     [amenities],
   )
 
-  const set = (k: keyof FormState) => (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-    setForm(prev => ({ ...prev, [k]: e.target.value }))
-
+  // Edit opens an inline panel under the row (NOT the top add form) — populate
+  // the separate edit state and toggle the row open in place.
   const startEdit = (id: string) => {
     const a = amenities.find(x => x.id === id)
     if (!a) return
     setEditingId(id)
-    setForm({
+    setEditForm({
       name: a.name,
       kind: a.kind,
       description: a.description ?? '',
@@ -170,58 +285,67 @@ export function AmenitiesAdmin() {
       rules: a.rules.join('\n'),
     })
     setError('')
-    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  const cancelEdit = () => { setEditingId(null); setForm(EMPTY); setError('') }
+  const cancelEdit = () => { setEditingId(null); setEditForm(EMPTY); setError('') }
 
+  // Add — always the top form.
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!form.name.trim()) { setError('Name is required.'); return }
-    const input = formToInput(form)
+    if (!form.name.trim()) { setError(t('admin.scheduleAmenitiesAdmin.errNameRequired')); return }
     try {
-      if (editingId) {
-        await updateAmenity(editingId, input)
-        setSuccessMsg(`Saved changes to "${input.name}".`)
-      } else {
-        await addAmenity(input)
-        setSuccessMsg(`Added "${input.name}". Residents can book it now.`)
-      }
+      const input = formToInput(form)
+      await addAmenity(input)
+      setSuccessMsg(t('admin.scheduleAmenitiesAdmin.successAdded', { name: input.name }))
       setForm(EMPTY)
-      setEditingId(null)
       setError('')
     } catch (err: any) {
-      setError(err?.message || 'Could not save the amenity.')
+      setError(err?.message || t('admin.scheduleAmenitiesAdmin.errCouldNotSave'))
+    }
+  }
+
+  // Save — the inline edit panel.
+  const onUpdate = async (e: FormEvent) => {
+    e.preventDefault()
+    if (!editingId) return
+    if (!editForm.name.trim()) { setError(t('admin.scheduleAmenitiesAdmin.errNameRequired')); return }
+    try {
+      const input = formToInput(editForm)
+      await updateAmenity(editingId, input)
+      setSuccessMsg(t('admin.scheduleAmenitiesAdmin.successSavedChanges', { name: input.name }))
+      setEditingId(null)
+      setEditForm(EMPTY)
+      setError('')
+    } catch (err: any) {
+      setError(err?.message || t('admin.scheduleAmenitiesAdmin.errCouldNotSave'))
     }
   }
 
   const onRemove = async (id: string, name: string) => {
-    if (!window.confirm(`Remove "${name}"? It will stop showing for residents. Existing reservations are kept.`)) return
+    if (!window.confirm(t('admin.scheduleAmenitiesAdmin.confirmRemove', { name }))) return
     try {
       await removeAmenity(id)
       if (editingId === id) cancelEdit()
-      setSuccessMsg(`Removed "${name}".`)
+      setSuccessMsg(t('admin.scheduleAmenitiesAdmin.successRemoved', { name }))
     } catch (err: any) {
-      setError(err?.message || 'Could not remove the amenity.')
+      setError(err?.message || t('admin.scheduleAmenitiesAdmin.errCouldNotRemove'))
     }
   }
 
   return (
     <div className="admin-schedule">
       <div className="admin-h-wrap">
-        <div className="admin-kicker">Amenities</div>
-        <h1 className="admin-h1">Bookable amenities</h1>
+        <div className="admin-kicker">{t('admin.scheduleAmenitiesAdmin.kicker')}</div>
+        <h1 className="admin-h1">{t('admin.scheduleAmenitiesAdmin.pageTitle')}</h1>
         <p className="admin-dek">
-          Define the amenities residents can reserve. Each one shows on the
-          <strong> Amenities</strong> tab of their <strong>Schedule</strong>, with
-          your hours and rules. Mark something <em>not</em> bookable to show it as
-          an info-only card (no reservations).
+          {t('admin.scheduleAmenitiesAdmin.dekPart1')}
+          <strong> {t('admin.scheduleAmenitiesAdmin.dekAmenitiesWord')}</strong>{t('admin.scheduleAmenitiesAdmin.dekPart2')}<strong>{t('admin.scheduleAmenitiesAdmin.dekScheduleWord')}</strong>{t('admin.scheduleAmenitiesAdmin.dekPart3')}<em>{t('admin.scheduleAmenitiesAdmin.dekNotWord')}</em>{t('admin.scheduleAmenitiesAdmin.dekPart4')}
         </p>
       </div>
 
       {!canUseDb && (
         <div className="admin-note admin-note-err">
-          Connect to your community to manage amenities. (No Supabase session detected.)
+          {t('admin.scheduleAmenitiesAdmin.noDbNote')}
         </div>
       )}
       {error && <div className="admin-note admin-note-err">{error}</div>}
@@ -232,77 +356,16 @@ export function AmenitiesAdmin() {
         </div>
       )}
 
-      {/* ---------- ADD / EDIT ---------- */}
+      {/* ---------- ADD ---------- */}
       <section className="admin-sched-card">
         <div className="admin-sched-card-head">
-          <h2>{editingId ? 'Edit amenity' : 'Add an amenity'}</h2>
-          <span className="admin-sched-card-sub">
-            {editingId ? 'Update the details below.' : 'It appears for residents as soon as you save.'}
-          </span>
+          <h2>{t('admin.scheduleAmenitiesAdmin.addAmenityTitle')}</h2>
+          <span className="admin-sched-card-sub">{t('admin.scheduleAmenitiesAdmin.addAmenitySub')}</span>
         </div>
         <form className="admin-sched-form" onSubmit={onSubmit}>
-          <label className="admin-field">
-            <span>Name</span>
-            <input type="text" value={form.name} onChange={set('name')} placeholder="e.g. Clubhouse, Resort Pool" required />
-          </label>
-
-          <div className="admin-field">
-            <span>Kind</span>
-            <Dropdown<AmenityKind>
-              value={form.kind}
-              onChange={v => setForm(prev => ({ ...prev, kind: v }))}
-              options={KIND_OPTIONS}
-              ariaLabel="Amenity kind"
-            />
-          </div>
-
-          <label className="admin-field">
-            <span>Location <em>(optional)</em></span>
-            <input type="text" value={form.location} onChange={set('location')} placeholder="e.g. Main building, Center courtyard" />
-          </label>
-
-          <label className="admin-field">
-            <span>Hours <em>(optional)</em></span>
-            <input type="text" value={form.hours} onChange={set('hours')} placeholder="e.g. Daily 8am–10pm" />
-          </label>
-
-          <label className="admin-field">
-            <span>Capacity <em>(optional)</em></span>
-            <input type="number" min={1} value={form.capacity} onChange={set('capacity')} placeholder="Max party size" />
-          </label>
-
-          <label className="admin-field">
-            <span>Price per booking <em>(USD, blank = free)</em></span>
-            <input type="number" min={0} step="1" value={form.priceDollars} onChange={set('priceDollars')} placeholder="0" />
-          </label>
-
-          <label className="admin-field">
-            <span>Slot length <em>(minutes)</em></span>
-            <input type="number" min={15} step="15" value={form.slotMinutes} onChange={set('slotMinutes')} placeholder="60" />
-          </label>
-
-          <label className="admin-field admin-field-check">
-            <input type="checkbox" checked={form.bookable} onChange={e => setForm(prev => ({ ...prev, bookable: e.target.checked }))} />
-            <span>Residents can reserve this (uncheck for an info-only card)</span>
-          </label>
-
-          <label className="admin-field admin-field-wide">
-            <span>Description <em>(optional)</em></span>
-            <textarea rows={2} value={form.description} onChange={set('description')} placeholder="A short line shown in the booking popup." />
-          </label>
-
-          <label className="admin-field admin-field-wide">
-            <span>Rules <em>(one per line)</em></span>
-            <textarea rows={3} value={form.rules} onChange={set('rules')} placeholder={'Reserve 48 hours ahead\nNo glass containers\nClean up after your event'} />
-          </label>
-
-          <div className="admin-sched-form-foot" style={{ display: 'flex', gap: 10 }}>
-            <button type="submit" className="admin-primary-btn">
-              {editingId ? 'Save changes' : 'Add amenity'}
-            </button>
-            {editingId && (
-              <button type="button" className="admin-btn-ghost" onClick={cancelEdit}>Cancel</button>
-            )}
+          <AmenityFormFields form={form} onField={(k, v) => setForm(prev => ({ ...prev, [k]: v }))} />
+          <div className="admin-sched-form-foot">
+            <button type="submit" className="admin-primary-btn">{t('admin.scheduleAmenitiesAdmin.btnAddAmenity')}</button>
           </div>
         </form>
       </section>
@@ -310,16 +373,17 @@ export function AmenitiesAdmin() {
       {/* ---------- LIST ---------- */}
       <section className="admin-sched-card">
         <div className="admin-sched-card-head">
-          <h2>Your amenities</h2>
-          <span className="admin-sched-card-sub">{amenities.length} total</span>
+          <h2>{t('admin.scheduleAmenitiesAdmin.yourAmenitiesTitle')}</h2>
+          <span className="admin-sched-card-sub">{t('admin.scheduleAmenitiesAdmin.totalCount', { count: amenities.length })}</span>
         </div>
         {amenities.length === 0 ? (
-          <div className="admin-sched-empty">No amenities yet. Add one above.</div>
+          <div className="admin-sched-empty">{t('admin.scheduleAmenitiesAdmin.emptyAmenities')}</div>
         ) : (
           <>
             <div className="admin-sched-list">
               {paginate(sorted, page, PAGE_SIZE).map(a => (
-                <div key={a.id} className="admin-sched-row">
+                <Fragment key={a.id}>
+                <div className={`admin-sched-row${editingId === a.id ? ' editing' : ''}`}>
                   <span className={`amen-res-dot kind-${a.kind}`} aria-hidden="true" />
                   <div className="admin-sched-row-body">
                     <div className="admin-sched-row-title">{a.name}</div>
@@ -327,16 +391,30 @@ export function AmenitiesAdmin() {
                       {KIND_LABEL[a.kind]}
                       {a.location && <> · {a.location}</>}
                       {a.hours && <> · {a.hours}</>}
-                      {a.capacity && <> · up to {a.capacity}</>}
+                      {a.capacity && <> · {t('admin.scheduleAmenitiesAdmin.upTo', { count: a.capacity })}</>}
                       {' · '}{priceLabel(a.priceCents)}
-                      {!a.bookable && <> · info only</>}
+                      {!a.bookable && <> · {t('admin.scheduleAmenitiesAdmin.infoOnly')}</>}
                     </div>
                   </div>
                   <div className="admin-amen-row-actions">
-                    <button className="admin-sched-row-del" onClick={() => startEdit(a.id)} aria-label={`Edit ${a.name}`}>Edit</button>
-                    <button className="admin-sched-row-del" onClick={() => onRemove(a.id, a.name)} aria-label={`Remove ${a.name}`}>Remove</button>
+                    <button className="admin-sched-row-edit" onClick={() => (editingId === a.id ? cancelEdit() : startEdit(a.id))} aria-label={t('admin.scheduleAmenitiesAdmin.ariaEditAmenity', { name: a.name })}>{editingId === a.id ? t('admin.scheduleAmenitiesAdmin.btnClose') : t('admin.scheduleAmenitiesAdmin.btnEdit')}</button>
+                    <button className="admin-sched-row-del" onClick={() => onRemove(a.id, a.name)} aria-label={t('admin.scheduleAmenitiesAdmin.ariaRemoveAmenity', { name: a.name })}>{t('admin.scheduleAmenitiesAdmin.btnRemove')}</button>
                   </div>
                 </div>
+
+                {editingId === a.id && (
+                  <div className="admin-amen-edit">
+                    <div className="admin-amen-edit-head">{t('admin.scheduleAmenitiesAdmin.editAmenityTitle')}</div>
+                    <form className="admin-sched-form" onSubmit={onUpdate}>
+                      <AmenityFormFields form={editForm} onField={(k, v) => setEditForm(prev => ({ ...prev, [k]: v }))} />
+                      <div className="admin-sched-form-foot" style={{ display: 'flex', gap: 10 }}>
+                        <button type="submit" className="admin-primary-btn">{t('admin.scheduleAmenitiesAdmin.btnSaveChanges')}</button>
+                        <button type="button" className="admin-btn-ghost" onClick={cancelEdit}>{t('admin.scheduleAmenitiesAdmin.btnCancel')}</button>
+                      </div>
+                    </form>
+                  </div>
+                )}
+                </Fragment>
               ))}
             </div>
             <Pagination page={page} pageSize={PAGE_SIZE} total={sorted.length} onPageChange={setPage} />
@@ -347,55 +425,55 @@ export function AmenitiesAdmin() {
       {/* ---------- BOOK FOR A RESIDENT ---------- */}
       <section className="admin-sched-card">
         <div className="admin-sched-card-head">
-          <h2>Book for a resident</h2>
-          <span className="admin-sched-card-sub">Front-desk or phone request — reserve a slot on their behalf.</span>
+          <h2>{t('admin.scheduleAmenitiesAdmin.bookForResidentTitle')}</h2>
+          <span className="admin-sched-card-sub">{t('admin.scheduleAmenitiesAdmin.bookForResidentSub')}</span>
         </div>
         {bookableAmenities.length === 0 ? (
-          <div className="admin-sched-empty">Add a bookable amenity above first.</div>
+          <div className="admin-sched-empty">{t('admin.scheduleAmenitiesAdmin.emptyBookable')}</div>
         ) : (
           <div className="admin-sched-form">
             <div className="admin-field">
-              <span>Resident</span>
+              <span>{t('admin.scheduleAmenitiesAdmin.fieldResident')}</span>
               <Dropdown<string>
                 value={bf.residentId}
                 onChange={v => setBf(prev => ({ ...prev, residentId: v }))}
-                ariaLabel="Resident"
-                options={[{ value: '', label: 'Select a resident…' }, ...residents.map(r => ({ value: r.id, label: r.name }))]}
+                ariaLabel={t('admin.scheduleAmenitiesAdmin.fieldResident')}
+                options={[{ value: '', label: t('admin.scheduleAmenitiesAdmin.selectResident') }, ...residents.map(r => ({ value: r.id, label: r.name }))]}
               />
             </div>
             <div className="admin-field">
-              <span>Amenity</span>
+              <span>{t('admin.scheduleAmenitiesAdmin.fieldAmenity')}</span>
               <Dropdown<string>
                 value={bf.amenityId}
                 onChange={v => setBf(prev => ({ ...prev, amenityId: v }))}
-                ariaLabel="Amenity"
-                options={[{ value: '', label: 'Select an amenity…' }, ...bookableAmenities.map(a => ({ value: a.id, label: a.name }))]}
+                ariaLabel={t('admin.scheduleAmenitiesAdmin.fieldAmenity')}
+                options={[{ value: '', label: t('admin.scheduleAmenitiesAdmin.selectAmenity') }, ...bookableAmenities.map(a => ({ value: a.id, label: a.name }))]}
               />
             </div>
             <label className="admin-field">
-              <span>Date</span>
+              <span>{t('admin.scheduleAmenitiesAdmin.fieldDate')}</span>
               <input type="date" min={todayISO()} value={bf.date} onChange={e => setBf(prev => ({ ...prev, date: e.target.value }))} />
             </label>
             <div className="admin-field">
-              <span>Time</span>
+              <span>{t('admin.scheduleAmenitiesAdmin.fieldTime')}</span>
               <Dropdown<string>
                 value={bf.slot}
                 onChange={v => setBf(prev => ({ ...prev, slot: v }))}
-                ariaLabel="Time"
-                options={[{ value: '', label: 'Select a time…' }, ...TIME_SLOTS.map(t => ({ value: t, label: fmtSlot(t) }))]}
+                ariaLabel={t('admin.scheduleAmenitiesAdmin.fieldTime')}
+                options={[{ value: '', label: t('admin.scheduleAmenitiesAdmin.selectTime') }, ...TIME_SLOTS.map(ts => ({ value: ts, label: fmtSlot(ts) }))]}
               />
             </div>
             <label className="admin-field">
-              <span>Party size</span>
+              <span>{t('admin.scheduleAmenitiesAdmin.fieldPartySize')}</span>
               <input type="number" min={1} value={bf.party} onChange={e => setBf(prev => ({ ...prev, party: e.target.value }))} />
             </label>
             <label className="admin-field">
-              <span>Note <em>(optional)</em></span>
-              <input type="text" value={bf.note} onChange={e => setBf(prev => ({ ...prev, note: e.target.value }))} placeholder="e.g. Birthday party" />
+              <span>{t('admin.scheduleAmenitiesAdmin.fieldNote')} <em>({t('admin.scheduleAmenitiesAdmin.optional')})</em></span>
+              <input type="text" value={bf.note} onChange={e => setBf(prev => ({ ...prev, note: e.target.value }))} placeholder={t('admin.scheduleAmenitiesAdmin.placeholderNote')} />
             </label>
             {bfErr && <div className="admin-field-wide"><div className="admin-note admin-note-err">{bfErr}</div></div>}
             <div className="admin-sched-form-foot">
-              <button type="button" className="admin-primary-btn" onClick={submitBookFor}>Book reservation</button>
+              <button type="button" className="admin-primary-btn" onClick={submitBookFor}>{t('admin.scheduleAmenitiesAdmin.btnBookReservation')}</button>
             </div>
           </div>
         )}
@@ -404,49 +482,103 @@ export function AmenitiesAdmin() {
       {/* ---------- UPCOMING RESERVATIONS ---------- */}
       <section className="admin-sched-card">
         <div className="admin-sched-card-head">
-          <h2>Reservations</h2>
-          <span className="admin-sched-card-sub">{reservations.length} active — who&rsquo;s booked what.</span>
+          <h2>{t('admin.scheduleAmenitiesAdmin.reservationsTitle')}</h2>
+          <span className="admin-sched-card-sub">{t('admin.scheduleAmenitiesAdmin.reservationsSub', { count: reservations.length })}</span>
         </div>
         {reservations.length === 0 ? (
-          <div className="admin-sched-empty">No reservations yet.</div>
+          <div className="admin-sched-empty">{t('admin.scheduleAmenitiesAdmin.emptyReservations')}</div>
         ) : (
           <>
             <div className="admin-sched-list">
               {paginate(sortedReservations, resPage, PAGE_SIZE).map(r => (
-                <div key={r.id} className="admin-sched-row">
+                <Fragment key={r.id}>
+                <div className={`admin-sched-row${editingResId === r.id ? ' editing' : ''}`}>
                   <div className="admin-sched-row-body">
                     <div className="admin-sched-row-title">
-                      {r.residentName} · {amenityName[r.amenityId] || 'Amenity'}
-                      {r.paymentStatus === 'paid' && r.refundStatus === 'none' && <span className="amen-pay-tag paid">Paid</span>}
-                      {r.paymentStatus === 'pending' && <span className="amen-pay-tag pending">Payment pending</span>}
-                      {r.refundStatus === 'refunded' && <span className="amen-pay-tag refunded">Refunded</span>}
-                      {r.refundStatus === 'failed' && <span className="amen-pay-tag failed">Refund failed</span>}
+                      {r.residentName}
+                      {r.paymentStatus === 'paid' && r.refundStatus === 'none' && <span className="amen-pay-tag paid">{t('admin.scheduleAmenitiesAdmin.tagPaid')}</span>}
+                      {r.paymentStatus === 'pending' && <span className="amen-pay-tag pending">{t('admin.scheduleAmenitiesAdmin.tagPaymentPending')}</span>}
+                      {r.refundStatus === 'refunded' && <span className="amen-pay-tag refunded">{t('admin.scheduleAmenitiesAdmin.tagRefunded')}</span>}
+                      {r.refundStatus === 'failed' && <span className="amen-pay-tag failed">{t('admin.scheduleAmenitiesAdmin.tagRefundFailed')}</span>}
                     </div>
                     <div className="admin-sched-row-meta">
-                      {fmtResDate(r.reservedDate)} · {fmtSlot(r.startTime)}
-                      {r.partySize > 1 && <> · {r.partySize} people</>}
-                      {r.note && <> · “{r.note}”</>}
+                      {amenityName[r.amenityId] || t('admin.scheduleAmenitiesAdmin.amenity')} · {fmtResDate(r.reservedDate)} · {fmtSlot(r.startTime)}
+                      {r.partySize > 1 && <> · {t('admin.scheduleAmenitiesAdmin.people', { count: r.partySize })}</>}
+                      {r.note && <> · "{r.note}"</>}
                     </div>
                   </div>
                   <div className="admin-sched-row-actions">
+                    <button
+                      className="admin-btn-ghost"
+                      onClick={() => (editingResId === r.id ? cancelEditRes() : startEditRes(r))}
+                      aria-label={t('admin.scheduleAmenitiesAdmin.ariaEditReservation', { who: r.residentName })}
+                    >
+                      {editingResId === r.id ? t('admin.scheduleAmenitiesAdmin.btnClose') : t('admin.scheduleAmenitiesAdmin.btnEdit')}
+                    </button>
                     {(r.paymentStatus === 'paid' && (r.refundStatus === 'none' || r.refundStatus === 'failed')) && (
                       <button
                         className="admin-btn-ghost"
                         onClick={() => onRefundRes(r.id, r.residentName)}
-                        aria-label={`Refund ${r.residentName}'s payment`}
+                        aria-label={t('admin.scheduleAmenitiesAdmin.ariaRefundPayment', { who: r.residentName })}
                       >
-                        Refund
+                        {t('admin.scheduleAmenitiesAdmin.btnRefund')}
                       </button>
                     )}
                     <button
                       className="admin-sched-row-del"
                       onClick={() => onCancelRes(r.id, r.residentName)}
-                      aria-label={`Cancel ${r.residentName}'s reservation`}
+                      aria-label={t('admin.scheduleAmenitiesAdmin.ariaCancelReservation', { who: r.residentName })}
                     >
-                      Cancel
+                      {t('admin.scheduleAmenitiesAdmin.btnCancelRes')}
                     </button>
                   </div>
                 </div>
+
+                {editingResId === r.id && (
+                  <div className="admin-amen-edit">
+                    <div className="admin-amen-edit-head">{t('admin.scheduleAmenitiesAdmin.editReservationTitle')}</div>
+                    <div className="admin-sched-form">
+                      <div className="admin-field">
+                        <span>{t('admin.scheduleAmenitiesAdmin.fieldAmenity')}</span>
+                        <Dropdown<string>
+                          value={rf.amenityId}
+                          onChange={v => setRf(prev => ({ ...prev, amenityId: v }))}
+                          ariaLabel={t('admin.scheduleAmenitiesAdmin.fieldAmenity')}
+                          options={sorted.map(a => ({ value: a.id, label: a.name }))}
+                        />
+                      </div>
+                      <label className="admin-field">
+                        <span>{t('admin.scheduleAmenitiesAdmin.fieldDate')}</span>
+                        <input type="date" value={rf.date} onChange={e => setRf(prev => ({ ...prev, date: e.target.value }))} />
+                      </label>
+                      <div className="admin-field">
+                        <span>{t('admin.scheduleAmenitiesAdmin.fieldTime')}</span>
+                        <Dropdown<string>
+                          value={rf.slot}
+                          onChange={v => setRf(prev => ({ ...prev, slot: v }))}
+                          ariaLabel={t('admin.scheduleAmenitiesAdmin.fieldTime')}
+                          options={[{ value: '', label: t('admin.scheduleAmenitiesAdmin.selectTime') }, ...TIME_SLOTS.map(ts => ({ value: ts, label: fmtSlot(ts) }))]}
+                        />
+                      </div>
+                      <label className="admin-field">
+                        <span>{t('admin.scheduleAmenitiesAdmin.fieldPartySize')}</span>
+                        <input type="number" min={1} value={rf.party} onChange={e => setRf(prev => ({ ...prev, party: e.target.value }))} />
+                      </label>
+                      <label className="admin-field admin-field-wide">
+                        <span>{t('admin.scheduleAmenitiesAdmin.fieldNote')} <em>({t('admin.scheduleAmenitiesAdmin.optional')})</em></span>
+                        <input type="text" value={rf.note} onChange={e => setRf(prev => ({ ...prev, note: e.target.value }))} placeholder={t('admin.scheduleAmenitiesAdmin.placeholderNote')} />
+                      </label>
+                      {rfErr && <div className="admin-field-wide"><div className="admin-note admin-note-err">{rfErr}</div></div>}
+                      <div className="admin-sched-form-foot" style={{ display: 'flex', gap: 10 }}>
+                        <button type="button" className="admin-primary-btn" onClick={() => submitEditRes(r.id)} disabled={savingRes}>
+                          {savingRes ? t('admin.scheduleAmenitiesAdmin.btnSaving') : t('admin.scheduleAmenitiesAdmin.btnSaveChanges')}
+                        </button>
+                        <button type="button" className="admin-btn-ghost" onClick={cancelEditRes}>{t('admin.scheduleAmenitiesAdmin.btnCancel')}</button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                </Fragment>
               ))}
             </div>
             <Pagination page={resPage} pageSize={PAGE_SIZE} total={sortedReservations.length} onPageChange={setResPage} />

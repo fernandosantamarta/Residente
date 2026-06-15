@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><meta name="robots" content="noindex"/>
+<title>Residente Admin · Easy Track v2 (mock)</title>
+<link rel="stylesheet" href="admin-mock.css"/>
+<link rel="stylesheet" href="admin-mock-v2.css"/>
+</head><body>
+
+<div class="bar">
+  <div class="brand"><span class="brand-chip"><img src="../residente-logo.png" alt="Residente"/></span>Residente</div>
+  <div class="bar-right"><div class="viewas"><span class="viewas-lbl">View as</span><button data-view="founder">Founder</button><button data-view="onboarding">Onboarding</button><button data-view="support">Support</button><button data-view="billing">Billing</button><button data-view="client">Client</button></div><a class="bar-link" href="support.html">Contact Residente</a><a class="back" href="#">&larr; Back to app</a></div>
+</div>
+<nav class="nav">
+  <a href="index-v2.html">Overview</a>
+  <a href="community-v2.html">Community</a>
+  <a href="compliance-v2.html">Compliance</a>
+  <a href="reports-v2.html">Reports</a>
+  <a href="easy-track-v2.html" class="active">Easy Track</a>
+  <a href="easy-voice-v2.html">Easy Voice</a>
+  <a href="easy-documents-v2.html">Easy Documents</a>
+  <a href="easy-schedule-v2.html">Easy Schedule</a>
+  <a href="roles-v2.html">Roles</a>
+  <a href="platform-v2.html" class="plat">Platform</a>
+</nav>
+
+<main class="page">
+  <div class="kicker">Residents</div>
+  <h1>Palm Grove roster</h1>
+  <p class="dek">Every owner and tenant in your community. Paste a roster from Excel, or add households one at a time.</p>
+
+  <div class="stats">
+    <div class="stat"><div class="v">118</div><div class="l">Owners</div></div>
+    <div class="stat"><div class="v">26</div><div class="l">Tenants</div></div>
+    <div class="stat"><div class="v" style="color:var(--ok)">93</div><div class="l">Activated</div></div>
+    <div class="stat"><div class="v" style="color:var(--warn)">25</div><div class="l">Invited, pending</div></div>
+  </div>
+
+  <!-- paste-roster lever (hero action) -->
+  <div class="card lever">
+    <div class="card-head">
+      <div><h2>Import your roster</h2><div class="sub">Paste straight from Excel or Google Sheets &mdash; we map the columns for you.</div></div>
+      <span class="pill" style="align-self:flex-start">No CSV needed</span>
+    </div>
+    <div style="border:1px dashed var(--border-hover);border-radius:12px;overflow:hidden;font-size:12px;margin-bottom:14px">
+      <div style="display:grid;grid-template-columns:1.4fr .7fr 1.3fr 1fr;background:var(--accent-soft);color:var(--accent-deep);font-weight:700">
+        <div style="padding:8px 12px">Owner</div><div style="padding:8px 12px">Unit</div><div style="padding:8px 12px">Email</div><div style="padding:8px 12px">Phone</div></div>
+      <div style="display:grid;grid-template-columns:1.4fr .7fr 1.3fr 1fr;color:var(--dim)"><div style="padding:8px 12px;border-top:1px solid var(--border)">Jane Doe</div><div style="padding:8px 12px;border-top:1px solid var(--border)">4B</div><div style="padding:8px 12px;border-top:1px solid var(--border)">jane@&hellip;</div><div style="padding:8px 12px;border-top:1px solid var(--border)">305&hellip;</div></div>
+      <div style="display:grid;grid-template-columns:1.4fr .7fr 1.3fr 1fr;color:var(--dim)"><div style="padding:8px 12px;border-top:1px solid var(--border)">Luis Ortega</div><div style="padding:8px 12px;border-top:1px solid var(--border)">12</div><div style="padding:8px 12px;border-top:1px solid var(--border)">luis@&hellip;</div><div style="padding:8px 12px;border-top:1px solid var(--border)">786&hellip;</div></div>
+    </div>
+    <div class="row-actions"><button class="btn">Paste &amp; import</button><button class="btn ghost">Upload CSV instead</button></div>
+  </div>
+
+  <div class="toolbar">
+    <div class="search"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>Search owners or units&hellip;</div>
+    <div class="row-actions">
+      <div class="dd">All units<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg></div>
+      <button class="btn sm">+ Add household</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <table class="tbl">
+      <thead><tr><th>Owner</th><th>Unit</th><th>Contact</th><th>Balance</th><th>Status</th><th></th></tr></thead>
+      <tbody>
+        <tr><td><div style="display:flex;align-items:center;gap:10px"><span class="av">JD</span><span class="strong">Jane Doe</span></div></td><td class="muted">4B</td><td class="muted">jane@palmgrove.io</td><td class="muted">$0</td><td><span class="pill ok">Activated</span></td><td style="text-align:right"><span class="go">Open &rarr;</span></td></tr>
+        <tr><td><div style="display:flex;align-items:center;gap:10px"><span class="av">LO</span><span class="strong">Luis Ortega</span></div></td><td class="muted">12</td><td class="muted">luis@gmail.com</td><td style="color:var(--due)">$570</td><td><span class="pill warn">Invited</span></td><td style="text-align:right"><span class="go">Open &rarr;</span></td></tr>
+        <tr><td><div style="display:flex;align-items:center;gap:10px"><span class="av">RP</span><span class="strong">Rita Patel</span></div></td><td class="muted">8A</td><td class="muted">rita.p@icloud.com</td><td class="muted">$0</td><td><span class="pill ok">Activated</span></td><td style="text-align:right"><span class="go">Open &rarr;</span></td></tr>
+        <tr><td><div style="display:flex;align-items:center;gap:10px"><span class="av">MK</span><span class="strong">Marcus Kim</span></div></td><td class="muted">21</td><td class="muted">&mdash;</td><td class="muted">$0</td><td><span class="pill dim">Not invited</span></td><td style="text-align:right"><span class="go">Invite &rarr;</span></td></tr>
+        <tr><td><div style="display:flex;align-items:center;gap:10px"><span class="av">SD</span><span class="strong">Sofia Diaz</span></div></td><td class="muted">3C</td><td class="muted">sofia@diaz.co</td><td style="color:var(--due)">$285</td><td><span class="pill ok">Activated</span></td><td style="text-align:right"><span class="go">Open &rarr;</span></td></tr>
+      </tbody>
+    </table>
+    <a class="viewall" href="#">View all 144 households &rarr;</a>
+  </div>
+
+  <p class="note">Mock &middot; not wired to data</p>
+</main>
+<script src="admin-mock.js"></script>
+</body></html>

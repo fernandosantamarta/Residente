@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useT } from '@/lib/i18n'
 
 // Admin clean-theme popup shell. Portals to <body> so the dimmed backdrop escapes
 // the admin column's stacking context, and re-declares `admin cset` on the card
@@ -14,6 +15,7 @@ export function AdminModal({ title, sub, onClose, children }: {
   onClose: () => void
   children: ReactNode
 }) {
+  const t = useT()
   const [mounted, setMounted] = useState(false)
   useEffect(() => { setMounted(true) }, [])
   useEffect(() => {
@@ -32,13 +34,11 @@ export function AdminModal({ title, sub, onClose, children }: {
           casing, input pills — match here too. A compound `.admin.cset` would
           skip those descendant rules and leave the tracked sketch uppercase. */}
       <div className="admin" onClick={e => e.stopPropagation()}
-        style={{ width: 'min(560px, 100%)', maxHeight: '90vh', overflow: 'auto' }}>
+        style={{ width: 'min(560px, 100%)', minHeight: 0, maxHeight: '90vh', overflow: 'auto' }}>
         <div className="cset">
           <div className="card" style={{ margin: 0 }}>
             <div className="card-head">
               <div><h2>{title}</h2>{sub && <div className="sub">{sub}</div>}</div>
-              <button type="button" className="vdel" onClick={onClose} aria-label="Close"
-                style={{ fontSize: 24, lineHeight: 1 }}>&times;</button>
             </div>
             {children}
           </div>

@@ -13,6 +13,7 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
+import { useT } from '@/lib/i18n'
 import { AttorneyNote } from '../AttorneyNote'
 import { ComplianceBackLink } from '../ComplianceBackLink'
 import {
@@ -28,6 +29,7 @@ const withTimeout = (p: any, ms = 10000) =>
 const fmt$ = (n: any) => '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US')
 
 export default function InsurancePage() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const [community, setCommunity] = useState<any>(null)
@@ -61,7 +63,7 @@ export default function InsurancePage() {
       setReserves(r || [])
       setStatus('ready')
     } catch (err: any) {
-      setError(err?.message || 'Could not load insurance data'); setStatus('error')
+      setError(err?.message || t('admin.insurance.errorLoadData')); setStatus('error')
     }
   }, [communityId])
   useEffect(() => { load() }, [load])
@@ -97,8 +99,8 @@ export default function InsurancePage() {
       if (regime === 'hoa' && patch.fidelity_bond_waiver_fy) {
         await logAudit({ community_id: communityId!, event_type: 'insurance.waiver_recorded', target_type: 'insurance_policy', target_id: null, metadata: { fiscal_year: patch.fidelity_bond_waiver_fy } })
       }
-      setMsg('Fidelity-bond settings saved.'); load()
-    } catch (err: any) { setError(err?.message || 'Could not save settings') }
+      setMsg(t('admin.insurance.msgBondSettingsSaved')); load()
+    } catch (err: any) { setError(err?.message || t('admin.insurance.errorSaveSettings')) }
     finally { setBondSaving(false) }
   }
 
@@ -124,10 +126,10 @@ export default function InsurancePage() {
       const { data: ins, error } = (await withTimeout(supabase.from('ev_insurance_policies').insert(insert).select('id').single())) as any
       if (error) throw error
       if (ins?.id) await logAudit({ community_id: communityId!, event_type: 'insurance.policy_recorded', target_type: 'insurance_policy', target_id: ins.id, metadata: { kind } })
-      setMsg(kind === 'property' ? 'Property policy recorded.' : 'Fidelity bond recorded.')
+      setMsg(kind === 'property' ? t('admin.insurance.msgPropertyPolicyRecorded') : t('admin.insurance.msgFidelityBondRecorded'))
       load()
       return true
-    } catch (err: any) { setError(err?.message || 'Could not record the policy'); return false }
+    } catch (err: any) { setError(err?.message || t('admin.insurance.errorRecordPolicy')); return false }
   }
 
   const updatePolicy = async (id: string, patch: Record<string, any>) => {
@@ -136,7 +138,7 @@ export default function InsurancePage() {
       const { error } = (await withTimeout(supabase.from('ev_insurance_policies').update(patch).eq('id', id))) as any
       if (error) throw error
       load()
-    } catch (err: any) { setError(err?.message || 'Could not update the policy') }
+    } catch (err: any) { setError(err?.message || t('admin.insurance.errorUpdatePolicy')) }
   }
 
   const deletePolicy = async (id: string) => {
@@ -144,20 +146,19 @@ export default function InsurancePage() {
     try {
       const { error } = (await withTimeout(supabase.from('ev_insurance_policies').delete().eq('id', id))) as any
       if (error) throw error
-      setMsg('Policy removed.'); load()
-    } catch (err: any) { setError(err?.message || 'Could not remove the policy') }
+      setMsg(t('admin.insurance.msgPolicyRemoved')); load()
+    } catch (err: any) { setError(err?.message || t('admin.insurance.errorRemovePolicy')) }
   }
 
   return (
     <div className="admin-page cset">
       <ComplianceBackLink />
-      <div className="admin-kicker">Florida compliance</div>
-      <h1 className="admin-h1">Insurance</h1>
+      <div className="admin-kicker">{t('admin.insurance.kicker')}</div>
+      <h1 className="admin-h1">{t('admin.insurance.heading')}</h1>
       <p className="admin-dek">
-        Track the association&apos;s {regime === 'condo' ? 'master property insurance and its replacement-cost appraisal (FS 718.111(11)(a)), plus the ' : ''}
-        fidelity bond covering everyone who controls or disburses association funds
-        (FS {regime === 'hoa' ? '720.3033(5)' : '718.111(11)(h)'}). We compute the {PROPERTY_APPRAISAL_INTERVAL_MONTHS.value}-month
-        appraisal clock and the bond floor for you; you decide each step.
+        {regime === 'condo'
+          ? t('admin.insurance.dekCondo', { interval: PROPERTY_APPRAISAL_INTERVAL_MONTHS.value, waiverBasis: HOA_FIDELITY_BOND_WAIVER_BASIS.value })
+          : t('admin.insurance.dekHoa', { interval: PROPERTY_APPRAISAL_INTERVAL_MONTHS.value, waiverBasis: HOA_FIDELITY_BOND_WAIVER_BASIS.value })}
       </p>
 
       <AttorneyNote />
@@ -165,12 +166,12 @@ export default function InsurancePage() {
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
 
       {status === 'none' && (
-        <div className="admin-note admin-note-warn">No community is linked to your account yet. Run the setup SQL, then reload.</div>
+        <div className="admin-note admin-note-warn">{t('admin.insurance.statusNone')}</div>
       )}
       {status === 'error' && (
-        <div className="admin-note admin-note-err">{error}<button type="button" className="admin-btn-ghost" onClick={load}>Retry</button></div>
+        <div className="admin-note admin-note-err">{error}<button type="button" className="admin-btn-ghost" onClick={load}>{t('admin.insurance.retry')}</button></div>
       )}
-      {status === 'loading' && <div className="admin-note">Loading…</div>}
+      {status === 'loading' && <div className="admin-note">{t('admin.insurance.loading')}</div>}
 
       {status === 'ready' && (
         <>
@@ -178,9 +179,9 @@ export default function InsurancePage() {
           {regime === 'condo' && (
             <PolicySection
               kind="property"
-              title="Property insurance"
+              title={t('admin.insurance.propertySectionTitle')}
               accent="#DD2590"
-              blurb={`The master property policy must be based on the full replacement cost, determined by an independent appraisal that is redetermined at least once every ${PROPERTY_APPRAISAL_INTERVAL_MONTHS.value} months (FS 718.111(11)(a)).`}
+              blurb={t('admin.insurance.propertySectionBlurb', { interval: PROPERTY_APPRAISAL_INTERVAL_MONTHS.value })}
               policies={propertyPolicies}
               onAdd={(f) => addPolicy('property', f)}
               onUpdate={updatePolicy}
@@ -189,49 +190,45 @@ export default function InsurancePage() {
           )}
           {regime === 'hoa' && (
             <div className="admin-note" style={{ margin: '0 0 18px' }}>
-              The master property-insurance and replacement-cost-appraisal duty (FS 718.111(11)(a)) is a
-              condominium obligation and does not apply to this homeowners&apos; association — only the
-              fidelity bond below is tracked here.
+              {t('admin.insurance.hoaPropertyNote')}
             </div>
           )}
 
           {/* ---------- FIDELITY BOND (both regimes) ---------- */}
           <div className="card">
-            <div className="card-head"><div><h2>Fidelity-bond floor <span className="amp">&</span> waiver</h2>
+            <div className="card-head"><div><h2>{t('admin.insurance.bondFloorHeading')}</h2>
               <div className="sub">
-                The bond must cover the maximum funds in custody of the association or its manager at
-                any one time. Enter an estimate of that peak balance; if you leave it blank we use the sum of your
-                recorded reserve balances ({fmt$(reserveSum)}) as a rough proxy.
+                {t('admin.insurance.bondFloorSub', { reserveSum: fmt$(reserveSum) })}
               </div></div></div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-              <label className="admin-field"><span className="admin-field-label">Estimated max funds in custody</span>
-                <input className="admin-input" type="number" min="0" step="1000" placeholder={reserveSum ? `reserves ≈ ${fmt$(reserveSum)}` : 'e.g. 250000'}
+              <label className="admin-field"><span className="admin-field-label">{t('admin.insurance.labelMaxFunds')}</span>
+                <input className="admin-input" type="number" min="0" step="1000" placeholder={reserveSum ? `${t('admin.insurance.placeholderReserves')} ${fmt$(reserveSum)}` : t('admin.insurance.placeholderMaxFundsExample')}
                   value={bondForm.estimated_max_funds ?? ''} onChange={e => setBondForm((f: any) => ({ ...f, estimated_max_funds: e.target.value }))} /></label>
               {regime === 'hoa' && (
-                <label className="admin-field"><span className="admin-field-label">Fidelity-bond waiver — fiscal year (HOA)</span>
-                  <input className="admin-input" type="number" min="2000" max="2100" step="1" placeholder={`e.g. ${currentFiscalYear(community)}`}
+                <label className="admin-field"><span className="admin-field-label">{t('admin.insurance.labelWaiverFy')}</span>
+                  <input className="admin-input" type="number" min="2000" max="2100" step="1" placeholder={`${t('admin.insurance.placeholderWaiverFyPrefix')} ${currentFiscalYear(community)}`}
                     value={bondForm.fidelity_bond_waiver_fy ?? ''} onChange={e => setBondForm((f: any) => ({ ...f, fidelity_bond_waiver_fy: e.target.value }))} /></label>
               )}
             </div>
             <div style={{ fontSize: 12.5, marginTop: 12 }}>
-              Estimated bond floor: <strong>{fmt$(maxFunds)}</strong>
+              {t('admin.insurance.estimatedBondFloor')} <strong>{fmt$(maxFunds)}</strong>
               {regime === 'hoa' && (
-                <span style={{ opacity: 0.72 }}> · An HOA may waive the bond by {HOA_FIDELITY_BOND_WAIVER_BASIS.value}, effective one fiscal year only. Condominiums may not waive.</span>
+                <span style={{ opacity: 0.72 }}> · {t('admin.insurance.hoaWaiverNote', { waiverBasis: HOA_FIDELITY_BOND_WAIVER_BASIS.value })}</span>
               )}
             </div>
             <div style={{ fontSize: 12, opacity: 0.7, marginTop: 10 }}>
-              Must cover: {FIDELITY_BOND_COVERED_PERSONS.value.join(' · ')}.
+              {t('admin.insurance.mustCover')} {FIDELITY_BOND_COVERED_PERSONS.value.join(' · ')}.
             </div>
             <div className="card-cta">
-              <button className="admin-primary-btn" disabled={bondSaving} onClick={saveBondSettings}>{bondSaving ? 'Saving…' : 'Save fidelity-bond settings'}</button>
+              <button className="admin-primary-btn" disabled={bondSaving} onClick={saveBondSettings}>{bondSaving ? t('admin.insurance.saving') : t('admin.insurance.saveBondSettings')}</button>
             </div>
           </div>
 
           <PolicySection
             kind="fidelity_bond"
-            title="Fidelity bonds on file"
+            title={t('admin.insurance.bondSectionTitle')}
             accent="#7A5AF8"
-            blurb="Record each fidelity bond / crime policy that covers the people who control or disburse association funds."
+            blurb={t('admin.insurance.bondSectionBlurb')}
             policies={bondPolicies}
             maxFunds={maxFunds}
             onAdd={(f) => addPolicy('fidelity_bond', f)}
@@ -242,12 +239,12 @@ export default function InsurancePage() {
           {/* Documents — generate or view each statutory artifact (one wsrow each,
               matching the financials Documents card). */}
           <div className="card">
-            <div className="card-head"><div><h2>Documents</h2><div className="sub">Generate or view each statutory artifact</div></div></div>
+            <div className="card-head"><div><h2>{t('admin.insurance.documentsHeading')}</h2><div className="sub">{t('admin.insurance.documentsSub')}</div></div></div>
             <div className="wslist">
               {[
-                { type: 'summary', label: 'Insurance compliance summary', live: true },
-                ...(regime === 'condo' ? [{ type: 'appraisal_request', label: 'Replacement-cost appraisal request', live: false }] : []),
-                { type: 'bond_worksheet', label: 'Fidelity-bond adequacy worksheet', live: false },
+                { type: 'summary', label: t('admin.insurance.docSummaryLabel'), live: true },
+                ...(regime === 'condo' ? [{ type: 'appraisal_request', label: t('admin.insurance.docAppraisalLabel'), live: false }] : []),
+                { type: 'bond_worksheet', label: t('admin.insurance.docBondWorksheetLabel'), live: false },
               ].map(d => {
                 const col = d.live ? '#0E7490' : '#7A5AF8'
                 return (
@@ -261,7 +258,7 @@ export default function InsurancePage() {
                     </span>
                     <div className="wsrow-main">
                       <div className="wsrow-title">{d.label}</div>
-                      <div className="wsrow-desc">{d.live ? 'Live summary' : 'Draft template'}</div>
+                      <div className="wsrow-desc">{d.live ? t('admin.insurance.docLiveSummary') : t('admin.insurance.docDraftTemplate')}</div>
                     </div>
                     <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
                   </Link>
@@ -288,6 +285,7 @@ function PolicySection({
   onUpdate: (id: string, patch: Record<string, any>) => void
   onDelete: (id: string) => void
 }) {
+  const t = useT()
   const isProperty = kind === 'property'
   const [form, setForm] = useState<any>({})
   const setF = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }))
@@ -307,32 +305,32 @@ function PolicySection({
         <div className="sub">{blurb}</div></div></div>
       <form className="admin-form" onSubmit={submit}>
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
-          <label className="admin-field"><span className="admin-field-label">Carrier</span>
+          <label className="admin-field"><span className="admin-field-label">{t('admin.insurance.fieldCarrier')}</span>
             <input className="admin-input" value={form.carrier ?? ''} onChange={e => setF('carrier', e.target.value)} /></label>
-          <label className="admin-field"><span className="admin-field-label">Policy / bond #</span>
+          <label className="admin-field"><span className="admin-field-label">{t('admin.insurance.fieldPolicyNumber')}</span>
             <input className="admin-input" value={form.policy_number ?? ''} onChange={e => setF('policy_number', e.target.value)} /></label>
-          <label className="admin-field"><span className="admin-field-label">{isProperty ? 'Coverage amount' : 'Bond amount'}</span>
+          <label className="admin-field"><span className="admin-field-label">{isProperty ? t('admin.insurance.fieldCoverageAmount') : t('admin.insurance.fieldBondAmount')}</span>
             <input className="admin-input" type="number" min="0" step="1000" value={form.amount ?? ''} onChange={e => setF('amount', e.target.value)} /></label>
-          <label className="admin-field"><span className="admin-field-label">Effective date</span>
+          <label className="admin-field"><span className="admin-field-label">{t('admin.insurance.fieldEffectiveDate')}</span>
             <input className="admin-input" type="date" value={form.effective_date ?? ''} onChange={e => setF('effective_date', e.target.value)} /></label>
-          <label className="admin-field"><span className="admin-field-label">Expiration date</span>
+          <label className="admin-field"><span className="admin-field-label">{t('admin.insurance.fieldExpirationDate')}</span>
             <input className="admin-input" type="date" value={form.expiration_date ?? ''} onChange={e => setF('expiration_date', e.target.value)} /></label>
           {isProperty && (
             <>
-              <label className="admin-field"><span className="admin-field-label">Last appraisal date</span>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.insurance.fieldLastAppraisalDate')}</span>
                 <input className="admin-input" type="date" value={form.last_appraisal_date ?? ''} onChange={e => setF('last_appraisal_date', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">Replacement-cost value</span>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.insurance.fieldReplacementCostValue')}</span>
                 <input className="admin-input" type="number" min="0" step="1000" value={form.replacement_cost_value ?? ''} onChange={e => setF('replacement_cost_value', e.target.value)} /></label>
             </>
           )}
         </div>
         <div className="card-cta">
-          <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Saving…' : `Record ${isProperty ? 'property policy' : 'fidelity bond'}`}</button>
+          <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? t('admin.insurance.saving') : (isProperty ? t('admin.insurance.recordPropertyPolicy') : t('admin.insurance.recordFidelityBond'))}</button>
         </div>
       </form>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginTop: 12 }}>
-        {policies.length === 0 && <div className="admin-note">None recorded yet.</div>}
+        {policies.length === 0 && <div className="admin-note">{t('admin.insurance.noneRecorded')}</div>}
         {policies.map(p => (
           <PolicyCard key={p.id} p={p} accent={accent} maxFunds={maxFunds} onUpdate={onUpdate} onDelete={onDelete} />
         ))}
@@ -350,6 +348,7 @@ function PolicyCard({
   onUpdate: (id: string, patch: Record<string, any>) => void
   onDelete: (id: string) => void
 }) {
+  const t = useT()
   const isProperty = p.kind === 'property'
   const fmt = (n: any) => '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US')
   const nextDue = isProperty ? appraisalNextDue(p.last_appraisal_date) : null
@@ -360,24 +359,24 @@ function PolicyCard({
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 15 }}>
-            {p.carrier || (isProperty ? 'Property policy' : 'Fidelity bond')}
+            {p.carrier || (isProperty ? t('admin.insurance.cardPropertyPolicy') : t('admin.insurance.cardFidelityBond'))}
             {p.amount != null ? ` · ${fmt(p.amount)}` : ''}
           </div>
           <div style={{ fontSize: 12.5, opacity: 0.75, marginTop: 2 }}>
             {p.policy_number ? `#${p.policy_number} · ` : ''}
-            {p.effective_date ? `eff ${p.effective_date}` : 'no effective date'}
-            {p.expiration_date ? ` · exp ${p.expiration_date}` : ''}
-            {isProperty && p.last_appraisal_date ? ` · appraised ${p.last_appraisal_date}` : ''}
+            {p.effective_date ? `${t('admin.insurance.cardEff')} ${p.effective_date}` : t('admin.insurance.cardNoEffectiveDate')}
+            {p.expiration_date ? ` · ${t('admin.insurance.cardExp')} ${p.expiration_date}` : ''}
+            {isProperty && p.last_appraisal_date ? ` · ${t('admin.insurance.cardAppraised')} ${p.last_appraisal_date}` : ''}
             {isProperty && p.replacement_cost_value != null ? ` · RCV ${fmt(p.replacement_cost_value)}` : ''}
           </div>
           {isProperty && nextDue && (
-            <div style={{ fontSize: 12.5, marginTop: 4 }}>Next replacement-cost appraisal due <strong>{ymd(nextDue)}</strong></div>
+            <div style={{ fontSize: 12.5, marginTop: 4 }}>{t('admin.insurance.cardNextAppraisalDue')} <strong>{ymd(nextDue)}</strong></div>
           )}
           {underBond && (
-            <div style={{ fontSize: 12.5, marginTop: 4, color: '#B54708' }}>Below the estimated max funds in custody ({fmt(maxFunds)}).</div>
+            <div style={{ fontSize: 12.5, marginTop: 4, color: '#B54708' }}>{t('admin.insurance.cardUnderBond', { maxFunds: fmt(maxFunds) })}</div>
           )}
         </div>
-        <button className="admin-btn-ghost" onClick={() => onDelete(p.id)} style={{ color: '#B42318' }}>Remove</button>
+        <button className="admin-btn-ghost" onClick={() => onDelete(p.id)} style={{ color: '#B42318' }}>{t('admin.insurance.remove')}</button>
       </div>
     </div>
   )

@@ -6,10 +6,11 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { Dropdown } from '@/components/Dropdown'
 import { Pagination, paginate } from '@/components/Pagination'
 import { EasyTrackTabs } from '../EasyTrackTabs'
+import { useT } from '@/lib/i18n'
 
 const VENDOR_PAGE_SIZE = 8
 
-const withTimeout = <T,>(p: Promise<T>, ms = 10000): Promise<T> =>
+const withTimeout = <T,>(p: PromiseLike<T>, ms = 10000): Promise<T> =>
   Promise.race([
     p,
     new Promise<T>((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms)),
@@ -75,6 +76,7 @@ type Vendor = {
 // shows in the Vendors section of each resident's Easy Track hub
 // (/app/track#vendor), grouped by category.
 export default function VendorAdmin() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const [rows, setRows] = useState<Vendor[]>([])
@@ -117,11 +119,11 @@ export default function VendorAdmin() {
       if (/schema cache|does not exist|find the table/i.test(msg)) {
         setStatus('none')
       } else {
-        setError(msg || 'Could not load vendors')
+        setError(msg || t('admin.vendor.errorLoadVendors'))
         setStatus('error')
       }
     }
-  }, [communityId])
+  }, [communityId, t])
   useEffect(() => { load() }, [load])
 
   // Find the current vendor-guidelines doc (same lookup the resident page uses:
@@ -164,7 +166,7 @@ export default function VendorAdmin() {
       if (error) { supabase!.storage.from('documents').remove([path]); throw error }
       const prev = guidelinesDoc
       setGuidelinesDoc(data)
-      setSuccessMsg('Vendor guidelines uploaded.')
+      setSuccessMsg(t('admin.vendor.guidelinesUploaded'))
       // Tidy up the prior vendor-guidelines doc (only if it was ours).
       if (prev && (prev.category || '').toLowerCase().includes('vendor')) {
         try {
@@ -173,7 +175,7 @@ export default function VendorAdmin() {
         } catch { /* leave the old one — the newest still wins the lookup */ }
       }
     } catch (err: any) {
-      setError(err?.message || 'Could not upload the guidelines file')
+      setError(err?.message || t('admin.vendor.errorUploadGuidelines'))
     } finally {
       setGuideBusy(false)
     }
@@ -189,7 +191,7 @@ export default function VendorAdmin() {
       if (error || !data?.signedUrl) throw error || new Error('No link')
       window.open(data.signedUrl, '_blank', 'noopener')
     } catch {
-      setError('Could not open the guidelines file')
+      setError(t('admin.vendor.errorOpenGuidelines'))
     } finally {
       setGuideBusy(false)
     }
@@ -203,10 +205,10 @@ export default function VendorAdmin() {
       await withTimeout(supabase!.storage.from('documents').remove([doc.storage_path]))
       const { error } = await withTimeout(supabase!.from('documents').delete().eq('id', doc.id))
       if (error) throw error
-      setSuccessMsg('Vendor guidelines removed.')
+      setSuccessMsg(t('admin.vendor.guidelinesRemoved'))
     } catch (err: any) {
       setGuidelinesDoc(doc)   // roll back
-      setError(err?.message || 'Could not remove the guidelines file')
+      setError(err?.message || t('admin.vendor.errorRemoveGuidelines'))
     }
   }
 
@@ -218,7 +220,7 @@ export default function VendorAdmin() {
 
   const add = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.name.trim()) { setError('Give the vendor a name'); return }
+    if (!form.name.trim()) { setError(t('admin.vendor.errorNameRequired')); return }
     setSaving(true); setError('')
     try {
       const row = {
@@ -243,9 +245,9 @@ export default function VendorAdmin() {
       if (error) throw error
       setRows(rs => [data as Vendor, ...rs])
       setForm(EMPTY)
-      setSuccessMsg(`Added "${row.name}" to the vendor list.`)
+      setSuccessMsg(t('admin.vendor.vendorAdded', { name: row.name }))
     } catch (err: any) {
-      setError(err?.message || 'Could not add the vendor')
+      setError(err?.message || t('admin.vendor.errorAddVendor'))
     } finally {
       setSaving(false)
     }
@@ -259,10 +261,10 @@ export default function VendorAdmin() {
         supabase!.from('vendors').update({ featured: next }).eq('id', v.id)
       )
       if (error) throw error
-      setSuccessMsg(next ? `Featured "${v.name}".` : `Removed "${v.name}" from featured.`)
+      setSuccessMsg(next ? t('admin.vendor.vendorFeatured', { name: v.name }) : t('admin.vendor.vendorUnfeatured', { name: v.name }))
     } catch (err: any) {
       setRows(rs => rs.map(r => r.id === v.id ? { ...r, featured: v.featured } : r))   // roll back
-      setError(err?.message || 'Could not update that vendor')
+      setError(err?.message || t('admin.vendor.errorUpdateVendor'))
     }
   }
 
@@ -274,7 +276,7 @@ export default function VendorAdmin() {
       if (error) throw error
     } catch (err: any) {
       setRows(prev)   // roll back
-      setError(err?.message || 'Could not remove that vendor')
+      setError(err?.message || t('admin.vendor.errorRemoveVendor'))
     }
   }
 
@@ -284,24 +286,21 @@ export default function VendorAdmin() {
   return (
     <div className="admin-page cset">
       <EasyTrackTabs active="vendors" />
-      <div className="admin-kicker">Vendors</div>
-      <h1 className="admin-h1">Trusted vendors</h1>
+      <div className="admin-kicker">{t('admin.vendor.kicker')}</div>
+      <h1 className="admin-h1">{t('admin.vendor.pageTitle')}</h1>
       <p className="admin-dek">
-        Curate the service providers residents see on their Vendors page.
-        Feature the ones the board recommends.
+        {t('admin.vendor.pageDek')}
       </p>
 
       {status === 'none' && (
         <div className="admin-note admin-note-warn">
-          No community is linked yet, or the vendors table isn&rsquo;t set up. Run the
-          vendors &amp; reports setup SQL (see supabase/vendors-and-reports.sql),
-          then reload.
+          {t('admin.vendor.noTableWarning')}
         </div>
       )}
       {status === 'error' && (
         <div className="admin-note admin-note-err">
           {error}
-          <button type="button" className="admin-btn-ghost" onClick={load}>Retry</button>
+          <button type="button" className="admin-btn-ghost" onClick={load}>{t('admin.vendor.retry')}</button>
         </div>
       )}
 
@@ -318,46 +317,46 @@ export default function VendorAdmin() {
           <form className="card" onSubmit={add}>
             <div className="card-head">
               <div>
-                <h2>Add a vendor</h2>
-                <div className="sub">Add the provider, then feature it from the list below.</div>
+                <h2>{t('admin.vendor.addVendorTitle')}</h2>
+                <div className="sub">{t('admin.vendor.addVendorSub')}</div>
               </div>
             </div>
             <div className="grid2" style={{ gap: 12, marginBottom: 14 }}>
               <label className="admin-field">
-                <span className="admin-field-label">Vendor name</span>
-                <input name="name" className="admin-input" placeholder="GreenScape Landscaping"
+                <span className="admin-field-label">{t('admin.vendor.fieldName')}</span>
+                <input name="name" className="admin-input" placeholder={t('admin.vendor.fieldNamePlaceholder')}
                   value={form.name} onChange={e => setField('name', e.target.value)} />
               </label>
               <label className="admin-field">
-                <span className="admin-field-label">Category</span>
+                <span className="admin-field-label">{t('admin.vendor.fieldCategory')}</span>
                 <Dropdown<VendorCat>
                   value={form.category}
                   onChange={v => setField('category', v)}
-                  ariaLabel="Vendor category"
+                  ariaLabel={t('admin.vendor.ariaCategory')}
                   options={CATS}
                 />
               </label>
             </div>
             <div className="grid2" style={{ gap: 12, marginBottom: 14 }}>
               <label className="admin-field">
-                <span className="admin-field-label">Phone (optional)</span>
+                <span className="admin-field-label">{t('admin.vendor.fieldPhone')}</span>
                 <input name="phone" className="admin-input" placeholder="(305) 555-0142"
                   value={form.phone} onChange={e => setField('phone', e.target.value)} />
               </label>
               <label className="admin-field">
-                <span className="admin-field-label">Email (optional)</span>
+                <span className="admin-field-label">{t('admin.vendor.fieldEmail')}</span>
                 <input name="email" type="email" className="admin-input" placeholder="hello@greenscape.com"
                   value={form.email} onChange={e => setField('email', e.target.value)} />
               </label>
             </div>
             <div className="grid2" style={{ gap: 12, marginBottom: 14 }}>
               <label className="admin-field">
-                <span className="admin-field-label">Badge (optional)</span>
-                <input name="badge" className="admin-input" placeholder="Preferred"
+                <span className="admin-field-label">{t('admin.vendor.fieldBadge')}</span>
+                <input name="badge" className="admin-input" placeholder={t('admin.vendor.fieldBadgePlaceholder')}
                   value={form.badge} onChange={e => setField('badge', e.target.value)} />
               </label>
               <label className="admin-field">
-                <span className="admin-field-label">Monthly cost (optional)</span>
+                <span className="admin-field-label">{t('admin.vendor.fieldCost')}</span>
                 <div className="admin-input-wrap">
                   <span className="admin-input-prefix">$</span>
                   <input name="cost" className="admin-input" type="number" placeholder="500"
@@ -367,7 +366,7 @@ export default function VendorAdmin() {
             </div>
             <div className="grid2" style={{ gap: 12, marginBottom: 14 }}>
               <div className="admin-field">
-                <span className="admin-field-label">Days they come (optional)</span>
+                <span className="admin-field-label">{t('admin.vendor.fieldDays')}</span>
                 <div className="vdaychips">
                   {DAY_CHIPS.map(d => (
                     <button key={d} type="button"
@@ -379,21 +378,21 @@ export default function VendorAdmin() {
                 </div>
               </div>
               <div className="admin-field">
-                <span className="admin-field-label">Time they come (optional)</span>
+                <span className="admin-field-label">{t('admin.vendor.fieldTime')}</span>
                 <Dropdown value={form.scheduleTime} onChange={v => setField('scheduleTime', v)}
-                  ariaLabel="Time they come" options={VENDOR_TIMES} />
+                  ariaLabel={t('admin.vendor.ariaTime')} options={VENDOR_TIMES} />
               </div>
             </div>
             <label className="admin-field">
-              <span className="admin-field-label">Blurb (optional)</span>
+              <span className="admin-field-label">{t('admin.vendor.fieldBlurb')}</span>
               <textarea name="blurb" className="admin-input admin-textarea" rows={2}
-                placeholder="Lawn, planters, irrigation. Weekly visits."
+                placeholder={t('admin.vendor.fieldBlurbPlaceholder')}
                 value={form.blurb} onChange={e => setField('blurb', e.target.value)} />
             </label>
             <div className="card-cta" style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 12 }}>
               {error && <span className="admin-err-inline">{error}</span>}
               <button type="submit" className="admin-primary-btn" disabled={saving}>
-                {saving ? 'Adding…' : 'Add vendor'}
+                {saving ? t('admin.vendor.btnAdding') : t('admin.vendor.btnAddVendor')}
               </button>
             </div>
           </form>
@@ -402,16 +401,16 @@ export default function VendorAdmin() {
           <div className="card">
             <div className="card-head">
               <div>
-                <h2>Vendor list</h2>
-                <div className="sub">{rows.length} {rows.length === 1 ? 'vendor' : 'vendors'} published</div>
+                <h2>{t('admin.vendor.listTitle')}</h2>
+                <div className="sub">{rows.length === 1 ? t('admin.vendor.vendorCountOne') : t('admin.vendor.vendorCountMany', { count: rows.length })}</div>
               </div>
               <div style={{ minWidth: 200 }}>
                 <Dropdown<'all' | VendorCat>
                   value={filterCategory}
                   onChange={v => { setFilterCategory(v); setPage(1) }}
-                  ariaLabel="Filter vendors by category"
+                  ariaLabel={t('admin.vendor.ariaFilterCategory')}
                   options={[
-                    { value: 'all', label: `All (${rows.length})` },
+                    { value: 'all', label: `${t('admin.vendor.filterAll')} (${rows.length})` },
                     ...CATS.map(c => ({
                       value: c.value,
                       label: `${c.label} (${rows.filter(r => r.category === c.value).length})`,
@@ -421,12 +420,12 @@ export default function VendorAdmin() {
               </div>
             </div>
 
-            {status === 'loading' && <div className="admin-note">Loading…</div>}
+            {status === 'loading' && <div className="admin-note">{t('admin.vendor.loading')}</div>}
             {status === 'ready' && rows.length === 0 && (
-              <div className="bc-empty">No vendors yet — add the first one above.</div>
+              <div className="bc-empty">{t('admin.vendor.emptyList')}</div>
             )}
             {status === 'ready' && rows.length > 0 && filtered.length === 0 && (
-              <div className="bc-empty">No vendors in this category.</div>
+              <div className="bc-empty">{t('admin.vendor.emptyCategory')}</div>
             )}
 
             {status === 'ready' && filtered.length > 0 && (
@@ -434,8 +433,8 @@ export default function VendorAdmin() {
                 <table className="tbl">
                   <thead>
                     <tr>
-                      <th>Vendor</th><th>Category</th>
-                      <th className="contact-col">When they come</th><th>Cost</th>
+                      <th>{t('admin.vendor.colVendor')}</th><th>{t('admin.vendor.colCategory')}</th>
+                      <th className="contact-col">{t('admin.vendor.colSchedule')}</th><th>{t('admin.vendor.colCost')}</th>
                       <th className="act"></th>
                     </tr>
                   </thead>
@@ -467,11 +466,11 @@ export default function VendorAdmin() {
                           <button type="button"
                             className={`admin-btn-sm${v.featured ? ' admin-btn-on' : ''}`}
                             onClick={() => toggleFeatured(v)}
-                            title={v.featured ? 'Unfeature' : 'Feature on the resident page'}>
-                            {v.featured ? '★ Featured' : '☆ Feature'}
+                            title={v.featured ? t('admin.vendor.titleUnfeature') : t('admin.vendor.titleFeature')}>
+                            {v.featured ? t('admin.vendor.btnFeatured') : t('admin.vendor.btnFeature')}
                           </button>
                           <button type="button" className="vdel" onClick={() => remove(v)}
-                            aria-label="Remove vendor">&times;</button>
+                            aria-label={t('admin.vendor.ariaRemoveVendor')}>&times;</button>
                         </td>
                       </tr>
                     ))}
@@ -491,45 +490,43 @@ export default function VendorAdmin() {
           <div className="card">
             <div className="card-head">
               <div>
-                <h2>Vendor guidelines</h2>
-                <div className="sub">The “View Guidelines” link residents see on their Vendors page</div>
+                <h2>{t('admin.vendor.guidelinesTitle')}</h2>
+                <div className="sub">{t('admin.vendor.guidelinesSub')}</div>
               </div>
             </div>
             {guidelinesDoc ? (
               <div className="vguide-row">
                 <div style={{ minWidth: 0 }}>
-                  <div className="vguide-title">{guidelinesDoc.title || 'Vendor Guidelines'}</div>
+                  <div className="vguide-title">{guidelinesDoc.title || t('admin.vendor.guidelinesDefaultTitle')}</div>
                   <div className="vguide-meta">
-                    Published to residents{guidelinesDoc.uploaded_at ? ` · ${fmtPubDate(guidelinesDoc.uploaded_at)}` : ''}
+                    {t('admin.vendor.guidelinesPublished')}{guidelinesDoc.uploaded_at ? ` · ${fmtPubDate(guidelinesDoc.uploaded_at)}` : ''}
                   </div>
                 </div>
                 <div className="vguide-actions">
                   <button type="button" className="admin-btn-sm" onClick={viewGuidelines} disabled={guideBusy}>
-                    View
+                    {t('admin.vendor.btnView')}
                   </button>
                   <button type="button" className="admin-btn-sm" onClick={() => guideFileRef.current?.click()} disabled={guideBusy}>
-                    {guideBusy ? 'Working…' : 'Replace'}
+                    {guideBusy ? t('admin.vendor.btnWorking') : t('admin.vendor.btnReplace')}
                   </button>
                   <button type="button" className="vdel" onClick={removeGuidelines}
-                    aria-label="Remove guidelines" disabled={guideBusy}>&times;</button>
+                    aria-label={t('admin.vendor.ariaRemoveGuidelines')} disabled={guideBusy}>&times;</button>
                 </div>
               </div>
             ) : (
               <>
                 <p style={{ margin: '0 0 14px', fontSize: 13.5, lineHeight: 1.6, color: 'var(--text-dim)' }}>
-                  Upload the PDF residents open from “View Guidelines”. Until you add
-                  one, they see the default policy text.
+                  {t('admin.vendor.guidelinesUploadHint')}
                 </p>
                 <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                   <button type="button" className="admin-primary-btn" onClick={() => guideFileRef.current?.click()} disabled={guideBusy}>
-                    {guideBusy ? 'Uploading…' : 'Upload guidelines'}
+                    {guideBusy ? t('admin.vendor.btnUploading') : t('admin.vendor.btnUploadGuidelines')}
                   </button>
                 </div>
               </>
             )}
             <p className="field-hint" style={{ marginTop: 12 }}>
-              Saved to your document library under <strong>Vendor &amp; Contracts</strong> —
-              you can also manage it from <a href="/admin/documents#documents">Documents</a>.
+              {t('admin.vendor.guidelinesLibraryHint')} <a href="/admin/documents#documents">{t('admin.vendor.guidelinesLibraryLink')}</a>.
             </p>
             <input ref={guideFileRef} type="file" accept=".pdf,.doc,.docx,application/pdf"
               onChange={onPickGuide} style={{ display: 'none' }} />

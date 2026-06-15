@@ -16,6 +16,7 @@
 import { Suspense, useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/providers'
+import { useT } from '@/lib/i18n'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd } from '@/lib/compliance/rules-core'
 import {
@@ -47,14 +48,16 @@ const LIVE: Record<DocType, boolean> = {
 const GL_SOURCED: Partial<Record<DocType, boolean>> = { balance_sheet: true, rev_exp: true }
 
 export default function FinancialDocumentPage() {
+  const t = useT()
   return (
-    <Suspense fallback={<div style={{ padding: 40 }}>Loading…</div>}>
+    <Suspense fallback={<div style={{ padding: 40 }}>{t('admin.financialsDocument.loading')}</div>}>
       <DocInner />
     </Suspense>
   )
 }
 
 function DocInner() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const search = useSearchParams()
@@ -113,7 +116,7 @@ function DocInner() {
     return () => { cancelled = true }
   }, [communityId, type])
 
-  if (status === 'loading') return <div style={{ padding: 40 }}>Loading…</div>
+  if (status === 'loading') return <div style={{ padding: 40 }}>{t('admin.financialsDocument.loading')}</div>
   if (status === 'error') return <div style={{ padding: 40, color: '#B42318' }}>{error}</div>
 
   const today = ymd(new Date())
@@ -171,22 +174,32 @@ function DocInner() {
 
   return (
     <div style={{ maxWidth: 760, margin: '0 auto', padding: 24, fontFamily: 'Georgia, serif', color: '#111', lineHeight: 1.55 }}>
-      <style>{`@media print { .no-print { display: none !important; } body { margin: 0 } }`}</style>
+      <style>{`
+        @media print { .no-print { display: none !important; } body { margin: 0 } }
+        @media (max-width: 640px) {
+          .rp-toolbar { flex-direction: column; align-items: stretch !important; }
+          .rp-actions { margin-left: 0 !important; }
+          .rp-actions button { flex: 1 1 0; }
+        }
+      `}</style>
 
-      <div className="no-print" style={{ display: 'flex', gap: 10, justifyContent: 'space-between', marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
+      <div className="no-print rp-toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
         <div style={{ fontSize: 12, background: LIVE[type] ? '#ECFDF3' : '#FEF3F2', color: LIVE[type] ? '#067647' : '#B42318', padding: '8px 12px', borderRadius: 8, maxWidth: 540 }}>
           {LIVE[type]
             ? GL_SOURCED[type]
-              ? <>Computed from your general ledger ({fy.label}, ACCRUAL basis) — a regenerable projection of your recorded activity. Above the statutory revenue tier, have your CPA prepare the required compiled/reviewed/audited statements.</>
-              : <>Computed from your recorded payments (cash in) and expenses (cash out) for {fy.label}, on a CASH basis. Above the statutory revenue tier, have your CPA prepare the required compiled/reviewed/audited statements.</>
-            : <>⚠ DRAFT — an aid, not an official filing or accounting opinion. Figures are drawn from the budget you entered; have the report prepared/reviewed by your CPA and confirmed by counsel before relying on it or delivering it to members.</>}
+              ? t('admin.financialsDocument.bannerLiveGl', { fyLabel: fy.label })
+              : t('admin.financialsDocument.bannerLiveCash', { fyLabel: fy.label })
+            : t('admin.financialsDocument.bannerDraft')}
         </div>
-        <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '8px 16px', fontWeight: 700, cursor: 'pointer', height: 'fit-content' }}>Print / Save as PDF</button>
+        <div className="rp-actions" style={{ display: 'flex', gap: 8, flex: '0 0 auto', marginLeft: 'auto' }}>
+          <button onClick={() => history.back()} style={{ background: '#fff', color: '#111', border: '1px solid #d4d4d4', borderRadius: 8, padding: '9px 16px', fontWeight: 600, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>{t('admin.overview.back')}</button>
+          <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '9px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>{t('admin.financialsDocument.printButton')}</button>
+        </div>
       </div>
 
       <div style={{ textAlign: 'center', marginBottom: 14 }}>
-        <div style={{ fontSize: 18, fontWeight: 700 }}>{community?.name || 'Association'}</div>
-        <div style={{ fontSize: 12.5, color: '#555' }}>{community?.association_address || <Em>set the association address in Community settings</Em>}</div>
+        <div style={{ fontSize: 18, fontWeight: 700 }}>{community?.name || t('admin.financialsDocument.associationFallback')}</div>
+        <div style={{ fontSize: 12.5, color: '#555' }}>{community?.association_address || <Em>{t('admin.financialsDocument.setCommunityAddress')}</Em>}</div>
       </div>
       <div style={{ fontSize: 12.5, color: '#555', marginBottom: 4 }}>{today}</div>
       <h1 style={{ fontSize: 19, marginBottom: 4 }}>{TITLES[type]}</h1>
@@ -200,46 +213,44 @@ function DocInner() {
       {/* ---------- Statement of cash receipts & expenditures (by fund) ---------- */}
       {type === 'statement' && (
         <Body>
-          <h3 style={h3}>Cash receipts</h3>
+          <h3 style={h3}>{t('admin.financialsDocument.cashReceiptsHeading')}</h3>
           <table style={tbl}><tbody>
-            <tr><td style={td}>Assessments &amp; dues</td><td style={tdR}>{fmt$(receipts.assessments)}</td></tr>
-            <tr><td style={td}>Fines</td><td style={tdR}>{fmt$(receipts.fines)}</td></tr>
-            <tr><td style={td}>Other</td><td style={tdR}>{fmt$(receipts.other)}</td></tr>
-            <tr><td style={totTd}>Total receipts</td><td style={totTdR}>{fmt$(totalReceipts)}</td></tr>
+            <tr><td style={td}>{t('admin.financialsDocument.assessmentsDues')}</td><td style={tdR}>{fmt$(receipts.assessments)}</td></tr>
+            <tr><td style={td}>{t('admin.financialsDocument.fines')}</td><td style={tdR}>{fmt$(receipts.fines)}</td></tr>
+            <tr><td style={td}>{t('admin.financialsDocument.other')}</td><td style={tdR}>{fmt$(receipts.other)}</td></tr>
+            <tr><td style={totTd}>{t('admin.financialsDocument.totalReceipts')}</td><td style={totTdR}>{fmt$(totalReceipts)}</td></tr>
           </tbody></table>
 
-          <h3 style={h3}>Cash disbursements — operating fund</h3>
+          <h3 style={h3}>{t('admin.financialsDocument.cashDisburseOperating')}</h3>
           <table style={tbl}><tbody>
             {operating.map((b: any) => <tr key={b.id}><td style={td}>{b.name}</td><td style={tdR}>{fmt$(catActual(b.id))}</td></tr>)}
-            {operating.length === 0 && <tr><td style={td} colSpan={2}><Em>No operating categories on file.</Em></td></tr>}
-            <tr><td style={totTd}>Operating subtotal</td><td style={totTdR}>{fmt$(operatingActual)}</td></tr>
+            {operating.length === 0 && <tr><td style={td} colSpan={2}><Em>{t('admin.financialsDocument.noOperatingCategories')}</Em></td></tr>}
+            <tr><td style={totTd}>{t('admin.financialsDocument.operatingSubtotal')}</td><td style={totTdR}>{fmt$(operatingActual)}</td></tr>
           </tbody></table>
 
           {(reserveLines.length > 0 || reserveActual > 0) && (
             <>
-              <h3 style={h3}>Cash disbursements — reserve fund</h3>
+              <h3 style={h3}>{t('admin.financialsDocument.cashDisburseReserve')}</h3>
               <table style={tbl}><tbody>
                 {reserveLines.map((b: any) => <tr key={b.id}><td style={td}>{b.name}</td><td style={tdR}>{fmt$(catActual(b.id))}</td></tr>)}
-                <tr><td style={totTd}>Reserve subtotal</td><td style={totTdR}>{fmt$(reserveActual)}</td></tr>
+                <tr><td style={totTd}>{t('admin.financialsDocument.reserveSubtotal')}</td><td style={totTdR}>{fmt$(reserveActual)}</td></tr>
               </tbody></table>
             </>
           )}
 
           <table style={{ ...tbl, marginTop: 14 }}><tbody>
-            {uncategorizedActual > 0 && <tr><td style={td}>Uncategorized disbursements</td><td style={tdR}>{fmt$(uncategorizedActual)}</td></tr>}
-            <tr><td style={totTd}>Total disbursements</td><td style={totTdR}>{fmt$(totalDisbursements)}</td></tr>
-            <tr><td style={{ ...totTd, fontSize: 14 }}>Net change in cash</td><td style={{ ...totTdR, fontSize: 14, color: netChange < 0 ? '#B42318' : '#067647' }}>{fmt$(netChange)}</td></tr>
+            {uncategorizedActual > 0 && <tr><td style={td}>{t('admin.financialsDocument.uncategorizedDisbursements')}</td><td style={tdR}>{fmt$(uncategorizedActual)}</td></tr>}
+            <tr><td style={totTd}>{t('admin.financialsDocument.totalDisbursements')}</td><td style={totTdR}>{fmt$(totalDisbursements)}</td></tr>
+            <tr><td style={{ ...totTd, fontSize: 14 }}>{t('admin.financialsDocument.netChangeCash')}</td><td style={{ ...totTdR, fontSize: 14, color: netChange < 0 ? '#B42318' : '#067647' }}>{fmt$(netChange)}</td></tr>
           </tbody></table>
 
           {hasLedger ? (
             <p style={cite}>
-              Accrual context (from the general ledger, as of {today}): assessments receivable {fmt$(glArNet)} in
-              the operating fund. See the Balance Sheet and Statement of Revenue &amp; Expenses for the full accrual picture.
+              {t('admin.financialsDocument.accrualContextLedger', { today, arNet: fmt$(glArNet) })}
             </p>
           ) : duesSummary ? (
             <p style={cite}>
-              Accrual context (as of today, all years): assessments collected {fmt$(duesSummary.collected)},
-              outstanding receivable {fmt$(duesSummary.outstanding)} ({Number(duesSummary.rate) || 0}% collected).
+              {t('admin.financialsDocument.accrualContextDues', { collected: fmt$(duesSummary.collected), outstanding: fmt$(duesSummary.outstanding), rate: String(Number(duesSummary.rate) || 0) })}
             </p>
           ) : null}
           <p style={cite}>
@@ -254,17 +265,17 @@ function DocInner() {
       {/* ---------- Budget vs actual (by category + fund) ---------- */}
       {type === 'budget_actual' && (
         <Body>
-          <p>Adopted budget against actual recorded spending for {fy.label}. Variance is budget − actual (positive = under budget).</p>
-          <h3 style={h3}>Operating fund</h3>
+          <p>{t('admin.financialsDocument.bvaIntro', { fyLabel: fy.label })}</p>
+          <h3 style={h3}>{t('admin.financialsDocument.operatingFundHeading')}</h3>
           <BvaTable rows={operating} catActual={catActual} budgetTotal={operatingBudget} actualTotal={operatingActual} Em={Em} />
           {(reserveLines.length > 0 || reserveActual > 0) && (
             <>
-              <h3 style={h3}>Reserve fund</h3>
+              <h3 style={h3}>{t('admin.financialsDocument.reserveFundHeading')}</h3>
               <BvaTable rows={reserveLines} catActual={catActual} budgetTotal={reserveBudget} actualTotal={reserveActual} Em={Em} />
             </>
           )}
           {uncategorizedActual > 0 && (
-            <p style={cite}>Plus {fmt$(uncategorizedActual)} of recorded spending not assigned to a budget category — categorize these in the Expenses log so they land in a fund above.</p>
+            <p style={cite}>{t('admin.financialsDocument.uncategorizedSpending', { amount: fmt$(uncategorizedActual) })}</p>
           )}
           <p style={cite}>Actuals are recorded expenses dated within {fy.label}. Budget figures are what you entered per category; adopt the budget per {isHoa ? 'FS 720.303(6)' : 'FS 718.112(2)(f)'}.</p>
         </Body>
@@ -274,34 +285,34 @@ function DocInner() {
       {type === 'balance_sheet' && (
         <Body>
           {!hasLedger ? (
-            <p><Em>No general ledger has been built yet. Once the ledger is built (Accounting → rebuild), this Balance Sheet populates from your double-entry books.</Em></p>
+            <p><Em>{t('admin.financialsDocument.noLedgerBalanceSheet')}</Em></p>
           ) : (
             <>
-              <p>Assets, liabilities and fund balance as of {today}, by fund — from your general ledger (accrual). Operating and reserve funds are shown separately (FS {isHoa ? '720.303(6)' : '718.111(14)'}).</p>
+              <p>{t('admin.financialsDocument.balanceSheetIntro', { today, statute: isHoa ? 'FS 720.303(6)' : 'FS 718.111(14)' })}</p>
               {bsheet.funds.map((f: any) => (
                 <div key={f.fund}>
-                  <h3 style={h3}>{f.fund === 'operating' ? 'Operating fund' : f.fund === 'reserve' ? 'Reserve fund' : f.fund}</h3>
+                  <h3 style={h3}>{f.fund === 'operating' ? t('admin.financialsDocument.operatingFundHeading') : f.fund === 'reserve' ? t('admin.financialsDocument.reserveFundHeading') : f.fund}</h3>
                   <table style={tbl}><tbody>
-                    <tr><td style={secTd} colSpan={2}>Assets</td></tr>
+                    <tr><td style={secTd} colSpan={2}>{t('admin.financialsDocument.assetsLabel')}</td></tr>
                     {f.assets.map((a: any) => <tr key={a.code}><td style={td}>{a.name}</td><td style={tdR}>{fmt$(a.amount)}</td></tr>)}
-                    {f.assets.length === 0 && <tr><td style={td} colSpan={2}><Em>None</Em></td></tr>}
-                    <tr><td style={totTd}>Total assets</td><td style={totTdR}>{fmt$(f.totalAssets)}</td></tr>
-                    <tr><td style={secTd} colSpan={2}>Liabilities &amp; fund balance</td></tr>
+                    {f.assets.length === 0 && <tr><td style={td} colSpan={2}><Em>{t('admin.financialsDocument.noneLabel')}</Em></td></tr>}
+                    <tr><td style={totTd}>{t('admin.financialsDocument.totalAssetsLabel')}</td><td style={totTdR}>{fmt$(f.totalAssets)}</td></tr>
+                    <tr><td style={secTd} colSpan={2}>{t('admin.financialsDocument.liabilitiesFundBalance')}</td></tr>
                     {f.liabilities.map((a: any) => <tr key={a.code}><td style={td}>{a.name}</td><td style={tdR}>{fmt$(a.amount)}</td></tr>)}
                     {f.equity.map((a: any) => <tr key={a.code}><td style={td}>{a.name}</td><td style={tdR}>{fmt$(a.amount)}</td></tr>)}
-                    <tr><td style={td}>Accumulated surplus / (deficit)</td><td style={tdR}>{fmt$(f.netIncome)}</td></tr>
-                    <tr><td style={totTd}>Total liabilities &amp; fund balance</td><td style={totTdR}>{fmt$(f.totalLiabilities + f.totalEquity)}</td></tr>
+                    <tr><td style={td}>{t('admin.financialsDocument.accumulatedSurplusDeficit')}</td><td style={tdR}>{fmt$(f.netIncome)}</td></tr>
+                    <tr><td style={totTd}>{t('admin.financialsDocument.totalLiabilitiesFundBalance')}</td><td style={totTdR}>{fmt$(f.totalLiabilities + f.totalEquity)}</td></tr>
                   </tbody></table>
                 </div>
               ))}
               <table style={{ ...tbl, marginTop: 14 }}><tbody>
-                <tr><td style={{ ...totTd, fontSize: 14 }}>Total assets (all funds)</td><td style={{ ...totTdR, fontSize: 14 }}>{fmt$(bsheet.totalAssets)}</td></tr>
-                <tr><td style={totTd}>Total liabilities &amp; fund balance</td><td style={totTdR}>{fmt$(bsheet.totalLiabilities + bsheet.totalEquity)}</td></tr>
+                <tr><td style={{ ...totTd, fontSize: 14 }}>{t('admin.financialsDocument.totalAssetsAllFunds')}</td><td style={{ ...totTdR, fontSize: 14 }}>{fmt$(bsheet.totalAssets)}</td></tr>
+                <tr><td style={totTd}>{t('admin.financialsDocument.totalLiabilitiesFundBalance')}</td><td style={totTdR}>{fmt$(bsheet.totalLiabilities + bsheet.totalEquity)}</td></tr>
               </tbody></table>
               <p style={cite}>
                 {bsheet.balances
-                  ? 'Assets equal liabilities plus fund balance — the ledger is in balance.'
-                  : '⚠ Assets do not equal liabilities plus fund balance; rebuild the ledger.'}
+                  ? t('admin.financialsDocument.ledgerInBalance')
+                  : t('admin.financialsDocument.ledgerOutOfBalance')}
                 {' '}Cumulative since inception, accrual basis. Reserve inter-fund transfers post once the bank feed is connected.
               </p>
             </>
@@ -313,32 +324,32 @@ function DocInner() {
       {type === 'rev_exp' && (
         <Body>
           {!hasLedger ? (
-            <p><Em>No general ledger has been built yet. Once the ledger is built (Accounting → rebuild), this statement populates from your double-entry books.</Em></p>
+            <p><Em>{t('admin.financialsDocument.noLedgerRevExp')}</Em></p>
           ) : (
             <>
-              <p>Revenue earned and expenses incurred for {fy.label} ({fy.startISO} through {fyEnd}), accrual basis, by fund.</p>
-              {revexp.funds.length === 0 && <p><Em>No revenue or expense entries recorded for {fy.label}.</Em></p>}
+              <p>{t('admin.financialsDocument.revExpIntro', { fyLabel: fy.label, startISO: fy.startISO, fyEnd })}</p>
+              {revexp.funds.length === 0 && <p><Em>{t('admin.financialsDocument.noRevenueEntries', { fyLabel: fy.label })}</Em></p>}
               {revexp.funds.map((f: any) => (
                 <div key={f.fund}>
-                  <h3 style={h3}>{f.fund === 'operating' ? 'Operating fund' : f.fund === 'reserve' ? 'Reserve fund' : f.fund}</h3>
+                  <h3 style={h3}>{f.fund === 'operating' ? t('admin.financialsDocument.operatingFundHeading') : f.fund === 'reserve' ? t('admin.financialsDocument.reserveFundHeading') : f.fund}</h3>
                   <table style={tbl}><tbody>
-                    <tr><td style={secTd} colSpan={2}>Revenue</td></tr>
+                    <tr><td style={secTd} colSpan={2}>{t('admin.financialsDocument.revenueLabel')}</td></tr>
                     {f.revenue.map((a: any) => <tr key={a.code}><td style={td}>{a.name}</td><td style={tdR}>{fmt$(a.amount)}</td></tr>)}
-                    {f.revenue.length === 0 && <tr><td style={td} colSpan={2}><Em>None</Em></td></tr>}
-                    <tr><td style={totTd}>Total revenue</td><td style={totTdR}>{fmt$(f.totalRevenue)}</td></tr>
-                    <tr><td style={secTd} colSpan={2}>Expenses</td></tr>
+                    {f.revenue.length === 0 && <tr><td style={td} colSpan={2}><Em>{t('admin.financialsDocument.noneLabel')}</Em></td></tr>}
+                    <tr><td style={totTd}>{t('admin.financialsDocument.totalRevenueLabel')}</td><td style={totTdR}>{fmt$(f.totalRevenue)}</td></tr>
+                    <tr><td style={secTd} colSpan={2}>{t('admin.financialsDocument.expensesLabel')}</td></tr>
                     {f.expense.map((a: any) => <tr key={a.code}><td style={td}>{a.name}</td><td style={tdR}>{fmt$(a.amount)}</td></tr>)}
-                    {f.expense.length === 0 && <tr><td style={td} colSpan={2}><Em>None</Em></td></tr>}
-                    <tr><td style={totTd}>Total expenses</td><td style={totTdR}>{fmt$(f.totalExpense)}</td></tr>
-                    <tr><td style={{ ...totTd, fontSize: 14 }}>Net surplus / (deficit)</td><td style={{ ...totTdR, fontSize: 14, color: f.net < 0 ? '#B42318' : '#067647' }}>{fmt$(f.net)}</td></tr>
+                    {f.expense.length === 0 && <tr><td style={td} colSpan={2}><Em>{t('admin.financialsDocument.noneLabel')}</Em></td></tr>}
+                    <tr><td style={totTd}>{t('admin.financialsDocument.totalExpensesLabel')}</td><td style={totTdR}>{fmt$(f.totalExpense)}</td></tr>
+                    <tr><td style={{ ...totTd, fontSize: 14 }}>{t('admin.financialsDocument.netSurplusDeficit')}</td><td style={{ ...totTdR, fontSize: 14, color: f.net < 0 ? '#B42318' : '#067647' }}>{fmt$(f.net)}</td></tr>
                   </tbody></table>
                 </div>
               ))}
               {revexp.funds.length > 1 && (
                 <table style={{ ...tbl, marginTop: 14 }}><tbody>
-                  <tr><td style={totTd}>Total revenue (all funds)</td><td style={totTdR}>{fmt$(revexp.totalRevenue)}</td></tr>
-                  <tr><td style={totTd}>Total expenses (all funds)</td><td style={totTdR}>{fmt$(revexp.totalExpense)}</td></tr>
-                  <tr><td style={{ ...totTd, fontSize: 14 }}>Net surplus / (deficit)</td><td style={{ ...totTdR, fontSize: 14, color: revexp.net < 0 ? '#B42318' : '#067647' }}>{fmt$(revexp.net)}</td></tr>
+                  <tr><td style={totTd}>{t('admin.financialsDocument.totalRevenueAllFunds')}</td><td style={totTdR}>{fmt$(revexp.totalRevenue)}</td></tr>
+                  <tr><td style={totTd}>{t('admin.financialsDocument.totalExpensesAllFunds')}</td><td style={totTdR}>{fmt$(revexp.totalExpense)}</td></tr>
+                  <tr><td style={{ ...totTd, fontSize: 14 }}>{t('admin.financialsDocument.netSurplusDeficit')}</td><td style={{ ...totTdR, fontSize: 14, color: revexp.net < 0 ? '#B42318' : '#067647' }}>{fmt$(revexp.net)}</td></tr>
                 </tbody></table>
               )}
               <p style={cite}>Accrual basis — revenue when earned (assessments accrued by installment), expenses when incurred — from the general ledger. {isHoa ? 'FS 720.303(7)' : 'FS 718.111(13)'}.</p>
@@ -351,23 +362,23 @@ function DocInner() {
       {type === 'afr' && (
         <Body>
           <p>Summary of the association's revenues, expenditures, and reserves. The required level of financial reporting at ~{fmt$(revenue)} annual revenue is <strong>{AUDIT_TIER_LABEL[required]}</strong>. Actuals shown are recorded expenses for {fy.label}.</p>
-          <table style={tbl}><thead><tr><th style={th}>Category</th><th style={thR}>Budget</th><th style={thR}>Actual</th></tr></thead><tbody>
+          <table style={tbl}><thead><tr><th style={th}>{t('admin.financialsDocument.colCategory')}</th><th style={thR}>{t('admin.financialsDocument.colBudget')}</th><th style={thR}>{t('admin.financialsDocument.colActual')}</th></tr></thead><tbody>
             {operating.map((b: any) => (
               <tr key={b.id}><td style={td}>{b.name}</td><td style={tdR}>{fmt$(b.budget)}</td><td style={tdR}>{fmt$(catActual(b.id))}</td></tr>
             ))}
-            {operating.length === 0 && <tr><td style={td} colSpan={3}><Em>No budget categories on file.</Em></td></tr>}
-            <tr><td style={totTd}>Total</td><td style={totTdR}>{fmt$(operatingBudget)}</td><td style={totTdR}>{fmt$(operatingActual)}</td></tr>
+            {operating.length === 0 && <tr><td style={td} colSpan={3}><Em>{t('admin.financialsDocument.noBudgetCategories')}</Em></td></tr>}
+            <tr><td style={totTd}>{t('admin.financialsDocument.totalLabel')}</td><td style={totTdR}>{fmt$(operatingBudget)}</td><td style={totTdR}>{fmt$(operatingActual)}</td></tr>
           </tbody></table>
           {reserveLines.length > 0 && (
             <>
-              <h3 style={h3}>Reserves</h3>
-              <table style={tbl}><thead><tr><th style={th}>Component</th><th style={thR}>Budget</th><th style={thR}>Actual</th></tr></thead><tbody>
+              <h3 style={h3}>{t('admin.financialsDocument.reservesHeading')}</h3>
+              <table style={tbl}><thead><tr><th style={th}>{t('admin.financialsDocument.colComponent')}</th><th style={thR}>{t('admin.financialsDocument.colBudget')}</th><th style={thR}>{t('admin.financialsDocument.colActual')}</th></tr></thead><tbody>
                 {reserveLines.map((b: any) => <tr key={b.id}><td style={td}>{b.name}</td><td style={tdR}>{fmt$(b.budget)}</td><td style={tdR}>{fmt$(catActual(b.id))}</td></tr>)}
-                <tr><td style={totTd}>Total</td><td style={totTdR}>{fmt$(reserveBudget)}</td><td style={totTdR}>{fmt$(reserveActual)}</td></tr>
+                <tr><td style={totTd}>{t('admin.financialsDocument.totalLabel')}</td><td style={totTdR}>{fmt$(reserveBudget)}</td><td style={totTdR}>{fmt$(reserveActual)}</td></tr>
               </tbody></table>
             </>
           )}
-          <h3 style={h3}>Officer affidavit of compliance</h3>
+          <h3 style={h3}>{t('admin.financialsDocument.officerAffidavitHeading')}</h3>
           <p style={{ fontSize: 13 }}>STATE OF FLORIDA, COUNTY OF ______________. The undersigned officer of {community?.name || 'the association'} certifies that this annual financial report was prepared consistent with {isHoa ? 'section 720.303(7)' : 'section 718.111(13)'}, Florida Statutes, was completed within 90 days after the fiscal year-end, and {isHoa ? 'will be provided to members as required' : 'will be delivered to or made available to unit owners within 21 days after written request, but not later than the statutory deadline'}.</p>
           <Sign name={community?.association_officer_name} assoc={community?.name} />
         </Body>
@@ -377,15 +388,15 @@ function DocInner() {
       {type === 'budget' && (
         <Body>
           <p>Proposed operating budget. The proposed budget must reach members at least <strong>14 days</strong> before the meeting at which it is considered.</p>
-          <table style={tbl}><thead><tr><th style={th}>Category</th><th style={thR}>Proposed</th><th style={thR}>Per {isHoa ? 'parcel' : 'unit'}/yr</th></tr></thead><tbody>
+          <table style={tbl}><thead><tr><th style={th}>{t('admin.financialsDocument.colCategory')}</th><th style={thR}>{t('admin.financialsDocument.colProposed')}</th><th style={thR}>{isHoa ? t('admin.financialsDocument.colPerParcel') : t('admin.financialsDocument.colPerUnit')}</th></tr></thead><tbody>
             {operating.map((b: any) => (
               <tr key={b.id}><td style={td}>{b.name}</td><td style={tdR}>{fmt$(b.budget)}</td><td style={tdR}>{units > 0 ? fmt$((Number(b.budget) || 0) / units) : <Em>—</Em>}</td></tr>
             ))}
-            <tr><td style={totTd}>Operating total</td><td style={totTdR}>{fmt$(operatingBudget)}</td><td style={totTdR}>{units > 0 ? fmt$(operatingBudget / units) : '—'}</td></tr>
+            <tr><td style={totTd}>{t('admin.financialsDocument.operatingTotal')}</td><td style={totTdR}>{fmt$(operatingBudget)}</td><td style={totTdR}>{units > 0 ? fmt$(operatingBudget / units) : '—'}</td></tr>
           </tbody></table>
           {reserveLines.length > 0 && (
             <>
-              <h3 style={h3}>Reserve contributions</h3>
+              <h3 style={h3}>{t('admin.financialsDocument.reserveContributions')}</h3>
               <table style={tbl}><tbody>
                 {reserveLines.map((b: any) => <tr key={b.id}><td style={td}>{b.name}</td><td style={tdR}>{fmt$(b.budget)}</td></tr>)}
               </tbody></table>
@@ -399,9 +410,9 @@ function DocInner() {
       {type === 'reserve_worksheet' && (
         <Body>
           <p>Reserve component funding status. Underfunded reserves increase the risk of a special assessment; SIRS structural components must be fully funded for budgets adopted on/after 2026-01-01 and may not be waived.</p>
-          {reserves.length === 0 ? <p><Em>No reserve components recorded. Add them in the Financial workspace.</Em></p> : (
+          {reserves.length === 0 ? <p><Em>{t('admin.financialsDocument.noReserveComponents')}</Em></p> : (
             <table style={tbl}><thead><tr>
-              <th style={th}>Component</th><th style={th}>SIRS</th><th style={thR}>Current</th><th style={thR}>Fully funded</th><th style={thR}>% funded</th>
+              <th style={th}>{t('admin.financialsDocument.colComponent')}</th><th style={th}>{t('admin.financialsDocument.colSirs')}</th><th style={thR}>{t('admin.financialsDocument.colCurrent')}</th><th style={thR}>{t('admin.financialsDocument.colFullyFunded')}</th><th style={thR}>{t('admin.financialsDocument.colPctFunded')}</th>
             </tr></thead><tbody>
               {reserves.map((r: any) => {
                 const ff = Number(r.fully_funded_balance) || 0
@@ -417,7 +428,7 @@ function DocInner() {
                 )
               })}
               <tr>
-                <td style={totTd}>Total</td><td style={{ ...tdC, borderTop: '2px solid #111' }}></td>
+                <td style={totTd}>{t('admin.financialsDocument.totalLabel')}</td><td style={{ ...tdC, borderTop: '2px solid #111' }}></td>
                 <td style={totTdR}>{fmt$(reserves.reduce((s: number, r: any) => s + (Number(r.current_balance) || 0), 0))}</td>
                 <td style={totTdR}>{fmt$(reserves.reduce((s: number, r: any) => s + (Number(r.fully_funded_balance) || 0), 0))}</td>
                 <td style={{ ...tdR, borderTop: '2px solid #111' }}></td>
@@ -433,10 +444,11 @@ function DocInner() {
 
 function BvaTable({ rows, catActual, budgetTotal, actualTotal, Em }:
   { rows: any[]; catActual: (id: string) => number; budgetTotal: number; actualTotal: number; Em: any }) {
+  const t = useT()
   const pctUsed = (b: number, a: number) => (b > 0 ? Math.round((a / b) * 100) + '%' : '—')
   return (
     <table style={tbl}><thead><tr>
-      <th style={th}>Category</th><th style={thR}>Budget</th><th style={thR}>Actual</th><th style={thR}>Variance</th><th style={thR}>% used</th>
+      <th style={th}>{t('admin.financialsDocument.colCategory')}</th><th style={thR}>{t('admin.financialsDocument.colBudget')}</th><th style={thR}>{t('admin.financialsDocument.colActual')}</th><th style={thR}>{t('admin.financialsDocument.colVariance')}</th><th style={thR}>{t('admin.financialsDocument.colPctUsed')}</th>
     </tr></thead><tbody>
       {rows.map((b: any) => {
         const bud = Number(b.budget) || 0, act = catActual(b.id), v = bud - act
@@ -450,9 +462,9 @@ function BvaTable({ rows, catActual, budgetTotal, actualTotal, Em }:
           </tr>
         )
       })}
-      {rows.length === 0 && <tr><td style={td} colSpan={5}><Em>No categories on file.</Em></td></tr>}
+      {rows.length === 0 && <tr><td style={td} colSpan={5}><Em>{t('admin.financialsDocument.noCategoriesOnFile')}</Em></td></tr>}
       <tr>
-        <td style={totTd}>Total</td>
+        <td style={totTd}>{t('admin.financialsDocument.totalLabel')}</td>
         <td style={totTdR}>{fmt$(budgetTotal)}</td>
         <td style={totTdR}>{fmt$(actualTotal)}</td>
         <td style={{ ...totTdR, color: budgetTotal - actualTotal < 0 ? '#B42318' : '#111' }}>{fmt$(budgetTotal - actualTotal)}</td>
@@ -464,10 +476,11 @@ function BvaTable({ rows, catActual, budgetTotal, actualTotal, Em }:
 
 function Body({ children }: { children: any }) { return <div style={{ fontSize: 14 }}>{children}</div> }
 function Sign({ name, assoc }: { name?: string | null; assoc?: string | null }) {
+  const t = useT()
   return (
     <div style={{ marginTop: 36, fontSize: 14 }}>
-      <div style={{ borderTop: '1px solid #111', width: 300, paddingTop: 6 }}>{name || 'Authorized officer'}</div>
-      <div style={{ fontSize: 12, color: '#555' }}>{assoc || 'Association'}</div>
+      <div style={{ borderTop: '1px solid #111', width: 300, paddingTop: 6 }}>{name || t('admin.financialsDocument.authorizedOfficer')}</div>
+      <div style={{ fontSize: 12, color: '#555' }}>{assoc || t('admin.financialsDocument.associationFallback')}</div>
       <div style={{ fontSize: 12, color: '#555', marginTop: 10 }}>Sworn to and subscribed before me this ____ day of ____________, 20____.</div>
     </div>
   )

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><meta name="robots" content="noindex"/>
+<title>Residente Admin · Reports v2 (mock)</title>
+<link rel="stylesheet" href="admin-mock.css"/>
+<link rel="stylesheet" href="admin-mock-v2.css"/>
+</head><body>
+
+<div class="bar">
+  <div class="brand"><span class="brand-chip"><img src="../residente-logo.png" alt="Residente"/></span>Residente</div>
+  <div class="bar-right"><div class="viewas"><span class="viewas-lbl">View as</span><button data-view="founder">Founder</button><button data-view="onboarding">Onboarding</button><button data-view="support">Support</button><button data-view="billing">Billing</button><button data-view="client">Client</button></div><a class="bar-link" href="support.html">Contact Residente</a><a class="back" href="#">&larr; Back to app</a></div>
+</div>
+<nav class="nav">
+  <a href="index-v2.html">Overview</a>
+  <a href="community-v2.html">Community</a>
+  <a href="compliance-v2.html">Compliance</a>
+  <a href="reports-v2.html" class="active">Reports</a>
+  <a href="easy-track-v2.html">Easy Track</a>
+  <a href="easy-voice-v2.html">Easy Voice</a>
+  <a href="easy-documents-v2.html">Easy Documents</a>
+  <a href="easy-schedule-v2.html">Easy Schedule</a>
+  <a href="roles-v2.html">Roles</a>
+  <a href="platform-v2.html" class="plat">Platform</a>
+</nav>
+
+<main class="page">
+  <div class="kicker">Reporting</div>
+  <h1>Reports</h1>
+  <p class="dek">Financial &amp; operational reports for your board and owners. Filter the period, then view or export.</p>
+
+  <div class="toolbar">
+    <div class="row-actions">
+      <div class="dd">Year to date<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg></div>
+      <div class="dd">All categories<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg></div>
+    </div>
+    <button class="btn">Export CSV</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat"><div class="v">$208,400</div><div class="l">Collected YTD</div></div>
+    <div class="stat"><div class="v" style="color:var(--due)">$12,840</div><div class="l">Outstanding</div></div>
+    <div class="stat"><div class="v">$174,900</div><div class="l">Expenses YTD</div></div>
+    <div class="stat"><div class="v" style="color:var(--ok)">$33,500</div><div class="l">Net</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div><h2>Available reports</h2><div class="sub">View in-app or export to PDF / CSV</div></div></div>
+    <table class="tbl">
+      <thead><tr><th>Report</th><th>Period</th><th>Updated</th><th></th></tr></thead>
+      <tbody>
+        <tr><td><div class="doc-cell"><span class="doc-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/></svg></span><span class="strong">Income &amp; expense statement</span></div></td><td class="muted">Jan&ndash;May 2026</td><td class="muted">Jun 1</td><td style="text-align:right"><span class="go">View &rarr;</span></td></tr>
+        <tr><td><div class="doc-cell"><span class="doc-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/></svg></span><span class="strong">Delinquency / aging report</span></div></td><td class="muted">As of Jun 5</td><td class="muted">Today</td><td style="text-align:right"><span class="go">View &rarr;</span></td></tr>
+        <tr><td><div class="doc-cell"><span class="doc-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/></svg></span><span class="strong">Budget vs. actual</span></div></td><td class="muted">YTD 2026</td><td class="muted">Jun 1</td><td style="text-align:right"><span class="go">View &rarr;</span></td></tr>
+        <tr><td><div class="doc-cell"><span class="doc-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/></svg></span><span class="strong">Reserve funding schedule</span></div></td><td class="muted">2026</td><td class="muted">May 12</td><td style="text-align:right"><span class="go">View &rarr;</span></td></tr>
+        <tr><td><div class="doc-cell"><span class="doc-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/></svg></span><span class="strong">Payment ledger (all owners)</span></div></td><td class="muted">YTD 2026</td><td class="muted">Today</td><td style="text-align:right"><span class="go">View &rarr;</span></td></tr>
+        <tr><td><div class="doc-cell"><span class="doc-ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 14l3-3 3 3 5-6"/></svg></span><span class="strong">Violation &amp; fine summary</span></div></td><td class="muted">YTD 2026</td><td class="muted">Jun 3</td><td style="text-align:right"><span class="go">View &rarr;</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div><h2>Collections snapshot</h2><div class="sub">Owners by balance bracket</div></div></div>
+    <div class="lrow"><span class="pill ok" style="min-width:64px;text-align:center">Current</span><div class="body"><div class="ttl">102 owners</div><div class="meta">$0 balance</div></div><span class="muted">85%</span></div>
+    <div class="lrow"><span class="pill warn" style="min-width:64px;text-align:center">1&ndash;30d</span><div class="body"><div class="ttl">11 owners</div><div class="meta">$3,135 outstanding</div></div><span class="muted">9%</span></div>
+    <div class="lrow"><span class="pill due" style="min-width:64px;text-align:center">31&ndash;90d</span><div class="body"><div class="ttl">5 owners</div><div class="meta">$4,275 outstanding</div></div><span class="muted">4%</span></div>
+    <div class="lrow"><span class="pill due" style="min-width:64px;text-align:center">90d+</span><div class="body"><div class="ttl">2 owners</div><div class="meta">$5,430 &mdash; eligible for lien</div></div><a class="go" href="compliance-v2.html">Collections &rarr;</a></div>
+  </div>
+
+  <p class="note">Mock &middot; not wired to data</p>
+</main>
+<script src="admin-mock.js"></script>
+</body></html>

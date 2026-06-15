@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useMyNoticesPaged } from '@/hooks/useNotices'
-import { NOTICE_KIND_LABELS, noticeHref, NoticeKind } from '@/lib/voice'
+import { NOTICE_KIND_LABELS, noticeHref, noticeTone, noticeKindLabel, localizeNoticeText } from '@/lib/voice'
 import { useT } from '@/lib/i18n'
+import { Dropdown } from '@/components/Dropdown'
 
 const fmtTs = (iso?: string | null) => {
   if (!iso) return ''
@@ -16,13 +17,15 @@ const fmtTs = (iso?: string | null) => {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 }
 
+const PAGE_SIZE = 10
+
 export default function NotificationsInboxPage() {
   const t = useT()
   const router = useRouter()
   const [kind, setKind] = useState('')
   const KIND_OPTIONS: { value: string; label: string }[] = [
     { value: '', label: t('community.notifications.allKinds') },
-    ...Object.entries(NOTICE_KIND_LABELS).map(([value, label]) => ({ value, label })),
+    ...Object.keys(NOTICE_KIND_LABELS).map(value => ({ value, label: noticeKindLabel(value, t) })),
   ]
   const {
     notices, loading, loadingMore, hasMore, error,
@@ -30,6 +33,20 @@ export default function NotificationsInboxPage() {
   } = useMyNoticesPaged({ kind: kind || undefined, pageSize: 50 })
 
   const unreadCount = notices.filter((r: any) => !r.read_at).length
+
+  // Page through the loaded notices. When the reader reaches the end of what's
+  // loaded and the server still has more, fetch the next batch then advance.
+  const [page, setPage] = useState(0)
+  useEffect(() => { setPage(0) }, [kind])
+  const loadedPages = Math.max(1, Math.ceil(notices.length / PAGE_SIZE))
+  const pageRows = notices.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
+  const canPrev = page > 0
+  const canNext = page < loadedPages - 1 || hasMore
+  const goPrev = () => setPage(p => Math.max(0, p - 1))
+  const goNext = async () => {
+    if (page >= loadedPages - 1 && hasMore) await loadMore()
+    setPage(p => p + 1)
+  }
 
   const onPick = async (r: any) => {
     const n = r.notice
@@ -51,9 +68,14 @@ export default function NotificationsInboxPage() {
       </div>
 
       <div className="inbox-toolbar">
-        <select name="notice-kind" className="inbox-filter" value={kind} onChange={e => setKind(e.target.value)}>
-          {KIND_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+        <div className="inbox-filter-dd">
+          <Dropdown
+            value={kind}
+            onChange={setKind}
+            options={KIND_OPTIONS}
+            ariaLabel={t('community.notifications.allKinds')}
+          />
+        </div>
         <button
           className="inbox-mark-all"
           onClick={markAllRead}
@@ -70,7 +92,7 @@ export default function NotificationsInboxPage() {
       )}
 
       <div className="inbox-list">
-        {notices.map((r: any) => {
+        {pageRows.map((r: any) => {
           const n = r.notice
           if (!n) return null
           const unread = !r.read_at
@@ -78,24 +100,33 @@ export default function NotificationsInboxPage() {
             <button
               key={r.id}
               className={`inbox-row${unread ? ' unread' : ''}`}
+              data-tone={noticeTone(n.kind)}
               onClick={() => onPick(r)}
             >
               <div className="inbox-row-meta">
-                <span className="inbox-row-kind">{NOTICE_KIND_LABELS[n.kind as NoticeKind] ?? n.kind}</span>
+                <span className="inbox-row-kind">{noticeKindLabel(n.kind, t)}</span>
                 <span className="inbox-row-ts">{fmtTs(r.delivered_at)}</span>
               </div>
-              <div className="inbox-row-subject">{n.subject || t('community.notifications.noSubject')}</div>
-              {n.body && <div className="inbox-row-body">{n.body}</div>}
+              <div className="inbox-row-subject">{localizeNoticeText(n.subject, t) || t('community.notifications.noSubject')}</div>
+              {n.body && <div className="inbox-row-body">{localizeNoticeText(n.body, t)}</div>}
               {unread && <span className="inbox-row-dot" aria-label={t('community.notifications.unread')} />}
             </button>
           )
         })}
       </div>
 
-      {hasMore && (
-        <button className="inbox-load-more" onClick={loadMore} disabled={loadingMore}>
-          {loadingMore ? t('community.notifications.loading') : t('community.notifications.loadMore')}
-        </button>
+      {!loading && notices.length > 0 && (canPrev || canNext) && (
+        <div className="inbox-pager">
+          <button className="inbox-pager-btn" onClick={goPrev} disabled={!canPrev}>
+            {t('community.notifications.prev')}
+          </button>
+          <span className="inbox-pager-info">
+            {t('community.notifications.pageOf', { page: page + 1, total: `${loadedPages}${hasMore ? '+' : ''}` })}
+          </span>
+          <button className="inbox-pager-btn" onClick={goNext} disabled={!canNext || loadingMore}>
+            {loadingMore ? t('community.notifications.loading') : t('community.notifications.next')}
+          </button>
+        </div>
       )}
     </div>
   )

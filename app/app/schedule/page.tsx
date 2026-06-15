@@ -404,8 +404,10 @@ function CalendarView() {
             </div>
           )}
 
+          {/* Legend mirrors the active filters — unchecking a kind removes it
+              here too, so what's under the calendar matches what's shown. */}
           <div className="sched-legend">
-            {ALL_KINDS.map(k => (
+            {ALL_KINDS.filter(k => enabledKinds.has(k)).map(k => (
               <span key={k} className="sched-legend-item">
                 <span className={`sched-dot kind-${k}`} />
                 {KIND_LABEL[k]}
@@ -436,35 +438,6 @@ function CalendarView() {
               {selectedEvents.map(e => (
                 <EventRow key={e.id} e={e} />
               ))}
-            </div>
-          </div>
-
-          <div className="sched-side-card">
-            <div className="sched-filters-head">
-              <span>{t('schedule.filters')}</span>
-              <button
-                className="sched-filters-clear"
-                onClick={() => setEnabledKinds(new Set(ALL_KINDS))}
-              >
-                {t('schedule.reset')}
-              </button>
-            </div>
-            <div className="sched-filters-list">
-              {ALL_KINDS.map(k => {
-                const on = enabledKinds.has(k)
-                return (
-                  <label key={k} className={`sched-filter${on ? ' on' : ''}`}>
-                    <input
-                      name={`kind-${k}`}
-                      type="checkbox"
-                      checked={on}
-                      onChange={() => toggleKind(k)}
-                    />
-                    <span className={`sched-dot kind-${k}`} />
-                    <span>{KIND_LABEL[k]}</span>
-                  </label>
-                )
-              })}
             </div>
           </div>
 

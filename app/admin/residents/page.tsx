@@ -9,6 +9,7 @@ import { logAudit } from '@/lib/audit'
 import { Dropdown } from '@/components/Dropdown'
 import { RecordPaymentForm } from '@/components/RecordPaymentForm'
 import { EasyTrackTabs } from '../EasyTrackTabs'
+import { useT } from '@/lib/i18n'
 
 // Resident account / voting-invite state from the magic-link columns, with a
 // fallback to a linked profile (older rows activated before invited_at existed).
@@ -48,13 +49,12 @@ function parseResidentsCsv(text) {
   return out
 }
 
-// Sort by subdivision, then address (numeric-aware), then name.
+// Sort alphabetically by household name; unit/address (numeric-aware) breaks ties.
 const sortRows = (rs) => [...rs].sort((a, b) => {
-  const s = String(a.subdivision || '~').localeCompare(String(b.subdivision || '~'))
-  if (s !== 0) return s
-  const ad = String(a.address || '').localeCompare(
+  const n = String(a.full_name || '~').localeCompare(String(b.full_name || '~'))
+  if (n !== 0) return n
+  return String(a.address || '').localeCompare(
     String(b.address || ''), undefined, { numeric: true })
-  return ad !== 0 ? ad : String(a.full_name || '').localeCompare(String(b.full_name || ''))
 })
 
 // Editable import spreadsheet — one row per household, four columns matching the
@@ -67,6 +67,7 @@ const gridRowHasData = (r) => !!(r.name || r.unit || r.email || r.phone)
 // household's balance accrues monthly_dues automatically; the board sets the
 // one-time opening balance and the Paid/Due/Late status is derived from it.
 export default function Residents() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const [rows, setRows] = useState([])
@@ -81,6 +82,8 @@ export default function Residents() {
   const [subFilter, setSubFilter] = useState('all')
   const [grid, setGrid] = useState(() => [blankGridRow(), blankGridRow(), blankGridRow()])
   const fileRef = useRef(null)
+  // "More →" hint fades out as the import sheet is scrolled right.
+  const [hintOpacity, setHintOpacity] = useState(1)
   // Magic-link invites (ported from the old Voice Roster).
   const [inviteBusyId, setInviteBusyId] = useState(null)
   const [bulkBusy, setBulkBusy] = useState(false)
@@ -110,7 +113,7 @@ export default function Residents() {
       setPayments(payR.data || [])
       setStatus('ready')
     } catch (err) {
-      setError(err?.message || 'Could not load residents'); setStatus('error')
+      setError(err?.message || t('admin.residents.errLoadResidents')); setStatus('error')
     }
   }, [communityId])
   useEffect(() => { load() }, [load])
@@ -157,7 +160,7 @@ export default function Residents() {
   const subOptions = useMemo(() => {
     const subs = [...new Set(rows.map(r => (r.subdivision || '').trim()).filter(Boolean))]
       .sort((a, b) => a.localeCompare(b))
-    return [{ value: 'all', label: 'All subdivisions' }, ...subs.map(s => ({ value: s, label: s }))]
+    return [{ value: 'all', label: t('admin.residents.allSubdivisions') }, ...subs.map(s => ({ value: s, label: s }))]
   }, [rows])
 
   // Search + subdivision filter over the already-sorted roster (flat table).
@@ -178,7 +181,7 @@ export default function Residents() {
       if (error) throw error
     } catch (err) {
       setRows(prev) // roll back
-      setError(err?.message || 'Could not remove that resident')
+      setError(err?.message || t('admin.residents.errRemoveResident'))
     }
   }
 
@@ -192,10 +195,10 @@ export default function Residents() {
       if (error) throw error
       if (data && data.ok === false) throw new Error(data.error || 'Invite failed')
       await logAudit({ community_id: communityId, event_type: 'invite.sent', target_type: 'resident', target_id: id, metadata: { email_sent: !!data?.email_sent } })
-      setInviteMsg('Invitation sent.')
+      setInviteMsg(t('admin.residents.invitationSent'))
       load()
     } catch (err) {
-      setError(err?.message || 'Could not send invitation')
+      setError(err?.message || t('admin.residents.errSendInvitation'))
     } finally { setInviteBusyId(null) }
   }
 
@@ -216,7 +219,8 @@ export default function Residents() {
       } catch { failed++ }
     }
     setBulkBusy(false)
-    setInviteMsg(`Bulk invite: ${sent} sent${failed ? `, ${failed} failed` : ''}.`)
+    const failedSuffix = failed ? t('admin.residents.bulkInviteFailed', { failed: String(failed) }) : ''
+    setInviteMsg(t('admin.residents.bulkInviteResult', { sent: String(sent), failedSuffix }))
     load()
   }
 
@@ -233,7 +237,7 @@ export default function Residents() {
       if (error) throw error
       setRows(rs => rs.map(r => (r.id === id ? { ...r, ...patch } : r)))
     } catch (err) {
-      setError(err?.message || 'Could not save that change')
+      setError(err?.message || t('admin.residents.errSaveChange'))
       load() // re-sync from the DB
     }
   }
@@ -256,7 +260,7 @@ export default function Residents() {
     if (error) return { error: error.message }
     const { data } = await supabase.from('payments').select('*').eq('community_id', communityId)
     setPayments(data || [])
-    setSuccessMsg(`Recorded ${fmtMoney(amount)} for ${resident.full_name}`)
+    setSuccessMsg(t('admin.residents.recordedPayment', { amount: fmtMoney(amount), name: resident.full_name }))
     return {}
   }
 
@@ -311,7 +315,7 @@ export default function Residents() {
       address: r.unit.trim(), subdivision: '',
     }))
     if (parsed.length) { setPending(parsed); setError('') }
-    else setError('Type or paste at least one row — Owner is required.')
+    else setError(t('admin.residents.errGridEmpty'))
   }
   const gridHasData = grid.some(gridRowHasData)
 
@@ -323,9 +327,9 @@ export default function Residents() {
     reader.onload = () => {
       const parsed = parseResidentsCsv(reader.result)
       if (parsed.length) { setPending(parsed); setError('') }
-      else setError('No resident rows found in that file')
+      else setError(t('admin.residents.errNoRowsInFile'))
     }
-    reader.onerror = () => setError('Could not read that file')
+    reader.onerror = () => setError(t('admin.residents.errReadFile'))
     reader.readAsText(file)
   }
 
@@ -348,35 +352,47 @@ export default function Residents() {
       setPending(null)
       setGrid([blankGridRow(), blankGridRow(), blankGridRow()])
       await load()
-      setSuccessMsg(`Imported ${n} resident${n === 1 ? '' : 's'}.`)
+      setSuccessMsg(t('admin.residents.importedResidents', { count: String(n), suffix: n === 1 ? '' : 's' }))
     } catch (err) {
-      setError(err?.message || 'Import failed')
+      setError(err?.message || t('admin.residents.errImportFailed'))
     } finally { setImporting(false) }
   }
+
+  const gridColLabels = [
+    t('admin.residents.colOwner'),
+    t('admin.residents.colUnit'),
+    t('admin.residents.colEmail'),
+    t('admin.residents.colPhone'),
+  ]
+  const gridColPlaceholders = [
+    t('admin.residents.phOwner'),
+    t('admin.residents.phUnit'),
+    t('admin.residents.phEmail'),
+    t('admin.residents.phPhone'),
+  ]
 
   return (
     <div className="admin-page etrack">
       <EasyTrackTabs active="residents" />
-      <div className="admin-kicker">Residents</div>
-      <h1 className="admin-h1">{communityName ? `${communityName} roster` : 'Resident roster'}</h1>
+      <div className="admin-kicker">{t('admin.residents.kicker')}</div>
+      <h1 className="admin-h1">{communityName ? t('admin.residents.rosterTitle', { community: communityName }) : t('admin.residents.rosterTitleDefault')}</h1>
       <p className="admin-dek">
-        Every owner and tenant in your community. Add households one at a time or
-        import a roster from a spreadsheet.
+        {t('admin.residents.dekBase')}
         {monthlyDues > 0
-          ? ` Dues are ${fmtMoney(monthlyDues)}/mo per home and accrue automatically — open a household to set its opening balance.`
-          : ' Set monthly dues on the Community page to start dues tracking.'}
+          ? t('admin.residents.dekDuesSet', { amount: fmtMoney(monthlyDues) })
+          : t('admin.residents.dekDuesNotSet')}
       </p>
 
       {status === 'none' && (
         <div className="admin-note admin-note-warn">
-          No community is linked to your account yet. Run the one-time setup SQL, then reload.
+          {t('admin.residents.noCommunity')}
         </div>
       )}
 
       {status === 'error' && (
         <div className="admin-note admin-note-err">
           {error}
-          <button type="button" className="admin-btn-ghost" onClick={load}>Retry</button>
+          <button type="button" className="admin-btn-ghost" onClick={load}>{t('admin.residents.retry')}</button>
         </div>
       )}
 
@@ -399,10 +415,10 @@ export default function Residents() {
           {/* Stat tiles. */}
           <div className="stats">
             {[
-              { v: String(stats.owners), l: 'Owners' },
-              { v: String(stats.tenants), l: 'Tenants' },
-              { v: String(stats.activated), l: 'Activated', c: 'var(--ok)' },
-              { v: String(stats.pending), l: 'Pending', c: 'var(--warn)' },
+              { v: String(stats.owners), l: t('admin.residents.statOwners') },
+              { v: String(stats.tenants), l: t('admin.residents.statTenants') },
+              { v: String(stats.activated), l: t('admin.residents.statActivated'), c: 'var(--ok)' },
+              { v: String(stats.pending), l: t('admin.residents.statPending'), c: 'var(--warn)' },
             ].map(s => (
               <div key={s.l} className="stat">
                 <div className="v" style={s.c ? { color: s.c } : undefined}>{s.v}</div>
@@ -416,40 +432,51 @@ export default function Residents() {
           <div className="card import-card">
             <div className="card-head">
               <div>
-                <h2>Import your roster</h2>
-                <div className="sub">Type it in, paste straight from Excel or Google Sheets, or upload a file — we map the columns for you.</div>
+                <h2>{t('admin.residents.importCardTitle')}</h2>
+                <div className="sub">{t('admin.residents.importCardSub')}</div>
               </div>
-              <span className="pill dim">No CSV needed</span>
+              <span className="pill dim">{t('admin.residents.pillNoCSV')}</span>
             </div>
-            <div className="import-sheet">
+            <div className="import-sheet"
+              onScroll={e => {
+                const el = e.currentTarget
+                const max = el.scrollWidth - el.clientWidth
+                setHintOpacity(max > 4 ? Math.max(0, 1 - el.scrollLeft / max) : 1)
+              }}>
               <div className="import-sheet-row import-sheet-head">
-                <span>Owner</span><span>Unit / Address</span><span>Email</span><span>Phone</span>
+                <span>{t('admin.residents.colOwner')}</span><span>{t('admin.residents.colUnit')}</span><span>{t('admin.residents.colEmail')}</span><span>{t('admin.residents.colPhone')}</span>
               </div>
               <div>
                 {grid.map((row, ri) => (
                   <div className="import-sheet-row" key={ri}>
                     {GRID_COLS.map((key, ci) => (
-                      <input key={key} className="import-cell" value={row[key]}
-                        placeholder={ri === 0 ? ['Jane Doe', '4B or 1247 Oak St', 'jane@email.com', '305-555-0142'][ci] : ''}
-                        aria-label={`${['Owner', 'Unit / Address', 'Email', 'Phone'][ci]} row ${ri + 1}`}
-                        onChange={e => setCell(ri, key, e.target.value)}
-                        onPaste={e => onPasteCell(e, ri, ci)} />
+                      <label key={key} className="import-field">
+                        <span className="import-field-label">{gridColLabels[ci]}</span>
+                        <input className="import-cell" value={row[key]}
+                          placeholder={ri === 0 ? gridColPlaceholders[ci] : ''}
+                          aria-label={t('admin.residents.ariaGridCell', { col: gridColLabels[ci], row: String(ri + 1) })}
+                          onChange={e => setCell(ri, key, e.target.value)}
+                          onPaste={e => onPasteCell(e, ri, ci)} />
+                      </label>
                     ))}
                     <button type="button" className="import-del" onClick={() => removeRow(ri)}
-                      tabIndex={-1} aria-label={`Delete row ${ri + 1}`}>&times;</button>
+                      tabIndex={-1} aria-label={t('admin.residents.ariaDeleteRow', { row: String(ri + 1) })}>&times;</button>
                   </div>
                 ))}
               </div>
             </div>
-            <button type="button" className="import-addrow" onClick={addRow}>+ Add row</button>
+            <div className="import-addrow-bar">
+              <button type="button" className="import-addrow" onClick={addRow}>{t('admin.residents.addRow')}</button>
+              <span className="import-scroll-hint" aria-hidden="true" style={{ opacity: hintOpacity }}>{t('admin.residents.scrollMore')}</span>
+            </div>
             <div className="row-actions">
               <button type="button" className="admin-primary-btn" onClick={importGrid} disabled={!gridHasData}>
-                Paste &amp; import
+                {t('admin.residents.pasteImport')}
               </button>
               <button type="button" className="admin-secondary-btn"
-                title="CSV columns: name, subdivision, address, email, phone"
+                title={t('admin.residents.uploadCSVTitle')}
                 onClick={() => fileRef.current && fileRef.current.click()}>
-                Upload CSV instead
+                {t('admin.residents.uploadCSV')}
               </button>
               {error && <span className="admin-err-inline">{error}</span>}
             </div>
@@ -460,13 +487,13 @@ export default function Residents() {
           {pending && (
             <div className="res-import-bar">
               <span>
-                Found <strong>{pending.length}</strong> resident{pending.length === 1 ? '' : 's'} in that file.
+                {t('admin.residents.foundResidents', { count: String(pending.length), suffix: pending.length === 1 ? '' : 's' })}
               </span>
               <button type="button" className="admin-primary-btn" disabled={importing} onClick={confirmImport}>
-                {importing ? 'Importing…' : `Import all ${pending.length}`}
+                {importing ? t('admin.residents.importing') : t('admin.residents.importAll', { count: String(pending.length) })}
               </button>
               <button type="button" className="admin-btn-ghost" onClick={() => setPending(null)}>
-                Cancel
+                {t('admin.residents.cancel')}
               </button>
             </div>
           )}
@@ -480,45 +507,45 @@ export default function Residents() {
                     <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
                   </svg>
                   <input value={query} onChange={e => setQuery(e.target.value)}
-                    placeholder="Search owners or units…" aria-label="Search roster" />
+                    placeholder={t('admin.residents.searchPlaceholder')} aria-label={t('admin.residents.ariaSearchRoster')} />
                 </div>
                 {subOptions.length > 1 && (
-                  <Dropdown value={subFilter} onChange={setSubFilter} options={subOptions} ariaLabel="Subdivision" />
+                  <Dropdown value={subFilter} onChange={setSubFilter} options={subOptions} ariaLabel={t('admin.residents.ariaSubdivision')} />
                 )}
               </div>
-              <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+              <div className="etrack-actions" style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                 {uninvited.length > 0 && (
                   <button type="button" className="admin-primary-btn" disabled={bulkBusy}
-                    title="Email a magic-link invite to every owner who has one but hasn't been invited"
+                    title={t('admin.residents.inviteOwnersTitle')}
                     onClick={inviteAllUninvited}>
-                    {bulkBusy ? 'Sending…' : `Invite ${uninvited.length} owner${uninvited.length === 1 ? '' : 's'}`}
+                    {bulkBusy ? t('admin.residents.sendingBulk') : t('admin.residents.inviteOwners', { count: String(uninvited.length), suffix: uninvited.length === 1 ? '' : 's' })}
                   </button>
                 )}
                 <button type="button" className="admin-secondary-btn"
-                  title="Download all households as CSV"
+                  title={t('admin.residents.exportCSVTitle')}
                   onClick={exportRoster} disabled={rows.length === 0}>
-                  Export CSV
+                  {t('admin.residents.exportCSV')}
                 </button>
               </div>
             </div>
           )}
 
-          {status === 'loading' && <div className="admin-note">Loading…</div>}
+          {status === 'loading' && <div className="admin-note">{t('admin.residents.loading')}</div>}
           {status === 'ready' && rows.length === 0 && (
-            <div className="card"><div className="roster-empty">No households yet — add one or import a CSV to get started.</div></div>
+            <div className="card"><div className="roster-empty">{t('admin.residents.emptyRoster')}</div></div>
           )}
           {status === 'ready' && rows.length > 0 && (
             <div className="card">
               <table className="tbl">
                 <thead>
                   <tr>
-                    <th>Owner</th><th>Unit</th><th className="contact-col">Contact</th>
-                    <th>Balance</th><th>Status</th><th className="act"></th>
+                    <th>{t('admin.residents.thOwner')}</th><th>{t('admin.residents.thUnit')}</th><th className="contact-col">{t('admin.residents.thContact')}</th>
+                    <th>{t('admin.residents.thBalance')}</th><th>{t('admin.residents.thStatus')}</th><th className="act"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.length === 0 ? (
-                    <tr><td colSpan={6}><div className="roster-empty">No households match your search.</div></td></tr>
+                    <tr><td colSpan={6}><div className="roster-empty">{t('admin.residents.noSearchResults')}</div></td></tr>
                   ) : filtered.map(r => (
                     <ResidentRow key={r.id} r={r} monthlyDues={monthlyDues} duesCfg={duesCfg}
                       payments={paymentsByResident.get(r.id) || []}
@@ -541,13 +568,14 @@ export default function Residents() {
 // every working field (address, subdivision, opening balance, mailing address,
 // tenant) is still editable — nothing is read-only-only.
 function ResidentRow({ r, monthlyDues, duesCfg, payments, onLocal, onCommit, onRemove, onInvite, inviteBusy, onRecordPayment }) {
+  const t = useT()
   const [open, setOpen] = useState(false)
   const balance = residentBalance(r, monthlyDues, payments, duesCfg)
   const activated = !!(r.activated_at || r.profile_id)
   const pill = inviteState(r)
   const contact = r.email || r.phone || '—'
   // Invite button label mirrors the old roster: first send vs re-invite vs resend.
-  const inviteLabel = activated ? 'Resend magic link' : r.invited_at ? 'Re-invite' : 'Send invite'
+  const inviteLabel = activated ? t('admin.residents.inviteLabelResend') : r.invited_at ? t('admin.residents.inviteLabelReinvite') : t('admin.residents.inviteLabelSend')
   return (
     <>
       <tr className="tr">
@@ -566,7 +594,7 @@ function ResidentRow({ r, monthlyDues, duesCfg, payments, onLocal, onCommit, onR
         <td><span className={`pill ${pill.cls}`}>{pill.label}</span></td>
         <td className="act">
           <button type="button" className="go" onClick={() => setOpen(o => !o)}>
-            {open ? 'Close' : 'Open →'}
+            {open ? t('admin.residents.rowClose') : t('admin.residents.rowOpen')}
           </button>
         </td>
       </tr>
@@ -575,17 +603,17 @@ function ResidentRow({ r, monthlyDues, duesCfg, payments, onLocal, onCommit, onR
         <tr className="tr-edit">
           <td colSpan={6}>
             <div className="edit-grid">
-              <label className="admin-field"><span className="admin-field-label">Address / unit</span>
-                <input className="admin-input" placeholder="1247 Oak Street" value={r.address ?? ''}
+              <label className="admin-field"><span className="admin-field-label">{t('admin.residents.fieldAddress')}</span>
+                <input className="admin-input" placeholder={t('admin.residents.phAddress')} value={r.address ?? ''}
                   onChange={e => onLocal(r.id, 'address', e.target.value)}
                   onBlur={e => onCommit(r.id, { address: e.target.value.trim() || null })} /></label>
-              <label className="admin-field"><span className="admin-field-label">Subdivision</span>
-                <input className="admin-input" placeholder="Lakeside" value={r.subdivision ?? ''}
+              <label className="admin-field"><span className="admin-field-label">{t('admin.residents.fieldSubdivision')}</span>
+                <input className="admin-input" placeholder={t('admin.residents.phSubdivision')} value={r.subdivision ?? ''}
                   onChange={e => onLocal(r.id, 'subdivision', e.target.value)}
                   onBlur={e => onCommit(r.id, { subdivision: e.target.value.trim() || null })} /></label>
               <label className="admin-field"
-                title="Opening balance — what this household owed when added">
-                <span className="admin-field-label">Opening balance ($)</span>
+                title={t('admin.residents.titleOpeningBalance')}>
+                <span className="admin-field-label">{t('admin.residents.fieldOpeningBalance')}</span>
                 <input className="admin-input" type="number" placeholder="0" value={r.opening_balance ?? ''}
                   onChange={e => onLocal(r.id, 'opening_balance', e.target.value)}
                   onBlur={e => onCommit(r.id, { opening_balance: Number(e.target.value) || 0 })} /></label>
@@ -593,54 +621,51 @@ function ResidentRow({ r, monthlyDues, duesCfg, payments, onLocal, onCommit, onR
 
             <div style={{ margin: '14px 0', padding: '14px 16px', background: 'rgba(0,0,0,0.025)', borderRadius: 10 }}>
               <span className="admin-field-label" style={{ display: 'block', marginBottom: 8 }}>
-                Record an offline payment (check / cash / money order) — posts to the ledger and updates the balance
+                {t('admin.residents.offlinePaymentLabel')}
               </span>
               <RecordPaymentForm onSubmit={v => onRecordPayment(r, v)} />
             </div>
 
             <p className="edit-note">
-              The mailing address of record is used for the statutory collection
-              notices — set it only when it differs from the unit/parcel above (e.g.
-              an absentee owner); the late-assessment and intent-to-lien notices then
-              go to both.
+              {t('admin.residents.mailingAddressNote')}
             </p>
             <label className="admin-field">
-              <span className="admin-field-label">Owner mailing address of record (only if different)</span>
+              <span className="admin-field-label">{t('admin.residents.fieldMailingAddress')}</span>
               <input className="admin-input" defaultValue={r.last_known_address ?? ''}
-                placeholder="e.g. PO Box 410, Naples FL 34102"
+                placeholder={t('admin.residents.phMailingAddress')}
                 onBlur={e => onCommit(r.id, { last_known_address: e.target.value.trim() || null })} />
             </label>
             <label className="edit-rented" style={{ margin: '12px 0' }}>
               <input type="checkbox" defaultChecked={!!r.is_rented}
                 onChange={e => onCommit(r.id, { is_rented: e.target.checked })} />
-              This unit is rented (enables the tenant rent-demand notice when the owner is delinquent)
+              {t('admin.residents.checkboxRented')}
             </label>
             <div className="edit-grid">
-              <label className="admin-field"><span className="admin-field-label">Tenant name</span>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.residents.fieldTenantName')}</span>
                 <input className="admin-input" defaultValue={r.tenant_name ?? ''}
                   onBlur={e => onCommit(r.id, { tenant_name: e.target.value.trim() || null })} /></label>
-              <label className="admin-field"><span className="admin-field-label">Tenant email</span>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.residents.fieldTenantEmail')}</span>
                 <input className="admin-input" type="email" defaultValue={r.tenant_email ?? ''}
                   onBlur={e => onCommit(r.id, { tenant_email: e.target.value.trim() || null })} /></label>
-              <label className="admin-field"><span className="admin-field-label">Tenant phone</span>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.residents.fieldTenantPhone')}</span>
                 <input className="admin-input" defaultValue={r.tenant_phone ?? ''}
                   onBlur={e => onCommit(r.id, { tenant_phone: e.target.value.trim() || null })} /></label>
             </div>
 
             <div className="edit-foot">
               <span className="muted" style={{ fontSize: 12.5 }}>
-                {activated ? 'Account activated' : r.invited_at ? 'Invite sent — not activated yet' : 'No linked account yet'}
+                {activated ? t('admin.residents.statusActivated') : r.invited_at ? t('admin.residents.statusInvited') : t('admin.residents.statusNone')}
                 {' · '}{DUES_LABEL[duesStatus(balance, monthlyDues)]}
               </span>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
                 {r.email && (
                   <button type="button" className="admin-btn-sm" disabled={inviteBusy} onClick={() => onInvite(r.id)}
-                    title="Email this owner a magic link to activate the app and vote">
-                    {inviteBusy ? 'Sending…' : inviteLabel}
+                    title={t('admin.residents.inviteBtnTitle')}>
+                    {inviteBusy ? t('admin.residents.sendingSingle') : inviteLabel}
                   </button>
                 )}
                 <button type="button" className="admin-btn-sm admin-btn-warn" onClick={() => onRemove(r.id)}>
-                  Remove household
+                  {t('admin.residents.removeHousehold')}
                 </button>
               </div>
             </div>

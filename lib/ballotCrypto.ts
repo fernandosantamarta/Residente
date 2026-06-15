@@ -270,11 +270,11 @@ async function deriveKey(password: string, salt: Bytes): Promise<Bytes> {
   // PBKDF2 via Web Crypto (available in browsers + Node 20+).
   const pwBytes = naclUtil.decodeUTF8(password)
   const passKey = await crypto.subtle.importKey(
-    'raw', pwBytes,
+    'raw', pwBytes as BufferSource,
     'PBKDF2', false, ['deriveBits']
   )
   const bits = await crypto.subtle.deriveBits(
-    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    { name: 'PBKDF2', salt: salt as BufferSource, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
     passKey,
     256,
   )

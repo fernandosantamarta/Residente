@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><meta name="robots" content="noindex"/>
+<title>Residente Admin · Compliance v2 (mock)</title>
+<link rel="stylesheet" href="admin-mock.css"/>
+<link rel="stylesheet" href="admin-mock-v2.css"/>
+</head><body>
+
+<div class="bar">
+  <div class="brand"><span class="brand-chip"><img src="../residente-logo.png" alt="Residente"/></span>Residente</div>
+  <div class="bar-right"><div class="viewas"><span class="viewas-lbl">View as</span><button data-view="founder">Founder</button><button data-view="onboarding">Onboarding</button><button data-view="support">Support</button><button data-view="billing">Billing</button><button data-view="client">Client</button></div><a class="bar-link" href="support.html">Contact Residente</a><a class="back" href="#">&larr; Back to app</a></div>
+</div>
+<nav class="nav">
+  <a href="index-v2.html">Overview</a>
+  <a href="community-v2.html">Community</a>
+  <a href="compliance-v2.html" class="active">Compliance</a>
+  <a href="reports-v2.html">Reports</a>
+  <a href="easy-track-v2.html">Easy Track</a>
+  <a href="easy-voice-v2.html">Easy Voice</a>
+  <a href="easy-documents-v2.html">Easy Documents</a>
+  <a href="easy-schedule-v2.html">Easy Schedule</a>
+  <a href="roles-v2.html">Roles</a>
+  <a href="platform-v2.html" class="plat">Platform</a>
+</nav>
+
+<main class="page">
+  <div class="kicker">Florida compliance</div>
+  <h1>Compliance dashboard</h1>
+  <p class="dek">Statutory items needing attention, grouped by urgency. Based on FL Ch. 718 (condo) &amp; Ch. 720 (HOA).</p>
+
+  <div class="stats">
+    <div class="stat"><div class="v" style="color:var(--due)">2</div><div class="l">Overdue</div></div>
+    <div class="stat"><div class="v" style="color:var(--warn)">3</div><div class="l">Due soon</div></div>
+    <div class="stat"><div class="v" style="color:var(--ok)">11</div><div class="l">On track</div></div>
+    <div class="stat"><div class="v">88%</div><div class="l">Compliant</div></div>
+  </div>
+
+  <div class="card">
+    <div class="card-head"><div><h2>Needs attention</h2><div class="sub">Sorted by deadline</div></div>
+      <div class="seg"><button class="on">All</button><button>Overdue</button><button>Due soon</button></div></div>
+    <div class="lrow"><span class="pill due">Overdue</span><div class="body"><div class="ttl">Annual financial report to owners</div><div class="meta">FS 718.111(13) &middot; was due Apr 30, 2026</div></div><a class="go" href="#">Resolve &rarr;</a></div>
+    <div class="lrow"><span class="pill due">Overdue</span><div class="body"><div class="ttl">Reserve study disclosure</div><div class="meta">FS 720.303(6) &middot; was due May 1, 2026</div></div><a class="go" href="#">Resolve &rarr;</a></div>
+    <div class="lrow"><span class="pill warn">14 days</span><div class="body"><div class="ttl">Board election notice (first mailing)</div><div class="meta">FS 720.306(9) &middot; due Jun 19, 2026</div></div><a class="go" href="#">Start &rarr;</a></div>
+    <div class="lrow"><span class="pill warn">22 days</span><div class="body"><div class="ttl">Website records posting refresh</div><div class="meta">FS 718.111(12) &middot; due Jun 27, 2026</div></div><a class="go" href="#">Start &rarr;</a></div>
+    <a class="viewall" href="#">View all 5 items needing attention &rarr;</a>
+  </div>
+
+  <h2 style="font-family:var(--serif);font-weight:500;font-size:20px;margin:26px 0 14px">Workspaces</h2>
+  <div class="wsgrid">
+    <a class="ws" href="#"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 3v5h5"/><path d="M6 3h8l5 5v13H6z"/></svg></div><h3>Estoppel certificates</h3><p>Issue payoff &amp; transfer certificates on sale.</p><span class="pill dim">3 open</span></a>
+    <a class="ws" href="#"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><h3>Collections &amp; liens</h3><p>Delinquency ladder, lien filings, payoffs.</p><span class="pill due">2 overdue</span></a>
+    <a class="ws" href="#"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V8l7-5 7 5v13"/></svg></div><h3>Structural / SIRS</h3><p>Milestone inspections &amp; reserve study (condo).</p><span class="pill ok">On track</span></a>
+    <a class="ws" href="#"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 14l4-4 3 3 5-6"/></svg></div><h3>Financial reporting</h3><p>Annual reports, audit tier, reserve funding.</p><span class="pill due">1 overdue</span></a>
+    <a class="ws" href="#"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l8 4v6c0 5-3.5 7-8 8-4.5-1-8-3-8-8V7z"/></svg></div><h3>Governance</h3><p>Director certification, conflicts, CAM.</p><span class="pill ok">On track</span></a>
+    <a class="ws" href="#"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M8 2v4M16 2v4M3 10h18"/></svg></div><h3>Meetings</h3><p>Notices, agendas, minutes &amp; quorum.</p><span class="pill ok">On track</span></a>
+    <a class="ws" href="#"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><h3>Elections &amp; recall</h3><p>Candidate intake, ballots, certification.</p><span class="pill warn">Due soon</span></a>
+    <a class="ws" href="#"><div class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l7-4 7 4v14M10 21v-6h4v6"/></svg></div><h3>Enforcement / ARC</h3><p>Fining, suspension &amp; architectural review.</p><span class="pill dim">5 open</span></a>
+  </div>
+
+  <p class="note">Mock &middot; not wired to data</p>
+</main>
+<script src="admin-mock.js"></script>
+</body></html>

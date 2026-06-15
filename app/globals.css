@@ -98,6 +98,23 @@
   --glow: rgba(42,38,32,0);
 }
 
+/* Themed hover tooltip (components/Tip.tsx). Warm dark-brown bubble with cream
+   text that follows the cursor and pops in. Rendered to <body>, so it's never
+   clipped; no question-mark cursor. */
+.tip-anchor { display: inline-flex; }
+.tip-pop {
+  position: fixed; z-index: 100000; pointer-events: none;
+  background: #2A1206; color: #FFF3E9;
+  font-size: 11.5px; font-weight: 500; line-height: 1.45; letter-spacing: 0.1px;
+  padding: 8px 11px; border-radius: 9px;
+  max-width: 260px; box-shadow: 0 10px 28px rgba(42,18,6,0.3);
+  animation: tipPop 0.12s ease-out;
+}
+@keyframes tipPop {
+  from { opacity: 0; transform: translateY(5px) scale(0.95); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 /* ===== THEME: Sketch (matches the landing page) =====
    Same warm cream + terracotta + dark navy palette used by the
    hand-drawn hero. Headlines get a soft serif so the dashboard reads
@@ -396,7 +413,7 @@ button { font-family: inherit; }
 
 .bell-panel {
   position: absolute; top: calc(100% + 8px); right: 0;
-  width: 360px; max-height: 480px; overflow-y: auto;
+  width: 360px; max-height: 600px; overflow-y: auto;
   background: var(--bg-card); border: 1px solid var(--border);
   border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,0.5);
   z-index: 100;
@@ -759,7 +776,7 @@ button { font-family: inherit; }
    band at the top or bottom where the login screen meets the browser chrome.
    Also lock the page so the sign-in screen doesn't scroll / rubber-band. */
 body:has(.login-screen),
-html:has(.login-screen) { background: #FFF5EE; overflow: hidden; height: 100%; }
+html:has(.login-screen) { background: #FFEADC; overflow: hidden; height: 100%; }
 
 .login-glow {
   position: absolute;
@@ -933,7 +950,9 @@ html:has(.login-screen) { background: #FFF5EE; overflow: hidden; height: 100%; }
   display: none;
   position: fixed; inset: 0;
   background: rgba(0, 0, 0, 0.6);
-  z-index: 98;
+  /* Above the topbar/bell (z-index 500 in the sketch theme) so the bell button
+     doesn't float over the open More drawer. */
+  z-index: 590;
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -958,18 +977,28 @@ html:has(.login-screen) { background: #FFF5EE; overflow: hidden; height: 100%; }
     position: fixed;
     top: 0; left: 0;
     width: 260px;
+    /* 100dvh, not 100vh: on mobile Safari 100vh is taller than the visible area
+       (it spans behind the toolbars), which pushed the Sign Out button off the
+       bottom. dvh tracks the real visible height so the footer is reachable. */
     height: 100vh;
-    z-index: 99;
+    height: 100dvh;
+    /* Above the topbar/bell (z-index 500) so the open drawer covers it instead
+       of the bell button bleeding through over the panel. */
+    z-index: 600;
     transform: translateX(-100%);
     transition: transform 0.25s ease;
-    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.4);
     /* The drawer can be taller than the screen (nav + admin + footer), so let it
        scroll — otherwise the Sign Out button at the bottom is unreachable. */
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     padding-bottom: calc(24px + env(safe-area-inset-bottom));
   }
-  .rail-left.open { transform: translateX(0); }
+  /* Shadow only while open — on the base (closed, translated off-screen left)
+     rule it bled a dark smudge onto the left edge of the page. */
+  .rail-left.open {
+    transform: translateX(0);
+    box-shadow: 8px 0 32px rgba(0, 0, 0, 0.4);
+  }
 
   .hamburger { display: flex; }
 
@@ -1902,8 +1931,22 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   color: #E14909;
   box-shadow: 0 1px 3px rgba(31,34,51,0.18);
 }
+
+/* Admin sub-tabs (EasyVoiceTabs / EasyDocsTabs / EasyTrackTabs) — keep the clean
+   content-width pill exactly as the base segmented control looks; only contain it
+   on narrow screens so it scrolls horizontally instead of wrapping or overflowing
+   the page, with the scrollbar hidden. Scoped to .admin-seg-tabs so the resident
+   seg-tabs and other segmented controls are untouched. */
+.seg-tabs.admin-seg-tabs {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.seg-tabs.admin-seg-tabs::-webkit-scrollbar { display: none; }
+.seg-tabs.admin-seg-tabs .seg-tab { flex: 0 0 auto; }
+
 .ev-section + .ev-section {
-  margin-top: 44px;
+  margin-top: 22px;
   padding-top: 44px;
   border-top: 1px solid var(--border);
 }
@@ -2628,6 +2671,101 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 .inbox-load-more:hover:not(:disabled) { color: var(--text); border-color: var(--border-hover); }
 .inbox-load-more:disabled { opacity: 0.5; cursor: not-allowed; }
 
+.inbox-pager {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-top: 18px;
+}
+.inbox-pager-btn {
+  background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--text-dim); font-family: inherit; font-size: 13px; font-weight: 600;
+  padding: 8px 16px; border-radius: 999px; cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+.inbox-pager-btn:hover:not(:disabled) { color: var(--text); border-color: var(--border-hover); }
+.inbox-pager-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.inbox-pager-info { font-size: 12.5px; color: var(--text-dim); font-variant-numeric: tabular-nums; }
+
+/* ---- Notifications inbox, light (sketch) theme — match the bell popup ---- */
+[data-theme="sketch"] .inbox-title { color: #0A2440; }
+[data-theme="sketch"] .inbox-sub   { color: rgba(10, 36, 64, 0.62); }
+[data-theme="sketch"] .inbox-empty { color: rgba(10, 36, 64, 0.55); }
+
+/* Back to home — a clear white button, not a faint link. */
+[data-theme="sketch"] .inbox-back {
+  display: inline-flex; align-items: center;
+  background: #FFFFFF; color: #C45F2A; font-weight: 700;
+  border: 1px solid rgba(15, 28, 46, 0.12); border-radius: 999px;
+  padding: 9px 16px; padding-top: 9px;
+  box-shadow: 0 1px 2px rgba(10, 36, 64, 0.06);
+}
+[data-theme="sketch"] .inbox-back {
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+[data-theme="sketch"] .inbox-back:hover {
+  color: #FFFFFF;
+  border-color: #0A2440;
+  background: #0A2440;
+  box-shadow: 0 2px 10px rgba(10, 36, 64, 0.28);
+}
+
+/* Themed filter dropdown — give the custom Dropdown a sensible width and let
+   its trigger fill it (the .ad-dd-* chrome is already sketch-themed). */
+.inbox-filter-dd { width: 260px; max-width: 60%; }
+.inbox-filter-dd .ad-dd { width: 100%; }
+[data-theme="sketch"] .inbox-filter-dd .ad-dd-trigger { width: 100%; }
+
+/* Filter + mark-all — match the app's white pill controls. */
+[data-theme="sketch"] .inbox-filter,
+[data-theme="sketch"] .inbox-mark-all {
+  background: #FFFFFF; border: 1px solid rgba(15, 28, 46, 0.12);
+  color: #0A2440; border-radius: 10px;
+}
+[data-theme="sketch"] .inbox-filter:hover, [data-theme="sketch"] .inbox-filter:focus,
+[data-theme="sketch"] .inbox-mark-all:hover:not(:disabled) {
+  border-color: rgba(225, 73, 9, 0.4);
+}
+
+/* Rows — same squared, tone-coded card as the bell popup. */
+[data-theme="sketch"] .inbox-row {
+  background: #FFFFFF;
+  border: 1px solid rgba(15, 28, 46, 0.10);
+  border-left: 4px solid var(--bell-tone, rgba(10, 36, 64, 0.45));
+  border-radius: 10px;
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+}
+[data-theme="sketch"] .inbox-row:hover {
+  background: var(--bell-tone-tint, rgba(10, 36, 64, 0.05));
+  border-color: var(--bell-tone, rgba(15, 28, 46, 0.3));
+  box-shadow: 0 3px 12px rgba(10, 36, 64, 0.12);
+  transform: translateY(-1px);
+}
+[data-theme="sketch"] .inbox-row.unread {
+  background: var(--bell-tone-tint, rgba(225, 73, 9, 0.07));
+  border-color: rgba(15, 28, 46, 0.12);
+  border-left-color: var(--bell-tone, #E14909);
+}
+[data-theme="sketch"] .inbox-row[data-tone="alert"]   { --bell-tone: #C2410C; --bell-tone-tint: rgba(194, 65, 12, 0.10); }
+[data-theme="sketch"] .inbox-row[data-tone="success"] { --bell-tone: #15683A; --bell-tone-tint: rgba(21, 104, 58, 0.10); }
+[data-theme="sketch"] .inbox-row[data-tone="info"]    { --bell-tone: #1E3A5F; --bell-tone-tint: rgba(30, 58, 95, 0.10); }
+[data-theme="sketch"] .inbox-row[data-tone="neutral"] { --bell-tone: #2A3B52; --bell-tone-tint: rgba(42, 59, 82, 0.10); }
+[data-theme="sketch"] .inbox-row-kind {
+  display: inline-block; padding: 2px 7px; border-radius: 5px;
+  color: var(--bell-tone, #5B6B7F);
+  background: var(--bell-tone-tint, rgba(10, 36, 64, 0.06));
+}
+[data-theme="sketch"] .inbox-row.unread .inbox-row-kind { color: var(--bell-tone, #E14909); }
+[data-theme="sketch"] .inbox-row-subject { color: #0A2440; }
+[data-theme="sketch"] .inbox-row-body { color: rgba(10, 36, 64, 0.62); }
+[data-theme="sketch"] .inbox-row-ts { color: rgba(10, 36, 64, 0.45); }
+[data-theme="sketch"] .inbox-row-dot { background: var(--bell-tone, #E14909); }
+
+/* Pager — white pills on the light theme. */
+[data-theme="sketch"] .inbox-pager-btn {
+  background: #FFFFFF; border: 1px solid rgba(15, 28, 46, 0.12); color: #0A2440;
+}
+[data-theme="sketch"] .inbox-pager-btn:hover:not(:disabled) { border-color: rgba(225, 73, 9, 0.4); color: #E14909; }
+[data-theme="sketch"] .inbox-pager-info { color: rgba(10, 36, 64, 0.6); }
+
 /* ============================================================
    IMAGE-MATCHED OVERRIDES (sketch theme = the "Sunset Lakes" UI)
    Dark navy sidebar + dark navy "Your residence" card with an
@@ -3271,6 +3409,42 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   z-index: 3;
 }
 
+/* Home loading skeleton — greyed placeholders shown while a signed-in resident's
+   real community / dues / expenses load, so the demo fallback never flashes in. */
+[data-theme="sketch"] .hsk { position: relative; z-index: 3; }
+[data-theme="sketch"] .hsk-card,
+[data-theme="sketch"] .hsk-bar {
+  border-radius: 18px;
+  background:
+    linear-gradient(100deg,
+      rgba(15, 28, 46, 0.06) 30%,
+      rgba(15, 28, 46, 0.11) 50%,
+      rgba(15, 28, 46, 0.06) 70%) #FBF8F3;
+  background-size: 220% 100%;
+  animation: hskShimmer 1.4s ease-in-out infinite;
+}
+[data-theme="sketch"] .hsk-card-tall { min-height: 320px; }
+[data-theme="sketch"] .hsk-card-xl { min-height: 360px; margin-top: 16px; }
+[data-theme="sketch"] .hsk-glance { min-height: 116px; border-radius: 14px; }
+[data-theme="sketch"] .hsk-bar-head { width: 150px; height: 16px; border-radius: 8px; margin-bottom: 16px; }
+/* Chips sit over the dark hero photo, so they need a light shimmer to read. */
+[data-theme="sketch"] .hsk-chip {
+  display: inline-block; width: 116px; height: 32px; border-radius: 999px;
+  background: linear-gradient(100deg,
+    rgba(255, 255, 255, 0.16) 30%,
+    rgba(255, 255, 255, 0.34) 50%,
+    rgba(255, 255, 255, 0.16) 70%);
+  background-size: 220% 100%;
+  animation: hskShimmer 1.4s ease-in-out infinite;
+}
+@keyframes hskShimmer {
+  0%   { background-position: 180% 0; }
+  100% { background-position: -80% 0; }
+}
+[data-reduced-motion="reduce"] [data-theme="sketch"] .hsk-card,
+[data-reduced-motion="reduce"] [data-theme="sketch"] .hsk-bar,
+[data-reduced-motion="reduce"] [data-theme="sketch"] .hsk-chip { animation: none; }
+
 /* Financial Overview card — outer white shell, inset dark navy hero block */
 /* Whole card is now dark navy (no inner hero block). */
 [data-theme="sketch"] .fin-card {
@@ -3500,14 +3674,17 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
    Cream-tinted card with a burnt-orange left border so it reads as
    "action needed" without screaming. Hidden entirely when no votes. */
 [data-theme="sketch"] .open-votes-band {
-  background: rgba(225, 73, 9, 0.06);
-  border: 2px solid #E14909;
-  border-left: 6px solid #E14909;
-  border-radius: 22px;
+  /* Opaque (tint over solid white): the band sits against the hero photo,
+     and a translucent wash makes the text unreadable there. Styled to match the
+     "Fines due" band (.pay-fines-band): no heavy border, just the soft shadow +
+     orange tint, so the home reminders read as one consistent family. */
+  background: linear-gradient(rgba(225, 73, 9, 0.06), rgba(225, 73, 9, 0.06)), #FFFFFF;
+  border: none;
+  border-radius: 14px;
   padding: 18px 22px 16px;
   margin-top: 96px;   /* same breathing room Row 1 used to have below hero */
   margin-bottom: 0;
-  box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
+  box-shadow: 0 14px 34px -18px rgba(31, 42, 58, 0.45);
 }
 /* When the band is present, Row 1 sits just below it with the same 16px
    gap the rest of the page uses between stacked cards (matches the
@@ -3921,6 +4098,7 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   border-radius: 999px;
   padding: 4px;
   gap: 2px;
+  margin-left: auto;
 }
 [data-theme="sketch"] .dues-tab {
   appearance: none;
@@ -4858,12 +5036,19 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 [data-theme="sketch"] .amen-res-body { flex: 1; min-width: 0; }
 [data-theme="sketch"] .amen-res-name { font-size: 14px; font-weight: 700; color: #0A2440; }
 [data-theme="sketch"] .amen-res-meta { font-size: 12px; color: rgba(10, 36, 64, 0.6); margin-top: 1px; }
-[data-theme="sketch"] .amen-res-cancel {
-  background: transparent; border: none; padding: 2px 4px;
-  color: rgba(10, 36, 64, 0.5); font-family: inherit; font-size: 12px; font-weight: 700;
-  cursor: pointer; transition: color 0.12s ease;
+[data-theme="sketch"] .amen-res-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; flex-shrink: 0; }
+/* Plain text buttons — no pill border / grey ring. */
+[data-theme="sketch"] .amen-res-cancel,
+[data-theme="sketch"] .amen-res-edit {
+  background: transparent; border: none; border-radius: 0; padding: 2px 4px;
+  font-family: inherit; font-size: 12px; font-weight: 700;
+  cursor: pointer; transition: color 0.12s ease; appearance: none; -webkit-appearance: none;
+  white-space: nowrap;
 }
+[data-theme="sketch"] .amen-res-cancel { color: rgba(10, 36, 64, 0.5); }
 [data-theme="sketch"] .amen-res-cancel:hover { color: #C73E07; }
+[data-theme="sketch"] .amen-res-edit { color: #C45F2A; }
+[data-theme="sketch"] .amen-res-edit:hover { color: #E14909; }
 [data-theme="sketch"] .amen-help { background: rgba(225, 73, 9, 0.05); }
 [data-theme="sketch"] .amen-help-title { font-size: 13px; font-weight: 700; color: #0A2440; margin-bottom: 6px; }
 [data-theme="sketch"] .amen-help-text { font-size: 12.5px; color: rgba(10, 36, 64, 0.7); line-height: 1.5; margin: 0; }
@@ -5009,6 +5194,24 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   min-width: 0;
 }
 [data-theme="sketch"] .rb-search input::placeholder { color: rgba(10, 36, 64, 0.40); font-weight: 500; }
+
+/* Rules toolbar — search + All Categories dropdown on one row, styled to match
+   the Reports toolbar (.rep-*) exactly: same pill metrics, icon tint, placeholder
+   and focus glow. The standalone .rb-search above keeps its own look elsewhere. */
+[data-theme="sketch"] .rb-toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; }
+[data-theme="sketch"] .rb-toolbar .rb-search { flex: 1; min-width: 240px; max-width: none; padding: 11px 16px; }
+[data-theme="sketch"] .rb-toolbar .rb-search:focus-within { border-color: #E14909; background-color: #FFFFFF; box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.14); }
+[data-theme="sketch"] .rb-toolbar .rb-search svg { color: #C45F2A; }
+[data-theme="sketch"] .rb-toolbar .rb-search input { font-size: 13.5px; }
+[data-theme="sketch"] .rb-toolbar .rb-search input::placeholder { color: rgba(10, 36, 64, 0.55); font-weight: 600; }
+[data-theme="sketch"] .rb-select {
+  padding: 10px 36px 10px 14px;
+  background: #FBF7F1 url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230A2440' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E") no-repeat right 12px center / 14px 14px;
+  border: 1.5px solid rgba(199, 111, 69, 0.30); border-radius: 999px;
+  font-family: inherit; font-size: 13px; font-weight: 700; color: #0A2440;
+  cursor: pointer; appearance: none;
+}
+[data-theme="sketch"] .rb-select:focus { outline: none; border-color: #E14909; }
 
 /* Category chips as vertical box cards: icon in circle on top,
    name in the middle, "N rules" count below. Active card gets the
@@ -5192,6 +5395,23 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   font-weight: 800;
   color: rgba(10, 36, 64, 0.70);
   flex-shrink: 0;
+}
+/* "More categories" link — hidden on desktop (the full card list shows). On
+   phones the list is capped at the first 3 cards and this link, bottom-right,
+   reveals the rest in a popup. (.rb-col isn't flex, so right-align with a
+   fit-content block + margin-left:auto.) */
+[data-theme="sketch"] .rb-cat-more { display: none; }
+@media (max-width: 767px) {
+  [data-theme="sketch"] .rb-cat-list .rb-cat-card:nth-child(n+4) { display: none; }
+  [data-theme="sketch"] .rb-cat-more {
+    display: flex; width: fit-content; margin: 10px 0 0 auto;
+    align-items: center; gap: 4px;
+    padding: 0; border: none; background: none; cursor: pointer;
+    appearance: none; -webkit-appearance: none; font: inherit;
+    font-size: 13px; font-weight: 700; color: #C45F2A;
+  }
+  [data-theme="sketch"] .rb-cat-more svg { width: 15px; height: 15px; }
+  [data-theme="sketch"] .rb-cat-more:active { color: #E14909; }
 }
 
 /* Active section's rule items (rendered inline below the cat list
@@ -5474,7 +5694,7 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 [data-theme="sketch"] .admin-schedule {
   display: flex; flex-direction: column;
   gap: 22px;
-  max-width: 920px;
+  max-width: none;
   padding-bottom: 64px;
 }
 /* The events-added card stretches to match the left column's height,
@@ -5504,8 +5724,8 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
 }
 [data-theme="sketch"] .admin-sched-card-head {
-  display: flex; align-items: baseline; justify-content: space-between;
-  gap: 12px;
+  display: flex; flex-direction: column; align-items: flex-start;
+  gap: 4px;
   margin-bottom: 14px;
 }
 [data-theme="sketch"] .admin-sched-card-head h2 {
@@ -5518,7 +5738,22 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 [data-theme="sketch"] .admin-sched-card-sub {
   font-size: 12px;
   color: rgba(10, 36, 64, 0.55);
-  text-align: right;
+  text-align: left;
+  white-space: pre-line;
+  line-height: 1.5;
+}
+/* Inline "edit amenity" panel under a row — visually distinct from the top
+   "add" form (orange-tinted) so edit ≠ add. */
+[data-theme="sketch"] .admin-sched-row.editing { background: rgba(225, 73, 9, 0.06); }
+[data-theme="sketch"] .admin-amen-edit {
+  padding: 14px 12px 16px;
+  border-top: 1px solid rgba(15, 28, 46, 0.10);
+  background: rgba(225, 73, 9, 0.04);
+  border-radius: 0 0 12px 12px;
+}
+[data-theme="sketch"] .admin-amen-edit-head {
+  font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px;
+  color: #B23A06; margin-bottom: 10px;
 }
 [data-theme="sketch"] .admin-sched-form {
   display: grid;
@@ -5605,11 +5840,75 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 [data-theme="sketch"] .admin-field textarea:focus { border-color: #E14909; background-color: #FFFFFF; box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.14); }
 [data-theme="sketch"] .admin-field-check {
   grid-column: 1 / -1;
-  flex-direction: row; align-items: center; gap: 10px;
+  flex-direction: row; align-items: center; gap: 12px;
+  padding: 12px 14px;
+  background: #FBF7F1;
+  border: 1.5px solid rgba(199, 111, 69, 0.30);
+  border-radius: 14px;
+  cursor: pointer;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
 }
-[data-theme="sketch"] .admin-field-check input { width: 18px; height: 18px; flex: none; accent-color: #E14909; cursor: pointer; }
+[data-theme="sketch"] .admin-field-check:hover { border-color: rgba(225, 73, 9, 0.55); }
+/* Obvious on/off state — the whole row tints orange when checked. */
+[data-theme="sketch"] .admin-field-check:has(input:checked) {
+  background: rgba(225, 73, 9, 0.08);
+  border-color: #E14909;
+}
+/* Bookable checkbox — a clean round control. The generic `.admin-field input`
+   rule above pads it (10px 16px) with a pill radius, which stretched it into an
+   oval; reset that and draw a real circle (cream outline → orange when checked). */
+[data-theme="sketch"] .admin-field-check input {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  flex: none; width: 18px; height: 18px; padding: 0; margin: 0;
+  box-sizing: border-box;
+  border: 1.5px solid rgba(199, 111, 69, 0.55);
+  border-radius: 50%;
+  background-color: #FBF7F1;
+  cursor: pointer;
+  position: relative;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+[data-theme="sketch"] .admin-field-check input:hover { border-color: #E14909; }
+[data-theme="sketch"] .admin-field-check input:checked { background-color: #E14909; border-color: #E14909; }
+[data-theme="sketch"] .admin-field-check input:checked::after {
+  content: ''; position: absolute; left: 50%; top: 47%;
+  width: 4px; height: 8px;
+  border: solid #fff; border-width: 0 2px 2px 0;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+[data-theme="sketch"] .admin-field-check input:focus-visible { box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.18); }
+
+/* Orange circular checkbox across the ENTIRE admin (everything inside .admin,
+   incl. AdminModal). Native checkboxes — even ones that inherited text-input box
+   styling — all render as a clean cream circle that fills orange with a white
+   check when on, matching the amenities "bookable" control. Higher specificity
+   than the per-context checkbox rules so it unifies them. */
+[data-theme="sketch"] .admin input[type="checkbox"] {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  flex: none; width: 18px; height: 18px; min-width: 18px; padding: 0; margin: 0;
+  box-sizing: border-box;
+  border: 1.5px solid rgba(199, 111, 69, 0.55);
+  border-radius: 50%;
+  background-color: #FBF7F1;
+  cursor: pointer;
+  position: relative;
+  transition: background-color 0.12s ease, border-color 0.12s ease;
+}
+[data-theme="sketch"] .admin input[type="checkbox"]:hover { border-color: #E14909; }
+[data-theme="sketch"] .admin input[type="checkbox"]:checked { background-color: #E14909; border-color: #E14909; }
+[data-theme="sketch"] .admin input[type="checkbox"]:checked::after {
+  content: ''; position: absolute; left: 50%; top: 47%;
+  width: 4px; height: 8px;
+  border: solid #fff; border-width: 0 2px 2px 0;
+  transform: translate(-50%, -50%) rotate(45deg);
+}
+[data-theme="sketch"] .admin input[type="checkbox"]:focus-visible { box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.18); }
+
 [data-theme="sketch"] .admin-field-check span {
   font-size: 13px; letter-spacing: 0; text-transform: none; font-weight: 600; color: #0A2440;
+  line-height: 1.4;
+  /* Even out the two lines so a single word never dangles on its own line. */
+  text-wrap: balance;
 }
 [data-theme="sketch"] .admin-amen-row-actions { display: flex; gap: 4px; flex-shrink: 0; }
 [data-theme="sketch"] .admin-schedule-tabs .seg-tabs { margin-bottom: 22px; }
@@ -5675,6 +5974,10 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   border-radius: 14px;
   background: rgba(15, 28, 46, 0.02);
   transition: border-color 0.12s ease, background 0.12s ease;
+  /* Grid items default to min-width:auto, so a long unbroken filename would
+     stretch the track past the card and overflow. Let the box shrink so the
+     filename's ellipsis (.admin-bulk-file) and the sub text wrapping kick in. */
+  min-width: 0;
 }
 [data-theme="sketch"] .admin-bulk-box:hover {
   border-color: #E14909;
@@ -5715,6 +6018,26 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* Picked file chip with a × to clear the selection — orange-tinted like the
+   Documents/Rules picked-file chip. */
+[data-theme="sketch"] .admin-bulk-file-picked {
+  display: flex; align-items: center; gap: 8px;
+  white-space: normal; overflow: visible;
+  background: rgba(225, 73, 9, 0.08);
+  border: 1px solid rgba(225, 73, 9, 0.20);
+  color: #B23A06;
+}
+[data-theme="sketch"] .admin-bulk-file-name {
+  flex: 1 1 auto; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+[data-theme="sketch"] .admin-bulk-file-x {
+  flex: 0 0 auto; width: 20px; height: 20px;
+  display: grid; place-items: center; line-height: 0; font-size: 16px;
+  border: none; background: transparent; border-radius: 6px;
+  color: #E14909; cursor: pointer;
+}
+[data-theme="sketch"] .admin-bulk-file-x:hover { background: rgba(225, 73, 9, 0.16); color: #B23A06; }
 [data-theme="sketch"] .admin-bulk-actions {
   display: flex; gap: 8px;
   margin-top: 12px;
@@ -6017,7 +6340,27 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   font-variant-numeric: tabular-nums;
 }
 [data-theme="sketch"] .admin-sched-row-del:hover {
-  background: rgba(200, 46, 46, 0.08);
+  background: rgba(200, 46, 46, 0.14);
+}
+/* Neutral grey pill for the row "Edit" action (Events you've added +
+   amenities list) — edit isn't destructive, so it reads grey, not red.
+   Darkens on hover so it's clear you're about to press it. */
+[data-theme="sketch"] .admin-sched-row-edit {
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid rgba(10, 36, 64, 0.22);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(10, 36, 64, 0.70);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  font-family: inherit;
+}
+[data-theme="sketch"] .admin-sched-row-edit:hover {
+  background: rgba(10, 36, 64, 0.10);
+  border-color: rgba(10, 36, 64, 0.38);
+  color: #0A2440;
 }
 [data-theme="sketch"] .admin-sched-empty {
   font-size: 13px;
@@ -6384,7 +6727,14 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
    suppress it so the orange card's soft glow reads cleanly. */
 [data-theme="sketch"] .login-card::before { content: none; }
 
-[data-theme="sketch"] .login-screen { background: #FFF5EE; }
+/* Warm, immersive field behind the orange card so the page doesn't read as a
+   flat cream band with a floating card (especially on mobile, between the white
+   status bar and the card). A soft peach→cream gradient ties into the card. */
+[data-theme="sketch"] .login-screen {
+  background:
+    radial-gradient(90% 60% at 50% 32%, rgba(225,73,9,0.14) 0%, transparent 60%),
+    linear-gradient(180deg, #FFEADC 0%, #FFF5EE 46%, #FCEFE6 100%);
+}
 
 [data-theme="sketch"] .login-glow {
   width: 820px; height: 820px;
@@ -6602,6 +6952,19 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   line-height: 1.35;
 }
 
+/* Phone: the expanded row's action area was not mobile-friendly — the override
+   dropdown (260px, anchored right) overflowed the card and the buttons crowded.
+   Let each action button fill the width, and make the override toggle + its menu
+   span the row instead of popping out a fixed-width panel off the edge. */
+@media (max-width: 640px) {
+  [data-theme="sketch"] .admin-vi-actions { gap: 8px; }
+  [data-theme="sketch"] .admin-vi-actions > .admin-btn,
+  [data-theme="sketch"] .admin-vi-actions > .admin-btn-ghost { flex: 1 1 auto; text-align: center; }
+  [data-theme="sketch"] .admin-vi-override { display: block; width: 100%; }
+  [data-theme="sketch"] .admin-vi-override-toggle { width: 100%; justify-content: center; }
+  [data-theme="sketch"] .admin-vi-override-menu { left: 0; right: 0; min-width: 0; }
+}
+
 /* =====================================================================
    /app/settings — reached from the bottom-left profile chip (the
    standalone Settings nav item was retired in favor of this entry
@@ -6650,6 +7013,8 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   [data-theme="sketch"] .set-grid {
     grid-template-columns: 1fr;
   }
+  /* Single column — no left-hand title to line up against, so drop the offset. */
+  [data-theme="sketch"] .set-aside { margin-top: 0; }
 }
 
 [data-theme="sketch"] .set-col {
@@ -6666,6 +7031,7 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 [data-theme="sketch"] .set-section-title {
   font-family: 'AmpFix', 'Fraunces', Georgia, serif;
   font-size: 11px;
+  line-height: 1.2;
   font-weight: 700;
   letter-spacing: 1.8px;
   text-transform: uppercase;
@@ -6787,6 +7153,11 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   position: sticky;
   top: 16px;
   align-self: start;
+  /* The left column puts a section title (line-height ~13px) above its first
+     white box, with the .set-section gap (12px) below it. Drop the sidebar by
+     that much so the "Account summary" tile lines up with the "Account &
+     Profile" box instead of floating ~25px higher. */
+  margin-top: 25px;
 }
 [data-theme="sketch"] .set-tile {
   display: flex; flex-direction: column;
@@ -7464,6 +7835,88 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   z-index: 500;
 }
 
+/* Notification bell rows, light-theme treatment. The base rules were tuned for
+   the dark platform shell (white-on-white hovers, no colour coding). On the
+   resident (sketch) theme we render each notice as its own squared card with a
+   tone-coloured left edge + kind chip, so the list scans by colour and matches
+   the rest of the white-card UI. */
+[data-theme="sketch"] .bell-panel {
+  background: #FFFFFF;
+  border: 1px solid rgba(15, 28, 46, 0.10);
+  border-radius: 14px;
+  box-shadow: 0 16px 44px rgba(10, 36, 64, 0.16);
+  padding-bottom: 6px;
+  overflow-x: hidden;   /* never a sideways scrollbar */
+}
+[data-theme="sketch"] .bell-panel-head {
+  color: #0A2440;
+  border-bottom: 1px solid rgba(15, 28, 46, 0.08);
+}
+[data-theme="sketch"] .bell-panel-empty { color: rgba(10, 36, 64, 0.55); }
+
+[data-theme="sketch"] .bell-row {
+  /* Every card is the SAME width: an explicit calc (not width:auto, which a
+     <button> resolves from its content) + border-box keeps the side margins,
+     padding and borders INSIDE the panel — uniform width, no horizontal
+     scrollbar. */
+  display: block;
+  box-sizing: border-box;
+  width: calc(100% - 16px);
+  margin: 6px 8px 0;
+  padding: 10px 12px 11px;
+  background: #FFFFFF;
+  border: 1px solid rgba(15, 28, 46, 0.10);
+  border-left: 4px solid var(--bell-tone, rgba(10, 36, 64, 0.45));
+  border-radius: 10px;
+  transition: background-color .12s ease, border-color .12s ease;
+  overflow-wrap: anywhere;   /* long unbroken words/URLs can't force width */
+}
+[data-theme="sketch"] .bell-row:last-child { border-bottom: 1px solid rgba(15, 28, 46, 0.10); }
+[data-theme="sketch"] .bell-row:hover {
+  background: var(--bell-tone-tint, rgba(10, 36, 64, 0.04));
+  border-color: rgba(15, 28, 46, 0.16);
+}
+[data-theme="sketch"] .bell-row.unread {
+  background: var(--bell-tone-tint, rgba(225, 73, 9, 0.07));
+}
+
+/* Per-tone accent colour + matching tint, keyed off data-tone on the row. */
+[data-theme="sketch"] .bell-row[data-tone="alert"]   { --bell-tone: #C2410C; --bell-tone-tint: rgba(194, 65, 12, 0.10); }
+[data-theme="sketch"] .bell-row[data-tone="success"] { --bell-tone: #15683A; --bell-tone-tint: rgba(21, 104, 58, 0.10); }
+[data-theme="sketch"] .bell-row[data-tone="info"]    { --bell-tone: #1E3A5F; --bell-tone-tint: rgba(30, 58, 95, 0.10); }
+[data-theme="sketch"] .bell-row[data-tone="neutral"] { --bell-tone: #2A3B52; --bell-tone-tint: rgba(42, 59, 82, 0.10); }
+
+/* Kind label becomes a small squared chip in the row's tone. */
+[data-theme="sketch"] .bell-row-kind {
+  display: inline-block;
+  margin-bottom: 6px;
+  padding: 2px 7px;
+  border-radius: 5px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
+  color: var(--bell-tone, #5B6B7F);
+  background: var(--bell-tone-tint, rgba(10, 36, 64, 0.06));
+}
+[data-theme="sketch"] .bell-row.unread .bell-row-kind { color: var(--bell-tone, #E14909); }
+/* One line each for subject + body so every row is the SAME height — uniform,
+   scannable tabs instead of some cards growing two lines taller than others. */
+[data-theme="sketch"] .bell-row-subject {
+  color: #0A2440;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+[data-theme="sketch"] .bell-row-body {
+  /* Always one line tall — even when a notice has no body the line is reserved
+     (the markup renders a space), so every card is the SAME height. */
+  display: block;
+  color: rgba(10, 36, 64, 0.62);
+  min-height: 1.15em; line-height: 1.15;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+[data-theme="sketch"] .bell-panel-footer {
+  color: #C45F2A; font-weight: 700;
+  border-top: 1px solid rgba(15, 28, 46, 0.08);
+}
+[data-theme="sketch"] .bell-panel-footer:hover { color: #E14909; background: rgba(225, 73, 9, 0.06); }
+
 /* Saved payment methods on /app/pay (read from Settings prefs). */
 [data-theme="sketch"] .pay-methods {
   display: flex; flex-direction: column;
@@ -7776,22 +8229,24 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 
 /* Fines due — an orange "action needed" band above Current Balance. Mirrors
    the open-votes band so unpaid fines read as something to handle now. The
-   whole band is hidden when there's nothing open to pay. */
+   whole band is hidden when there's nothing open to pay. The background must
+   stay OPAQUE (tint layered over solid white): the band can sit on a photo
+   backdrop, and a translucent wash makes the text unreadable there. */
 [data-theme="sketch"] .pay-fines-band {
-  background: rgba(225, 73, 9, 0.06);
-  border: 2px solid #E14909;
-  border-left: 6px solid #E14909;
-  border-radius: 22px;
-  padding: 16px 22px 14px;
+  background: linear-gradient(rgba(225, 73, 9, 0.06), rgba(225, 73, 9, 0.06)), #FFFFFF;
+  border: none;
+  border-radius: 14px;
+  padding: 9px 16px 6px;
   margin-bottom: 16px;
-  box-shadow: 0 10px 30px -22px rgba(31, 42, 58, 0.35);
+  box-shadow: 0 14px 34px -18px rgba(31, 42, 58, 0.45);
 }
 [data-theme="sketch"] .pay-fines-band-head {
   display: flex; align-items: center; justify-content: space-between;
-  gap: 12px; flex-wrap: wrap; margin-bottom: 6px;
+  gap: 12px; flex-wrap: wrap; margin-bottom: 5px;
 }
+/* The FINES DUE headline reads larger than the fine titles beneath it. */
 [data-theme="sketch"] .pay-fines-eyebrow {
-  font-size: 11px; font-weight: 800; letter-spacing: 1px; text-transform: uppercase;
+  font-size: 16px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase;
   color: #C73E07;
 }
 [data-theme="sketch"] .pay-fines-total {
@@ -7827,29 +8282,67 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   border: 1.5px solid rgba(10, 36, 64, 0.2); border-radius: 10px; padding: 9px 12px; font-size: 14px;
   font-family: inherit; width: 100%; box-sizing: border-box;
 }
-/* Fine row: stack Pay + Contest in the action column. */
-[data-theme="sketch"] .pay-fine-actions { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
-[data-theme="sketch"] .pay-fine-contest { white-space: nowrap; padding: 6px 12px; font-size: 12.5px; }
-[data-theme="sketch"] .pay-plan-check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #0A2440; }
-[data-theme="sketch"] .pay-fines-list { display: flex; flex-direction: column; }
+/* Fine row — title + due date on the left, amount on the right; Pay and
+   Dispute split to the two ends below. Shared by the desktop and phone cards. */
+[data-theme="sketch"] .pay-fines-list { display: flex; flex-direction: column; gap: 8px; }
 [data-theme="sketch"] .pay-fine-row {
-  display: grid; grid-template-columns: auto minmax(0, 1fr) auto;
-  gap: 14px; align-items: center;
-  padding: 12px 0; border-top: 1px solid rgba(15, 28, 46, 0.08);
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 9px 0 2px; border-top: 1px solid rgba(15, 28, 46, 0.08);
 }
 [data-theme="sketch"] .pay-fine-row:first-of-type { border-top: none; }
-[data-theme="sketch"] .pay-fine-info { min-width: 0; }
-[data-theme="sketch"] .pay-fine-title { font-size: 14px; font-weight: 700; color: #0A2440; }
-[data-theme="sketch"] .pay-fine-meta { font-size: 12px; color: rgba(10, 36, 64, 0.55); margin-top: 2px; }
-[data-theme="sketch"] .pay-fine-amt { font-size: 15px; font-weight: 800; color: #0A2440; white-space: nowrap; }
-[data-theme="sketch"] .pay-fine-pay {
-  white-space: nowrap;
-  background: #0A2440; border-color: #0A2440;
+[data-theme="sketch"] .pay-fine-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 18px;
 }
-[data-theme="sketch"] .pay-fine-pay:hover { background: #143456; border-color: #143456; }
-@media (max-width: 560px) {
-  [data-theme="sketch"] .pay-fine-row { grid-template-columns: minmax(0, 1fr) auto; }
-  [data-theme="sketch"] .pay-fine-pay { grid-column: 1 / -1; justify-self: start; }
+[data-theme="sketch"] .pay-fine-info {
+  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 3px;
+}
+[data-theme="sketch"] .pay-fine-title { font-size: 14px; font-weight: 700; color: #0A2440; }
+[data-theme="sketch"] .pay-fine-meta { font-size: 12.5px; color: rgba(10, 36, 64, 0.6); }
+[data-theme="sketch"] .pay-fine-amt { flex: 0 0 auto; font-size: 20px; font-weight: 800; color: #0A2440; white-space: nowrap; }
+/* Bottom row: optional fine description on the left, Pay + Dispute on the right.
+   margin-right:auto on the note pushes the buttons to the far right; when there's
+   no note the buttons stay right anyway (justify-content: flex-end). */
+[data-theme="sketch"] .pay-fine-foot {
+  display: flex; flex-direction: row; align-items: center; justify-content: flex-end; gap: 16px;
+  margin-top: 22px;
+}
+[data-theme="sketch"] .pay-fine-note {
+  margin: 0 auto 0 0; flex: 1 1 auto; min-width: 0;
+  font-size: 12.5px; line-height: 1.45; color: rgba(10, 36, 64, 0.62);
+}
+[data-theme="sketch"] .pay-fine-actions {
+  display: flex; flex-direction: row; align-items: center; justify-content: flex-end; gap: 12px;
+  flex: 0 0 auto;
+}
+[data-theme="sketch"] .pay-fine-pay {
+  white-space: nowrap; flex: 0 0 auto;
+  background: #E14909; border-color: #E14909;
+}
+[data-theme="sketch"] .pay-fine-pay:hover { background: #C73E07; border-color: #C73E07; }
+[data-theme="sketch"] .pay-fine-contest { white-space: nowrap; flex: 0 0 auto; }
+
+/* Phone fines card (.rsv-mob only — desktop keeps its grid above).
+   Title flush left with the due date right below it; fine amount flush right;
+   Pay flush left + Dispute flush right along the bottom. */
+[data-theme="sketch"] .rsv-mob .pay-fine-row {
+  display: flex; flex-direction: column; gap: 12px;
+}
+[data-theme="sketch"] .rsv-mob .pay-fine-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+}
+[data-theme="sketch"] .rsv-mob .pay-fine-info {
+  flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px;
+}
+[data-theme="sketch"] .rsv-mob .pay-fine-meta { white-space: normal; }
+[data-theme="sketch"] .rsv-mob .pay-fine-amt { flex: 0 0 auto; font-size: 20px; }
+[data-theme="sketch"] .rsv-mob .pay-fine-foot { margin-top: 22px; }
+[data-theme="sketch"] .rsv-mob .pay-fine-actions {
+  flex-direction: row; justify-content: flex-end; align-items: center; gap: 10px;
+}
+[data-theme="sketch"] .rsv-mob .pay-fine-pay,
+[data-theme="sketch"] .rsv-mob .pay-fine-contest {
+  flex: 0 0 auto; text-align: center; justify-content: center;
+  padding: 10px 22px; font-size: 13px; white-space: nowrap;
 }
 
 /* Quick actions */
@@ -8213,6 +8706,21 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .doc-cat-label { font-size: 13.5px; font-weight: 700; color: #0A2440; line-height: 1.3; }
 [data-theme="sketch"] .doc-cat-desc { font-size: 11.5px; color: #0A2440; line-height: 1.4; }
 [data-theme="sketch"] .doc-cat-count { font-size: 11px; font-weight: 700; color: #C45F2A; margin-top: 2px; }
+/* "More categories" link — hidden on desktop (the full grid is shown). On
+   phones the grid is capped at the first 4 cards and this link, bottom-right of
+   the section, reveals the rest in a popup. */
+[data-theme="sketch"] .doc-cat-more { display: none; }
+@media (max-width: 767px) {
+  [data-theme="sketch"] .doc-cat-grid .doc-cat:nth-child(n+5) { display: none; }
+  [data-theme="sketch"] .doc-cat-more {
+    display: inline-flex; align-self: flex-end; align-items: center; gap: 4px;
+    margin-top: 2px; padding: 0; border: none; background: none; cursor: pointer;
+    appearance: none; -webkit-appearance: none; font: inherit;
+    font-size: 13px; font-weight: 700; color: #C45F2A;
+  }
+  [data-theme="sketch"] .doc-cat-more svg { width: 15px; height: 15px; }
+  [data-theme="sketch"] .doc-cat-more:active { color: #E14909; }
+}
 
 /* Need + stay-informed cards */
 [data-theme="sketch"] .doc-need, [data-theme="sketch"] .doc-stay {
@@ -8348,6 +8856,47 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 }
 [data-theme="sketch"] .ven-select:focus { outline: none; border-color: #E14909; }
 
+/* The category control in the search toolbars (Vendors / Reports / Documents /
+   Rules / Amenities) is now the <Dropdown> component (.ad-dd), whose default
+   width:100% would fill the whole flex row and squash the flex:1 search. Size it
+   to its content here so the search gets the remaining width — same as the old
+   native <select>. */
+[data-theme="sketch"] .ven-toolbar .ad-dd,
+[data-theme="sketch"] .doc-toolbar .ad-dd,
+[data-theme="sketch"] .rep-toolbar .ad-dd,
+[data-theme="sketch"] .rb-toolbar .ad-dd { flex: 0 0 auto; width: auto; }
+
+/* Desktop only: signal hover/focus/open with an orange border + glow ring while
+   KEEPING the resting cream fill — so the control clearly reads as clicked/active
+   but no translucent fill washes out the navy text. Scoped to >=641px (<=640px is
+   the phone toolbar layout). */
+@media (min-width: 641px) {
+  [data-theme="sketch"] .ven-toolbar .ven-search:hover,
+  [data-theme="sketch"] .ven-toolbar .ven-search:focus-within,
+  [data-theme="sketch"] .doc-toolbar .doc-search:hover,
+  [data-theme="sketch"] .doc-toolbar .doc-search:focus-within,
+  [data-theme="sketch"] .rep-toolbar .rep-search:hover,
+  [data-theme="sketch"] .rep-toolbar .rep-search:focus-within,
+  [data-theme="sketch"] .rb-toolbar .rb-search:hover,
+  [data-theme="sketch"] .rb-toolbar .rb-search:focus-within,
+  [data-theme="sketch"] .ven-toolbar .ad-dd-trigger:hover,
+  [data-theme="sketch"] .doc-toolbar .ad-dd-trigger:hover,
+  [data-theme="sketch"] .rep-toolbar .ad-dd-trigger:hover,
+  [data-theme="sketch"] .rb-toolbar .ad-dd-trigger:hover,
+  [data-theme="sketch"] .ven-toolbar .ad-dd.open .ad-dd-trigger,
+  [data-theme="sketch"] .doc-toolbar .ad-dd.open .ad-dd-trigger,
+  [data-theme="sketch"] .rep-toolbar .ad-dd.open .ad-dd-trigger,
+  [data-theme="sketch"] .rb-toolbar .ad-dd.open .ad-dd-trigger,
+  [data-theme="sketch"] .ven-toolbar .ad-dd-trigger:focus-visible,
+  [data-theme="sketch"] .doc-toolbar .ad-dd-trigger:focus-visible,
+  [data-theme="sketch"] .rep-toolbar .ad-dd-trigger:focus-visible,
+  [data-theme="sketch"] .rb-toolbar .ad-dd-trigger:focus-visible {
+    background-color: #FBF7F1;
+    border-color: #E14909;
+    box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.14);
+  }
+}
+
 [data-theme="sketch"] .ven-grid {
   display: grid; grid-template-columns: minmax(0, 1fr) 340px;
   gap: 22px; align-items: start;
@@ -8461,6 +9010,54 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .ven-row-contact a.ven-row-email { color: #C45F2A; }
 [data-theme="sketch"] .ven-row-contact a:hover { color: #E14909; }
 [data-theme="sketch"] .ven-empty { padding: 14px 0; font-size: 13px; color: #0A2440; text-align: center; }
+
+/* Unified vendor cards (phone list — VendorSection.mobile). One tidy card per
+   vendor, Preferred pinned to the top, replacing the old Featured-cards + table
+   duplication. Desktop (VendorSection) still uses .ven-featured / .ven-table. */
+[data-theme="sketch"] .ven-list { display: flex; flex-direction: column; gap: 12px; }
+[data-theme="sketch"] .ven-vcard {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 16px; background: #FFFFFF;
+  border: 1px solid rgba(15, 28, 46, 0.10); border-radius: 16px;
+}
+/* Board-curated vendors read as special: tinted left accent. */
+[data-theme="sketch"] .ven-vcard.is-preferred {
+  border-color: rgba(225, 73, 9, 0.30); border-left: 4px solid #E14909;
+}
+[data-theme="sketch"] .ven-vcard-top { display: flex; align-items: center; gap: 10px; }
+[data-theme="sketch"] .ven-vcard-icon {
+  flex: 0 0 auto; display: inline-flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px; border-radius: 10px;
+  background: rgba(225, 73, 9, 0.14); color: #C45F2A;
+}
+[data-theme="sketch"] .ven-vcard-icon svg { width: 20px; height: 20px; }
+[data-theme="sketch"] .ven-vcard-name {
+  flex: 1 1 auto; min-width: 0; text-align: left;
+  border: none; background: none; padding: 0; cursor: pointer; appearance: none; -webkit-appearance: none;
+  font-family: 'AmpFix', 'Fraunces', Georgia, serif; font-size: 16px; font-weight: 600; color: #0A2440;
+}
+[data-theme="sketch"] .ven-vcard-name:hover { color: #E14909; }
+[data-theme="sketch"] .ven-vcard-rate {
+  flex: 0 0 auto; border: none; background: none; padding: 0; cursor: pointer; appearance: none; -webkit-appearance: none;
+}
+[data-theme="sketch"] .ven-vcard-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+[data-theme="sketch"] .ven-vcard-cat {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.6px; text-transform: uppercase; color: #C45F2A;
+}
+[data-theme="sketch"] .ven-vcard-badge {
+  padding: 2px 9px; background: #E14909; color: #FFFFFF; border-radius: 999px;
+  font-size: 10px; font-weight: 700; letter-spacing: 0.4px; text-transform: uppercase;
+}
+[data-theme="sketch"] .ven-vcard-blurb { margin: 0; font-size: 12.5px; color: #0A2440; line-height: 1.45; }
+[data-theme="sketch"] .ven-vcard-actions { display: flex; gap: 8px; margin-top: 2px; }
+[data-theme="sketch"] .ven-vcard-btn {
+  flex: 1 1 0; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 9px 12px; border-radius: 999px;
+  background: #FBF7F1; border: 1.5px solid rgba(199, 111, 69, 0.30);
+  font-size: 13px; font-weight: 700; color: #0A2440; text-decoration: none;
+}
+[data-theme="sketch"] .ven-vcard-btn svg { width: 15px; height: 15px; color: #C45F2A; }
+[data-theme="sketch"] .ven-vcard-btn:hover { border-color: #E14909; background: rgba(225, 73, 9, 0.06); }
 
 /* Star rating */
 [data-theme="sketch"] .ven-rating { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: #0A2440; }
@@ -8950,48 +9547,50 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .con-pager-btn:disabled { opacity: 0.4; cursor: default; }
 
 /* Your violations panel (Easy Documents → Rules) */
-[data-theme="sketch"] .myv-list { display: flex; flex-direction: column; }
-[data-theme="sketch"] .myv-row {
-  display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center;
-  padding: 12px 2px; border-top: 1px solid rgba(10, 36, 64, 0.08);
+/* Your violations — one card per violation: a Fine/Warning tag + colour-coded
+   status pill on top (amount to the right), the rule, the opened date, an
+   optional note, then Pay / Dispute actions. */
+[data-theme="sketch"] .myv-list { display: flex; flex-direction: column; gap: 12px; }
+[data-theme="sketch"] .myv-card {
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 16px; background: #FFFFFF;
+  border: 1px solid rgba(15, 28, 46, 0.10); border-radius: 16px;
 }
-[data-theme="sketch"] .myv-row:first-child { border-top: none; }
-[data-theme="sketch"] .myv-tag {
+[data-theme="sketch"] .myv-card-top {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+}
+[data-theme="sketch"] .myv-tags { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; min-width: 0; }
+[data-theme="sketch"] .myv-tag,
+[data-theme="sketch"] .myv-status {
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.5px; text-transform: uppercase;
-  padding: 3px 9px; border-radius: 999px; align-self: start; margin-top: 2px;
+  padding: 3px 10px; border-radius: 999px; white-space: nowrap;
 }
 [data-theme="sketch"] .myv-tag-fine    { background: rgba(176, 84, 59, 0.14); color: #9a4530; }
 [data-theme="sketch"] .myv-tag-warning { background: rgba(176, 116, 31, 0.16); color: #8a5a13; }
-[data-theme="sketch"] .myv-title { font-size: 14px; font-weight: 600; color: #0A2440; }
-[data-theme="sketch"] .myv-amt { font-weight: 700; }
-[data-theme="sketch"] .myv-meta { font-size: 12px; color: rgba(10, 36, 64, 0.55); margin-top: 2px; }
+[data-theme="sketch"] .myv-status-open   { background: rgba(225, 73, 9, 0.12);  color: #C23D06; }
+[data-theme="sketch"] .myv-status-review { background: rgba(60, 83, 119, 0.14);  color: #3C5377; }
+[data-theme="sketch"] .myv-status-paid   { background: rgba(125, 140, 92, 0.18); color: #4A5A2D; }
+[data-theme="sketch"] .myv-status-closed { background: rgba(15, 28, 46, 0.07);   color: rgba(10, 36, 64, 0.6); }
+[data-theme="sketch"] .myv-amt { flex: 0 0 auto; font-size: 19px; font-weight: 800; color: #0A2440; white-space: nowrap; }
+[data-theme="sketch"] .myv-title { font-size: 15px; font-weight: 700; color: #0A2440; }
+[data-theme="sketch"] .myv-meta { font-size: 12.5px; color: rgba(10, 36, 64, 0.55); }
+[data-theme="sketch"] .myv-note {
+  margin: 2px 0 0; font-size: 12.5px; line-height: 1.45; color: rgba(10, 36, 64, 0.72);
+  padding: 9px 12px; background: #FBF7F1; border-radius: 10px;
+}
+[data-theme="sketch"] .myv-actions { display: flex; flex-direction: row; gap: 10px; margin-top: 4px; }
 [data-theme="sketch"] .myv-pay-btn {
-  justify-self: end; white-space: nowrap;
-  padding: 8px 16px; border-radius: 999px;
+  white-space: nowrap;
+  padding: 9px 18px; border-radius: 999px;
   background: #E14909; border: 1px solid #E14909; color: #FFFFFF;
-  font-family: inherit; font-size: 12.5px; font-weight: 700;
+  font-family: inherit; font-size: 13px; font-weight: 700;
   cursor: pointer; transition: background-color 0.12s ease, transform 0.08s ease;
 }
 [data-theme="sketch"] .myv-pay-btn:hover { background: #C73E07; }
 [data-theme="sketch"] .myv-pay-btn:disabled { opacity: 0.6; cursor: not-allowed; }
-[data-theme="sketch"] .myv-paid {
-  justify-self: end; white-space: nowrap;
-  display: inline-flex; align-items: center; gap: 4px;
-  padding: 6px 12px; border-radius: 999px;
-  background: rgba(125, 140, 92, 0.18); color: #4A5A2D;
-  border: 1px solid rgba(125, 140, 92, 0.36);
-  font-size: 12px; font-weight: 700; letter-spacing: 0.3px;
-}
-@media (max-width: 560px) {
-  [data-theme="sketch"] .myv-paid { align-self: start; }
-}
-[data-theme="sketch"] .myv-actions {
-  justify-self: end; display: inline-flex; flex-direction: column; gap: 6px; align-items: flex-end;
-}
-/* Contest is the quieter, secondary action next to Pay. */
+/* Dispute is the quieter, secondary action next to Pay. */
 [data-theme="sketch"] .myv-contest-btn {
   background: transparent; color: #3C5377; border: 1px solid rgba(60, 83, 119, 0.4);
-  padding: 6px 14px;
 }
 [data-theme="sketch"] .myv-contest-btn:hover { background: rgba(60, 83, 119, 0.08); }
 [data-theme="sketch"] .myv-pay-err {
@@ -8999,13 +9598,40 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   background: rgba(200, 46, 46, 0.08); border-radius: 8px;
   padding: 8px 12px; margin: 8px 0 4px;
 }
-@media (max-width: 560px) {
-  /* Keep the small "✓ Paid" pill inline top-right; only the wider "Pay fine"
-     button drops to its own full-width line. */
-  [data-theme="sketch"] .myv-row { align-items: start; }
-  [data-theme="sketch"] .myv-paid { align-self: start; }
-  [data-theme="sketch"] .myv-pay-btn { grid-column: 1 / -1; justify-self: start; }
+/* "Hearings & suspensions" link below the list — same card sizing as the
+   violation cards above it, so it reads as part of the set. */
+[data-theme="sketch"] .myv-link {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  margin-top: 12px; padding: 16px;
+  background: #FFFFFF; border: 1px solid rgba(15, 28, 46, 0.10); border-radius: 16px;
+  text-decoration: none; color: #0A2440;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
+[data-theme="sketch"] .myv-link:hover {
+  border-color: rgba(225, 73, 9, 0.40); box-shadow: 0 6px 18px -14px rgba(31, 42, 58, 0.4);
+}
+[data-theme="sketch"] .myv-link-body { min-width: 0; }
+[data-theme="sketch"] .myv-link-title { display: block; font-size: 14px; font-weight: 700; color: #0A2440; }
+[data-theme="sketch"] .myv-link-sub { display: block; font-size: 12.5px; color: rgba(10, 36, 64, 0.6); margin-top: 3px; line-height: 1.4; }
+[data-theme="sketch"] .myv-link-open { flex: 0 0 auto; color: #E14909; font-weight: 700; white-space: nowrap; }
+@media (max-width: 767px) {
+  /* Phone: the two action buttons split the full width as big tap targets. */
+  [data-theme="sketch"] .myv-actions .myv-pay-btn,
+  [data-theme="sketch"] .myv-actions .myv-contest-btn {
+    flex: 1 1 0; text-align: center; padding: 11px 14px;
+  }
+}
+
+/* Resident page back link — a tidy pill instead of a bare "← text" link. */
+[data-theme="sketch"] .ev-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-bottom: 16px; padding: 7px 15px 7px 11px;
+  background: #FBF7F1; border: 1.5px solid rgba(225, 73, 9, 0.35); border-radius: 999px;
+  font-family: inherit; font-size: 13px; font-weight: 700; color: #E14909; text-decoration: none;
+  transition: border-color 0.12s ease, background-color 0.12s ease;
+}
+[data-theme="sketch"] .ev-back:hover { border-color: #E14909; background: rgba(225, 73, 9, 0.08); }
+[data-theme="sketch"] .ev-back svg { width: 16px; height: 16px; color: #E14909; }
 
 [data-theme="sketch"] .rep-maint { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 [data-theme="sketch"] .rep-maint-stat {
@@ -9383,6 +10009,9 @@ textarea[disabled] {
 .bottom-nav { display: none; }
 
 @media (max-width: 767px) {
+  /* Full-width bottom bar — anchored edge-to-edge at the very bottom so no page
+     content shows around or behind it. Rounded top + active-tab pill keep the
+     modern look. */
   [data-theme="sketch"] .bottom-nav {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
@@ -9391,26 +10020,46 @@ textarea[disabled] {
     z-index: 95;
     background: #FFFFFF;
     border-top: 1px solid rgba(10, 36, 64, 0.07);
-    box-shadow: 0 -4px 22px -10px rgba(31, 42, 58, 0.18);
-    padding: 8px 4px;
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -6px 26px -10px rgba(31, 42, 58, 0.20);
+    padding: 8px 8px;
     padding-bottom: calc(8px + env(safe-area-inset-bottom));
   }
   [data-theme="sketch"] .bn-item {
-    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
     position: relative;
-    padding: 4px 2px;
+    padding: 8px 2px 7px;
+    border-radius: 20px;
     background: none; border: none; cursor: pointer;
-    font-family: inherit; font-size: 11px; font-weight: 600; letter-spacing: 0;
+    font-family: inherit; font-size: 10.5px; font-weight: 600; letter-spacing: 0;
     color: rgba(10, 36, 64, 0.55);
     text-decoration: none;
-    transition: color 0.15s ease;
+    transition: color 0.15s ease, background 0.15s ease;
   }
-  [data-theme="sketch"] .bn-item svg { width: 25px; height: 25px; stroke-width: 1.9; }
-  [data-theme="sketch"] .bn-item.active { color: #EB5507; }
+  [data-theme="sketch"] .bn-item svg { width: 23px; height: 23px; stroke-width: 1.9; }
+  [data-theme="sketch"] .bn-item.active {
+    color: #EB5507;
+    background: rgba(10, 36, 64, 0.06);   /* soft pill behind the active tab */
+  }
   [data-theme="sketch"] .bn-dot {
-    position: absolute; top: 1px; left: 50%; transform: translateX(9px);
+    position: absolute; top: 5px; left: 50%; transform: translateX(9px);
     width: 7px; height: 7px; border-radius: 50%;
     background: #EB5507; border: 1.5px solid #fff;
+  }
+  /* Requests count — notification badge on the icon's top-right, matching the
+     Contact tab badge (same orange + conPendingPulse halo). */
+  [data-theme="sketch"] .bn-badge {
+    position: absolute; top: 1px; left: calc(50% + 5px);
+    min-width: 16px; height: 16px; padding: 0 4px;
+    display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 999px;
+    background: #E14909; color: #fff;
+    font-size: 10px; font-weight: 800; line-height: 1;
+    border: 1.5px solid #fff;
+    animation: conPendingPulse 1.6s ease-out infinite;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-theme="sketch"] .bn-badge { animation: none; }
   }
 
   /* The bottom bar is the phone nav now — retire the hamburger and give the
@@ -9486,17 +10135,88 @@ textarea[disabled] {
   /* Equal-width tabs, evenly spaced across the row. */
   [data-theme="sketch"] .voice-segtabs .seg-tab { flex: 1 1 0; min-width: 0; padding: 8px 4px; font-size: 12px; white-space: nowrap; text-align: center; }
 
-  /* Filter bar: stack the filters and let each dropdown go full width so the
-     two pills don't fight for a single phone row. */
+  /* Easy Track (Pay / Vendors / Reports) and Easy Documents (Documents / Rules /
+     My Violations): same treatment — three equal-width tabs that fill the row
+     instead of bunching to the left. */
+  [data-theme="sketch"] .track-segtabs .seg-tabs { overflow-x: visible; padding: 4px; gap: 3px; }
+  [data-theme="sketch"] .track-segtabs .seg-tab { flex: 1 1 0; min-width: 0; padding: 9px 6px; font-size: 13px; white-space: nowrap; text-align: center; }
+
+  /* Easy Schedule (Calendar / Amenities): same treatment so the two tabs split
+     the row evenly instead of bunching to the left. */
+  [data-theme="sketch"] .sched-tabs .seg-tabs { overflow-x: visible; padding: 4px; gap: 3px; }
+  [data-theme="sketch"] .sched-tabs .seg-tab { flex: 1 1 0; min-width: 0; padding: 9px 6px; font-size: 13px; white-space: nowrap; text-align: center; }
+
+  /* Admin Easy Schedule (Calendar / Amenities) — same equal-width fit so both
+     tabs fill the row and the strip "finishes" instead of bunching/scrolling. */
+  [data-theme="sketch"] .admin-schedule-tabs .seg-tabs { overflow-x: visible; padding: 4px; gap: 3px; }
+  [data-theme="sketch"] .admin-schedule-tabs .seg-tab { flex: 1 1 0; min-width: 0; padding: 9px 6px; font-size: 13px; white-space: nowrap; text-align: center; }
+
+  /* Admin sub-tabs (Easy Track residents/vendors, Easy Voice board/meetings/
+     votes/architectural/contact, Easy Documents): keep the pill content-width and
+     CENTERED — not stretched edge-to-edge — and shrink the tabs so even Easy
+     Voice's five all sit in one row instead of scrolling off the end. */
+  [data-theme="sketch"] .seg-tabs.admin-seg-tabs {
+    display: flex;
+    width: 100%;            /* fill the page, not a cramped centered pill */
+    overflow-x: visible;
+    padding: 4px;
+    gap: 3px;
+  }
+  /* flex: 1 1 auto — size by label, then grow to share the row evenly so even
+     the five Easy Voice tabs span the full width without squishing. */
+  [data-theme="sketch"] .seg-tabs.admin-seg-tabs .seg-tab {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding: 8px 4px;
+    font-size: 11.5px;
+    white-space: nowrap;
+    text-align: center;
+  }
+
+  /* Search + category toolbars (Reports / Documents / Rules / Vendor) keep the
+     search box and the All Categories dropdown on ONE row on phones. Without
+     this the 240px search min-width forces the dropdown to wrap to a second
+     line; here we let the search shrink (min-width: 0) so they sit side by side. */
+  [data-theme="sketch"] .rep-toolbar,
+  [data-theme="sketch"] .doc-toolbar,
+  [data-theme="sketch"] .ven-toolbar,
+  [data-theme="sketch"] .rb-toolbar { flex-wrap: nowrap; align-items: center; }
+  [data-theme="sketch"] .rep-search,
+  [data-theme="sketch"] .doc-search,
+  [data-theme="sketch"] .ven-search,
+  [data-theme="sketch"] .rb-toolbar .rb-search { min-width: 0; }
+  /* A native <select> sizes to its WIDEST option, so a long category like
+     "Property Maintenance" would balloon the dropdown and shrink the search.
+     Cap it to fit the default "All Categories" label (same across all four
+     toolbars) and ellipsize any longer selected value — this makes the search
+     long and the dropdown compact, exactly like Reports. */
+  [data-theme="sketch"] .rep-select,
+  [data-theme="sketch"] .doc-select,
+  [data-theme="sketch"] .ven-select,
+  [data-theme="sketch"] .rb-select,
+  [data-theme="sketch"] .ven-toolbar .ad-dd,
+  [data-theme="sketch"] .doc-toolbar .ad-dd,
+  [data-theme="sketch"] .rep-toolbar .ad-dd,
+  [data-theme="sketch"] .rb-toolbar .ad-dd {
+    flex: 0 0 160px; width: 160px; white-space: nowrap;
+    overflow: hidden; text-overflow: ellipsis;
+  }
+
+  /* Filter bar: keep Category + Time period side by side on one row. Each takes
+     half the width with its label stacked over the dropdown pill so the two fit
+     without crowding. */
   [data-theme="sketch"] .admin-sched-filters {
     display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
+    flex-wrap: nowrap;
+    gap: 10px;
     width: 100%;
   }
   [data-theme="sketch"] .admin-sched-filter {
-    flex: 1 1 100%;
-    justify-content: space-between;
+    flex: 1 1 0;
+    min-width: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
   }
 }
 
@@ -9551,7 +10271,9 @@ textarea[disabled] {
 .site-foot-bar {
   max-width: 1200px;
   margin: clamp(40px, 6vw, 56px) auto 0;
-  padding: 22px 0 28px;
+  /* Extend the navy through the bottom safe-area so the page ends navy instead
+     of showing a white strip below the footer (home indicator / installed app). */
+  padding: 22px 0 calc(28px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid rgba(244, 239, 232, 0.12);
   display: flex; justify-content: space-between; align-items: center;
   flex-wrap: wrap; gap: 8px;
@@ -9751,7 +10473,18 @@ textarea[disabled] {
 }
 @media (max-width: 767px) {
   /* Full-width notification dropdown (was a fixed 360px box half-off the bell). */
-  .bell-panel { position: fixed; top: 58px; left: 10px; right: 10px; width: auto; max-height: 72vh; }
+  .bell-panel { position: fixed; top: 58px; left: 10px; right: 10px; width: auto; max-height: 88vh; }
+  /* Compact the 5 cards on phones so the whole peek (header + 5 rows + footer)
+     fits without an internal scrollbar. */
+  [data-theme="sketch"] .bell-panel-head { padding: 9px 14px; }
+  [data-theme="sketch"] .bell-row {
+    margin: 5px 8px 0;
+    padding: 8px 11px 8px;
+  }
+  [data-theme="sketch"] .bell-row-kind { margin-bottom: 3px; padding: 1px 6px; font-size: 9.5px; }
+  [data-theme="sketch"] .bell-row-subject { font-size: 12.5px; margin-bottom: 1px; }
+  [data-theme="sketch"] .bell-row-body { font-size: 11px; min-height: 1.1em; line-height: 1.1; }
+  [data-theme="sketch"] .bell-panel-footer { padding: 9px 14px; }
   /* Square calendar day cells; events render as a row of colour dots. */
   [data-theme="sketch"] .sched-cell { min-height: 58px; }
   [data-theme="sketch"] .sched-cell-events { flex-direction: row; flex-wrap: wrap; gap: 3px; margin-top: 1px; }
@@ -9775,7 +10508,7 @@ textarea[disabled] {
   [data-theme="sketch"] .ev-hub-head { padding-top: 64px; }
   /* Settings: Account summary aside moves to the TOP, and every row is one
      line (ellipsis) so they're all the same height. */
-  [data-theme="sketch"] .set-aside { order: -1; }
+  [data-theme="sketch"] .set-aside { order: -1; margin-top: 0; }
   [data-theme="sketch"] .set-row-title,
   [data-theme="sketch"] .set-row-desc { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   [data-theme="sketch"] .set-row-right { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 110px; }
@@ -9832,5 +10565,12 @@ textarea[disabled] {
 [data-theme="sketch"] .sched-day-events { display: flex; flex-direction: column; }
 
 [data-theme="sketch"] .sched-filter-modal { max-width: 360px; }
-[data-theme="sketch"] .sched-filter-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid rgba(15,28,46,0.08); }
+[data-theme="sketch"] .sched-filter-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.12); }
 [data-theme="sketch"] .sched-filter-done { padding: 8px 18px; border-radius: 999px; background: #E14909; border: 1px solid #E14909; color: #fff; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+/* The filter popup reuses the dark .sched-modal shell, so the filter rows —
+   which are dark-navy text for the light side card — need light-on-dark colours
+   here, or they read as blank against the navy background. */
+[data-theme="sketch"] .sched-filter-modal .sched-filters-list { padding: 14px 18px; }
+[data-theme="sketch"] .sched-filter-modal .sched-filter { color: #FFFFFF; }
+[data-theme="sketch"] .sched-filter-modal .sched-filter:not(.on) { color: rgba(255, 255, 255, 0.5); }
+[data-theme="sketch"] .sched-filter-modal .sched-filter:hover { background: rgba(255, 255, 255, 0.08); }

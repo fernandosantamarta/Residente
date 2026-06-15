@@ -8,8 +8,9 @@ import { useAuth } from '../providers'
 import { useMyResident } from '@/hooks/useMyResident'
 import { kindToUpTag, upcomingFrom, useScheduleEvents } from '@/lib/schedule'
 import { useUnreadNoticeCount, useMyNotices } from '@/hooks/useNotices'
+import { useMyPendingReplies } from '@/hooks/useAwaitingMessages'
 import { SiteFooterSlim } from '@/components/SiteFooter'
-import { NOTICE_KIND_LABELS, noticeHref, NoticeKind } from '@/lib/voice'
+import { noticeHref, noticeTone, noticeKindLabel, localizeNoticeText } from '@/lib/voice'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import { useWeather } from '@/hooks/useWeather'
 import { usePlatformAdmin } from '@/hooks/usePlatform'
@@ -82,6 +83,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
   // for demo screenshots.
   const { count: unreadCount } = useUnreadNoticeCount()
   useMyResident() // keep mounted before the auth guard for stable hook order
+  const pendingReplies = useMyPendingReplies()   // unread board replies → Easy Voice badge
   const homeHasAlert = isPreview || unreadCount > 0
   const showRightRail = pathname === '/app'
   const [navOpen, setNavOpen] = useState(false)
@@ -171,6 +173,9 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
               </svg>
               <span>{item.label}</span>
               {item.href === '/app' && homeHasAlert && <span className="pulse-dot"></span>}
+              {item.href === '/app/voice' && pendingReplies > 0 && (
+                <span className="con-pending-badge" style={{ marginLeft: 'auto' }}>{pendingReplies}</span>
+              )}
             </Link>
           ))}
           {(showAdmin || isPlatformAdmin) && (
@@ -181,7 +186,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
               {showAdmin && (
                 <Link
                   href="/admin"
-                  className={`nav-item nav-desktop-only${pathname.startsWith('/admin') ? ' active' : ''}`}
+                  className={`nav-item${pathname.startsWith('/admin') ? ' active' : ''}`}
                 >
                   <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M12 2 4 6v6c0 5 3.4 8.4 8 10 4.6-1.6 8-5 8-10V6z"/>
@@ -198,16 +203,6 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
                   <span>Platform Console</span>
                 </Link>
               )}
-              <div className="nav-desktop-note">
-                <svg className="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>
-                </svg>
-                <span>{showAdmin && isPlatformAdmin
-                  ? 'Open Admin & the Platform Console on a desktop.'
-                  : isPlatformAdmin
-                  ? 'Open the Platform Console on a desktop.'
-                  : 'Open Admin on a desktop.'}</span>
-              </div>
             </>
           )}
         </nav>
@@ -314,6 +309,11 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
         <Link href={isPreview ? '/app/voice?preview=1' : '/app/voice'} className={`bn-item${pathname.startsWith('/app/voice') ? ' active' : ''}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
           <span>Requests</span>
+          {pendingReplies > 0 && (
+            <span className="bn-badge" aria-label={`${pendingReplies} new`}>
+              {pendingReplies > 9 ? '9+' : pendingReplies}
+            </span>
+          )}
         </Link>
         <Link href={isPreview ? '/app/documents?preview=1' : '/app/documents'} className={`bn-item${(pathname.startsWith('/app/documents') || pathname.startsWith('/app/rules')) ? ' active' : ''}`}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 4h12l4 4v12H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></svg>
@@ -625,7 +625,9 @@ function NotificationBell() {
           {!loading && notices.length === 0 && (
             <div className="bell-panel-empty">{t('bell.caughtUp')}</div>
           )}
-          {!loading && notices.map((r: any) => {
+          {/* The bell is a peek — only the latest 5; the footer opens the full
+              inbox for everything else. */}
+          {!loading && notices.slice(0, 5).map((r: any) => {
             const n = r.notice
             if (!n) return null
             const unread = !r.read_at
@@ -633,11 +635,12 @@ function NotificationBell() {
               <button
                 key={r.id}
                 className={`bell-row${unread ? ' unread' : ''}`}
+                data-tone={noticeTone(n.kind)}
                 onClick={() => onPick(r.id, n)}
               >
-                <div className="bell-row-kind">{NOTICE_KIND_LABELS[n.kind as NoticeKind] ?? n.kind}</div>
-                <div className="bell-row-subject">{n.subject || '(no subject)'}</div>
-                {n.body && <div className="bell-row-body">{n.body}</div>}
+                <span className="bell-row-kind">{noticeKindLabel(n.kind, t)}</span>
+                <div className="bell-row-subject">{localizeNoticeText(n.subject, t) || '(no subject)'}</div>
+                <div className="bell-row-body">{localizeNoticeText(n.body, t) || ' '}</div>
               </button>
             )
           })}

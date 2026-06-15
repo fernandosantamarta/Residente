@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
+import { useT } from '@/lib/i18n'
 import './setup.css'
 
 // Guided setup wizard — the signup-style, one-decision-per-screen onboarding for
@@ -15,6 +16,7 @@ import './setup.css'
 type Counts = { residents: number; board: number; documents: number; budgets: number }
 
 export default function AdminSetup() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const router = useRouter()
@@ -66,12 +68,12 @@ export default function AdminSetup() {
   const steps = [
     { key: 'welcome' },
     { key: 'board', done: (counts?.board || 0) >= 1, href: '/admin/voice',
-      ic: 'people', title: 'Add your board members', blurb: 'President, Treasurer, and Secretary. They get admin access too.' },
+      ic: 'people', titleKey: 'admin.setup.boardTitle', blurbKey: 'admin.setup.boardBlurb' },
     { key: 'residents', done: (counts?.residents || 0) > 1, href: '/admin/residents',
-      ic: 'person', title: 'Add your residents', blurb: 'Import your owner roster, or add households one at a time.' },
+      ic: 'person', titleKey: 'admin.setup.residentsTitle', blurbKey: 'admin.setup.residentsBlurb' },
     { key: 'dues', done: duesNum > 0 },
     { key: 'documents', done: (counts?.documents || 0) >= 1, href: '/admin/documents',
-      ic: 'doc', title: 'Upload your documents', blurb: 'Bylaws, declaration, budget, insurance, and latest minutes.' },
+      ic: 'doc', titleKey: 'admin.setup.documentsTitle', blurbKey: 'admin.setup.documentsBlurb' },
     { key: 'done' },
   ]
   const total = steps.length
@@ -82,7 +84,12 @@ export default function AdminSetup() {
   const back = () => { if (step === 0) router.push('/admin'); else setStep(s => s - 1) }
 
   const KICK: Record<string, string> = {
-    welcome: 'Get set up', board: 'Step 1', residents: 'Step 2', dues: 'Step 3', documents: 'Step 4', done: 'All done',
+    welcome: t('admin.setup.kickerWelcome'),
+    board: t('admin.setup.kickerStep1'),
+    residents: t('admin.setup.kickerStep2'),
+    dues: t('admin.setup.kickerStep3'),
+    documents: t('admin.setup.kickerStep4'),
+    done: t('admin.setup.kickerDone'),
   }
 
   return (
@@ -90,7 +97,7 @@ export default function AdminSetup() {
       <Sparkles />
       <div className="sw-top">
         <div className="sw-topbar">
-          <button className="sw-back" onClick={back} aria-label="Back" type="button">
+          <button className="sw-back" onClick={back} aria-label={t('admin.setup.backAriaLabel')} type="button">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6" /></svg>
           </button>
           <span className="sw-brand"><span className="sw-brand-chip"><img src="/residente-logo.png" alt="" /></span><span className="sw-brand-word">Residente</span></span>
@@ -104,70 +111,70 @@ export default function AdminSetup() {
 
         {cur.key === 'welcome' && (
           <>
-            <h1 className="sw-h1">Let&rsquo;s set up {community?.name || 'your community'}.</h1>
-            <p className="sw-sub">A few quick steps and your community is live for every neighbor.</p>
+            <h1 className="sw-h1">{t('admin.setup.welcomeHeading', { name: community?.name || t('admin.setup.yourCommunity') })}</h1>
+            <p className="sw-sub">{t('admin.setup.welcomeSub')}</p>
             <House />
-            <div className="sw-actions"><button className="sw-btn" onClick={next}>Start setup</button></div>
+            <div className="sw-actions"><button className="sw-btn" onClick={next}>{t('admin.setup.startSetup')}</button></div>
           </>
         )}
 
         {(cur.key === 'board' || cur.key === 'residents' || cur.key === 'documents') && (
           <>
-            <h1 className="sw-h1">{cur.title}</h1>
-            <p className="sw-sub">{cur.blurb}</p>
+            <h1 className="sw-h1">{t((cur as any).titleKey)}</h1>
+            <p className="sw-sub">{t((cur as any).blurbKey)}</p>
             <House />
             <div className="sw-content">
               <div className="sw-card">
                 <span className="sw-card-ic"><StepIcon kind={cur.ic!} /></span>
                 <span className="sw-card-tx">
-                  <span className="sw-card-ti">{cur.title}</span>
-                  <span className="sw-card-de">{cur.blurb}</span>
+                  <span className="sw-card-ti">{t((cur as any).titleKey)}</span>
+                  <span className="sw-card-de">{t((cur as any).blurbKey)}</span>
                 </span>
-                <span className={`sw-pill ${cur.done ? 'ok' : 'todo'}`}>{cur.done ? 'Done ✓' : 'To do'}</span>
+                <span className={`sw-pill ${cur.done ? 'ok' : 'todo'}`}>{cur.done ? t('admin.setup.pillDone') : t('admin.setup.pillTodo')}</span>
               </div>
-              <a className="sw-open" href={cur.href!}>{cur.done ? 'Open & edit →' : 'Open this step →'}</a>
+              <a className="sw-open" href={cur.href!}>{cur.done ? t('admin.setup.openEdit') : t('admin.setup.openStep')}</a>
             </div>
             <div className="sw-actions">
-              <button className="sw-btn" onClick={next}>Continue</button>
-              <button className="sw-skip" onClick={next}>I&rsquo;ll do this later</button>
+              <button className="sw-btn" onClick={next}>{t('admin.setup.continue')}</button>
+              <button className="sw-skip" onClick={next}>{t('admin.setup.doThisLater')}</button>
             </div>
           </>
         )}
 
         {cur.key === 'dues' && (
           <>
-            <h1 className="sw-h1">Set your monthly dues</h1>
-            <p className="sw-sub">What each home pays per month. Residents then see their balance.</p>
+            <h1 className="sw-h1">{t('admin.setup.duesHeading')}</h1>
+            <p className="sw-sub">{t('admin.setup.duesSub')}</p>
             <House />
             <div className="sw-content">
               <div className="sw-field">
-                <span className="sw-label">Monthly dues per home (USD)</span>
-                <input className="sw-input" value={dues} inputMode="numeric" placeholder="e.g. 285"
+                <span className="sw-label">{t('admin.setup.duesLabel')}</span>
+                <input className="sw-input" value={dues} inputMode="numeric" placeholder={t('admin.setup.duesPlaceholder')}
                   onChange={e => setDues(e.target.value.replace(/[^0-9.]/g, ''))} />
               </div>
             </div>
             <div className="sw-actions">
               <button className="sw-btn" onClick={saveDues} disabled={saving || !(Number(dues) > 0)}>
-                {saving ? 'Saving…' : 'Save & continue'}
+                {saving ? t('admin.setup.saving') : t('admin.setup.saveAndContinue')}
               </button>
-              <button className="sw-skip" onClick={next}>Skip for now</button>
+              <button className="sw-skip" onClick={next}>{t('admin.setup.skipForNow')}</button>
             </div>
           </>
         )}
 
         {cur.key === 'done' && (
           <>
-            <h1 className="sw-h1">{community?.name || 'Your community'} is ready! 🎉</h1>
-            <p className="sw-sub">Share your join code so owners can sign in to their homes.</p>
+            <h1 className="sw-h1">{t('admin.setup.doneHeading', { name: community?.name || t('admin.setup.yourCommunity') })}</h1>
+            <p className="sw-sub">{t('admin.setup.doneSub')}</p>
             <House />
             <div className="sw-content">
               <div className="sw-code-card">
-                <div className="sw-code-lbl">Resident join code</div>
+                <div className="sw-code-lbl">{t('admin.setup.joinCodeLabel')}</div>
                 <div className="sw-code">{community?.join_code || '—'}</div>
-                {community?.join_code && <button className="sw-copy" onClick={copyCode}>{copied ? 'Copied ✓' : 'Copy code'}</button>}
+                {community?.join_code && <button className="sw-copy" onClick={copyCode}>{copied ? t('admin.setup.copied') : t('admin.setup.copyCode')}</button>}
               </div>
             </div>
-            <div className="sw-actions"><button className="sw-btn" onClick={() => router.push('/admin')}>Go to dashboard</button></div>
+            <div className="sw-actions"><button className="sw-btn" onClick={() => router.push('/admin')}>{t('admin.setup.goToDashboard')}</button></div>
           </>
         )}
       </div></div>

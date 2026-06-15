@@ -1,6 +1,6 @@
 'use client'
 
-import { ReactNode, useEffect, useState } from 'react'
+import { ReactNode, useEffect, useRef, useState } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
@@ -10,7 +10,7 @@ import { useT } from '@/lib/i18n'
 // actions (in a popup, via RequestFormDialog). Single source of truth so the
 // submit/upload logic lives in one place.
 
-const withTimeout = <T,>(p: Promise<T>, ms = 10000): Promise<T> =>
+const withTimeout = <T,>(p: PromiseLike<T>, ms = 10000): Promise<T> =>
   Promise.race([
     p,
     new Promise<T>((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms)),
@@ -59,6 +59,8 @@ export function RequestForm({
   const { profile } = useAuth() || {}
   const [form, setForm] = useState({ ...EMPTY, category: initialCategory })
   const [file, setFile] = useState<File | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
+  const clearFile = () => { setFile(null); if (fileRef.current) fileRef.current.value = '' }
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [ok, setOk] = useState('')
@@ -85,7 +87,7 @@ export function RequestForm({
     // Demo / preview (no session) — confirm so the flow reads end to end.
     if (!supabase || !profile?.id || !profile?.community_id) {
       setOk(t('board.requestSubmitted'))
-      setForm({ ...EMPTY, category: form.category }); setFile(null)
+      setForm({ ...EMPTY, category: form.category }); clearFile()
       return
     }
     if (file && file.size > MAX_FILE) { setError(t('board.errFileTooLarge')); return }
@@ -125,7 +127,7 @@ export function RequestForm({
         throw error
       }
       onSubmitted?.(data)
-      setForm({ ...EMPTY, category: form.category }); setFile(null)
+      setForm({ ...EMPTY, category: form.category }); clearFile()
       setOk(t('board.requestSubmitted'))
     } catch (err: any) {
       setError(err?.message || t('board.errCouldNotSend'))
@@ -173,14 +175,21 @@ export function RequestForm({
 
       <div className="con-attach">
         <label className="con-attach-row">
-          <input type="file" name="attachment" hidden
+          <input ref={fileRef} type="file" name="attachment" hidden
             accept="image/*,application/pdf"
             onChange={e => setFile(e.target.files?.[0] || null)} />
           <span className="con-attach-ic"><IconClip /></span>
-          <span>
+          <span className="con-attach-text">
             <span className="con-attach-title">{file ? file.name : t('board.attachFile')}</span>
             <span className="con-attach-sub">{t('board.attachSub')}</span>
           </span>
+          {file && (
+            <button type="button" className="con-attach-del"
+              aria-label={t('board.removeFile')}
+              onClick={e => { e.preventDefault(); e.stopPropagation(); clearFile() }}>
+              ×
+            </button>
+          )}
         </label>
       </div>
 

@@ -3,6 +3,10 @@
    "Your past submissions" table. */
 
 .con-wrap { max-width: 1120px; margin: 0 auto; padding: 28px 8px 48px; color: #0A2440; }
+/* Inside the Easy Voice hub the cockpit content area (.center) clips overflow,
+   so the standalone 1120px max-width was getting cut off on the right (status
+   badges, etc.). Fill the hub width and left-align to match the Voting tab. */
+.ev-wrap .con-wrap { max-width: 100%; margin: 0; padding-left: 0; padding-right: 0; }
 .con-grid {
   display: grid;
   grid-template-columns: minmax(320px, 430px) 1fr;
@@ -17,6 +21,11 @@
   border-radius: 16px;
   padding: 22px 22px 24px;
   box-shadow: 0 1px 2px rgba(15, 28, 46, 0.04);
+  /* min-width:0 lets the card shrink below its content's intrinsic width — without
+     it, an unbreakable token (a long attachment filename) forces the card wider
+     than the viewport and .center{overflow:hidden} clips the right edge (taking
+     the per-row unread dot with it). With it, the filename truncates instead. */
+  min-width: 0;
 }
 .con-card-title { font-size: 17px; font-weight: 700; color: #0A2440; margin: 0 0 16px; }
 
@@ -73,8 +82,17 @@
 .con-attach-row:hover { border-color: #E14909; }
 .con-attach-ic { display: grid; place-items: center; width: 32px; height: 32px; flex-shrink: 0; color: rgba(15, 28, 46, 0.5); }
 .con-attach-ic svg { width: 18px; height: 18px; }
-.con-attach-title { display: block; font-size: 13px; font-weight: 600; color: #0A2440; }
-.con-attach-sub { display: block; font-size: 11px; color: rgba(15, 28, 46, 0.5); margin-top: 2px; }
+/* min-width:0 lets the text column shrink so a long filename truncates with an
+   ellipsis instead of pushing the row off the page. */
+.con-attach-text { min-width: 0; flex: 1; }
+.con-attach-title { display: block; font-size: 13px; font-weight: 600; color: #0A2440; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.con-attach-sub { display: block; font-size: 11px; color: rgba(15, 28, 46, 0.5); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.con-attach-del {
+  flex-shrink: 0; display: grid; place-items: center; width: 26px; height: 26px;
+  border: none; border-radius: 8px; background: rgba(15, 28, 46, 0.06); color: #0A2440;
+  font-size: 18px; line-height: 1; cursor: pointer; transition: background .12s, color .12s;
+}
+.con-attach-del:hover { background: rgba(225, 73, 9, 0.12); color: #E14909; }
 
 .con-submit {
   width: 100%; border: none; cursor: pointer;
@@ -83,6 +101,16 @@
 }
 .con-submit:hover:not(:disabled) { background: #14365c; }
 .con-submit:disabled { opacity: .6; cursor: default; }
+
+/* Reply send button — matches the admin's outlined "Send reply" pill. */
+.con-send-btn {
+  padding: 10px 18px; background: transparent; color: #0A2440;
+  border: 1.5px solid rgba(15, 28, 46, 0.20); border-radius: 999px;
+  font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: border-color .12s ease, background .12s ease;
+}
+.con-send-btn:hover:not(:disabled) { border-color: #0A2440; background: rgba(15, 28, 46, 0.04); }
+.con-send-btn:disabled { opacity: .55; cursor: default; }
 .con-error { color: #c0392b; font-size: 13px; margin-top: 10px; }
 .con-ok { color: #1f8a4c; font-size: 13px; margin-top: 10px; font-weight: 500; }
 
@@ -90,7 +118,9 @@
 .con-list-card { min-width: 0; }
 .con-thead, .con-trow {
   display: grid;
-  grid-template-columns: 84px 1.6fr 1fr 112px 96px 16px;
+  /* trailing column holds the chevron + the unread "new message" dot; sized so
+     both sit together at the row end without spilling past the card. */
+  grid-template-columns: 84px 1.6fr 1fr 112px 96px 32px;
   gap: 10px; align-items: center;
 }
 .con-thead {
@@ -147,6 +177,39 @@
 .con-chev-ic.open { transform: rotate(180deg); color: #E14909; }
 .con-reply-dot { width: 7px; height: 7px; border-radius: 50%; background: #3e7cb1; flex-shrink: 0; }
 
+/* Pulsing orange dot — a fresh, unread reply from the board. */
+.con-pending-dot {
+  width: 8px; height: 8px; border-radius: 50%; background: #E14909; flex-shrink: 0;
+  box-shadow: 0 0 0 0 rgba(225, 73, 9, 0.55);
+  animation: conPendingPulse 1.4s ease-out infinite;
+}
+@keyframes conPendingPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(225, 73, 9, 0.55); }
+  70%  { box-shadow: 0 0 0 7px rgba(225, 73, 9, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(225, 73, 9, 0); }
+}
+/* On phones the row is denser, so make the unread dot bigger and give it a
+   wider pulse halo — the resident can't miss that the board replied. */
+@media (max-width: 640px) {
+  .con-pending-dot {
+    width: 12px; height: 12px;
+    animation: conPendingPulseMobile 1.4s ease-out infinite;
+  }
+  @keyframes conPendingPulseMobile {
+    0%   { box-shadow: 0 0 0 0 rgba(225, 73, 9, 0.6); }
+    70%  { box-shadow: 0 0 0 11px rgba(225, 73, 9, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(225, 73, 9, 0); }
+  }
+}
+
+/* Count badge on the resident Contact tab (Easy Voice). */
+.con-pending-badge {
+  margin-left: 6px; display: inline-block; min-width: 17px; text-align: center;
+  font-size: 10px; font-weight: 800; line-height: 16px; color: #fff;
+  background: #E14909; border-radius: 999px; padding: 0 5px; vertical-align: middle;
+  animation: conPendingPulse 1.6s ease-out infinite;
+}
+
 /* Expanded detail panel under a submission row. */
 .con-detail {
   margin: -2px 0 12px; padding: 12px 14px;
@@ -167,15 +230,17 @@
 }
 .con-viewall:hover { text-decoration: underline; }
 
-/* narrow screens: keep ID / Subject / Status, drop the rest */
+/* narrow screens: keep ID / Subject / Status + a slim trailing column for the
+   unread "new message" dot, so the resident can still see WHICH submission the
+   board replied to. The chevron icon itself is dropped (tapping the row expands
+   it); only the pulsing dot remains in that last column. */
 @media (max-width: 700px) {
-  .con-thead, .con-trow { grid-template-columns: 64px 1fr 104px; }
+  .con-thead, .con-trow { grid-template-columns: 64px 1fr 104px 18px; }
   .con-thead span:nth-child(3),
   .con-thead span:nth-child(5),
-  .con-thead span:nth-child(6),
   .con-trow .con-cat-cell,
   .con-trow .con-date,
-  .con-trow .con-chev { display: none; }
+  .con-trow .con-chev-ic { display: none; }
 }
 
 /* emergency banner — solid orange */

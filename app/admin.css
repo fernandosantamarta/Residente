@@ -51,7 +51,149 @@
    padding). Defined after .admin-nav-item so these win. */
 .admin-nav-back { color: var(--text); padding-left: 0; }
 
-.admin-main { max-width: 920px; margin: 0 auto; padding: 40px 32px 80px; }
+/* Search — a quiet icon pinned to the far-right gutter (mirrors .admin-nav-back
+   on the left). Faint grey, a touch lighter than the tab labels next to it, so
+   it sits alongside the tabs without competing. Opens a command palette. */
+.admin-nav-search-btn {
+  position: absolute; right: 32px; top: 13px;
+  display: grid; place-items: center; width: 30px; height: 30px;
+  padding: 0; background: none; border: none; cursor: pointer;
+  color: var(--text-faint); border-radius: 8px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.admin-nav-search-btn:hover { color: var(--text-dim); background: rgba(42, 18, 6, 0.05); }
+.admin-nav-search-btn:focus-visible { outline: none; color: var(--pink); box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.18); }
+
+/* Mobile section dropdown + short "Back" label — styled here (hidden on desktop)
+   and revealed in the ≤1024 block. Themed to match the admin chrome: white card,
+   hairline border, navy chevron, value centred both ways, orange focus ring. */
+.admin-nav-select {
+  display: none;
+  box-sizing: border-box;
+  max-width: 62%;
+  height: 38px;
+  line-height: 36px;
+  padding: 0 36px;
+  text-align: center;
+  text-align-last: center;
+  appearance: none;
+  -webkit-appearance: none;
+  background-color: #FFFFFF;
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 13.5px;
+  font-weight: 600;
+  font-family: inherit;
+  letter-spacing: -0.1px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%231F2233' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  box-shadow: 0 1px 2px rgba(31, 42, 58, 0.06);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.admin-nav-select:hover { border-color: rgba(225, 73, 9, 0.4); }
+.admin-nav-select:focus-visible { outline: none; border-color: var(--pink); box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.18); }
+
+/* Mobile section picker — themed Dropdown (replaces the native <select> so the
+   open list uses the theme, not the iOS-default picker). Hidden on desktop;
+   the @media block below reveals it on phones. Sized to its content so the
+   label + chevron sit together instead of marooned in a full-width pill. */
+.admin-nav-dd { display: none; }
+[data-theme="sketch"] .admin-nav-dd .ad-dd { width: auto; }
+[data-theme="sketch"] .admin-nav-dd .ad-dd-trigger {
+  width: auto; max-width: 56vw; height: 38px; padding: 0 14px; gap: 8px; font-size: 13.5px;
+}
+[data-theme="sketch"] .admin-nav-dd .ad-dd-panel { left: auto; right: 0; min-width: 180px; }
+.admin-back-short { display: none; }
+
+/* ARC decision actions: individual buttons on desktop (the wrapper is
+   display:contents so they flow in the actions row); a single dropdown on
+   mobile (revealed in the ≤640 block). */
+.arc-decide-btns { display: contents; }
+.arc-decide-dd { display: none; }
+
+/* Command palette overlay — centered card near the top, dimmed backdrop. */
+.admin-search-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(42, 18, 6, 0.30);
+  display: flex; justify-content: center; align-items: flex-start;
+  padding: 13vh 16px 16px;
+}
+.admin-search-panel {
+  width: min(560px, 100%);
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 16px; box-shadow: 0 30px 70px -24px rgba(42, 18, 6, 0.45);
+  overflow: hidden;
+}
+.admin-search-input-row {
+  display: flex; align-items: center; gap: 11px;
+  padding: 15px 18px; border-bottom: 1px solid var(--border);
+  color: var(--text-faint);
+}
+.admin-search-input-row input {
+  flex: 1; border: none; outline: none; background: none;
+  font-family: inherit; font-size: 16px; color: var(--text);
+}
+.admin-search-input-row input::placeholder { color: var(--text-faint); }
+.admin-search-kbd {
+  flex-shrink: 0; font-size: 10.5px; font-weight: 700; letter-spacing: 0.04em;
+  text-transform: uppercase; color: var(--text-faint);
+  border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; background: var(--bg);
+}
+.admin-search-results { max-height: 52vh; overflow-y: auto; padding: 7px; }
+.admin-search-item {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 11px 13px; border: none; background: none; border-radius: 10px;
+  cursor: pointer; text-align: left; font-family: inherit;
+}
+.admin-search-item.active { background: rgba(225, 73, 9, 0.09); }
+.admin-search-item-label { font-size: 14px; font-weight: 600; color: var(--text); }
+.admin-search-item.active .admin-search-item-label { color: var(--pink); }
+.admin-search-item-group {
+  flex-shrink: 0; font-size: 11px; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase; color: var(--text-faint);
+}
+.admin-search-empty { padding: 22px 16px; text-align: center; color: var(--text-dim); font-size: 14px; }
+
+/* Section deep-link target — leave room above the card when scrolled to (nav is
+   not sticky, but a gap reads better), and pulse a soft orange ring so the eye
+   lands on the right card after a search jump. */
+.admin .card { scroll-margin-top: 88px; }
+.admin-section-flash { animation: admin-section-flash 1.7s ease-out; }
+@keyframes admin-section-flash {
+  0%   { box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.55); }
+  70%  { box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.30); }
+  100% { box-shadow: 0 0 0 3px rgba(225, 73, 9, 0); }
+}
+
+/* Wider centered content column — panels use more of the screen while staying
+   centered under the nav. */
+.admin-main { max-width: 1200px; margin: 0 auto; padding: 40px 32px 80px; }
+
+/* ============ MOBILE ADMIN TERMINAL ============
+   The desktop admin shell (full-width header + centered 10-tab row) doesn't fit
+   a phone. On mobile: wrap the header, replace the tab row with a section
+   dropdown (Back far-left, dropdown far-right; search removed), and tighten the
+   content padding so panels use the whole width. */
+@media (max-width: 900px) {
+  .admin-top {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 16px;
+  }
+  .admin-brand { font-size: 15px; }
+  .admin-brand .comm-switcher { min-width: 0; }
+  /* Keep the Contact Residente pill flush to the right even when the header
+     wraps to its own row. */
+  .admin-top-actions { margin-left: auto; justify-content: flex-end; }
+  /* (Mobile nav dropdown layout + styling live in the base rule and the ≤1024
+     block — the single source of truth, so they don't conflict here.) */
+
+  /* Drop the operator-only "View as" switcher on the phone shell. */
+  .admin-viewas { display: none !important; }
+}
 
 .admin-kicker {
   font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
@@ -96,7 +238,7 @@
 .admin-note-err  { border-left: 3px solid #F47174; color: var(--text); }
 .admin-note-info { border-left: 3px solid #6B8EC4; }
 
-.admin-form { margin-top: 28px; max-width: 480px; display: flex; flex-direction: column; gap: 18px; }
+.admin-form { margin-top: 28px; max-width: none; display: flex; flex-direction: column; gap: 18px; }
 .admin-field { display: flex; flex-direction: column; gap: 7px; }
 .admin-field-label { font-size: 12px; font-weight: 600; letter-spacing: 0.3px; color: var(--text-dim); }
 .admin-input-wrap { display: flex; align-items: center; }
@@ -115,7 +257,7 @@
 .admin-input:focus { border-color: var(--pink); }
 .admin-input::placeholder { color: var(--text-faint); }
 
-.admin-form-actions { display: flex; align-items: center; gap: 14px; margin-top: 6px; }
+.admin-form-actions { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-top: 6px; }
 .admin-btn {
   padding: 11px 22px; border: none; border-radius: 8px;
   /* Vivid orange (matches the resident financial-card accent) instead of the
@@ -130,11 +272,78 @@
   margin-left: 12px; padding: 6px 14px;
   background: transparent; border: 1px solid var(--border-hover);
   border-radius: 6px; color: var(--text); font-family: inherit; font-size: 13px; cursor: pointer;
+  transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+/* Every grey ghost button (Cancel, reservation Edit/Close, Export CSV, …)
+   greys darker on hover so it's clear it's about to be pressed. App-wide. */
+.admin-btn-ghost:hover {
+  background: rgba(0, 0, 0, 0.055);
+  border-color: var(--text-dim);
+}
+/* Orange-hover variant for thread actions (close / reopen / lock replies). */
+.admin-btn-ghost-orange:hover {
+  border-color: #E14909; color: #E14909; background: rgba(225, 73, 9, 0.07);
+}
+/* Pulsing red count badge on a nav item (e.g. Easy Voice awaiting replies). */
+.admin-nav-badge {
+  margin-left: 6px; display: inline-block; min-width: 17px; text-align: center;
+  font-size: 10px; font-weight: 800; line-height: 16px; color: #fff;
+  background: #E5484D; border-radius: 999px; padding: 0 5px; vertical-align: middle;
+  animation: adminNavPulse 1.6s ease-out infinite;
+}
+@keyframes adminNavPulse {
+  0%   { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0.5); }
+  70%  { box-shadow: 0 0 0 5px rgba(229, 72, 77, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(229, 72, 77, 0); }
+}
+/* "Contact Residente" badge — white circle, orange text, white pulse so it
+   stands out against the dark header (where a red badge disappears). */
+.cr-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box;
+  font-size: 10px; font-weight: 800; line-height: 1; color: #E14909;
+  background: #fff; border-radius: 999px;
+  animation: crBadgePulse 1.6s ease-out infinite;
+}
+@keyframes crBadgePulse {
+  0%   { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.65); }
+  70%  { box-shadow: 0 0 0 6px rgba(255, 255, 255, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}
+
+/* Collapsed "Resolved" summary bar in a closed conversation. Soft green, with a
+   gentle hover since the whole bar expands the thread. */
+.msg-resolved-bar {
+  display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  cursor: pointer; background: rgba(31, 122, 77, 0.06);
+  border: 1px solid rgba(31, 122, 77, 0.22); border-radius: 9px; padding: 10px 14px;
+  transition: background .12s ease, border-color .12s ease;
+}
+.msg-resolved-bar:hover { background: rgba(31, 122, 77, 0.11); border-color: rgba(31, 122, 77, 0.34); }
+
+/* Messages mailbox on phones — a single-pane, Messages-app flow: show the
+   conversation LIST, or (when one is open) the conversation full-screen with a
+   Back button, never both cramped together. */
+@media (max-width: 760px) {
+  .msg-layout { grid-template-columns: 1fr !important; }
+  .msg-layout > div:first-child { max-height: none !important; border-right: none !important; }
+  /* No selection → list only. */
+  .msg-layout > div:last-child { display: none; }
+  /* Selection/compose open → conversation only, list hidden. */
+  .msg-layout.has-selection > div:first-child { display: none; }
+  .msg-layout.has-selection > div:last-child { display: block; }
+  .msg-back { display: inline-flex !important; }
+  /* All · New · Resolved tabs stay left; the actions row below is full width. */
+  .msg-head-row { justify-content: flex-start !important; }
+  /* Header actions take the full row: All categories on the left, New message
+     pushed to the right. */
+  .msg-head-actions { flex: 1 1 100%; justify-content: space-between; }
+  .msg-head-cat { min-width: 0; }
 }
 .admin-err-inline { font-size: 13px; color: #F47174; }
 
 /* Budget categories editor (Community page) */
-.bc { margin-top: 44px; max-width: 560px; }
+.bc { margin-top: 44px; max-width: none; }
 .bc-head { margin-bottom: 16px; }
 .bc-title { font-size: 18px; font-weight: 600; letter-spacing: -0.3px; }
 .bc-sub { display: block; font-size: 13px; color: var(--text-dim); margin-top: 4px; }
@@ -149,13 +358,40 @@
 .bc-row-head span { padding-left: 2px; }
 .bc-empty { font-size: 13px; color: var(--text-dim); padding: 8px 0 4px; }
 .bc-del {
-  width: 28px; height: 28px; border-radius: 6px;
-  background: transparent; border: 1px solid var(--border);
-  color: var(--text-dim); font-size: 17px; line-height: 1; cursor: pointer;
-  transition: all 0.15s ease;
+  width: 30px; height: 30px; border-radius: 999px;
+  display: inline-grid; place-items: center;
+  background: transparent; border: none;
+  color: var(--text-faint); font-size: 19px; line-height: 1; cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
 }
-.bc-del:hover { color: var(--pink); border-color: var(--pink); }
+.bc-del:hover { color: #C2360A; background: rgba(225, 73, 9, 0.12); }
+.bc-del:active { transform: scale(0.92); }
+/* Budget/Spent inputs: on desktop the column headers label them, so the wrapper
+   collapses (display:contents) and the input is the grid cell. On phones the
+   headers are hidden, so each field shows its own small label (see @media). */
+.bc-field { display: contents; }
+.bc-field-label { display: none; }
 .bc-actions { display: flex; align-items: center; gap: 12px; margin-top: 18px; }
+
+/* Logged-expenses ledger (Budget page) — a real bordered table with row
+   dividers and breathing room, not the tight inline grid the editor uses. */
+.exp-ledger {
+  border: 1px solid var(--border); border-radius: 12px;
+  overflow: hidden; background: var(--bg-card);
+}
+.exp-ledger .bc-row {
+  margin-bottom: 0; gap: 12px;
+  padding: 13px 16px; align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+.exp-ledger .bc-row:last-child { border-bottom: none; }
+.exp-ledger .bc-row:not(.bc-row-head) { font-size: 14px; transition: background 0.12s ease; }
+.exp-ledger .bc-row:not(.bc-row-head):hover { background: rgba(42, 18, 6, 0.025); }
+.exp-ledger .bc-row-head {
+  margin-bottom: 0; background: var(--bg);
+  border-bottom: 1px solid var(--border);
+}
+.exp-ledger .exp-amount { font-variant-numeric: tabular-nums; letter-spacing: -0.2px; }
 
 /* Number inputs without the spinner arrows — just click the number and type. */
 .admin-input[type=number]::-webkit-outer-spin-button,
@@ -164,7 +400,7 @@
 
 /* Board decisions (Board page) */
 .bd-form-row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
-.bd-list { max-width: 620px; }
+.bd-list { max-width: none; }
 .bd-row {
   display: flex; align-items: center; gap: 14px;
   padding: 13px 16px; margin-bottom: 8px;
@@ -186,7 +422,7 @@
 .bd-discussion { color: var(--text-dim); }
 
 /* Board members + typeahead (Board page) */
-.bm-section { max-width: 620px; }
+.bm-section { max-width: none; }
 .bm-search { position: relative; max-width: 360px; margin-bottom: 16px; }
 .bm-dropdown {
   position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 20;
@@ -204,6 +440,58 @@
 .bm-option-name { font-size: 14px; font-weight: 500; color: var(--text); }
 .bm-option-sub { font-size: 12px; color: var(--text-dim); }
 .bm-empty { padding: 12px 14px; font-size: 13px; color: var(--text-dim); }
+/* Contact Residente — unified "message box" composer (chat/email feel). */
+.sup-composer {
+  border: 1px solid var(--border); border-radius: 14px; background: var(--bg-card);
+  overflow: hidden; transition: border-color 0.12s ease, box-shadow 0.12s ease;
+}
+.sup-composer:focus-within { border-color: #E14909; box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.12); }
+.sup-subject {
+  width: 100%; border: none; border-bottom: 1px solid var(--border); outline: none;
+  background: transparent; box-sizing: border-box;
+  padding: 13px 16px; font-size: 15px; font-weight: 700; color: var(--text); font-family: inherit;
+}
+.sup-subject::placeholder { color: var(--text-faint); font-weight: 600; }
+.sup-body {
+  width: 100%; border: none; outline: none; background: transparent; box-sizing: border-box;
+  padding: 13px 16px; font-size: 14px; line-height: 1.6; color: var(--text);
+  font-family: inherit; resize: vertical; min-height: 96px;
+}
+.sup-body::placeholder { color: var(--text-faint); }
+.sup-composer-bar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-top: 1px solid var(--border); background: var(--bg);
+}
+
+/* Two-pane mail layout: conversations on the left, the thread on the right. */
+.sup-mail { display: grid; grid-template-columns: 300px 1fr; gap: 16px; }
+.sup-mail-list {
+  border: 1px solid var(--border); border-radius: 14px;
+  overflow: hidden auto; max-height: 580px; display: flex; flex-direction: column;
+}
+.sup-mail-read {
+  border: 1px solid var(--border); border-radius: 14px;
+  padding: 18px 20px; min-height: 340px;
+}
+.sup-mail-new {
+  display: block; width: 100%; text-align: left; cursor: pointer; font-family: inherit;
+  font-size: 13.5px; font-weight: 700; color: #E14909;
+  padding: 13px 14px; border: none; border-bottom: 1px solid var(--border);
+  background: transparent; transition: background 0.12s ease;
+}
+.sup-mail-new:hover { background: rgba(225, 73, 9, 0.06); }
+.sup-mail-new.active { background: rgba(225, 73, 9, 0.10); }
+.sup-mail-item {
+  display: block; width: 100%; text-align: left; cursor: pointer; font-family: inherit;
+  padding: 12px 14px; border: none; border-left: 3px solid transparent;
+  border-bottom: 1px solid var(--border); background: transparent; transition: background 0.12s ease;
+}
+.sup-mail-item:hover { background: rgba(42, 18, 6, 0.03); }
+.sup-mail-item.active { background: rgba(225, 73, 9, 0.08); border-left-color: #E14909; }
+/* Beat the sketch theme's `button { border-radius: 999px }` for these list rows. */
+.cset .sup-mail-new, .cset .sup-mail-item { border-radius: 0; }
+@media (max-width: 760px) { .sup-mail { grid-template-columns: 1fr; } .sup-mail-list { max-height: 320px; } }
+
 .bm-list { display: flex; flex-direction: column; gap: 8px; }
 .bm-row {
   display: flex; align-items: center; gap: 14px;
@@ -254,7 +542,7 @@
 }
 .res-import-bar strong { color: var(--text); }
 
-.res-roster { margin-top: 36px; max-width: 640px; }
+.res-roster { margin-top: 36px; max-width: none; }
 .res-group { margin-bottom: 24px; }
 .res-group-head {
   display: flex; align-items: center; gap: 9px;
@@ -334,11 +622,31 @@
 
 /* ============ EASY VOICE — Admin ============ */
 
-.admin-section { max-width: 860px; }
+.admin-section { max-width: none; }
 .admin-section-head {
   display: flex; align-items: flex-start; justify-content: space-between;
   gap: 16px; margin-bottom: 28px;
 }
+/* Votes header stacks (kicker / Votes / dek-row); the dek + New Vote button
+   share one row so the button sits beside the first dek line and the second
+   sentence wraps under it. */
+/* Higher specificity than the mobile `.admin-section-head { align-items:flex-start }`
+   rule so the children actually stretch full-width (otherwise the dek-row stays
+   content-width on mobile and the button can't reach the right edge). */
+.admin-section-head.voice-votes-head { flex-direction: column; align-items: stretch; }
+/* Tighten the gap between the "Votes" title and the description row. */
+.voice-votes-head .admin-h1 { margin-bottom: 2px; }
+.vvh-dek-row {
+  display: flex; align-items: center;
+  gap: 14px; margin-top: 4px;
+}
+/* The dek fills the row (override .admin-dek's 620px cap) so the button is
+   forced to the far-right edge instead of sitting right after the short text. */
+.admin-page .vvh-dek-row .admin-dek {
+  white-space: pre-line; margin: 0; flex: 1 1 auto; min-width: 0; max-width: none;
+}
+/* New Vote: flush-right, vertically centred against the two-line description. */
+.vvh-dek-row .admin-primary-btn { flex: 0 0 auto; white-space: nowrap; align-self: center; }
 .admin-section-title { font-size: 22px; font-weight: 600; letter-spacing: -0.4px; }
 .admin-section-sub { font-size: 14px; color: var(--text-dim); margin-top: 4px; }
 
@@ -388,6 +696,22 @@
 .voice-status-tallied     { background: #3A2A2A; color: #E07B7B; }
 .voice-status-published   { background: #2A3A2A; color: #7BC97B; }
 
+/* OPEN = voting is live — lead the label with a small status dot so the band
+   reads as an active state, not just a flat highlight. */
+.voice-status-open { display: inline-flex; align-items: center; gap: 7px; }
+.voice-status-open::before {
+  content: ''; width: 7px; height: 7px; border-radius: 50%;
+  background: currentColor; flex-shrink: 0;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .voice-status-open::before { animation: voice-open-pulse 2.2s ease-out infinite; }
+}
+@keyframes voice-open-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(196, 95, 42, 0.45); }
+  70%  { box-shadow: 0 0 0 7px rgba(196, 95, 42, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(196, 95, 42, 0); }
+}
+
 .voice-badge-open {
   font-size: 11px; font-weight: 600; color: #C07BE0;
   background: #3A2A4E; padding: 3px 8px; border-radius: 10px;
@@ -398,7 +722,7 @@
 }
 
 /* Meeting form */
-.voice-form { display: flex; flex-direction: column; gap: 18px; max-width: 520px; }
+.voice-form { display: flex; flex-direction: column; gap: 18px; max-width: none; }
 .voice-form-row { display: flex; flex-direction: column; gap: 6px; }
 .voice-form-row label { font-size: 12px; font-weight: 600; letter-spacing: 0.3px; color: var(--text-dim); }
 .voice-form-row input,
@@ -548,13 +872,26 @@
   padding: 8px 0;
 }
 .voice-channels {
-  display: flex; gap: 16px; padding: 8px 0;
+  display: flex; flex-wrap: wrap; gap: 10px 18px; padding: 8px 0;
 }
 .voice-channel-opt {
-  display: inline-flex; align-items: center; gap: 6px;
-  font-size: 13px; color: var(--text); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 7px; flex: 0 0 auto;
+  font-size: 13px; color: var(--text); cursor: pointer; white-space: nowrap;
 }
-.voice-channel-opt input { cursor: pointer; }
+/* The checkbox sits inside .voice-form-row, so it inherits the text-input
+   styling (width:100%, padding, border) — which stretched it into a big box
+   that overlapped the label. Reset it back to a native, fixed-size checkbox.
+   The attribute selector outranks `.voice-form-row input`. */
+.voice-channel-opt input[type="checkbox"] {
+  flex: 0 0 auto;
+  width: 16px; height: 16px; min-width: 0;
+  margin: 0; padding: 0;
+  border: 0; border-radius: 0; background: none;
+  box-sizing: border-box;
+  -webkit-appearance: auto; appearance: auto;
+  accent-color: var(--pink, #E14909);
+  cursor: pointer;
+}
 
 /* Secret-vote setup + tally */
 .voice-secret-config {
@@ -758,18 +1095,22 @@
      full row of its own on narrow screens instead of squeezing the brand. */
   .admin-brand .comm-switcher { min-width: 0; margin: 0; }
 
+  /* Section dropdown nav: Back (far left) ↔ dropdown (far right), both vertically
+     centred with even space above/below. Replaces the tab row + search. */
   .admin-nav {
-    justify-content: flex-start;
+    justify-content: space-between;
+    align-items: center;
     flex-wrap: nowrap;
-    padding: 10px 16px 0;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
+    padding: 12px 16px;
+    overflow: visible;
   }
-  .admin-nav::-webkit-scrollbar { display: none; }
-  .admin-nav-item { padding: 10px 13px; white-space: nowrap; flex-shrink: 0; }
-  /* Back in the scroll flow on mobile — it leads the scrollable tab strip. */
-  .admin-nav-back { position: static; left: auto; top: auto; }
+  .admin-nav-item:not(.admin-nav-back) { display: none; }
+  .admin-nav-platform { display: none !important; }
+  .admin-nav-search-btn { display: none !important; }
+  .admin-nav-back { position: static; left: auto; top: auto; align-self: center; }
+  .admin-back-long { display: none; }
+  .admin-back-short { display: inline; }
+  .admin-nav-dd { display: inline-block; margin-left: auto; align-self: center; }
 
   .admin-main { padding: 32px 16px 64px; }
 }
@@ -782,6 +1123,13 @@
   .admin-section-title { font-size: 19px; }
 
   .admin-section-head { flex-direction: column; align-items: flex-start; gap: 12px; }
+  /* Votes header: keep it a row on mobile so +New Vote sits to the right of the
+     title (next to "Votes") instead of dropping below the description. */
+  /* Votes header: compact button; smaller dek so the first sentence fits on one
+     line beside +New Vote; a little breathing room down to the Votes card. */
+  .voice-votes-head { margin-bottom: 22px; }
+  .vvh-dek-row .admin-primary-btn { padding: 9px 14px; font-size: 13px; }
+  .admin-page .vvh-dek-row .admin-dek { font-size: 13.5px; }
 
   /* Form layouts that place fields side-by-side on desktop */
   .bd-form-row,
@@ -793,11 +1141,19 @@
      min-width:0 lets the 1fr inputs shrink below their intrinsic size so the
      grid fits the viewport instead of overflowing under body's overflow-hidden. */
   .bc-row {
-    grid-template-columns: 1fr 1fr 40px;
+    grid-template-columns: 1fr 1fr 44px;
   }
   .bc-row > * { min-width: 0; }
-  .bc-row > input:first-child { grid-column: 1 / -1; }
+  .bc-row > .bc-field-name { grid-column: 1 / -1; }
   .bc-row-head { display: none; }
+  /* Headers are hidden on phones, so label each amount field inline. */
+  .bc-field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+  .bc-field-label {
+    display: block; font-size: 10.5px; font-weight: 700; letter-spacing: 0.3px;
+    text-transform: uppercase; color: var(--text-faint); padding-left: 2px;
+  }
+  /* Bigger delete tap target, aligned to the input bottom. */
+  .bc-del { width: 36px; height: 36px; align-self: end; }
 
   /* Roster preview head (CSV import) and voice meeting rows: let the action
      buttons drop below the title rather than truncate it. */
@@ -887,6 +1243,182 @@
   font-weight: 500; font-size: 20px; letter-spacing: -0.01em;
 }
 .cset .card-head .sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+/* "Add document" / "Add rule" — compact button sitting opposite the card title,
+   far right of the header. */
+.cset .card-head .cset-head-cta { padding: 9px 17px; font-size: 13.5px; white-space: nowrap; }
+/* Compliance stat tiles — six tiles fill two even rows (3 + 3) on phones. */
+@media (max-width: 640px) {
+  .cmp-stats { grid-template-columns: repeat(3, 1fr) !important; gap: 8px !important; }
+  .cmp-stats > div { padding: 12px 10px !important; }
+  .cmp-stats > div > div:first-child { font-size: 24px !important; }
+  .cmp-stats > div > div:last-child { font-size: 10px !important; letter-spacing: 0.3px !important; }
+}
+
+/* "Needs attention" signal detail + a clamped More/Less toggle. The toggle is
+   plain orange text (no pill/bubble) so it reads as an inline link. */
+.sig-detail { font-size: 12.5px; color: var(--text-dim); margin-top: 2px; line-height: 1.45; }
+.sig-meta { font-size: 12.5px; opacity: 0.62; margin-top: 1px; line-height: 1.45; }
+.clamp-more {
+  display: inline; margin-left: 6px; padding: 0;
+  background: none; border: none;
+  color: var(--pink); font: inherit; font-weight: 700; font-size: 0.92em;
+  cursor: pointer; vertical-align: baseline;
+}
+.clamp-more:hover { text-decoration: underline; }
+
+/* Stop the "Needs attention" header (title + All/Overdue/Due-soon filter) from
+   squashing together on phones — stack them with breathing room. */
+@media (max-width: 640px) {
+  /* align-items !important overrides inline `alignItems: center` on some card
+     headers (ARC worklist, etc.) that would otherwise centre the title once the
+     header stacks to a column on mobile. */
+  .cset .card-head { flex-direction: column; align-items: stretch !important; gap: 12px; }
+  /* Add rule / Add document live in their list-card header (header = add,
+     body = list). On phones the header stacks, so pin the compact Add button to
+     the top-right (level with the title) and let the filters take the row below. */
+  .cset .card-head { position: relative; }
+  .cset .card-head > div:last-child { width: 100%; }
+  .cset .card-head .cset-head-cta {
+    position: absolute; top: 0; right: 0;
+    flex: 0 0 auto; width: auto; padding: 8px 15px; font-size: 13px;
+  }
+  /* Archive's single filter goes full-width; the rule book's two filters share
+     the row evenly. */
+  .cset .card-head .cset-arch-filter { width: 100%; min-width: 0; }
+  .cset .card-head .cset-rule-filter { flex: 1 1 0; min-width: 0; }
+  /* "Needs attention" filter — full-width row with three evenly-spaced buttons. */
+  .attn-filter { width: 100%; }
+  .attn-filter button { flex: 1 1 0; }
+
+  /* ARC worklist filters (Category + Status) sit side by side on phones, each
+     taking half the row, instead of the inline 220px each overflowing. The
+     filters are themed <Dropdown> wrappers (divs), not <select> — target the
+     direct child divs and !important-override their inline width/flex-shrink. */
+  .arc-filters { flex-wrap: nowrap !important; width: 100%; }
+  .arc-filters > div { width: auto !important; flex: 1 1 0 !important; min-width: 0 !important; }
+
+  /* ARC decisions → one dropdown on mobile (the four buttons crammed the card),
+     sharing the row with the Decision letter button (flex:1, not full width). */
+  .arc-decide-btns { display: none; }
+  /* Themed Dropdown styles itself (the .ad-dd-trigger pill); just place it. */
+  .arc-decide-dd { display: block; flex: 1 1 0; min-width: 0; }
+
+  /* Residents roster table is ~6 columns — let the card scroll horizontally so
+     the table keeps its shape instead of overflowing/crushing on a phone.
+     Scoped to the residents PAGE root (.admin-page.etrack) so it doesn't bleed
+     into the Vendors table, which lives in a nested .etrack.vlist. */
+  .admin-page.etrack .card { overflow-x: auto; }
+  .admin-page.etrack .tbl { min-width: 560px; }
+  /* Residents: stack the expanded-row edit grid to one column. (The import-sheet
+     spreadsheet keeps its original multi-column layout — stacking it broke it.) */
+  .admin-page.etrack .edit-grid { grid-template-columns: 1fr; }
+
+  /* Easy Voice — Meetings & Votes. Stack the dense rows (vote rows, notice
+     history, meeting detail meta, upload toolbar) so nothing overflows or
+     squishes on a phone; full-width action buttons. */
+  .voice-vote-row { position: relative; flex-direction: column; align-items: flex-start; gap: 12px; }
+  /* Leave room at the top-right for the status badge so the title clears it. */
+  .voice-vote-left { width: 100%; padding-right: 72px; }
+  .voice-vote-right { flex-direction: column; align-items: stretch; width: 100%; gap: 8px; }
+  .voice-vote-right button { width: 100%; }
+  /* Status (OPEN/CLOSED/…) → a small badge pinned to the card's top-right corner
+     instead of a full-width band sitting over the action buttons. */
+  .voice-vote-right .voice-status {
+    position: absolute; top: 14px; right: 16px;
+    padding: 4px 10px; font-size: 10.5px; border-radius: 999px;
+  }
+  /* The ghost Edit button carries a desktop-only margin-left:12px (to space it
+     from sibling buttons in the horizontal row); zero it in the stacked mobile
+     layout so Edit aligns full-width with Close & tally instead of indenting. */
+  .voice-vote-right .admin-btn-ghost { margin-left: 0; }
+
+  .voice-upload-row { flex-direction: column; align-items: stretch; gap: 8px; }
+  .voice-upload-row > * { width: 100%; }
+  .voice-upload-row select,
+  .voice-upload-row input[type="text"] { width: 100%; min-width: 0; flex: 0 0 auto; }
+  .voice-upload-btn { width: 100%; justify-content: center; }
+
+  .voice-notice-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+  .voice-notice-left,
+  .voice-notice-right { width: 100%; text-align: left; }
+
+  .voice-detail-meta { flex-direction: column; align-items: flex-start; gap: 6px; }
+  .voice-detail-status-row { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .voice-detail-status-row button { width: 100%; }
+
+  /* Board page — member rows packed name + two 160/170px dropdowns + delete on
+     one line (badly squished). Wrap: name on its own row, the two dropdowns
+     share the next row and fill it, delete sits at the end. */
+  .bd-form-row { grid-template-columns: 1fr; }
+  /* Resident search fills the row (was capped at 360px, truncating the
+     placeholder). */
+  .bm-search { max-width: none; width: 100%; margin-bottom: 14px; }
+  .bm-search > .admin-input { width: 100%; box-sizing: border-box; }
+  /* Member cards: one clean row — name (left) + position dropdown + delete.
+     The role dropdown is hidden on mobile (two unlabeled dropdowns read as
+     confusing on a phone); role assignment stays available on desktop.
+     Scoped to :not(.bm-role-row) so the Roles list (same .bm-row class, but
+     with a long permissions description + Edit/Delete) isn't crushed by it. */
+  .bm-row:not(.bm-role-row) {
+    display: grid;
+    grid-template-columns: 1fr minmax(120px, auto) auto;
+    grid-template-areas: "name pos del";
+    column-gap: 10px;
+    align-items: center;
+    padding: 14px;
+  }
+  /* Role cards: let the permissions description use the full width; Edit/Delete
+     wrap to their own row below instead of squeezing it into a narrow column. */
+  .bm-role-row { flex-wrap: wrap; row-gap: 12px; padding: 14px; }
+  .bm-role-row .bm-row-main { flex: 1 1 100%; min-width: 0; }
+  .bm-role-actions { flex: 0 0 auto; margin-left: auto; }
+  .bm-row-main { grid-area: name; min-width: 0; }
+  .bm-row-pos { grid-area: pos; width: auto !important; }
+  .bm-row-role { display: none; }
+  .bm-row .bc-del { grid-area: del; justify-self: end; }
+  .bm-saved { display: none; }
+  /* The position dropdown's panel is 200px min anchored left — in the narrow
+     cell that overflows the card's right edge and gets clipped. Anchor it to the
+     right and let it size to content so it opens fully on-screen. */
+  .bm-row .ad-dd-panel { left: auto; right: 0; min-width: 170px; }
+
+
+  /* Budget vs Actual: push the "No bank feed yet" + Link bank account row to the
+     right when the card header stacks on mobile. */
+  .bv-bankfeed { justify-content: flex-end; width: 100%; }
+
+  /* Logged expenses ledger — the 5-column grid can't fit a phone, so reflow each
+     row into a compact card: category + amount on top, vendor + delete below,
+     date underneath. Hide the desktop column header. */
+  .exp-ledger { overflow-x: visible; }
+  .exp-ledger .bc-row-head { display: none; }
+  .exp-ledger .bc-row {
+    grid-template-columns: 1fr auto !important;
+    grid-template-areas:
+      "cat   amt"
+      "ven   ."
+      "date  del";
+    column-gap: 14px;
+    row-gap: 6px;
+    padding: 16px 4px;
+    align-items: start;
+  }
+  .exp-ledger .bc-row > span:nth-child(1) { grid-area: date; font-size: 12px; align-self: center; }
+  .exp-ledger .bc-row > span:nth-child(2) { grid-area: cat; font-weight: 600; font-size: 14px; }
+  .exp-ledger .bc-row > span:nth-child(3) { grid-area: ven; }
+  .exp-ledger .bc-row > .exp-amount { grid-area: amt; font-size: 15px; }
+  .exp-ledger .bc-row > .bc-del { grid-area: del; justify-self: end; align-self: center; }
+
+  /* Delete-community card: stack the title above, then a small Contact Residente
+     button aligned to the right (not full-width) — like a Save button. */
+  .comm-delete-head { align-items: stretch !important; gap: 12px; }
+  .comm-delete-head .comm-delete-btn {
+    align-self: flex-end !important;
+    width: auto;
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+}
 
 /* Back-to-hub link sitting above the page kicker on compliance sub-pages, so
    you can step out of a section back to the Compliance dashboard. */
@@ -919,9 +1451,12 @@
 .cset .admin-note-err { border-left: 1px solid var(--border); }
 
 /* Form fields sit flush inside cards (no max-width form column). */
-.cset .card .admin-field { margin-bottom: 14px; }
+.cset .card .admin-field { margin-bottom: 18px; }
 .cset .card .admin-field:last-child { margin-bottom: 0; }
 .cset .card .grid2 .admin-field { margin-bottom: 0; }
+/* Give the stacked grid2 rows (Type/Homes, Fiscal/Dues) room to breathe too. */
+.cset .card .grid2 { margin-bottom: 18px; }
+.cset .card .grid2:last-child { margin-bottom: 0; }
 .cset .field-hint {
   font-size: 12px; color: var(--text-faint); line-height: 1.5; margin-top: 5px;
 }
@@ -938,6 +1473,30 @@
   font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em;
   text-transform: uppercase; color: var(--text-faint); margin-top: 5px;
 }
+
+/* Dues summary — one stat per full-width row. Lighter, larger, simpler type
+   than the old tiles: a plain label + helper line on the left, a big tabular
+   number on the right, hairline-separated. */
+/* Small section caption above the rows, matching the page's field-label voice. */
+.cset .dues-stats-cap {
+  margin-top: 16px; font-size: 12px; font-weight: 600; letter-spacing: 0.3px;
+  color: var(--text-dim); text-transform: uppercase;
+}
+/* Square-ish boxed tiles in a two-up grid — value on top, label + hint under. */
+.cset .dues-stats { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.cset .dues-stat {
+  display: flex; flex-direction: column; gap: 4px; justify-content: flex-start;
+  background: var(--bg); border: 1px solid var(--border); border-radius: 14px;
+  padding: 14px 15px; min-height: 96px;
+}
+.cset .dues-stat-v {
+  order: -1; font-size: 23px; font-weight: 600; letter-spacing: -0.4px; color: var(--text);
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.cset .dues-stat-main { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+/* Label matches .admin-field-label exactly so it rhymes with the input above. */
+.cset .dues-stat-l { font-size: 12px; font-weight: 600; letter-spacing: 0.3px; color: var(--text-dim); }
+.cset .dues-stat-hint { font-size: 11.5px; color: var(--text-faint); line-height: 1.35; }
 
 /* Budget editor lives inside a card now — drop its own top margin/width. */
 .cset .card .bc { margin-top: 0; max-width: none; }
@@ -984,6 +1543,20 @@
 .cset .vguide-meta { font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
 .cset .vguide-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
 
+/* Mobile: stack the vendor-guidelines row (title above, actions below), matching
+   the vendor-list cards — × delete pinned to the top-right corner, View/Replace
+   pushed all the way to the right. */
+@media (max-width: 640px) {
+  .cset .vguide-row { position: relative; flex-direction: column; align-items: stretch; gap: 12px; }
+  /* Title block clears the corner × (View/Replace stay flush-right, no indent). */
+  .cset .vguide-row > div:first-child { padding-right: 26px; }
+  .cset .vguide-actions { justify-content: flex-end; flex-wrap: wrap; }
+  .cset .vguide-actions .vdel {
+    position: absolute; top: 10px; right: 12px;
+    margin: 0; padding: 4px; font-size: 17px; line-height: 1;
+  }
+}
+
 /* Compliance workspaces — a clean row list inside a card (glyph + title + desc
    left, status badge + arrow right), matching the Needs-attention rows. */
 .cset .wsrow {
@@ -1025,9 +1598,13 @@
 /* ── Easy Documents · Documents section (clean-theme archive, matches mock) ─── */
 /* Governing-docs setup drop card (the "Set up from your governing docs" hero). */
 .cset .docsetup {
-  border: 1px solid rgba(225, 73, 9, 0.18); border-radius: 14px;
-  background: #FBEAE0; padding: 38px 22px; text-align: center;
+  border: 2px dashed rgba(225, 73, 9, 0.42); border-radius: 14px;
+  background: #FBEAE0; padding: 30px 22px; text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  transition: border-color 0.15s, background 0.15s; cursor: pointer;
 }
+.cset .docsetup:hover { border-color: #E14909; background: #F8DFD2; }
+.cset .docsetup-ic { color: #E14909; margin-bottom: 2px; line-height: 0; }
 .cset .docsetup-title { font-size: 16px; font-weight: 700; color: var(--text); }
 .cset .docsetup-sub { font-size: 13px; color: var(--text-dim); margin-top: 6px; }
 .cset .docsetup-actions {
@@ -1035,9 +1612,33 @@
   gap: 14px; flex-wrap: wrap;
 }
 .cset .docsetup-hint { font-size: 12.5px; color: var(--text-faint); }
+/* Chip showing a file that's been picked but not yet imported, with a × to clear
+   the pending selection (Documents + Rules setup cards). */
+.cset .docsetup-picked {
+  margin-top: 10px; display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 10px;
+  background: rgba(225, 73, 9, 0.07); border: 1px solid rgba(225, 73, 9, 0.18);
+}
+.cset .docsetup-picked-name {
+  flex: 1 1 auto; min-width: 0; font-size: 12.5px; color: var(--text-dim);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.cset .docsetup-picked-x {
+  flex: 0 0 auto; width: 24px; height: 24px; border-radius: 7px;
+  display: grid; place-items: center; line-height: 0; font-size: 18px;
+  background: transparent; border: none; cursor: pointer; color: var(--text-dim);
+}
+.cset .docsetup-picked-x:hover { background: rgba(225, 73, 9, 0.14); color: #B23A06; }
 .cset .doc-badge {
+  display: inline-block; align-self: flex-start; flex: 0 0 auto;
   font-size: 11px; font-weight: 700; padding: 4px 11px; border-radius: 999px;
   background: rgba(225, 73, 9, 0.12); color: #B23A06; white-space: nowrap;
+}
+/* hero "lever" card — the do-this-first setup action stands apart from plain
+   white cards (warm tint + accent left-rail), matching the mock v2 treatment */
+.cset .card.lever {
+  background: #FFF6EF;
+  box-shadow: inset 4px 0 0 #E14909, 0 1px 2px rgba(42, 18, 6, 0.05);
 }
 /* Archive table — mock columns: DOCUMENT · CATEGORY · UPLOADED · (actions). All
    columns left-aligned (unlike the budget .tbl which right-aligns numbers). */
@@ -1053,11 +1654,23 @@
 }
 .cset .doctbl tbody:last-child tr:last-child td { border-bottom: none; }
 .cset .doctbl .doc-name { font-weight: 600; }
+/* file glyph leading each archive row (scannability, matches mock v2) */
+.cset .doctbl .doc-cell { display: flex; align-items: center; gap: 11px; }
+.cset .doctbl .doc-ic {
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  display: grid; place-items: center; line-height: 0;
+  background: rgba(225, 73, 9, 0.12); color: #B23A06;
+}
 .cset .doctbl .doc-cat {
   display: inline-block; font-size: 11.5px; font-weight: 600;
   padding: 3px 10px; border-radius: 999px;
   background: rgba(42, 18, 6, 0.06); color: var(--text-dim);
 }
+/* category-colored pills by theme (governing/financial/insurance/inspection) */
+.cset .doctbl .doc-cat--gov  { background: rgba(91, 77, 158, 0.13);  color: #5B4D9E; }
+.cset .doctbl .doc-cat--fin  { background: rgba(31, 122, 77, 0.13);  color: #1F7A4D; }
+.cset .doctbl .doc-cat--ins  { background: rgba(42, 108, 148, 0.14); color: #2A6C94; }
+.cset .doctbl .doc-cat--insp { background: rgba(181, 113, 58, 0.16); color: #9B5B2A; }
 .cset .doctbl td.act { text-align: right; white-space: nowrap; }
 .cset .doctbl .doc-open {
   background: none; border: none; cursor: pointer; font-weight: 700;
@@ -1070,9 +1683,11 @@
 /* ── Easy Documents · Rules section (numbered rule book, matches mock) ──────── */
 .cset .rulelist { display: flex; flex-direction: column; }
 .cset .rulerow {
-  display: flex; align-items: flex-start; gap: 14px;
+  display: flex; align-items: flex-start; flex-wrap: wrap; gap: 14px;
   padding: 15px 2px; border-top: 1px solid var(--border);
 }
+/* The inline edit form wraps to its own full-width line under the rule. */
+.cset .rulerow .rule-edit-form { flex: 0 0 100%; width: 100%; }
 .cset .rulelist .rulerow:first-child { border-top: none; }
 .cset .rulenum {
   flex-shrink: 0; width: 30px; height: 30px; border-radius: 50%;
@@ -1135,6 +1750,28 @@
    aligns with the amount + chevron. */
 .cset .bd-list .bd-row:not(.open) .bc-del { top: 50%; }
 .cset .bd-list .bd-row .bc-del:hover { background: none; color: #C53D06; }
+
+/* Violations & enforcement — phone polish (scoped to .cviol so it can't leak
+   into other admin pages that share .card / .bd-row / .card-head). */
+@media (max-width: 767px) {
+  /* Tighter card gutters so the log isn't boxed-in on a narrow screen. */
+  .cviol.cset .card { padding: 18px 16px; }
+  /* Card header stacks: title on top, the kind/status filters drop to their
+     own full-width row below instead of crowding the title. */
+  .cviol .card-head { flex-direction: column; align-items: stretch; gap: 12px; }
+  .cviol .card-head > div:last-child { width: 100%; }
+  .cviol .card-head > div:last-child > div { flex: 1 1 0; min-width: 0; }
+  /* The "Fine · Rule · Opened …" meta line wraps instead of overflowing. */
+  .cviol .bd-meta { flex-wrap: wrap; }
+  /* Keep the row's delete "×" clear of the chevron + amount on small screens. */
+  .cviol .bd-list .bd-row .bd-row-toggle { padding-right: 56px; }
+  /* Space each violation entry out so the log doesn't feel cramped, and let the
+     status pill sit with breathing room (it wraps under the name on a phone). */
+  .cviol .bd-list .bd-row .bd-row-toggle { padding-top: 18px; padding-bottom: 18px; }
+  .cviol .bd-list .bd-title { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+  .cviol .bd-list .bd-title .admin-vi-pill { margin-left: 0; }
+  .cviol .bd-list .bd-row .bd-meta { margin-top: 6px; }
+}
 .cset .tbl .strong { font-weight: 600; }
 .cset .tbl .go-cell { text-align: right; width: 1%; white-space: nowrap; }
 .cset .go {
@@ -1222,6 +1859,17 @@
 /* Period + category pills size to their content, not the full row. */
 .crep .toolbar-filters .ad-dd { width: auto; min-width: 170px; }
 
+/* Mobile: keep Period (Year to date) + Category (All categories) + Export CSV on
+   ONE row. Placed after the base rules above so it wins source-order on phones. */
+@media (max-width: 640px) {
+  .crep .toolbar { flex-wrap: nowrap; gap: 8px; align-items: center; }
+  .crep .toolbar-filters { flex: 1 1 auto; flex-wrap: nowrap; gap: 8px; min-width: 0; }
+  .crep .toolbar-filters .ad-dd { min-width: 0; flex: 1 1 0; width: auto; }
+  .crep .toolbar-filters .ad-dd-trigger,
+  .crep .toolbar-filters .ad-dd-trigger-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .crep .toolbar > .admin-primary-btn { flex: 0 0 auto; white-space: nowrap; padding: 9px 12px; font-size: 12.5px; }
+}
+
 /* Stat tiles. */
 .crep .stats {
   display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -1252,6 +1900,17 @@
   font-weight: 500; font-size: 20px; letter-spacing: -0.01em;
 }
 .crep .card-head .sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+
+/* Mobile: stack the report card header so the Export CSV button drops below the
+   title (right-aligned, single line) instead of squishing into two lines. */
+@media (max-width: 640px) {
+  .crep .card-head { flex-direction: column; align-items: stretch; gap: 12px; }
+  .crep .card-head > button,
+  .crep .card-head .admin-secondary-btn,
+  .crep .card-head .admin-primary-btn {
+    align-self: flex-end; width: auto; white-space: nowrap;
+  }
+}
 
 /* Available-reports table — row dividers, no boxes (matches the mock + the
    .cset budget table). */
@@ -1349,6 +2008,17 @@
 }
 .etrack .search input::placeholder { color: var(--text-faint); }
 
+/* Mobile: search + Invite + Export CSV on ONE row. Placed after the base rules
+   so it wins source-order; drop the 220px search min-width so it can shrink. */
+@media (max-width: 640px) {
+  .etrack .toolbar { flex-wrap: nowrap; gap: 8px; }
+  .etrack .toolbar-left { flex-wrap: nowrap; flex: 1 1 auto; min-width: 0; gap: 8px; }
+  .etrack .search { min-width: 0; max-width: none; flex: 1 1 auto; padding: 8px 12px; }
+  .etrack-actions { flex: 0 0 auto; gap: 6px; }
+  .etrack-actions .admin-primary-btn,
+  .etrack-actions .admin-secondary-btn { padding: 8px 11px; font-size: 12px; white-space: nowrap; }
+}
+
 /* Cards (import + roster table). */
 .etrack .card {
   background: var(--bg-card); border: 1px solid var(--border);
@@ -1377,7 +2047,7 @@
 }
 .etrack .import-sheet-row { position: relative; display: grid; grid-template-columns: 1.3fr 1.1fr 1.3fr 1fr; }
 /* Reserve room on the right so the hover delete never sits over typed text. */
-.etrack .import-sheet-row .import-cell:last-of-type { padding-right: 26px; }
+.etrack .import-sheet-row .import-field:last-of-type .import-cell { padding-right: 32px; }
 /* Hover a row to reveal a delete button at its right edge. */
 .etrack .import-del {
   position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
@@ -1391,15 +2061,19 @@
 .etrack .import-sheet-head {
   background: rgba(225, 73, 9, 0.10); color: #B23A06; font-weight: 700; font-size: 11.5px;
 }
-.etrack .import-sheet-head span { padding: 9px 12px; }
+.etrack .import-sheet-head span { padding: 12px 15px; }
 .etrack .import-cell {
   width: 100%; border: none; outline: none; background: transparent;
   font-family: inherit; font-size: 13px; color: var(--text);
-  padding: 9px 12px; border-top: 1px solid var(--border);
+  padding: 13px 15px; border-top: 1px solid var(--border);
 }
-.etrack .import-sheet-row .import-cell + .import-cell { border-left: 1px solid var(--border); }
+.etrack .import-sheet-row .import-field + .import-field .import-cell { border-left: 1px solid var(--border); }
 .etrack .import-cell:focus { background: rgba(225, 73, 9, 0.06); }
 .etrack .import-cell::placeholder { color: var(--text-faint); }
+/* Desktop: the label wrapper collapses so the input IS the grid cell (the
+   header row labels the columns). On phones it stacks — see the @media below. */
+.etrack .import-field { display: contents; }
+.etrack .import-field-label { display: none; }
 /* "+ Add row" — appends a blank row (the grid also grows on its own as you type). */
 .etrack .import-addrow {
   margin: 6px 0 0; padding: 3px 2px;
@@ -1454,4 +2128,270 @@
 
 @media (max-width: 640px) {
   .etrack .tbl .contact-col { display: none; }
+
+  /* Vendor list: on phones a 4-column table overflows (the ★/× actions clip off
+     the right edge). Reflow each row into a stacked CARD instead — vendor block
+     on top (full width), then Category + actions on one row below. CSS-only:
+     flatten the table elements to block/flex. */
+  .vlist .tbl, .vlist .tbl tbody { display: block; }
+  .vlist .tbl thead { display: none; }
+  .vlist .tbl tr.tr {
+    position: relative;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px;
+    border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px; margin-bottom: 10px;
+  }
+  .vlist .tbl tr.tr:last-of-type { margin-bottom: 0; }
+  .vlist .tbl td { display: block; border: none; padding: 0; }
+  /* Vendor (avatar + name + badge + phone·email) takes the full first row;
+     pad the right so the name/badge clear the corner × delete. */
+  .vlist .tbl td:first-child { flex: 0 0 100%; padding-right: 26px; }
+  .vlist .owner-cell { align-items: flex-start; gap: 10px; }
+  .vlist .owner-cell .muted { overflow-wrap: anywhere; }
+  /* Bottom row: Category hard-left ↔ ★ Feature hard-right. flex:1 1 0% lets the
+     category take only the leftover space (wrapping if needed) so the Feature
+     button always sits flush-right without clipping. */
+  .vlist .tbl td:nth-child(2) {
+    flex: 1 1 0%; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--text-dim);
+  }
+  .vlist .tbl td.act {
+    flex: 0 0 auto; width: auto; margin: 0 0 0 auto; padding: 0;
+    display: flex; align-items: center;
+  }
+  .vlist .tbl td.act .admin-btn-sm { padding: 7px 12px; font-size: 12.5px; }
+  /* Delete × lifted out of the row flow, pinned to the card's top-right corner. */
+  .vlist .tbl td.act .vdel {
+    position: absolute; top: 8px; right: 10px;
+    margin: 0; padding: 4px; font-size: 17px; line-height: 1;
+  }
+  /* Schedule + Cost are low-value on a phone card — hide them. */
+  .vlist .tbl td:nth-child(3), .vlist .tbl td:nth-child(4) { display: none; }
 }
+
+/* ============ MOBILE: de-cram three list rows ============ */
+@media (max-width: 640px) {
+  /* Documents / Archive table: hide Category + Uploaded columns so the document
+     name + Open/delete get the full width instead of cramming 4 columns. */
+  .cset .doctbl th:nth-child(2), .cset .doctbl td:nth-child(2),
+  .cset .doctbl th:nth-child(3), .cset .doctbl td:nth-child(3) { display: none; }
+  /* Pull the "Recorded amendment?" button closer to the right edge. */
+  .cset .doctbl .doc-subrow td { padding-right: 6px; }
+
+  /* Schedule "Events you've added" row: title + meta on top (full width), the
+     Edit / Remove buttons wrap to their own row on the right. */
+  [data-theme="sketch"] .admin-sched-row { flex-wrap: wrap; align-items: flex-start; row-gap: 10px; }
+  [data-theme="sketch"] .admin-sched-row-body { flex: 1 1 0; min-width: 0; }
+  [data-theme="sketch"] .admin-amen-row-actions { flex: 1 1 100%; justify-content: flex-end; }
+}
+
+/* ============ iMessage-style Contact conversation ============ */
+.imsg-log {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 4px 2px 8px;
+}
+.imsg-row { display: flex; flex-direction: column; max-width: 100%; }
+.imsg-row.sent { align-items: flex-end; }
+.imsg-row.recv { align-items: flex-start; }
+/* Extra breathing room when the speaker changes. */
+.imsg-row.newgroup { margin-top: 12px; }
+.imsg-bubble {
+  max-width: 80%; padding: 8px 14px; border-radius: 19px;
+  font-size: 14.5px; line-height: 1.35; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.imsg-row.recv .imsg-bubble {
+  background: #E9E9EB; color: #1C1C1E; border-bottom-left-radius: 6px;
+}
+.imsg-row.sent .imsg-bubble {
+  background: #E14909; color: #fff; border-bottom-right-radius: 6px;
+}
+/* Consecutive bubbles from the same speaker round more tightly together. */
+.imsg-row.recv:not(.newgroup) .imsg-bubble { border-top-left-radius: 8px; }
+.imsg-row.sent:not(.newgroup) .imsg-bubble { border-top-right-radius: 8px; }
+.imsg-meta { font-size: 10.5px; color: var(--text-faint); margin: 3px 8px 0; }
+.imsg-attach {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 6px;
+  background: none; border: none; cursor: pointer; font: inherit; font-size: 12.5px;
+  padding: 0;
+}
+.imsg-row.sent .imsg-attach { color: rgba(255,255,255,0.92); }
+.imsg-row.recv .imsg-attach { color: #E14909; }
+.imsg-sys {
+  align-self: center; margin: 8px 0;
+  font-size: 11px; font-weight: 600; color: var(--text-dim);
+  background: rgba(42,18,6,0.04); border-radius: 999px; padding: 4px 12px;
+}
+
+/* Composer — rounded field + circular send button, like the iMessage input. */
+.imsg-composer { display: flex; align-items: flex-end; gap: 8px; margin-top: 12px; }
+.imsg-field {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px;
+  border: 1px solid var(--border); border-radius: 20px;
+  padding: 6px 8px 6px 14px; background: var(--bg-elev);
+}
+.imsg-field:focus-within { border-color: var(--pink); }
+.imsg-field textarea {
+  flex: 1; min-width: 0; border: none; background: none; resize: none; outline: none;
+  font: inherit; font-size: 14.5px; line-height: 1.35; color: var(--text);
+  max-height: 120px; padding: 4px 0;
+}
+.imsg-clip {
+  flex-shrink: 0; background: none; border: none; cursor: pointer; padding: 4px;
+  color: var(--text-dim); display: grid; place-items: center;
+}
+.imsg-clip.has-file { color: #E14909; }
+.imsg-send {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 999px; border: none;
+  cursor: pointer; background: #E14909; color: #fff; display: grid; place-items: center;
+}
+.imsg-send:disabled { background: var(--border); color: var(--text-faint); cursor: default; }
+.imsg-composer-opts {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 12px;
+  margin-top: 8px; font-size: 12.5px; color: var(--text-dim);
+}
+
+/* Mobile-only "‹ Messages" back button at the top of an open conversation. */
+.msg-back {
+  display: none; align-items: center; gap: 3px;
+  background: none; border: none; cursor: pointer;
+  color: #E14909; font: inherit; font-size: 14px; font-weight: 600;
+  padding: 2px 0 12px;
+}
+
+/* Notification count at the top-right corner of a segmented tab (the New tab on
+   the Messages page), like the nav-item badges. */
+.seg-tab { position: relative; }
+.seg-tab-badge {
+  position: absolute; top: 0; right: 4px;
+  min-width: 16px; height: 16px; padding: 0 4px; box-sizing: border-box;
+  border-radius: 999px; background: #E14909; color: #fff;
+  font-size: 9.5px; font-weight: 700; line-height: 16px; text-align: center;
+  pointer-events: none;
+}
+
+/* Resident Contact: cap the inline conversation to a scrollable chat window so a
+   long thread doesn't grow the page and bury the conversations below it. */
+.con-imsg-log {
+  max-height: 52vh; overflow-y: auto;
+  padding-right: 4px;
+}
+
+/* Residents CSV import sheet on phones: the 4 columns can't fit a phone row, so
+   it scrolls sideways. The "More →" hint (by + Add row) signals it. */
+@media (max-width: 640px) {
+  .etrack .import-sheet {
+    overflow-x: auto; overflow-y: hidden; -webkit-overflow-scrolling: touch;
+  }
+  .etrack .import-sheet-head,
+  .etrack .import-sheet-row { min-width: 480px; }
+  /* No hover on touch — keep the row delete visible once scrolled to. */
+  .etrack .import-del { opacity: 1 !important; }
+}
+
+/* Budget category editor actions on phones: a 2-up wrapping grid so the four
+   buttons (Add · Import · Cancel · Save) never overflow off the right edge. */
+@media (max-width: 640px) {
+  .bc-actions { flex-wrap: wrap; gap: 10px; }
+  .bc-actions > button {
+    flex: 1 1 calc(50% - 5px); min-width: 0; white-space: nowrap;
+    margin: 0; text-align: center; justify-content: center;
+  }
+}
+
+/* Unify admin row-delete buttons on phones to the budget editor's look — a clean
+   borderless circle with a soft terracotta hover + a press animation. */
+@media (max-width: 640px) {
+  .cset .vdel,
+  .voice-doc-del,
+  .etrack .import-del {
+    width: 34px; height: 34px; min-width: 34px; padding: 0;
+    border-radius: 999px !important;
+    display: inline-grid; place-items: center;
+    background: transparent !important; border: none !important;
+    color: var(--text-faint); font-size: 19px; line-height: 1;
+    transition: background 0.15s ease, color 0.15s ease, transform 0.1s ease;
+  }
+  .cset .vdel:hover,
+  .voice-doc-del:hover,
+  .etrack .import-del:hover {
+    color: #C2360A !important; background: rgba(225, 73, 9, 0.12) !important; border-color: transparent !important;
+  }
+  .cset .vdel:active,
+  .voice-doc-del:active,
+  .etrack .import-del:active { transform: scale(0.92); }
+  /* No hover on touch — keep the import-sheet delete always visible. */
+  .etrack .import-del { opacity: 1 !important; }
+}
+
+/* "+ Add category" now sits at the END of the budget list — full width, centered. */
+.bc-add-end {
+  display: block; width: 100%; margin: 16px 0 0;
+  text-align: center; justify-content: center;
+}
+
+/* "+ Add row" bar with a right-aligned "Scroll for more →" hint that only shows
+   on phones (where the import sheet scrolls sideways). */
+.import-addrow-bar { display: flex; align-items: center; gap: 12px; }
+.import-scroll-hint { display: none; }
+@media (max-width: 640px) {
+  .import-scroll-hint {
+    display: inline-flex; align-items: center; margin-left: auto;
+    font-size: 12px; font-weight: 700; color: #E14909; white-space: nowrap;
+    transition: opacity 0.18s ease;
+  }
+}
+
+/* "Records index" link styled like an Archive document row — the themed orange
+   file glyph + label in a clean bordered pill. */
+.records-index-link {
+  display: inline-flex; align-items: center; gap: 11px;
+  text-decoration: none; color: var(--text); font-weight: 600; font-size: 13.5px;
+  padding: 8px 13px 8px 9px; border-radius: 12px;
+  border: 1px solid var(--border); background: var(--bg-elev);
+  transition: border-color 0.14s ease, background 0.14s ease;
+}
+.records-index-link:hover { border-color: #E14909; background: rgba(225, 73, 9, 0.05); }
+.records-index-link .doc-ic {
+  width: 30px; height: 30px; border-radius: 8px; flex-shrink: 0;
+  display: grid; place-items: center; line-height: 0;
+  background: rgba(225, 73, 9, 0.12); color: #B23A06;
+}
+@media (max-width: 640px) { .records-index-link { width: 100%; } }
+
+/* Rule book: "Delete all" lives as a subtle action at the bottom of the card,
+   away from the primary "+ Add rule". */
+.rulebook-footer {
+  margin-top: 16px; padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex; justify-content: flex-end;
+}
+
+/* Inline rule editor (expanded rule in the Rule book). */
+.rule-edit-form {
+  margin-top: 12px; padding: 14px; border-radius: 12px;
+  border: 1px solid var(--border); background: var(--bg-elev);
+  display: flex; flex-direction: column; gap: 12px;
+}
+.rule-edit-grid { display: grid; grid-template-columns: 1fr 140px; gap: 12px; }
+.rule-edit-actions {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  flex-wrap: wrap; margin-top: 2px;
+}
+.rule-edit-pub { font-size: 12px; color: var(--text-dim); }
+@media (max-width: 640px) {
+  .rule-edit-grid { grid-template-columns: 1fr; }
+  .rule-edit-actions .admin-primary-btn { width: 100%; }
+}
+
+/* Setup card: push the Choose file / Import action(s) to the right (incl. mobile,
+   where they wrap below the hint). Covers both the wrapped button group and the
+   single Choose-file button. */
+.cset .docsetup-actions > div,
+.cset .docsetup-actions > button { margin-left: auto; }
+
+/* Bulk-upload option inside the Add-a-document modal. */
+.adddoc-bulk {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 4px; padding: 11px 13px; border-radius: 10px; background: var(--bg-elev);
+}
+.adddoc-bulk-label { font-size: 12.5px; color: var(--text-dim); white-space: pre-line; line-height: 1.4; }
+.adddoc-bulk button { white-space: nowrap; flex-shrink: 0; }

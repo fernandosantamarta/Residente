@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><meta name="robots" content="noindex"/>
+<title>Residente Admin · Easy Voice v2 (mock)</title>
+<link rel="stylesheet" href="admin-mock.css"/>
+<link rel="stylesheet" href="admin-mock-v2.css"/>
+</head><body>
+
+<div class="bar">
+  <div class="brand"><span class="brand-chip"><img src="../residente-logo.png" alt="Residente"/></span>Residente</div>
+  <div class="bar-right"><div class="viewas"><span class="viewas-lbl">View as</span><button data-view="founder">Founder</button><button data-view="onboarding">Onboarding</button><button data-view="support">Support</button><button data-view="billing">Billing</button><button data-view="client">Client</button></div><a class="bar-link" href="support.html">Contact Residente</a><a class="back" href="#">&larr; Back to app</a></div>
+</div>
+<nav class="nav">
+  <a href="index-v2.html">Overview</a>
+  <a href="community-v2.html">Community</a>
+  <a href="compliance-v2.html">Compliance</a>
+  <a href="reports-v2.html">Reports</a>
+  <a href="easy-track-v2.html">Easy Track</a>
+  <a href="easy-voice-v2.html" class="active">Easy Voice</a>
+  <a href="easy-documents-v2.html">Easy Documents</a>
+  <a href="easy-schedule-v2.html">Easy Schedule</a>
+  <a href="roles-v2.html">Roles</a>
+  <a href="platform-v2.html" class="plat">Platform</a>
+</nav>
+
+<main class="page">
+  <div class="kicker">Easy Voice</div>
+  <h1>Decisions &amp; meetings</h1>
+  <p class="dek">Run board votes, post notices, schedule meetings, and keep your board roster &mdash; all in one place.</p>
+
+  <div class="toolbar">
+    <div class="seg"><button class="on" data-tab="votes">Votes</button><button data-tab="meetings">Meetings</button><button data-tab="board">Board</button><button data-tab="notices">Notices</button></div>
+    <button class="btn">+ Open a vote</button>
+  </div>
+
+  <div data-panel="votes">
+    <div class="card">
+      <div class="card-head"><div><h2>Open votes</h2><div class="sub">Live ballots owners can vote on now</div></div></div>
+      <div class="lrow"><span class="av" style="background:var(--ok-soft);color:var(--ok)">&#10003;</span>
+        <div class="body"><div class="ttl">Approve 2026 landscaping contract</div><div class="meta">Yes/No &middot; closes Jun 12 &middot; quorum 60 of 120</div></div>
+        <div style="text-align:right"><div class="strong" style="color:var(--ok)">74 yes &middot; 11 no</div><span class="go">Manage &rarr;</span></div></div>
+      <div class="lrow"><span class="av">&#9998;</span>
+        <div class="body"><div class="ttl">Amend pool hours amendment</div><div class="meta">Yes/No &middot; closes Jun 20 &middot; quorum 60 of 120</div></div>
+        <div style="text-align:right"><div class="strong">38 votes</div><span class="go">Manage &rarr;</span></div></div>
+    </div>
+  </div>
+
+  <div data-panel="meetings" style="display:none">
+    <div class="card">
+      <div class="card-head"><div><h2>Upcoming meetings</h2><div class="sub">Notices, agendas &amp; minutes</div></div><button class="btn sm">+ Schedule</button></div>
+      <div class="lrow"><span class="av">Jun</span><div class="body"><div class="ttl">Monthly board meeting</div><div class="meta">Jun 18, 7:00 PM &middot; Clubhouse</div></div><span class="pill warn">Notice due</span></div>
+      <div class="lrow"><span class="av">Jul</span><div class="body"><div class="ttl">Annual members&rsquo; meeting</div><div class="meta">Jul 9, 6:30 PM &middot; Clubhouse</div></div><span class="pill ok">Noticed</span></div>
+    </div>
+  </div>
+
+  <div data-panel="board" style="display:none">
+    <div class="card">
+      <div class="card-head"><div><h2>Board members</h2><div class="sub">Who sits on the board</div></div><button class="btn sm">+ Add</button></div>
+      <div class="lrow"><span class="av">EM</span><div class="body"><div class="ttl">Elena Marsh</div><div class="meta">President</div></div><span class="go">Edit &rarr;</span></div>
+      <div class="lrow"><span class="av">TR</span><div class="body"><div class="ttl">Tom Reyes</div><div class="meta">Treasurer</div></div><span class="go">Edit &rarr;</span></div>
+      <div class="lrow"><span class="av">NL</span><div class="body"><div class="ttl">Nina Lowe</div><div class="meta">Secretary</div></div><span class="go">Edit &rarr;</span></div>
+    </div>
+  </div>
+
+  <div data-panel="notices" style="display:none">
+    <div class="card">
+      <div class="card-head"><div><h2>Notice history</h2><div class="sub">What residents have been sent</div></div><button class="btn sm">+ Send a notice</button></div>
+      <div class="lrow"><div class="body"><div class="ttl">Pool closed for resurfacing Jun 8&ndash;10</div><div class="meta">Sent Jun 3 &middot; 144 recipients &middot; bell + email</div></div><span class="pill ok">Delivered</span></div>
+      <div class="lrow"><div class="body"><div class="ttl">Annual meeting &mdash; first notice</div><div class="meta">Sent May 28 &middot; 120 recipients &middot; bell + email</div></div><span class="pill ok">Delivered</span></div>
+    </div>
+  </div>
+
+  <p class="note">Mock &middot; not wired to data</p>
+</main>
+<script src="admin-mock.js"></script>
+</body></html>

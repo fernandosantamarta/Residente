@@ -13,21 +13,24 @@ import { Dropdown } from '@/components/Dropdown'
 import { Pagination, paginate } from '@/components/Pagination'
 import { SegTabs, SegTab } from '@/components/SegTabs'
 import { AmenitiesAdmin } from './_sections/AmenitiesAdmin'
+import { useT } from '@/lib/i18n'
 
 const EVENTS_PAGE_SIZE = 8
-
-const ADMIN_TABS: SegTab[] = [
-  { id: 'calendar', label: 'Calendar' },
-  { id: 'amenities', label: 'Amenities' },
-]
 
 // Admin → Schedule mirrors the resident Easy Schedule: a Calendar tab (board
 // adds events) and an Amenities tab (board defines bookable amenities).
 export default function AdminSchedule() {
+  const t = useT()
   const [tab, setTab] = useState('calendar')
+
+  const ADMIN_TABS: SegTab[] = [
+    { id: 'calendar', label: t('admin.schedule.tabCalendar') },
+    { id: 'amenities', label: t('admin.schedule.tabAmenities') },
+  ]
+
   return (
     <div className="admin-schedule-tabs admin-page cset">
-      <SegTabs tabs={ADMIN_TABS} active={tab} onChange={setTab} ariaLabel="Schedule admin sections" />
+      <SegTabs tabs={ADMIN_TABS} active={tab} onChange={setTab} ariaLabel={t('admin.schedule.tabsAriaLabel')} />
       {tab === 'amenities' ? <AmenitiesAdmin /> : <CalendarAdmin />}
     </div>
   )
@@ -117,6 +120,7 @@ function parseScheduleCsv(text: string): ParsedRow[] {
 // upload. Everything they add shows up on the resident-facing /app/schedule
 // page and the dashboard's "Up next" rail.
 function CalendarAdmin() {
+  const t = useT()
   const allEvents = useScheduleEvents()
   // Board-managed events (from the DB) + async add/remove. Realtime-synced,
   // so anything added here shows on every resident's calendar immediately.
@@ -197,7 +201,7 @@ function CalendarAdmin() {
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!form.title.trim() || !form.date) {
-      setError('Title and date are required.')
+      setError(t('admin.schedule.errorTitleDateRequired'))
       return
     }
     const title = form.title.trim()
@@ -213,25 +217,25 @@ function CalendarAdmin() {
       })
       setForm(EMPTY_FORM)
       setError('')
-      setSuccessMsg(`Added "${title}" to the calendar. Residents have been notified.`)
+      setSuccessMsg(t('admin.schedule.successEventAdded', { title }))
     } catch (err: any) {
-      setError(err?.message || 'Could not add the event.')
+      setError(err?.message || t('admin.schedule.errorCouldNotAdd'))
     }
   }
 
   const onDelete = async (id: string) => {
-    if (!window.confirm('Remove this event from the calendar?')) return
+    if (!window.confirm(t('admin.schedule.confirmRemoveEvent'))) return
     try {
       await removeEvent(id)
-      setSuccessMsg('Event removed.')
+      setSuccessMsg(t('admin.schedule.successEventRemoved'))
     } catch (err: any) {
-      setError(err?.message || 'Could not remove the event.')
+      setError(err?.message || t('admin.schedule.errorCouldNotRemove'))
     }
   }
 
   const onSaveEdit = async (id: string, patch: Partial<EmptyForm>) => {
     if (!patch.title?.trim() || !patch.date) {
-      setError('Title and date are required.')
+      setError(t('admin.schedule.errorTitleDateRequired'))
       throw new Error('invalid')
     }
     await updateEvent(id, {
@@ -243,7 +247,7 @@ function CalendarAdmin() {
       location: patch.location?.trim() || undefined,
     })
     setError('')
-    setSuccessMsg('Event updated.')
+    setSuccessMsg(t('admin.schedule.successEventUpdated'))
   }
 
   const onPickPdf = (e: ChangeEvent<HTMLInputElement>) => {
@@ -260,7 +264,7 @@ function CalendarAdmin() {
     // PDF date/title extraction needs document parsing we don't have yet —
     // it belongs with Genie's AI document-ingestion work, not a one-off here.
     // Same deferral as the Rules page. Use the CSV path for now.
-    setPdfStatus(`Received ${pdfFile.name} — PDF parsing isn't wired yet. For now, export your schedule as CSV and use the box to the right.`)
+    setPdfStatus(t('admin.schedule.pdfNotWired', { name: pdfFile.name }))
   }
   // Read the picked CSV and stage the parsed rows for confirmation. We never
   // land events straight from a file — the board reviews the preview first.
@@ -275,18 +279,18 @@ function CalendarAdmin() {
       // it as text yields control characters. Detect that and steer the board to
       // CSV instead of dumping junk into the preview. (Tab/newline are allowed.)
       const head = text.slice(0, 2000)
-      if (text.startsWith('PK') || /[\u0000-\u0008\u000E-\u001F]/.test(head)) {
-        setImportError('That looks like a binary Excel file. Open it in Excel/Sheets, choose "Save as CSV", then upload that.')
+      if (text.startsWith('PK') || /[ --]/.test(head)) {
+        setImportError(t('admin.schedule.errorBinaryExcel'))
         return
       }
       const rows = parseScheduleCsv(text)
       if (!rows.length) {
-        setImportError('No rows found. Expected columns: title, date, kind, time, vendor, location.')
+        setImportError(t('admin.schedule.errorNoRows'))
         return
       }
       setPreview(rows)
     }
-    reader.onerror = () => setImportError('Could not read that file.')
+    reader.onerror = () => setImportError(t('admin.schedule.errorReadFile'))
     reader.readAsText(xlsFile)
   }
   // Land every valid parsed row on the calendar, then clear the staging area.
@@ -309,9 +313,9 @@ function CalendarAdmin() {
       setPreview(null)
       setXlsFile(null)
       setImportError('')
-      setSuccessMsg(`Added ${good.length} event${good.length === 1 ? '' : 's'} from the file.`)
+      setSuccessMsg(t('admin.schedule.successImported', { count: good.length }))
     } catch (err: any) {
-      setImportError(err?.message || 'Could not import all rows.')
+      setImportError(err?.message || t('admin.schedule.errorCouldNotImport'))
     }
   }
   const cancelImport = () => {
@@ -326,13 +330,10 @@ function CalendarAdmin() {
       {/* Group the header so the flex-column `gap` on .admin-schedule doesn't
           push the kicker, title, and dek apart. */}
       <div className="admin-h-wrap">
-        <div className="admin-kicker">Schedule</div>
-        <h1 className="admin-h1">Community calendar</h1>
+        <div className="admin-kicker">{t('admin.schedule.kicker')}</div>
+        <h1 className="admin-h1">{t('admin.schedule.heading')}</h1>
         <p className="admin-dek">
-          Add events to the community calendar one at a time, or upload a CSV
-          to bulk-import. Anything you add here shows up on every
-          resident&rsquo;s <strong>Schedule</strong> tab and the dashboard&rsquo;s
-          &ldquo;Up next&rdquo; rail.
+          {t('admin.schedule.dek')}
         </p>
       </div>
 
@@ -348,77 +349,77 @@ function CalendarAdmin() {
       <div className="card">
         <div className="card-head">
           <div>
-            <h2>Add an event</h2>
-            <div className="sub">Manual entry, one at a time.</div>
+            <h2>{t('admin.schedule.addEventHeading')}</h2>
+            <div className="sub">{t('admin.schedule.addEventSub')}</div>
           </div>
         </div>
         <form className="admin-form" onSubmit={onSubmit}>
           <label className="admin-field">
-            <span className="admin-field-label">Title</span>
+            <span className="admin-field-label">{t('admin.schedule.fieldTitle')}</span>
             <input
               className="admin-input"
               name="title"
               type="text"
               value={form.title}
               onChange={onChange('title')}
-              placeholder="e.g. Pool reopening, Annual board meeting"
+              placeholder={t('admin.schedule.placeholderTitle')}
               required
             />
           </label>
 
           <div className="admin-field">
-            <span className="admin-field-label">Kind</span>
+            <span className="admin-field-label">{t('admin.schedule.fieldKind')}</span>
             <Dropdown<EventKind>
               value={form.kind}
               onChange={v => setForm(prev => ({ ...prev, kind: v }))}
               options={ALL_KINDS.map(k => ({ value: k, label: KIND_LABEL[k] }))}
-              ariaLabel="Event kind"
+              ariaLabel={t('admin.schedule.ariaEventKind')}
             />
           </div>
 
           <label className="admin-field">
-            <span className="admin-field-label">Date</span>
+            <span className="admin-field-label">{t('admin.schedule.fieldDate')}</span>
             <input className="admin-input" name="date" type="date" value={form.date} onChange={onChange('date')} required />
           </label>
 
           <label className="admin-field">
-            <span className="admin-field-label">Time <em>(optional)</em></span>
+            <span className="admin-field-label">{t('admin.schedule.fieldTime')} <em>({t('admin.schedule.optional')})</em></span>
             <input
               className="admin-input"
               name="time"
               type="text"
               value={form.time}
               onChange={onChange('time')}
-              placeholder="7:00 PM, 8:00 AM – 12:00 PM, All day"
+              placeholder={t('admin.schedule.placeholderTime')}
             />
           </label>
 
           <label className="admin-field">
-            <span className="admin-field-label">Vendor <em>(optional)</em></span>
+            <span className="admin-field-label">{t('admin.schedule.fieldVendor')} <em>({t('admin.schedule.optional')})</em></span>
             <input
               className="admin-input"
               name="vendor"
               type="text"
               value={form.vendor}
               onChange={onChange('vendor')}
-              placeholder="e.g. SeaCare Pools"
+              placeholder={t('admin.schedule.placeholderVendor')}
             />
           </label>
 
           <label className="admin-field">
-            <span className="admin-field-label">Location <em>(optional)</em></span>
+            <span className="admin-field-label">{t('admin.schedule.fieldLocation')} <em>({t('admin.schedule.optional')})</em></span>
             <input
               className="admin-input"
               name="location"
               type="text"
               value={form.location}
               onChange={onChange('location')}
-              placeholder="e.g. Clubhouse, Pavilion"
+              placeholder={t('admin.schedule.placeholderLocation')}
             />
           </label>
 
           <div className="card-cta">
-            <button type="submit" className="admin-primary-btn">Add to calendar</button>
+            <button type="submit" className="admin-primary-btn">{t('admin.schedule.btnAddToCalendar')}</button>
           </div>
         </form>
       </div>
@@ -427,9 +428,9 @@ function CalendarAdmin() {
       <div className="card">
         <div className="card-head">
           <div>
-            <h2>Bulk upload</h2>
+            <h2>{t('admin.schedule.bulkHeading')}</h2>
             <div className="sub">
-              Got a schedule on paper or in a spreadsheet? Drop it here.
+              {t('admin.schedule.bulkSub')}
             </div>
           </div>
         </div>
@@ -437,24 +438,26 @@ function CalendarAdmin() {
         <div className="admin-sched-bulk">
           <BulkBox
             kind="pdf"
-            title="PDF schedule"
-            sub="A flyer, memo, or quarterly newsletter — automatic date extraction is coming soon."
+            title={t('admin.schedule.pdfTitle')}
+            sub={t('admin.schedule.pdfSub')}
             accept="application/pdf"
             file={pdfFile}
             note={pdfStatus}
             onPick={onPickPdf}
             onImport={importPdf}
+            onClear={() => { setPdfFile(null); setPdfStatus('') }}
           />
           <BulkBox
             kind="xls"
-            title="Spreadsheet (CSV)"
-            sub="Columns: title, date, kind, time, vendor, location. Header row optional. Export Excel sheets as CSV first."
+            title={t('admin.schedule.csvTitle')}
+            sub={t('admin.schedule.csvSub')}
             accept=".csv,text/csv"
             file={xlsFile}
             note={importError}
             noteTone="err"
             onPick={onPickXls}
             onImport={importXls}
+            onClear={() => { setXlsFile(null); setPreview(null); setImportError('') }}
           />
         </div>
       </div>
@@ -464,10 +467,9 @@ function CalendarAdmin() {
         <div className="card">
           <div className="card-head">
             <div>
-              <h2>Review import</h2>
+              <h2>{t('admin.schedule.reviewHeading')}</h2>
               <div className="sub">
-                {okCount} of {preview.length} row{preview.length === 1 ? '' : 's'} ready —
-                check them before they land on the calendar.
+                {t('admin.schedule.reviewSub', { ok: okCount, total: preview.length })}
               </div>
             </div>
           </div>
@@ -477,7 +479,7 @@ function CalendarAdmin() {
                 <span className={`sched-dot kind-${r.kind}`} aria-hidden="true" />
                 <div className="admin-sched-row-body">
                   <div className="admin-sched-row-title">
-                    {r.title || <em>(missing title)</em>}
+                    {r.title || <em>({t('admin.schedule.missingTitle')})</em>}
                   </div>
                   <div className="admin-sched-row-meta">
                     {r.ok ? (
@@ -489,7 +491,7 @@ function CalendarAdmin() {
                       </>
                     ) : (
                       <span className="admin-err-inline">
-                        {r.title ? `Couldn’t read the date${r.raw ? ` “${r.raw}”` : ''}` : 'Missing title'} — will be skipped
+                        {r.title ? t('admin.schedule.rowBadDate', { raw: r.raw ? ` "${r.raw}"` : '' }) : t('admin.schedule.rowMissingTitle')} — {t('admin.schedule.rowWillSkip')}
                       </span>
                     )}
                   </div>
@@ -504,10 +506,10 @@ function CalendarAdmin() {
               onClick={confirmImport}
               disabled={okCount === 0}
             >
-              Add {okCount} event{okCount === 1 ? '' : 's'}
+              {t('admin.schedule.btnAddEvents', { count: okCount })}
             </button>
             <button type="button" className="admin-btn-ghost" onClick={cancelImport}>
-              Cancel
+              {t('admin.schedule.btnCancel')}
             </button>
           </div>
         </div>
@@ -517,17 +519,17 @@ function CalendarAdmin() {
       <div className="card">
         <div className="card-head">
           <div>
-            <h2>Events you&rsquo;ve added</h2>
+            <h2>{t('admin.schedule.eventsAddedHeading')}</h2>
           </div>
           <div className="admin-sched-filters">
             <div className="admin-sched-filter">
-              <label>Category</label>
+              <label>{t('admin.schedule.filterCategory')}</label>
               <Dropdown<'all' | EventKind>
                 value={filterKind}
                 onChange={setFilterKind}
-                ariaLabel="Filter by category"
+                ariaLabel={t('admin.schedule.ariaFilterCategory')}
                 options={[
-                  { value: 'all', label: `All (${stored.length})` },
+                  { value: 'all', label: `${t('admin.schedule.filterAll')} (${stored.length})` },
                   ...ALL_KINDS.map(k => ({
                     value: k as 'all' | EventKind,
                     label: `${KIND_LABEL[k]} (${kindCounts[k] || 0})`,
@@ -536,36 +538,36 @@ function CalendarAdmin() {
               />
             </div>
             <div className="admin-sched-filter">
-              <label>Time period</label>
+              <label>{t('admin.schedule.filterTimePeriod')}</label>
               <Dropdown<typeof filterPeriod>
                 value={filterPeriod}
                 onChange={setFilterPeriod}
-                ariaLabel="Filter by time period"
+                ariaLabel={t('admin.schedule.ariaFilterTimePeriod')}
                 options={[
-                  { value: 'all',        label: 'All time' },
-                  { value: 'upcoming',   label: 'Upcoming' },
-                  { value: 'week',       label: 'This week' },
-                  { value: 'month',      label: 'This month' },
-                  { value: 'past',       label: 'Past (all)' },
-                  { value: 'past-week',  label: 'Past week' },
-                  { value: 'past-month', label: 'Past month' },
-                  { value: 'past-year',  label: 'Past year' },
+                  { value: 'all',        label: t('admin.schedule.periodAllTime') },
+                  { value: 'upcoming',   label: t('admin.schedule.periodUpcoming') },
+                  { value: 'week',       label: t('admin.schedule.periodThisWeek') },
+                  { value: 'month',      label: t('admin.schedule.periodThisMonth') },
+                  { value: 'past',       label: t('admin.schedule.periodPastAll') },
+                  { value: 'past-week',  label: t('admin.schedule.periodPastWeek') },
+                  { value: 'past-month', label: t('admin.schedule.periodPastMonth') },
+                  { value: 'past-year',  label: t('admin.schedule.periodPastYear') },
                 ]}
               />
             </div>
           </div>
         </div>
         {stored.length === 0 ? (
-          <div className="admin-sched-empty">Nothing added yet. Add one above.</div>
+          <div className="admin-sched-empty">{t('admin.schedule.emptyNoneAdded')}</div>
         ) : visibleStored.length === 0 ? (
           <div className="admin-sched-empty">
-            No events match these filters.{' '}
+            {t('admin.schedule.emptyNoMatch')}{' '}
             <button
               type="button"
               className="admin-sched-empty-link"
               onClick={() => { setFilterKind('all'); setFilterPeriod('all') }}
             >
-              Show all
+              {t('admin.schedule.btnShowAll')}
             </button>
           </div>
         ) : (
@@ -598,6 +600,7 @@ function EventRow({
   onSave: (id: string, patch: Partial<EmptyForm>) => Promise<void>
   onDelete: (id: string) => void
 }) {
+  const t = useT()
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState<EmptyForm>({
@@ -635,8 +638,8 @@ function EventRow({
           </div>
         </div>
         <div className="admin-amen-row-actions">
-          <button className="admin-sched-row-del" onClick={startEdit} aria-label={`Edit ${event.title}`}>Edit</button>
-          <button className="admin-sched-row-del" onClick={() => onDelete(event.id)} aria-label={`Delete ${event.title}`}>Remove</button>
+          <button className="admin-sched-row-edit" onClick={startEdit} aria-label={t('admin.schedule.ariaEditEvent', { title: event.title })}>{t('admin.schedule.btnEdit')}</button>
+          <button className="admin-sched-row-del" onClick={() => onDelete(event.id)} aria-label={t('admin.schedule.ariaDeleteEvent', { title: event.title })}>{t('admin.schedule.btnRemove')}</button>
         </div>
       </div>
     )
@@ -647,40 +650,40 @@ function EventRow({
       <span className={`sched-dot kind-${form.kind}`} aria-hidden="true" />
       <form className="admin-form" style={{ flex: 1 }} onSubmit={e => { e.preventDefault(); save() }}>
         <label className="admin-field">
-          <span className="admin-field-label">Title</span>
+          <span className="admin-field-label">{t('admin.schedule.fieldTitle')}</span>
           <input className="admin-input" value={form.title} onChange={set('title')} required />
         </label>
         <div className="admin-field">
-          <span className="admin-field-label">Kind</span>
+          <span className="admin-field-label">{t('admin.schedule.fieldKind')}</span>
           <Dropdown<EventKind>
             value={form.kind}
             onChange={v => setForm(prev => ({ ...prev, kind: v }))}
             options={ALL_KINDS.map(k => ({ value: k, label: KIND_LABEL[k] }))}
-            ariaLabel="Event kind"
+            ariaLabel={t('admin.schedule.ariaEventKind')}
           />
         </div>
         <label className="admin-field">
-          <span className="admin-field-label">Date</span>
+          <span className="admin-field-label">{t('admin.schedule.fieldDate')}</span>
           <input className="admin-input" type="date" value={form.date} onChange={set('date')} required />
         </label>
         <label className="admin-field">
-          <span className="admin-field-label">Time <em>(optional)</em></span>
-          <input className="admin-input" value={form.time} onChange={set('time')} placeholder="7:00 PM, All day" />
+          <span className="admin-field-label">{t('admin.schedule.fieldTime')} <em>({t('admin.schedule.optional')})</em></span>
+          <input className="admin-input" value={form.time} onChange={set('time')} placeholder={t('admin.schedule.placeholderTimeShort')} />
         </label>
         <label className="admin-field">
-          <span className="admin-field-label">Vendor <em>(optional)</em></span>
+          <span className="admin-field-label">{t('admin.schedule.fieldVendor')} <em>({t('admin.schedule.optional')})</em></span>
           <input className="admin-input" value={form.vendor} onChange={set('vendor')} />
         </label>
         <label className="admin-field">
-          <span className="admin-field-label">Location <em>(optional)</em></span>
+          <span className="admin-field-label">{t('admin.schedule.fieldLocation')} <em>({t('admin.schedule.optional')})</em></span>
           <input className="admin-input" value={form.location} onChange={set('location')} />
         </label>
         <div className="card-cta" style={{ display: 'flex', gap: 10 }}>
           <button type="submit" className="admin-primary-btn" disabled={saving}>
-            {saving ? 'Saving…' : 'Save changes'}
+            {saving ? t('admin.schedule.btnSaving') : t('admin.schedule.btnSaveChanges')}
           </button>
           <button type="button" className="admin-btn-ghost" onClick={() => setEditing(false)} disabled={saving}>
-            Cancel
+            {t('admin.schedule.btnCancel')}
           </button>
         </div>
       </form>
@@ -689,7 +692,7 @@ function EventRow({
 }
 
 function BulkBox({
-  kind, title, sub, accept, file, note, noteTone = 'ok', onPick, onImport,
+  kind, title, sub, accept, file, note, noteTone = 'ok', onPick, onImport, onClear,
 }: {
   kind: 'pdf' | 'xls'
   title: string
@@ -700,7 +703,9 @@ function BulkBox({
   noteTone?: 'ok' | 'err'
   onPick: (e: ChangeEvent<HTMLInputElement>) => void
   onImport: () => void
+  onClear?: () => void
 }) {
+  const t = useT()
   const ref = useRef<HTMLInputElement | null>(null)
   return (
     <div className={`admin-bulk-box admin-bulk-${kind}`}>
@@ -722,7 +727,19 @@ function BulkBox({
       <div className="admin-bulk-body">
         <div className="admin-bulk-title">{title}</div>
         <div className="admin-bulk-sub">{sub}</div>
-        {file && <div className="admin-bulk-file">{file.name}</div>}
+        {file && (
+          <div className="admin-bulk-file admin-bulk-file-picked">
+            <span className="admin-bulk-file-name">{file.name}</span>
+            <button
+              type="button"
+              className="admin-bulk-file-x"
+              aria-label={t('admin.documents.removeFileAriaLabel')}
+              onClick={() => { if (ref.current) ref.current.value = ''; onClear?.() }}
+            >
+              &times;
+            </button>
+          </div>
+        )}
         {note && (
           <div
             className="admin-bulk-file"
@@ -747,7 +764,7 @@ function BulkBox({
             className="admin-btn-ghost"
             onClick={() => ref.current?.click()}
           >
-            {file ? 'Pick another file' : 'Choose file'}
+            {file ? t('admin.schedule.btnPickAnother') : t('admin.schedule.btnChooseFile')}
           </button>
           <button
             type="button"
@@ -755,7 +772,7 @@ function BulkBox({
             onClick={onImport}
             disabled={!file}
           >
-            Import
+            {t('admin.schedule.btnImport')}
           </button>
         </div>
       </div>

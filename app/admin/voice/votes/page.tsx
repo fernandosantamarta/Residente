@@ -2,15 +2,17 @@
 
 import { useState } from 'react'
 import { useAuth } from '@/app/providers'
+import { useT } from '@/lib/i18n'
 import { EasyVoiceTabs } from '../../EasyVoiceTabs'
 import { useCommunityVotes } from '@/hooks/useCommunityVotes'
-import { VoteForm, VoteRow } from '../page'
+import { VoteForm, VoteRow } from '../_votes'
 
 // Standalone Votes admin — votes are their own thing now, created and run
 // without a meeting (ev_votes.meeting_id stays null). Reuses VoteForm/VoteRow
 // from the meetings page; VoteRow's "Open vote" gate is relaxed when there's
 // no meeting status.
 export default function VotesAdmin() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const { votes, loading, error, reload } = useCommunityVotes()
   const [showForm, setShowForm] = useState(false)
@@ -21,15 +23,15 @@ export default function VotesAdmin() {
     <div className="admin-page cset">
       <EasyVoiceTabs active="votes" />
 
-      <div className="admin-section-head" style={{ marginTop: 18 }}>
-        <div>
-          <div className="admin-kicker">Easy Voice</div>
-          <h1 className="admin-h1">Votes</h1>
-          <p className="admin-dek">Create and run community votes — no meeting required.</p>
+      <div className="admin-section-head voice-votes-head" style={{ marginTop: 18 }}>
+        <div className="admin-kicker">Easy Voice</div>
+        <h1 className="admin-h1">{t('admin.voiceVotes.heading')}</h1>
+        <div className="vvh-dek-row">
+          <p className="admin-dek">{t('admin.voiceVotes.dek')}</p>
+          <button className="admin-primary-btn" onClick={() => { setEditing(null); setShowForm(v => !v) }}>
+            {showForm ? t('admin.voiceVotes.cancel') : t('admin.voiceVotes.newVote')}
+          </button>
         </div>
-        <button className="admin-primary-btn" onClick={() => { setEditing(null); setShowForm(v => !v) }}>
-          {showForm ? 'Cancel' : '+ New Vote'}
-        </button>
       </div>
 
       {showForm && !editing && (
@@ -54,16 +56,16 @@ export default function VotesAdmin() {
         </div>
       )}
 
-      {loading && <div className="admin-placeholder">Loading votes…</div>}
+      {loading && <div className="admin-placeholder">{t('admin.voiceVotes.loading')}</div>}
       {error && <div className="admin-err">{error}</div>}
 
       {!loading && !error && votes.length === 0 && !showForm && (
-        <div className="admin-placeholder">No votes yet. Create your first one above.</div>
+        <div className="admin-placeholder">{t('admin.voiceVotes.emptyState')}</div>
       )}
 
       {!loading && votes.length > 0 && (
         <div className="card">
-          <div className="card-head"><div><h2>Votes</h2><div className="sub">Open, close, tally, and publish community votes</div></div></div>
+          <div className="card-head"><div><h2>{t('admin.voiceVotes.listHeading')}</h2><div className="sub">{t('admin.voiceVotes.listSub')}</div></div></div>
           <div className="voice-vote-list">
             {votes.map(v => (
               <VoteRow key={v.id} vote={v} onChanged={reload} onEdit={(vote: any) => { setShowForm(false); setEditing(vote) }} />

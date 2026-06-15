@@ -13,6 +13,8 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
+import { useT } from '@/lib/i18n'
+import { Dropdown } from '@/components/Dropdown'
 import { AttorneyNote } from '../AttorneyNote'
 import { ComplianceBackLink } from '../ComplianceBackLink'
 import {
@@ -35,6 +37,7 @@ const KIND_META: Record<ComplianceEventKind, { label: string; regime: 'condo' | 
 }
 
 export default function AdvisoriesPage() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const [community, setCommunity] = useState<any>(null)
@@ -68,7 +71,7 @@ export default function AdvisoriesPage() {
       setProxies(p || [])
       setStatus('ready')
     } catch (err: any) {
-      setError(err?.message || 'Could not load advisories'); setStatus('error')
+      setError(err?.message || t('admin.advisories.errorLoad')); setStatus('error')
     }
   }, [communityId])
   useEffect(() => { load() }, [load])
@@ -80,6 +83,20 @@ export default function AdvisoriesPage() {
     [regime],
   )
 
+  // Translated KIND_META labels and help strings (hook-safe, inside component)
+  const kindLabel: Record<ComplianceEventKind, string> = {
+    turnover_trigger:        t('admin.advisories.kindLabelTurnoverTrigger'),
+    receivership_notice:     t('admin.advisories.kindLabelReceivership'),
+    invoice_delivery_change: t('admin.advisories.kindLabelInvoiceDelivery'),
+    tiered_report_petition:  t('admin.advisories.kindLabelTieredReport'),
+  }
+  const kindHelp: Record<ComplianceEventKind, string> = {
+    turnover_trigger:        t('admin.advisories.kindHelpTurnoverTrigger'),
+    receivership_notice:     t('admin.advisories.kindHelpReceivership'),
+    invoice_delivery_change: t('admin.advisories.kindHelpInvoiceDelivery'),
+    tiered_report_petition:  t('admin.advisories.kindHelpTieredReport'),
+  }
+
   // ---------- event intake ----------
   const [form, setForm] = useState<any>({})
   const setF = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }))
@@ -87,7 +104,7 @@ export default function AdvisoriesPage() {
 
   const createEvent = async (e: any) => {
     e.preventDefault()
-    if (!form.kind || !form.event_date) { setError('Pick an event type and a date.'); return }
+    if (!form.kind || !form.event_date) { setError(t('admin.advisories.errorPickKindDate')); return }
     setSaving(true); setError('')
     try {
       const insert = {
@@ -101,9 +118,9 @@ export default function AdvisoriesPage() {
       if (error) throw error
       if (ins?.id) await logAudit({ community_id: communityId!, event_type: 'advisory.event_recorded', target_type: 'compliance_event', target_id: ins.id, metadata: { kind: insert.kind } })
       setForm({})
-      setMsg('Event recorded.')
+      setMsg(t('admin.advisories.msgEventRecorded'))
       load()
-    } catch (err: any) { setError(err?.message || 'Could not record the event') }
+    } catch (err: any) { setError(err?.message || t('admin.advisories.errorRecord')) }
     finally { setSaving(false) }
   }
 
@@ -114,7 +131,7 @@ export default function AdvisoriesPage() {
       if (error) throw error
       await logAudit({ community_id: communityId!, event_type: 'advisory.event_resolved', target_type: 'compliance_event', target_id: id, metadata: { resolved } })
       load()
-    } catch (err: any) { setError(err?.message || 'Could not update the event') }
+    } catch (err: any) { setError(err?.message || t('admin.advisories.errorUpdate')) }
   }
 
   const deleteEvent = async (id: string) => {
@@ -122,19 +139,17 @@ export default function AdvisoriesPage() {
     try {
       const { error } = (await withTimeout(supabase.from('ev_compliance_events').delete().eq('id', id))) as any
       if (error) throw error
-      setMsg('Event removed.'); load()
-    } catch (err: any) { setError(err?.message || 'Could not remove the event') }
+      setMsg(t('admin.advisories.msgEventRemoved')); load()
+    } catch (err: any) { setError(err?.message || t('admin.advisories.errorRemove')) }
   }
 
   return (
     <div className="admin-page cset">
       <ComplianceBackLink />
-      <div className="admin-kicker">Florida compliance</div>
-      <h1 className="admin-h1">Advisories <span className="amp">&</span> event clocks</h1>
+      <div className="admin-kicker">{t('admin.advisories.kicker')}</div>
+      <h1 className="admin-h1">{t('admin.advisories.pageTitle')} <span className="amp">&</span> {t('admin.advisories.pageTitleSuffix')}</h1>
       <p className="admin-dek">
-        The long tail of Florida duties: developer turnover, board-vacancy receivership, invoice delivery-method
-        changes, the HOA tiered-report petition, and proxy expiry. Log the date an event happens and we track the
-        statutory clock; the standing rights below are reference only.
+        {t('admin.advisories.pageDek')}
       </p>
 
       <AttorneyNote />
@@ -142,42 +157,47 @@ export default function AdvisoriesPage() {
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
 
       {status === 'none' && (
-        <div className="admin-note admin-note-warn">No community is linked to your account yet. Run the setup SQL, then reload.</div>
+        <div className="admin-note admin-note-warn">{t('admin.advisories.noCommunity')}</div>
       )}
       {status === 'error' && (
-        <div className="admin-note admin-note-err">{error}<button type="button" className="admin-btn-ghost" onClick={load}>Retry</button></div>
+        <div className="admin-note admin-note-err">{error}<button type="button" className="admin-btn-ghost" onClick={load}>{t('admin.advisories.retry')}</button></div>
       )}
-      {status === 'loading' && <div className="admin-note">Loading…</div>}
+      {status === 'loading' && <div className="admin-note">{t('admin.advisories.loading')}</div>}
 
       {status === 'ready' && (
         <>
           {/* Event intake */}
           <div className="card">
-            <div className="card-head"><div><h2>Record an event</h2></div></div>
+            <div className="card-head"><div><h2>{t('admin.advisories.recordEventHeading')}</h2></div></div>
             <form className="admin-form" onSubmit={createEvent}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
-                <label className="admin-field"><span className="admin-field-label">Event type</span>
-                  <select className="admin-input" value={form.kind ?? ''} onChange={e => setF('kind', e.target.value)}>
-                    <option value="">— choose —</option>
-                    {kindOptions.map(k => <option key={k} value={k}>{KIND_META[k].label}</option>)}
-                  </select></label>
-                <label className="admin-field"><span className="admin-field-label">Event date</span>
+                <div className="admin-field"><span className="admin-field-label">{t('admin.advisories.fieldEventType')}</span>
+                  <Dropdown<string>
+                    value={form.kind ?? ''}
+                    onChange={v => setF('kind', v)}
+                    ariaLabel={t('admin.advisories.fieldEventType')}
+                    options={[
+                      { value: '', label: t('admin.advisories.selectPlaceholder') },
+                      ...kindOptions.map(k => ({ value: k, label: kindLabel[k] })),
+                    ]}
+                  /></div>
+                <label className="admin-field"><span className="admin-field-label">{t('admin.advisories.fieldEventDate')}</span>
                   <input className="admin-input" type="date" value={form.event_date ?? ''} onChange={e => setF('event_date', e.target.value)} /></label>
-                <label className="admin-field"><span className="admin-field-label">Notes</span>
+                <label className="admin-field"><span className="admin-field-label">{t('admin.advisories.fieldNotes')}</span>
                   <input className="admin-input" value={form.notes ?? ''} onChange={e => setF('notes', e.target.value)} /></label>
               </div>
-              {form.kind && <div style={{ fontSize: 12.5, opacity: 0.7, marginTop: 6 }}>{KIND_META[form.kind as ComplianceEventKind]?.help}</div>}
+              {form.kind && <div style={{ fontSize: 12.5, opacity: 0.7, marginTop: 6 }}>{kindHelp[form.kind as ComplianceEventKind]}</div>}
               <div className="card-cta">
                 {error && <span className="admin-err-inline">{error}</span>}
-                <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Saving…' : 'Record event'}</button>
+                <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? t('admin.advisories.saving') : t('admin.advisories.recordEventBtn')}</button>
               </div>
             </form>
           </div>
 
           {/* Event list */}
           <div className="card">
-            <div className="card-head"><div><h2>Tracked events <span style={{ opacity: 0.55, fontWeight: 400 }}>({events.length})</span></h2></div></div>
-            {events.length === 0 && <div className="admin-note">No events recorded. Log a turnover, receivership notice, delivery-method change, or petition above to start a clock.</div>}
+            <div className="card-head"><div><h2>{t('admin.advisories.trackedEventsHeading')} <span style={{ opacity: 0.55, fontWeight: 400 }}>({events.length})</span></h2></div></div>
+            {events.length === 0 && <div className="admin-note">{t('admin.advisories.noEvents')}</div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {events.map(ev => {
               const meta = KIND_META[String(ev.kind) as ComplianceEventKind]
@@ -186,14 +206,14 @@ export default function AdvisoriesPage() {
                 <div key={ev.id} style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${resolved ? '#067647' : '#C2410C'}`, borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: 15 }}>{meta?.label || String(ev.kind)}</div>
+                      <div style={{ fontWeight: 700, fontSize: 15 }}>{kindLabel[String(ev.kind) as ComplianceEventKind] || String(ev.kind)}</div>
                       <div style={{ fontSize: 12.5, opacity: 0.75, marginTop: 2 }}>
-                        Event {ev.event_date}{resolved ? ` · resolved ${ev.resolved_at}` : ''}{ev.notes ? ` · ${ev.notes}` : ''}
+                        {t('admin.advisories.eventSubtitle', { date: ev.event_date })}{resolved ? ` · ${t('admin.advisories.eventResolved', { date: ev.resolved_at ?? '' })}` : ''}{ev.notes ? ` · ${ev.notes}` : ''}
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
-                      <button className="admin-btn-ghost" onClick={() => resolveEvent(ev.id, !resolved)}>{resolved ? 'Reopen' : 'Mark resolved'}</button>
-                      <button className="admin-btn-ghost" onClick={() => deleteEvent(ev.id)} style={{ color: '#B42318' }}>Remove</button>
+                      <button className="admin-btn-ghost" onClick={() => resolveEvent(ev.id, !resolved)}>{resolved ? t('admin.advisories.reopen') : t('admin.advisories.markResolved')}</button>
+                      <button className="admin-btn-ghost" onClick={() => deleteEvent(ev.id)} style={{ color: '#B42318' }}>{t('admin.advisories.remove')}</button>
                     </div>
                   </div>
                 </div>
@@ -204,48 +224,45 @@ export default function AdvisoriesPage() {
 
           {/* Proxy expiry */}
           <div className="card">
-            <div className="card-head"><div><h2>Proxy expiry</h2></div></div>
+            <div className="card-head"><div><h2>{t('admin.advisories.proxyExpiryHeading')}</h2></div></div>
             <div className="admin-note" style={{ fontSize: 13 }}>
               {stale.length === 0
-                ? `No open proxies older than ${PROXY_EXPIRY_DAYS.value} days.`
-                : `${stale.length} open prox${stale.length === 1 ? 'y appears' : 'ies appear'} to have expired — a proxy is generally valid only for its meeting and (HOA) expires ${PROXY_EXPIRY_DAYS.value} days after it (FS 720.306(8) / 718.112(2)(b)). Clear or archive them in Easy Voice.`}
+                ? t('admin.advisories.proxyNone', { days: PROXY_EXPIRY_DAYS.value })
+                : t('admin.advisories.proxySome', { count: stale.length, days: PROXY_EXPIRY_DAYS.value })}
             </div>
           </div>
 
           {/* Standing-right reference */}
           <div className="card">
-            <div className="card-head"><div><h2>Standing rights <span className="amp">&</span> processes <span style={{ opacity: 0.55, fontWeight: 400 }}>(reference)</span></h2></div></div>
+            <div className="card-head"><div><h2>{t('admin.advisories.standingRightsHeading')} <span className="amp">&</span> {t('admin.advisories.standingRightsSuffix')} <span style={{ opacity: 0.55, fontWeight: 400 }}>({t('admin.advisories.reference')})</span></h2></div></div>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 10 }}>
-            <RefCard title="Board-vacancy receivership" cite="FS 718.1124 / 720.3053">
-              If the board cannot fill vacancies to make a quorum, an owner/member may serve a notice of intent and,
-              after a {RECEIVERSHIP_CURE_DAYS.value}-day cure window, petition a circuit court to appoint a receiver.
-              There is no notice to the Division. Log the notice date above to track the cure window.
+            <RefCard title={t('admin.advisories.refReceivership')} cite="FS 718.1124 / 720.3053">
+              {t('admin.advisories.refReceivershipBody', { days: RECEIVERSHIP_CURE_DAYS.value })}
             </RefCard>
             {regime === 'condo' && (
-              <RefCard title="EV & natural-gas charging right" cite={EV_CHARGING_RIGHT_NOTE.citation}>
+              <RefCard title={t('admin.advisories.refEvCondo')} cite={EV_CHARGING_RIGHT_NOTE.citation}>
                 {EV_CHARGING_RIGHT_NOTE.value}
               </RefCard>
             )}
             {regime === 'hoa' && (
-              <RefCard title="No statutory EV-charging right (HOA)" cite="FS 720.3075">
-                Unlike condominiums (FS 718.113(8)), Chapter 720 grants HOA owners no statutory EV/natural-gas
-                charging-station right — it is governed by the recorded covenants and architectural review.
+              <RefCard title={t('admin.advisories.refEvHoa')} cite="FS 720.3075">
+                {t('admin.advisories.refEvHoaBody')}
               </RefCard>
             )}
-            <RefCard title="Presuit mediation / arbitration" cite={PRESUIT_ADR_NOTE.citation}>
-              {PRESUIT_ADR_NOTE.value} This is a process reminder, not a deadline.
+            <RefCard title={t('admin.advisories.refPresuit')} cite={PRESUIT_ADR_NOTE.citation}>
+              {PRESUIT_ADR_NOTE.value} {t('admin.advisories.refPresuitSuffix')}
             </RefCard>
             </div>
           </div>
 
           {/* Documents */}
           <div className="card">
-            <div className="card-head"><div><h2>Documents</h2><div className="sub">Generate or view each advisory artifact</div></div></div>
+            <div className="card-head"><div><h2>{t('admin.advisories.documentsHeading')}</h2><div className="sub">{t('admin.advisories.documentsSub')}</div></div></div>
             <div className="wslist">
               {[
-                { type: 'turnover_checklist', label: regime === 'hoa' ? 'Developer-turnover document checklist' : 'Turnover transition summary', live: false },
-                { type: 'receivership_notice', label: 'Receivership notice of intent', live: false },
-                { type: 'mediation_demand', label: 'Presuit mediation demand', live: false },
+                { type: 'turnover_checklist', label: regime === 'hoa' ? t('admin.advisories.docTurnoverHoa') : t('admin.advisories.docTurnoverCondo'), live: false },
+                { type: 'receivership_notice', label: t('admin.advisories.docReceivership'), live: false },
+                { type: 'mediation_demand', label: t('admin.advisories.docMediation'), live: false },
               ].map(d => {
                 const col = d.live ? '#0E7490' : '#7A5AF8'
                 return (
@@ -255,7 +272,7 @@ export default function AdvisoriesPage() {
                     </span>
                     <div className="wsrow-main">
                       <div className="wsrow-title">{d.label}</div>
-                      <div className="wsrow-desc">Draft template</div>
+                      <div className="wsrow-desc">{t('admin.advisories.draftTemplate')}</div>
                     </div>
                     <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
                   </Link>

@@ -10,6 +10,7 @@ import { useDocuments } from '@/hooks/useDocuments'
 import { supabase } from '@/lib/supabase'
 import { DetailDialog } from '../track/_sections/DetailDialog'
 import { ContestFineControl } from '../track/_sections/ContestFineControl'
+import { Dropdown } from '@/components/Dropdown'
 import { useT } from '@/lib/i18n'
 
 // ─── shared helpers ────────────────────────────────────────────────────────
@@ -266,6 +267,8 @@ export default function EasyDocs() {
   // In-place popups: a single document detail + the "View all" lists.
   const [docDetail, setDocDetail] = useState<{ title: string; category?: string; date?: string; size?: string; doc?: any } | null>(null)
   const [listOpen, setListOpen] = useState<null | 'pinned' | 'recent' | 'popular'>(null)
+  const [catOpen, setCatOpen] = useState(false)       // phone-only "all doc categories" popup
+  const [ruleCatOpen, setRuleCatOpen] = useState(false)   // phone-only "all rule categories" popup
 
   async function openDoc(doc: any) {
     setBusy(doc.id); setDocError('')
@@ -316,7 +319,9 @@ export default function EasyDocs() {
         <h1 className="voice-page-title">Easy Documents</h1>
         <p className="voice-page-sub">{t('documents.hubSub')}</p>
       </div>
-      <SegTabs tabs={DOC_TABS} active={tab} onChange={setTab} ariaLabel={t('documents.sectionsAria')} />
+      <div className="track-segtabs">
+        <SegTabs tabs={DOC_TABS} active={tab} onChange={setTab} ariaLabel={t('documents.sectionsAria')} />
+      </div>
 
       {/* ════════════════════════════════════════════════════════════════
           RULES SECTION
@@ -333,16 +338,27 @@ export default function EasyDocs() {
             </div>
           </section>
 
-          <div className="rb-search">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
-            </svg>
-            <input
-              name="rules-search"
-              type="search"
-              value={ruleSearch}
-              onChange={e => setRuleSearch(e.target.value)}
-              placeholder={t('documents.rulesSearchPlaceholder')}
+          <div className="rb-toolbar">
+            <div className="rb-search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+              </svg>
+              <input
+                name="rules-search"
+                type="search"
+                value={ruleSearch}
+                onChange={e => setRuleSearch(e.target.value)}
+                placeholder={t('documents.rulesSearchPlaceholder')}
+              />
+            </div>
+            <Dropdown<string>
+              value={activeCategory}
+              onChange={v => setActiveCategory(v)}
+              ariaLabel={t('documents.allRules')}
+              options={[
+                { value: 'all', label: t('documents.allRules') },
+                ...sections.map(name => ({ value: name, label: name })),
+              ]}
             />
           </div>
 
@@ -433,21 +449,32 @@ export default function EasyDocs() {
                       )
                     }
                     return (
-                      <div className="rb-cat-list">
-                        {cardCategories.map(name => {
-                          const count = filteredBySection[name]?.length || 0
-                          return (
-                            <button key={name} className="rb-cat-card" onClick={() => setActiveCategory(name)}>
-                              <span className="rb-cat-card-icon"><CatIconRules name={iconFor(name)} /></span>
-                              <span className="rb-cat-card-body">
-                                <span className="rb-cat-card-title">{name}</span>
-                                <span className="rb-cat-card-desc">{describeSection(name, count, t)}</span>
-                              </span>
-                              <span className="rb-cat-card-count">{count} {count === 1 ? t('documents.ruleSingular') : t('documents.rulePlural')}</span>
-                            </button>
-                          )
-                        })}
-                      </div>
+                      <>
+                        {/* Desktop shows every category card. On phones CSS caps
+                            this at the first 3 and the "More" link reveals the
+                            rest in a popup. */}
+                        <div className="rb-cat-list">
+                          {cardCategories.map(name => {
+                            const count = filteredBySection[name]?.length || 0
+                            return (
+                              <button key={name} className="rb-cat-card" onClick={() => setActiveCategory(name)}>
+                                <span className="rb-cat-card-icon"><CatIconRules name={iconFor(name)} /></span>
+                                <span className="rb-cat-card-body">
+                                  <span className="rb-cat-card-title">{name}</span>
+                                  <span className="rb-cat-card-desc">{describeSection(name, count, t)}</span>
+                                </span>
+                                <span className="rb-cat-card-count">{count} {count === 1 ? t('documents.ruleSingular') : t('documents.rulePlural')}</span>
+                              </button>
+                            )
+                          })}
+                        </div>
+                        {cardCategories.length > 3 && (
+                          <button type="button" className="rb-cat-more" onClick={() => setRuleCatOpen(true)}>
+                            {t('documents.moreCategories')}
+                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                          </button>
+                        )}
+                      </>
                     )
                   })() : (
                     <div className="rb-active-section">
@@ -556,24 +583,35 @@ export default function EasyDocs() {
                 placeholder={t('documents.docsSearchPlaceholder')}
               />
             </div>
-            <select name="doc-category" className="doc-select" value={docFilterCategory}
-              onChange={e => setDocFilterCategory(e.target.value)}>
-              <option value="all">{t('documents.allCategories')}</option>
-              {CATEGORY_GRID.map(c => (
-                <option key={c.key} value={c.label}>{t(`documents.cat_${c.key}_label`)}</option>
-              ))}
-            </select>
-            <select name="doc-period" className="doc-select rsv-web" value={docFilterPeriod}
-              onChange={e => setDocFilterPeriod(e.target.value as any)}>
-              <option value="recent">{t('documents.recentlyUpdated')}</option>
-              <option value="oldest">{t('documents.oldestFirst')}</option>
-            </select>
+            <Dropdown<string>
+              value={docFilterCategory}
+              onChange={v => setDocFilterCategory(v)}
+              ariaLabel={t('documents.allCategories')}
+              options={[
+                { value: 'all', label: t('documents.allCategories') },
+                ...CATEGORY_GRID.map(c => ({ value: c.label, label: t(`documents.cat_${c.key}_label`) })),
+              ]}
+            />
+            <div className="rsv-web">
+              <Dropdown<string>
+                value={docFilterPeriod}
+                onChange={v => setDocFilterPeriod(v as any)}
+                ariaLabel={t('documents.recentlyUpdated')}
+                options={[
+                  { value: 'recent', label: t('documents.recentlyUpdated') },
+                  { value: 'oldest', label: t('documents.oldestFirst') },
+                ]}
+              />
+            </div>
           </div>
 
           <div className="doc-rows">
             <div className="doc-row">
               <section className="doc-card">
                 <h2 className="doc-card-title">{t('documents.documentCategories')}</h2>
+                {/* Desktop shows the full grid. On phones, CSS hides everything
+                    past the first 4 cards and the "More" link below reveals the
+                    rest in a popup. */}
                 <div className="doc-cat-grid">
                   {CATEGORY_GRID.map(c => {
                     const count = categoryCounts[c.label.toLowerCase()] || 0
@@ -590,6 +628,10 @@ export default function EasyDocs() {
                     )
                   })}
                 </div>
+                <button type="button" className="doc-cat-more" onClick={() => setCatOpen(true)}>
+                  {t('documents.moreCategories')}
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
               </section>
 
               <section className="doc-card">
@@ -743,12 +785,12 @@ export default function EasyDocs() {
             </div>
           </section>
           <MyViolationsPanel />
-          <Link href="/app/enforcement" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginTop: 14, padding: '14px 16px', borderRadius: 12, border: '1px solid rgba(10,36,64,0.1)', background: '#fff', textDecoration: 'none', color: '#0A2440' }}>
-            <span>
-              <span style={{ display: 'block', fontWeight: 700, fontSize: 14 }}>Hearings &amp; suspensions</span>
-              <span style={{ display: 'block', fontSize: 12.5, color: 'rgba(10,36,64,0.6)', marginTop: 2 }}>See any hearing on a proposed fine, and any voting or use-rights suspension on your account.</span>
+          <Link href="/app/enforcement" className="myv-link">
+            <span className="myv-link-body">
+              <span className="myv-link-title">Hearings &amp; suspensions</span>
+              <span className="myv-link-sub">See any hearing on a proposed fine, and any voting or use-rights suspension on your account.</span>
             </span>
-            <span style={{ color: '#E14909', fontWeight: 700, whiteSpace: 'nowrap' }}>Open &rarr;</span>
+            <span className="myv-link-open">Open &rarr;</span>
           </Link>
         </div>
       </section>
@@ -816,6 +858,63 @@ export default function EasyDocs() {
           </div>
         </DetailDialog>
       )}
+
+      {/* Phone-only: all document categories (the home grid shows just 4). */}
+      {catOpen && (
+        <DetailDialog
+          eyebrow={t('documents.documentsEyebrow')}
+          title={t('documents.documentCategories')}
+          size="wide"
+          onClose={() => setCatOpen(false)}
+        >
+          <div className="rd-list">
+            {CATEGORY_GRID.map(c => {
+              const count = categoryCounts[c.label.toLowerCase()] || 0
+              return (
+                <button type="button" className="rd-list-row" key={c.key}
+                  onClick={() => { setCatOpen(false); setDocFilterCategory(c.label) }}>
+                  <span className="doc-cat-icon"><DocCatIcon name={c.key} /></span>
+                  <span className="rd-list-body">
+                    <span className="rd-list-title">{t(`documents.cat_${c.key}_label`)}</span>
+                    <span className="rd-list-meta">
+                      {t(`documents.cat_${c.key}_desc`)}
+                      {count > 0 ? ` · ${count} ${count === 1 ? t('documents.docSingular') : t('documents.docPlural')}` : ''}
+                    </span>
+                  </span>
+                  <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+              )
+            })}
+          </div>
+        </DetailDialog>
+      )}
+
+      {/* Phone-only: all rule categories (the Rules grid shows just 3). */}
+      {ruleCatOpen && (
+        <DetailDialog
+          eyebrow={t('documents.tabRules')}
+          title={t('documents.browseByCategory')}
+          size="wide"
+          onClose={() => setRuleCatOpen(false)}
+        >
+          <div className="rd-list">
+            {sections.map(name => {
+              const count = bySection[name]?.length || 0
+              return (
+                <button type="button" className="rd-list-row" key={name}
+                  onClick={() => { setRuleCatOpen(false); setActiveCategory(name) }}>
+                  <span className="rb-cat-card-icon"><CatIconRules name={iconFor(name)} /></span>
+                  <span className="rd-list-body">
+                    <span className="rd-list-title">{name}</span>
+                    <span className="rd-list-meta">{count} {count === 1 ? t('documents.ruleSingular') : t('documents.rulePlural')}</span>
+                  </span>
+                  <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+              )
+            })}
+          </div>
+        </DetailDialog>
+      )}
     </div>
   )
 }
@@ -868,6 +967,18 @@ function MyViolationsPanel() {
     return v.resolution || t('documents.statusClosed')   // demo strings (e.g. "Resolved")
   }
 
+  // A fine awaiting the committee's ruling on a contest.
+  const underReview = (v: any) =>
+    v.status === 'appealed' || v.dispute_status === 'filed' || v.dispute_status === 'under_review'
+
+  // The status pill text + tone (drives its colour) for a violation.
+  const statusLabel = (v: any): string =>
+    v.status === 'closed' ? resolvedLabel(v)
+    : underReview(v) ? t('documents.statusUnderReview')
+    : t('documents.statusOpen')
+  const statusTone = (v: any): string =>
+    isPaid(v) ? 'paid' : v.status === 'closed' ? 'closed' : underReview(v) ? 'review' : 'open'
+
   const onPay = async (v: any) => {
     setPayError(null)
     setPayingId(v.id)
@@ -886,35 +997,44 @@ function MyViolationsPanel() {
         <div className="doc-empty">{t('documents.noViolations')}</div>
       ) : (
         <div className="myv-list">
-          {shown.map(v => (
-            <div className="myv-row" key={v.id}>
-              <span className={`myv-tag myv-tag-${v.kind}`}>{v.kind === 'fine' ? t('documents.tagFine') : t('documents.tagWarning')}</span>
-              <div className="myv-body">
-                <div className="myv-title">
-                  {v.rule_title || t('documents.communityRule')}
-                  {v.amount != null && <span className="myv-amt"> · ${v.amount}</span>}
+          {shown.map(v => {
+            const isFine = v.kind === 'fine'
+            const canContest = isReal && isFine && v.status !== 'closed'
+            const hasActions = payable(v) || canContest
+            return (
+              <div className="myv-card" key={v.id}>
+                <div className="myv-card-top">
+                  <div className="myv-tags">
+                    <span className={`myv-tag myv-tag-${v.kind}`}>{isFine ? t('documents.tagFine') : t('documents.tagWarning')}</span>
+                    <span className={`myv-status myv-status-${statusTone(v)}`}>{statusLabel(v)}</span>
+                  </div>
+                  {isFine && v.amount != null && Number(v.amount) > 0 && (
+                    <div className="myv-amt">{fmtMoney(payAmount(v))}</div>
+                  )}
                 </div>
-                <div className="myv-meta">{v.status === 'closed' ? resolvedLabel(v) : v.status} · {fmtDate(v.opened_at)}</div>
-                {v.notes && <div className="myv-meta">{v.notes}</div>}
-              </div>
-              <div className="myv-actions">
-                {payable(v) && (
-                  <button
-                    type="button"
-                    className="myv-pay-btn"
-                    onClick={() => onPay(v)}
-                    disabled={payingId === v.id}
-                  >
-                    {payingId === v.id ? t('documents.payingFine') : t('documents.payFine', { amount: fmtMoney(payAmount(v)) })}
-                  </button>
+                <div className="myv-title">{v.rule_title || t('documents.communityRule')}</div>
+                <div className="myv-meta">{t('documents.openedOn', { date: fmtDate(v.opened_at) })}</div>
+                {v.notes && <p className="myv-note">{v.notes}</p>}
+                {hasActions && (
+                  <div className="myv-actions">
+                    {payable(v) && (
+                      <button
+                        type="button"
+                        className="myv-pay-btn"
+                        onClick={() => onPay(v)}
+                        disabled={payingId === v.id}
+                      >
+                        {payingId === v.id ? t('documents.payingFine') : t('documents.payFine', { amount: fmtMoney(payAmount(v)) })}
+                      </button>
+                    )}
+                    {canContest && (
+                      <ContestFineControl violation={v} className="myv-pay-btn myv-contest-btn" />
+                    )}
+                  </div>
                 )}
-                {isPaid(v) && <span className="myv-paid">✓ {t('documents.statusPaid')}</span>}
-                {isReal && v.kind === 'fine' && v.status !== 'closed' && (
-                  <ContestFineControl violation={v} className="myv-pay-btn myv-contest-btn" />
-                )}
               </div>
-            </div>
-          ))}
+            )
+          })}
           {pages > 1 && (
             <div className="con-pager">
               <button type="button" className="con-pager-btn" onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0}>&lsaquo; {t('documents.prev')}</button>

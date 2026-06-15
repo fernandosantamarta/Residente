@@ -1,13 +1,188 @@
 <!doctype html>
 <html lang="en"><head>
-<meta charset="utf-8"/><meta name="viewport" content="width=device-width, initial-scale=1"/><meta name="robots" content="noindex"/>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<meta name="robots" content="noindex"/>
 <title>Residente Admin · Community (mock)</title>
-<link rel="stylesheet" href="admin-mock.css"/>
+<style>
+/* ============================================================
+   Community settings — faithful mock of the LIVE admin page.
+   Mirrors app/admin/community/page.tsx + the .cset / sketch-theme
+   tokens from app/admin.css. Self-contained (no shared mock sheet)
+   so it renders exactly like production. Not wired to data.
+   ============================================================ */
+:root {
+  --bg:            #FFF5EC;   /* warm cream page */
+  --bg-elev:       #FFFFFF;
+  --bg-card:       #FFFFFF;
+  --text:          #2A1206;   /* dark brown ink */
+  --text-dim:      rgba(42, 18, 6, 0.58);
+  --text-faint:    rgba(42, 18, 6, 0.42);
+  --border:        rgba(42, 18, 6, 0.10);
+  --border-hover:  rgba(42, 18, 6, 0.22);
+  --pink:          #E14909;   /* signup orange */
+  --grad:          #E14909;
+  --due:           #C2360A;
+  --due-soft:      rgba(194, 54, 10, 0.30);
+  --fill:          #FBF7F1;   /* warm input fill */
+  --fill-hover:    #F6EEE4;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0; min-height: 100vh; background: var(--bg); color: var(--text);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ── Top bar + nav (kept so the mock stays navigable in the set) ── */
+.bar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 32px; border-bottom: 1px solid var(--border); background: var(--bg-elev);
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 16px; }
+.brand-chip {
+  width: 28px; height: 28px; border-radius: 8px; background: var(--pink);
+  display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 14px;
+}
+.bar-right { display: flex; align-items: center; gap: 18px; font-size: 13px; }
+.bar-link { color: var(--text-dim); text-decoration: none; font-weight: 600; }
+.back { color: var(--text-dim); text-decoration: none; }
+.nav {
+  display: flex; gap: 4px; padding: 0 24px; border-bottom: 1px solid var(--border);
+  background: var(--bg-elev); overflow-x: auto;
+}
+.nav a {
+  padding: 13px 14px; font-size: 13.5px; font-weight: 600; color: var(--text-dim);
+  text-decoration: none; border-bottom: 2px solid transparent; white-space: nowrap;
+}
+.nav a:hover { color: var(--text); }
+.nav a.active { color: var(--pink); border-bottom-color: var(--pink); }
+.nav a.plat { margin-left: auto; color: var(--text-faint); }
+
+/* ── Page shell ── */
+.page { max-width: 940px; margin: 0 auto; padding: 40px 32px 64px; }
+.kicker {
+  font-size: 11px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+  color: var(--pink); margin-bottom: 10px;
+}
+h1 { font-size: 32px; font-weight: 600; letter-spacing: -0.6px; margin: 0 0 10px; }
+.dek { font-size: 15px; color: var(--text-dim); line-height: 1.6; max-width: 620px; margin: 0 0 24px; }
+
+/* ── Success banner (live shows this after Save) ── */
+.success {
+  display: flex; align-items: center; gap: 10px; padding: 10px 16px;
+  background: rgba(225, 73, 9, 0.10); border: 1px solid rgba(225, 73, 9, 0.40);
+  border-radius: 12px; color: #9B3A0B; font-size: 13px; font-weight: 600; margin-bottom: 18px;
+}
+.success-check {
+  display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px;
+  background: #E14909; color: #fff; border-radius: 50%; font-size: 13px; font-weight: 800; flex-shrink: 0;
+}
+
+/* ── Cards ── */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+.card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: 18px;
+  padding: 22px 24px; box-shadow: 0 1px 2px rgba(42, 18, 6, 0.05); margin-bottom: 18px;
+}
+.grid2 > .card { display: flex; flex-direction: column; margin-bottom: 0; }
+.grid2 > .card .card-cta { margin-top: auto; padding-top: 22px; }
+.card-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; margin-bottom: 18px;
+}
+.card-head h2 {
+  margin: 0; font-family: 'Fraunces', Georgia, serif; font-weight: 500;
+  font-size: 20px; letter-spacing: -0.01em;
+}
+.card-head .sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; line-height: 1.5; }
+
+/* ── Fields ── */
+.field { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
+.field:last-of-type { margin-bottom: 0; }
+.grid2-inner { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid2-inner .field { margin-bottom: 0; }
+.field-label {
+  font-size: 12px; font-weight: 600; letter-spacing: 0.02em; color: var(--text-dim);
+}
+.input-wrap { display: flex; align-items: center; }
+.input {
+  height: 42px; width: 100%; padding: 0 13px;
+  background: var(--fill); border: 1px solid transparent; border-radius: 10px;
+  color: var(--text); font-family: inherit; font-size: 14px; font-weight: 500;
+  outline: none; transition: background 0.12s, border-color 0.12s, box-shadow 0.12s;
+}
+.input::placeholder { color: var(--text-faint); font-weight: 400; }
+.input:hover { background: var(--fill-hover); }
+.input:focus { background: #fff; border-color: var(--pink); box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.14); }
+.input-prefix {
+  height: 42px; padding: 0 11px; display: flex; align-items: center;
+  background: var(--fill); border: 1px solid transparent; border-right: none;
+  border-radius: 10px 0 0 10px; color: var(--text-dim); font-size: 14px;
+}
+.input-prefix + .input { border-radius: 0 10px 10px 0; }
+.dd {
+  height: 42px; padding: 0 13px; display: flex; align-items: center; justify-content: space-between;
+  background: var(--fill); border: 1px solid transparent; border-radius: 10px;
+  font-size: 14px; font-weight: 500; color: var(--text); cursor: pointer;
+}
+.dd svg { color: var(--text-dim); }
+.field-hint { font-size: 12px; color: var(--text-faint); line-height: 1.5; margin-top: 5px; }
+
+/* ── Stat tiles (dues card) ── */
+.stats { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+.stat { background: var(--bg); border: 1px solid var(--border); border-radius: 14px; padding: 15px 16px; }
+.stat .v { font-size: 25px; font-weight: 700; letter-spacing: -0.5px; }
+.stat .l {
+  font-size: 11.5px; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+  color: var(--text-faint); margin-top: 5px;
+}
+
+/* ── Buttons ── */
+.card-cta { margin-top: 18px; display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
+.btn {
+  padding: 10px 22px; background: #E14909; color: #fff; border: none; border-radius: 999px;
+  font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: background 0.15s;
+}
+.btn:hover { background: #C53D06; }
+
+/* ── Operating budget link row ── */
+.wslist {}
+.wsrow {
+  display: flex; align-items: center; gap: 14px; padding: 14px 2px;
+  text-decoration: none; color: inherit;
+}
+.wsrow-glyph { width: 36px; height: 36px; flex-shrink: 0; border-radius: 10px; display: grid; place-items: center; }
+.wsrow-main { flex: 1; min-width: 0; }
+.wsrow-title { font-size: 14.5px; font-weight: 600; color: var(--text); }
+.wsrow-desc { font-size: 12.5px; color: var(--text-dim); line-height: 1.45; margin-top: 2px; }
+.wsrow-arrow { flex-shrink: 0; color: var(--text-faint); font-weight: 700; transition: transform 0.12s, color 0.12s; }
+.wsrow:hover .wsrow-arrow { color: var(--pink); transform: translateX(2px); }
+.wsrow:hover .wsrow-title { color: var(--pink); }
+
+/* ── Danger zone ── */
+.danger-card .card-head { margin-bottom: 0; align-items: center; }
+.danger-link { color: #E5601F; font-weight: 700; text-decoration: none; }
+.danger-btn {
+  flex-shrink: 0; padding: 10px 18px; border-radius: 999px; border: 1px solid #c5341a;
+  background: #fff; color: #c5341a; font-weight: 700; font-size: 13.5px; cursor: pointer; font-family: inherit;
+}
+.danger-btn:hover { background: #fff5f3; }
+
+.note { font-size: 12px; color: var(--text-faint); margin-top: 24px; text-align: center; }
+
+@media (max-width: 780px) {
+  .grid2, .grid2-inner { grid-template-columns: 1fr; }
+}
+</style>
 </head><body>
 
 <div class="bar">
-  <div class="brand"><span class="brand-chip"><img src="../residente-logo.png" alt="Residente"/></span>Residente</div>
-  <div class="bar-right"><div class="viewas"><span class="viewas-lbl">View as</span><button data-view="founder">Founder</button><button data-view="onboarding">Onboarding</button><button data-view="support">Support</button><button data-view="billing">Billing</button><button data-view="client">Client</button></div><a class="bar-link" href="support.html">Contact Residente</a><a class="back" href="#">&larr; Back to app</a></div>
+  <div class="brand"><span class="brand-chip">R</span>Residente</div>
+  <div class="bar-right">
+    <a class="bar-link" href="support.html">Contact Residente</a>
+    <a class="back" href="#">&larr; Back to app</a>
+  </div>
 </div>
 <nav class="nav">
   <a href="index.html">Overview</a>
@@ -27,52 +202,98 @@
   <h1>Community settings</h1>
   <p class="dek">Your association&rsquo;s details, dues, and operating budget. Changes here flow to every resident&rsquo;s cockpit.</p>
 
+  <div class="success" role="status"><span class="success-check">&#10003;</span>Community settings saved.</div>
+
   <div class="grid2">
+    <!-- Association details -->
     <div class="card">
       <div class="card-head"><div><h2>Association details</h2><div class="sub">Shown across the app</div></div></div>
-      <div class="field"><span class="l">Community name</span><input class="inp" value="Palm Grove"/></div>
-      <div class="field"><span class="l">Location</span><input class="inp" value="Miami, FL"/></div>
-      <div class="grid2" style="gap:12px">
-        <div class="field"><span class="l">Type</span><div class="dd">Homeowners (Ch. 720)<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg></div></div>
-        <div class="field"><span class="l">Homes</span><input class="inp" value="120"/></div>
+      <label class="field"><span class="field-label">Community name</span><div class="input-wrap"><input class="input" value="Sunset Lakes"/></div></label>
+      <label class="field"><span class="field-label">Location</span><div class="input-wrap"><input class="input" value="Miramar, FL"/></div></label>
+      <div class="grid2-inner">
+        <label class="field"><span class="field-label">Type</span>
+          <div class="dd">Homeowners (Ch. 720)<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="6 9 12 15 18 9"/></svg></div>
+        </label>
+        <label class="field"><span class="field-label">Homes / units</span><div class="input-wrap"><input class="input" value="120"/></div></label>
       </div>
-      <button class="btn" style="margin-top:6px">Save details</button>
+      <div class="grid2-inner" style="margin-top:14px">
+        <label class="field"><span class="field-label">Fiscal year</span><div class="input-wrap"><input class="input" value="2026"/></div></label>
+      </div>
+      <div class="card-cta"><button class="btn">Save details</button></div>
     </div>
 
-    <div class="card money">
+    <!-- Monthly dues -->
+    <div class="card">
       <div class="card-head"><div><h2>Monthly dues</h2><div class="sub">What each home pays</div></div></div>
-      <div class="field"><span class="l">Per-home monthly dues</span><input class="inp" value="$285"/></div>
-      <div class="stats" style="margin:6px 0 0;grid-template-columns:1fr 1fr">
+      <label class="field"><span class="field-label">Per-home monthly dues</span>
+        <div class="input-wrap"><span class="input-prefix">$</span><input class="input" value="285"/></div>
+      </label>
+      <div class="stats">
         <div class="stat"><div class="v">$34,200</div><div class="l">Billed / month</div></div>
-        <div class="stat"><div class="v">94%</div><div class="l">Collection rate</div></div>
+        <div class="stat"><div class="v">$410,400</div><div class="l">Billed / year</div></div>
       </div>
-      <button class="btn" style="margin-top:14px">Save dues</button>
+      <div class="card-cta"><button class="btn">Save dues</button></div>
     </div>
   </div>
 
+  <!-- Billing & compliance -->
   <div class="card">
-    <div class="card-head">
-      <div><h2>Budget categories</h2><div class="sub">This year&rsquo;s operating budget</div></div>
-      <button class="btn sm">+ Add category</button>
+    <div class="card-head"><div><h2>Billing &amp; compliance</h2><div class="sub">Florida late-payment, amenity, and lien settings (FS 718 / 720)</div></div></div>
+    <label class="field"><span class="field-label">Late-payment interest (% per year)</span>
+      <div class="input-wrap"><input class="input" placeholder="18"/></div>
+      <span class="field-hint">Florida cap is 18%/year, simple interest. Leave blank to charge no interest.</span>
+    </label>
+    <div class="grid2-inner">
+      <label class="field"><span class="field-label">Admin late fee — flat</span>
+        <div class="input-wrap"><span class="input-prefix">$</span><input class="input" placeholder="25"/></div>
+      </label>
+      <label class="field"><span class="field-label">Admin late fee — percent</span>
+        <div class="input-wrap"><input class="input" placeholder="5"/></div>
+      </label>
     </div>
-    <table class="tbl">
-      <thead><tr><th>Category</th><th>Annual amount</th><th>% of budget</th><th></th></tr></thead>
-      <tbody>
-        <tr><td class="strong">Landscaping &amp; grounds</td><td>$96,000</td><td class="muted">23%</td><td style="text-align:right"><span class="go">Edit &rarr;</span></td></tr>
-        <tr><td class="strong">Insurance</td><td>$84,000</td><td class="muted">20%</td><td style="text-align:right"><span class="go">Edit &rarr;</span></td></tr>
-        <tr><td class="strong">Reserves</td><td>$72,000</td><td class="muted">17%</td><td style="text-align:right"><span class="go">Edit &rarr;</span></td></tr>
-        <tr><td class="strong">Utilities &mdash; common areas</td><td>$54,000</td><td class="muted">13%</td><td style="text-align:right"><span class="go">Edit &rarr;</span></td></tr>
-        <tr><td class="strong">Management &amp; admin</td><td>$48,000</td><td class="muted">11%</td><td style="text-align:right"><span class="go">Edit &rarr;</span></td></tr>
-      </tbody>
-    </table>
+    <span class="field-hint" style="display:block;margin-top:8px">Per delinquent month. The statute caps the late fee at the greater of $25 or 5% of the installment; the platform applies the greater of the two values above.</span>
+    <label class="field" style="margin-top:14px"><span class="field-label">Amenity cancellation window (hours)</span>
+      <div class="input-wrap"><input class="input" placeholder="24"/></div>
+      <span class="field-hint">Residents who cancel a paid booking at least this many hours before the slot are refunded automatically. After it, the board can still refund manually. Default 24.</span>
+    </label>
+    <label class="field"><span class="field-label">Association mailing address</span>
+      <div class="input-wrap"><input class="input" placeholder="123 Main St, Miramar, FL 33025"/></div>
+      <span class="field-hint">Used on liens, statutory notices, and estoppel certificates.</span>
+    </label>
+    <label class="field"><span class="field-label">Authorized officer</span>
+      <div class="input-wrap"><input class="input" placeholder="Jane Doe, President"/></div>
+      <span class="field-hint">Signs liens and certificates.</span>
+    </label>
+    <div class="card-cta"><button class="btn">Save compliance</button></div>
   </div>
 
-  <div class="card" style="border-color:var(--due-soft)">
-    <div class="card-head"><div><h2 style="color:var(--due)">Danger zone</h2><div class="sub">Permanently deletes this community and all its data.</div></div>
-      <button class="btn ghost" style="color:var(--due);border-color:var(--due-soft)">Delete this community</button></div>
+  <!-- Operating budget link row (orange glyph) -->
+  <div class="card">
+    <div class="wslist">
+      <a href="#" class="wsrow">
+        <span class="wsrow-glyph" style="color:#E14909;background:#E1490918">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/></svg>
+        </span>
+        <div class="wsrow-main">
+          <div class="wsrow-title">Operating budget</div>
+          <div class="wsrow-desc">Annual budget, categories, bank tracking &amp; expenses now live on the Budget page.</div>
+        </div>
+        <span class="wsrow-arrow" aria-hidden="true">&rarr;</span>
+      </a>
+    </div>
   </div>
 
-  <p class="note">Mock Mock &middot; sketch theme &middot; not wired to datamiddot; not wired to data</p>
+  <!-- Danger zone -->
+  <div class="card danger-card">
+    <div class="card-head">
+      <div>
+        <h2>Danger zone</h2>
+        <div class="sub">Permanently deletes Sunset Lakes and all its data, cancels the subscription, and removes every member. This can&rsquo;t be undone. Need help instead? <a class="danger-link" href="support.html">Contact Residente</a>.</div>
+      </div>
+      <button class="danger-btn">Delete community</button>
+    </div>
+  </div>
+
+  <p class="note">Mock &middot; live-faithful theme &middot; not wired to data</p>
 </main>
-<script src="admin-mock.js"></script>
 </body></html>

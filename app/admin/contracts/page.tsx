@@ -10,6 +10,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
+import { useT } from '@/lib/i18n'
+import { Dropdown } from '@/components/Dropdown'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { AttorneyNote } from '../AttorneyNote'
 import { ComplianceBackLink } from '../ComplianceBackLink'
@@ -40,6 +42,7 @@ const EXCEPTION_LABEL: Record<string, string> = {
 }
 
 export default function ContractsPage() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const [community, setCommunity] = useState<any>(null)
@@ -110,7 +113,7 @@ export default function ContractsPage() {
       if (error) throw error
       if (ins?.id) await logAudit({ community_id: communityId!, event_type: 'contract.recorded', target_type: 'contract', target_id: ins.id, metadata: { contract_kind: insert.contract_kind } })
       setForm({ contract_kind: 'services', exception_basis: 'none' })
-      setMsg('Contract recorded.')
+      setMsg(t('admin.contracts.contractRecorded'))
       load()
     } catch (err: any) { setError(err?.message || 'Could not record the contract') }
     finally { setSaving(false) }
@@ -131,20 +134,18 @@ export default function ContractsPage() {
     try {
       const { error } = (await withTimeout(supabase.from('ev_contracts').delete().eq('id', id))) as any
       if (error) throw error
-      setMsg('Contract removed.'); load()
+      setMsg(t('admin.contracts.contractRemoved')); load()
     } catch (err: any) { setError(err?.message || 'Could not remove the contract') }
   }
 
   return (
     <div className="admin-page cset">
       <ComplianceBackLink />
-      <div className="admin-kicker">Florida compliance</div>
-      <h1 className="admin-h1">Procurement <span className="amp">&</span> contracts</h1>
+      <div className="admin-kicker">{t('admin.contracts.kicker')}</div>
+      <h1 className="admin-h1">{t('admin.contracts.pageTitle')}</h1>
       <p className="admin-dek">
-        Florida requires competitive bids for a contract exceeding {pct}% of {BID_THRESHOLD_BASIS.value}
-        (FS {regime === 'hoa' ? '720.3055' : '718.3026'}), and every service contract or contract over a year
-        must be in writing. We compute the threshold from your budget; you decide each step. Director conflicts
-        of interest are tracked under <Link href="/admin/governance">Directors &amp; management</Link>.
+        {t('admin.contracts.pageDesc', { pct, basis: BID_THRESHOLD_BASIS.value, statute: regime === 'hoa' ? '720.3055' : '718.3026' })}{' '}
+        <Link href="/admin/governance">{t('admin.contracts.pageDescLinkLabel')}</Link>.
       </p>
 
       <AttorneyNote />
@@ -152,82 +153,91 @@ export default function ContractsPage() {
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
 
       {status === 'none' && (
-        <div className="admin-note admin-note-warn">No community is linked to your account yet. Run the setup SQL, then reload.</div>
+        <div className="admin-note admin-note-warn">{t('admin.contracts.noAccount')}</div>
       )}
       {status === 'error' && (
-        <div className="admin-note admin-note-err">{error}<button type="button" className="admin-btn-ghost" onClick={load}>Retry</button></div>
+        <div className="admin-note admin-note-err">{error}<button type="button" className="admin-btn-ghost" onClick={load}>{t('admin.contracts.retry')}</button></div>
       )}
-      {status === 'loading' && <div className="admin-note">Loading…</div>}
+      {status === 'loading' && <div className="admin-note">{t('admin.contracts.loading')}</div>}
 
       {status === 'ready' && (
         <>
           {/* Threshold banner */}
           <div className="card">
-            <div className="card-head"><div><h2>Competitive-bid threshold</h2></div></div>
+            <div className="card-head"><div><h2>{t('admin.contracts.thresholdTitle')}</h2></div></div>
             {budgetInfo.basis === 'none' ? (
               <p style={{ fontSize: 13, opacity: 0.8, margin: 0 }}>
-                No budget is recorded yet, so the {pct}% threshold can&apos;t be computed. Add this year&apos;s budget
-                (including reserve lines) in <Link href="/admin/community">Community</Link> or the financials workspace.
+                {t('admin.contracts.noBudget', { pct })}{' '}
+                <Link href="/admin/community">{t('admin.contracts.noBudgetLinkCommunity')}</Link>{' '}
+                {t('admin.contracts.noBudgetLinkOr')}
               </p>
             ) : (
               <p style={{ fontSize: 13, margin: 0 }}>
-                Total annual budget {budgetInfo.basis === 'budget' ? '(including reserves)' : '(estimated from annual revenue)'}:
-                {' '}<strong>{fmt$(budgetInfo.total)}</strong> · {pct}% competitive-bid threshold: <strong>{fmt$(threshold)}</strong>.
-                A contract exceeding this requires competitive bids unless a statutory exception applies.
+                {budgetInfo.basis === 'budget' ? t('admin.contracts.budgetSummaryBudget') : t('admin.contracts.budgetSummaryRevenue')}
+                {' '}<strong>{fmt$(budgetInfo.total)}</strong> · {t('admin.contracts.budgetSummaryThreshold', { pct })} <strong>{fmt$(threshold)}</strong>.{' '}
+                {t('admin.contracts.budgetSummaryNote')}
               </p>
             )}
           </div>
 
           {/* Contract intake */}
           <div className="card">
-          <div className="card-head"><div><h2>Record a contract</h2></div></div>
+          <div className="card-head"><div><h2>{t('admin.contracts.recordTitle')}</h2></div></div>
           <form className="admin-form" onSubmit={createContract}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-              <label className="admin-field"><span className="admin-field-label">Vendor</span>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.contracts.fieldVendor')}</span>
                 <input className="admin-input" value={form.vendor ?? ''} onChange={e => setF('vendor', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">Description</span>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.contracts.fieldDescription')}</span>
                 <input className="admin-input" value={form.description ?? ''} onChange={e => setF('description', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">Amount (aggregate)</span>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.contracts.fieldAmount')}</span>
                 <input className="admin-input" type="number" min="0" step="100" value={form.amount ?? ''} onChange={e => setF('amount', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">Type</span>
-                <select className="admin-input" value={form.contract_kind} onChange={e => setF('contract_kind', e.target.value)}>
-                  <option value="products">Products / equipment</option>
-                  <option value="services">Services</option>
-                  <option value="management">Management / maintenance</option>
-                </select></label>
-              <label className="admin-field"><span className="admin-field-label">Term (months)</span>
+              <div className="admin-field"><span className="admin-field-label">{t('admin.contracts.fieldType')}</span>
+                <Dropdown<string>
+                  value={form.contract_kind}
+                  onChange={v => setF('contract_kind', v)}
+                  ariaLabel={t('admin.contracts.fieldType')}
+                  options={[
+                    { value: 'products', label: t('admin.contracts.optionProducts') },
+                    { value: 'services', label: t('admin.contracts.optionServices') },
+                    { value: 'management', label: t('admin.contracts.optionManagement') },
+                  ]}
+                /></div>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.contracts.fieldTerm')}</span>
                 <input className="admin-input" type="number" min="0" step="1" value={form.term_months ?? ''} onChange={e => setF('term_months', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">Executed on</span>
+              <label className="admin-field"><span className="admin-field-label">{t('admin.contracts.fieldExecutedOn')}</span>
                 <input className="admin-input" type="date" value={form.executed_on ?? ''} onChange={e => setF('executed_on', e.target.value)} /></label>
-              <label className="admin-field"><span className="admin-field-label">Exception (if any)</span>
-                <select className="admin-input" value={form.exception_basis ?? 'none'} onChange={e => setF('exception_basis', e.target.value)}>
-                  {Object.keys(EXCEPTION_LABEL).map(k => <option key={k} value={k}>{EXCEPTION_LABEL[k]}</option>)}
-                </select></label>
+              <div className="admin-field"><span className="admin-field-label">{t('admin.contracts.fieldException')}</span>
+                <Dropdown<string>
+                  value={form.exception_basis ?? 'none'}
+                  onChange={v => setF('exception_basis', v)}
+                  ariaLabel={t('admin.contracts.fieldException')}
+                  options={Object.keys(EXCEPTION_LABEL).map(k => ({ value: k, label: EXCEPTION_LABEL[k] }))}
+                /></div>
             </div>
             <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', margin: '10px 0', fontSize: 14 }}>
               <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <input type="checkbox" checked={!!form.bids_obtained} onChange={e => setF('bids_obtained', e.target.checked)} /> Competitive bids obtained
+                <input type="checkbox" checked={!!form.bids_obtained} onChange={e => setF('bids_obtained', e.target.checked)} /> {t('admin.contracts.checkBidsObtained')}
               </label>
               <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <input type="checkbox" checked={!!form.written_contract} onChange={e => setF('written_contract', e.target.checked)} /> Signed written contract on file
+                <input type="checkbox" checked={!!form.written_contract} onChange={e => setF('written_contract', e.target.checked)} /> {t('admin.contracts.checkWrittenContract')}
               </label>
               {regime === 'condo' && form.contract_kind === 'management' && (
                 <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                  <input type="checkbox" checked={!!form.required_terms_attested} onChange={e => setF('required_terms_attested', e.target.checked)} /> 718.3025 required terms confirmed
+                  <input type="checkbox" checked={!!form.required_terms_attested} onChange={e => setF('required_terms_attested', e.target.checked)} /> {t('admin.contracts.checkRequiredTerms')}
                 </label>
               )}
             </div>
             <div className="card-cta">
               {error && <span className="admin-err-inline">{error}</span>}
-              <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? 'Saving…' : 'Record contract'}</button>
+              <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? t('admin.contracts.saving') : t('admin.contracts.recordBtn')}</button>
             </div>
           </form>
           </div>
 
           {/* Contracts list */}
           <div className="card">
-            <div className="card-head"><div><h2>Contracts <span style={{ opacity: 0.55, fontWeight: 400 }}>({contracts.length})</span></h2></div></div>
-            {contracts.length === 0 && <div className="admin-note">No contracts recorded yet. Add your material vendor and management contracts above.</div>}
+            <div className="card-head"><div><h2>{t('admin.contracts.listTitle')} <span style={{ opacity: 0.55, fontWeight: 400 }}>({contracts.length})</span></h2></div></div>
+            {contracts.length === 0 && <div className="admin-note">{t('admin.contracts.noContracts')}</div>}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {contracts.map(c => (
                 <ContractCard
@@ -244,12 +254,12 @@ export default function ContractsPage() {
 
           {/* Documents */}
           <div className="card">
-            <div className="card-head"><div><h2>Documents</h2><div className="sub">Generate or view each procurement artifact</div></div></div>
+            <div className="card-head"><div><h2>{t('admin.contracts.docsTitle')}</h2><div className="sub">{t('admin.contracts.docsSub')}</div></div></div>
             <div className="wslist">
               {[
-                { type: 'summary', label: 'Procurement summary', live: true },
-                { type: 'bid_log', label: 'Competitive-bid solicitation log', live: true },
-                ...(regime === 'condo' ? [{ type: 'mgmt_checklist', label: 'Management-agreement required-terms checklist', live: false }] : []),
+                { type: 'summary', label: t('admin.contracts.docLabelSummary'), live: true },
+                { type: 'bid_log', label: t('admin.contracts.docLabelBidLog'), live: true },
+                ...(regime === 'condo' ? [{ type: 'mgmt_checklist', label: t('admin.contracts.docLabelMgmtChecklist'), live: false }] : []),
               ].map(d => {
                 const col = d.live ? '#0E7490' : '#7A5AF8'
                 return (
@@ -263,7 +273,7 @@ export default function ContractsPage() {
                     </span>
                     <div className="wsrow-main">
                       <div className="wsrow-title">{d.label}</div>
-                      <div className="wsrow-desc">{d.live ? 'Live document' : 'Draft template'}</div>
+                      <div className="wsrow-desc">{d.live ? t('admin.contracts.docLive') : t('admin.contracts.docDraft')}</div>
                     </div>
                     <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
                   </Link>
@@ -286,6 +296,7 @@ function ContractCard({
   onUpdate: (id: string, patch: Record<string, any>) => void
   onDelete: (id: string) => void
 }) {
+  const t = useT()
   const amount = Number(c.amount) || 0
   const overThreshold = threshold > 0 && amount > threshold
   const hasException = !!c.exception_basis && c.exception_basis !== 'none'
@@ -307,40 +318,45 @@ function ContractCard({
           <div style={{ fontSize: 12.5, opacity: 0.75, marginTop: 2 }}>
             {KIND_LABEL[String(c.contract_kind)] || String(c.contract_kind)}
             {c.term_months ? ` · ${c.term_months} mo` : ''}
-            {c.executed_on ? ` · executed ${c.executed_on}` : ''}
-            {overThreshold ? ' · over threshold' : ''}
-            {hasException ? ` · exception: ${EXCEPTION_LABEL[String(c.exception_basis)] || c.exception_basis}` : ''}
+            {c.executed_on ? ` · ${t('admin.contracts.cardExecuted', { date: c.executed_on })}` : ''}
+            {overThreshold ? ` · ${t('admin.contracts.cardOverThreshold')}` : ''}
+            {hasException ? ` · ${t('admin.contracts.cardException', { label: EXCEPTION_LABEL[String(c.exception_basis)] || String(c.exception_basis) })}` : ''}
           </div>
           <div style={{ fontSize: 12.5, marginTop: 6, display: 'flex', gap: 12, flexWrap: 'wrap' }}>
-            <span style={{ color: bidGap ? '#B54708' : '#067647' }}>{bidGap ? '⚠ bids not recorded' : c.bids_obtained ? '✓ bids obtained' : (overThreshold && hasException ? '— exception claimed' : '— under threshold')}</span>
-            <span style={{ color: writeGap ? '#B54708' : '#067647' }}>{writeGap ? '⚠ no written contract' : c.written_contract ? '✓ written contract' : '— writing not required'}</span>
+            <span style={{ color: bidGap ? '#B54708' : '#067647' }}>{bidGap ? t('admin.contracts.cardBidGap') : c.bids_obtained ? t('admin.contracts.cardBidsObtained') : (overThreshold && hasException ? t('admin.contracts.cardExceptionClaimed') : t('admin.contracts.cardUnderThreshold'))}</span>
+            <span style={{ color: writeGap ? '#B54708' : '#067647' }}>{writeGap ? t('admin.contracts.cardWriteGap') : c.written_contract ? t('admin.contracts.cardWrittenContract') : t('admin.contracts.cardWritingNotRequired')}</span>
             {regime === 'condo' && c.contract_kind === 'management' && (
-              <span style={{ color: termsGap ? '#B54708' : '#067647' }}>{termsGap ? '⚠ 718.3025 terms unconfirmed' : '✓ required terms confirmed'}</span>
+              <span style={{ color: termsGap ? '#B54708' : '#067647' }}>{termsGap ? t('admin.contracts.cardTermsGap') : t('admin.contracts.cardTermsConfirmed')}</span>
             )}
           </div>
         </div>
-        <button className="admin-btn-ghost" onClick={() => onDelete(c.id)} style={{ color: '#B42318' }}>Remove</button>
+        <button className="admin-btn-ghost" onClick={() => onDelete(c.id)} style={{ color: '#B42318' }}>{t('admin.contracts.removeBtn')}</button>
       </div>
 
       {/* Inline toggles */}
       <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginTop: 10, fontSize: 13, borderTop: '1px solid rgba(0,0,0,0.06)', paddingTop: 10 }}>
         <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <input type="checkbox" checked={!!c.bids_obtained} onChange={e => onUpdate(c.id, { bids_obtained: e.target.checked })} /> Bids obtained
+          <input type="checkbox" checked={!!c.bids_obtained} onChange={e => onUpdate(c.id, { bids_obtained: e.target.checked })} /> {t('admin.contracts.toggleBidsObtained')}
         </label>
         <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <input type="checkbox" checked={!!c.written_contract} onChange={e => onUpdate(c.id, { written_contract: e.target.checked })} /> Written contract
+          <input type="checkbox" checked={!!c.written_contract} onChange={e => onUpdate(c.id, { written_contract: e.target.checked })} /> {t('admin.contracts.toggleWrittenContract')}
         </label>
         {regime === 'condo' && c.contract_kind === 'management' && (
           <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-            <input type="checkbox" checked={!!c.required_terms_attested} onChange={e => onUpdate(c.id, { required_terms_attested: e.target.checked })} /> 718.3025 terms confirmed
+            <input type="checkbox" checked={!!c.required_terms_attested} onChange={e => onUpdate(c.id, { required_terms_attested: e.target.checked })} /> {t('admin.contracts.toggleRequiredTerms')}
           </label>
         )}
-        <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <span style={{ opacity: 0.7 }}>Exception:</span>
-          <select className="admin-input" style={{ maxWidth: 230, padding: '3px 6px' }} value={String(c.exception_basis ?? 'none')} onChange={e => onUpdate(c.id, { exception_basis: e.target.value === 'none' ? null : e.target.value })}>
-            {Object.keys(EXCEPTION_LABEL).map(k => <option key={k} value={k}>{EXCEPTION_LABEL[k]}</option>)}
-          </select>
-        </label>
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+          <span style={{ opacity: 0.7 }}>{t('admin.contracts.exceptionLabel')}</span>
+          <div style={{ width: 230 }}>
+            <Dropdown<string>
+              value={String(c.exception_basis ?? 'none')}
+              onChange={v => onUpdate(c.id, { exception_basis: v === 'none' ? null : v })}
+              ariaLabel={t('admin.contracts.exceptionLabel')}
+              options={Object.keys(EXCEPTION_LABEL).map(k => ({ value: k, label: EXCEPTION_LABEL[k] }))}
+            />
+          </div>
+        </div>
       </div>
     </div>
   )

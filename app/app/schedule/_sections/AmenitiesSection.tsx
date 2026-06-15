@@ -3,9 +3,11 @@
 import { useEffect, useMemo, useState } from 'react'
 import { DetailDialog } from '@/app/app/track/_sections/DetailDialog'
 import { useT } from '@/lib/i18n'
+import { Dropdown } from '@/components/Dropdown'
 import {
   Amenity,
   AmenityKind,
+  Reservation,
   KIND_LABEL,
   TIME_SLOTS,
   fmtSlot,
@@ -44,11 +46,12 @@ function KindIcon({ kind }: { kind: AmenityKind }) {
 
 export function AmenitiesSection() {
   const t = useT()
-  const { amenities, reservations, byAmenity, live, book, cancel, takenSlots, refundCutoffHours } = useAmenityHub()
+  const { amenities, reservations, byAmenity, live, book, cancel, reschedule, takenSlots, refundCutoffHours } = useAmenityHub()
 
   const [query, setQuery] = useState('')
   const [kindFilter, setKindFilter] = useState<AmenityKind | 'all'>('all')
   const [active, setActive] = useState<Amenity | null>(null)
+  const [editing, setEditing] = useState<Reservation | null>(null)   // reservation being rescheduled
   // Returned from Stripe checkout — confirm, then strip the query param so a
   // refresh doesn't re-show it. The 'paid' badge arrives via realtime.
   const [justPaid, setJustPaid] = useState(false)
@@ -101,9 +104,9 @@ export function AmenitiesSection() {
         </div>
       )}
 
-      {/* Search + kind filter */}
-      <div className="amen-controls">
-        <div className="amen-search">
+      {/* Search + All Categories dropdown — same toolbar as Vendors / Documents / Rules. */}
+      <div className="ven-toolbar amen-toolbar">
+        <div className="ven-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
           </svg>
@@ -114,16 +117,15 @@ export function AmenitiesSection() {
             aria-label={t('schedule.searchAmenities')}
           />
         </div>
-        <div className="amen-chips">
-          <button className={`amen-chip${kindFilter === 'all' ? ' on' : ''}`} onClick={() => setKindFilter('all')}>
-            {t('schedule.all')}
-          </button>
-          {kinds.map(k => (
-            <button key={k} className={`amen-chip${kindFilter === k ? ' on' : ''}`} onClick={() => setKindFilter(k)}>
-              {KIND_LABEL[k]}
-            </button>
-          ))}
-        </div>
+        <Dropdown<string>
+          value={kindFilter}
+          onChange={v => setKindFilter(v as AmenityKind | 'all')}
+          ariaLabel={t('schedule.allCategories')}
+          options={[
+            { value: 'all', label: t('schedule.allCategories') },
+            ...kinds.map(k => ({ value: k, label: KIND_LABEL[k] })),
+          ]}
+        />
       </div>
 
       <div className="amen-layout">
@@ -200,23 +202,31 @@ export function AmenitiesSection() {
                           {r.partySize > 1 && <> · {t('schedule.peopleCount', { count: r.partySize })}</>}
                         </div>
                       </div>
-                      <button className="amen-res-cancel" onClick={() => cancel(r.id)} aria-label={t('schedule.cancelReservation')}>
-                        {cancelLabel}
-                      </button>
+                      <div className="amen-res-actions">
+                        {a?.bookable && (
+                          <button className="amen-res-edit" onClick={() => setEditing(r)}>
+                            {t('schedule.edit')}
+                          </button>
+                        )}
+                        <button className="amen-res-cancel" onClick={() => cancel(r.id)} aria-label={t('schedule.cancelReservation')}>
+                          {cancelLabel}
+                        </button>
+                      </div>
                     </li>
                   )
                 })}
               </ul>
             )}
           </div>
-
-          <div className="amen-side-card amen-help">
-            <div className="amen-help-title">{t('schedule.howBookingWorks')}</div>
-            <p className="amen-help-text">
-              {t('schedule.howBookingWorksBody')}
-            </p>
-          </div>
         </aside>
+      </div>
+
+      {/* How booking works — full-width, at the very bottom of the section. */}
+      <div className="amen-side-card amen-help amen-help-bottom">
+        <div className="amen-help-title">{t('schedule.howBookingWorks')}</div>
+        <p className="amen-help-text">
+          {t('schedule.howBookingWorksBody')}
+        </p>
       </div>
 
       {active && (
@@ -228,12 +238,31 @@ export function AmenitiesSection() {
           onBook={async input => { await book(input); setActive(null) }}
         />
       )}
+
+      {/* Edit an existing reservation — same dialog, prefilled, saving in place.
+          We free this booking's own slot from the "taken" set so the resident
+          can keep it while changing only the date, party size, or note. */}
+      {editing && byAmenity[editing.amenityId] && (
+        <BookDialog
+          amenity={byAmenity[editing.amenityId]}
+          taken={takenSlots(editing.amenityId, editing.reservedDate)}
+          takenForDate={(iso: string) => {
+            const s = new Set(takenSlots(editing.amenityId, iso))
+            if (iso === editing.reservedDate) s.delete(editing.startTime)
+            return s
+          }}
+          initial={{ date: editing.reservedDate, slot: editing.startTime, party: editing.partySize, note: editing.note ?? '' }}
+          editing
+          onClose={() => setEditing(null)}
+          onBook={async input => { await reschedule(editing.id, input); setEditing(null) }}
+        />
+      )}
     </div>
   )
 }
 
 function BookDialog({
-  amenity, onClose, onBook, takenForDate,
+  amenity, onClose, onBook, takenForDate, initial, editing,
 }: {
   amenity: Amenity
   taken: Set<string>
@@ -243,12 +272,14 @@ function BookDialog({
     amenityId: string; reservedDate: string; startTime: string
     endTime?: string; partySize: number; note?: string; priceCents: number
   }) => Promise<void>
+  initial?: { date: string; slot: string; party: number; note: string }
+  editing?: boolean
 }) {
   const t = useT()
-  const [date, setDate] = useState(todayISO())
-  const [slot, setSlot] = useState<string>('')
-  const [party, setParty] = useState(1)
-  const [note, setNote] = useState('')
+  const [date, setDate] = useState(initial?.date ?? todayISO())
+  const [slot, setSlot] = useState<string>(initial?.slot ?? '')
+  const [party, setParty] = useState(initial?.party ?? 1)
+  const [note, setNote] = useState(initial?.note ?? '')
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState('')
 
@@ -285,7 +316,9 @@ function BookDialog({
     <>
       <button type="button" className="ven-cta-secondary" onClick={onClose}>{t('schedule.cancel')}</button>
       <button type="button" className="ven-cta-primary" onClick={submit} disabled={!slot || busy}>
-        {busy ? t('schedule.booking') : amenity.priceCents > 0 ? `${t('schedule.reserve')} · ${priceLabel(amenity.priceCents)}` : t('schedule.reserve')}
+        {busy ? t('schedule.booking')
+          : editing ? t('schedule.saveChanges')
+          : amenity.priceCents > 0 ? `${t('schedule.reserve')} · ${priceLabel(amenity.priceCents)}` : t('schedule.reserve')}
       </button>
     </>
   ) : undefined

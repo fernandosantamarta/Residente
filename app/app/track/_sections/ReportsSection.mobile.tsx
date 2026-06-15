@@ -7,6 +7,7 @@ import { usePublishedReports } from '@/hooks/usePublishedReports'
 import { useT } from '@/lib/i18n'
 import { RequestDialog } from './RequestDialog'
 import { DetailDialog } from './DetailDialog'
+import { Dropdown } from '@/components/Dropdown'
 
 // Reports — board-published reports the resident can browse, now a section
 // of the Easy Track hub. Featured row, recent log, scheduled queue, plus
@@ -154,13 +155,15 @@ export function ReportsSection() {
             placeholder={t('vendors.reportsSearchPlaceholder')}
           />
         </div>
-        <select name="report-category" className="rep-select" value={active}
-          onChange={e => setActive(e.target.value as any)}>
-          <option value="all">{t('vendors.allCategories')}</option>
-          {CATEGORY_GRID.map(c => (
-            <option key={c.key} value={c.key}>{catLabel(c.key)}</option>
-          ))}
-        </select>
+        <Dropdown<string>
+          value={active}
+          onChange={v => setActive(v as any)}
+          ariaLabel={t('vendors.allCategories')}
+          options={[
+            { value: 'all', label: t('vendors.allCategories') },
+            ...CATEGORY_GRID.map(c => ({ value: c.key, label: catLabel(c.key) })),
+          ]}
+        />
       </div>
 
       <div className="rep-grid">

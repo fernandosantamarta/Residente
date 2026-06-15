@@ -40,12 +40,21 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({})) as { community_id?: string }
     const admin = createClient(Deno.env.get('SUPABASE_URL') ?? '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '')
 
-    // Target community: a platform admin can pass any community_id (Platform
-    // Console); otherwise it's the caller's own community (admin/board only).
+    // Target community: a platform owner/operator can pass any community_id
+    // (Platform Console) — support/billing staff cannot delete communities.
+    // platform_roles returns the operator's full team set (primary + extras);
+    // before operator-multi-role.sql it doesn't exist, so fall back to the
+    // single primary role. Otherwise it's the caller's own community.
     let targetId: string
     if (body.community_id) {
-      const { data: isAdmin } = await admin.rpc('is_platform_admin', { uid: user.id })
-      if (isAdmin !== true) return json({ error: 'Only a platform operator can delete another community.' }, 403)
+      let roles: string[] = []
+      const { data: set, error: setErr } = await admin.rpc('platform_roles', { uid: user.id })
+      if (!setErr && Array.isArray(set)) roles = set
+      else {
+        const { data: role } = await admin.rpc('platform_role', { uid: user.id })
+        if (role) roles = [role]
+      }
+      if (!roles.includes('owner') && !roles.includes('operator')) return json({ error: 'Only a platform owner/operator can delete another community.' }, 403)
       targetId = body.community_id
     } else {
       const { data: profile } = await admin.from('profiles').select('community_id, role').eq('id', user.id).single()

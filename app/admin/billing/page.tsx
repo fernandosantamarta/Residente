@@ -5,6 +5,7 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { startSubscriptionCheckout, manageSubscription } from '@/lib/signup'
 import { planForHomes, monthlyTotalLabel } from '@/lib/plan'
+import { useT } from '@/lib/i18n'
 
 // Plan & billing — the community's Residente subscription. Lifted out of the
 // admin Overview onto its own tab so the dashboard stays focused on setup.
@@ -12,6 +13,7 @@ import { planForHomes, monthlyTotalLabel } from '@/lib/plan'
 // manage their Stripe subscription here.
 
 export default function AdminBilling() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const [community, setCommunity] = useState<any>(null)
@@ -39,18 +41,18 @@ export default function AdminBilling() {
     setPaying(false)
   }
 
-  if (status === 'loading') return <div className="admin-page"><div className="admin-note">Loading…</div></div>
+  if (status === 'loading') return <div className="admin-page"><div className="admin-note">{t('admin.billing.loading')}</div></div>
   if (status === 'none') return (
     <div className="admin-page">
-      <div className="admin-kicker">Billing</div>
-      <h1 className="admin-h1">Plan &amp; billing</h1>
-      <div className="admin-note admin-note-warn">No community is linked to your account yet.</div>
+      <div className="admin-kicker">{t('admin.billing.kicker')}</div>
+      <h1 className="admin-h1">{t('admin.billing.pageTitle')}</h1>
+      <div className="admin-note admin-note-warn">{t('admin.billing.noCommunity')}</div>
     </div>
   )
   if (status === 'error') return (
     <div className="admin-page">
-      <div className="admin-note admin-note-err">Couldn&apos;t load billing.
-        <button className="admin-btn-ghost" onClick={load}>Retry</button>
+      <div className="admin-note admin-note-err">{t('admin.billing.loadError')}
+        <button className="admin-btn-ghost" onClick={load}>{t('admin.billing.retry')}</button>
       </div>
     </div>
   )
@@ -64,47 +66,47 @@ export default function AdminBilling() {
   const band = planForHomes(homes)
   const free = band.perHomeCents === 0
 
-  const statusLabel = sub === 'active' ? 'Active'
-    : pastDue ? 'Payment failed'
-    : isPaidPlan ? 'Not active yet'
-    : free ? 'Free' : '—'
+  const statusLabel = sub === 'active' ? t('admin.billing.statusActive')
+    : pastDue ? t('admin.billing.statusPaymentFailed')
+    : isPaidPlan ? t('admin.billing.statusNotActiveYet')
+    : free ? t('admin.billing.statusFree') : '—'
 
   return (
     <div className="admin-page">
-      <div className="admin-kicker">Billing</div>
-      <h1 className="admin-h1">Plan &amp; billing</h1>
-      <p className="admin-dek">Your Residente subscription for {community?.name || 'this community'}.</p>
+      <div className="admin-kicker">{t('admin.billing.kicker')}</div>
+      <h1 className="admin-h1">{t('admin.billing.pageTitle')}</h1>
+      <p className="admin-dek">{t('admin.billing.pageDek', { name: community?.name || t('admin.billing.thisCommunity') })}</p>
 
       <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 13, color: '#8a7560' }}>Current plan</span>
-          <span style={{ fontSize: 26, fontWeight: 800 }}>{band.label}{free ? ' · Free' : ''}</span>
+          <span style={{ fontSize: 13, color: '#8a7560' }}>{t('admin.billing.currentPlan')}</span>
+          <span style={{ fontSize: 26, fontWeight: 800 }}>{band.label}{free ? ' · ' + t('admin.billing.freeBadge') : ''}</span>
           <span style={{ fontSize: 13.5, color: '#6b5544' }}>
             {free
-              ? `${homes} homes — free forever`
-              : `${monthlyTotalLabel(homes)} · ${homes} homes`}
+              ? t('admin.billing.homesFree', { homes })
+              : t('admin.billing.homesPaid', { monthlyTotal: monthlyTotalLabel(homes), homes })}
             {' · '}<strong>{statusLabel}</strong>
           </span>
         </div>
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           {needsActivation && (
             <button className="admin-primary-btn" onClick={pastDue ? () => setShowSub(true) : activatePlan} disabled={paying}>
-              {paying ? 'Opening…' : pastDue ? 'Manage subscription' : 'Subscribe now'}
+              {paying ? t('admin.billing.opening') : pastDue ? t('admin.billing.manageSubscription') : t('admin.billing.subscribeNow')}
             </button>
           )}
           {sub === 'active' && (
-            <button className="admin-secondary-btn" onClick={() => setShowSub(true)}>Manage subscription</button>
+            <button className="admin-secondary-btn" onClick={() => setShowSub(true)}>{t('admin.billing.manageSubscription')}</button>
           )}
           {!isPaidPlan && (
-            <button className="admin-secondary-btn" onClick={() => setShowSub(true)}>Change plan</button>
+            <button className="admin-secondary-btn" onClick={() => setShowSub(true)}>{t('admin.billing.changePlan')}</button>
           )}
         </div>
       </div>
 
       <p className="admin-dek" style={{ marginTop: 16 }}>
         {free
-          ? 'Communities with 25 or fewer homes are free — there’s nothing to pay. Add homes anytime and you’ll move to a paid band automatically.'
-          : 'Billed to the association monthly. Cancel anytime; you keep access until the end of the billing period.'}
+          ? t('admin.billing.freeExplainer')
+          : t('admin.billing.paidExplainer')}
       </p>
 
       {showSub && (
@@ -140,6 +142,7 @@ const ADDONS: { key: string; name: string; cents: number; blurb: string }[] = [
 function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
   currentHomes: number; onClose: () => void; onChanged: () => void
 }) {
+  const t = useT()
   const initialPlan = (planForHomes(currentHomes).plan !== 'free' ? planForHomes(currentHomes).plan : 'pro') as TierKey
   const [status, setStatus] = useState<any>(null)
   const [loading, setLoading] = useState(true)
@@ -184,11 +187,11 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
     setBusy('change'); setErr(null); setMsg(null)
     const r = await manageSubscription('change_plan', { home_count: n, plan: tier, addons })
     if (r?.error) { setErr(r.error); setBusy(null); return }
-    setMsg(`Now on the ${r.label} plan — ${totalLabel}.`)
+    setMsg(t('admin.billing.planChanged', { planLabel: r.label, price: totalLabel }))
     setBusy(null); onChanged()
   }
   const doCancel = async () => {
-    if (!window.confirm('Cancel your subscription? It stays active until the end of the current billing period, and you can resume anytime before then.')) return
+    if (!window.confirm(t('admin.billing.confirmCancel'))) return
     setBusy('cancel'); setErr(null); setMsg(null)
     const r = await manageSubscription('cancel')
     if (r?.error) { setErr(r.error); setBusy(null); return }
@@ -214,37 +217,37 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
         padding: '36px 44px', boxShadow: '0 24px 60px rgba(40,15,0,0.3)',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
-          <h2 style={{ margin: 0, fontSize: 27, fontWeight: 800 }}>Manage subscription</h2>
-          <button onClick={onClose} aria-label="Close" style={{ border: 'none', background: 'none', fontSize: 30, cursor: 'pointer', color: '#8a7560', lineHeight: 1 }}>×</button>
+          <h2 style={{ margin: 0, fontSize: 27, fontWeight: 800 }}>{t('admin.billing.manageSubscription')}</h2>
+          <button onClick={onClose} aria-label={t('admin.billing.close')} style={{ border: 'none', background: 'none', fontSize: 30, cursor: 'pointer', color: '#8a7560', lineHeight: 1 }}>×</button>
         </div>
 
         {loading ? (
-          <div style={{ padding: '24px 0', color: '#6b5544', fontSize: 15 }}>Loading…</div>
+          <div style={{ padding: '24px 0', color: '#6b5544', fontSize: 15 }}>{t('admin.billing.loading')}</div>
         ) : (
           <>
             {status && (
               <div style={{ fontSize: 15.5, color: '#4a3a2c', marginBottom: 20, lineHeight: 1.5 }}>
-                Current: <strong>{planForHomes(currentHomes).label} plan</strong> · {monthlyTotalLabel(currentHomes)} · {currentHomes} homes
+                {t('admin.billing.currentLabel')} <strong>{planForHomes(currentHomes).label} {t('admin.billing.planSuffix')}</strong> · {monthlyTotalLabel(currentHomes)} · {currentHomes} {t('admin.billing.homesSuffix')}
                 {canceling && periodEnd && (
                   <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                    <span style={{ color: '#b5481f', fontWeight: 600 }}>Cancels on {periodEnd}.</span>
+                    <span style={{ color: '#b5481f', fontWeight: 600 }}>{t('admin.billing.cancelsOn', { date: periodEnd })}</span>
                     <button className="admin-secondary-btn" onClick={doResume} disabled={busy != null} style={{ padding: '7px 16px' }}>
-                      {busy === 'resume' ? 'Resuming…' : 'Resume subscription'}
+                      {busy === 'resume' ? t('admin.billing.resuming') : t('admin.billing.resumeSubscription')}
                     </button>
                   </div>
                 )}
                 {!canceling && periodEnd && (
-                  <div style={{ marginTop: 4, color: '#8a7560' }}>Renews {periodEnd}.</div>
+                  <div style={{ marginTop: 4, color: '#8a7560' }}>{t('admin.billing.renewsOn', { date: periodEnd })}</div>
                 )}
               </div>
             )}
 
             {/* Choose a plan — landing-style boxes */}
             <div style={{ borderTop: '1px solid #eee', paddingTop: 20 }}>
-              <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 12 }}>Choose your plan</div>
+              <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 12 }}>{t('admin.billing.choosePlan')}</div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 16, padding: '13px 16px', background: '#faf6f1', borderRadius: 13, border: `1px solid ${homesValid ? '#efe6da' : '#e0857a'}` }}>
-                <label htmlFor="sub-homes" style={{ fontSize: 15, fontWeight: 800, color: '#2a1206', whiteSpace: 'nowrap' }}>Pick your homes</label>
-                <input id="sub-homes" value={homes} inputMode="numeric" placeholder="e.g. 120"
+                <label htmlFor="sub-homes" style={{ fontSize: 15, fontWeight: 800, color: '#2a1206', whiteSpace: 'nowrap' }}>{t('admin.billing.pickHomes')}</label>
+                <input id="sub-homes" value={homes} inputMode="numeric" placeholder={t('admin.billing.homesPlaceholder')}
                   onChange={(e) => {
                     const v = e.target.value.replace(/[^0-9]/g, '')
                     setHomes(v)
@@ -253,7 +256,7 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
                   }}
                   style={{ width: 110, padding: '11px 14px', borderRadius: 10, border: `1px solid ${homesValid ? '#d8cfc4' : '#e0857a'}`, fontSize: 17, fontWeight: 700, color: '#2a1206' }} />
                 <span style={{ flex: '1 1 200px', fontSize: 12.5, color: '#8a7560', lineHeight: 1.4 }}>
-                  Stay on any plan and add homes anytime — billing is per home, so your monthly updates automatically.
+                  {t('admin.billing.homesHint')}
                 </span>
               </div>
 
@@ -273,11 +276,11 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
                       transition: 'all .12s',
                     }}>
                       {p.popular && (
-                        <span style={{ position: 'absolute', top: -11, right: 12, fontSize: 10.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: sel ? '#E5601F' : '#fff', background: sel ? '#fff' : '#E5601F', padding: '3px 10px', borderRadius: 999, border: '2px solid #1a0d07' }}>Popular</span>
+                        <span style={{ position: 'absolute', top: -11, right: 12, fontSize: 10.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: sel ? '#E5601F' : '#fff', background: sel ? '#fff' : '#E5601F', padding: '3px 10px', borderRadius: 999, border: '2px solid #1a0d07' }}>{t('admin.billing.popular')}</span>
                       )}
                       <div style={{ fontSize: 16, fontWeight: 800 }}>{p.name}</div>
                       <div style={{ marginTop: 6, fontSize: 22, fontWeight: 800, lineHeight: 1 }}>
-                        ${p.per / 100}{!free && <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.75 }}> /home/mo</span>}
+                        ${p.per / 100}{!free && <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.75 }}> {t('admin.billing.perHomeMo')}</span>}
                       </div>
                       <div style={{ marginTop: 7, fontSize: 12.5, opacity: sel ? 0.9 : 0.6 }}>{p.band}</div>
                       <div style={{ marginTop: 10, paddingTop: 9, borderTop: `1px solid ${sel ? 'rgba(255,255,255,0.3)' : '#f0e8df'}`, fontSize: 13, fontWeight: 700 }}>
@@ -289,8 +292,8 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
               </div>
 
               {/* Add-ons */}
-              <div style={{ marginTop: 22, fontWeight: 800, fontSize: 16 }}>Add-ons</div>
-              <div style={{ fontSize: 12.5, color: '#8a7560', marginBottom: 12 }}>Optional, billed monthly on top of your plan.</div>
+              <div style={{ marginTop: 22, fontWeight: 800, fontSize: 16 }}>{t('admin.billing.addons')}</div>
+              <div style={{ fontSize: 12.5, color: '#8a7560', marginBottom: 12 }}>{t('admin.billing.addonsNote')}</div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                 {ADDONS.map((a) => {
                   const on = addons.includes(a.key)
@@ -318,20 +321,20 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
               {tier === 'free' ? (
                 <button onClick={doCancel} disabled={busy != null || canceling}
                   style={{ marginTop: 20, width: '100%', padding: '15px', borderRadius: 999, border: '1px solid #e0b4a4', background: '#fff', color: '#b5481f', fontWeight: 800, fontSize: 16, cursor: canceling ? 'default' : 'pointer', opacity: canceling ? 0.5 : 1 }}>
-                  {canceling ? 'Already set to cancel' : busy === 'cancel' ? 'Canceling…' : 'Downgrade to Free — cancel at period end'}
+                  {canceling ? t('admin.billing.alreadySetToCancel') : busy === 'cancel' ? t('admin.billing.canceling') : t('admin.billing.downgradeToFree')}
                 </button>
               ) : (
                 <button className="admin-primary-btn" style={{ marginTop: 20, width: '100%', padding: '15px', fontSize: 16 }}
                   onClick={doChange} disabled={busy != null || !changed || !homesValid}>
-                  {busy === 'change' ? 'Updating…'
-                    : !homesValid ? 'Enter the number of homes'
-                    : `${canceling ? 'Keep active on' : 'Switch to'} ${PLAN_CARDS.find(p => p.key === tier)?.name} — ${totalLabel}`}
+                  {busy === 'change' ? t('admin.billing.updating')
+                    : !homesValid ? t('admin.billing.enterHomesCount')
+                    : t(canceling ? 'admin.billing.keepActiveOn' : 'admin.billing.switchTo', { planName: PLAN_CARDS.find(p => p.key === tier)?.name ?? '', price: totalLabel })}
                 </button>
               )}
               <div style={{ marginTop: 10, fontSize: 12.5, color: '#8a7560', textAlign: 'center' }}>
                 {tier === 'free'
-                  ? 'Free communities (≤25 homes) pay nothing. Your plan stays active until the period ends.'
-                  : 'Plan + add-on changes are prorated to today.'}
+                  ? t('admin.billing.freeFootnote')
+                  : t('admin.billing.paidFootnote')}
               </div>
             </div>
 
@@ -340,10 +343,10 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
               <div style={{ borderTop: '1px solid #eee', marginTop: 22, paddingTop: 18 }}>
                 <button onClick={doCancel} disabled={busy != null}
                   style={{ width: '100%', padding: '13px', borderRadius: 999, border: '1px solid #e0b4a4', background: '#fff', color: '#b5481f', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
-                  {busy === 'cancel' ? 'Canceling…' : 'Cancel subscription'}
+                  {busy === 'cancel' ? t('admin.billing.canceling') : t('admin.billing.cancelSubscription')}
                 </button>
                 <div style={{ marginTop: 8, fontSize: 12, color: '#8a7560', textAlign: 'center' }}>
-                  Stays active until the end of your billing period — you can resume before then.
+                  {t('admin.billing.cancelNote')}
                 </div>
               </div>
             )}

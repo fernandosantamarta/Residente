@@ -23,7 +23,13 @@ async function resolveLanding(): Promise<string> {
     if (supabase) {
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        const { data } = await supabase.from('profiles').select('role').eq('id', user.id).single()
+        const { data } = await supabase.from('profiles').select('role, community_id').eq('id', user.id).single()
+        // A Residente operator with no active community lives in the Platform
+        // Console — there's no community admin to land on.
+        if (data && !data.community_id) {
+          const { data: isOp } = await supabase.rpc('is_platform_admin', { uid: user.id })
+          if (isOp === true) return '/platform'
+        }
         if (data?.role && data.role !== 'resident') return '/admin'
       }
     }
@@ -38,6 +44,17 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Tint the status bar to the login page's warm background so it doesn't read
+  // as a white strip above the orange card (standalone app; and Safari once the
+  // toolbar minimizes). Restored on unmount so other pages keep their colour.
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]')
+    if (!meta) return
+    const prev = meta.getAttribute('content')
+    meta.setAttribute('content', '#FFEADC')
+    return () => { if (prev) meta.setAttribute('content', prev) }
+  }, [])
 
   // If already signed in, bounce to the cockpit at the user's preferred landing
   // page — but first finish any sign-up left mid-flight by email confirmation.

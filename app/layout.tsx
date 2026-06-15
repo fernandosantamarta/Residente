@@ -11,10 +11,30 @@ export const metadata: Metadata = {
   // Wires the existing brand mark as the favicon so browsers stop
   // 404'ing for /favicon.ico. Next emits the right <link rel="icon">
   // and apple-touch-icon tags from this block.
+  // apple-touch-icon must be the dedicated OPAQUE file: iOS paints any
+  // transparency black on the home screen, so the transparent logo PNG
+  // turned the icon black. This one is white with the orange mark centered.
   icons: {
     icon: '/residente-logo.png',
     shortcut: '/residente-logo.png',
-    apple: '/residente-logo.png',
+    apple: '/apple-touch-icon.png',
+  },
+  // When launched from the iOS home screen, iOS ignores theme-color and uses
+  // these. `black-translucent` makes the web content draw UNDER the status bar
+  // so the page's own cream background fills it (instead of the default white
+  // opaque strip). Pages add `padding-top: env(safe-area-inset-top)` so their
+  // header clears the notch/island — the cockpit already bleeds its hero photo
+  // up the same way.
+  appleWebApp: {
+    capable: true,
+    title: 'Residente',
+    statusBarStyle: 'black-translucent',
+  },
+  // Belt-and-suspenders: emit the legacy apple-prefixed capable flag too.
+  // iOS keys the status-bar style off THIS tag; some Next versions only emit
+  // the generic `mobile-web-app-capable`, which iOS ignores for the bar style.
+  other: {
+    'apple-mobile-web-app-capable': 'yes',
   },
 }
 
@@ -22,6 +42,10 @@ export const viewport: Viewport = {
   themeColor: '#F4EFE8',
   width: 'device-width',
   initialScale: 1,
+  // Cap the scale so iOS Safari doesn't auto-zoom into small-font inputs/selects
+  // on focus (e.g. when switching tabs) and leave the page zoomed in.
+  maximumScale: 1,
+  userScalable: false,
   viewportFit: 'cover',
 }
 

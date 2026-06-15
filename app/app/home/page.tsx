@@ -1,13 +1,16 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Link from 'next/link'
 import { useT } from '@/lib/i18n'
 import { useAuth } from '@/app/providers'
 import { useMyResident } from '@/hooks/useMyResident'
+import { useMyPendingReplies } from '@/hooks/useAwaitingMessages'
 import {
   listHomeDocs, uploadHomeDoc, setConveys, deleteHomeDoc, homeDocUrl,
   HOME_DOC_CATEGORIES, type HomeDoc,
 } from '@/lib/homeVault'
+import { Dropdown } from '@/components/Dropdown'
 import './home.css'
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
@@ -21,6 +24,11 @@ export default function HomePage() {
   const [docs, setDocs] = useState<HomeDoc[]>([])
   const [docsLoading, setDocsLoading] = useState(true)
   const [err, setErr] = useState<string | null>(null)
+
+  // Pending board replies — conversations where the board's message is the most
+  // recent and the resident hasn't opened it yet (shared hook; read-state lives
+  // in the contact_thread_read localStorage key).
+  const pendingMsgs = useMyPendingReplies()
 
   const reload = useCallback(async () => {
     if (!profileId) { setDocsLoading(false); return }
@@ -40,6 +48,14 @@ export default function HomePage() {
       <p className="hv-dek">{t('legacy.home.dek')}</p>
 
       {err && <div className="hv-err">{err} <button className="hv-link" onClick={() => { setErr(null); reload() }}>{t('legacy.home.retry')}</button></div>}
+
+      {pendingMsgs > 0 && (
+        <Link href="/app/voice#contact" className="hv-pending">
+          <span className="con-pending-dot" />
+          <span>You have {pendingMsgs} new {pendingMsgs === 1 ? 'reply' : 'replies'} from your board — open Contact</span>
+          <span className="hv-pending-arrow" aria-hidden="true">→</span>
+        </Link>
+      )}
 
       <DocsCard
         docs={docs} loading={docsLoading} doneCategories={doneCategories}
@@ -100,12 +116,15 @@ function DocsCard({ docs, loading, doneCategories, resident, profileId, onChange
               <span className="hv-label">{t('legacy.home.titleLabel')}</span>
               <input className="hv-input" value={title} onChange={e => setTitle(e.target.value)} placeholder={t('legacy.home.titlePlaceholder')} />
             </label>
-            <label className="hv-field">
+            <div className="hv-field">
               <span className="hv-label">{t('legacy.home.categoryLabel')}</span>
-              <select className="hv-input" value={category} onChange={e => setCategory(e.target.value)}>
-                {HOME_DOC_CATEGORIES.map(c => <option key={c}>{c}</option>)}
-              </select>
-            </label>
+              <Dropdown<string>
+                value={category}
+                onChange={v => setCategory(v)}
+                ariaLabel={t('legacy.home.categoryLabel')}
+                options={HOME_DOC_CATEGORIES.map(c => ({ value: c, label: c }))}
+              />
+            </div>
           </div>
           <div className="hv-actions">
             <button type="button" className="hv-btn-ghost" onClick={() => setOpen(false)} disabled={busy}>{t('legacy.home.cancel')}</button>

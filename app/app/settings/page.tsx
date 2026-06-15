@@ -8,11 +8,8 @@ import { deleteAccount } from '@/lib/signup'
 import { DangerAction } from '@/components/DangerAction'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import {
-  EMAIL_PREF_LABEL,
   HOMEPAGE_LABEL,
   LANGUAGE_LABEL,
-  PUSH_PREF_LABEL,
-  SMS_PREF_LABEL,
   WEEK_START_LABEL,
   fileToProfileImage,
   formatTime12,
@@ -31,6 +28,8 @@ import {
   transferHome, HOME_DOC_CATEGORIES, type HomeDoc,
 } from '@/lib/homeVault'
 import { loadNotificationPrefs, saveNotificationPrefs } from '@/lib/notificationPrefs'
+import { useT } from '@/lib/i18n'
+import { useAppIcon, type AppIconChoice } from '@/lib/appIcon'
 import { loadResidentLists, addContact, addVehicle, addPet, removeResidentRow } from '@/lib/residentLists'
 import {
   isPushSupported, isPushConfigured, pushPermission, isSubscribedHere, enablePush, disablePush,
@@ -47,13 +46,34 @@ type DialogKey =
   | 'email' | 'sms' | 'push' | 'quiet-hours'
   | 'homepage' | 'calendar' | 'payment' | 'privacy'
   | 'unit' | 'contacts' | 'vehicles' | 'pets'
-  | 'refer' | 'updates'
+  | 'refer' | 'updates' | 'appicon'
 
 export default function Settings() {
+  const t = useT()
   const { profile, setProfile } = useAuth() || {}
   const { community } = useCommunityData()
   const [prefs, patch] = usePreferences()
   const [dialog, setDialog] = useState<DialogKey | null>(null)
+  // Home-screen icon background (white/black) — device-local, mobile only.
+  const [appIcon] = useAppIcon()
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 768px)')
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
+
+  // Translated value labels for the communication-preference rows + overview.
+  const PREF_LABEL_KEY = {
+    email: { all: 'settings.emailAll', important: 'settings.emailImportant', none: 'settings.prefNone' } as Record<string, string>,
+    sms:   { all: 'settings.smsAll',   emergency: 'settings.smsEmergency',  none: 'settings.prefNone' } as Record<string, string>,
+    push:  { all: 'settings.pushAll',  important: 'settings.pushImportant', none: 'settings.prefNone' } as Record<string, string>,
+  }
+  const emailPrefLabel = t(PREF_LABEL_KEY.email[prefs.email_pref] ?? 'settings.prefNone')
+  const smsPrefLabel   = t(PREF_LABEL_KEY.sms[prefs.sms_pref] ?? 'settings.prefNone')
+  const pushPrefLabel  = t(PREF_LABEL_KEY.push[prefs.push_pref] ?? 'settings.prefNone')
 
   // Two-way sync with the board's roster. The signed-in resident is matched
   // to their public.residents row by email (same match as useMyResident).
@@ -178,7 +198,7 @@ export default function Settings() {
 
   const fullName    = prefs.full_name || profile?.full_name || 'Resident'
   const email       = prefs.email     || profile?.email     || 'resident@example.com'
-  const unitLabel   = profile?.unit_number ? `Unit ${profile.unit_number}` : 'Unit —'
+  const unitLabel   = profile?.unit_number ? t('settings.unitLabel', { unit: profile.unit_number }) : t('settings.unitNone')
   const memberSince = 'Jan 2023'
   const communityName = community?.name || 'Sunset Lakes'
 
@@ -186,9 +206,9 @@ export default function Settings() {
     <div className="set-wrap">
       <section className="set-hero">
         <div className="set-hero-content">
-          <h1 className="set-hero-title">Settings</h1>
+          <h1 className="set-hero-title">{t('settings.title')}</h1>
           <div className="set-hero-sub">
-            Manage your account, preferences, and site settings for {communityName}.
+            {t('settings.heroSub', { community: communityName })}
           </div>
         </div>
       </section>
@@ -196,60 +216,65 @@ export default function Settings() {
       <div className="set-grid">
         {/* MAIN COLUMN */}
         <div className="set-col">
-          <SectionCard title="Account &amp; Profile">
-            <Row icon={<IconUser />}  title="Profile Information"      desc="Update your name, photo, and contact info."
+          <SectionCard title={t('settings.secAccount')}>
+            <Row icon={<IconUser />}  title={t('settings.rowProfile')}      desc={t('settings.rowProfileDesc')}
               onClick={() => setDialog('profile')} right={fullName} />
-            <Row icon={<IconLock />}  title="Login &amp; Security"     desc="Password, two-factor, and active sessions."
+            <Row icon={<IconLock />}  title={t('settings.rowSecurity')}     desc={t('settings.rowSecurityDesc')}
               onClick={() => setDialog('security')} />
-            <Row icon={<IconBell />}  title="Notification Preferences" desc="Choose what reaches you and how."
+            <Row icon={<IconBell />}  title={t('settings.rowNotif')} desc={t('settings.rowNotifDesc')}
               onClick={() => setDialog('notifications')} />
-            <Row icon={<IconGlobe />} title="Language"    desc="Choose your display language."
+            <Row icon={<IconGlobe />} title={t('settings.rowLanguage')}    desc={t('settings.rowLanguageDesc')}
               onClick={() => setDialog('language')}
               right={LANGUAGE_LABEL[prefs.language]} />
-            <Row icon={<IconEye />}   title="Accessibility"            desc="Larger text, reduced motion, high contrast."
+            <Row icon={<IconEye />}   title={t('settings.rowAccess')}            desc={t('settings.rowAccessDesc')}
               onClick={() => setDialog('accessibility')}
-              right={accessibilitySummary(prefs)} />
+              right={accessibilitySummary(prefs, t)} />
+            {isMobile && (
+              <Row icon={<IconAppIcon />} title={t('settings.rowAppIcon')} desc={t('settings.rowAppIconDesc')}
+                onClick={() => setDialog('appicon')}
+                right={appIcon === 'black' ? t('settings.appIconBlack') : t('settings.appIconWhite')} />
+            )}
           </SectionCard>
 
-          <SectionCard title="Communication Preferences">
-            <Row icon={<IconMail />} title="Email Preferences"  desc="Newsletters, board updates, billing receipts."
-              onClick={() => setDialog('email')} right={EMAIL_PREF_LABEL[prefs.email_pref]} />
-            <Row icon={<IconChat />} title="SMS Preferences"    desc="Texts for emergencies and dues reminders."
-              onClick={() => setDialog('sms')}   right={SMS_PREF_LABEL[prefs.sms_pref]} />
-            <Row icon={<IconPush />} title="Browser Notifications" desc="Browser push alerts when Residente isn't open."
-              onClick={() => setDialog('push')}  right={PUSH_PREF_LABEL[prefs.push_pref]} />
-            <Row icon={<IconMoon />} title="Quiet Hours"        desc="No non-emergency notifications during this window."
+          <SectionCard title={t('settings.secComm')}>
+            <Row icon={<IconMail />} title={t('settings.rowEmail')}  desc={t('settings.rowEmailDesc')}
+              onClick={() => setDialog('email')} right={emailPrefLabel} />
+            <Row icon={<IconChat />} title={t('settings.rowSms')}    desc={t('settings.rowSmsDesc')}
+              onClick={() => setDialog('sms')}   right={smsPrefLabel} />
+            <Row icon={<IconPush />} title={t('settings.rowBrowser')} desc={t('settings.rowBrowserDesc')}
+              onClick={() => setDialog('push')}  right={pushPrefLabel} />
+            <Row icon={<IconMoon />} title={t('settings.rowQuiet')}        desc={t('settings.rowQuietDesc')}
               onClick={() => setDialog('quiet-hours')}
               right={`${formatTime12(prefs.quiet_hours_start)} – ${formatTime12(prefs.quiet_hours_end)}`} />
           </SectionCard>
 
-          <SectionCard title="Site Preferences">
-            <Row icon={<IconHome />}     title="Default Landing Page" desc="Where Residente opens when you sign in."
+          <SectionCard title={t('settings.secSite')}>
+            <Row icon={<IconHome />}     title={t('settings.rowHomepage')} desc={t('settings.rowHomepageDesc')}
               onClick={() => setDialog('homepage')} right={HOMEPAGE_LABEL[prefs.default_homepage]} />
-            <Row icon={<IconCalendar />} title="Calendar Settings"   desc="Week start, default view, sync options."
+            <Row icon={<IconCalendar />} title={t('settings.rowCalendar')}   desc={t('settings.rowCalendarDesc')}
               onClick={() => setDialog('calendar')} right={WEEK_START_LABEL[prefs.calendar_week_start]} />
-            <Row icon={<IconCard />}     title="Payment Methods"     desc="Cards and bank accounts on file."
-              onClick={() => setDialog('payment')}  right={`${prefs.payment_methods.length} saved`} />
-            <Row icon={<IconShield />}   title="Privacy &amp; Data"  desc="Who can see your unit info and history."
+            <Row icon={<IconCard />}     title={t('settings.rowPayment')}     desc={t('settings.rowPaymentDesc')}
+              onClick={() => setDialog('payment')}  right={t('settings.nSaved', { n: prefs.payment_methods.length })} />
+            <Row icon={<IconShield />}   title={t('settings.rowPrivacy')}  desc={t('settings.rowPrivacyDesc')}
               onClick={() => setDialog('privacy')} />
           </SectionCard>
 
-          <SectionCard title="Community &amp; Unit">
-            <Row icon={<IconKey />}   title="Unit Information"   desc="Address, square footage, ownership details."
+          <SectionCard title={t('settings.secCommunity')}>
+            <Row icon={<IconKey />}   title={t('settings.rowUnit')}   desc={t('settings.rowUnitDesc')}
               onClick={() => setDialog('unit')} right={unitLabel} />
-            <Row icon={<IconPhone />} title="Emergency Contacts" desc="People the board reaches in an emergency."
-              onClick={() => setDialog('contacts')} right={`${prefs.emergency_contacts.length} on file`} />
-            <Row icon={<IconCar />}   title="Vehicle Information" desc="Cars registered for your designated spots."
-              onClick={() => setDialog('vehicles')} right={`${prefs.vehicles.length} registered`} />
-            <Row icon={<IconPaw />}   title="Pet Information"    desc="Pets registered with the community."
-              onClick={() => setDialog('pets')} right={`${prefs.pets.length} registered`} />
+            <Row icon={<IconPhone />} title={t('settings.rowContacts')} desc={t('settings.rowContactsDesc')}
+              onClick={() => setDialog('contacts')} right={t('settings.nOnFile', { n: prefs.emergency_contacts.length })} />
+            <Row icon={<IconCar />}   title={t('settings.rowVehicles')} desc={t('settings.rowVehiclesDesc')}
+              onClick={() => setDialog('vehicles')} right={t('settings.nRegistered', { n: prefs.vehicles.length })} />
+            <Row icon={<IconPaw />}   title={t('settings.rowPets')}    desc={t('settings.rowPetsDesc')}
+              onClick={() => setDialog('pets')} right={t('settings.nRegistered', { n: prefs.pets.length })} />
           </SectionCard>
 
-          <SectionCard title="Home Vault">
+          <SectionCard title={t('settings.secVault')}>
             <HomeVaultPanel />
           </SectionCard>
 
-          <SectionCard title="Sell or transfer home">
+          <SectionCard title={t('settings.secTransfer')}>
             <HomeTransferPanel />
           </SectionCard>
 
@@ -262,8 +287,8 @@ export default function Settings() {
               </svg>
             </span>
             <span className="set-logout-body">
-              <span className="set-logout-title">Log out</span>
-              <span className="set-logout-desc">Sign out of your Residente account.</span>
+              <span className="set-logout-title">{t('settings.logout')}</span>
+              <span className="set-logout-desc">{t('settings.logoutDesc')}</span>
             </span>
             <span className="set-logout-chev" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -274,9 +299,9 @@ export default function Settings() {
 
           <DangerAction
             confirmWord="DELETE"
-            confirmLabel="Delete my account"
-            title="Delete account"
-            body={<>This permanently deletes your account and your personal data, and signs you out. If you&apos;re the only member of your community, the community is deleted too. This can&apos;t be undone.{' '}Need help instead? <a href="/app/contact" style={{ color: '#E5601F', fontWeight: 700 }}>Contact Residente</a>.</>}
+            confirmLabel={t('settings.deleteConfirmLabel')}
+            title={t('settings.deleteTitle')}
+            body={<>{t('settings.deleteBodyLead')}{' '}{t('settings.deleteBodyHelp')} <a href="/app/contact" style={{ color: '#E5601F', fontWeight: 700 }}>{t('settings.contactResidente')}</a>.</>}
             onConfirm={async () => {
               const r = await deleteAccount()
               if (r?.error) return r
@@ -292,8 +317,8 @@ export default function Settings() {
                   </svg>
                 </span>
                 <span className="set-logout-body">
-                  <span className="set-logout-title" style={{ color: '#b5481f' }}>Delete account</span>
-                  <span className="set-logout-desc">Permanently remove your account and data.</span>
+                  <span className="set-logout-title" style={{ color: '#b5481f' }}>{t('settings.deleteTitle')}</span>
+                  <span className="set-logout-desc">{t('settings.deleteDesc')}</span>
                 </span>
                 <span className="set-logout-chev" aria-hidden="true">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -308,7 +333,7 @@ export default function Settings() {
         {/* RIGHT SIDEBAR */}
         <aside className="set-aside">
           <div className="set-tile">
-            <div className="set-tile-title">Account summary</div>
+            <div className="set-tile-title">{t('settings.acctSummary')}</div>
             <div className="set-account">
               <AvatarButton
                 image={prefs.profile_image}
@@ -318,7 +343,7 @@ export default function Settings() {
                     const dataUrl = await fileToProfileImage(file)
                     patch({ profile_image: dataUrl })
                   } catch (err: any) {
-                    alert(err?.message || 'Could not load that image.')
+                    alert(err?.message || t('settings.hvLoadImgFailed'))
                   }
                 }}
               />
@@ -328,48 +353,48 @@ export default function Settings() {
               </div>
             </div>
             <div className="set-account-rows">
-              <div className="set-account-row"><span>Member since</span><span>{memberSince}</span></div>
-              <div className="set-account-row"><span>Community</span><span>{communityName}</span></div>
+              <div className="set-account-row"><span>{t('settings.memberSince')}</span><span>{memberSince}</span></div>
+              <div className="set-account-row"><span>{t('settings.community')}</span><span>{communityName}</span></div>
             </div>
             <button className="set-tile-cta" type="button" onClick={() => setDialog('profile')}>
-              View profile
+              {t('settings.viewProfile')}
             </button>
           </div>
 
           <div className="set-tile set-tile-web">
-            <div className="set-tile-title">Quick links</div>
+            <div className="set-tile-title">{t('settings.quickLinks')}</div>
             <ul className="set-links">
-              <li><Link href="/app/voice#contact">Help center</Link></li>
-              <li><Link href="/app/voice#contact">Contact management</Link></li>
-              <li><button type="button" className="set-links-btn" onClick={() => setDialog('notifications')}>Update communication preferences</button></li>
-              <li><Link href="/app/documents">Download center</Link></li>
-              <li><button type="button" className="set-links-btn" onClick={() => setDialog('refer')}>Refer a neighbor</button></li>
+              <li><Link href="/app/voice#contact">{t('settings.helpCenter')}</Link></li>
+              <li><Link href="/app/voice#contact">{t('settings.contactMgmt')}</Link></li>
+              <li><button type="button" className="set-links-btn" onClick={() => setDialog('notifications')}>{t('settings.updateCommPrefs')}</button></li>
+              <li><Link href="/app/documents">{t('settings.downloadCenter')}</Link></li>
+              <li><button type="button" className="set-links-btn" onClick={() => setDialog('refer')}>{t('settings.referNeighbor')}</button></li>
             </ul>
           </div>
 
           <div className="set-tile set-tile-web">
-            <div className="set-tile-title">Preferences overview</div>
+            <div className="set-tile-title">{t('settings.prefsOverview')}</div>
             <div className="set-prefs">
-              <div className="set-pref-row"><span>Email</span><span>{EMAIL_PREF_LABEL[prefs.email_pref]}</span></div>
-              <div className="set-pref-row"><span>SMS</span><span>{SMS_PREF_LABEL[prefs.sms_pref]}</span></div>
-              <div className="set-pref-row"><span>Push</span><span>{PUSH_PREF_LABEL[prefs.push_pref]}</span></div>
-              <div className="set-pref-row"><span>Quiet hours</span><span>{formatTime12(prefs.quiet_hours_start)} – {formatTime12(prefs.quiet_hours_end)}</span></div>
-              <div className="set-pref-row"><span>Language</span><span>{LANGUAGE_LABEL[prefs.language]}</span></div>
+              <div className="set-pref-row"><span>{t('settings.email')}</span><span>{emailPrefLabel}</span></div>
+              <div className="set-pref-row"><span>{t('settings.sms')}</span><span>{smsPrefLabel}</span></div>
+              <div className="set-pref-row"><span>{t('settings.push')}</span><span>{pushPrefLabel}</span></div>
+              <div className="set-pref-row"><span>{t('settings.quietHours')}</span><span>{formatTime12(prefs.quiet_hours_start)} – {formatTime12(prefs.quiet_hours_end)}</span></div>
+              <div className="set-pref-row"><span>{t('settings.language')}</span><span>{LANGUAGE_LABEL[prefs.language]}</span></div>
             </div>
             <button className="set-tile-cta" type="button" onClick={() => setDialog('notifications')}>
-              Edit preferences
+              {t('settings.editPrefs')}
             </button>
           </div>
 
           <div className="set-tile set-tile-web">
-            <div className="set-tile-title">About this site</div>
+            <div className="set-tile-title">{t('settings.aboutSite')}</div>
             <div className="set-prefs">
-              <div className="set-pref-row"><span>Build</span><span>1.2.5 (web)</span></div>
-              <div className="set-pref-row"><span>Last deployed</span><span>May 27, 2026</span></div>
-              <div className="set-pref-row"><span>Native apps</span><span>Coming soon</span></div>
+              <div className="set-pref-row"><span>{t('settings.build')}</span><span>1.2.5 (web)</span></div>
+              <div className="set-pref-row"><span>{t('settings.lastDeployed')}</span><span>May 27, 2026</span></div>
+              <div className="set-pref-row"><span>{t('settings.nativeApps')}</span><span>{t('settings.comingSoon')}</span></div>
             </div>
             <button className="set-tile-cta" type="button" onClick={() => setDialog('updates')}>
-              Reload latest
+              {t('settings.reloadLatest')}
             </button>
           </div>
         </aside>
@@ -395,29 +420,33 @@ export default function Settings() {
 
 // -- small helpers --------------------------------------------------
 
-function accessibilitySummary(p: Preferences): string {
+function accessibilitySummary(p: Preferences, t: (k: string, v?: Record<string, string | number>) => string): string {
   const flags = [
-    p.large_text && 'Larger text',
-    p.reduced_motion && 'Reduced motion',
-    p.high_contrast && 'High contrast',
+    p.large_text && t('settings.accLargeText'),
+    p.reduced_motion && t('settings.accReducedMotion'),
+    p.high_contrast && t('settings.accHighContrast'),
   ].filter(Boolean) as string[]
-  return flags.length ? flags.join(' · ') : 'Default'
+  return flags.length ? flags.join(' · ') : t('settings.accDefault')
 }
 
 // Home Vault: one row per category (Deed, Insurance, Warranties...). The
 // document count sits at the far right; clicking a row opens a dropdown of that
 // category's files (open / mark conveys / delete) plus an "add a file" action.
-const HV_CATEGORY_DESC: Record<string, string> = {
-  'Deed & closing':   'Deed, title, and closing documents.',
-  'Insurance':        'Homeowner and hazard policies.',
-  'Warranties':       'Appliance and system warranties.',
-  'Permits':          'Renovation and building permits.',
-  'Appliance manuals':'Manuals for what stays with the home.',
-  'HOA documents':    'Welcome packet, rules, and statements.',
-  'Other':            'Anything else worth keeping.',
+// Category keys are stored in the DB as-is (English), so we keep them as keys
+// and map each to its translated label + description for display only.
+const HV_CAT_I18N: Record<string, { label: string; desc: string }> = {
+  'Deed & closing':    { label: 'settings.hvCatDeed',       desc: 'settings.hvCatDeedDesc' },
+  'Insurance':         { label: 'settings.hvCatInsurance',  desc: 'settings.hvCatInsuranceDesc' },
+  'Warranties':        { label: 'settings.hvCatWarranties', desc: 'settings.hvCatWarrantiesDesc' },
+  'Permits':           { label: 'settings.hvCatPermits',    desc: 'settings.hvCatPermitsDesc' },
+  'Appliance manuals': { label: 'settings.hvCatAppliance',  desc: 'settings.hvCatApplianceDesc' },
+  'HOA documents':     { label: 'settings.hvCatHoa',        desc: 'settings.hvCatHoaDesc' },
+  'Other':             { label: 'settings.hvCatOther',      desc: 'settings.hvCatOtherDesc' },
 }
 
 function HomeVaultPanel() {
+  const t = useT()
+  const docCount = (n: number) => t(n === 1 ? 'settings.hvDocOne' : 'settings.hvDocMany', { n })
   const { profile } = useAuth() || {}
   const profileId = profile?.id
   const communityId = profile?.community_id ?? null
@@ -445,7 +474,7 @@ function HomeVaultPanel() {
     try {
       await uploadHomeDoc({ file: mFile, title: mTitle, note: mNote, category: addCat, profileId, communityId, residentId: null })
       setAddCat(null); await reload()
-    } catch (e2) { setErr((e2 as Error).message || 'Upload failed.') }
+    } catch (e2) { setErr((e2 as Error).message || t('settings.hvUploadFailed')) }
     finally { setMBusy(false) }
   }
   const openDoc = async (d: HomeDoc) => { const u = await homeDocUrl(d.storage_path); if (u) window.open(u, '_blank', 'noopener') }
@@ -464,10 +493,10 @@ function HomeVaultPanel() {
             <button type="button" className={`set-row${isOpen ? ' hv-cat-open' : ''}`} onClick={() => setOpenCat(isOpen ? null : cat)}>
               <span className="set-row-icon"><IconKey /></span>
               <span className="set-row-body">
-                <span className="set-row-title">{cat}</span>
-                <span className="set-row-desc">{HV_CATEGORY_DESC[cat] || ''}</span>
+                <span className="set-row-title">{HV_CAT_I18N[cat] ? t(HV_CAT_I18N[cat].label) : cat}</span>
+                <span className="set-row-desc">{HV_CAT_I18N[cat] ? t(HV_CAT_I18N[cat].desc) : ''}</span>
               </span>
-              <span className="set-row-right">{items.length} {items.length === 1 ? 'document' : 'documents'}</span>
+              <span className="set-row-right">{docCount(items.length)}</span>
               <svg className="set-row-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"
                 aria-hidden="true" style={{ transform: isOpen ? 'rotate(90deg)' : undefined, transition: 'transform .15s' }}>
                 <polyline points="9 18 15 12 9 6"/>
@@ -475,20 +504,20 @@ function HomeVaultPanel() {
             </button>
             {isOpen && (
               <div className="hv-cat-drop">
-                {items.length === 0 && <div className="hv-muted">No files in this category yet.</div>}
+                {items.length === 0 && <div className="hv-muted">{t('settings.hvNoFiles')}</div>}
                 {items.map(d => (
                   <div key={d.id} className="hv-docrow">
                     <button type="button" className="hv-doc-main" onClick={() => openDoc(d)}>
                       <span className="hv-doc-title">{d.title}</span>
                       <span className="hv-doc-meta">{fmtD(d.uploaded_at)}{d.note ? ` · ${d.note}` : ''}</span>
                     </button>
-                    <label className="hv-conveys" title="Transfers to the next owner when you sell">
-                      <input type="checkbox" checked={d.conveys} onChange={() => toggle(d)} /><span>Conveys</span>
+                    <label className="hv-conveys" title={t('settings.hvConveysTip')}>
+                      <input type="checkbox" checked={d.conveys} onChange={() => toggle(d)} /><span>{t('settings.hvConveys')}</span>
                     </label>
-                    <button type="button" className="hv-doc-del" onClick={() => remove(d)} aria-label="Delete">×</button>
+                    <button type="button" className="hv-doc-del" onClick={() => remove(d)} aria-label={t('settings.hvDelete')}>×</button>
                   </div>
                 ))}
-                <button type="button" className="hv-cat-add" onClick={() => openAdd(cat)}>+ Add a document</button>
+                <button type="button" className="hv-cat-add" onClick={() => openAdd(cat)}>{t('settings.hvAddDoc')}</button>
               </div>
             )}
           </div>
@@ -498,25 +527,25 @@ function HomeVaultPanel() {
       {addCat && (
         <div className="hv-modal-overlay" onClick={() => !mBusy && setAddCat(null)}>
           <form className="hv-modal" onClick={e => e.stopPropagation()} onSubmit={submitAdd}>
-            <div className="hv-modal-title">Add to {addCat}</div>
+            <div className="hv-modal-title">{t('settings.hvAddTo', { cat: HV_CAT_I18N[addCat] ? t(HV_CAT_I18N[addCat].label) : addCat })}</div>
             <label className="hv-field">
-              <span className="hv-label">File</span>
+              <span className="hv-label">{t('settings.hvFile')}</span>
               <input className="hv-input" type="file" required
                 onChange={e => { const f = e.target.files?.[0] ?? null; setMFile(f); if (f && !mTitle) setMTitle(f.name.replace(/\.[^.]+$/, '')) }} />
             </label>
             <label className="hv-field">
-              <span className="hv-label">Title</span>
-              <input className="hv-input" value={mTitle} onChange={e => setMTitle(e.target.value)} placeholder="e.g. Roof warranty" autoFocus />
+              <span className="hv-label">{t('settings.hvTitleLabel')}</span>
+              <input className="hv-input" value={mTitle} onChange={e => setMTitle(e.target.value)} placeholder={t('settings.hvTitlePh')} autoFocus />
             </label>
             <label className="hv-field">
-              <span className="hv-label">Note</span>
+              <span className="hv-label">{t('settings.hvNoteLabel')}</span>
               <textarea className="hv-input hv-textarea" rows={3} value={mNote} onChange={e => setMNote(e.target.value)}
-                placeholder="Optional — anything worth remembering about this document." />
+                placeholder={t('settings.hvNotePh')} />
             </label>
             {err && <div className="hv-err">{err}</div>}
             <div className="hv-modal-actions">
-              <button type="button" className="hv-btn-ghost" onClick={() => setAddCat(null)} disabled={mBusy}>Cancel</button>
-              <button type="submit" className="hv-btn" disabled={mBusy || !mFile}>{mBusy ? 'Adding…' : 'Add'}</button>
+              <button type="button" className="hv-btn-ghost" onClick={() => setAddCat(null)} disabled={mBusy}>{t('settings.hvCancel')}</button>
+              <button type="submit" className="hv-btn" disabled={mBusy || !mFile}>{mBusy ? t('settings.hvAdding') : t('settings.hvAdd')}</button>
             </div>
           </form>
         </div>
@@ -529,6 +558,9 @@ function HomeVaultPanel() {
 // danger row with a red action that opens a confirm modal; the modal calls the
 // home-transfer edge function to hand the unit + its conveying docs to the buyer.
 function HomeTransferPanel() {
+  const t = useT()
+  const conveyDocs = (n: number) => t(n === 1 ? 'settings.xferConveyOne' : 'settings.xferConveyMany', { n })
+  const plainDocs = (n: number) => t(n === 1 ? 'settings.hvDocOne' : 'settings.hvDocMany', { n })
   const { profile } = useAuth() || {}
   const profileId = profile?.id
   const communityId = profile?.community_id ?? null
@@ -585,23 +617,22 @@ function HomeTransferPanel() {
     try {
       const res = await transferHome({ residentId, buyerEmail: email.trim(), buyerName: name.trim() || undefined })
       setDone(
-        `Home transferred. ${res.docs_conveyed} document${res.docs_conveyed === 1 ? '' : 's'} moved to the new owner` +
-        (res.email_sent ? ', and they were emailed a set-up link.' : '. (We could not send the email — share their invite link manually.)')
+        t('settings.xferSuccessLead', { docs: plainDocs(res.docs_conveyed) }) +
+        (res.email_sent ? t('settings.xferSuccessEmailed') : t('settings.xferSuccessNoEmail'))
       )
-    } catch (e2) { setErr((e2 as Error).message || 'Transfer failed.') }
+    } catch (e2) { setErr((e2 as Error).message || t('settings.xferFailed')) }
     finally { setBusy(false) }
   }
 
   return (
     <>
       <button type="button" className="set-row" onClick={openModal}
-        title="Transfer this home to the next owner">
+        title={t('settings.xferTitle')}>
         <span className="set-row-icon hv-xfer-icon"><IconHome /></span>
         <span className="set-row-body">
-          <span className="set-row-title">Sell or transfer this home</span>
+          <span className="set-row-title">{t('settings.xferTitle')}</span>
           <span className="set-row-desc">
-            Once the sale has closed, hand your unit to the next owner. The {conveyCount} document
-            {conveyCount === 1 ? '' : 's'} marked “Conveys” move to them, plus an invite to set up their account.
+            {t('settings.xferDesc', { docs: plainDocs(conveyCount) })}
           </span>
         </span>
         <svg className="set-row-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -612,55 +643,49 @@ function HomeTransferPanel() {
       {open && (
         <div className="hv-modal-overlay" onClick={() => !busy && setOpen(false)}>
           <form className="hv-modal" onClick={e => e.stopPropagation()} onSubmit={submit}>
-            <div className="hv-modal-title">Transfer this home</div>
+            <div className="hv-modal-title">{t('settings.xferModalTitle')}</div>
             {done ? (
               <>
                 <div className="hv-xfer-success">{done}</div>
                 <div className="hv-modal-actions">
-                  <button type="button" className="hv-btn" onClick={() => setOpen(false)}>Done</button>
+                  <button type="button" className="hv-btn" onClick={() => setOpen(false)}>{t('settings.xferDone')}</button>
                 </div>
               </>
             ) : !residentId ? (
               <>
                 <div className="hv-xfer-warn">
-                  We couldn’t find a home on your account to transfer. This tool moves a specific
-                  unit, so your account needs to be linked to a home on the community roster first.
-                  Ask your board to add you (or check that your account email matches the one they
-                  have on file), then come back here.
+                  {t('settings.xferNoHome')}
                 </div>
                 <div className="hv-modal-actions">
-                  <button type="button" className="hv-btn" onClick={() => setOpen(false)}>Got it</button>
+                  <button type="button" className="hv-btn" onClick={() => setOpen(false)}>{t('settings.xferGotIt')}</button>
                 </div>
               </>
             ) : (
               <>
                 <div className="hv-xfer-warn">
-                  <strong>Only do this after closing.</strong> Wait until the sale is final and the
-                  contract is signed — this immediately moves your unit and its {conveyCount} conveying
-                  document{conveyCount === 1 ? '' : 's'} to the new owner. You’ll no longer own this home
-                  on Residente, and this can’t be undone from here.
+                  <strong>{t('settings.xferWarnStrong')}</strong> {t('settings.xferWarnBody', { docs: conveyDocs(conveyCount) })}
                 </div>
                 <label className="hv-field">
-                  <span className="hv-label">Buyer’s email</span>
+                  <span className="hv-label">{t('settings.xferBuyerEmail')}</span>
                   <input className="hv-input" type="email" required value={email}
-                    onChange={e => setEmail(e.target.value)} placeholder="newowner@email.com" autoFocus />
+                    onChange={e => setEmail(e.target.value)} placeholder={t('settings.xferBuyerEmailPh')} autoFocus />
                 </label>
                 <label className="hv-field">
-                  <span className="hv-label">Buyer’s name (optional)</span>
-                  <input className="hv-input" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Jordan Lee" />
+                  <span className="hv-label">{t('settings.xferBuyerName')}</span>
+                  <input className="hv-input" value={name} onChange={e => setName(e.target.value)} placeholder={t('settings.xferBuyerNamePh')} />
                 </label>
                 <label className="hv-field">
                   <span className="hv-label">
-                    Type your name to confirm{ownerName ? <> — <strong>{ownerName}</strong></> : ''}
+                    {t('settings.xferConfirmName')}{ownerName ? <> — <strong>{ownerName}</strong></> : ''}
                   </span>
                   <input className="hv-input" value={typedName} onChange={e => setTypedName(e.target.value)}
-                    placeholder={ownerName || 'Your full name'} autoComplete="off" />
+                    placeholder={ownerName || t('settings.xferConfirmPh')} autoComplete="off" />
                 </label>
                 {err && <div className="hv-err">{err}</div>}
                 <div className="hv-modal-actions">
-                  <button type="button" className="hv-btn-ghost" onClick={() => setOpen(false)} disabled={busy}>Cancel</button>
+                  <button type="button" className="hv-btn-ghost" onClick={() => setOpen(false)} disabled={busy}>{t('settings.hvCancel')}</button>
                   <button type="submit" className="hv-danger-btn" disabled={busy || !email.trim() || !nameMatches}>
-                    {busy ? 'Transferring…' : 'Transfer home'}
+                    {busy ? t('settings.xferTransferring') : t('settings.xferTransferBtn')}
                   </button>
                 </div>
               </>
@@ -728,14 +753,15 @@ function SettingsDialog({
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const title = DIALOG_TITLE[k]
+  const t = useT()
+  const title = dialogTitle(k, t)
   return (
     <div className="set-dialog-backdrop" onClick={onClose}>
       <div className="set-dialog-card" role="dialog" aria-modal="true"
            onClick={e => e.stopPropagation()}>
         <header className="set-dialog-head">
           <h2 className="set-dialog-title">{title}</h2>
-          <button type="button" className="set-dialog-close" aria-label="Close" onClick={onClose}>×</button>
+          <button type="button" className="set-dialog-close" aria-label={t('settings.dlgClose')} onClick={onClose}>×</button>
         </header>
         <div className="set-dialog-body">
           <DialogBody k={k} prefs={prefs} patch={patch} unitLabel={unitLabel}
@@ -743,33 +769,37 @@ function SettingsDialog({
             onSaveContact={onSaveContact} />
         </div>
         <footer className="set-dialog-foot">
-          <button type="button" className="set-btn-primary" onClick={onClose}>Done</button>
+          <button type="button" className="set-btn-primary" onClick={onClose}>{t('settings.dlgDone')}</button>
         </footer>
       </div>
     </div>
   )
 }
 
-const DIALOG_TITLE: Record<DialogKey, string> = {
-  profile:        'Profile information',
-  security:       'Login & security',
-  notifications:  'Notification preferences',
-  language:       'Language',
-  accessibility:  'Accessibility',
-  email:          'Email preferences',
-  sms:            'SMS preferences',
-  push:           'Push notifications',
-  'quiet-hours':  'Quiet hours',
-  homepage:       'Default landing page',
-  calendar:       'Calendar settings',
-  payment:        'Payment methods',
-  privacy:        'Privacy & data',
-  unit:           'Unit information',
-  contacts:       'Emergency contacts',
-  vehicles:       'Vehicle information',
-  pets:           'Pet information',
-  refer:          'Refer a neighbor',
-  updates:        'Reload latest',
+function dialogTitle(k: DialogKey, t: (key: string) => string): string {
+  const KEY: Record<DialogKey, string> = {
+    profile:        'settings.dlgProfileTitle',
+    security:       'settings.dlgSecurityTitle',
+    notifications:  'settings.dlgNotifTitle',
+    language:       'settings.rowLanguage',
+    accessibility:  'settings.rowAccess',
+    email:          'settings.dlgEmailTitle',
+    sms:            'settings.dlgSmsTitle',
+    push:           'settings.dlgPushTitle',
+    'quiet-hours':  'settings.quietHours',
+    homepage:       'settings.dlgHomepageTitle',
+    calendar:       'settings.dlgCalendarTitle',
+    payment:        'settings.dlgPaymentTitle',
+    privacy:        'settings.dlgPrivacyTitle',
+    unit:           'settings.dlgUnitTitle',
+    contacts:       'settings.rowContacts',
+    vehicles:       'settings.rowVehicles',
+    pets:           'settings.rowPets',
+    refer:          'settings.referNeighbor',
+    updates:        'settings.reloadLatest',
+    appicon:        'settings.dlgAppIconTitle',
+  }
+  return t(KEY[k])
 }
 
 // First / Last name editor. First and Last are independent local state so
@@ -785,6 +815,7 @@ function ProfileNameFields({
   patch: (p: Partial<Preferences>) => void
   onSaveContact: (next: { full_name?: string; phone?: string; address?: string }) => void
 }) {
+  const t = useT()
   const seed = (prefs.full_name || '').trim()
   const seedSp = seed.indexOf(' ')
   const [first, setFirst] = useState(seedSp === -1 ? seed : seed.slice(0, seedSp))
@@ -794,17 +825,17 @@ function ProfileNameFields({
 
   return (
     <div className="set-name-row">
-      <Field label="First name">
+      <Field label={t('settings.fldFirstName')}>
         <input name="given-name" autoComplete="given-name" className="set-input" value={first}
           onChange={e => { setFirst(e.target.value); patch({ full_name: recombine(e.target.value, last) }) }}
           onBlur={() => onSaveContact({ full_name: recombine(first, last) })}
-          placeholder="Maria" />
+          placeholder={t('settings.phFirstName')} />
       </Field>
-      <Field label="Last name">
+      <Field label={t('settings.fldLastName')}>
         <input name="family-name" autoComplete="family-name" className="set-input" value={last}
           onChange={e => { setLast(e.target.value); patch({ full_name: recombine(first, e.target.value) }) }}
           onBlur={() => onSaveContact({ full_name: recombine(first, last) })}
-          placeholder="Santos" />
+          placeholder={t('settings.phLastName')} />
       </Field>
     </div>
   )
@@ -823,6 +854,7 @@ function DialogBody({
   communityId: string | null
   onSaveContact: (next: { full_name?: string; phone?: string; address?: string }) => void
 }) {
+  const t = useT()
   switch (k) {
     case 'profile':
       return (
@@ -830,26 +862,25 @@ function DialogBody({
           <ProfilePhotoEditor prefs={prefs} patch={patch} />
           <ProfileNameFields prefs={prefs} patch={patch} onSaveContact={onSaveContact} />
           <EmailChanger />
-          <Field label="Phone">
+          <Field label={t('settings.fldPhone')}>
             <input name="phone" autoComplete="tel" className="set-input" type="tel" value={prefs.phone}
               onChange={e => patch({ phone: e.target.value })}
               onBlur={e => onSaveContact({ phone: e.target.value.trim() })}
-              placeholder="(305) 555-0142" />
+              placeholder={t('settings.phPhone')} />
           </Field>
-          <Field label="Address">
+          <Field label={t('settings.fldAddress')}>
             <input name="street-address" autoComplete="street-address" className="set-input" value={prefs.address}
               onChange={e => patch({ address: e.target.value })}
               onBlur={e => onSaveContact({ address: e.target.value.trim() })}
-              placeholder="1247 Oak Street" />
+              placeholder={t('settings.phAddress')} />
           </Field>
           {roster ? (
             <span className="set-dialog-note set-dialog-note-tight">
-              ✓ Synced to your community record — your name and phone update the board&rsquo;s roster.
+              {t('settings.profNoteSynced')}
             </span>
           ) : (
             <span className="set-dialog-note set-dialog-note-tight">
-              Saved on this device. Once the board adds you to the roster (matched by this email),
-              your name and phone will sync to them automatically.
+              {t('settings.profNoteUnsynced')}
             </span>
           )}
         </>
@@ -859,20 +890,19 @@ function DialogBody({
       return (
         <>
           <p className="set-dialog-note">
-            Password and 2FA are managed by your community&rsquo;s Supabase auth.
-            From the demo build these actions surface as stubs.
+            {t('settings.secNote')}
           </p>
           <button type="button" className="set-btn-ghost"
-            onClick={() => alert('A reset link would be sent to ' + (prefs.email || 'your email') + '.')}>
-            Send password reset link
+            onClick={() => alert(t('settings.secResetAlert', { email: prefs.email || t('settings.fldEmailLabel') }))}>
+            {t('settings.secResetBtn')}
           </button>
           <button type="button" className="set-btn-ghost"
-            onClick={() => alert('Two-factor setup is wired up in production.')}>
-            Set up two-factor authentication
+            onClick={() => alert(t('settings.sec2faAlert'))}>
+            {t('settings.sec2faBtn')}
           </button>
           <button type="button" className="set-btn-ghost"
-            onClick={() => alert('No other active sessions detected.')}>
-            View active sessions
+            onClick={() => alert(t('settings.secSessionsAlert'))}>
+            {t('settings.secSessionsBtn')}
           </button>
         </>
       )
@@ -881,40 +911,40 @@ function DialogBody({
       return (
         <>
           <RadioGroup<EmailPref>
-            label="Email"
+            label={t('settings.email')}
             value={prefs.email_pref}
             onChange={v => patch({ email_pref: v })}
             options={[
-              { value: 'all',       label: 'All updates',     desc: 'Board posts, billing receipts, newsletters.' },
-              { value: 'important', label: 'Important only',  desc: 'Billing, votes, emergencies.' },
-              { value: 'none',      label: 'None',            desc: 'Mute community email entirely.' },
+              { value: 'all',       label: t('settings.emailAll'),       desc: t('settings.emailAllDesc') },
+              { value: 'important', label: t('settings.emailImportant'), desc: t('settings.emailImportantDesc') },
+              { value: 'none',      label: t('settings.prefNone'),       desc: t('settings.emailNoneDesc') },
             ]}
           />
           <RadioGroup<SmsPref>
-            label="SMS"
+            label={t('settings.sms')}
             value={prefs.sms_pref}
             onChange={v => patch({ sms_pref: v })}
             options={[
-              { value: 'all',       label: 'All texts',         desc: 'Reminders, RSVP nudges, dues prompts.' },
-              { value: 'emergency', label: 'Emergency only',    desc: 'Texts only when something urgent is happening.' },
-              { value: 'none',      label: 'None',              desc: 'No SMS at all.' },
+              { value: 'all',       label: t('settings.smsAll'),       desc: t('settings.smsAllDesc') },
+              { value: 'emergency', label: t('settings.smsEmergency'), desc: t('settings.smsEmergencyDesc') },
+              { value: 'none',      label: t('settings.prefNone'),     desc: t('settings.smsNoneDesc') },
             ]}
           />
           <RadioGroup<PushPref>
-            label="Push"
+            label={t('settings.push')}
             value={prefs.push_pref}
             onChange={v => patch({ push_pref: v })}
             options={[
-              { value: 'all',       label: 'All',              desc: 'Every push the board sends.' },
-              { value: 'important', label: 'Important only',   desc: 'Votes, dues, emergencies.' },
-              { value: 'none',      label: 'None',             desc: 'Silence in-app and mobile push.' },
+              { value: 'all',       label: t('settings.pushAll'),       desc: t('settings.pushAllDesc') },
+              { value: 'important', label: t('settings.pushImportant'), desc: t('settings.pushImportantDesc') },
+              { value: 'none',      label: t('settings.prefNone'),      desc: t('settings.pushNoneDesc') },
             ]}
           />
-          <Field label="Quiet hours">
+          <Field label={t('settings.quietHours')}>
             <div className="set-time-row">
               <input name="quiet_hours_start" className="set-input" type="time" value={prefs.quiet_hours_start}
                 onChange={e => patch({ quiet_hours_start: e.target.value })} />
-              <span className="set-time-sep">to</span>
+              <span className="set-time-sep">{t('settings.timeTo')}</span>
               <input name="quiet_hours_end" className="set-input" type="time" value={prefs.quiet_hours_end}
                 onChange={e => patch({ quiet_hours_end: e.target.value })} />
             </div>
@@ -925,11 +955,11 @@ function DialogBody({
     case 'language':
       return (
         <RadioGroup<LanguageCode>
-          label="Display language"
+          label={t('settings.langDisplayLabel')}
           value={prefs.language}
           onChange={v => patch({ language: v })}
           options={[
-            { value: 'en', label: 'English',     desc: 'Default for the cockpit.' },
+            { value: 'en', label: 'English',     desc: t('settings.langEnDesc') },
             { value: 'es', label: 'Español',     desc: 'Para residentes hispanohablantes.' },
             { value: 'pt', label: 'Português',   desc: 'Para residentes que falam português.' },
           ]}
@@ -940,20 +970,20 @@ function DialogBody({
       return (
         <>
           <ToggleRow
-            label="Larger text"
-            desc="Bump body and label sizes for easier reading."
+            label={t('settings.accLargeText')}
+            desc={t('settings.accLargeTextDesc')}
             checked={prefs.large_text}
             onChange={v => patch({ large_text: v })}
           />
           <ToggleRow
-            label="Reduce motion"
-            desc="Skip the welcome zoom and other animated transitions."
+            label={t('settings.accReduceMotionLabel')}
+            desc={t('settings.accReduceMotionDesc')}
             checked={prefs.reduced_motion}
             onChange={v => patch({ reduced_motion: v })}
           />
           <ToggleRow
-            label="High contrast"
-            desc="Stronger borders and darker text for low-light viewing."
+            label={t('settings.accHighContrast')}
+            desc={t('settings.accHighContrastDesc')}
             checked={prefs.high_contrast}
             onChange={v => patch({ high_contrast: v })}
           />
@@ -966,9 +996,9 @@ function DialogBody({
           value={prefs.email_pref}
           onChange={v => patch({ email_pref: v })}
           options={[
-            { value: 'all',       label: 'All updates',     desc: 'Board posts, billing receipts, newsletters.' },
-            { value: 'important', label: 'Important only',  desc: 'Billing, votes, emergencies.' },
-            { value: 'none',      label: 'None',            desc: 'Mute community email entirely.' },
+            { value: 'all',       label: t('settings.emailAll'),       desc: t('settings.emailAllDesc') },
+            { value: 'important', label: t('settings.emailImportant'), desc: t('settings.emailImportantDesc') },
+            { value: 'none',      label: t('settings.prefNone'),       desc: t('settings.emailNoneDesc') },
           ]}
         />
       )
@@ -979,9 +1009,9 @@ function DialogBody({
           value={prefs.sms_pref}
           onChange={v => patch({ sms_pref: v })}
           options={[
-            { value: 'all',       label: 'All texts',         desc: 'Reminders, RSVP nudges, dues prompts.' },
-            { value: 'emergency', label: 'Emergency only',    desc: 'Texts only when something urgent is happening.' },
-            { value: 'none',      label: 'None',              desc: 'No SMS at all.' },
+            { value: 'all',       label: t('settings.smsAll'),       desc: t('settings.smsAllDesc') },
+            { value: 'emergency', label: t('settings.smsEmergency'), desc: t('settings.smsEmergencyDesc') },
+            { value: 'none',      label: t('settings.prefNone'),     desc: t('settings.smsNoneDesc') },
           ]}
         />
       )
@@ -994,9 +1024,9 @@ function DialogBody({
             value={prefs.push_pref}
             onChange={v => patch({ push_pref: v })}
             options={[
-              { value: 'all',       label: 'All',              desc: 'Every push the board sends.' },
-              { value: 'important', label: 'Important only',   desc: 'Votes, dues, emergencies.' },
-              { value: 'none',      label: 'None',             desc: 'Silence in-app and mobile push.' },
+              { value: 'all',       label: t('settings.pushAll'),       desc: t('settings.pushAllDesc') },
+              { value: 'important', label: t('settings.pushImportant'), desc: t('settings.pushImportantDesc') },
+              { value: 'none',      label: t('settings.prefNone'),      desc: t('settings.pushNoneDesc') },
             ]}
           />
         </>
@@ -1006,13 +1036,13 @@ function DialogBody({
       return (
         <>
           <p className="set-dialog-note">
-            No non-emergency notifications will reach you during this window.
+            {t('settings.quietNote')}
           </p>
-          <Field label="Start">
+          <Field label={t('settings.fldStart')}>
             <input name="quiet_start" className="set-input" type="time" value={prefs.quiet_hours_start}
               onChange={e => patch({ quiet_hours_start: e.target.value })} />
           </Field>
-          <Field label="End">
+          <Field label={t('settings.fldEnd')}>
             <input name="quiet_end" className="set-input" type="time" value={prefs.quiet_hours_end}
               onChange={e => patch({ quiet_hours_end: e.target.value })} />
           </Field>
@@ -1033,12 +1063,12 @@ function DialogBody({
     case 'calendar':
       return (
         <RadioGroup<WeekStart>
-          label="Week starts on"
+          label={t('settings.calWeekStartsOn')}
           value={prefs.calendar_week_start}
           onChange={v => patch({ calendar_week_start: v })}
           options={[
-            { value: 'sun', label: 'Sunday' },
-            { value: 'mon', label: 'Monday' },
+            { value: 'sun', label: t('settings.calSunday') },
+            { value: 'mon', label: t('settings.calMonday') },
           ]}
         />
       )
@@ -1050,12 +1080,11 @@ function DialogBody({
       return (
         <>
           <p className="set-dialog-note">
-            Demo privacy toggles &mdash; production will surface the real
-            data-sharing controls from the community settings table.
+            {t('settings.privNote')}
           </p>
-          <ToggleRow label="Show my unit in the resident directory" desc="Other residents can see your name + unit." checked={true}  onChange={() => {}} />
-          <ToggleRow label="Share vehicle info with the gate"        desc="Speeds up plate-based gate access."         checked={true}  onChange={() => {}} />
-          <ToggleRow label="Include me in community-wide polls"      desc="Anonymous tallies, no individual votes."    checked={true}  onChange={() => {}} />
+          <ToggleRow label={t('settings.privDir')} desc={t('settings.privDirDesc')} checked={true}  onChange={() => {}} />
+          <ToggleRow label={t('settings.privGate')} desc={t('settings.privGateDesc')} checked={true}  onChange={() => {}} />
+          <ToggleRow label={t('settings.privPolls')} desc={t('settings.privPollsDesc')} checked={true}  onChange={() => {}} />
         </>
       )
 
@@ -1063,19 +1092,18 @@ function DialogBody({
       return (
         <>
           <p className="set-dialog-note">
-            Unit details are managed by the HOA board. Contact management to update.
+            {t('settings.unitNote')}
           </p>
           <div className="set-readonly-rows">
-            <div className="set-readonly-row"><span>Unit</span><span>{unitLabel}</span></div>
-            <div className="set-readonly-row"><span>Community</span><span>{community}</span></div>
+            <div className="set-readonly-row"><span>{t('settings.unitUnit')}</span><span>{unitLabel}</span></div>
+            <div className="set-readonly-row"><span>{t('settings.community')}</span><span>{community}</span></div>
             {roster?.address && (
-              <div className="set-readonly-row"><span>Address</span><span>{roster.address}</span></div>
+              <div className="set-readonly-row"><span>{t('settings.unitAddress')}</span><span>{roster.address}</span></div>
             )}
           </div>
           {!roster && (
             <p className="set-dialog-note set-dialog-note-tight">
-              Once the board adds you to the roster (matched by your email), your
-              unit details will show here.
+              {t('settings.unitUnsynced')}
             </p>
           )}
         </>
@@ -1102,9 +1130,52 @@ function DialogBody({
     case 'updates':
       return <UpdatesDialog />
 
+    case 'appicon':
+      return <AppIconDialog />
+
     default:
-      return <p>Unknown setting.</p>
+      return <p>{t('settings.dlgUnknown')}</p>
   }
+}
+
+// Home-screen icon background chooser (white / black). Self-contained: reads +
+// writes the device-local choice via useAppIcon (which also repoints the
+// apple-touch-icon link). iOS only applies it on the NEXT "Add to Home Screen".
+function AppIconDialog() {
+  const t = useT()
+  const [choice, setChoice] = useAppIcon()
+  const OPTIONS: { value: AppIconChoice; label: string; src: string }[] = [
+    { value: 'white', label: t('settings.appIconWhite'), src: '/apple-touch-icon.png' },
+    { value: 'black', label: t('settings.appIconBlack'), src: '/apple-touch-icon-black.png' },
+  ]
+  return (
+    <div>
+      <p className="set-dialog-field-label" style={{ marginBottom: 12, lineHeight: 1.5, textTransform: 'none', letterSpacing: 0 }}>
+        {t('settings.appIconHelp')}
+      </p>
+      <div style={{ display: 'flex', gap: 12 }}>
+        {OPTIONS.map(o => {
+          const selected = choice === o.value
+          return (
+            <button key={o.value} type="button" onClick={() => setChoice(o.value)} aria-pressed={selected}
+              style={{
+                flex: '1 1 0', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8,
+                padding: '14px 10px', cursor: 'pointer', borderRadius: 14, background: '#fff',
+                border: selected ? '2px solid #E14909' : '1.5px solid rgba(199,111,69,0.30)',
+                boxShadow: selected ? '0 0 0 3px rgba(225,73,9,0.14)' : 'none',
+              }}>
+              <img src={o.src} alt="" width={64} height={64}
+                style={{ borderRadius: 14, boxShadow: '0 1px 4px rgba(0,0,0,0.18)' }} />
+              <span style={{ fontSize: 13, fontWeight: 700, color: '#0A2440', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {selected && <span aria-hidden="true" style={{ color: '#E14909' }}>✓</span>}
+                {o.label}
+              </span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 // -- shared field/control components --------------------------------
@@ -1123,6 +1194,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 // per-browser (a push subscription is tied to one browser/device), so the user
 // turns it on once per device.
 function PushDeviceToggle({ profileId, communityId }: { profileId?: string; communityId?: string | null }) {
+  const t = useT()
   const [supported]  = useState(() => isPushSupported())
   const [configured] = useState(() => isPushConfigured())
   const [perm, setPerm]             = useState<NotificationPermission | 'unsupported'>('default')
@@ -1138,50 +1210,48 @@ function PushDeviceToggle({ profileId, communityId }: { profileId?: string; comm
   if (!supported) {
     return (
       <p className="set-dialog-note">
-        This browser doesn’t support push notifications. On iPhone, add Residente to your
-        Home Screen first, then enable it from the installed app.
+        {t('settings.pushUnsupported')}
       </p>
     )
   }
 
   const onEnable = async () => {
-    if (!profileId) { setMsg('Sign in first.'); return }
+    if (!profileId) { setMsg(t('settings.pushSignIn')); return }
     setBusy(true); setMsg('')
     const res = await enablePush(profileId, communityId ?? null)
     setBusy(false)
     setPerm(pushPermission())
-    if (res.ok) { setSubscribed(true); setMsg('✓ This device will now get push alerts.') }
-    else setMsg(res.error || 'Could not enable push.')
+    if (res.ok) { setSubscribed(true); setMsg(t('settings.pushEnabledMsg')) }
+    else setMsg(res.error || t('settings.pushEnableErr'))
   }
   const onDisable = async () => {
     setBusy(true); setMsg('')
     await disablePush()
-    setBusy(false); setSubscribed(false); setMsg('Push turned off on this device.')
+    setBusy(false); setSubscribed(false); setMsg(t('settings.pushOffMsg'))
   }
 
   return (
     <div className="set-dialog-field" style={{ display: 'block' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <span className="set-dialog-field-label" style={{ marginBottom: 0 }}>This device</span>
+        <span className="set-dialog-field-label" style={{ marginBottom: 0 }}>{t('settings.pushThisDevice')}</span>
         {configured && perm !== 'denied' && (
           subscribed ? (
             <button type="button" className="set-btn-ghost" disabled={busy} onClick={onDisable}>
-              {busy ? 'Working…' : 'Turn off'}
+              {busy ? t('settings.pushWorking') : t('settings.pushTurnOff')}
             </button>
           ) : (
             <button type="button" className="set-btn-primary" disabled={busy} onClick={onEnable}>
-              {busy ? 'Working…' : 'Enable'}
+              {busy ? t('settings.pushWorking') : t('settings.pushEnable')}
             </button>
           )
         )}
       </div>
       {!configured && (
-        <p className="set-dialog-note">Push isn’t configured on the server yet.</p>
+        <p className="set-dialog-note">{t('settings.pushNotConfigured')}</p>
       )}
       {configured && perm === 'denied' && (
         <p className="set-dialog-note">
-          Notifications are blocked for this site in your browser settings. Allow them, then
-          reopen this dialog.
+          {t('settings.pushBlocked')}
         </p>
       )}
       {msg && <p className="set-dialog-note" style={{ marginTop: 8 }}>{msg}</p>}
@@ -1248,6 +1318,7 @@ function ToggleRow({
 }
 
 function PaymentMethodsEditor({ prefs, patch }: { prefs: Preferences; patch: (p: Partial<Preferences>) => void }) {
+  const t = useT()
   const [adding, setAdding] = useState(false)
   const [kind, setKind] = useState<'card' | 'bank'>('card')
   const [brand, setBrand] = useState('')
@@ -1265,46 +1336,46 @@ function PaymentMethodsEditor({ prefs, patch }: { prefs: Preferences; patch: (p:
   }
   return (
     <div className="set-list">
-      {prefs.payment_methods.length === 0 && <div className="set-list-empty">No payment methods saved.</div>}
+      {prefs.payment_methods.length === 0 && <div className="set-list-empty">{t('settings.payEmpty')}</div>}
       {prefs.payment_methods.map(pm => (
         <div key={pm.id} className="set-list-row">
           <div className="set-list-row-body">
             <strong>{pm.brand} ···· {pm.last4}</strong>
-            <span>{pm.kind === 'card' ? 'Credit / debit card' : 'Bank account'}</span>
+            <span>{pm.kind === 'card' ? t('settings.payCardLine') : t('settings.payBankLine')}</span>
           </div>
-          <button type="button" className="set-list-remove" aria-label="Remove"
+          <button type="button" className="set-list-remove" aria-label={t('settings.genRemove')}
             onClick={() => patch({ payment_methods: prefs.payment_methods.filter(x => x.id !== pm.id) })}>×</button>
         </div>
       ))}
       {adding ? (
         <div className="set-list-add">
           <RadioGroup<'card' | 'bank'>
-            label="Type"
+            label={t('settings.payTypeLabel')}
             value={kind}
             onChange={setKind}
             options={[
-              { value: 'card', label: 'Credit or debit card' },
-              { value: 'bank', label: 'Bank account (ACH)' },
+              { value: 'card', label: t('settings.payCardOpt') },
+              { value: 'bank', label: t('settings.payBankOpt') },
             ]}
           />
-          <Field label={kind === 'card' ? 'Card brand' : 'Bank name'}>
+          <Field label={kind === 'card' ? t('settings.payCardBrand') : t('settings.payBankName')}>
             <input name="brand" className="set-input" value={brand} onChange={e => setBrand(e.target.value)}
-              placeholder={kind === 'card' ? 'Visa' : 'Bank of America'} />
+              placeholder={kind === 'card' ? t('settings.payBrandPhCard') : t('settings.payBrandPhBank')} />
           </Field>
-          <Field label="Last 4 digits">
+          <Field label={t('settings.payLast4')}>
             <input name="last4" className="set-input" value={last4} inputMode="numeric"
-              onChange={e => setLast4(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder="4242" />
+              onChange={e => setLast4(e.target.value.replace(/\D/g, '').slice(0, 4))} placeholder={t('settings.payLast4Ph')} />
           </Field>
           <div className="set-list-add-actions">
-            <button type="button" className="set-btn-primary" onClick={submit}>Save</button>
-            <button type="button" className="set-btn-ghost" onClick={reset}>Cancel</button>
+            <button type="button" className="set-btn-primary" onClick={submit}>{t('settings.genSave')}</button>
+            <button type="button" className="set-btn-ghost" onClick={reset}>{t('settings.hvCancel')}</button>
           </div>
           <p className="set-dialog-note set-dialog-note-tight">
-            Stripe handles the real card details &mdash; this only stores the brand + last 4 for display.
+            {t('settings.payStripeNote')}
           </p>
         </div>
       ) : (
-        <button type="button" className="set-btn-ghost" onClick={() => setAdding(true)}>+ Add payment method</button>
+        <button type="button" className="set-btn-ghost" onClick={() => setAdding(true)}>{t('settings.payAddBtn')}</button>
       )}
     </div>
   )
@@ -1313,6 +1384,7 @@ function PaymentMethodsEditor({ prefs, patch }: { prefs: Preferences; patch: (p:
 // -- list-editor add forms ------------------------------------------
 
 function ContactsEditor({ prefs, patch, profileId, communityId }: { prefs: Preferences; patch: (p: Partial<Preferences>) => void; profileId: string | null; communityId: string | null }) {
+  const t = useT()
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [relation, setRelation] = useState('')
@@ -1331,35 +1403,36 @@ function ContactsEditor({ prefs, patch, profileId, communityId }: { prefs: Prefe
   }
   return (
     <div className="set-list">
-      {prefs.emergency_contacts.length === 0 && <div className="set-list-empty">No emergency contacts saved.</div>}
+      {prefs.emergency_contacts.length === 0 && <div className="set-list-empty">{t('settings.contEmpty')}</div>}
       {prefs.emergency_contacts.map(c => (
         <div key={c.id} className="set-list-row">
           <div className="set-list-row-body">
             <strong>{c.name}</strong>
             <span>{c.relation}{c.phone ? ` · ${c.phone}` : ''}</span>
           </div>
-          <button type="button" className="set-list-remove" aria-label="Remove"
+          <button type="button" className="set-list-remove" aria-label={t('settings.genRemove')}
             onClick={() => remove(c.id)}>×</button>
         </div>
       ))}
       {adding ? (
         <div className="set-list-add">
-          <Field label="Name"><input name="contact_name" className="set-input" value={name} onChange={e => setName(e.target.value)} placeholder="Maria Santos" /></Field>
-          <Field label="Relation"><input name="contact_relation" className="set-input" value={relation} onChange={e => setRelation(e.target.value)} placeholder="Spouse" /></Field>
-          <Field label="Phone"><input name="contact_phone" className="set-input" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder="(305) 555-0142" /></Field>
+          <Field label={t('settings.contName')}><input name="contact_name" className="set-input" value={name} onChange={e => setName(e.target.value)} placeholder={t('settings.contNamePh')} /></Field>
+          <Field label={t('settings.contRelation')}><input name="contact_relation" className="set-input" value={relation} onChange={e => setRelation(e.target.value)} placeholder={t('settings.contRelationPh')} /></Field>
+          <Field label={t('settings.fldPhone')}><input name="contact_phone" className="set-input" type="tel" value={phone} onChange={e => setPhone(e.target.value)} placeholder={t('settings.phPhone')} /></Field>
           <div className="set-list-add-actions">
-            <button type="button" className="set-btn-primary" onClick={submit}>Add contact</button>
-            <button type="button" className="set-btn-ghost" onClick={reset}>Cancel</button>
+            <button type="button" className="set-btn-primary" onClick={submit}>{t('settings.contAddSubmit')}</button>
+            <button type="button" className="set-btn-ghost" onClick={reset}>{t('settings.hvCancel')}</button>
           </div>
         </div>
       ) : (
-        <button type="button" className="set-btn-ghost" onClick={() => setAdding(true)}>+ Add contact</button>
+        <button type="button" className="set-btn-ghost" onClick={() => setAdding(true)}>{t('settings.contAddBtn')}</button>
       )}
     </div>
   )
 }
 
 function VehiclesEditor({ prefs, patch, profileId, communityId }: { prefs: Preferences; patch: (p: Partial<Preferences>) => void; profileId: string | null; communityId: string | null }) {
+  const t = useT()
   const [adding, setAdding] = useState(false)
   const [make, setMake] = useState('')
   const [model, setModel] = useState('')
@@ -1379,36 +1452,37 @@ function VehiclesEditor({ prefs, patch, profileId, communityId }: { prefs: Prefe
   }
   return (
     <div className="set-list">
-      {prefs.vehicles.length === 0 && <div className="set-list-empty">No vehicles registered.</div>}
+      {prefs.vehicles.length === 0 && <div className="set-list-empty">{t('settings.vehEmpty')}</div>}
       {prefs.vehicles.map(v => (
         <div key={v.id} className="set-list-row">
           <div className="set-list-row-body">
-            <strong>{[v.make, v.model].filter(Boolean).join(' ') || 'Vehicle'}</strong>
+            <strong>{[v.make, v.model].filter(Boolean).join(' ') || t('settings.vehFallback')}</strong>
             <span>{[v.plate, v.color].filter(Boolean).join(' · ') || '—'}</span>
           </div>
-          <button type="button" className="set-list-remove" aria-label="Remove"
+          <button type="button" className="set-list-remove" aria-label={t('settings.genRemove')}
             onClick={() => remove(v.id)}>×</button>
         </div>
       ))}
       {adding ? (
         <div className="set-list-add">
-          <Field label="Make"><input name="vehicle_make" className="set-input" value={make} onChange={e => setMake(e.target.value)} placeholder="Toyota" /></Field>
-          <Field label="Model"><input name="vehicle_model" className="set-input" value={model} onChange={e => setModel(e.target.value)} placeholder="RAV4" /></Field>
-          <Field label="Plate"><input name="vehicle_plate" className="set-input" value={plate} onChange={e => setPlate(e.target.value)} placeholder="FL-7G3K2P" /></Field>
-          <Field label="Color"><input name="vehicle_color" className="set-input" value={color} onChange={e => setColor(e.target.value)} placeholder="Silver" /></Field>
+          <Field label={t('settings.vehMake')}><input name="vehicle_make" className="set-input" value={make} onChange={e => setMake(e.target.value)} placeholder={t('settings.vehMakePh')} /></Field>
+          <Field label={t('settings.vehModel')}><input name="vehicle_model" className="set-input" value={model} onChange={e => setModel(e.target.value)} placeholder={t('settings.vehModelPh')} /></Field>
+          <Field label={t('settings.vehPlate')}><input name="vehicle_plate" className="set-input" value={plate} onChange={e => setPlate(e.target.value)} placeholder={t('settings.vehPlatePh')} /></Field>
+          <Field label={t('settings.vehColor')}><input name="vehicle_color" className="set-input" value={color} onChange={e => setColor(e.target.value)} placeholder={t('settings.vehColorPh')} /></Field>
           <div className="set-list-add-actions">
-            <button type="button" className="set-btn-primary" onClick={submit}>Add vehicle</button>
-            <button type="button" className="set-btn-ghost" onClick={reset}>Cancel</button>
+            <button type="button" className="set-btn-primary" onClick={submit}>{t('settings.vehAddSubmit')}</button>
+            <button type="button" className="set-btn-ghost" onClick={reset}>{t('settings.hvCancel')}</button>
           </div>
         </div>
       ) : (
-        <button type="button" className="set-btn-ghost" onClick={() => setAdding(true)}>+ Add vehicle</button>
+        <button type="button" className="set-btn-ghost" onClick={() => setAdding(true)}>{t('settings.vehAddBtn')}</button>
       )}
     </div>
   )
 }
 
 function PetsEditor({ prefs, patch, profileId, communityId }: { prefs: Preferences; patch: (p: Partial<Preferences>) => void; profileId: string | null; communityId: string | null }) {
+  const t = useT()
   const [adding, setAdding] = useState(false)
   const [name, setName] = useState('')
   const [species, setSpecies] = useState('Dog')
@@ -1427,29 +1501,29 @@ function PetsEditor({ prefs, patch, profileId, communityId }: { prefs: Preferenc
   }
   return (
     <div className="set-list">
-      {prefs.pets.length === 0 && <div className="set-list-empty">No pets registered.</div>}
+      {prefs.pets.length === 0 && <div className="set-list-empty">{t('settings.petEmpty')}</div>}
       {prefs.pets.map(p => (
         <div key={p.id} className="set-list-row">
           <div className="set-list-row-body">
             <strong>{p.name}</strong>
             <span>{[p.species, p.breed].filter(Boolean).join(' · ')}</span>
           </div>
-          <button type="button" className="set-list-remove" aria-label="Remove"
+          <button type="button" className="set-list-remove" aria-label={t('settings.genRemove')}
             onClick={() => remove(p.id)}>×</button>
         </div>
       ))}
       {adding ? (
         <div className="set-list-add">
-          <Field label="Name"><input name="pet_name" className="set-input" value={name} onChange={e => setName(e.target.value)} placeholder="Luna" /></Field>
-          <Field label="Species"><input name="pet_species" className="set-input" value={species} onChange={e => setSpecies(e.target.value)} placeholder="Dog" /></Field>
-          <Field label="Breed"><input name="pet_breed" className="set-input" value={breed} onChange={e => setBreed(e.target.value)} placeholder="Mini Labradoodle" /></Field>
+          <Field label={t('settings.petName')}><input name="pet_name" className="set-input" value={name} onChange={e => setName(e.target.value)} placeholder={t('settings.petNamePh')} /></Field>
+          <Field label={t('settings.petSpecies')}><input name="pet_species" className="set-input" value={species} onChange={e => setSpecies(e.target.value)} placeholder={t('settings.petSpeciesPh')} /></Field>
+          <Field label={t('settings.petBreed')}><input name="pet_breed" className="set-input" value={breed} onChange={e => setBreed(e.target.value)} placeholder={t('settings.petBreedPh')} /></Field>
           <div className="set-list-add-actions">
-            <button type="button" className="set-btn-primary" onClick={submit}>Add pet</button>
-            <button type="button" className="set-btn-ghost" onClick={reset}>Cancel</button>
+            <button type="button" className="set-btn-primary" onClick={submit}>{t('settings.petAddSubmit')}</button>
+            <button type="button" className="set-btn-ghost" onClick={reset}>{t('settings.hvCancel')}</button>
           </div>
         </div>
       ) : (
-        <button type="button" className="set-btn-ghost" onClick={() => setAdding(true)}>+ Add pet</button>
+        <button type="button" className="set-btn-ghost" onClick={() => setAdding(true)}>{t('settings.petAddBtn')}</button>
       )}
     </div>
   )
@@ -1465,6 +1539,7 @@ function AvatarButton({
   fallback: string
   onPick: (file: File) => void
 }) {
+  const t = useT()
   const inputRef = useRef<HTMLInputElement | null>(null)
   const onChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -1476,8 +1551,8 @@ function AvatarButton({
       type="button"
       className={`set-account-avatar set-avatar-btn${image ? ' has-image' : ''}`}
       onClick={() => inputRef.current?.click()}
-      aria-label={image ? 'Change profile photo' : 'Add a profile photo'}
-      title={image ? 'Change profile photo' : 'Add a profile photo'}
+      aria-label={image ? t('settings.avatarChange') : t('settings.avatarAdd')}
+      title={image ? t('settings.avatarChange') : t('settings.avatarAdd')}
       style={image ? { backgroundImage: `url(${image})` } : undefined}
     >
       {!image && <span>{fallback}</span>}
@@ -1498,6 +1573,7 @@ function AvatarButton({
 // profile (providers reads it from the auth session) and the roster
 // (useMyResident syncs it on next load).
 function EmailChanger() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const current = profile?.email || ''
   const [value, setValue] = useState(current)
@@ -1516,29 +1592,28 @@ function EmailChanger() {
       const { error } = await supabase.auth.updateUser({ email: value.trim() })
       if (error) throw error
       setStatus('sent')
-      setMsg(`Confirmation link sent to ${value.trim()}. Click it to finish — your email won't change until you do.`)
+      setMsg(t('settings.emailSentMsg', { email: value.trim() }))
     } catch (e: any) {
-      setStatus('error'); setMsg(e?.message || 'Could not start the email change.')
+      setStatus('error'); setMsg(e?.message || t('settings.emailChangeErr'))
     }
   }
 
   return (
-    <Field label="Email">
+    <Field label={t('settings.fldEmailLabel')}>
       <input name="email" autoComplete="email" className="set-input" type="email"
         value={value} onChange={e => { setValue(e.target.value); if (status !== 'idle') setStatus('idle') }}
-        placeholder="you@example.com" />
+        placeholder={t('settings.phEmail')} />
       <div className="set-list-add-actions" style={{ marginTop: 8 }}>
         <button type="button" className="set-btn-primary" onClick={submit}
           disabled={!valid || !changed || status === 'sending'}>
-          {status === 'sending' ? 'Sending…' : 'Change email'}
+          {status === 'sending' ? t('settings.emailSending') : t('settings.emailChangeBtn')}
         </button>
       </div>
       {status === 'sent'  && <span className="set-dialog-note set-dialog-note-tight">✓ {msg}</span>}
       {status === 'error' && <span className="set-dialog-note set-dialog-note-tight">{msg}</span>}
       {(status === 'idle' || status === 'sending') && (
         <span className="set-dialog-note set-dialog-note-tight">
-          This is your login email. Changing it sends a confirmation link to the new
-          address; it updates everywhere — including the board&rsquo;s roster — once you confirm.
+          {t('settings.emailLoginNote')}
         </span>
       )}
     </Field>
@@ -1551,6 +1626,7 @@ function ProfilePhotoEditor({
   prefs: Preferences
   patch: (p: Partial<Preferences>) => void
 }) {
+  const t = useT()
   const inputRef = useRef<HTMLInputElement | null>(null)
   const fallback = ((prefs.full_name || 'R')[0] || 'R').toUpperCase()
   const onPick = async (file: File) => {
@@ -1558,7 +1634,7 @@ function ProfilePhotoEditor({
       const dataUrl = await fileToProfileImage(file)
       patch({ profile_image: dataUrl })
     } catch (err: any) {
-      alert(err?.message || 'Could not load that image.')
+      alert(err?.message || t('settings.hvLoadImgFailed'))
     }
   }
   return (
@@ -1572,12 +1648,12 @@ function ProfilePhotoEditor({
       <div className="set-photo-actions">
         <button type="button" className="set-btn-primary"
           onClick={() => inputRef.current?.click()}>
-          {prefs.profile_image ? 'Change photo' : 'Upload a photo'}
+          {prefs.profile_image ? t('settings.photoChange') : t('settings.photoUpload')}
         </button>
         {prefs.profile_image && (
           <button type="button" className="set-btn-ghost"
             onClick={() => patch({ profile_image: '' })}>
-            Remove photo
+            {t('settings.photoRemove')}
           </button>
         )}
         <input
@@ -1593,7 +1669,7 @@ function ProfilePhotoEditor({
           }}
         />
         <p className="set-photo-hint">
-          Square JPG or PNG &mdash; we&rsquo;ll crop and resize to 256&times;256.
+          {t('settings.photoHint')}
         </p>
       </div>
     </div>
@@ -1601,6 +1677,7 @@ function ProfilePhotoEditor({
 }
 
 function ReferDialog({ community }: { community: string }) {
+  const t = useT()
   const [copied, setCopied] = useState(false)
   const link = typeof window !== 'undefined'
     ? `${window.location.origin}/login?ref=${encodeURIComponent(community.toLowerCase().replace(/\s+/g, '-'))}`
@@ -1617,13 +1694,12 @@ function ReferDialog({ community }: { community: string }) {
   return (
     <>
       <p className="set-dialog-note">
-        Send this link to a neighbor at {community}. They&rsquo;ll skip the
-        community-picker on sign-up.
+        {t('settings.referNote', { community })}
       </p>
       <div className="set-refer-row">
         <input name="refer-link" className="set-input" value={link} readOnly onFocus={e => e.currentTarget.select()} />
         <button type="button" className="set-btn-primary" onClick={copy}>
-          {copied ? 'Copied ✓' : 'Copy link'}
+          {copied ? t('settings.referCopied') : t('settings.referCopyBtn')}
         </button>
       </div>
     </>
@@ -1631,21 +1707,20 @@ function ReferDialog({ community }: { community: string }) {
 }
 
 function UpdatesDialog() {
+  const t = useT()
   return (
     <>
       <p className="set-dialog-note">
-        Residente runs in the browser, so it&rsquo;s always up to date the
-        next time you load it. If something looks stale, force a refresh
-        and we&rsquo;ll pull the latest build.
+        {t('settings.updNote')}
       </p>
       <div className="set-readonly-rows">
-        <div className="set-readonly-row"><span>Build</span><span>1.2.5 (web)</span></div>
-        <div className="set-readonly-row"><span>Last deployed</span><span>May 27, 2026</span></div>
-        <div className="set-readonly-row"><span>Native apps</span><span>Coming soon</span></div>
+        <div className="set-readonly-row"><span>{t('settings.build')}</span><span>1.2.5 (web)</span></div>
+        <div className="set-readonly-row"><span>{t('settings.lastDeployed')}</span><span>May 27, 2026</span></div>
+        <div className="set-readonly-row"><span>{t('settings.nativeApps')}</span><span>{t('settings.comingSoon')}</span></div>
       </div>
       <button type="button" className="set-btn-primary"
         onClick={() => { if (typeof window !== 'undefined') window.location.reload() }}>
-        Reload now
+        {t('settings.updReloadBtn')}
       </button>
     </>
   )
@@ -1658,6 +1733,7 @@ function IconLock()    { return <Svg><><rect x="5" y="11" width="14" height="9" 
 function IconBell()    { return <Svg><><path d="M6 8a6 6 0 0 1 12 0v5l2 3H4l2-3z"/><path d="M10 19a2 2 0 0 0 4 0"/></></Svg> }
 function IconGlobe()   { return <Svg><><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></></Svg> }
 function IconEye()     { return <Svg><><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></></Svg> }
+function IconAppIcon() { return <Svg><><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 14 12 9l4 5"/><path d="M10.5 14v-2"/></></Svg> }
 function IconMail()    { return <Svg><><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 7 9-7"/></></Svg> }
 function IconChat()    { return <Svg><><path d="M21 12a8 8 0 0 1-12 7L3 21l2-5a8 8 0 1 1 16-4z"/></></Svg> }
 function IconPush()    { return <Svg><><rect x="6" y="3" width="12" height="18" rx="2"/><line x1="12" y1="18" x2="12" y2="18"/></></Svg> }

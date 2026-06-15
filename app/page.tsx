@@ -57,6 +57,35 @@ export default function Landing() {
   useEffect(() => {
     if (session) router.replace('/app')
   }, [session, router])
+
+  // Banded chrome: the navy header and navy footer get a navy toolbar tint; the
+  // cream middle gets a cream tint. iOS Safari re-tints its toolbars whenever
+  // theme-color changes, so the status bar matches whatever band is on screen —
+  // which a single static theme-color can't do. Harmless in the installed app.
+  useEffect(() => {
+    const meta = document.querySelector('meta[name="theme-color"]')
+    const head = document.querySelector('.ln-nav')
+    const foot = document.querySelector('.site-foot')
+    if (!meta) return
+    const CREAM = '#F4EFE8', NAVY = '#1F2233'
+    let headerIn = true, footerIn = false
+    const update = () => meta.setAttribute('content', (headerIn || footerIn) ? NAVY : CREAM)
+    const observers: IntersectionObserver[] = []
+    if (head) {
+      const o = new IntersectionObserver(([e]) => { headerIn = e.isIntersecting; update() })
+      o.observe(head); observers.push(o)
+    }
+    if (foot) {
+      const o = new IntersectionObserver(([e]) => { footerIn = e.isIntersecting; update() })
+      o.observe(foot); observers.push(o)
+    }
+    update()
+    // Don't force a colour on unmount — the destination page (e.g. /login) sets
+    // its own theme-color, and forcing one here can overwrite it depending on
+    // effect ordering during client navigation.
+    return () => { observers.forEach(o => o.disconnect()) }
+  }, [])
+
   useScrollReveal()
   return (
     <div className="landing-screen">
@@ -97,7 +126,8 @@ function LandingNav() {
     <header className={`ln-nav${scrolled ? ' scrolled' : ''}`}>
       <div className="ln-nav-inner">
         <a href="#top" className="ln-brand" onClick={(e) => scrollToHash(e, '#top')}>
-          <img src="/residente-logo.png" alt="" className="ln-brand-logo" />
+          <img src="/residente-logo.png" alt="" className="ln-brand-logo ln-brand-logo-desk" />
+          <img src="/residente-mark.png" alt="" className="ln-brand-logo ln-brand-logo-mobile" />
           <span className="ln-brand-word">Residente</span>
         </a>
         <nav className="ln-nav-links">
@@ -106,9 +136,14 @@ function LandingNav() {
           <a href="#residents" onClick={(e) => scrollToHash(e, '#residents')}>For residents</a>
           <a href="#demo" onClick={(e) => scrollToHash(e, '#demo')}>Demo</a>
           <a href="#pricing" onClick={(e) => scrollToHash(e, '#pricing')}>Pricing</a>
-          <Link href="/login" className="ln-nav-signin">Sign in</Link>
         </nav>
-        <Link href="/signup" className="ln-cta-pill">Sign up</Link>
+        {/* Sign in + Sign up live in their own group (not inside ln-nav-links)
+            so returning users keep a visible Sign in on mobile, where the
+            section-anchor nav collapses. */}
+        <div className="ln-nav-cta">
+          <Link href="/login" className="ln-nav-signin">Sign in</Link>
+          <Link href="/signup" className="ln-cta-pill">Sign up</Link>
+        </div>
       </div>
     </header>
   )
@@ -430,6 +465,34 @@ function Hero() {
 
   return (
     <section className="ln-hero" id="top">
+      {/* Mobile hero — a clean stacked layout (framed scene + copy on cream)
+          that replaces the squeezed cinematic on phones. Shown ≤720px via
+          CSS; the cinematic pin below is hidden there. Desktop hides this. */}
+      <div className="ln-hero-m">
+        <div className="ln-hero-m-copy">
+          <div className="ln-hero-eyebrow ln-hero-eyebrow-light">Resident portal · Early access</div>
+          <h1 className="ln-hero-m-title">And you,<br />in the loop.</h1>
+          <p className="ln-hero-m-sub">
+            The resident portal that shows where your dues go, what the
+            board is up to, and how to pay. All in one place.
+          </p>
+        </div>
+        {/* Time-of-day aware like the desktop cinematic — the matching sky
+            palettes for .ln-hero-m-art live in landing.css so the sky/ground
+            change with the clock and the sun↔moon stays consistent. */}
+        <div className="ln-hero-m-art" data-time={mode} aria-hidden="true">
+          <CommunitySvg mode={mode} uid="m" />
+          <SunOverlay mode={mode} />
+          <PlaneOverlay />
+        </div>
+        <div className="ln-hero-m-ctas">
+          <Link href="/signup" className="ln-hero-btn ln-hero-btn-block">Sign up</Link>
+          <a href="#what" className="ln-hero-m-ghost">
+            See how it works <span aria-hidden="true">↓</span>
+          </a>
+        </div>
+      </div>
+
       <div className={`ln-hero-pin${enabled ? '' : ' is-static'}`} ref={pinRef}>
         <div
           className="ln-hero-stage"
@@ -437,7 +500,7 @@ function Hero() {
           ref={stageRef}
         >
           <div className="ln-zoom-scene" aria-hidden="true">
-            <CommunitySvg ref={svgRef} mode={mode} />
+            <CommunitySvg ref={svgRef} mode={mode} uid="d" />
           </div>
           <div
             className="ln-zoom-interior"
@@ -520,8 +583,8 @@ const STREET    = '#3A3E55'
 // Hand-drawn ink stroke applied to every shape so the whole scene reads
 // as someone's pencil sketch instead of a vector diagram.
 const INK = '#1F2233'
-const inkStroke = { stroke: INK, strokeWidth: 2.2, strokeLinejoin: 'round', strokeLinecap: 'round' }
-const thinInk   = { stroke: INK, strokeWidth: 1.4, strokeOpacity: 0.6, strokeLinecap: 'round' }
+const inkStroke = { stroke: INK, strokeWidth: 2.2, strokeLinejoin: 'round', strokeLinecap: 'round' } as const
+const thinInk   = { stroke: INK, strokeWidth: 1.4, strokeOpacity: 0.6, strokeLinecap: 'round' } as const
 
 // The "sketch wobble" filter — feTurbulence + feDisplacementMap pushes
 // every pixel a few units in a noise pattern, which turns straight SVG
@@ -599,29 +662,34 @@ function Dog({ x, y, scale = 1 }) {
 // at the dead center (1200, 750) — that's the zoom anchor. Drawn from
 // back-to-front so the foreground layers (focal house, foreground trees)
 // occlude the rest correctly.
-export const CommunitySvg = forwardRef<SVGSVGElement, { viewBox?: string; mode?: TimeOfDay }>(function CommunitySvg(
-  { viewBox = '0 0 2400 1500', mode = 'day' },
+export const CommunitySvg = forwardRef<SVGSVGElement, { viewBox?: string; mode?: TimeOfDay; uid?: string }>(function CommunitySvg(
+  { viewBox = '0 0 2400 1500', mode = 'day', uid = 'cm' },
   ref,
 ) {
   const DX = 1200  // door anchor X
   const DY = 750   // door anchor Y (also: ground level / horizon-ish)
+  // Unique id namespace per instance. The mobile (.ln-hero-m-art) and desktop
+  // (.ln-hero-stage) heroes BOTH render a CommunitySvg, so shared ids collide:
+  // the desktop rect's url(#cm-sky) would resolve to the FIRST #cm-sky — inside
+  // the display:none mobile SVG — which Chrome refuses to paint, dropping the
+  // sky to the dark stage behind it (day looked like night on desktop).
   return (
     <svg ref={ref} viewBox={viewBox} preserveAspectRatio="xMidYMid slice" role="img" aria-label="A hand-drawn sketch of a small HOA community">
       <defs>
-        <linearGradient id="cm-sky" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={`cm-sky-${uid}`} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor={SKY_TOP} />
           <stop offset="1" stopColor={SKY_BOT} />
         </linearGradient>
-        <linearGradient id="ufo-beam" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={`ufo-beam-${uid}`} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor="#5BFF8C" stopOpacity="0.85" />
           <stop offset="0.55" stopColor="#7BFFB0" stopOpacity="0.35" />
           <stop offset="1" stopColor="#A0FFCC" stopOpacity="0" />
         </linearGradient>
-        <linearGradient id="cm-ground" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={`cm-ground-${uid}`} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor={GROUND_T} />
           <stop offset="1" stopColor={GROUND_B} />
         </linearGradient>
-        <SketchFilter id="cm-sketch" />
+        <SketchFilter id={`cm-sketch-${uid}`} />
       </defs>
       {/* Filter removed from the animating hero — feTurbulence +
           feDisplacementMap on a viewBox that changes every scroll
@@ -631,8 +699,8 @@ export const CommunitySvg = forwardRef<SVGSVGElement, { viewBox?: string; mode?:
       <g>
 
       {/* Sky + ground */}
-      <rect width="2400" height={DY + 50} fill="url(#cm-sky)" />
-      <rect y={DY + 50} width="2400" height={1500 - DY - 50} fill="url(#cm-ground)" />
+      <rect width="2400" height={DY + 50} fill={`url(#cm-sky-${uid})`} />
+      <rect y={DY + 50} width="2400" height={1500 - DY - 50} fill={`url(#cm-ground-${uid})`} />
 
       {/* UFO sequence: drifts in from the far left, hovers above the focal
           house, drops a green tractor beam onto the roof, then shoots
@@ -903,7 +971,7 @@ export const CommunitySvg = forwardRef<SVGSVGElement, { viewBox?: string; mode?:
           out with that abduction (beam on roughly 36 to 60 percent of the
           24s cycle). */}
       <g className="ln-ufo-beam2" aria-hidden="true">
-        <path d={`M${DX - 30} 175 L${DX + 30} 175 L${DX + 166} 1150 L${DX - 166} 1150 Z`} fill="url(#ufo-beam)" />
+        <path d={`M${DX - 30} 175 L${DX + 30} 175 L${DX + 166} 1150 L${DX - 166} 1150 Z`} fill={`url(#ufo-beam-${uid})`} />
       </g>
       </g>
     </svg>
