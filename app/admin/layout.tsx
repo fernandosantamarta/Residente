@@ -10,7 +10,7 @@ import { Dropdown } from '@/components/Dropdown'
 import { SectionScroll } from '@/components/SectionScroll'
 import { SiteFooterSlim } from '@/components/SiteFooter'
 import { useAuth } from '../providers'
-import { accountingEnabled } from '@/lib/accounting'
+import { useAccountingAccess } from '@/hooks/useAccountingAccess'
 import { usePlatformAdmin, usePlatformRoles } from '@/hooks/usePlatform'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useAwaitingMessages, useArcPending } from '@/hooks/useAwaitingMessages'
@@ -180,10 +180,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   // Visible nav items (perm-filtered) — shared by the desktop tab row and the
   // mobile section dropdown. activeNavHref drives the dropdown's current value.
+  const { enabled: acctAccess } = useAccountingAccess()
   const visibleNav = ADMIN_NAV
-    // Flag-gated tabs (e.g. the paid Accounting workspace) stay hidden until the
-    // rollout flag is on — the page is still reachable by direct URL for preview.
-    .filter(item => !item.requiresAccounting || accountingEnabled)
+    // The paid Accounting tab shows when the community is entitled (global rollout
+    // flag OR the purchased add-on); otherwise hidden (page still reachable by URL).
+    .filter(item => !item.requiresAccounting || acctAccess)
     .filter(item => !item.anyPerm || permLoading || canAny(item.anyPerm))
   const activeNavHref = (visibleNav.find(item => navActive(pathname, item)) || visibleNav[0])?.href || '/admin'
 
