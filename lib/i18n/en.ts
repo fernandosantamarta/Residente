@@ -3890,4 +3890,11 @@ export const en: Record<string, string> = {
   "admin.financialsDocument.cpaRevenueFy": "Revenue ({fy}, accrual)",
   "admin.financialsDocument.cpaExpenseFy": "Expenses ({fy}, accrual)",
   "admin.financialsDocument.cpaFootnote": "Prepared from Residente's general ledger. The independent CPA reviews/audits as required (Rule 61B-22.006(1)); statutory thresholds remain advisory pending counsel.",
+  "admin.financialsDocument.cpaShareTitle": "Share with your CPA",
+  "admin.financialsDocument.cpaShareSub": "Create a read-only, login-free link for your accountant. Aggregate figures only — no owner names or units. Time-limited and revocable.",
+  "admin.financialsDocument.cpaShareCreate": "Create share link",
+  "admin.financialsDocument.cpaShareCopy": "Copy",
+  "admin.financialsDocument.cpaShareCopied": "Copied",
+  "admin.financialsDocument.cpaShareRevoke": "Revoke",
+  "admin.financialsDocument.cpaShareExpires": "expires {date}",
 }

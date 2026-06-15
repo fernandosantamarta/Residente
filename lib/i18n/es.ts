@@ -3837,4 +3837,11 @@ export const es: Record<string, string> = {
   "admin.financialsDocument.cpaRevenueFy": "Ingresos ({fy}, devengo)",
   "admin.financialsDocument.cpaExpenseFy": "Gastos ({fy}, devengo)",
   "admin.financialsDocument.cpaFootnote": "Preparado a partir del libro mayor de Residente. El CPA independiente revisa/audita según se requiera (Regla 61B-22.006(1)); los umbrales legales son orientativos a la espera del abogado.",
+  "admin.financialsDocument.cpaShareTitle": "Compartir con tu contador (CPA)",
+  "admin.financialsDocument.cpaShareSub": "Crea un enlace de solo lectura y sin inicio de sesión para tu contador. Solo cifras agregadas — sin nombres de propietarios ni unidades. Con tiempo limitado y revocable.",
+  "admin.financialsDocument.cpaShareCreate": "Crear enlace para compartir",
+  "admin.financialsDocument.cpaShareCopy": "Copiar",
+  "admin.financialsDocument.cpaShareCopied": "Copiado",
+  "admin.financialsDocument.cpaShareRevoke": "Revocar",
+  "admin.financialsDocument.cpaShareExpires": "vence {date}",
 }

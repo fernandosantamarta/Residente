@@ -13,7 +13,7 @@
 // DRAFT aids that require attorney/CPA review. Optional ?fy=<startYear> picks the
 // fiscal year (default: the current one).
 
-import { Suspense, useState, useEffect } from 'react'
+import { Suspense, useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/providers'
 import { useT } from '@/lib/i18n'
@@ -74,6 +74,9 @@ function DocInner() {
   const [signing, setSigning] = useState(false)
   const [signMsg, setSignMsg] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
+  const [cpaLinks, setCpaLinks] = useState<any[]>([])
+  const [cpaBusy, setCpaBusy] = useState(false)
+  const [cpaCopied, setCpaCopied] = useState('')
   const [community, setCommunity] = useState<any>(null)
   const [budgets, setBudgets] = useState<any[]>([])
   const [reserves, setReserves] = useState<any[]>([])
@@ -146,6 +149,17 @@ function DocInner() {
     } finally { setSigning(false) }
   }
 
+  // ---- CPA share links (read-only, login-free; minted/revoked here) ----
+  const loadCpaLinks = useCallback(async () => {
+    if (!hasSupabase || !communityId || !canManage) return
+    try {
+      const { data } = await supabase.from('cpa_share_tokens').select('*')
+        .eq('community_id', communityId).eq('revoked', false).order('created_at', { ascending: false })
+      setCpaLinks(((data as any[]) || []).filter(t => new Date(t.expires_at).getTime() > Date.now()))
+    } catch { /* table may not exist yet → no links shown */ }
+  }, [communityId, canManage])
+  useEffect(() => { if (type === 'cpa_bundle') loadCpaLinks() }, [type, loadCpaLinks])
+
   if (status === 'loading') return <div style={{ padding: 40 }}>{t('admin.financialsDocument.loading')}</div>
   if (status === 'error') return <div style={{ padding: 40, color: '#B42318' }}>{error}</div>
 
@@ -192,6 +206,24 @@ function DocInner() {
       ],
     )
     if (communityId) logAudit({ community_id: communityId, event_type: 'financial.cpa_bundle_exported', target_type: 'financial_filing', metadata: { fiscal_year: fy.year } })
+  }
+
+  const createCpaLink = async () => {
+    setCpaBusy(true)
+    try {
+      const { error } = await supabase.rpc('cpa_share_create', { p_fiscal_year: fy.year })
+      if (error) throw error
+      await loadCpaLinks()
+    } catch { /* surfaced as no new link */ } finally { setCpaBusy(false) }
+  }
+  const revokeCpaLink = async (id: string) => {
+    try { await supabase.rpc('cpa_share_revoke', { p_id: id }); await loadCpaLinks() } catch { /* ignore */ }
+  }
+  const copyCpaLink = (token: string) => {
+    try {
+      navigator.clipboard?.writeText(`${window.location.origin}/cpa/${token}`)
+      setCpaCopied(token); setTimeout(() => setCpaCopied(''), 2000)
+    } catch { /* clipboard unavailable */ }
   }
 
   // Live GL revenue drives the audit tier when a ledger exists (else budget estimate).
@@ -508,6 +540,31 @@ function DocInner() {
                 <tr><td style={totTd}>{t('admin.financialsDocument.netSurplusDeficit')}</td><td style={{ ...totTdR, color: revexp.net < 0 ? '#B42318' : '#067647' }}>{fmt$(revexp.net)}</td></tr>
               </tbody></table>
               <p style={cite}>{t('admin.financialsDocument.cpaFootnote')}</p>
+
+              {canManage && (
+                <div className="no-print" style={{ marginTop: 22, padding: '14px 16px', border: '1px solid #d4d4d4', borderRadius: 8, fontFamily: 'system-ui, sans-serif' }}>
+                  <div style={{ fontWeight: 700, fontSize: 14 }}>{t('admin.financialsDocument.cpaShareTitle')}</div>
+                  <div style={{ fontSize: 12.5, color: '#555', margin: '4px 0 10px' }}>{t('admin.financialsDocument.cpaShareSub')}</div>
+                  <button onClick={createCpaLink} disabled={cpaBusy} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '9px 16px', fontWeight: 700, fontSize: 13, cursor: 'pointer', opacity: cpaBusy ? 0.6 : 1 }}>
+                    {cpaBusy ? '…' : t('admin.financialsDocument.cpaShareCreate')}
+                  </button>
+                  {cpaLinks.length > 0 && (
+                    <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {cpaLinks.map((l: any) => {
+                        const url = `${typeof window !== 'undefined' ? window.location.origin : ''}/cpa/${l.token}`
+                        return (
+                          <div key={l.id} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', fontSize: 12.5 }}>
+                            <input readOnly value={url} onFocus={e => e.currentTarget.select()} style={{ flex: '1 1 280px', padding: '6px 8px', border: '1px solid #d4d4d4', borderRadius: 6, fontFamily: 'ui-monospace, monospace', fontSize: 12 }} />
+                            <button onClick={() => copyCpaLink(l.token)} style={{ background: '#fff', border: '1px solid #d4d4d4', borderRadius: 6, padding: '6px 12px', fontWeight: 600, fontSize: 12.5, cursor: 'pointer' }}>{cpaCopied === l.token ? t('admin.financialsDocument.cpaShareCopied') : t('admin.financialsDocument.cpaShareCopy')}</button>
+                            <button onClick={() => revokeCpaLink(l.id)} style={{ background: '#fff', border: '1px solid #d4d4d4', borderRadius: 6, padding: '6px 12px', fontWeight: 600, fontSize: 12.5, color: '#B42318', cursor: 'pointer' }}>{t('admin.financialsDocument.cpaShareRevoke')}</button>
+                            <span style={{ color: '#555' }}>{t('admin.financialsDocument.cpaShareExpires', { date: String(l.expires_at).slice(0, 10) })}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </>
           )}
         </Body>
