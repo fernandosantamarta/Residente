@@ -16,6 +16,7 @@ import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useT } from '@/lib/i18n'
 import { CASH_CODES } from '@/lib/gl/reconcile'
 
 const withTimeout = (p: any, ms = 10000) =>
@@ -27,6 +28,7 @@ const fmt$ = (n: any) => '$' + round2(Math.abs(Number(n) || 0)).toLocaleString('
 interface EntryInfo { entry_date: string | null; fund: string; source_type: string; memo: string | null; cashDelta: number }
 
 export default function ReconcilePage() {
+  const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const { can, loading: permLoading } = usePermissions()
@@ -39,7 +41,7 @@ export default function ReconcilePage() {
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
 
-  useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(''), 4000); return () => clearTimeout(t) }, [msg])
+  useEffect(() => { if (!msg) return; const timer = setTimeout(() => setMsg(''), 4000); return () => clearTimeout(timer) }, [msg])
 
   const load = useCallback(async () => {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
@@ -77,19 +79,19 @@ export default function ReconcilePage() {
       }
       setBankTx(bt || []); setEntryById(map); setStatus('ready')
     } catch (err: any) {
-      setError(err?.message || 'Could not load reconciliation data'); setStatus('error')
+      setError(err?.message || t('admin.reconcile.errLoad')); setStatus('error')
     }
-  }, [communityId])
+  }, [communityId, t])
   useEffect(() => { load() }, [load])
 
   const groups = useMemo(() => {
     const review: any[] = [], auto: any[] = []
     let confirmed = 0
-    for (const t of bankTx) {
-      const s = t.match_status || 'unmatched'
+    for (const tx of bankTx) {
+      const s = tx.match_status || 'unmatched'
       if (s === 'confirmed') confirmed += 1
-      else if (s === 'auto') auto.push(t)
-      else review.push(t) // unmatched + exception
+      else if (s === 'auto') auto.push(tx)
+      else review.push(tx) // unmatched + exception
     }
     return { review, auto, confirmed }
   }, [bankTx])
@@ -103,41 +105,42 @@ export default function ReconcilePage() {
         p_bank_tx: bankTxId, p_entry: entryId, p_status: newStatus,
       })
       if (error) throw error
-      setMsg(newStatus === 'confirmed' ? 'Match confirmed.' : newStatus === 'exception' ? 'Flagged as an exception.' : 'Match cleared.')
+      setMsg(newStatus === 'confirmed' ? t('admin.reconcile.msgConfirmed') : newStatus === 'exception' ? t('admin.reconcile.msgFlagged') : t('admin.reconcile.msgCleared'))
       await load()
     } catch (err: any) {
-      setError(err?.message || 'Could not update the match')
+      setError(err?.message || t('admin.reconcile.errUpdate'))
     } finally { setBusy(null) }
   }
 
-  const dirLabel = (amt: number) => (Number(amt) >= 0 ? 'out' : 'in')
+  const dirLabel = (amt: number) => (Number(amt) >= 0 ? t('admin.reconcile.dirOut') : t('admin.reconcile.dirIn'))
   const dirColor = (amt: number) => (Number(amt) >= 0 ? '#B42318' : '#067647')
+  const fundLabel = (f: string) => (f === 'reserve' ? t('admin.reconcile.fundReserve') : t('admin.reconcile.fundOperating'))
 
-  const BankLine = ({ t }: { t: any }) => (
+  const BankLine = ({ tx }: { tx: any }) => (
     <div>
       <div style={{ fontWeight: 700, fontSize: 14 }}>
-        {t.merchant_name || t.name || 'Bank transaction'}
-        {t.pending ? <span style={{ marginLeft: 6, fontSize: 11, color: '#B54708', fontWeight: 600 }}>pending</span> : null}
+        {tx.merchant_name || tx.name || t('admin.reconcile.bankTxnFallback')}
+        {tx.pending ? <span style={{ marginLeft: 6, fontSize: 11, color: '#B54708', fontWeight: 600 }}>{t('admin.reconcile.pending')}</span> : null}
       </div>
       <div style={{ fontSize: 12.5, opacity: 0.75 }}>
-        {t.posted_date || '—'}
-        {t.plaid_category ? ` · ${t.plaid_category}` : ''}
+        {tx.posted_date || '—'}
+        {tx.plaid_category ? ` · ${tx.plaid_category}` : ''}
         {' · '}
-        <span style={{ color: dirColor(t.amount), fontWeight: 600 }}>{fmt$(t.amount)} {dirLabel(t.amount)}</span>
+        <span style={{ color: dirColor(tx.amount), fontWeight: 600 }}>{fmt$(tx.amount)} {dirLabel(tx.amount)}</span>
       </div>
     </div>
   )
 
   const Suggestion = ({ entryId, confidence }: { entryId: string | null; confidence: any }) => {
-    if (!entryId) return <div style={{ fontSize: 12.5, opacity: 0.7 }}>No matching ledger entry found — review manually.</div>
+    if (!entryId) return <div style={{ fontSize: 12.5, opacity: 0.7 }}>{t('admin.reconcile.noEntry')}</div>
     const e = entryById[entryId]
-    if (!e) return <div style={{ fontSize: 12.5, opacity: 0.7 }}>Linked to a ledger entry (no longer visible).</div>
-    const conf = confidence != null ? ` · ${Math.round(Number(confidence) * 100)}% confidence` : ''
+    if (!e) return <div style={{ fontSize: 12.5, opacity: 0.7 }}>{t('admin.reconcile.entryGone')}</div>
+    const conf = confidence != null ? ` · ${t('admin.reconcile.confidence', { pct: Math.round(Number(confidence) * 100) })}` : ''
     return (
       <div style={{ fontSize: 12.5, opacity: 0.85, marginTop: 2 }}>
-        <span style={{ opacity: 0.6 }}>suggested ledger entry → </span>
+        <span style={{ opacity: 0.6 }}>{t('admin.reconcile.suggestedPrefix')} </span>
         <span style={{ fontWeight: 600 }}>{e.memo || e.source_type}</span>
-        {' '}<span style={{ opacity: 0.7 }}>({e.entry_date || '—'} · {e.fund} · {fmt$(e.cashDelta)} {dirLabel(-e.cashDelta)})</span>
+        {' '}<span style={{ opacity: 0.7 }}>({e.entry_date || '—'} · {fundLabel(e.fund)} · {fmt$(e.cashDelta)} {dirLabel(-e.cashDelta)})</span>
         <span style={{ opacity: 0.55 }}>{conf}</span>
       </div>
     )
@@ -145,35 +148,28 @@ export default function ReconcilePage() {
 
   return (
     <div className="admin-page cset">
-      <div className="admin-kicker"><Link href="/admin/financials" style={{ color: 'inherit', textDecoration: 'none' }}>&larr; Financial reporting</Link></div>
-      <h1 className="admin-h1">Bank reconciliation</h1>
-      <p className="admin-dek">
-        We match each bank transaction (read-only via Plaid) to the ledger entry that moved the same
-        money. High-confidence matches are made automatically; everything else waits here for you to
-        confirm. Confirming a match never moves money — it just verifies the books against the bank.
-      </p>
+      <div className="admin-kicker"><Link href="/admin/financials" style={{ color: 'inherit', textDecoration: 'none' }}>&larr; {t('admin.financials.pageTitle')}</Link></div>
+      <h1 className="admin-h1">{t('admin.reconcile.title')}</h1>
+      <p className="admin-dek">{t('admin.reconcile.dek')}</p>
 
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
-      {status === 'none' && <div className="admin-note admin-note-warn">No community is linked to your account yet. Run the setup SQL, then reload.</div>}
-      {status === 'error' && <div className="admin-note admin-note-err">{error}<button type="button" className="admin-btn-ghost" onClick={load}>Retry</button></div>}
-      {status === 'loading' && <div className="admin-note">Loading…</div>}
+      {status === 'none' && <div className="admin-note admin-note-warn">{t('admin.financials.noCommunity')}</div>}
+      {status === 'error' && <div className="admin-note admin-note-err">{error}<button type="button" className="admin-btn-ghost" onClick={load}>{t('admin.reconcile.retry')}</button></div>}
+      {status === 'loading' && <div className="admin-note">{t('admin.financials.loading')}</div>}
 
       {status === 'ready' && (
         <>
           {!permLoading && !canManage && (
-            <div className="admin-note admin-note-info" style={{ marginBottom: 14 }}>
-              You can review the reconciliation queue. Confirming or clearing a match needs the
-              <strong> Edit budgets &amp; expenses</strong> permission (financials.manage).
-            </div>
+            <div className="admin-note admin-note-info" style={{ marginBottom: 14 }}>{t('admin.reconcile.permNote')}</div>
           )}
           {error && <div className="admin-note admin-note-err" style={{ marginBottom: 14 }}>{error}</div>}
 
           {/* Summary chips */}
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 16 }}>
             {[
-              { label: 'Needs review', n: groups.review.length, c: '#B54708' },
-              { label: 'Auto-matched', n: groups.auto.length, c: '#0E7490' },
-              { label: 'Confirmed', n: groups.confirmed, c: '#067647' },
+              { label: t('admin.reconcile.chipReview'), n: groups.review.length, c: '#B54708' },
+              { label: t('admin.reconcile.chipAuto'), n: groups.auto.length, c: '#0E7490' },
+              { label: t('admin.reconcile.chipConfirmed'), n: groups.confirmed, c: '#067647' },
             ].map(s => (
               <div key={s.label} style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '8px 14px', background: '#fff' }}>
                 <div style={{ fontSize: 22, fontWeight: 800, color: s.c, lineHeight: 1 }}>{s.n}</div>
@@ -184,31 +180,31 @@ export default function ReconcilePage() {
 
           {/* Needs review (exception + unmatched) */}
           <div className="card">
-            <div className="card-head"><div><h2>Needs your review <span style={{ opacity: 0.55, fontWeight: 400 }}>({groups.review.length})</span></h2>
-              <div className="sub">Bank transactions we couldn&rsquo;t match with confidence — confirm the suggestion or flag it.</div></div></div>
+            <div className="card-head"><div><h2>{t('admin.reconcile.reviewTitle')} <span style={{ opacity: 0.55, fontWeight: 400 }}>({groups.review.length})</span></h2>
+              <div className="sub">{t('admin.reconcile.reviewSub')}</div></div></div>
             {groups.review.length === 0 ? (
-              <div className="admin-note" style={{ marginTop: 4 }}>Nothing to review — every bank transaction is matched or confirmed. 🎉</div>
+              <div className="admin-note" style={{ marginTop: 4 }}>{t('admin.reconcile.reviewEmpty')}</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-                {groups.review.map(t => (
-                  <div key={t.id} style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
+                {groups.review.map(tx => (
+                  <div key={tx.id} style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                       <div style={{ minWidth: 220, flex: 1 }}>
-                        <BankLine t={t} />
-                        <Suggestion entryId={t.matched_entry_id} confidence={t.match_confidence} />
+                        <BankLine tx={tx} />
+                        <Suggestion entryId={tx.matched_entry_id} confidence={tx.match_confidence} />
                       </div>
                       {canManage && (
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          {t.matched_entry_id && (
-                            <button className="admin-primary-btn" disabled={busy === t.id} onClick={() => act(t.id, t.matched_entry_id, 'confirmed')}>
-                              {busy === t.id ? '…' : 'Confirm match'}
+                          {tx.matched_entry_id && (
+                            <button className="admin-primary-btn" disabled={busy === tx.id} onClick={() => act(tx.id, tx.matched_entry_id, 'confirmed')}>
+                              {busy === tx.id ? '…' : t('admin.reconcile.btnConfirmMatch')}
                             </button>
                           )}
-                          {t.match_status !== 'exception' && (
-                            <button className="admin-btn-ghost" disabled={busy === t.id} onClick={() => act(t.id, t.matched_entry_id ?? null, 'exception')}>Flag</button>
+                          {tx.match_status !== 'exception' && (
+                            <button className="admin-btn-ghost" disabled={busy === tx.id} onClick={() => act(tx.id, tx.matched_entry_id ?? null, 'exception')}>{t('admin.reconcile.btnFlag')}</button>
                           )}
-                          {t.matched_entry_id && (
-                            <button className="admin-btn-ghost" disabled={busy === t.id} onClick={() => act(t.id, null, 'unmatched')}>Not a match</button>
+                          {tx.matched_entry_id && (
+                            <button className="admin-btn-ghost" disabled={busy === tx.id} onClick={() => act(tx.id, null, 'unmatched')}>{t('admin.reconcile.btnNotMatch')}</button>
                           )}
                         </div>
                       )}
@@ -222,22 +218,22 @@ export default function ReconcilePage() {
           {/* Auto-matched (machine) — confirm to lock, or reject to the queue */}
           {groups.auto.length > 0 && (
             <div className="card">
-              <div className="card-head"><div><h2>Auto-matched <span style={{ opacity: 0.55, fontWeight: 400 }}>({groups.auto.length})</span></h2>
-                <div className="sub">High-confidence matches the system made for you. Confirm to lock them, or reject if one looks wrong.</div></div></div>
+              <div className="card-head"><div><h2>{t('admin.reconcile.autoTitle')} <span style={{ opacity: 0.55, fontWeight: 400 }}>({groups.auto.length})</span></h2>
+                <div className="sub">{t('admin.reconcile.autoSub')}</div></div></div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginTop: 10 }}>
-                {groups.auto.map(t => (
-                  <div key={t.id} style={{ border: '1px solid rgba(0,0,0,0.06)', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
+                {groups.auto.map(tx => (
+                  <div key={tx.id} style={{ border: '1px solid rgba(0,0,0,0.06)', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
                       <div style={{ minWidth: 220, flex: 1 }}>
-                        <BankLine t={t} />
-                        <Suggestion entryId={t.matched_entry_id} confidence={t.match_confidence} />
+                        <BankLine tx={tx} />
+                        <Suggestion entryId={tx.matched_entry_id} confidence={tx.match_confidence} />
                       </div>
                       {canManage && (
                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                          <button className="admin-primary-btn" disabled={busy === t.id} onClick={() => act(t.id, t.matched_entry_id, 'confirmed')}>
-                            {busy === t.id ? '…' : 'Confirm'}
+                          <button className="admin-primary-btn" disabled={busy === tx.id} onClick={() => act(tx.id, tx.matched_entry_id, 'confirmed')}>
+                            {busy === tx.id ? '…' : t('admin.reconcile.btnConfirm')}
                           </button>
-                          <button className="admin-btn-ghost" disabled={busy === t.id} onClick={() => act(t.id, t.matched_entry_id, 'exception')}>Reject</button>
+                          <button className="admin-btn-ghost" disabled={busy === tx.id} onClick={() => act(tx.id, tx.matched_entry_id, 'exception')}>{t('admin.reconcile.btnReject')}</button>
                         </div>
                       )}
                     </div>
@@ -249,7 +245,7 @@ export default function ReconcilePage() {
 
           {bankTx.length === 0 && (
             <div className="admin-note admin-note-info">
-              No bank transactions yet. Link the association&rsquo;s bank on <Link href="/admin/budget" style={{ fontWeight: 600 }}>Budget</Link> and sync, then the auto-matcher can reconcile them to the ledger.
+              {t('admin.reconcile.noTxnsPre')} <Link href="/admin/budget" style={{ fontWeight: 600 }}>{t('admin.financials.budgetRowTitle')}</Link> {t('admin.reconcile.noTxnsSuf')}
             </div>
           )}
         </>
