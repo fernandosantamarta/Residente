@@ -1,0 +1,134 @@
+# Residente — App Store Connect submission copy
+
+Paste-ready text for the App Store listing + App Review info. Fill the
+`<PLACEHOLDERS>` before submitting. See SETUP-IOS.md §8–9 for the surrounding steps.
+
+---
+
+## App Review Information → Notes (the make-or-break section)
+
+> Residente is a **private resident portal for homeowner / condo associations
+> (HOAs)** — the entire app is behind a login, with no public browsing. Please
+> use the demo account below to review all functionality.
+>
+> **Demo account (seeded demo community):**
+> - Email: `<DEMO_EMAIL>`
+> - Password: `<DEMO_PASSWORD>`
+>
+> This account is a resident of a fully populated demo community
+> ("<DEMO_COMMUNITY_NAME>"), so you'll see real content: dues & payment history,
+> board announcements and votes, community documents and rules, the amenity /
+> event calendar, and notifications.
+>
+> **How to navigate:**
+> - **Home** — community overview, dues status, and a "where your dues go" breakdown.
+> - **Easy Track** — view dues, payment history, and make a payment.
+> - **Easy Voice** — board announcements, meetings, votes, and contacting the board.
+> - **Easy Documents** — governing documents, rules, and violation notices.
+> - **Easy Schedule** — community calendar and amenity bookings.
+> - **Bell (top right)** — notifications. On first launch the app requests
+>   notification permission and registers for native push.
+>
+> **Payments (Guideline 3.1.3 / 3.1.5):** Payments in this app are real-world
+> community-association **dues and fines**, collected via Stripe. They pay for a
+> physical-world service tied to a specific real-world community — not digital
+> content or app functionality — so per Guideline 3.1.3(e) they are handled
+> outside Apple's in-app purchase system. No digital goods are sold in the app.
+>
+> **Sign in with Apple:** Not applicable — the app uses email/password accounts
+> only, with no third-party/social login, so Sign in with Apple is not required.
+
+**Sign-In Required:** toggle ON and enter the same `<DEMO_EMAIL>` / `<DEMO_PASSWORD>`
+in the dedicated username/password fields (App Review Information → Sign-In Required).
+
+> ⚠️ Use a **seeded, polished demo community**, NOT the throwaway test community.
+> Confirm the login works in a fresh install before submitting — a broken demo
+> login is the #1 cause of a 2.1 rejection.
+
+---
+
+## Listing fields
+
+**Name** (30 chars): `Residente`
+
+**Subtitle** (30 chars max): `Your HOA dues, votes & docs`
+
+**Promotional text** (170 chars, editable without resubmit):
+> Pay dues, vote on community decisions, read board notices, and find every HOA
+> document — all in one place. Your community, in your pocket.
+
+**Keywords** (100 chars, comma-separated, no spaces after commas):
+```
+HOA,homeowners association,condo,community,dues,assessments,board,property,residents,neighborhood
+```
+
+**Support URL:** `https://residente.io`  ⚠️ there is no public `/contact` or
+`/support` page yet (both 404). Apple requires a working support URL with a way
+to get help. Either (a) use `https://residente.io` for now (make sure the home
+page shows a contact email/link), or (b) add a tiny public `/support` page with
+`hello@residente.io` + a short FAQ and use that — cleaner, ~10 min of work.
+**Marketing URL:** `https://residente.io`
+**Privacy Policy URL:** `https://residente.io/privacy`  ✅ (live, 200)
+**Terms (EULA):** `https://residente.io/terms`  ✅ (live, 200)
+
+---
+
+## Description (≤ 4000 chars)
+
+> **Residente is the resident portal for your homeowners or condo association —
+> everything your community needs, in one app.**
+>
+> No more digging through emails, paper notices, or three different websites.
+> Residente brings your dues, your board, your documents, and your community
+> calendar together in a single, simple place.
+>
+> **Pay and track your dues**
+> See exactly what you owe, view your full payment history, and pay your
+> assessments securely. Always know your balance and when your next payment is due.
+>
+> **Have a voice in your community**
+> Read board announcements, follow meetings, and cast your vote on community
+> decisions right from your phone. Reach the board directly with questions,
+> maintenance issues, or requests — and get notified the moment they reply.
+>
+> **Every document, one tap away**
+> Governing documents, rules and regulations, meeting minutes, and notices —
+> all organized and searchable, so you're never guessing about the rules.
+>
+> **Never miss what matters**
+> Get push notifications for new announcements, open votes, dues reminders, and
+> board replies. Tune exactly what you're notified about in Settings.
+>
+> **Built for the whole community**
+> Available in English, Spanish, and Portuguese. Board members and managers get
+> the tools to run the association; residents get a clear window into where their
+> dues go and how their community is doing.
+>
+> Residente is offered through your community association. Sign in with the
+> account your association provides.
+>
+> Questions or feedback? Reach us at hello@residente.io.
+
+---
+
+## Privacy "nutrition labels" (App Privacy section)
+
+Declare data collected and linked to the user:
+- **Contact info** — name, email, phone (account + community profile)
+- **Financial info** — payment/transaction history (dues & fines; processed by Stripe)
+- **User content** — messages to the board, requests
+- **Identifiers** — user/account ID
+- **Usage data / Diagnostics** — if analytics are enabled
+
+Purpose: app functionality, account management. Not used for tracking/advertising.
+(Confirm against what the app + Stripe actually collect before submitting.)
+
+---
+
+## Age rating
+Run the questionnaire; Residente has no objectionable content → expected **4+**.
+
+## Screenshots
+6.7" iPhone is mandatory. Capture from the demo community (login first):
+Home / dues overview · Easy Track (pay) · Easy Voice (a vote or board notice) ·
+Easy Documents · Easy Schedule. Use the polished demo data, not the test community.
