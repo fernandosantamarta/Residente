@@ -39,6 +39,7 @@
     "node_modules",
     "src",
     "build",
-    "supabase/functions"
+    "supabase/functions",
+    "capacitor.config.ts"
   ]
 }
