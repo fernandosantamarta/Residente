@@ -305,6 +305,8 @@ export const en: Record<string, string> = {
   "home.atAGlance": "At a glance",
   "home.budgetColCategory": "Category",
   "home.budgetColSpentBudget": "Spent / Budget",
+  "home.budgetColSpent": "Spent",
+  "home.budgetColBudget": "Budget",
   "home.budgetColUsed": "Used",
   "home.budgetDialogEmpty": "No budget categories yet. Once the board sets category budgets in Admin, the breakdown shows up here.",
   "home.budgetDialogPeriod": "{spent} spent of {budget} · {pct}% used",

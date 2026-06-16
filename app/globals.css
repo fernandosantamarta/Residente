@@ -2711,8 +2711,8 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 /* Back to home — a clear white button, not a faint link. */
 [data-theme="sketch"] .inbox-back {
   display: inline-flex; align-items: center;
-  background: #FFFFFF; color: #C45F2A; font-weight: 700;
-  border: 1px solid rgba(15, 28, 46, 0.12); border-radius: 999px;
+  background: #E14909; color: #FFFFFF; font-weight: 700;
+  border: 1px solid #E14909; border-radius: 999px;
   padding: 9px 16px; padding-top: 9px;
   box-shadow: 0 1px 2px rgba(10, 36, 64, 0.06);
 }
@@ -2721,8 +2721,8 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 }
 [data-theme="sketch"] .inbox-back:hover {
   color: #FFFFFF;
-  border-color: #0A2440;
-  background: #0A2440;
+  border-color: #C2410C;
+  background: #C2410C;
   box-shadow: 0 2px 10px rgba(10, 36, 64, 0.28);
 }
 
@@ -9353,7 +9353,7 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 
 [data-theme="sketch"] .rd-bd-table { display: flex; flex-direction: column; }
 [data-theme="sketch"] .rd-bd-row {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto 56px; gap: 12px; align-items: center;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto 52px; gap: 14px; align-items: center;
   padding: 10px 2px; font-size: 14px; color: #0A2440;
   border-bottom: 1px solid rgba(10, 36, 64, 0.08);
 }
@@ -9362,8 +9362,9 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   color: rgba(10, 36, 64, 0.5);
 }
 [data-theme="sketch"] .rd-bd-head span:nth-child(2),
-[data-theme="sketch"] .rd-bd-row .rd-bd-amt,
 [data-theme="sketch"] .rd-bd-head span:nth-child(3),
+[data-theme="sketch"] .rd-bd-head span:nth-child(4),
+[data-theme="sketch"] .rd-bd-row .rd-bd-amt,
 [data-theme="sketch"] .rd-bd-row .rd-bd-share { text-align: right; }
 [data-theme="sketch"] .rd-bd-cat { display: flex; align-items: center; gap: 9px; min-width: 0; }
 [data-theme="sketch"] .rd-bd-cat .rep-fin-dot { flex: none; }
@@ -10130,8 +10131,8 @@ textarea[disabled] {
   /* MOBILE ONLY: the community kicker sits over the hero photo, so the light
      tinted pill washed out. Give it a solid navy fill + white text so residents
      can read it. The pulsing live dot keeps its own orange — untouched. */
-  [data-theme="sketch"] .kicker { background: #FFFFFF; border-color: rgba(225, 73, 9, 0.22); color: #E14909; }
-  [data-theme="sketch"] .kicker .kicker-text { color: #E14909; }
+  [data-theme="sketch"] .kicker { background: #FFFFFF; border-color: rgba(10, 36, 64, 0.18); color: #0A2440; }
+  [data-theme="sketch"] .kicker .kicker-text { color: #0A2440; }
 
   /* MOBILE ONLY: match the other pages' header rhythm — .ev-hub-head gets
      padding-top:64px below the community kicker, so give .sched-hero the same

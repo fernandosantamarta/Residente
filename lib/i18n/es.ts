@@ -297,6 +297,8 @@ export const es: Record<string, string> = {
   "home.atAGlance": "Resumen",
   "home.budgetColCategory": "Categoría",
   "home.budgetColSpentBudget": "Gastado / Presupuesto",
+  "home.budgetColSpent": "Gastado",
+  "home.budgetColBudget": "Presupuesto",
   "home.budgetColUsed": "Usado",
   "home.budgetDialogEmpty": "Aún no hay categorías de presupuesto. Cuando la junta configure los presupuestos por categoría en Admin, el desglose aparecerá aquí.",
   "home.budgetDialogPeriod": "{spent} gastado de {budget} · {pct}% usado",

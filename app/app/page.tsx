@@ -711,7 +711,7 @@ function FinancialOverview({
           ) : (
             <div className="rd-bd-table">
               <div className="rd-bd-row rd-bd-head">
-                <span>{t('home.budgetColCategory')}</span><span>{t('home.budgetColSpentBudget')}</span><span>{t('home.budgetColUsed')}</span>
+                <span>{t('home.budgetColCategory')}</span><span>{t('home.budgetColSpent')}</span><span>{t('home.budgetColBudget')}</span><span>{t('home.budgetColUsed')}</span>
               </div>
               {cats.map((x: any, i: number) => {
                 const b = num(x.budget), s = num(x.spent)
@@ -719,14 +719,16 @@ function FinancialOverview({
                 return (
                   <div className="rd-bd-row" key={x.id ?? i}>
                     <span className="rd-bd-cat">{x.name}</span>
-                    <span className="rd-bd-amt">{fmtMoney(s)} / {fmtMoney(b)}</span>
+                    <span className="rd-bd-amt">{fmtMoney(s)}</span>
+                    <span className="rd-bd-amt">{fmtMoney(b)}</span>
                     <span className="rd-bd-amt">{pct}%</span>
                   </div>
                 )
               })}
               <div className="rd-bd-row rd-bd-total">
                 <span>{t('home.budgetTotal')}</span>
-                <span className="rd-bd-amt">{fmtMoney(totalSpent)} / {fmtMoney(annualBudget)}</span>
+                <span className="rd-bd-amt">{fmtMoney(totalSpent)}</span>
+                <span className="rd-bd-amt">{fmtMoney(annualBudget)}</span>
                 <span className="rd-bd-amt">{actualPctNum}%</span>
               </div>
             </div>
