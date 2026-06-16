@@ -1019,7 +1019,7 @@ html:has(.login-screen) { background: #FFEADC; overflow: hidden; height: 100%; }
      the topbar (community name + notification bell) hides under the island. The
      hero photo (.center::before) is absolutely positioned, so it still bleeds up.
      env(safe-area-inset-top) is 0 in normal Safari, so no change there. */
-  .center { padding: calc(20px + env(safe-area-inset-top, 0px)) 18px 40px; }
+  .center { padding: max(20px, env(safe-area-inset-top, 0px)) 18px 40px; }
   .topbar { margin-bottom: 24px; }
   .topbar .time-chip { display: none; }
   .kicker { font-size: 10px; letter-spacing: 1.4px; }
