@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { BoardSection } from './_sections/BoardSection'
 import { ContactSection } from './_sections/ContactSection'
 import { ProposalsRulesSection } from './_sections/ProposalsRulesSection'
@@ -20,12 +21,19 @@ import { useT } from '@/lib/i18n'
 // live with the rule book in Easy Documents → Rules (MyViolationsPanel), and the
 // richer enforcement view (hearings/suspensions) at /app/enforcement.
 // /app/board and /app/contact redirect here for back-compat.
+// This page reads search params (?cat=) at the top level; opt out of static
+// prerendering so Next doesn't require a Suspense boundary for useSearchParams.
+// The page is client/auth-gated and dynamic anyway.
+export const dynamic = 'force-dynamic'
+
 const TAB_IDS = ['board', 'proposals', 'architectural', 'contact'] as const
 
 export default function EasyVoice() {
   const t = useT()
   const [tab, setTab] = useState('board')
   const pendingReplies = useMyPendingReplies()
+  const searchParams = useSearchParams()
+  const catParam = searchParams.get('cat')
 
   const TABS: SegTab[] = [
     { id: 'board',         label: t('voice.tabBoard') },
@@ -50,6 +58,15 @@ export default function EasyVoice() {
     window.addEventListener('hashchange', fromHash)
     return () => window.removeEventListener('hashchange', fromHash)
   }, [])
+
+  // A ?cat= deep-link (e.g. "Propose a rule" → /app/voice?cat=rule_proposal#contact)
+  // targets the Contact form. Client-side navigation within this page doesn't
+  // reliably fire `hashchange`, so switch to the Contact tab when the cat param
+  // is present — then ContactSection preselects the category and focuses the
+  // subject field.
+  useEffect(() => {
+    if (catParam) setTab('contact')
+  }, [catParam])
 
   return (
     <div className="ev-wrap">
