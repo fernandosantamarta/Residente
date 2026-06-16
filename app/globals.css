@@ -10132,22 +10132,19 @@ textarea[disabled] {
   }
 
   /* MOBILE ONLY: every cockpit page description sits over the hero photo, so the
-     dim text washed out. Give each its own frosted-white pill — bold, full
-     contrast, hugging the text — so it stays readable. Desktop is untouched. */
+     dim text washed out. Keep it bold + full contrast and add a soft white glow
+     (text-shadow halo) so it reads cleanly over the sunset — no boxy pill.
+     Desktop is untouched. */
   [data-theme="sketch"] .voice-page-sub,
   [data-theme="sketch"] .sched-hero-sub,
   [data-theme="sketch"] .doc-hero-sub,
   [data-theme="sketch"] .rb-hero-sub,
   [data-theme="sketch"] .set-hero-sub {
-    display: inline-block;
     color: var(--text);
     font-weight: 700;
-    background: rgba(255, 255, 255, 0.86);
-    -webkit-backdrop-filter: blur(4px);
-    backdrop-filter: blur(4px);
-    padding: 6px 12px;
-    border-radius: 10px;
-    box-shadow: 0 1px 10px rgba(31, 34, 51, 0.08);
+    text-shadow:
+      0 1px 2px rgba(255, 255, 255, 0.95),
+      0 0 10px rgba(255, 255, 255, 0.85);
   }
 }
 
