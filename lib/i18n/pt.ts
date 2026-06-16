@@ -818,7 +818,7 @@ export const pt: Record<string, string> = {
   "settings.dlgAppIconTitle": "Ícone do app",
   "settings.appIconWhite": "Branco",
   "settings.appIconBlack": "Preto",
-  "settings.appIconHelp": "Escolha o fundo do ícone do Residente na sua tela inicial. Para atualizar um ícone que já está lá, remova o app da tela inicial e adicione novamente.",
+  "settings.appIconHelp": "Escolha o fundo do ícone do app Residente.",
   "settings.rowEmail": "Preferências de e-mail",
   "settings.rowEmailDesc": "Boletins, novidades da diretoria, recibos de cobrança.",
   "settings.rowSms": "Preferências de SMS",

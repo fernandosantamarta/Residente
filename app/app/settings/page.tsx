@@ -1150,7 +1150,7 @@ function AppIconDialog() {
   ]
   return (
     <div>
-      <p className="set-dialog-field-label" style={{ marginBottom: 12, lineHeight: 1.5, textTransform: 'none', letterSpacing: 0 }}>
+      <p className="set-dialog-field-label" style={{ marginBottom: 12, lineHeight: 1.5, textTransform: 'none', letterSpacing: 0, whiteSpace: 'nowrap' }}>
         {t('settings.appIconHelp')}
       </p>
       <div style={{ display: 'flex', gap: 12 }}>

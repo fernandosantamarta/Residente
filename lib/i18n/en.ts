@@ -865,7 +865,7 @@ export const en: Record<string, string> = {
   "settings.dlgAppIconTitle": "App icon",
   "settings.appIconWhite": "White",
   "settings.appIconBlack": "Black",
-  "settings.appIconHelp": "Choose the background for the Residente icon on your home screen. To update an icon that's already there, remove the app from your home screen and add it again.",
+  "settings.appIconHelp": "Choose the Residente app icon background.",
   "settings.rowEmail": "Email Preferences",
   "settings.rowEmailDesc": "Newsletters, board updates, billing receipts.",
   "settings.rowSms": "SMS Preferences",
