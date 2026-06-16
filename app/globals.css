@@ -930,6 +930,12 @@ html:has(.login-screen) { background: #FFEADC; overflow: hidden; height: 100%; }
 }
 .login-back:hover { color: var(--pink); }
 
+/* In the native app there is no marketing site to return to, so the "Back to
+   home" link and the home-linked brand just strand the user on the landing
+   page. Hide the back link and make the brand non-navigating (logo stays). */
+html.is-native-app .login-back { display: none; }
+html.is-native-app .login-brand { pointer-events: none; }
+
 /* ============ MOBILE & TABLET ============ */
 /* Variant-B aesthetic, web-mobile patterns. Phones: single column, hamburger
    nav, centered hero, 2-col category grid, board feed stacked below.
