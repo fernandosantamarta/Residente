@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { signIn, hasSupabase, supabase } from '@/lib/supabase'
+import { signIn, hasSupabase, supabase, getRememberMe, setRememberMe } from '@/lib/supabase'
 import { resumePendingProvision } from '@/lib/signup'
 import { getStoredPrefs } from '@/lib/preferences'
 import { useAuth } from '../providers'
@@ -44,6 +44,12 @@ export default function Login() {
   const [password, setPassword] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [remember, setRemember] = useState(true)
+
+  // Initialise the "Keep me signed in" toggle from the saved/default choice
+  // (defaults ON in the native app, OFF on the web). Done in an effect so the
+  // server render and first client render match (no hydration mismatch).
+  useEffect(() => { setRemember(getRememberMe()) }, [])
 
   // Tint the status bar to the login page's warm background so it doesn't read
   // as a white strip above the orange card (standalone app; and Safari once the
@@ -77,6 +83,9 @@ export default function Login() {
     }
     setSubmitting(true)
     setError(null)
+    // Record the choice BEFORE signing in, so the session token gets written to
+    // localStorage (stay signed in) or sessionStorage (sign out on close).
+    setRememberMe(remember)
     try {
       const { error: err } = await signIn({ email, password })
       if (err) {
@@ -142,7 +151,16 @@ export default function Login() {
             />
           </label>
 
-          <div className="login-forgot">
+          <div className="login-forgot" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13.5, color: '#5b4636', userSelect: 'none' }}>
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+                style={{ width: 16, height: 16, accentColor: '#E14909', cursor: 'pointer' }}
+              />
+              Keep me signed in
+            </label>
             <Link href="/forgot-password" className="login-forgot-link">Forgot password?</Link>
           </div>
 

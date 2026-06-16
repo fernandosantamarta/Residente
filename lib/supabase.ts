@@ -33,21 +33,55 @@ export const hasSupabase: boolean = !!(SUPABASE_URL && SUPABASE_ANON_KEY)
 export const stripeEnabled: boolean =
   (process.env.NEXT_PUBLIC_STRIPE_ENABLED || process.env.REACT_APP_STRIPE_ENABLED) === 'true'
 
-// Auth storage depends on where we're running:
-//  • NATIVE app (Capacitor iOS shell): localStorage, so the session survives a
-//    full app close and the resident stays signed in across launches — the
-//    expected behaviour for an installed app.
-//  • WEB (residente.io in a browser): sessionStorage, so the session survives
-//    refreshes and in-app navigation but clears when the tab/browser closes —
-//    a safer default on shared computers.
-// The Capacitor native bridge injects window.Capacitor before app JS runs, so
-// isNativePlatform() is reliable here; falls back to sessionStorage if unknown.
+// "Keep me signed in" controls WHERE the Supabase session token is stored:
+//  • ON  → localStorage: survives a full app close / browser restart, so the
+//    user is auto-logged-in next launch.
+//  • OFF → sessionStorage: cleared when the app/tab closes, so next launch shows
+//    the sign-in screen (iOS still autofills the saved password — they just tap
+//    Sign in). Default is ON in the native app (expected for an installed app)
+//    and OFF on the web (safer on shared computers).
+const REMEMBER_KEY = 'residente_remember_me'
+
+export function rememberMeDefault(): boolean {
+  if (typeof window === 'undefined') return false
+  return !!(window as any).Capacitor?.isNativePlatform?.()
+}
+
+export function getRememberMe(): boolean {
+  if (typeof window === 'undefined') return false
+  const v = localStorage.getItem(REMEMBER_KEY)
+  if (v === 'true') return true
+  if (v === 'false') return false
+  return rememberMeDefault()
+}
+
+export function setRememberMe(on: boolean) {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(REMEMBER_KEY, on ? 'true' : 'false')
+}
+
+// Routes the session token to localStorage or sessionStorage per the flag above.
+// getItem reads BOTH so an existing session is found wherever it was stored, and
+// setItem writes to one and clears the other so the choice can't leave a stale copy.
 const authStorage =
   typeof window === 'undefined'
     ? undefined
-    : (window as any).Capacitor?.isNativePlatform?.()
-      ? window.localStorage
-      : window.sessionStorage
+    : {
+        getItem: (k: string) => window.localStorage.getItem(k) ?? window.sessionStorage.getItem(k),
+        setItem: (k: string, v: string) => {
+          if (getRememberMe()) {
+            window.localStorage.setItem(k, v)
+            window.sessionStorage.removeItem(k)
+          } else {
+            window.sessionStorage.setItem(k, v)
+            window.localStorage.removeItem(k)
+          }
+        },
+        removeItem: (k: string) => {
+          window.localStorage.removeItem(k)
+          window.sessionStorage.removeItem(k)
+        },
+      }
 
 export const supabase: SupabaseClient | null = hasSupabase
   ? createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
