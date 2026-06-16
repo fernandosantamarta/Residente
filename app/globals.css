@@ -1908,9 +1908,7 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 
 .voice-page-head { margin-bottom: 32px; }
 .voice-page-title { font-size: 28px; font-weight: 600; letter-spacing: -0.5px; margin-bottom: 6px; }
-/* Bold + full-contrast text so the page description stays legible where it sits
-   over the hero photo (every cockpit page has the sunset banner behind it). */
-.voice-page-sub   { font-size: 14px; color: var(--text); font-weight: 700; line-height: 1.5; }
+.voice-page-sub   { font-size: 14px; color: var(--text-dim); line-height: 1.5; }
 
 /* Easy Voice hub — merges Meetings & Votes, Board, and Contact into one
    single-scroll surface. Sections keep their own inner wrappers; these
@@ -10131,6 +10129,25 @@ textarea[disabled] {
        band. Height-lock it instead so the sunset runs further down the screen
        (sides crop, centered). The white-fade gradient stays the first layer. */
     background-size: 100% 100%, auto 58vh;
+  }
+
+  /* MOBILE ONLY: every cockpit page description sits over the hero photo, so the
+     dim text washed out. Give each its own frosted-white pill — bold, full
+     contrast, hugging the text — so it stays readable. Desktop is untouched. */
+  [data-theme="sketch"] .voice-page-sub,
+  [data-theme="sketch"] .sched-hero-sub,
+  [data-theme="sketch"] .doc-hero-sub,
+  [data-theme="sketch"] .rb-hero-sub,
+  [data-theme="sketch"] .set-hero-sub {
+    display: inline-block;
+    color: var(--text);
+    font-weight: 700;
+    background: rgba(255, 255, 255, 0.86);
+    -webkit-backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
+    padding: 6px 12px;
+    border-radius: 10px;
+    box-shadow: 0 1px 10px rgba(31, 34, 51, 0.08);
   }
 }
 
