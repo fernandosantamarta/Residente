@@ -18,6 +18,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), '..')
 const SRC = join(root, 'public', 'residente-logo.png')
 const OUT = join(root, 'public', 'apple-touch-icon.png')
 const OUT_BLACK = join(root, 'public', 'apple-touch-icon-black.png')
+const OUT_ORANGE = join(root, 'public', 'apple-touch-icon-orange.png')
 
 const CANVAS = 180          // standard apple-touch-icon size
 const MARK_BOX = 132        // longest side of the mark on the 180 canvas — big &
@@ -50,42 +51,46 @@ const mask = await sharp(cleaned)
   .png()                                               // (no flatten — it corrupts the 1-ch mask)
   .toBuffer()
 
-// 3) Trace to an SVG. turdSize drops any residual specks; the curve options
-//    keep the nested-house outlines smooth.
-const svg = await trace(mask, {
-  threshold: 128,
-  color: ORANGE,
-  background: 'transparent',
-  turdSize: 60,
-  alphaMax: 1,
-  optCurve: true,
-  optTolerance: 0.4,
-})
-
-// 4) Rasterise the vector, TRIM its transparent margins, fit to MARK_BOX, and
-//    centre on opaque white. Trimming to the true ink bounds also fixes the
-//    source PNG's uneven transparent padding so the mark is centred.
+// 3–4) Trace the mask to an SVG in a given colour, then rasterise, TRIM the
+//    transparent margins, and fit to MARK_BOX. Trimming to the true ink bounds
+//    also fixes the source PNG's uneven transparent padding so the mark centres.
+//    We build the mark in two colours: orange (for light/dark backgrounds) and
+//    white (for the orange-background variant).
 const SS = 4
 const box = Math.round(MARK_BOX * SS)
-const trimmed = await sharp(Buffer.from(svg), { density: 512 })
-  .resize({ height: box * 2, fit: 'inside' })
-  .trim({ threshold: 10 })
-  .png()
-  .toBuffer()
-const mark = await sharp(trimmed)
-  .resize({ width: box, height: box, fit: 'inside' })
-  .png()
-  .toBuffer()
+async function buildMark(color) {
+  const svg = await trace(mask, {
+    threshold: 128,
+    color,
+    background: 'transparent',
+    turdSize: 60,
+    alphaMax: 1,
+    optCurve: true,
+    optTolerance: 0.4,
+  })
+  const trimmed = await sharp(Buffer.from(svg), { density: 512 })
+    .resize({ height: box * 2, fit: 'inside' })
+    .trim({ threshold: 10 })
+    .png()
+    .toBuffer()
+  return sharp(trimmed)
+    .resize({ width: box, height: box, fit: 'inside' })
+    .png()
+    .toBuffer()
+}
+const markOrange = await buildMark(ORANGE)
+const markWhite = await buildMark('#FFFFFF')
 
-// Emit BOTH background variants from the same traced mark so the resident
-// "App icon" setting can advertise a white- or black-background home-screen icon
+// Emit three background variants so the resident "App icon" setting can
+// advertise a white-, black-, or brand-orange-background home-screen icon
 // (iOS paints transparency black in dark mode, so each variant is fully opaque).
 const big = CANVAS * SS
 const VARIANTS = [
-  { bg: '#FFFFFF', out: OUT },
-  { bg: '#111111', out: OUT_BLACK },
+  { bg: '#FFFFFF', mark: markOrange, out: OUT },        // orange mark on white
+  { bg: '#111111', mark: markOrange, out: OUT_BLACK },  // orange mark on black
+  { bg: ORANGE,    mark: markWhite,  out: OUT_ORANGE }, // white mark on brand orange
 ]
-for (const { bg, out } of VARIANTS) {
+for (const { bg, mark, out } of VARIANTS) {
   const composed = await sharp({
     create: { width: big, height: big, channels: 4, background: bg },
   })

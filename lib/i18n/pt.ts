@@ -820,6 +820,7 @@ export const pt: Record<string, string> = {
   "settings.dlgAppIconTitle": "Ícone do app",
   "settings.appIconWhite": "Branco",
   "settings.appIconBlack": "Preto",
+  "settings.appIconOrange": "Laranja",
   "settings.appIconHelp": "Escolha o fundo do ícone do app Residente.",
   "settings.rowEmail": "Preferências de e-mail",
   "settings.rowEmailDesc": "Boletins, novidades da diretoria, recibos de cobrança.",

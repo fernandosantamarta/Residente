@@ -1145,6 +1145,7 @@ function AppIconDialog() {
   const t = useT()
   const [choice, setChoice] = useAppIcon()
   const OPTIONS: { value: AppIconChoice; label: string; src: string }[] = [
+    { value: 'orange', label: t('settings.appIconOrange'), src: '/apple-touch-icon-orange.png' },
     { value: 'white', label: t('settings.appIconWhite'), src: '/apple-touch-icon.png' },
     { value: 'black', label: t('settings.appIconBlack'), src: '/apple-touch-icon-black.png' },
   ]

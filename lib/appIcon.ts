@@ -10,18 +10,22 @@ import { useCallback, useEffect, useState } from 'react'
 // (iOS also paints transparency black in dark mode, which is why each variant is
 // a fully opaque PNG: apple-touch-icon.png = white, apple-touch-icon-black.png = black.)
 
-export type AppIconChoice = 'white' | 'black'
+export type AppIconChoice = 'white' | 'black' | 'orange'
 
 const KEY = 'residente_app_icon_bg'
 const HREF: Record<AppIconChoice, string> = {
   white: '/apple-touch-icon.png',
   black: '/apple-touch-icon-black.png',
+  orange: '/apple-touch-icon-orange.png',
 }
 const CHANGE_EVENT = 'residente-appicon-changed'
 
+// Default is the brand-orange icon (matches the native iOS app icon). A resident
+// can still switch to the white- or black-background variant.
 export function getAppIcon(): AppIconChoice {
-  if (typeof window === 'undefined') return 'white'
-  return localStorage.getItem(KEY) === 'black' ? 'black' : 'white'
+  if (typeof window === 'undefined') return 'orange'
+  const saved = localStorage.getItem(KEY)
+  return saved === 'white' || saved === 'black' ? saved : 'orange'
 }
 
 /** Point the apple-touch-icon <link> at the chosen variant (collapse any dupes,
@@ -55,7 +59,7 @@ export function setAppIcon(choice: AppIconChoice) {
 /** React state synced to the saved choice (stays in sync across components via a
  *  window event, so the settings row summary updates when the dialog changes it). */
 export function useAppIcon(): [AppIconChoice, (c: AppIconChoice) => void] {
-  const [choice, setChoice] = useState<AppIconChoice>('white')
+  const [choice, setChoice] = useState<AppIconChoice>('orange')
   useEffect(() => {
     setChoice(getAppIcon())
     const onChange = () => setChoice(getAppIcon())

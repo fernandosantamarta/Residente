@@ -62,11 +62,7 @@ in the dedicated username/password fields (App Review Information → Sign-In Re
 HOA,homeowners association,condo,community,dues,assessments,board,property,residents,neighborhood
 ```
 
-**Support URL:** `https://residente.io`  ⚠️ there is no public `/contact` or
-`/support` page yet (both 404). Apple requires a working support URL with a way
-to get help. Either (a) use `https://residente.io` for now (make sure the home
-page shows a contact email/link), or (b) add a tiny public `/support` page with
-`hello@residente.io` + a short FAQ and use that — cleaner, ~10 min of work.
+**Support URL:** `https://residente.io/support`  ✅ (public FAQ + hello@residente.io)
 **Marketing URL:** `https://residente.io`
 **Privacy Policy URL:** `https://residente.io/privacy`  ✅ (live, 200)
 **Terms (EULA):** `https://residente.io/terms`  ✅ (live, 200)
