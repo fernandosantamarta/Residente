@@ -10075,6 +10075,15 @@ textarea[disabled] {
     box-shadow: 0 -6px 26px -10px rgba(31, 42, 58, 0.20);
     padding: 8px 8px;
     padding-bottom: calc(8px + env(safe-area-inset-bottom));
+    /* Force the bar onto its own GPU compositing layer. In the iOS WKWebView a
+       plain position:fixed bottom bar drifts mid-scroll (lags behind, exposing
+       content beneath it) and snaps back when scrolling stops; promoting it to
+       a 3D layer keeps WebKit from detaching it during the scroll. */
+    transform: translateZ(0);
+    -webkit-transform: translateZ(0);
+    will-change: transform;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
   }
   [data-theme="sketch"] .bn-item {
     display: flex; flex-direction: column; align-items: center; gap: 4px;
