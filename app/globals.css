@@ -10128,23 +10128,6 @@ textarea[disabled] {
   .center { padding-bottom: 92px; }
   /* The right rail (stacked below content on /app) also needs the clearance. */
   [data-theme="sketch"] .rail-right { padding-bottom: 80px; }
-
-  /* NATIVE iOS ONLY: the WKWebView lags position:fixed elements during a
-     main-document (body) scroll, so the fixed bottom tab bar drifts and snaps
-     back. A *nested* scroll container does NOT trigger that lag — so stop the
-     body from scrolling and let .cockpit scroll its content internally. The
-     bar stays pinned to the viewport (cockpit has no transform, so it's not a
-     containing block for the fixed bar). Scoped to is-native-app so web and
-     desktop keep normal document scroll. */
-  html.is-native-app, html.is-native-app body {
-    height: 100%;
-    overflow: hidden;
-  }
-  html.is-native-app .cockpit {
-    height: 100dvh;
-    overflow-y: auto;
-    -webkit-overflow-scrolling: touch;
-  }
 }
 
 /* ============ RESPONSIVE — resident cockpit dashboard ============ */
