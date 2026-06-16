@@ -10130,8 +10130,8 @@ textarea[disabled] {
   /* MOBILE ONLY: the community kicker sits over the hero photo, so the light
      tinted pill washed out. Give it a solid navy fill + white text so residents
      can read it. The pulsing live dot keeps its own orange — untouched. */
-  [data-theme="sketch"] .kicker { background: #0A2440; border-color: rgba(255, 255, 255, 0.14); color: #FFFFFF; }
-  [data-theme="sketch"] .kicker .kicker-text { color: #FFFFFF; }
+  [data-theme="sketch"] .kicker { background: #FFFFFF; border-color: rgba(225, 73, 9, 0.22); color: #E14909; }
+  [data-theme="sketch"] .kicker .kicker-text { color: #E14909; }
 
   /* MOBILE ONLY: match the other pages' header rhythm — .ev-hub-head gets
      padding-top:64px below the community kicker, so give .sched-hero the same
