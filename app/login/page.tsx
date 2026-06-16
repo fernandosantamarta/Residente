@@ -152,12 +152,12 @@ export default function Login() {
           </label>
 
           <div className="login-forgot" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13.5, color: '#5b4636', userSelect: 'none' }}>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13.5, color: '#fff', fontWeight: 600, userSelect: 'none' }}>
               <input
                 type="checkbox"
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}
-                style={{ width: 16, height: 16, accentColor: '#E14909', cursor: 'pointer' }}
+                style={{ width: 16, height: 16, accentColor: '#0A2440', cursor: 'pointer' }}
               />
               Keep me signed in
             </label>
