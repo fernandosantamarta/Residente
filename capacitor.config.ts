@@ -11,6 +11,13 @@ const config: CapacitorConfig = {
     url: 'https://residente.io/login',
     cleartext: false,
   },
+  plugins: {
+    PushNotifications: {
+      // Show the banner/sound/badge even while the app is in the foreground
+      // (iOS suppresses foreground pushes by default).
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
+  },
 };
 
 export default config;
