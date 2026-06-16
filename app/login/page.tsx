@@ -152,13 +152,27 @@ export default function Login() {
           </label>
 
           <div className="login-forgot" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13.5, color: '#fff', fontWeight: 600, userSelect: 'none' }}>
+            <label style={{ position: 'relative', display: 'inline-flex', alignItems: 'center', gap: 8, cursor: 'pointer', fontSize: 13.5, color: '#fff', fontWeight: 600, userSelect: 'none' }}>
               <input
                 type="checkbox"
                 checked={remember}
                 onChange={(e) => setRemember(e.target.checked)}
-                style={{ width: 16, height: 16, accentColor: '#0A2440', cursor: 'pointer' }}
+                style={{ position: 'absolute', width: 1, height: 1, opacity: 0, margin: 0 }}
               />
+              {/* Custom box: unchecked = white with navy border; checked = navy with white check. */}
+              <span aria-hidden="true" style={{
+                width: 18, height: 18, flex: 'none', borderRadius: 5,
+                border: '2px solid #0A2440',
+                background: remember ? '#0A2440' : '#FFFFFF',
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                transition: 'background 120ms ease',
+              }}>
+                {remember && (
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                )}
+              </span>
               Keep me signed in
             </label>
             <Link href="/forgot-password" className="login-forgot-link">Forgot password?</Link>
