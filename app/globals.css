@@ -8035,7 +8035,14 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   font-family: 'AmpFix', 'Fraunces', Georgia, serif;
   font-size: 56px; font-weight: 600; line-height: 1; letter-spacing: -0.02em; color: #0A2440;
 }
-[data-theme="sketch"] .pay-balance-due { font-size: 13px; font-weight: 600; color: #0A2440; margin-top: 2px; }
+/* Read as an actual amount-due indicator — a warm amber pill (mirrors the green
+   paid-in-full pill) instead of muted navy text. */
+[data-theme="sketch"] .pay-balance-due {
+  display: inline-flex; align-items: center; gap: 6px; margin-top: 4px;
+  padding: 4px 12px; border-radius: 999px;
+  background: rgba(225, 73, 9, 0.10); border: 1px solid rgba(225, 73, 9, 0.30);
+  color: #C2410C; font-size: 13px; font-weight: 700;
+}
 /* Action buttons stack as one tidy, equal-width column (were content-width and
    wrapped to uneven widths). Make Payment + View Account / Autopay / Methods. */
 [data-theme="sketch"] .pay-balance-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; max-width: 360px; }
