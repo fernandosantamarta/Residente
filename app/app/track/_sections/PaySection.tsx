@@ -631,7 +631,7 @@ export function PaySection() {
             </div>
           </div>
 
-          <div className="rd-bd-table">
+          <div className="rd-bd-table rd-bd-cols2">
             <div className="rd-bd-row rd-bd-head"><span>{t('pay.charge')}</span><span>{t('pay.colAmount')}</span><span /></div>
             {breakdown.map(b => (
               <div className="rd-bd-row" key={b.label}>
@@ -647,7 +647,7 @@ export function PaySection() {
             </div>
           </div>
 
-          <div className="rd-bd-table">
+          <div className="rd-bd-table rd-bd-cols2">
             <div className="rd-bd-row"><span className="rd-bd-cat">{t('pay.nextPayment')}</span><span className="rd-bd-amt">{fmtDate(dueDate)}</span><span /></div>
             <div className="rd-bd-row"><span className="rd-bd-cat">{t('pay.autopay')}</span><span className="rd-bd-amt">{autopayActive ? t('pay.on') : t('pay.off')}</span><span /></div>
             {defaultMethod && (

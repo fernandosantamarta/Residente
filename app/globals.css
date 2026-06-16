@@ -9372,6 +9372,11 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
    Spent / Budget / Used): equal flexible columns, centered numbers. Scoped via
    .rd-bd-cols4 so the 2-column key/value tables (Account Details, Manage Autopay,
    charge breakdown) keep the default label-left / value-right layout. */
+/* 2-column key/value tables (Account Details): label left, value flush right —
+   drop the vestigial empty third column so the amount reaches the edge. */
+[data-theme="sketch"] .rd-bd-cols2 .rd-bd-row { grid-template-columns: minmax(0, 1fr) auto; }
+[data-theme="sketch"] .rd-bd-cols2 .rd-bd-row > span:nth-child(3) { display: none; }
+
 [data-theme="sketch"] .rd-bd-cols4 .rd-bd-row { grid-template-columns: minmax(0, 1.2fr) 1fr 1fr 58px; gap: 10px; }
 [data-theme="sketch"] .rd-bd-cols4 .rd-bd-head span:nth-child(2),
 [data-theme="sketch"] .rd-bd-cols4 .rd-bd-head span:nth-child(3),
