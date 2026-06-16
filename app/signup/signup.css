@@ -29,6 +29,9 @@
   position: relative; z-index: 1;
   width: 100%;
   padding: 18px clamp(20px, 5vw, 56px) 0;
+  /* Clear the iOS status bar / notch in the native app so the back button and
+     brand don't collide with the clock (env() is 0 in a normal browser). */
+  padding-top: calc(18px + env(safe-area-inset-top, 0px));
 }
 .su-stage {
   position: relative; z-index: 1;
