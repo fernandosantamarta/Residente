@@ -33,15 +33,28 @@ export const hasSupabase: boolean = !!(SUPABASE_URL && SUPABASE_ANON_KEY)
 export const stripeEnabled: boolean =
   (process.env.NEXT_PUBLIC_STRIPE_ENABLED || process.env.REACT_APP_STRIPE_ENABLED) === 'true'
 
-// Auth lives in sessionStorage, not localStorage: the session survives page
-// refreshes and in-app navigation, but is cleared when the tab/browser closes
-// — so reopening the site requires signing in again.
+// Auth storage depends on where we're running:
+//  • NATIVE app (Capacitor iOS shell): localStorage, so the session survives a
+//    full app close and the resident stays signed in across launches — the
+//    expected behaviour for an installed app.
+//  • WEB (residente.io in a browser): sessionStorage, so the session survives
+//    refreshes and in-app navigation but clears when the tab/browser closes —
+//    a safer default on shared computers.
+// The Capacitor native bridge injects window.Capacitor before app JS runs, so
+// isNativePlatform() is reliable here; falls back to sessionStorage if unknown.
+const authStorage =
+  typeof window === 'undefined'
+    ? undefined
+    : (window as any).Capacitor?.isNativePlatform?.()
+      ? window.localStorage
+      : window.sessionStorage
+
 export const supabase: SupabaseClient | null = hasSupabase
   ? createClient(SUPABASE_URL!, SUPABASE_ANON_KEY!, {
       auth: {
         persistSession: true,
         autoRefreshToken: true,
-        storage: typeof window !== 'undefined' ? window.sessionStorage : undefined,
+        storage: authStorage,
       },
     })
   : null
