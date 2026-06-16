@@ -10133,9 +10133,11 @@ textarea[disabled] {
   [data-theme="sketch"] .kicker { background: #0A2440; border-color: rgba(255, 255, 255, 0.14); color: #FFFFFF; }
   [data-theme="sketch"] .kicker .kicker-text { color: #FFFFFF; }
 
-  /* MOBILE ONLY: pull the Easy Schedule title + description down closer to the
-     Calendar / Amenities tabs (the 64px desktop gap left too much dead space). */
-  [data-theme="sketch"] .sched-hero { margin-bottom: 20px; }
+  /* MOBILE ONLY: match the other pages' header rhythm — .ev-hub-head gets
+     padding-top:64px below the community kicker, so give .sched-hero the same
+     top gap; and pull the title/description down closer to the Calendar /
+     Amenities tabs (the 64px desktop bottom gap left too much dead space). */
+  [data-theme="sketch"] .sched-hero { padding-top: 64px; margin-bottom: 20px; }
 }
 
 /* ============ RESPONSIVE — admin controls that assume desktop width ============ */
