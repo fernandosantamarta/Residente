@@ -1001,8 +1001,9 @@ html:has(.login-screen) { background: #FFEADC; overflow: hidden; height: 100%; }
     overflow-y: auto;
     -webkit-overflow-scrolling: touch;
     /* Clear the status bar / Dynamic Island in standalone mode so the Residente
-       logo at the top of the drawer isn't tucked under it (0 in normal Safari). */
-    padding-top: calc(32px + env(safe-area-inset-top, 0px));
+       logo at the top of the drawer isn't tucked under it — sit at the safe-area
+       boundary (max, not additive), matching the topbar. 32px in normal Safari. */
+    padding-top: max(32px, env(safe-area-inset-top, 0px));
     padding-bottom: calc(24px + env(safe-area-inset-bottom));
   }
   /* Shadow only while open — on the base (closed, translated off-screen left)
@@ -10124,6 +10125,10 @@ textarea[disabled] {
   [data-theme="sketch"] .center::before {
     top: calc(-1 * env(safe-area-inset-top, 0px));
     height: calc(1400px + env(safe-area-inset-top, 0px));
+    /* On a phone the image is width-locked (100% auto), so it scaled to a short
+       band. Height-lock it instead so the sunset runs further down the screen
+       (sides crop, centered). The white-fade gradient stays the first layer. */
+    background-size: 100% 100%, auto 58vh;
   }
 }
 
