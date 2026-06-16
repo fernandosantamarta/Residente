@@ -8,6 +8,9 @@
   align-items: center;
   justify-content: space-between;
   padding: 18px 32px;
+  /* Clear the iOS status bar / notch in the standalone native app
+     (env() is 0 in a normal browser, so desktop/web is unaffected). */
+  padding-top: calc(18px + env(safe-area-inset-top, 0px));
   background: var(--bg-elev);
   border-bottom: 1px solid var(--border);
 }
@@ -182,6 +185,7 @@
     flex-wrap: wrap;
     gap: 10px;
     padding: 12px 16px;
+    padding-top: calc(12px + env(safe-area-inset-top, 0px));
   }
   .admin-brand { font-size: 15px; }
   .admin-brand .comm-switcher { min-width: 0; }

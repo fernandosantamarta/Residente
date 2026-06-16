@@ -203,6 +203,10 @@ html, body {
   color: var(--text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  /* Stop iOS rubber-band overscroll — at the scroll boundary the bounce
+     detaches position:fixed elements (the bottom tab bar lifts up, exposing
+     content beneath it) in the native WebView. No-op on desktop. */
+  overscroll-behavior-y: none;
 }
 
 body {
