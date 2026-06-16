@@ -27,6 +27,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
 
     func applicationDidBecomeActive(_ application: UIApplication) {
         // Restart any tasks that were paused (or not yet started) while the application was inactive. If the application was previously in the background, optionally refresh the user interface.
+
+        // Disable the WKWebView's rubber-band overscroll. iOS ignores CSS
+        // `overscroll-behavior` in this WebView, and the bounce at the scroll
+        // boundary detaches position:fixed elements — the bottom tab bar lifts
+        // up and exposes page content beneath it. Idempotent; runs once the
+        // bridge VC + web view exist. Normal scrolling is unaffected.
+        if let bridge = window?.rootViewController as? CAPBridgeViewController,
+           let scrollView = bridge.webView?.scrollView {
+            scrollView.bounces = false
+            scrollView.alwaysBounceVertical = false
+            scrollView.alwaysBounceHorizontal = false
+        }
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

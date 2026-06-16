@@ -1091,6 +1091,11 @@
 @media (max-width: 1024px) {
   .admin-top {
     padding: 13px 16px;
+    /* Clear the iOS status bar / notch in the standalone native app. This is
+       the .admin-top rule that wins on phones (latest matching media query),
+       so the safe-area inset must live here too or the shorthand above resets
+       padding-top back to 13px. No-op in a normal browser (env() = 0). */
+    padding-top: calc(13px + env(safe-area-inset-top, 0px));
     flex-wrap: wrap;
     gap: 8px 12px;
   }
