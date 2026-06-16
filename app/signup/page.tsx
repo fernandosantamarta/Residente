@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { hasSupabase, signIn, signUp, supabase } from '@/lib/supabase'
+import { isNativeApp } from '@/lib/nativePush'
 import { planForHomes, monthlyTotalLabel } from '@/lib/plan'
 import {
   provisionAccount,
@@ -88,6 +89,14 @@ export default function SignupPage() {
   const idx = Math.max(0, seq.indexOf(step))
   const progress = step === 'working' ? 100 : ((idx + 1) / seq.length) * 100
   const canBack = step !== 'working'
+
+  // In the native app, hide the back button on the very first step — there it
+  // would navigate to '/' (the marketing landing), which strands the user
+  // outside the app. The web keeps it (there's a real landing to return to).
+  const [isNative, setIsNative] = useState(false)
+  useEffect(() => { isNativeApp().then(setIsNative) }, [])
+  const atFirstStep = idx === 0 && !(step === 'documents' && docSection > 0)
+  const showBack = canBack && !(isNative && atFirstStep)
 
   const goBack = () => {
     setErr(null)
@@ -249,7 +258,7 @@ export default function SignupPage() {
       <Sparkles />
       <div className="su-top">
         <div className="su-topbar">
-          {canBack ? (
+          {showBack ? (
             <button className="su-back-circle" onClick={goBack} aria-label="Back" type="button">
               <Chevron dir="left" />
             </button>

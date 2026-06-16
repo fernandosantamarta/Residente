@@ -33,6 +33,10 @@
      brand don't collide with the clock (env() is 0 in a normal browser). */
   padding-top: calc(18px + env(safe-area-inset-top, 0px));
 }
+
+/* In the native app the brand logo links to '/' (marketing landing), which
+   strands the user outside the app — keep it visible but non-navigating. */
+html.is-native-app .su-brand { pointer-events: none; }
 .su-stage {
   position: relative; z-index: 1;
   flex: 1;
