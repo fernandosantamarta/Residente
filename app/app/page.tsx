@@ -709,7 +709,7 @@ function FinancialOverview({
               {t('home.budgetDialogEmpty')}
             </p>
           ) : (
-            <div className="rd-bd-table">
+            <div className="rd-bd-table rd-bd-cols4">
               <div className="rd-bd-row rd-bd-head">
                 <span>{t('home.budgetColCategory')}</span><span>{t('home.budgetColSpent')}</span><span>{t('home.budgetColBudget')}</span><span>{t('home.budgetColUsed')}</span>
               </div>
