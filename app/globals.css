@@ -8035,13 +8035,18 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   font-family: 'AmpFix', 'Fraunces', Georgia, serif;
   font-size: 56px; font-weight: 600; line-height: 1; letter-spacing: -0.02em; color: #0A2440;
 }
-/* Read as an actual amount-due indicator — a warm amber pill (mirrors the green
-   paid-in-full pill) instead of muted navy text. */
+/* Reads as an actual amount-due indicator — a refined amber pill with a status
+   dot. align-self keeps it hugging the text instead of stretching full width in
+   the flex column. */
 [data-theme="sketch"] .pay-balance-due {
-  display: inline-flex; align-items: center; gap: 6px; margin-top: 4px;
-  padding: 4px 12px; border-radius: 999px;
-  background: rgba(225, 73, 9, 0.10); border: 1px solid rgba(225, 73, 9, 0.30);
-  color: #C2410C; font-size: 13px; font-weight: 700;
+  display: inline-flex; align-items: center; gap: 7px; align-self: flex-start; margin-top: 6px;
+  padding: 4px 11px; border-radius: 999px;
+  background: rgba(217, 119, 6, 0.10); border: 1px solid rgba(217, 119, 6, 0.26);
+  color: #B45309; font-size: 12.5px; font-weight: 700;
+}
+[data-theme="sketch"] .pay-balance-due::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%;
+  background: currentColor; flex: none;
 }
 /* Action buttons stack as one tidy, equal-width column (were content-width and
    wrapped to uneven widths). Make Payment + View Account / Autopay / Methods. */
