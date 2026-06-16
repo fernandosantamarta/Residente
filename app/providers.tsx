@@ -4,6 +4,7 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import type { Session, User } from '@supabase/supabase-js'
 import { supabase, hasSupabase, getProfile, type Profile } from '@/lib/supabase'
 import { applyAppIcon, getAppIcon } from '@/lib/appIcon'
+import { isNativeApp } from '@/lib/nativePush'
 
 type AuthContextValue = {
   session: Session | null
@@ -33,6 +34,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [bootError, setBootError] = useState<string | null>(null)
+
+  // Tag <html> when running inside the native iOS shell so native-only CSS can
+  // scope to it (e.g. the cockpit inner-scroll fix that keeps the fixed bottom
+  // tab bar from drifting during scroll in the WKWebView).
+  useEffect(() => {
+    isNativeApp().then((native) => {
+      if (native) document.documentElement.classList.add('is-native-app')
+    })
+  }, [])
 
   useEffect(() => {
     if (!hasSupabase || !supabase) { setLoading(false); return }
