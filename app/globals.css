@@ -1908,7 +1908,9 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 
 .voice-page-head { margin-bottom: 32px; }
 .voice-page-title { font-size: 28px; font-weight: 600; letter-spacing: -0.5px; margin-bottom: 6px; }
-.voice-page-sub   { font-size: 14px; color: var(--text-dim); line-height: 1.5; }
+/* Bold + full-contrast text so the page description stays legible where it sits
+   over the hero photo (every cockpit page has the sunset banner behind it). */
+.voice-page-sub   { font-size: 14px; color: var(--text); font-weight: 700; line-height: 1.5; }
 
 /* Easy Voice hub — merges Meetings & Votes, Board, and Contact into one
    single-scroll surface. Sections keep their own inner wrappers; these
