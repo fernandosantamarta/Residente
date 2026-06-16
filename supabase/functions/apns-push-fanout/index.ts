@@ -103,14 +103,16 @@ async function sendToHost(host: string, token: string, jwt: string, payload: str
 async function sendOne(token: string, jwt: string, payload: string): Promise<SendResult> {
   try {
     let res = await sendToHost(APNS_PROD, token, jwt, payload)
+    let reason = res.status === 200 ? '' : await res.clone().json().then((b) => b?.reason).catch(() => '')
+    console.log(`apns prod -> status=${res.status} reason=${reason} token=${token.slice(0, 8)}…`)
     // A production host rejects sandbox tokens with 400 BadDeviceToken; retry
     // sandbox once before giving up on the token.
-    if (res.status === 400) {
-      const reason = await res.clone().json().then((b) => b?.reason).catch(() => '')
-      if (reason === 'BadDeviceToken') res = await sendToHost(APNS_SANDBOX, token, jwt, payload)
+    if (res.status === 400 && reason === 'BadDeviceToken') {
+      res = await sendToHost(APNS_SANDBOX, token, jwt, payload)
+      reason = res.status === 200 ? '' : await res.clone().json().then((b) => b?.reason).catch(() => '')
+      console.log(`apns sandbox -> status=${res.status} reason=${reason}`)
     }
     if (res.status === 200) return 'sent'
-    const reason = await res.json().then((b) => b?.reason).catch(() => '')
     if (res.status === 410 || reason === 'Unregistered' || reason === 'BadDeviceToken') return 'dead'
     console.error('apns send failed:', res.status, reason)
     return 'failed'
@@ -134,6 +136,7 @@ Deno.serve(async (req) => {
     const payload = await req.json().catch(() => ({}))
     const notice = payload?.record
     if (!notice?.id) return json({ error: 'No record in payload' }, 400)
+    console.log(`apns fanout START notice=${notice.id} kind=${notice.kind} keyId=${KEY_ID} team=${TEAM_ID} bundle=${BUNDLE_ID} keyLen=${PRIVATE_KEY.length}`)
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE)
 
@@ -144,6 +147,7 @@ Deno.serve(async (req) => {
       .eq('notice_id', notice.id)
       .eq('channel', 'in_app')
     if (rErr) throw rErr
+    console.log(`apns in_app recipients=${recips?.length ?? 0}`)
     if (!recips?.length) return json({ ok: true, sent: 0, skipped: 'no in_app recipients' })
 
     const profileIds = [...new Set(recips.map((r) => r.profile_id as string))]
@@ -161,13 +165,16 @@ Deno.serve(async (req) => {
       if (pref === 'important') return isImportant
       return true
     })
+    console.log(`apns eligible profiles=${eligible.length}`)
     if (!eligible.length) return json({ ok: true, sent: 0, skipped: 'no push-eligible recipients' })
 
     // 3. Their registered iOS devices.
-    const { data: devices } = await admin
+    const { data: devices, error: dErr } = await admin
       .from('device_tokens')
       .select('id, token')
       .in('profile_id', eligible)
+    if (dErr) console.error('device_tokens query error:', dErr.message)
+    console.log(`apns devices=${devices?.length ?? 0}`)
     if (!devices?.length) return json({ ok: true, sent: 0, skipped: 'no devices' })
 
     // 4. Build the APNs payload + provider token, send to every device.
@@ -193,6 +200,7 @@ Deno.serve(async (req) => {
     )
     if (dead.length) await admin.from('device_tokens').delete().in('id', dead)
 
+    console.log(`apns fanout DONE sent=${sent} removed=${removed} failed=${failed}`)
     return json({ ok: true, sent, removed, failed })
   } catch (err) {
     console.error('apns-push-fanout failed:', err)
