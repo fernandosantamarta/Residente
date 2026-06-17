@@ -116,17 +116,46 @@ Declare data collected and linked to the user:
 - **Financial info** — payment/transaction history (dues & fines; processed by Stripe)
 - **User content** — messages to the board, requests
 - **Identifiers** — user/account ID
-- **Usage data / Diagnostics** — if analytics are enabled
 
 Purpose: app functionality, account management. Not used for tracking/advertising.
-(Confirm against what the app + Stripe actually collect before submitting.)
+NOTE (verified 2026-06-17): the app ships **no analytics/tracking SDK** (no
+PostHog/Mixpanel/Amplitude/Segment/Sentry/GA in package.json) → do **NOT** declare
+"Usage Data" or "Diagnostics" / data collection for tracking. "Data Used to Track You": None.
 
 ---
 
-## Age rating
-Run the questionnaire; Residente has no objectionable content → expected **4+**.
+## Category (App Information → Category)
+- **Primary: Lifestyle** — best fit for a community/HOA resident portal; what comparable
+  HOA/community apps list under.
+- **Secondary: Utilities** — covers the practical dues/documents/management side.
+- (Alternative if you'd rather lead practical: Primary **Utilities**, Secondary **Lifestyle**.
+  Lifestyle-primary is the recommendation.)
+
+## Age rating (questionnaire → expected 4+)
+Run the App Store Connect age-rating questionnaire. Residente has no objectionable
+content, so answer **None / No** to every content question:
+- Cartoon, Fantasy, or Realistic Violence — **None**
+- Sexual Content or Nudity — **None**
+- Profanity or Crude Humor — **None**
+- Alcohol, Tobacco, or Drug Use or References — **None**
+- Simulated Gambling / Contests — **None / No**
+- Horror / Fear Themes — **None**
+- Mature / Suggestive Themes — **None**
+- Medical / Treatment Information — **None**
+- Made for Kids — **No** (the app is for adult residents/board members)
+- Unrestricted Web Access — **No** (it loads only residente.io behind login, no open browser)
+- Gambling (real) — **No**
+- AI-generated / generative content shown to users — **No**
+
+→ Result: **4+**. (Note: a 4+ rating does **not** conflict with the login-gated,
+adults-using app — it just means no age-restricted content.)
 
 ## Screenshots
-6.7" iPhone is mandatory. Capture from the demo community (login first):
-Home / dues overview · Easy Track (pay) · Easy Voice (a vote or board notice) ·
-Easy Documents · Easy Schedule. Use the polished demo data, not the test community.
+**6.9" iPhone (1320×2868) is the required size** in App Store Connect today (the old
+6.7"/6.5" tiers are no longer separately required — 6.9" covers them). iPhone-only app.
+
+✅ DONE 2026-06-17 — 7 shots captured at 1320×2868 from the seeded "Sunset Lakes" demo
+(logged in as Maria), in `~/Desktop/residente-screenshots/`:
+01-home (Home/dues overview) · 02-pay (Easy Track) · 03-requests (Easy Voice) ·
+04-documents (Easy Documents) · 05-schedule (Easy Schedule) · 06-admin-compliance ·
+07-admin-budget. Upload 3–10; the 5 resident shots first, the 2 admin shots optional.
