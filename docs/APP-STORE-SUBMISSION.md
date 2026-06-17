@@ -7,18 +7,20 @@ Paste-ready text for the App Store listing + App Review info. Fill the
 
 ## App Review Information → Notes (the make-or-break section)
 
-> Residente is a **private resident portal for homeowner / condo associations
-> (HOAs)** — the entire app is behind a login, with no public browsing. Please
-> use the demo account below to review all functionality.
+> Residente is a **private portal for homeowner / condo associations (HOAs)** —
+> the entire app is behind a login, with no public browsing. Please use the demo
+> account below to review all functionality.
 >
 > **Demo account (seeded demo community):**
 > - Email: `<DEMO_EMAIL>`
 > - Password: `<DEMO_PASSWORD>`
 >
-> This account is a resident of a fully populated demo community
-> ("<DEMO_COMMUNITY_NAME>"), so you'll see real content: dues & payment history,
-> board announcements and votes, community documents and rules, the amenity /
-> event calendar, and notifications.
+> This is a **board/admin account** for a fully populated demo community
+> ("<DEMO_COMMUNITY_NAME>"), so you can see the full app: the **management tools**
+> (Admin — notices, votes, documents, payments, compliance) AND the **resident
+> experience** (use "Back to app" / the resident dashboard). You'll see real
+> content throughout: dues & payment history, board announcements and votes,
+> community documents and rules, the amenity / event calendar, and notifications.
 >
 > **How to navigate:**
 > - **Home** — community overview, dues status, and a "where your dues go" breakdown.
