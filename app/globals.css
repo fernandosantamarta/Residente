@@ -713,6 +713,12 @@ button { font-family: inherit; }
    intro unmounts when done, so this only applies while it's mounted. */
 body:has(.cockpit-intro),
 html:has(.cockpit-intro) { background: #F4EFE8; overflow: hidden; height: 100%; }
+/* WEB/SAFARI ONLY: while the intro plays, hide the cockpit underneath so the
+   dashboard never shows "in the back" — including during the overlay's fade-out
+   (which otherwise crossfades the dashboard in). visibility (not display) keeps
+   it laid out so it just appears when the intro unmounts. Native app keeps its
+   current behavior (scoped via :not(.is-native-app)). */
+html:not(.is-native-app) body:has(.cockpit-intro) .cockpit { visibility: hidden; }
 .cockpit-intro-stage {
   position: absolute;
   inset: 0;
