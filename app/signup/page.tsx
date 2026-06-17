@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
-import { hasSupabase, signIn, signUp, supabase } from '@/lib/supabase'
+import { useRouter } from 'next/navigation'
+import { hasSupabase, signIn, signUp, supabase, getProfile } from '@/lib/supabase'
+import { useAuth } from '../providers'
 import { isNativeApp } from '@/lib/nativePush'
 import { planForHomes, monthlyTotalLabel } from '@/lib/plan'
 import {
@@ -58,6 +60,8 @@ function smartFile(docState: DocSectionState[], docs: DocSection[], key: 'ccrs' 
 }
 
 export default function SignupPage() {
+  const router = useRouter()
+  const { setProfile } = useAuth()
   const [step, setStep] = useState<Step>('property')
   const [who, setWho] = useState<Who | null>(null)
   const [propertyType, setPropertyType] = useState<PropertyType | null>(null)
@@ -238,7 +242,20 @@ export default function SignupPage() {
         if (url) { window.location.assign(url); return }
       }
       const dest = res.role === 'resident' ? '/onboard' : '/admin'
-      window.location.assign(dest)
+      // In the native app a hard window.location navigation gets handed to Safari
+      // (and lands on /login with no session). Route client-side so it stays in
+      // the app. Refresh the profile in context first so the destination's
+      // role/access gate sees the just-provisioned community/role (the hard
+      // reload used to do this). On the web keep the full navigation.
+      if (isNative) {
+        try {
+          const { data: fresh } = await getProfile(session.user.id)
+          if (fresh) setProfile({ ...fresh, email: session.user.email ?? fresh.email })
+        } catch { /* the destination page will refetch */ }
+        router.replace(dest)
+      } else {
+        window.location.assign(dest)
+      }
     } catch (e) {
       const pe = e as ProvisionError
       if (['bad_code', 'no_match', 'ambiguous'].includes(pe.code || '')) {

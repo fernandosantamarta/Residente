@@ -10,6 +10,12 @@ const config: CapacitorConfig = {
     // Switch to https://residente.com when you cut over the domain.
     url: 'https://residente.io/login',
     cleartext: false,
+    // Keep residente.io navigations INSIDE the WebView. Because server.url has a
+    // path (/login), Capacitor otherwise treated hard window.location navigations
+    // to other residente.io paths as external and punted them to Safari (e.g.
+    // the post-signup redirect, sign-out, admin step-down). Whitelisting the host
+    // keeps them in-app. Stripe/checkout (different host) still opens externally.
+    allowNavigation: ['residente.io', '*.residente.io'],
   },
   plugins: {
     PushNotifications: {
