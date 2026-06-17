@@ -10147,7 +10147,11 @@ textarea[disabled] {
      bar is fixed to the viewport (cockpit has no transform, so it's not a
      containing block for it) and stays pinned. Scoped to is-native-app so the
      web and desktop keep normal document scroll. */
-  html.is-native-app, html.is-native-app body {
+  /* Lock the body ONLY on cockpit pages (where the inner .cockpit scroller pins
+     the fixed bottom tab bar). Other native pages — admin, login, signup — must
+     keep normal body scrolling, or they can't scroll at all. :has() is iOS 16.4+. */
+  html.is-native-app:has(.cockpit),
+  html.is-native-app:has(.cockpit) body {
     height: 100%;
     overflow: hidden;
   }
