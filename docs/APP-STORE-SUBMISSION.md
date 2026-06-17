@@ -12,11 +12,11 @@ Paste-ready text for the App Store listing + App Review info. Fill the
 > account below to review all functionality.
 >
 > **Demo account (seeded demo community):**
-> - Email: `<DEMO_EMAIL>`
-> - Password: `<DEMO_PASSWORD>`
+> - Email: `cyberneticsintelligence+demo@gmail.com`
+> - Password: `Residente123`
 >
 > This is a **board/admin account** for a fully populated demo community
-> ("<DEMO_COMMUNITY_NAME>"), so you can see the full app: the **management tools**
+> ("Sunset Lakes"), so you can see the full app: the **management tools**
 > (Admin — notices, votes, documents, payments, compliance) AND the **resident
 > experience** (use "Back to app" / the resident dashboard). You'll see real
 > content throughout: dues & payment history, board announcements and votes,
@@ -40,7 +40,7 @@ Paste-ready text for the App Store listing + App Review info. Fill the
 > **Sign in with Apple:** Not applicable — the app uses email/password accounts
 > only, with no third-party/social login, so Sign in with Apple is not required.
 
-**Sign-In Required:** toggle ON and enter the same `<DEMO_EMAIL>` / `<DEMO_PASSWORD>`
+**Sign-In Required:** toggle ON and enter the same `cyberneticsintelligence+demo@gmail.com` / `Residente123`
 in the dedicated username/password fields (App Review Information → Sign-In Required).
 
 > ⚠️ Use a **seeded, polished demo community**, NOT the throwaway test community.
