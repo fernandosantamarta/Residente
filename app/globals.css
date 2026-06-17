@@ -862,6 +862,23 @@ html:has(.login-screen) { background: #FFEADC; overflow: hidden; height: 100%; }
   border-color: var(--pink);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
+.login-pw-wrap { position: relative; display: flex; }
+.login-pw-wrap input { flex: 1; padding-right: 44px; }
+.login-pw-toggle {
+  position: absolute; top: 0; right: 0; height: 100%;
+  width: 42px; padding: 0; margin: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: none; border: none; cursor: pointer;
+  color: var(--text-faint);
+  border-radius: 0 10px 10px 0;
+  transition: color 0.15s ease;
+}
+.login-pw-toggle:hover { color: var(--text); }
+.login-pw-toggle:focus-visible {
+  outline: none;
+  color: var(--text);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
 
 .login-error {
   font-size: 12px;
@@ -6821,6 +6838,10 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   border-color: rgba(255, 245, 235, 0.85);
   box-shadow: 0 0 0 3px rgba(255, 220, 190, 0.22);
 }
+[data-theme="sketch"] .login-pw-toggle { color: rgba(255, 245, 235, 0.6); }
+[data-theme="sketch"] .login-pw-toggle:hover,
+[data-theme="sketch"] .login-pw-toggle:focus-visible { color: #FFFFFF; }
+[data-theme="sketch"] .login-pw-toggle:focus-visible { box-shadow: 0 0 0 3px rgba(255, 220, 190, 0.22); }
 
 [data-theme="sketch"] .login-error {
   color: #FFFFFF;
