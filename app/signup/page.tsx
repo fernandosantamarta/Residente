@@ -9,7 +9,6 @@ import { isNativeApp } from '@/lib/nativePush'
 import { planForHomes, monthlyTotalLabel } from '@/lib/plan'
 import {
   provisionAccount,
-  startSubscriptionCheckout,
   stashPendingProvision,
   clearPendingProvision,
   uploadSignupDocuments,
@@ -234,13 +233,11 @@ export default function SignupPage() {
         }
       }
 
-      // Paid band (26+ homes) → pay on the spot: redirect straight into Stripe
-      // subscription checkout. On failure we fall through to /admin, where the
-      // Activate banner lets them complete payment. ≤25 homes is free → /admin.
-      if (res.needs_payment) {
-        const url = await startSubscriptionCheckout()
-        if (url) { window.location.assign(url); return }
-      }
+      // Every new community starts on the 3 free months with NO card — exactly
+      // what the Plan step promises ("No card needed to start"). So signup never
+      // detours through Stripe checkout: the board lands in /admin and the
+      // TrialBanner / billing page let them add payment any time before the trial
+      // ends (provision still returns needs_payment, but nothing acts on it here).
       const dest = res.role === 'resident' ? '/onboard' : '/admin'
       // In the native app a hard window.location navigation gets handed to Safari
       // (and lands on /login with no session). Route client-side so it stays in

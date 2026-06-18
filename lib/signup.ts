@@ -35,7 +35,9 @@ export interface ProvisionResult {
   role: SignupRole
   join_code?: string
   plan?: string           // free | pro | premium | enterprise
-  needs_payment?: boolean // true for paid bands (26+ homes) → on-the-spot checkout
+  needs_payment?: boolean // always true now (every plan bills after the trial); no
+                          // longer triggers on-the-spot checkout — signup goes to
+                          // /admin and add-payment happens via the billing page.
 }
 
 // Start the platform-subscription Stripe Checkout for the caller's community and
