@@ -82,7 +82,7 @@ const ROLE_TABS: Record<OperatorRole, Tab[]> = {
 
 // Per-home monthly rate (cents) by plan tier — mirrors lib/plan.ts. Uses the
 // community's stored plan (respects manual tier overrides), not a recompute.
-const PLAN_RATE_CENTS: Record<string, number> = { free: 0, pro: 200, premium: 500, enterprise: 1000 }
+const PLAN_RATE_CENTS: Record<string, number> = { free: 0, pro: 200, premium: 400, enterprise: 800 }
 const communityMonthlyCents = (c: { plan: string | null; home_count: number | null; unit_count: number | null }) =>
   (PLAN_RATE_CENTS[c.plan || 'free'] ?? 0) * Number(c.home_count ?? c.unit_count ?? 0)
 const fmtMoney = (cents: number) => `$${Math.round(cents / 100).toLocaleString('en-US')}`

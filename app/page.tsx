@@ -1468,10 +1468,10 @@ function DashboardPreview() {
 // plan includes" strip. Launch promo: $1/home first year, sign up by Aug 31 2026.
 function Pricing() {
   const TIERS = [
-    { name: 'Free',       amt: '$0',  unit: '',             band: 'Up to 25 homes', cta: 'Get started',    href: '/signup', featured: false },
+    { name: 'Starter',    amt: '$25', unit: '/ mo',         band: 'Up to 25 homes', cta: 'Get started',    href: '/signup', featured: false },
     { name: 'Pro',        amt: '$2',  unit: '/ home / mo',  band: '26–100 homes',   cta: 'Start with Pro', href: '/signup', featured: true  },
-    { name: 'Premium',    amt: '$5',  unit: '/ home / mo',  band: '101–500 homes',  cta: 'Choose Premium', href: '/signup', featured: false },
-    { name: 'Enterprise', amt: '$10', unit: '/ home / mo',  band: '500+ homes',     cta: 'Talk to us',     href: '/signup', featured: false },
+    { name: 'Premium',    amt: '$4',  unit: '/ home / mo',  band: '101–500 homes',  cta: 'Choose Premium', href: '/signup', featured: false },
+    { name: 'Enterprise', amt: '$8',  unit: '/ home / mo',  band: '500+ homes',     cta: 'Talk to us',     href: '/signup', featured: false },
   ]
   const INCLUDED = [
     'Resident cockpit', 'Online dues & fines (Stripe)', 'Live budget rings',
@@ -1489,9 +1489,9 @@ function Pricing() {
           just pay a little more per home.
         </p>
         <div className="ln-promo" role="note">
-          <span className="ln-promo-tag">Launch offer</span>
+          <span className="ln-promo-tag">New communities</span>
           <span className="ln-promo-text">
-            Sign up by <strong>Aug 31, 2026</strong> and pay just <strong>$1 / home</strong> for your entire first year.
+            Your first <strong>3 months are free</strong>. No card to start, cancel anytime.
           </span>
         </div>
       </div>

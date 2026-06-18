@@ -44,13 +44,13 @@ function bandFor(homes: number, planOverride?: string): { plan: string; perHomeC
   const byHomes =
     homes <= 25  ? { plan: 'free',       perHomeCents: 0,    label: 'Free' } :
     homes <= 100 ? { plan: 'pro',        perHomeCents: 200,  label: 'Pro' } :
-    homes <= 500 ? { plan: 'premium',    perHomeCents: 500,  label: 'Premium' } :
-                   { plan: 'enterprise', perHomeCents: 1000, label: 'Enterprise' }
+    homes <= 500 ? { plan: 'premium',    perHomeCents: 400,  label: 'Premium' } :
+                   { plan: 'enterprise', perHomeCents: 800,  label: 'Enterprise' }
   if (!planOverride || planOverride === byHomes.plan) return byHomes
   const rates: Record<string, { perHomeCents: number; label: string }> = {
     pro:        { perHomeCents: 200,  label: 'Pro' },
-    premium:    { perHomeCents: 500,  label: 'Premium' },
-    enterprise: { perHomeCents: 1000, label: 'Enterprise' },
+    premium:    { perHomeCents: 400,  label: 'Premium' },
+    enterprise: { perHomeCents: 800,  label: 'Enterprise' },
   }
   const r = rates[planOverride]
   return r ? { plan: planOverride, perHomeCents: r.perHomeCents, label: r.label } : byHomes

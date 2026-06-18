@@ -116,15 +116,16 @@ Deno.serve(async (req) => {
       if (!fullName) return json({ error: 'full_name is required' }, 400)
 
       // Pricing band from home count (mirror of lib/plan.ts — keep in sync).
-      // ≤25 (or unknown) = free + active forever; 26+ = a paid plan that starts
-      // 'pending' until the on-the-spot Stripe subscription checkout completes.
+      // Every new community gets 3 months free, no card. It starts 'trial';
+      // when the free months end they add a card and the plan bills automatically.
+      // 'free' is the id for the flat $25/mo Starter tier (≤25 homes).
       const homes = unit_count ?? 0
       const plan =
         homes <= 25  ? 'free' :
         homes <= 100 ? 'pro' :
         homes <= 500 ? 'premium' : 'enterprise'
-      const needs_payment = plan !== 'free'
-      const subscription_status = needs_payment ? 'pending' : 'free'
+      const needs_payment = true
+      const subscription_status = 'trial'
 
       const join_code = await uniqueJoinCode(admin)
 

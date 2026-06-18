@@ -685,7 +685,7 @@ function Plan({ propertyType, unitCount, onNext }: {
 }) {
   const homes = Number(unitCount) || 0
   const band = planForHomes(homes)
-  const paid = band.perHomeCents > 0
+  const flat = band.flatCents > 0
   const total = monthlyTotalLabel(homes)
   const unitWord = propertyType === 'condo' ? 'units' : 'homes'
   const oneWord = unitWord.slice(0, -1)
@@ -700,13 +700,10 @@ function Plan({ propertyType, unitCount, onNext }: {
     <>
       <div className="su-kicker">Your plan</div>
       <h1 className="su-h1">
-        {paid ? <>The <span className="su-plan-hl">{band.label}</span> plan is right for you.</>
-              : <>You&apos;re on us — the Free plan.</>}
+        The <span className="su-plan-hl">{band.label}</span> plan is right for you.
       </h1>
       <p className="su-sub">
-        {paid
-          ? `Based on ${homes} ${unitWord}, here's your plan and everything it includes.`
-          : `${homes} ${unitWord} means Residente is free for your community — forever. Here's everything you get.`}
+        {`Based on ${homes} ${unitWord}, here's your plan — and your first 3 months are free.`}
       </p>
       <div className="su-content">
         <div className="su-plan-card">
@@ -716,17 +713,15 @@ function Plan({ propertyType, unitCount, onNext }: {
               <div className="su-plan-band">{band.band}</div>
             </div>
             <div className="su-plan-price">
-              <span className="su-plan-amt">{paid ? total : 'Free'}</span>
-              {paid && <span className="su-plan-unit">${perHome}/{oneWord}/mo · {homes} {unitWord}</span>}
+              <span className="su-plan-amt">{total}</span>
+              <span className="su-plan-unit">{flat ? `flat · up to 25 ${unitWord}` : `$${perHome}/${oneWord}/mo · ${homes} ${unitWord}`}</span>
             </div>
           </div>
 
-          {paid && (
-            <div className="su-plan-promo">
-              <span className="su-plan-promo-tag">Launch offer</span>
-              <span>Pay just <strong>$1/{oneWord}</strong> for your entire first year if you sign up by <strong>Aug 31, 2026</strong>.</span>
-            </div>
-          )}
+          <div className="su-plan-promo">
+            <span className="su-plan-promo-tag">New community</span>
+            <span>Your first <strong>3 months are free</strong>. No card to start, then {total}. Cancel anytime.</span>
+          </div>
 
           <div className="su-plan-feats-label">Every plan includes the whole platform</div>
           <ul className="su-plan-feats">
@@ -735,22 +730,18 @@ function Plan({ propertyType, unitCount, onNext }: {
             ))}
           </ul>
 
-          {paid && (
-            <p className="su-plan-fine">
-              Billed to the association, monthly. Cancel anytime.
-              Stripe processing fees are passed through.
-            </p>
-          )}
+          <p className="su-plan-fine">
+            Free for 3 months, then billed to the association monthly. Cancel anytime.
+            Stripe processing fees are passed through.
+          </p>
         </div>
 
         <div className="su-actions">
           <button className="su-btn" type="button" onClick={onNext}>
-            {paid ? 'Continue to payment' : 'Continue — it’s free'}
+            Continue — 3 months free
           </button>
         </div>
-        {paid && (
-          <p className="su-foot">You&apos;ll create your account first, then pay securely with Stripe.</p>
-        )}
+        <p className="su-foot">No card needed to start. Add payment any time before your free months end.</p>
       </div>
     </>
   )

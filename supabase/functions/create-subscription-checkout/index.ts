@@ -33,11 +33,11 @@ const json = (body: unknown, status = 200) =>
   })
 
 // Pricing bands — mirror of lib/plan.ts. Keep in sync.
-function bandForHomes(homes: number): { plan: string; perHomeCents: number; label: string } {
-  if (homes <= 25)  return { plan: 'free',       perHomeCents: 0,    label: 'Free' }
-  if (homes <= 100) return { plan: 'pro',        perHomeCents: 200,  label: 'Pro' }
-  if (homes <= 500) return { plan: 'premium',    perHomeCents: 500,  label: 'Premium' }
-  return              { plan: 'enterprise', perHomeCents: 1000, label: 'Enterprise' }
+function bandForHomes(homes: number): { plan: string; perHomeCents: number; flatCents: number; label: string } {
+  if (homes <= 25)  return { plan: 'free',       perHomeCents: 0,    flatCents: 2500, label: 'Starter' }
+  if (homes <= 100) return { plan: 'pro',        perHomeCents: 200,  flatCents: 0,    label: 'Pro' }
+  if (homes <= 500) return { plan: 'premium',    perHomeCents: 400,  flatCents: 0,    label: 'Premium' }
+  return              { plan: 'enterprise', perHomeCents: 800,  flatCents: 0,    label: 'Enterprise' }
 }
 
 Deno.serve(async (req) => {
@@ -62,16 +62,14 @@ Deno.serve(async (req) => {
 
     const { data: community } = await supabase
       .from('communities')
-      .select('id, name, home_count, unit_count, plan, subscription_status, stripe_customer_id')
+      .select('id, name, home_count, unit_count, plan, subscription_status, stripe_customer_id, created_at')
       .eq('id', profile.community_id)
       .single()
     if (!community) return json({ error: 'Community not found' }, 404)
 
     const homes = Number(community.home_count ?? community.unit_count ?? 0)
     const band = bandForHomes(homes)
-    if (band.perHomeCents === 0) {
-      return json({ error: 'This community is on the Free plan — no payment needed.' }, 400)
-    }
+    const flat = band.flatCents > 0
     if (community.subscription_status === 'active') {
       return json({ error: 'Subscription is already active.' }, 400)
     }
@@ -87,27 +85,59 @@ Deno.serve(async (req) => {
       customer = c.id
     }
 
-    const session = await stripe.checkout.sessions.create({
+    // Charge only when the community's 3 free months end. trial_end is derived
+    // from signup time, so adding a card mid-trial does NOT charge early.
+    const createdMs = community.created_at ? new Date(community.created_at).getTime() : Date.now()
+    const trialEndsSec = Math.floor((createdMs + 90 * 24 * 60 * 60 * 1000) / 1000)
+    const nowSec = Math.floor(Date.now() / 1000)
+    const subData: Record<string, unknown> = { metadata: { community_id: community.id, plan: band.plan } }
+    if (trialEndsSec > nowSec + 60) subData.trial_end = trialEndsSec   // else the free months are over: bill now
+
+    // Bank (ACH) first, card as the fallback — an association pays from its
+    // operating bank account, and ACH has far lower fees + far lower failed-
+    // payment churn on a recurring plan. Same us_bank_account method the dues
+    // flow uses. verification_method 'automatic' = instant (Financial Connections).
+    const params: any = {
       mode: 'subscription',
       customer,
+      payment_method_types: ['us_bank_account', 'card'],
+      payment_method_options: { us_bank_account: { verification_method: 'automatic' } },
       line_items: [{
-        quantity: homes,
+        quantity: flat ? 1 : homes,
         price_data: {
           currency: 'usd',
-          unit_amount: band.perHomeCents,
+          unit_amount: flat ? band.flatCents : band.perHomeCents,
           recurring: { interval: 'month' },
           product_data: {
             name: `Residente — ${band.label} plan`,
-            description: `${homes} homes · $${(band.perHomeCents / 100).toFixed(2)}/home/mo`,
+            description: flat
+              ? `Flat $${(band.flatCents / 100).toFixed(0)}/mo · up to 25 homes`
+              : `${homes} homes · $${(band.perHomeCents / 100).toFixed(2)}/home/mo`,
           },
         },
       }],
       success_url: `${APP_URL}/admin?activated=1`,
       cancel_url: `${APP_URL}/admin?checkout=cancelled`,
       // stripe-webhook reads these back to flip the community to active.
-      subscription_data: { metadata: { community_id: community.id, plan: band.plan } },
+      subscription_data: subData,
       metadata: { community_id: community.id, plan: band.plan },
-    })
+    }
+
+    let session
+    try {
+      session = await stripe.checkout.sessions.create(params)
+    } catch (err) {
+      // If this Stripe account hasn't enabled ACH yet, fall back to card-only
+      // so checkout still works (mirror of the dues create-checkout flow).
+      if (params.payment_method_types.includes('us_bank_account')) {
+        console.warn('us_bank_account unavailable; retrying card-only:', (err as Error).message)
+        params.payment_method_types = ['card']
+        delete params.payment_method_options
+        session = await stripe.checkout.sessions.create(params)
+      } else {
+        throw err
+      }
+    }
 
     return json({ url: session.url })
   } catch (err) {
