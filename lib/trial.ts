@@ -25,7 +25,11 @@ export function trialState(input: {
 
   const created = input.created_at ? new Date(input.created_at).getTime() : Date.now()
   const endsAt = new Date(created + FREE_TRIAL_DAYS * 24 * 60 * 60 * 1000)
+  const day = 24 * 60 * 60 * 1000
   const msLeft = endsAt.getTime() - Date.now()
   if (msLeft <= 0) return { phase: 'expired', endsAt, daysLeft: 0 }
-  return { phase: 'trial', endsAt, daysLeft: Math.ceil(msLeft / (24 * 60 * 60 * 1000)) }
+  // Floor (not ceil) so this matches Stripe Checkout's "N days free", which
+  // floors the same created_at+90d window — on signup day both read 89, not a
+  // 90-vs-89 split. max(1,…) keeps the final partial day at "1 day left".
+  return { phase: 'trial', endsAt, daysLeft: Math.max(1, Math.floor(msLeft / day)) }
 }
