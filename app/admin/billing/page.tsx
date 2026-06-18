@@ -63,7 +63,11 @@ export default function AdminBilling() {
   const isPaidPlan = Boolean(plan)   // every tier is paid now (Starter is the flat $25/mo tier)
   const pastDue = sub === 'past_due'
   const onTrial = sub === 'trial'
-  const needsActivation = Boolean(isPaidPlan && sub !== 'active' && !onTrial)
+  // Show the "Subscribe / add payment" button whenever they aren't active yet —
+  // including during the 3-month trial, so a board can add payment any time
+  // before it ends (the checkout sets trial_end, so they still aren't charged
+  // until day 90). The TrialBanner nudges; this is where they act.
+  const needsActivation = Boolean(isPaidPlan && sub !== 'active')
   const band = planForHomes(homes)
   const free = false   // no free tier: new communities get 3 months free, then their plan
 
