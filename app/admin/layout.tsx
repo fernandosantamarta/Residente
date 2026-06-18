@@ -16,6 +16,8 @@ import { usePermissions } from '@/hooks/usePermissions'
 import { useAwaitingMessages, useArcPending } from '@/hooks/useAwaitingMessages'
 import type { Permission } from '@/lib/permissions'
 import { useT } from '@/lib/i18n'
+import { useTrial } from '@/hooks/useTrial'
+import { TrialBanner, TrialGate } from '@/components/TrialNotice'
 
 // Board-only admin section. Gated by role check — only board_member/admin
 // (or local dev without Supabase) reach here.
@@ -77,6 +79,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const isPlatformAdmin = usePlatformAdmin()
   const platformRoles = usePlatformRoles()
   const { canAny, perms, loading: permLoading } = usePermissions()
+  const { state: trial, communityName } = useTrial()
 
   // Live count of Easy Voice items needing the board's attention — messages
   // awaiting a reply + ARC requests awaiting a decision — drives the nav badge so
@@ -191,6 +194,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <div className="admin">
       <OperatorBanner isPlatformAdmin={isPlatformAdmin} currentCommunity={profile?.community_id ?? null} />
+      <TrialBanner state={trial} />
       <header className="admin-top">
         <div className="admin-brand">
           <Link href="/admin" className="admin-brand-home">
@@ -290,7 +294,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
       <main className="admin-main">
         <SectionScroll />
-        <AdminErrorBoundary>{children}</AdminErrorBoundary>
+        {isPlatformAdmin === false && trial.phase === 'expired' && pathname !== '/admin/billing'
+          ? <TrialGate communityName={communityName} />
+          : <AdminErrorBoundary>{children}</AdminErrorBoundary>}
       </main>
       <SiteFooterSlim />
     </div>
