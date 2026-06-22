@@ -28,8 +28,8 @@ export function TrialBanner({ state }: { state: TrialState }) {
           </strong>
           <span className="trial-banner-sub">
             {urgent
-              ? `Add payment to stay live · ends ${fmtDate(state.endsAt)}`
-              : `Enjoy the whole platform, on us — ${state.daysLeft} ${dayWord} left · ends ${fmtDate(state.endsAt)}`}
+              ? `Add payment before ${fmtDate(state.endsAt)} to keep your community running`
+              : `${state.daysLeft} ${dayWord} left. Add payment anytime before ${fmtDate(state.endsAt)}`}
           </span>
         </span>
       </div>
