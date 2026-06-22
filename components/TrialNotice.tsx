@@ -8,29 +8,32 @@ function fmtDate(d: Date) {
 }
 
 // Countdown bar shown across the admin while a community is in its 3 free
-// months. Turns orange in the final two weeks so the board has runway to get
-// payment on a meeting agenda before it bills.
+// months. Warm + inviting early on (a gift, not a nag); shifts to an urgent
+// orange in the final two weeks. Styling lives in admin.css (.trial-banner*) so
+// it can own the iOS safe-area inset — it's the topmost element on the page, so
+// it must clear the status bar / notch (the header below then drops its inset).
 export function TrialBanner({ state }: { state: TrialState }) {
   if (state.phase !== 'trial' || !state.endsAt) return null
   const urgent = state.daysLeft <= 14
   const dayWord = state.daysLeft === 1 ? 'day' : 'days'
   return (
-    <div style={{
-      background: urgent ? '#E14909' : '#1F2233', color: '#fff',
-      padding: '9px 18px', display: 'flex', justifyContent: 'space-between',
-      alignItems: 'center', gap: 12, fontSize: 13, fontWeight: 600, flexWrap: 'wrap',
-    }}>
-      <span>
-        {urgent ? 'Your free months are almost up. ' : 'You are on your 3 free months. '}
-        They end <strong>{fmtDate(state.endsAt)}</strong> · {state.daysLeft} {dayWord} left.
-        Add payment to keep your community running.
-      </span>
-      <Link href="/admin/billing" style={{
-        background: '#fff', color: '#E14909', textDecoration: 'none',
-        padding: '6px 14px', borderRadius: 7, fontWeight: 700, fontSize: 12.5, whiteSpace: 'nowrap',
-      }}>
-        Add payment
-      </Link>
+    <div className="trial-banner" data-urgent={urgent ? '1' : undefined}>
+      <div className="trial-banner-main">
+        <span className="trial-banner-badge" aria-hidden="true">{urgent ? '⏳' : '🎁'}</span>
+        <span className="trial-banner-text">
+          <strong className="trial-banner-lead">
+            {urgent
+              ? `${state.daysLeft} ${dayWord} left of your free trial`
+              : 'You’re on 3 months free'}
+          </strong>
+          <span className="trial-banner-sub">
+            {urgent
+              ? `Add payment to stay live · ends ${fmtDate(state.endsAt)}`
+              : `Enjoy the whole platform, on us — ${state.daysLeft} ${dayWord} left · ends ${fmtDate(state.endsAt)}`}
+          </span>
+        </span>
+      </div>
+      <Link href="/admin/billing" className="trial-banner-cta">Add payment</Link>
     </div>
   )
 }
