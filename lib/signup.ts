@@ -112,11 +112,9 @@ export async function manageSubscription(
 }
 
 // Permanently delete the signed-in user's own account (delete-account edge fn).
-// The community is owned collectively, so leaving is fine as long as another board
-// member/admin remains (the owner pointer hands off automatically). If they're the
-// LAST board member while the community still has other members, returns
-// { code:'last_admin_with_members' }; if they're the sole member, the community is
-// torn down too. Caller should sign out + redirect on { ok }.
+// If they're the sole owner of a community, it's torn down too; if it has other
+// members, returns { code:'owner_with_members' } so the UI can point them at
+// Delete community first. Caller should sign out + redirect on { ok }.
 export async function deleteAccount(): Promise<{ ok?: boolean; error?: string; code?: string }> {
   if (!hasSupabase || !supabase) return { error: 'Not available' }
   try {
