@@ -13,7 +13,7 @@ import { useAuth } from '../providers'
 import { useAccountingAccess } from '@/hooks/useAccountingAccess'
 import { usePlatformAdmin, usePlatformRoles } from '@/hooks/usePlatform'
 import { usePermissions } from '@/hooks/usePermissions'
-import { useAwaitingMessages, useArcPending } from '@/hooks/useAwaitingMessages'
+import { useAwaitingMessages, useArcPending, usePendingApprovals } from '@/hooks/useAwaitingMessages'
 import type { Permission } from '@/lib/permissions'
 import { useT } from '@/lib/i18n'
 import { useTrial } from '@/hooks/useTrial'
@@ -85,6 +85,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   // awaiting a reply + ARC requests awaiting a decision — drives the nav badge so
   // the board notices from anywhere in the admin.
   const awaitingMsgs = useAwaitingMessages() + useArcPending()
+
+  // Self-serve signups awaiting board approval — badge on the Easy Track nav.
+  const pendingApprovals = usePendingApprovals()
 
   // Badge on "Contact Residente" — tickets where Residente sent the last message
   // (status 'in_progress') that the board hasn't READ yet. "Read" is tracked
@@ -265,6 +268,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             {item.href === '/admin/board' && awaitingMsgs > 0 && (
               <span className="admin-nav-badge" title={t('admin.voiceBadgeTitle', { count: awaitingMsgs })}>
                 {awaitingMsgs}
+              </span>
+            )}
+            {item.href === '/admin/residents' && pendingApprovals > 0 && (
+              <span className="admin-nav-badge" title={t('admin.pendingBadgeTitle', { count: pendingApprovals })}>
+                {pendingApprovals}
               </span>
             )}
           </Link>

@@ -1136,6 +1136,7 @@ export const es: Record<string, string> = {
   "admin.contactResidente": "Contactar a Residente",
   "admin.contactResidenteNew": "{count} nuevos de Residente",
   "admin.voiceBadgeTitle": "{count} esperando tu respuesta",
+  "admin.pendingBadgeTitle": "{count} esperando tu aprobación",
   "admin.viewAs": "VER COMO",
   "admin.language": "Idioma",
   "admin.operatorMode": "⚙ Modo operador: estás gestionando esta comunidad como Residente.",

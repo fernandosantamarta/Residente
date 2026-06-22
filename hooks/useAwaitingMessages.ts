@@ -95,6 +95,49 @@ export function useArcPending(): number {
     q.eq('community_id', cid).in('status', ['submitted', 'under_review']))
 }
 
+// Live count of self-serve signups awaiting board approval
+// (residents.approval_state = 'pending'). Drives the Easy Track nav badge so the
+// board notices a pending resident from anywhere in the admin. Refreshed via
+// realtime + on tab focus. Fails open to 0 if the column doesn't exist yet.
+export function usePendingApprovals(): number {
+  const { profile } = useAuth() || {}
+  const communityId = profile?.community_id
+  const [count, setCount] = useState(0)
+  const [chId] = useState(() => Math.random().toString(36).slice(2))
+
+  useEffect(() => {
+    if (!hasSupabase || !supabase || !communityId) { setCount(0); return }
+    let cancelled = false
+    const load = async () => {
+      try {
+        const { count: n } = await supabase!
+          .from('residents')
+          .select('id', { count: 'exact', head: true })
+          .eq('community_id', communityId)
+          .eq('approval_state', 'pending')
+        if (!cancelled) setCount(n || 0)
+      } catch { /* column may not exist yet — leave at 0 */ }
+    }
+    load()
+    const ch = supabase!
+      .channel(`pending-approvals:${communityId}:${chId}`)
+      .on('postgres_changes', {
+        event: '*', schema: 'public', table: 'residents',
+        filter: `community_id=eq.${communityId}`,
+      }, () => load())
+      .subscribe()
+    const onRefresh = () => load()
+    window.addEventListener('focus', onRefresh)
+    return () => {
+      cancelled = true
+      supabase!.removeChannel(ch)
+      window.removeEventListener('focus', onRefresh)
+    }
+  }, [communityId, chId])
+
+  return count
+}
+
 // Resident side: how many of MY conversations have an unread board reply (the
 // board's message is the latest and I haven't opened it). Drives the resident's
 // home banner and the Contact tab badge.

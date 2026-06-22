@@ -1183,6 +1183,7 @@ export const en: Record<string, string> = {
   "admin.contactResidente": "Contact Residente",
   "admin.contactResidenteNew": "{count} new from Residente",
   "admin.voiceBadgeTitle": "{count} awaiting your reply",
+  "admin.pendingBadgeTitle": "{count} awaiting your approval",
   "admin.viewAs": "VIEW AS",
   "admin.language": "Language",
   "admin.operatorMode": "⚙ Operator mode — you’re managing this community as Residente.",
