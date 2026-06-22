@@ -18,6 +18,7 @@ import type { Permission } from '@/lib/permissions'
 import { useT } from '@/lib/i18n'
 import { useTrial } from '@/hooks/useTrial'
 import { TrialBanner, TrialGate } from '@/components/TrialNotice'
+import { AdminWelcome } from '@/components/AdminWelcome'
 
 // Board-only admin section. Gated by role check — only board_member/admin
 // (or local dev without Supabase) reach here.
@@ -199,6 +200,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <div className="admin">
       <OperatorBanner isPlatformAdmin={isPlatformAdmin} currentCommunity={profile?.community_id ?? null} />
       <TrialBanner state={trial} />
+      <AdminWelcome />
       <header className="admin-top">
         <div className="admin-brand">
           <Link href="/admin" className="admin-brand-home">

@@ -92,6 +92,37 @@
   .bill-actions { flex-direction: column; }
   .bill-actions button { width: 100%; }
 }
+
+/* ── First-visit admin welcome modal (dark, plan + features) ─────────────── */
+.awl-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(8, 6, 12, 0.62); display: grid; place-items: center; padding: 18px; }
+.awl-modal {
+  width: 100%; max-width: 400px; max-height: 92vh; overflow-y: auto; position: relative;
+  background: linear-gradient(180deg, #20232f 0%, #14161e 100%); color: #fff;
+  border-radius: 22px; padding: 30px 24px 24px;
+  box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5); border: 1px solid rgba(255, 255, 255, 0.08);
+}
+.awl-close {
+  position: absolute; top: 14px; right: 14px; width: 32px; height: 32px; border-radius: 50%;
+  border: none; background: rgba(255, 255, 255, 0.12); color: #fff; font-size: 19px; line-height: 1;
+  cursor: pointer; display: grid; place-items: center;
+}
+.awl-close:hover { background: rgba(255, 255, 255, 0.2); }
+.awl-title { font-size: 25px; font-weight: 800; letter-spacing: -0.5px; margin: 4px 0 8px; text-align: center; line-height: 1.15; }
+.awl-sub { font-size: 13.5px; color: rgba(255, 255, 255, 0.7); text-align: center; margin: 0 0 22px; line-height: 1.5; }
+.awl-plan { background: rgba(255, 255, 255, 0.05); border: 1.5px solid rgba(255, 255, 255, 0.12); border-radius: 14px; padding: 15px 16px; position: relative; }
+.awl-plan-featured { border-color: #E14909; background: rgba(225, 73, 9, 0.12); }
+.awl-plan-badge { position: absolute; top: -10px; left: 16px; background: #E14909; color: #fff; font-size: 10px; font-weight: 800; letter-spacing: 0.4px; text-transform: uppercase; padding: 3px 10px; border-radius: 999px; }
+.awl-plan-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.awl-plan-name { font-size: 17px; font-weight: 800; }
+.awl-plan-meta { font-size: 12.5px; color: rgba(255, 255, 255, 0.65); margin-top: 2px; }
+.awl-plan-price { font-size: 18px; font-weight: 800; color: #ff8a4c; white-space: nowrap; }
+.awl-feats-title { font-size: 15px; font-weight: 800; text-align: center; margin: 24px 0 14px; }
+.awl-feats { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 13px; }
+.awl-feats li { display: flex; align-items: flex-start; gap: 11px; font-size: 13.5px; color: rgba(255, 255, 255, 0.86); line-height: 1.35; }
+.awl-feat-ic { flex: none; width: 22px; height: 22px; color: #ff8a4c; margin-top: -1px; }
+.awl-cta { margin-top: 24px; width: 100%; padding: 15px; border: none; border-radius: 14px; background: #E14909; color: #fff; font-size: 16px; font-weight: 800; cursor: pointer; transition: background 0.12s ease; }
+.awl-cta:hover { background: #cf4108; }
+.awl-foot { margin-top: 12px; text-align: center; font-size: 11.5px; color: rgba(255, 255, 255, 0.5); }
 .admin-brand-home { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
 .admin-brand-word { letter-spacing: -0.3px; }
 /* Inline switcher placement in the admin chrome (overrides the left-rail margins). */

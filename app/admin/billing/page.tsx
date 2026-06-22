@@ -228,12 +228,12 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
       display: 'grid', placeItems: 'center', padding: 24,
     }}>
       <div onClick={(e) => e.stopPropagation()} className="sub-modal-noscroll" style={{
-        width: '100%', maxWidth: 820, maxHeight: '92vh', overflowY: 'auto',
-        background: '#fff', borderRadius: 22,
-        padding: '36px 44px', boxShadow: '0 24px 60px rgba(40,15,0,0.3)',
+        width: '100%', maxWidth: 460, maxHeight: '90vh', overflowY: 'auto',
+        background: '#fff', borderRadius: 20,
+        padding: '24px 24px', boxShadow: '0 24px 60px rgba(40,15,0,0.3)',
       }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 22 }}>
-          <h2 style={{ margin: 0, fontSize: 27, fontWeight: 800 }}>{t('admin.billing.manageSubscription')}</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+          <h2 style={{ margin: 0, fontSize: 20, fontWeight: 800 }}>{t('admin.billing.manageSubscription')}</h2>
           <button onClick={onClose} aria-label={t('admin.billing.close')} style={{ border: 'none', background: 'none', fontSize: 30, cursor: 'pointer', color: '#8a7560', lineHeight: 1 }}>×</button>
         </div>
 
@@ -276,7 +276,7 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
                 </span>
               </div>
 
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: 12 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10 }}>
                 {PLAN_CARDS.map((p) => {
                   const sel = tier === p.key
                   const free = p.per === 0
