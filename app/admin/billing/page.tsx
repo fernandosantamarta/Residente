@@ -5,6 +5,7 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { startSubscriptionCheckout, manageSubscription } from '@/lib/signup'
 import { planForHomes, monthlyTotalLabel } from '@/lib/plan'
+import { useTrial } from '@/hooks/useTrial'
 import { useT } from '@/lib/i18n'
 
 // Plan & billing — the community's Residente subscription. Lifted out of the
@@ -20,6 +21,7 @@ export default function AdminBilling() {
   const [status, setStatus] = useState('loading') // loading | ready | none | error
   const [paying, setPaying] = useState(false)
   const [showSub, setShowSub] = useState(false)
+  const { state: trial } = useTrial()
 
   const load = useCallback(async () => {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
@@ -73,9 +75,16 @@ export default function AdminBilling() {
 
   const statusLabel = sub === 'active' ? t('admin.billing.statusActive')
     : pastDue ? t('admin.billing.statusPaymentFailed')
-    : onTrial ? '3 months free'
+    : onTrial ? t('admin.billing.statusTrial')
     : isPaidPlan ? t('admin.billing.statusNotActiveYet')
     : free ? t('admin.billing.statusFree') : '—'
+  const statusKind = sub === 'active' ? 'active' : pastDue ? 'pastdue' : onTrial ? 'trial' : 'pending'
+  const priceLabel = monthlyTotalLabel(homes)
+  const trialDate = trial.endsAt ? trial.endsAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' }) : ''
+  const dateLine = onTrial && trialDate ? t('admin.billing.trialUntil', { date: trialDate, price: priceLabel })
+    : pastDue ? t('admin.billing.pastDueLine')
+    : sub === 'active' ? t('admin.billing.activeLine')
+    : t('admin.billing.activateLine')
 
   return (
     <div className="admin-page">
@@ -83,37 +92,37 @@ export default function AdminBilling() {
       <h1 className="admin-h1">{t('admin.billing.pageTitle')}</h1>
       <p className="admin-dek">{t('admin.billing.pageDek', { name: community?.name || t('admin.billing.thisCommunity') })}</p>
 
-      <div className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap' }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-          <span style={{ fontSize: 13, color: '#8a7560' }}>{t('admin.billing.currentPlan')}</span>
-          <span style={{ fontSize: 26, fontWeight: 800 }}>{band.label}{free ? ' · ' + t('admin.billing.freeBadge') : ''}</span>
-          <span style={{ fontSize: 13.5, color: '#6b5544' }}>
-            {free
-              ? t('admin.billing.homesFree', { homes })
-              : t('admin.billing.homesPaid', { monthlyTotal: monthlyTotalLabel(homes), homes })}
-            {' · '}<strong>{statusLabel}</strong>
-          </span>
+      <div className="bill-card">
+        <div className="bill-card-head">
+          <div>
+            <div className="bill-plan-name">{band.label}</div>
+            <div className="bill-plan-band">{band.band}</div>
+          </div>
+          <span className={`bill-status bill-status-${statusKind}`}>{statusLabel}</span>
         </div>
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+
+        <div className="bill-price">
+          {priceLabel === 'Free'
+            ? <span className="bill-price-free">{t('admin.billing.freeBadge')}</span>
+            : <>
+                <span className="bill-price-amt">{priceLabel.replace('/mo', '')}</span>
+                <span className="bill-price-unit">/mo</span>
+              </>}
+        </div>
+
+        <div className="bill-date">{dateLine}</div>
+
+        <div className="bill-actions">
           {needsActivation && (
             <button className="admin-primary-btn" onClick={pastDue ? () => setShowSub(true) : activatePlan} disabled={paying}>
               {paying ? t('admin.billing.opening') : pastDue ? t('admin.billing.manageSubscription') : t('admin.billing.subscribeNow')}
             </button>
           )}
-          {sub === 'active' && (
-            <button className="admin-secondary-btn" onClick={() => setShowSub(true)}>{t('admin.billing.manageSubscription')}</button>
-          )}
-          {!isPaidPlan && (
-            <button className="admin-secondary-btn" onClick={() => setShowSub(true)}>{t('admin.billing.changePlan')}</button>
-          )}
+          <button className="admin-secondary-btn" onClick={() => setShowSub(true)}>{t('admin.billing.manageSubscription')}</button>
         </div>
       </div>
 
-      <p className="admin-dek" style={{ marginTop: 16 }}>
-        {free
-          ? t('admin.billing.freeExplainer')
-          : t('admin.billing.paidExplainer')}
-      </p>
+      <p className="admin-dek" style={{ marginTop: 16 }}>{t('admin.billing.paidExplainer')}</p>
 
       {showSub && (
         <SubscriptionDialog

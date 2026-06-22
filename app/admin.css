@@ -59,6 +59,39 @@
 }
 
 .admin-brand { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
+
+/* ── Plan & billing page ─────────────────────────────────────────────── */
+.bill-card {
+  max-width: 600px;
+  background: linear-gradient(160deg, #ffffff 0%, #fff7f1 100%);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 26px 28px;
+  box-shadow: 0 12px 34px rgba(40, 15, 0, 0.07);
+}
+.bill-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
+.bill-plan-name { font-size: 24px; font-weight: 800; color: #1f2233; letter-spacing: -0.4px; line-height: 1.1; }
+.bill-plan-band { font-size: 13px; color: #8a7560; margin-top: 3px; }
+.bill-status {
+  font-size: 11px; font-weight: 800; letter-spacing: 0.3px; text-transform: uppercase;
+  padding: 5px 12px; border-radius: 999px; white-space: nowrap;
+}
+.bill-status-active  { background: #e7f7ec; color: #1d7a33; }
+.bill-status-trial   { background: #fff0e4; color: #c8430f; }
+.bill-status-pastdue { background: #fdecec; color: #c0271f; }
+.bill-status-pending { background: #fef3e0; color: #9a6a13; }
+.bill-price { margin-top: 18px; display: flex; align-items: baseline; gap: 5px; }
+.bill-price-amt { font-size: 32px; font-weight: 800; color: #e14909; letter-spacing: -1px; }
+.bill-price-unit { font-size: 14px; font-weight: 700; color: #8a7560; }
+.bill-price-free { font-size: 28px; font-weight: 800; color: #1d7a33; }
+.bill-date { margin-top: 8px; font-size: 13.5px; color: #6b5544; line-height: 1.45; }
+.bill-actions { margin-top: 22px; display: flex; gap: 10px; flex-wrap: wrap; }
+.bill-actions .admin-primary-btn, .bill-actions .admin-secondary-btn { padding: 11px 20px; }
+@media (max-width: 600px) {
+  .bill-card { padding: 22px 18px; }
+  .bill-actions { flex-direction: column; }
+  .bill-actions button { width: 100%; }
+}
 .admin-brand-home { display: inline-flex; align-items: center; gap: 10px; text-decoration: none; color: inherit; }
 .admin-brand-word { letter-spacing: -0.3px; }
 /* Inline switcher placement in the admin chrome (overrides the left-rail margins). */
