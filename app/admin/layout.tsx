@@ -34,7 +34,6 @@ type AdminNavItem = { href: string; label: string; match?: string[]; exact?: boo
 const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin',            label: 'admin.nav.overview', exact: true },
   { href: '/admin/community',  label: 'admin.nav.community', anyPerm: ['community.manage'] },
-  { href: '/admin/billing',    label: 'admin.nav.billing', anyPerm: ['community.manage'] },
   { href: '/admin/compliance', label: 'admin.nav.compliance', anyPerm: ['compliance.manage', 'financials.view', 'payments.view', 'violations.manage'], match: ['/admin/estoppel', '/admin/collections', '/admin/structural', '/admin/financials', '/admin/governance', '/admin/enforcement', '/admin/meetings', '/admin/elections', '/admin/insurance', '/admin/contracts', '/admin/advisories'] },
   { href: '/admin/budget',     label: 'admin.nav.budget', anyPerm: ['community.manage', 'financials.view'] },
   { href: '/admin/accounting', label: 'admin.nav.accounting', anyPerm: ['financials.view'], requiresAccounting: true },
@@ -43,6 +42,7 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/board',      label: 'admin.nav.easyVoice', anyPerm: ['voice.manage', 'roles.manage'], match: ['/admin/voice', '/admin/requests', '/admin/roles', '/admin/arc'] },
   { href: '/admin/documents',  label: 'admin.nav.easyDocuments', anyPerm: ['documents.manage', 'violations.manage'], match: ['/admin/rules', '/admin/violations'] },
   { href: '/admin/schedule',   label: 'admin.nav.easySchedule', anyPerm: ['schedule.manage'] },
+  { href: '/admin/billing',    label: 'admin.nav.billing', anyPerm: ['community.manage'] },
 ]
 
 // "View as" team previews — platform-only. Owner (DB role 'owner') = full

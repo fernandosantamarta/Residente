@@ -228,7 +228,7 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
       display: 'grid', placeItems: 'center', padding: 24,
     }}>
       <div onClick={(e) => e.stopPropagation()} className="sub-modal-noscroll" style={{
-        width: '100%', maxWidth: 460, maxHeight: '90vh', overflowY: 'auto',
+        width: '100%', maxWidth: 460, maxHeight: '80vh', overflowY: 'auto',
         background: '#fff', borderRadius: 20,
         padding: '24px 24px', boxShadow: '0 24px 60px rgba(40,15,0,0.3)',
       }}>
@@ -242,7 +242,7 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
         ) : (
           <>
             {status && (
-              <div style={{ fontSize: 15.5, color: '#4a3a2c', marginBottom: 20, lineHeight: 1.5 }}>
+              <div style={{ fontSize: 14, color: '#4a3a2c', marginBottom: 12, lineHeight: 1.45 }}>
                 {t('admin.billing.currentLabel')} <strong>{planForHomes(currentHomes).label} {t('admin.billing.planSuffix')}</strong> · {monthlyTotalLabel(currentHomes)} · {currentHomes} {t('admin.billing.homesSuffix')}
                 {canceling && periodEnd && (
                   <div style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
@@ -259,9 +259,9 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
             )}
 
             {/* Choose a plan — landing-style boxes */}
-            <div style={{ borderTop: '1px solid #eee', paddingTop: 20 }}>
-              <div style={{ fontWeight: 800, fontSize: 18, marginBottom: 12 }}>{t('admin.billing.choosePlan')}</div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 16, padding: '13px 16px', background: '#faf6f1', borderRadius: 13, border: `1px solid ${homesValid ? '#efe6da' : '#e0857a'}` }}>
+            <div style={{ borderTop: '1px solid #eee', paddingTop: 14 }}>
+              <div style={{ fontWeight: 800, fontSize: 16, marginBottom: 8 }}>{t('admin.billing.choosePlan')}</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', marginBottom: 10, padding: '9px 13px', background: '#faf6f1', borderRadius: 13, border: `1px solid ${homesValid ? '#efe6da' : '#e0857a'}` }}>
                 <label htmlFor="sub-homes" style={{ fontSize: 15, fontWeight: 800, color: '#2a1206', whiteSpace: 'nowrap' }}>{t('admin.billing.pickHomes')}</label>
                 <input id="sub-homes" value={homes} inputMode="numeric" placeholder={t('admin.billing.homesPlaceholder')}
                   onChange={(e) => {
@@ -284,7 +284,7 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
                   return (
                     <button key={p.key} type="button" onClick={() => setTier(p.key)} style={{
                       textAlign: 'left', cursor: 'pointer', position: 'relative',
-                      borderRadius: 16, padding: '16px 16px 15px',
+                      borderRadius: 14, padding: '12px 13px 11px',
                       border: '2px solid ' + (sel ? '#E5601F' : '#ece4da'),
                       background: sel ? '#E5601F' : '#fff',
                       color: sel ? '#fff' : '#2a1206',
@@ -295,7 +295,7 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
                         <span style={{ position: 'absolute', top: -11, right: 12, fontSize: 10.5, fontWeight: 800, letterSpacing: 0.4, textTransform: 'uppercase', color: sel ? '#E5601F' : '#fff', background: sel ? '#fff' : '#E5601F', padding: '3px 10px', borderRadius: 999, border: '2px solid #1a0d07' }}>{t('admin.billing.popular')}</span>
                       )}
                       <div style={{ fontSize: 16, fontWeight: 800 }}>{p.name}</div>
-                      <div style={{ marginTop: 6, fontSize: 22, fontWeight: 800, lineHeight: 1 }}>
+                      <div style={{ marginTop: 4, fontSize: 19, fontWeight: 800, lineHeight: 1 }}>
                         ${p.per / 100}{!free && <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.75 }}> {t('admin.billing.perHomeMo')}</span>}
                       </div>
                       <div style={{ marginTop: 7, fontSize: 12.5, opacity: sel ? 0.9 : 0.6 }}>{p.band}</div>
@@ -308,15 +308,15 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
               </div>
 
               {/* Add-ons */}
-              <div style={{ marginTop: 22, fontWeight: 800, fontSize: 16 }}>{t('admin.billing.addons')}</div>
-              <div style={{ fontSize: 12.5, color: '#8a7560', marginBottom: 12 }}>{t('admin.billing.addonsNote')}</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              <div style={{ marginTop: 14, fontWeight: 800, fontSize: 15 }}>{t('admin.billing.addons')}</div>
+              <div style={{ fontSize: 12.5, color: '#8a7560', marginBottom: 7 }}>{t('admin.billing.addonsNote')}</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {ADDONS.map((a) => {
                   const on = addons.includes(a.key)
                   return (
                     <button key={a.key} type="button" onClick={() => toggleAddon(a.key)} style={{
                       display: 'flex', alignItems: 'center', gap: 13, textAlign: 'left', cursor: 'pointer',
-                      padding: '13px 15px', borderRadius: 13,
+                      padding: '10px 13px', borderRadius: 12,
                       border: '2px solid ' + (on ? '#E5601F' : '#ece4da'),
                       background: on ? '#fff7f1' : '#fff',
                     }}>
@@ -336,18 +336,18 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
 
               {tier === 'free' ? (
                 <button onClick={doCancel} disabled={busy != null || canceling}
-                  style={{ marginTop: 20, width: '100%', padding: '15px', borderRadius: 999, border: '1px solid #e0b4a4', background: '#fff', color: '#b5481f', fontWeight: 800, fontSize: 16, cursor: canceling ? 'default' : 'pointer', opacity: canceling ? 0.5 : 1 }}>
+                  style={{ marginTop: 14, width: '100%', padding: '12px', borderRadius: 999, border: '1px solid #e0b4a4', background: '#fff', color: '#b5481f', fontWeight: 800, fontSize: 15, cursor: canceling ? 'default' : 'pointer', opacity: canceling ? 0.5 : 1 }}>
                   {canceling ? t('admin.billing.alreadySetToCancel') : busy === 'cancel' ? t('admin.billing.canceling') : t('admin.billing.downgradeToFree')}
                 </button>
               ) : (
-                <button className="admin-primary-btn" style={{ marginTop: 20, width: '100%', padding: '15px', fontSize: 16 }}
+                <button className="admin-primary-btn" style={{ marginTop: 14, width: '100%', padding: '12px', fontSize: 15 }}
                   onClick={doChange} disabled={busy != null || !changed || !homesValid}>
                   {busy === 'change' ? t('admin.billing.updating')
                     : !homesValid ? t('admin.billing.enterHomesCount')
                     : t(canceling ? 'admin.billing.keepActiveOn' : 'admin.billing.switchTo', { planName: PLAN_CARDS.find(p => p.key === tier)?.name ?? '', price: totalLabel })}
                 </button>
               )}
-              <div style={{ marginTop: 10, fontSize: 12.5, color: '#8a7560', textAlign: 'center' }}>
+              <div style={{ marginTop: 8, fontSize: 12, color: '#8a7560', textAlign: 'center' }}>
                 {tier === 'free'
                   ? t('admin.billing.freeFootnote')
                   : t('admin.billing.paidFootnote')}
@@ -356,7 +356,7 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
 
             {/* Explicit cancel (when not already on the Free/cancel path) */}
             {status?.has_subscription && !canceling && tier !== 'free' && (
-              <div style={{ borderTop: '1px solid #eee', marginTop: 22, paddingTop: 18 }}>
+              <div style={{ borderTop: '1px solid #eee', marginTop: 14, paddingTop: 12 }}>
                 <button onClick={doCancel} disabled={busy != null}
                   style={{ width: '100%', padding: '13px', borderRadius: 999, border: '1px solid #e0b4a4', background: '#fff', color: '#b5481f', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>
                   {busy === 'cancel' ? t('admin.billing.canceling') : t('admin.billing.cancelSubscription')}

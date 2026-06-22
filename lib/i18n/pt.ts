@@ -1123,7 +1123,7 @@ export const pt: Record<string, string> = {
   "admin.tag": "Admin",
   "admin.nav.overview": "Visão geral",
   "admin.nav.community": "Comunidade",
-  "admin.nav.billing": "Cobrança",
+  "admin.nav.billing": "Assinatura Residente",
   "admin.welcome.title": "Sua comunidade está ativa",
   "admin.welcome.sub": "{name} está com 3 meses grátis. Veja tudo o que inclui.",
   "admin.welcome.yourCommunity": "Sua comunidade",

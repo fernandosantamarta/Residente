@@ -1123,7 +1123,7 @@ export const es: Record<string, string> = {
   "admin.tag": "Admin",
   "admin.nav.overview": "Resumen",
   "admin.nav.community": "Comunidad",
-  "admin.nav.billing": "Facturación",
+  "admin.nav.billing": "Suscripción Residente",
   "admin.welcome.title": "Tu comunidad está activa",
   "admin.welcome.sub": "{name} tiene 3 meses gratis. Esto es todo lo que incluye.",
   "admin.welcome.yourCommunity": "Tu comunidad",
