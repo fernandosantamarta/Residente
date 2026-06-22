@@ -135,7 +135,9 @@ do $$ begin
 end $$;
 
 -- ---------- BALLOTS ----------
--- One ballot per profile per vote. open ballot answers stored plaintext;
+-- One ballot per UNIT per vote (enforced by unique(vote_id, unit_number) —
+-- voting interest attaches to the unit, not the person, so two accounts in the
+-- same home share one vote). open ballot answers stored plaintext;
 -- secret ballot answer stored as null until tallied (future: encrypted).
 create table if not exists public.ev_ballots (
   id          uuid primary key default gen_random_uuid(),

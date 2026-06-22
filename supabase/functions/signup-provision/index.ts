@@ -258,30 +258,47 @@ Deno.serve(async (req) => {
         { onConflict: 'profile_id,community_id' },
       )
 
-      // Claim a pre-imported roster row by email if one exists; otherwise
-      // self-register a new roster row from what they typed.
-      const { data: claimed } = await admin
-        .from('residents')
-        .update({ profile_id: caller.id, activated_at: now })
-        .eq('community_id', community_id)
-        .is('profile_id', null)
-        .ilike('email', email)
-        .select('id')
-      if (!claimed || claimed.length === 0) {
-        await admin.from('residents').insert({
-          community_id,
-          profile_id: caller.id,
-          full_name: fullName,
-          first_name: first,
-          last_name: last,
-          email,
-          unit_number: unitNumber,
-          voting_eligible: true,
-          activated_at: now,
-        })
+      // Auto-verify against the board's roster: a normalized EMAIL match OR
+      // ADDRESS match claims that row → active resident who can vote. Neither →
+      // a 'pending' row the board approves/rejects/contacts. (The typed
+      // "unit / address" is what we verify the address against.)
+      const address = unitNumber
+      const { data: match } = await admin.rpc('match_roster_row', {
+        p_community: community_id, p_email: email, p_address: address,
+      })
+      const hit = Array.isArray(match) ? match[0] : match
+
+      if (hit?.resident_id) {
+        // Claim the matched roster row. The sync_profile_unit trigger copies its
+        // unit onto the profile so voting (which keys on profiles.unit_number) works.
+        await admin.from('residents')
+          .update({
+            profile_id: caller.id,
+            activated_at: now,
+            approval_state: 'active',
+            verified_via: hit.via,
+            voting_eligible: true,
+          })
+          .eq('id', hit.resident_id)
+        return json({ ok: true, community_id, role: 'resident', pending: false })
       }
 
-      return json({ ok: true, community_id, role: 'resident' })
+      // No roster match — self-register as PENDING. No vote / limited app until
+      // the board approves (or rejects). Keeps what they typed for the board to review.
+      await admin.from('residents').insert({
+        community_id,
+        profile_id: caller.id,
+        full_name: fullName,
+        first_name: first,
+        last_name: last,
+        email,
+        unit_number: unitNumber,
+        address: address || null,
+        approval_state: 'pending',
+        voting_eligible: false,
+      })
+
+      return json({ ok: true, community_id, role: 'resident', pending: true })
     }
 
     return json({ error: 'mode must be "create" or "join"' }, 400)

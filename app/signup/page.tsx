@@ -31,7 +31,7 @@ type Who = 'resident' | 'board'
 type Step =
   | 'property' | 'role'
   | 'community' | 'plan' | 'documents' | 'connect' | 'details' | 'account'
-  | 'working' | 'confirm-email'
+  | 'working' | 'confirm-email' | 'pending-approval'
 
 const FLOW: Record<Who, Step[]> = {
   resident: ['property', 'role', 'connect', 'details', 'account'],
@@ -238,6 +238,9 @@ export default function SignupPage() {
       // detours through Stripe checkout: the board lands in /admin and the
       // TrialBanner / billing page let them add payment any time before the trial
       // ends (provision still returns needs_payment, but nothing acts on it here).
+      // Resident whose email/address didn't match the roster → awaiting board
+      // approval. Don't route into the cockpit; show the waiting screen.
+      if (res.pending) { setStep('pending-approval'); setBusy(false); return }
       const dest = res.role === 'resident' ? '/onboard' : '/admin'
       // In the native app a hard window.location navigation gets handed to Safari
       // (and lands on /login with no session). Route client-side so it stays in
@@ -371,6 +374,28 @@ export default function SignupPage() {
             <div className="su-actions">
               <Link href="/login" className="su-btn" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>
                 Go to sign in
+              </Link>
+            </div>
+          </>
+        )}
+
+        {step === 'pending-approval' && (
+          <>
+            <div className="su-kicker">Almost there</div>
+            <h1 className="su-h1">Waiting for board approval</h1>
+            <p className="su-sub">
+              We couldn&apos;t automatically match you to your community&apos;s
+              records, so your board needs to confirm you. You&apos;ll get access
+              as soon as they approve — no need to sign up again.
+            </p>
+            <HouseArt />
+            <p className="su-foot" style={{ marginTop: 8 }}>
+              Tip: if you have a different email on file with your HOA, signing in
+              with that one verifies you instantly.
+            </p>
+            <div className="su-actions">
+              <Link href="/app" className="su-btn" style={{ display: 'block', textAlign: 'center', textDecoration: 'none' }}>
+                Continue
               </Link>
             </div>
           </>

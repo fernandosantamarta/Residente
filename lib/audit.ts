@@ -37,6 +37,8 @@ export type AuditEventType =
   | 'roster.imported'
   | 'invite.sent'
   | 'invite.accepted'
+  | 'resident.approved'
+  | 'resident.rejected'
   // collections / liens (compliance domain F)
   | 'collection.case_opened'
   | 'collection.stage_changed'

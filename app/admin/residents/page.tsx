@@ -167,11 +167,19 @@ export default function Residents() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase()
     return rows.filter(r => {
+      if (r.approval_state === 'pending') return false  // surfaced in the approvals card, not the roster
       if (subFilter !== 'all' && (r.subdivision || '').trim() !== subFilter) return false
       if (!q) return true
       return [r.full_name, r.unit_number, r.address, r.email].some(v => String(v || '').toLowerCase().includes(q))
     })
   }, [rows, query, subFilter])
+
+  // Self-serve signups that didn't auto-match the roster (email/address). The
+  // board verifies them here: Approve anyway / Reject / Contact.
+  const pendingApprovals = useMemo(
+    () => rows.filter(r => r.approval_state === 'pending'),
+    [rows],
+  )
 
   const remove = async (id) => {
     const prev = rows
@@ -240,6 +248,43 @@ export default function Residents() {
       setError(err?.message || t('admin.residents.errSaveChange'))
       load() // re-sync from the DB
     }
+  }
+
+  // Approve a pending self-serve signup → active resident who can vote.
+  const approveResident = async (id) => {
+    try {
+      const { error } = await withTimeout(supabase.from('residents').update({
+        approval_state: 'active', verified_via: 'board', voting_eligible: true,
+        activated_at: new Date().toISOString(),
+      }).eq('id', id))
+      if (error) throw error
+      if (communityId) await logAudit({ community_id: communityId, event_type: 'resident.approved', target_type: 'resident', target_id: id })
+      setSuccessMsg(t('admin.residents.approvedMsg'))
+      load()
+    } catch (err) {
+      setError(err?.message || t('admin.residents.errApprove'))
+    }
+  }
+
+  // Reject a pending signup — keeps the row (marked rejected) so it stops showing
+  // and can't re-match. They can retry with the correct email.
+  const rejectResident = async (id) => {
+    try {
+      const { error } = await withTimeout(supabase.from('residents').update({ approval_state: 'rejected' }).eq('id', id))
+      if (error) throw error
+      if (communityId) await logAudit({ community_id: communityId, event_type: 'resident.rejected', target_type: 'resident', target_id: id })
+      load()
+    } catch (err) {
+      setError(err?.message || t('admin.residents.errReject'))
+    }
+  }
+
+  // Email a pending resident to sort out a mismatch (e.g. "use the email we have
+  // on file"). Opens the board member's mail client, prefilled.
+  const contactResident = (r) => {
+    const subject = t('admin.residents.contactSubject')
+    const body = t('admin.residents.contactBody', { name: r.full_name || '', community: communityName || '' })
+    window.location.href = `mailto:${r.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
   }
 
   // Record an offline (check / cash / money-order) DUES payment via the
@@ -426,6 +471,38 @@ export default function Residents() {
               </div>
             ))}
           </div>
+
+          {/* Pending approvals — self-serve signups that didn't auto-match the
+              roster. Board confirms (Approve anyway), rejects, or contacts them. */}
+          {pendingApprovals.length > 0 && (
+            <div className="card" style={{ borderColor: 'var(--warn)' }}>
+              <div className="card-head">
+                <div>
+                  <h2>{t('admin.residents.pendingCardTitle')}</h2>
+                  <div className="sub">{t('admin.residents.pendingCardSub')}</div>
+                </div>
+                <span className="pill" style={{ background: 'var(--warn)', color: '#fff' }}>{pendingApprovals.length}</span>
+              </div>
+              <table className="tbl">
+                <tbody>
+                  {pendingApprovals.map(r => (
+                    <tr className="tr" key={r.id}>
+                      <td>
+                        <span className="strong">{r.full_name || t('admin.residents.pendingNoName')}</span>
+                        <span className="muted"> · {r.unit_number || r.address || t('admin.residents.pendingNoUnit')}</span>
+                      </td>
+                      <td className="muted">{r.email || '—'}</td>
+                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                        <button type="button" className="admin-btn-ghost" onClick={() => contactResident(r)}>{t('admin.residents.contactBtn')}</button>
+                        <button type="button" className="admin-btn-ghost" onClick={() => rejectResident(r.id)}>{t('admin.residents.rejectBtn')}</button>
+                        <button type="button" className="admin-primary-btn" onClick={() => approveResident(r.id)}>{t('admin.residents.approveBtn')}</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
           {/* Import your roster — one editable spreadsheet. Type into the cells,
               paste a block straight from Excel / Google Sheets, or upload a CSV. */}

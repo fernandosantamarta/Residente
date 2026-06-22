@@ -58,6 +58,24 @@ const fmtTime = () => {
   return `${time} · ${date}`
 }
 
+// Full-screen gate for a resident whose self-serve signup is awaiting board
+// approval (no roster match). Mirrors the boot-screen look from providers.tsx.
+function PendingApprovalScreen({ unit }: { unit?: string | null }) {
+  const t = useT()
+  return (
+    <div className="boot-screen">
+      <div className="boot-card">
+        <div className="boot-brand">Residente</div>
+        <div className="boot-err" style={{ color: 'var(--text)' }}>{t('pending.title')}</div>
+        <div className="boot-msg">
+          {t('pending.body')}{unit ? ` (${unit})` : ''}
+        </div>
+        <button className="boot-btn" onClick={() => window.location.reload()}>{t('pending.refresh')}</button>
+      </div>
+    </div>
+  )
+}
+
 export default function CockpitLayout({ children }: { children: ReactNode }) {
   const { session, profile } = useAuth()
   const { community } = useCommunityData()
@@ -83,7 +101,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
   // below so the hook count stays stable across logout. Preview forces it on
   // for demo screenshots.
   const { count: unreadCount } = useUnreadNoticeCount()
-  useMyResident() // keep mounted before the auth guard for stable hook order
+  const { resident: myResident } = useMyResident() // keep mounted before the auth guard for stable hook order
   const pendingReplies = useMyPendingReplies()   // unread board replies → Easy Voice badge
   const homeHasAlert = isPreview || unreadCount > 0
   const showRightRail = pathname === '/app'
@@ -138,6 +156,13 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
   }, [navOpen])
 
   if (hasSupabase && !session && !isPreview) return null  // don't flash cockpit during redirect
+
+  // A resident whose self-serve signup didn't match the roster (email/address)
+  // is awaiting board approval — show a waiting screen, not the cockpit, until
+  // the board approves (approval_state flips to 'active').
+  if (hasSupabase && !isPreview && myResident?.approval_state === 'pending') {
+    return <PendingApprovalScreen unit={myResident.unit_number || myResident.address} />
+  }
 
   // Self-typed profile name (from /app/settings → Profile Information)
   // beats the auth full_name. This is the resident's chosen display.

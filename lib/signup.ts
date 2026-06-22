@@ -38,6 +38,9 @@ export interface ProvisionResult {
   needs_payment?: boolean // always true now (every plan bills after the trial); no
                           // longer triggers on-the-spot checkout — signup goes to
                           // /admin and add-payment happens via the billing page.
+  pending?: boolean       // join only: the resident didn't match the roster (email
+                          // or address), so they're awaiting board approval — show
+                          // the "waiting for approval" screen instead of the cockpit.
 }
 
 // Start the platform-subscription Stripe Checkout for the caller's community and
