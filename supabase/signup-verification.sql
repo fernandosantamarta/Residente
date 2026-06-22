@@ -32,14 +32,16 @@ insert into public.address_synonyms (variant, canonical) values
 on conflict (variant) do update set canonical = excluded.canonical;
 
 -- ---------- NORMALIZERS ----------
--- Canonical address key: lowercase, drop punctuation, map every word through the
--- synonym table, rejoin in order. "123 SW 4th St Apt 4B" and "123 Southwest 4th
--- Street #4-B" both reduce to "123 sw 4 st unit 4b". STABLE (reads a table), so
--- it's used for matching in queries — not in a generated column/index.
+-- Canonical address key for MATCHING: lowercase, drop punctuation, map every word
+-- through the synonym table, DROP unit designators (apt/unit/ste/#/no… all map to
+-- 'unit', which we omit), and join with NO spaces — so "4B" / "4-B" / "Apt 4B" /
+-- "#4-B" all reduce identically. "123 SW 4th St Apt 4B" and "123 Southwest 4th
+-- Street #4-B" both reduce to "123sw4thst4b". STABLE (reads a table); used for
+-- matching in queries, not in a generated column/index.
 create or replace function public.normalize_address(a text)
 returns text language sql stable as $$
   select nullif(
-    string_agg(coalesce(s.canonical, t.word), ' ' order by t.ord),
+    string_agg(coalesce(s.canonical, t.word), '' order by t.ord),
   '')
   from unnest(
          regexp_split_to_array(
@@ -48,6 +50,7 @@ returns text language sql stable as $$
        ) with ordinality as t(word, ord)
   left join public.address_synonyms s on s.variant = t.word
   where t.word <> ''
+    and coalesce(s.canonical, t.word) <> 'unit'  -- drop unit designators (apt/unit/ste/#/no…)
 $$;
 
 -- Normalized email: lower + trim (matching key for the roster lookup).
