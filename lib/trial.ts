@@ -21,7 +21,10 @@ export function trialState(input: {
 }): TrialState {
   const status = input.subscription_status
   if (status === 'active') return { phase: 'active', endsAt: null, daysLeft: 0 }
-  if (status !== 'trial')   return { phase: 'none',   endsAt: null, daysLeft: 0 }
+  // 'free' communities are on their 3 free months too — treat them like 'trial'
+  // so the countdown / banner / welcome popup show during the free window, then
+  // the soft expiry gate kicks in (3 months free, then you pay).
+  if (status !== 'trial' && status !== 'free') return { phase: 'none', endsAt: null, daysLeft: 0 }
 
   const created = input.created_at ? new Date(input.created_at).getTime() : Date.now()
   const endsAt = new Date(created + FREE_TRIAL_DAYS * 24 * 60 * 60 * 1000)
