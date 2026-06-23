@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import type { TrialState } from '@/lib/trial'
+import { FREE_TRIAL_DAYS, type TrialState } from '@/lib/trial'
 
 function fmtDate(d: Date) {
   return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -16,10 +16,23 @@ export function TrialBanner({ state }: { state: TrialState }) {
   if (state.phase !== 'trial' || !state.endsAt) return null
   const urgent = state.daysLeft <= 14
   const dayWord = state.daysLeft === 1 ? 'day' : 'days'
+  // How much of the 3 free months has elapsed — drives the slim progress bar.
+  const used = Math.max(3, Math.min(100, Math.round(((FREE_TRIAL_DAYS - state.daysLeft) / FREE_TRIAL_DAYS) * 100)))
   return (
     <div className="trial-banner" data-urgent={urgent ? '1' : undefined}>
       <div className="trial-banner-main">
-        <span className="trial-banner-badge" aria-hidden="true">{urgent ? '⏳' : '🎁'}</span>
+        <span className="trial-banner-badge" aria-hidden="true">
+          {urgent ? (
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="13" r="8" /><path d="M12 9.5V13l2.5 2M9 2h6" />
+            </svg>
+          ) : (
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12 2.2c.62 4.7 2.48 6.56 7.2 7.2-4.72.64-6.58 2.5-7.2 7.2-.62-4.7-2.48-6.56-7.2-7.2 4.72-.64 6.58-2.5 7.2-7.2Z" />
+              <path d="M18.6 13.2c.3 1.9 1.05 2.65 2.95 2.95-1.9.3-2.65 1.05-2.95 2.95-.3-1.9-1.05-2.65-2.95-2.95 1.9-.3 2.65-1.05 2.95-2.95Z" opacity="0.8" />
+            </svg>
+          )}
+        </span>
         <span className="trial-banner-text">
           <strong className="trial-banner-lead">
             {urgent
@@ -34,6 +47,7 @@ export function TrialBanner({ state }: { state: TrialState }) {
         </span>
       </div>
       <Link href="/admin/billing" className="trial-banner-cta">Add payment</Link>
+      <span className="trial-banner-progress" aria-hidden="true"><span style={{ width: `${used}%` }} /></span>
     </div>
   )
 }
