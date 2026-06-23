@@ -1572,6 +1572,8 @@ export const pt: Record<string, string> = {
   "admin.collections.fineOnlyLabel": "Caso somente de multa (HB 1203: uma multa de HOA inferior a $1.000 não pode se tornar gravame)",
   "admin.collections.hideClosed": "Ocultar resolvidos / cancelados",
   "admin.collections.kicker": "Conformidade Flórida",
+  "admin.collections.backToReports": "Voltar para Relatórios",
+  "admin.collections.viewInCompliance": "Ver em conformidade",
   "admin.collections.loading": "Carregando…",
   "admin.collections.noCommunity": "Nenhuma comunidade está vinculada à sua conta ainda. Execute o SQL de configuração e recarregue.",
   "admin.collections.noDelinquent": "Não há proprietários inadimplentes sem caso",

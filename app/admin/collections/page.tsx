@@ -7,7 +7,7 @@
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { communityDuesConfig } from '@/lib/dues'
@@ -38,6 +38,10 @@ export default function CollectionsPage() {
   const t = useT()
   const { profile } = useAuth() || {}
   const router = useRouter()
+  const searchParams = useSearchParams()
+  // Arrived from the Reports "Collect" link → Back returns to Reports (not the
+  // compliance hub), with a "View in compliance" link on the opposite side.
+  const fromReports = searchParams?.get('from') === 'reports'
   const communityId = profile?.community_id
   const [community, setCommunity] = useState<any>(null)
   const [rows, setRows] = useState<CollectionCaseRow[]>([])
@@ -187,7 +191,14 @@ export default function CollectionsPage() {
 
   return (
     <div className="admin-page cset">
-      <ComplianceBackLink />
+      {fromReports ? (
+        <div className="cset-backrow">
+          <Link href="/admin/reports" className="admin-backlink"><span aria-hidden>&larr;</span> {t('admin.collections.backToReports')}</Link>
+          <Link href="/admin/compliance" className="admin-backlink">{t('admin.collections.viewInCompliance')} <span aria-hidden>&rarr;</span></Link>
+        </div>
+      ) : (
+        <ComplianceBackLink />
+      )}
       <div className="admin-kicker">{t('admin.collections.kicker')}</div>
       <h1 className="admin-h1">{t('admin.collections.pageTitle')}</h1>
       <p className="admin-dek">

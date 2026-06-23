@@ -1616,6 +1616,9 @@
   text-decoration: none; margin-bottom: 12px;
 }
 .cset .admin-backlink:hover { color: var(--pink); }
+/* Back row when arriving from Reports: Back-to-Reports left, View-in-compliance right. */
+.cset .cset-backrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.cset .cset-backrow .admin-backlink { margin-bottom: 12px; }
 
 /* Indent the page-header text so it lines up with the card CONTENT (cards pad
    24px), not the card's outer edge — "Board & roles" sits over "Board members",

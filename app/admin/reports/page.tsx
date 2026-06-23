@@ -507,7 +507,7 @@ export default function ReportsPage() {
                             {openPayId === r.id ? t('admin.reports.recordClose') : t('admin.reports.recordPaymentBtn')}
                           </button>
                           {/* Collect = last resort: escalate to a collections case. */}
-                          <Link href={`/admin/collections?resident=${r.id}`} className="go dim" style={{ textDecoration: 'none' }}>{t('admin.reports.collectLink')}</Link>
+                          <Link href={`/admin/collections?resident=${r.id}&from=reports`} className="go dim" style={{ textDecoration: 'none' }}>{t('admin.reports.collectLink')}</Link>
                         </div>
                       </td>
                     </tr>

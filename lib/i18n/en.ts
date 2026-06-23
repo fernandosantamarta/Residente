@@ -1619,6 +1619,8 @@ export const en: Record<string, string> = {
   "admin.collections.fineOnlyLabel": "Fine-only case (HB 1203: an HOA fine under $1,000 may not become a lien)",
   "admin.collections.hideClosed": "Hide resolved / cancelled",
   "admin.collections.kicker": "Florida compliance",
+  "admin.collections.backToReports": "Back to Reports",
+  "admin.collections.viewInCompliance": "View in compliance",
   "admin.collections.loading": "Loading…",
   "admin.collections.noCommunity": "No community is linked to your account yet. Run the setup SQL, then reload.",
   "admin.collections.noDelinquent": "No delinquent owners without a case",
