@@ -3,20 +3,22 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { residentBalance, duesStatus, DUES_LABEL, fmtMoney, communityDuesConfig } from '@/lib/dues'
 import { downloadCsv, exportFilename } from '@/lib/exportCsv'
 import { logAudit } from '@/lib/audit'
+import { transferHome } from '@/lib/homeVault'
 import { Dropdown } from '@/components/Dropdown'
-import { RecordPaymentForm } from '@/components/RecordPaymentForm'
 import { EasyTrackTabs } from '../EasyTrackTabs'
 import { useT } from '@/lib/i18n'
 
 // Resident account / voting-invite state from the magic-link columns, with a
 // fallback to a linked profile (older rows activated before invited_at existed).
+// Roster activation lifecycle pill. Distinct from the "pending approvals" card
+// (self-serve signups awaiting board verification) — these are roster rows we
+// added, tracking whether the owner has been invited + has activated the app.
 const inviteState = (r) =>
-  (r.activated_at || r.profile_id) ? { cls: 'ok', label: 'Activated' }
-  : r.invited_at ? { cls: 'warn', label: 'Invited' }
-  : { cls: 'warn', label: 'Pending' }
+  (r.activated_at || r.profile_id) ? { cls: 'ok', key: 'admin.residents.pillActivated' }
+  : r.invited_at ? { cls: 'warn', key: 'admin.residents.pillInvited' }
+  : { cls: 'dim', key: 'admin.residents.pillNotInvited' }
 
 // Initials for a household avatar — first letters of the first two words.
 const initials = (name) =>
@@ -63,16 +65,17 @@ const GRID_COLS = ['name', 'unit', 'email', 'phone']
 const blankGridRow = () => ({ name: '', unit: '', email: '', phone: '' })
 const gridRowHasData = (r) => !!(r.name || r.unit || r.email || r.phone)
 
-// Residents page — the community roster, grouped by subdivision. Each
-// household's balance accrues monthly_dues automatically; the board sets the
-// one-time opening balance and the Paid/Due/Late status is derived from it.
+// Residents page — the community roster (people only): who's on the roster,
+// whether they've registered/activated their account, their contact info and
+// tenants, plus invite/transfer/remove. All dues & payment tracking lives in
+// Reports (/admin/reports); this page carries no money.
 export default function Residents() {
   const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const [rows, setRows] = useState([])
-  const [payments, setPayments] = useState([])
   const [community, setCommunity] = useState(null)
+  const [transfers, setTransfers] = useState([]) // home_transfers for this community (admin visibility)
   const [status, setStatus] = useState('loading') // loading | ready | none | error
   const [error, setError] = useState('')
   const [pending, setPending] = useState(null) // parsed CSV / pasted rows awaiting confirm
@@ -100,17 +103,18 @@ export default function Residents() {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
     setStatus('loading'); setError('')
     try {
-      const [resR, comR, payR] = await Promise.all([
+      const [resR, comR, xferR] = await Promise.all([
         withTimeout(supabase.from('residents').select('*').eq('community_id', communityId)),
         withTimeout(supabase.from('communities').select('*')
           .eq('id', communityId).single()),
-        withTimeout(supabase.from('payments').select('*').eq('community_id', communityId)),
+        // Ownership-transfer history — admin oversight ("see everything").
+        withTimeout(supabase.from('home_transfers').select('resident_id, to_email, created_at')
+          .eq('community_id', communityId).order('created_at', { ascending: false })),
       ])
       if (resR.error) throw resR.error
-      if (payR.error) throw payR.error
       setRows(sortRows(resR.data || []))
       setCommunity(comR.data || null)
-      setPayments(payR.data || [])
+      setTransfers(xferR?.data || [])
       setStatus('ready')
     } catch (err) {
       setError(err?.message || t('admin.residents.errLoadResidents')); setStatus('error')
@@ -128,25 +132,13 @@ export default function Residents() {
       { label: 'Address', value: r => r.address || '' },
       { label: 'Email', value: r => r.email || '' },
       { label: 'Phone', value: r => r.phone || '' },
-      { label: 'Opening balance', value: r => (r.opening_balance != null ? Number(r.opening_balance).toFixed(2) : '') },
     ]
     downloadCsv(exportFilename('residente-roster', new Date().toISOString().slice(0, 10)), rows, cols)
   }
 
-  const monthlyDues = Number(community?.monthly_dues) || 0
-  const duesCfg = communityDuesConfig(community)
   const communityName = community?.name || ''
 
-  // Payments grouped by resident so each row computes its own balance.
-  const paymentsByResident = useMemo(() => {
-    const m = new Map()
-    for (const p of payments) {
-      if (!m.has(p.resident_id)) m.set(p.resident_id, [])
-      m.get(p.resident_id).push(p)
-    }
-    return m
-  }, [payments])
-
+  // (dues/payments moved to /admin/reports — Residents is people-only.)
   // Stat tiles (mock parity). "Activated" = a resident with a linked account
   // (profile_id set); "Pending" = on the roster but no account yet. "Tenants" =
   // units flagged as rented or carrying tenant contact info.
@@ -180,6 +172,29 @@ export default function Residents() {
     () => rows.filter(r => r.approval_state === 'pending'),
     [rows],
   )
+
+  // Most-recent ownership transfer per unit, so the roster can flag a household
+  // whose account was handed to a new owner (admin oversight).
+  const transferByResident = useMemo(() => {
+    const m = new Map()
+    for (const x of transfers) if (x.resident_id && !m.has(x.resident_id)) m.set(x.resident_id, x)
+    return m
+  }, [transfers])
+
+  // Admin-initiated ownership transfer — the board path (no name-confirm; that
+  // guard is for the owner's own self-serve flow). Emails the buyer an invite to
+  // claim the unit, reassigns the account, and logs to home_transfers. Reuses the
+  // same home-transfer edge function as the resident settings flow.
+  const transferOwnership = async (resident, buyerEmail, buyerName) => {
+    try {
+      const res = await transferHome({ residentId: resident.id, buyerEmail, buyerName: buyerName || undefined })
+      await logAudit({ community_id: communityId, event_type: 'home.transferred', target_type: 'resident', target_id: resident.id, metadata: { to_email: buyerEmail, by: 'board' } })
+      await load()
+      return { ok: true, emailed: !!res?.email_sent }
+    } catch (err) {
+      return { error: err?.message || t('admin.residents.xferFailed') }
+    }
+  }
 
   const remove = async (id) => {
     const prev = rows
@@ -285,28 +300,6 @@ export default function Residents() {
     const subject = t('admin.residents.contactSubject')
     const body = t('admin.residents.contactBody', { name: r.full_name || '', community: communityName || '' })
     window.location.href = `mailto:${r.email || ''}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
-  }
-
-  // Record an offline (check / cash / money-order) DUES payment via the
-  // append-only record_offline_payment RPC, then refresh payments so the
-  // balance recomputes. client_key makes a double-click / retry idempotent.
-  const recordPayment = async (resident, { amount, method, paidOn, memo }) => {
-    if (!communityId) return { error: 'No community selected' }
-    const client_key = (globalThis.crypto?.randomUUID?.() || `${resident.id}:${paidOn}:${amount}`)
-    const { error } = await supabase.rpc('record_offline_payment', {
-      p_community: communityId,
-      p_resident: resident.id,
-      p_amount: amount,
-      p_method: method,
-      p_paid_on: paidOn || null,
-      p_memo: memo || null,
-      p_client_key: client_key,
-    })
-    if (error) return { error: error.message }
-    const { data } = await supabase.from('payments').select('*').eq('community_id', communityId)
-    setPayments(data || [])
-    setSuccessMsg(t('admin.residents.recordedPayment', { amount: fmtMoney(amount), name: resident.full_name }))
-    return {}
   }
 
   // Keep a trailing blank row so the spreadsheet always has room to type/paste.
@@ -423,9 +416,6 @@ export default function Residents() {
       <h1 className="admin-h1">{communityName ? t('admin.residents.rosterTitle', { community: communityName }) : t('admin.residents.rosterTitleDefault')}</h1>
       <p className="admin-dek">
         {t('admin.residents.dekBase')}
-        {monthlyDues > 0
-          ? t('admin.residents.dekDuesSet', { amount: fmtMoney(monthlyDues) })
-          : t('admin.residents.dekDuesNotSet')}
       </p>
 
       {status === 'none' && (
@@ -475,7 +465,7 @@ export default function Residents() {
           {/* Pending approvals — self-serve signups that didn't auto-match the
               roster. Board confirms (Approve anyway), rejects, or contacts them. */}
           {pendingApprovals.length > 0 && (
-            <div className="card" style={{ borderColor: 'var(--warn)' }}>
+            <div className="card pending-card" style={{ borderColor: 'var(--warn)' }}>
               <div className="card-head">
                 <div>
                   <h2>{t('admin.residents.pendingCardTitle')}</h2>
@@ -487,12 +477,15 @@ export default function Residents() {
                 <tbody>
                   {pendingApprovals.map(r => (
                     <tr className="tr" key={r.id}>
-                      <td>
+                      <td className="pend-who">
                         <span className="strong">{r.full_name || t('admin.residents.pendingNoName')}</span>
-                        <span className="muted"> · {r.unit_number || r.address || t('admin.residents.pendingNoUnit')}</span>
+                        <span className="pill warn pend-badge">{t('admin.residents.pendingNeedsReview')}</span>
                       </td>
-                      <td className="muted">{r.email || '—'}</td>
-                      <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <td className="muted pend-detail">
+                        <span className="pend-detail-label">{t('admin.residents.pendingSignedUpWith')}</span>{' '}
+                        {r.email || '—'} · {r.address || r.unit_number || t('admin.residents.pendingNoUnit')}
+                      </td>
+                      <td className="pend-act">
                         <button type="button" className="admin-btn-ghost" onClick={() => contactResident(r)}>{t('admin.residents.contactBtn')}</button>
                         <button type="button" className="admin-btn-ghost" onClick={() => rejectResident(r.id)}>{t('admin.residents.rejectBtn')}</button>
                         <button type="button" className="admin-primary-btn" onClick={() => approveResident(r.id)}>{t('admin.residents.approveBtn')}</button>
@@ -617,18 +610,17 @@ export default function Residents() {
                 <thead>
                   <tr>
                     <th>{t('admin.residents.thOwner')}</th><th>{t('admin.residents.thUnit')}</th><th className="contact-col">{t('admin.residents.thContact')}</th>
-                    <th>{t('admin.residents.thBalance')}</th><th>{t('admin.residents.thStatus')}</th><th className="act"></th>
+                    <th>{t('admin.residents.thStatus')}</th><th className="act"></th>
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.length === 0 ? (
-                    <tr><td colSpan={6}><div className="roster-empty">{t('admin.residents.noSearchResults')}</div></td></tr>
+                    <tr><td colSpan={5}><div className="roster-empty">{t('admin.residents.noSearchResults')}</div></td></tr>
                   ) : filtered.map(r => (
-                    <ResidentRow key={r.id} r={r} monthlyDues={monthlyDues} duesCfg={duesCfg}
-                      payments={paymentsByResident.get(r.id) || []}
+                    <ResidentRow key={r.id} r={r}
                       onLocal={editLocal} onCommit={commit} onRemove={remove}
                       onInvite={sendInvite} inviteBusy={inviteBusyId === r.id}
-                      onRecordPayment={recordPayment} />
+                      transfer={transferByResident.get(r.id)} onTransfer={transferOwnership} />
                   ))}
                 </tbody>
               </table>
@@ -644,15 +636,29 @@ export default function Residents() {
 // activation pill | Open). "Open" expands the full household editor in-place so
 // every working field (address, subdivision, opening balance, mailing address,
 // tenant) is still editable — nothing is read-only-only.
-function ResidentRow({ r, monthlyDues, duesCfg, payments, onLocal, onCommit, onRemove, onInvite, inviteBusy, onRecordPayment }) {
+function ResidentRow({ r, onLocal, onCommit, onRemove, onInvite, inviteBusy, transfer, onTransfer }) {
   const t = useT()
   const [open, setOpen] = useState(false)
-  const balance = residentBalance(r, monthlyDues, payments, duesCfg)
   const activated = !!(r.activated_at || r.profile_id)
   const pill = inviteState(r)
   const contact = r.email || r.phone || '—'
-  // Invite button label mirrors the old roster: first send vs re-invite vs resend.
-  const inviteLabel = activated ? t('admin.residents.inviteLabelResend') : r.invited_at ? t('admin.residents.inviteLabelReinvite') : t('admin.residents.inviteLabelSend')
+  // Admin transfer mini-form state.
+  const [xferOpen, setXferOpen] = useState(false)
+  const [xEmail, setXEmail] = useState('')
+  const [xName, setXName] = useState('')
+  const [xBusy, setXBusy] = useState(false)
+  const [xMsg, setXMsg] = useState('')
+  const doTransfer = async () => {
+    if (!xEmail.trim()) return
+    setXBusy(true); setXMsg('')
+    const res = await onTransfer(r, xEmail.trim(), xName.trim())
+    setXBusy(false)
+    if (res?.error) { setXMsg(res.error); return }
+    setXferOpen(false); setXEmail(''); setXName('')
+  }
+  // Resend/send-invite label: first send vs re-invite. (Activated owners need no
+  // link, so the button is hidden for them — "resend the link only when pending".)
+  const inviteLabel = r.invited_at ? t('admin.residents.inviteLabelReinvite') : t('admin.residents.inviteLabelSend')
   return (
     <>
       <tr className="tr">
@@ -662,13 +668,17 @@ function ResidentRow({ r, monthlyDues, duesCfg, payments, onLocal, onCommit, onR
             <span className="strong">
               {r.full_name}
               {r.subdivision ? <span className="muted" style={{ fontWeight: 400 }}> · {r.subdivision}</span> : null}
+              {transfer && (
+                <span className="pill dim res-xfer-badge" title={t('admin.residents.xferredTitle', { date: String(transfer.created_at).slice(0, 10) })}>
+                  ↗ {t('admin.residents.xferredBadge')}
+                </span>
+              )}
             </span>
           </div>
         </td>
         <td className="muted">{r.unit_number || r.address || '—'}</td>
         <td className="muted contact-col">{contact}</td>
-        <td className={balance > 0 ? 'due' : 'muted'}>{fmtMoney(balance)}</td>
-        <td><span className={`pill ${pill.cls}`}>{pill.label}</span></td>
+        <td><span className={`pill ${pill.cls}`}>{t(pill.key)}</span></td>
         <td className="act">
           <button type="button" className="go" onClick={() => setOpen(o => !o)}>
             {open ? t('admin.residents.rowClose') : t('admin.residents.rowOpen')}
@@ -678,7 +688,7 @@ function ResidentRow({ r, monthlyDues, duesCfg, payments, onLocal, onCommit, onR
 
       {open && (
         <tr className="tr-edit">
-          <td colSpan={6}>
+          <td colSpan={5}>
             <div className="edit-grid">
               <label className="admin-field"><span className="admin-field-label">{t('admin.residents.fieldAddress')}</span>
                 <input className="admin-input" placeholder={t('admin.residents.phAddress')} value={r.address ?? ''}
@@ -688,19 +698,6 @@ function ResidentRow({ r, monthlyDues, duesCfg, payments, onLocal, onCommit, onR
                 <input className="admin-input" placeholder={t('admin.residents.phSubdivision')} value={r.subdivision ?? ''}
                   onChange={e => onLocal(r.id, 'subdivision', e.target.value)}
                   onBlur={e => onCommit(r.id, { subdivision: e.target.value.trim() || null })} /></label>
-              <label className="admin-field"
-                title={t('admin.residents.titleOpeningBalance')}>
-                <span className="admin-field-label">{t('admin.residents.fieldOpeningBalance')}</span>
-                <input className="admin-input" type="number" placeholder="0" value={r.opening_balance ?? ''}
-                  onChange={e => onLocal(r.id, 'opening_balance', e.target.value)}
-                  onBlur={e => onCommit(r.id, { opening_balance: Number(e.target.value) || 0 })} /></label>
-            </div>
-
-            <div style={{ margin: '14px 0', padding: '14px 16px', background: 'rgba(0,0,0,0.025)', borderRadius: 10 }}>
-              <span className="admin-field-label" style={{ display: 'block', marginBottom: 8 }}>
-                {t('admin.residents.offlinePaymentLabel')}
-              </span>
-              <RecordPaymentForm onSubmit={v => onRecordPayment(r, v)} />
             </div>
 
             <p className="edit-note">
@@ -729,13 +726,45 @@ function ResidentRow({ r, monthlyDues, duesCfg, payments, onLocal, onCommit, onR
                   onBlur={e => onCommit(r.id, { tenant_phone: e.target.value.trim() || null })} /></label>
             </div>
 
+            {/* Admin-initiated ownership transfer — the expanded form. The
+                trigger lives in the foot next to "Send invite" (below). Emails
+                the new owner an invite to claim this unit; the owner's own
+                self-serve transfer (with name-confirm) lives in their Settings. */}
+            {xferOpen && (
+              <div className="res-xfer" style={{ margin: '14px 0', padding: '14px 16px', background: 'rgba(0,0,0,0.025)', borderRadius: 10 }}>
+                <span className="admin-field-label" style={{ display: 'block', marginBottom: 8 }}>
+                  {t('admin.residents.xferLabel')}
+                </span>
+                <div className="edit-grid">
+                  <label className="admin-field"><span className="admin-field-label">{t('admin.residents.xferBuyerEmail')}</span>
+                    <input className="admin-input" type="email" value={xEmail} onChange={e => setXEmail(e.target.value)} placeholder="newowner@email.com" /></label>
+                  <label className="admin-field"><span className="admin-field-label">{t('admin.residents.xferBuyerName')}</span>
+                    <input className="admin-input" value={xName} onChange={e => setXName(e.target.value)} placeholder={t('admin.residents.xferBuyerNamePh')} /></label>
+                </div>
+                <p className="edit-note">{t('admin.residents.xferNote')}</p>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
+                  <button type="button" className="admin-btn-sm admin-btn-warn" disabled={xBusy || !xEmail.trim()} onClick={doTransfer}>
+                    {xBusy ? t('admin.residents.xferTransferring') : t('admin.residents.xferConfirmBtn')}
+                  </button>
+                  <button type="button" className="admin-btn-sm" onClick={() => setXferOpen(false)} disabled={xBusy}>{t('admin.residents.xferCancel')}</button>
+                  {xMsg && <span style={{ fontSize: 12.5, fontWeight: 600, color: '#b42318' }}>{xMsg}</span>}
+                </div>
+              </div>
+            )}
+
             <div className="edit-foot">
               <span className="muted" style={{ fontSize: 12.5 }}>
                 {activated ? t('admin.residents.statusActivated') : r.invited_at ? t('admin.residents.statusInvited') : t('admin.residents.statusNone')}
-                {' · '}{DUES_LABEL[duesStatus(balance, monthlyDues)]}
+                {transfer && <> · {t('admin.residents.xferredFoot', { email: transfer.to_email, date: String(transfer.created_at).slice(0, 10) })}</>}
               </span>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                {r.email && (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                {/* Transfer ownership — sits next to Send invite. */}
+                <button type="button" className="admin-btn-sm" onClick={() => { setXferOpen(o => !o); setXMsg('') }}>
+                  {t('admin.residents.xferOpenBtn')}
+                </button>
+                {/* Resend the link only when the owner is still pending (not yet
+                    activated). An activated owner needs no invite. */}
+                {!activated && r.email && (
                   <button type="button" className="admin-btn-sm" disabled={inviteBusy} onClick={() => onInvite(r.id)}
                     title={t('admin.residents.inviteBtnTitle')}>
                     {inviteBusy ? t('admin.residents.sendingSingle') : inviteLabel}

@@ -246,6 +246,30 @@
    the @media block below reveals it on phones. Sized to its content so the
    label + chevron sit together instead of marooned in a full-width pill. */
 .admin-nav-dd { display: none; }
+
+/* Desktop tab-overflow → dropdown. When the tabs can't fit the nav width, the
+   layout adds .admin-nav-collapsed (JS-measured), which hides the tab row and
+   the platform link and reveals the section dropdown beside the (still-visible)
+   search. The measurer is a hidden, never-wrapping copy of the full tab row used
+   only to decide whether the real tabs fit. */
+.admin-nav-measure {
+  position: absolute; left: 0; top: 0; height: 0; overflow: hidden;
+  visibility: hidden; pointer-events: none;
+  display: flex; flex-wrap: nowrap; white-space: nowrap; gap: 4px;
+}
+/* Direct-child combinator (>) so these NEVER touch the measurer's inner spans
+   (which also carry .admin-nav-item) — otherwise collapsing zeroes the measurer
+   and the check oscillates forever. */
+.admin-nav-collapsed > .admin-nav-item:not(.admin-nav-back) { display: none; }
+.admin-nav-collapsed > .admin-nav-platform { display: none !important; }
+/* Symmetric vertical padding (vs the tab row's top-only 14px) so the lone
+   dropdown sits centered in the row instead of flush on the bottom border. The
+   7px top/bottom keeps the total height the same as the tab row (~52px). */
+.admin-nav-collapsed { padding-top: 7px; padding-bottom: 7px; align-items: center; }
+.admin-nav-collapsed > .admin-nav-dd {
+  display: inline-block; margin-left: auto; margin-right: 72px; align-self: center;
+}
+
 [data-theme="sketch"] .admin-nav-dd .ad-dd { width: auto; }
 [data-theme="sketch"] .admin-nav-dd .ad-dd-trigger {
   width: auto; max-width: 56vw; height: 38px; padding: 0 14px; gap: 8px; font-size: 13.5px;
@@ -2094,6 +2118,23 @@
 .crep .tbl .act { text-align: right; white-space: nowrap; width: 1%; }
 .crep .tbl .act .go + .go { margin-left: 18px; }
 
+/* Who's-behind row actions: Notify (hero) + Record payment + Collect (dim). */
+.crep .behind-act { display: flex; align-items: center; justify-content: flex-end; gap: 14px; }
+.crep .behind-notify { padding: 7px 14px; font-size: 12.5px; }
+.crep .behind-act .go { margin-left: 0; }
+.crep .behind-act .go.dim { color: var(--text-dim); font-weight: 600; }
+/* The lawful late fee, itemised under the balance. */
+.crep .behind-fee { display: block; font-size: 11px; font-weight: 600; color: var(--text-faint); margin-top: 2px; }
+/* Inline record-payment form, expanded under a household. */
+.crep .behind-payrow > td { background: rgba(42, 18, 6, 0.02); padding: 4px 12px 18px; }
+.crep .behind-payform { padding-top: 12px; }
+
+@media (max-width: 640px) {
+  /* Stack the action cluster so Notify / Record / Collect don't clip off-screen. */
+  .crep .behind-tbl .behind-act { flex-wrap: wrap; justify-content: flex-start; gap: 10px 14px; margin-top: 4px; }
+  .crep .behind-tbl td.act { white-space: normal; width: auto; }
+}
+
 /* Text-link actions, like the mock's "View →". */
 .crep .go {
   background: none; border: none; padding: 0; font-family: inherit;
@@ -2260,6 +2301,19 @@
 .etrack .tbl .due { color: var(--due); font-weight: 600; }
 .etrack .tbl .owner-cell { display: flex; align-items: center; gap: 11px; }
 .etrack .tbl .act { text-align: right; white-space: nowrap; width: 1%; }
+/* Pending-approvals card (self-serve signups awaiting board verification). */
+.etrack .pending-card .tbl .pend-who { display: flex; align-items: center; gap: 10px; }
+/* "Needs review" amber badge next to the name. */
+.etrack .pending-card .pend-badge { font-size: 10.5px; padding: 3px 9px; }
+/* The email + address they signed up with — the values that didn't match the
+   roster. The label is faint, the values readable so a mis-match is easy to spot. */
+.etrack .pending-card .pend-detail { overflow-wrap: anywhere; }
+.etrack .pending-card .pend-detail-label { color: var(--text-faint); font-weight: 600; }
+/* "Transferred" badge next to an owner whose unit changed hands. */
+.etrack .res-xfer-badge { margin-left: 8px; font-size: 10px; padding: 2px 8px; vertical-align: middle; }
+/* Actions sit flush-right on one line (desktop). */
+.etrack .pending-card .tbl .pend-act { text-align: right; white-space: nowrap; width: 1%; }
+.etrack .pending-card .tbl .pend-act button + button { margin-left: 8px; }
 
 .etrack .av {
   width: 30px; height: 30px; flex-shrink: 0; border-radius: 999px;
@@ -2346,6 +2400,27 @@
   [data-theme="sketch"] .admin-sched-row { flex-wrap: wrap; align-items: flex-start; row-gap: 10px; }
   [data-theme="sketch"] .admin-sched-row-body { flex: 1 1 0; min-width: 0; }
   [data-theme="sketch"] .admin-amen-row-actions { flex: 1 1 100%; justify-content: flex-end; }
+
+  /* Pending-approvals card: a 3-column table (name+unit · email · Contact/Reject/
+     Approve) overflows on a phone — the action buttons clip off the right edge.
+     Reflow each row into a stacked CARD: who on top, email below, then the three
+     buttons wrap onto their own full-width row. CSS-only (flatten table to block). */
+  .pending-card .tbl, .pending-card .tbl tbody { display: block; }
+  .pending-card .tbl tr.tr {
+    display: flex; flex-wrap: wrap; gap: 4px 10px;
+    border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px; margin-bottom: 10px;
+  }
+  .pending-card .tbl tr.tr:last-of-type { margin-bottom: 0; }
+  .pending-card .tbl td { display: block; border: none; padding: 0; }
+  .pending-card .tbl td.pend-who { flex: 1 1 100%; }
+  .pending-card .tbl td.pend-detail { flex: 1 1 100%; font-size: 12.5px; overflow-wrap: anywhere; }
+  /* Actions: own row, buttons stretch to share the width evenly, no clipping. */
+  .etrack .pending-card .tbl td.pend-act {
+    flex: 1 1 100%; width: auto; text-align: left; white-space: normal;
+    display: flex; gap: 8px; margin-top: 6px;
+  }
+  .etrack .pending-card .tbl td.pend-act button { flex: 1 1 0; margin-left: 0; }
 }
 
 /* ============ iMessage-style Contact conversation ============ */

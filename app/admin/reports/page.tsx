@@ -8,13 +8,15 @@
 // Read-only: every button is a client-side CSV download (lib/exportCsv), so
 // there's nothing to mutate and no edge function to call.
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, Fragment } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { downloadCsv, exportFilename, type CsvColumn } from '@/lib/exportCsv'
-import { residentBalance, communityDuesConfig } from '@/lib/dues'
+import { residentBalance, communityDuesConfig, adminLateFees, fmtMoney } from '@/lib/dues'
 import { Dropdown } from '@/components/Dropdown'
+import { RecordPaymentForm } from '@/components/RecordPaymentForm'
+import { logAudit } from '@/lib/audit'
 import { useT } from '@/lib/i18n'
 
 // Period presets behind the "Year to date" dropdown. Each maps to a from/to
@@ -51,7 +53,7 @@ const CHARGE_LABEL: Record<string, string> = {
 }
 const chargeLabel = (t: string | null) => (t ? (CHARGE_LABEL[t] || t) : 'Dues')
 type Expense = { id: string; amount: number; spent_on: string; category_id: string | null; vendor: string | null; description: string | null }
-type Resident = { id: string; full_name: string | null; unit_number: string | null; address: string | null; opening_balance: number | null; created_at?: string | null }
+type Resident = { id: string; full_name: string | null; unit_number: string | null; address: string | null; opening_balance: number | null; created_at?: string | null; profile_id?: string | null; email?: string | null }
 
 export default function ReportsPage() {
   const t = useT()
@@ -70,6 +72,12 @@ export default function ReportsPage() {
   const [to, setTo] = useState(todayISO())
   const [period, setPeriod] = useState<PeriodKey>('ytd')
   const [category, setCategory] = useState<string>('all')
+
+  // Per-row state for the "Who's behind" actions: which row's record-payment
+  // form is open, and the in-flight / result state of a payment reminder.
+  const [openPayId, setOpenPayId] = useState<string | null>(null)
+  const [remindBusyId, setRemindBusyId] = useState<string | null>(null)
+  const [remindMsg, setRemindMsg] = useState('')
 
   // Picking a preset rewrites the from/to range the rest of the page reads;
   // "custom" leaves the current range alone and surfaces the date inputs.
@@ -108,7 +116,7 @@ export default function ReportsPage() {
           .select('id, amount, spent_on, category_id, vendor, description')
           .eq('community_id', communityId).order('spent_on', { ascending: false })),
         withTimeout(supabase!.from('residents')
-          .select('id, full_name, unit_number, address, opening_balance, created_at')
+          .select('id, full_name, unit_number, address, opening_balance, created_at, profile_id, email')
           .eq('community_id', communityId).order('full_name')),
         withTimeout(supabase!.from('budget_categories').select('id, name').eq('community_id', communityId)),
         withTimeout(supabase!.from('communities').select('*').eq('id', communityId).single()),
@@ -153,6 +161,62 @@ export default function ReportsPage() {
     () => residents.map(r => ({ r, bal: balanceOf(r) })).filter(x => x.bal > 0).sort((a, b) => b.bal - a.bal),
     [residents, balanceOf],
   )
+
+  // The lawful late fee on file for one household — the same figure baked into
+  // residentBalance, surfaced on its own so the reminder can itemise it.
+  const lateFeeOf = useCallback(
+    (r: Resident) => adminLateFees(r as any, monthlyDues, paymentsByResident.get(r.id) || [], duesCfg),
+    [monthlyDues, paymentsByResident, duesCfg],
+  )
+
+  // Record an offline (check/cash/ACH) payment against a household, then refetch
+  // payments so the balance + who's-behind list update immediately. Reuses the
+  // same record_offline_payment RPC the old Residents page called.
+  const recordPayment = async (resident: Resident, { amount, method, paidOn, memo }: { amount: number; method: string; paidOn: string; memo: string }) => {
+    if (!communityId) return { error: t('admin.reports.errNoCommunity') }
+    const client_key = (globalThis.crypto?.randomUUID?.() || `${resident.id}:${paidOn}:${amount}`)
+    const { error } = await supabase!.rpc('record_offline_payment', {
+      p_community: communityId, p_resident: resident.id, p_amount: amount,
+      p_method: method, p_paid_on: paidOn || null, p_memo: memo || null, p_client_key: client_key,
+    })
+    if (error) return { error: error.message }
+    const { data } = await supabase!.from('payments')
+      .select('id, amount, paid_on, created_at, resident_id, charge_type, method')
+      .eq('community_id', communityId).order('paid_on', { ascending: false })
+    setPayments((data as Payment[]) || [])
+    setOpenPayId(null)
+    return {}
+  }
+
+  // Notify-to-pay — the everyday tool. Sends a TARGETED notice (in-app + email +
+  // push, via the existing ev_notices fan-out) to one owner, itemising what they
+  // owe and the lawful late fee. Requires the owner to have an activated account
+  // (a profile to deliver to); the button is disabled otherwise.
+  const sendReminder = async (resident: Resident, bal: number) => {
+    if (!communityId || !resident.profile_id) return
+    setRemindBusyId(resident.id); setRemindMsg('')
+    try {
+      const fee = lateFeeOf(resident)
+      const subject = t('admin.reports.reminderSubject')
+      const body = fee > 0
+        ? t('admin.reports.reminderBodyFee', { balance: fmtMoney(bal), fee: fmtMoney(fee) })
+        : t('admin.reports.reminderBody', { balance: fmtMoney(bal) })
+      const { error } = await withTimeout(supabase!.from('ev_notices').insert({
+        community_id: communityId,
+        target_profile_id: resident.profile_id,
+        // Reuse the existing 'dues_due' kind — already labelled "Dues due" and
+        // deep-linked to the resident's pay screen (lib/voice.ts noticeHref).
+        kind: 'dues_due',
+        channels: ['in_app', 'email'],
+        subject, body,
+      }))
+      if (error) throw error
+      logAudit({ community_id: communityId, event_type: 'payment.reminder_sent', target_type: 'resident', target_id: resident.id, metadata: { balance: bal, fee } })
+      setRemindMsg(t('admin.reports.reminderSent', { name: resident.full_name || t('admin.reports.residentFallback') }))
+    } catch (e: any) {
+      setRemindMsg(e?.message || t('admin.reports.reminderError'))
+    } finally { setRemindBusyId(null) }
+  }
 
   const paysInRange = useMemo(() => payments.filter(p => inRange(payDate(p), from, to)), [payments, from, to])
   const expInRange = useMemo(
@@ -404,6 +468,7 @@ export default function ReportsPage() {
                 {t('admin.reports.exportCsvBtn')}
               </button>
             </div>
+            {remindMsg && <div className="admin-success" role="status" style={{ margin: '0 0 12px' }}>{remindMsg}</div>}
             {delinquents.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '22px 16px', color: 'var(--text-dim)', fontSize: 13.5 }}>
                 {residents.length === 0
@@ -411,21 +476,55 @@ export default function ReportsPage() {
                   : t('admin.reports.everyoneCurrent')}
               </div>
             ) : (
-              <table className="tbl">
+              <table className="tbl behind-tbl">
                 <thead>
                   <tr><th>{t('admin.reports.colOwner')}</th><th className="period-col">{t('admin.reports.colUnit')}</th><th>{t('admin.reports.colBalanceOwed')}</th><th className="act"></th></tr>
                 </thead>
                 <tbody>
-                  {delinquents.map(({ r, bal }) => (
-                    <tr key={r.id}>
+                  {delinquents.map(({ r, bal }) => {
+                    const fee = lateFeeOf(r)
+                    return (
+                    <Fragment key={r.id}>
+                    <tr>
                       <td className="strong">{r.full_name || t('admin.reports.residentFallback')}</td>
                       <td className="muted period-col">{r.unit_number || r.address || '—'}</td>
-                      <td className="due">{fmt$(bal)}</td>
+                      <td className="due">
+                        {fmt$(bal)}
+                        {fee > 0 && <span className="behind-fee">{t('admin.reports.inclLateFee', { fee: fmtMoney(fee) })}</span>}
+                      </td>
                       <td className="act">
-                        <Link href={`/admin/collections?resident=${r.id}`} className="go" style={{ textDecoration: 'none' }}>{t('admin.reports.collectLink')}</Link>
+                        {/* Inner flex wrapper — NOT the <td> itself, so the cell
+                            stays display:table-cell and the columns don't collapse. */}
+                        <div className="behind-act">
+                          {/* Notify = the everyday hero. Needs an activated owner to deliver to. */}
+                          <button type="button" className="admin-primary-btn behind-notify"
+                            disabled={remindBusyId === r.id || !r.profile_id}
+                            title={!r.profile_id ? t('admin.reports.notifyNeedsAccount') : t('admin.reports.notifyTitle')}
+                            onClick={() => sendReminder(r, bal)}>
+                            {remindBusyId === r.id ? t('admin.reports.notifySending') : t('admin.reports.notifyBtn')}
+                          </button>
+                          <button type="button" className="go" onClick={() => setOpenPayId(id => id === r.id ? null : r.id)}>
+                            {openPayId === r.id ? t('admin.reports.recordClose') : t('admin.reports.recordPaymentBtn')}
+                          </button>
+                          {/* Collect = last resort: escalate to a collections case. */}
+                          <Link href={`/admin/collections?resident=${r.id}`} className="go dim" style={{ textDecoration: 'none' }}>{t('admin.reports.collectLink')}</Link>
+                        </div>
                       </td>
                     </tr>
-                  ))}
+                    {openPayId === r.id && (
+                      <tr className="behind-payrow">
+                        <td colSpan={4}>
+                          <div className="behind-payform">
+                            <span className="admin-field-label" style={{ display: 'block', marginBottom: 8 }}>
+                              {t('admin.reports.recordPaymentLabel', { name: r.full_name || t('admin.reports.residentFallback') })}
+                            </span>
+                            <RecordPaymentForm onSubmit={v => recordPayment(r, v)} />
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
+                  )})}
                 </tbody>
               </table>
             )}

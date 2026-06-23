@@ -1,6 +1,6 @@
 'use client'
 
-import { ReactNode, useEffect, useState } from 'react'
+import { ReactNode, useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { hasSupabase, supabase } from '@/lib/supabase'
@@ -82,6 +82,39 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const platformRoles = usePlatformRoles()
   const { canAny, perms, loading: permLoading } = usePermissions()
   const { state: trial, communityName } = useTrial()
+
+  // Tab-overflow → dropdown. The desktop tab row collapses into the section
+  // dropdown (next to the search) when the tabs can't fit the nav width — instead
+  // of a fixed breakpoint, which broke once there were ~12 tabs. A hidden
+  // measurer holds the full-width tab row so the check stays stable when
+  // collapsed (no feedback loop). ResizeObserver watches both the nav (width)
+  // and the measurer (its width changes as perms resolve / tabs change).
+  const navRef = useRef<HTMLElement | null>(null)
+  const measureRef = useRef<HTMLDivElement | null>(null)
+  const [navCollapsed, setNavCollapsed] = useState(false)
+  useEffect(() => {
+    const nav = navRef.current, meas = measureRef.current
+    if (!nav || !meas) return
+    // The tab group is CENTERED, while "Back to app" (left) and the search (right)
+    // are pinned in the gutters. So the group collides with the back link once the
+    // free space on either side is smaller than the back link — and because it's
+    // centered, that gutter must be reserved on BOTH sides. Reserve 2×(back width
+    // + a gap) so the tabs drop into the dropdown the moment they'd touch "Back".
+    const compute = () => {
+      const back = nav.querySelector('.admin-nav-back') as HTMLElement | null
+      const GAP = 22
+      const reserve = 2 * ((back?.offsetWidth ?? 110) + GAP)
+      const needed = meas.scrollWidth + reserve
+      // Hysteresis: collapse the moment the tabs would touch, but only expand
+      // again with comfortable headroom — so a borderline width (or a scrollbar
+      // toggling as the nav height changes) can't flip-flop the two states.
+      setNavCollapsed(prev => needed > nav.clientWidth - (prev ? 24 : 0))
+    }
+    compute()
+    const ro = new ResizeObserver(compute)
+    ro.observe(nav); ro.observe(meas)
+    return () => ro.disconnect()
+  }, [session])
 
   // Live count of Easy Voice items needing the board's attention — messages
   // awaiting a reply + ARC requests awaiting a decision — drives the nav badge so
@@ -256,7 +289,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         </div>
       </header>
 
-      <nav className="admin-nav">
+      <nav className={`admin-nav${navCollapsed ? ' admin-nav-collapsed' : ''}`} ref={navRef}>
         <Link href="/app" className="admin-nav-item admin-nav-back">
           <span className="admin-back-long">{t('admin.nav.backToApp')}</span>
           <span className="admin-back-short" aria-hidden="true">{t('admin.nav.back')}</span>
@@ -301,6 +334,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
         {/* Search lives in the far-right gutter, mirroring "Back to app" on the
             left, so the centered tab row stays balanced. */}
         <AdminSearch />
+        {/* Hidden measurer — the full-width tab row at natural size, used only to
+            decide whether the real tabs fit. Never visible; never wraps. */}
+        <div className="admin-nav-measure" ref={measureRef} aria-hidden="true">
+          {visibleNav.map(item => (
+            <span key={item.href} className="admin-nav-item">{t(item.label)}</span>
+          ))}
+          {isPlatformAdmin && <span className="admin-nav-item">{t('admin.nav.platformConsole')}</span>}
+        </div>
       </nav>
 
       <main className="admin-main">

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
+import { STATUTORY_MAX_APR, STATUTORY_LATE_FEE_PCT, STATUTORY_LATE_FEE_MIN } from '@/lib/dues'
 import { Dropdown } from '@/components/Dropdown'
 import { useT } from '@/lib/i18n'
 
@@ -130,6 +131,23 @@ export default function CommunitySettings() {
     e.preventDefault()
     setStatus('saving'); setError('')
     try {
+      // Florida statutory guardrails (FS 718.116(3) / 720.3085(3)): interest is
+      // capped at 18% APR and the late fee at the greater of $25 or 5% of each
+      // installment. Clamp the hard caps (APR, %); warn-only on a flat fee over
+      // $25 since 5%-of-a-large-installment can lawfully exceed it. Reflect any
+      // clamp back into the form so the board sees the lawful value.
+      const rawApr = numOrNull(form.interest_apr)
+      const rawPct = numOrNull(form.late_fee_pct)
+      const rawFlat = numOrNull(form.late_fee_flat)
+      const apr = rawApr != null && rawApr > STATUTORY_MAX_APR ? STATUTORY_MAX_APR : rawApr
+      const pct = rawPct != null && rawPct > STATUTORY_LATE_FEE_PCT ? STATUTORY_LATE_FEE_PCT : rawPct
+      const clampNotes = []
+      if (apr !== rawApr) clampNotes.push(t('admin.community.clampApr', { max: STATUTORY_MAX_APR }))
+      if (pct !== rawPct) clampNotes.push(t('admin.community.clampPct', { max: STATUTORY_LATE_FEE_PCT }))
+      if (rawFlat != null && rawFlat > STATUTORY_LATE_FEE_MIN) clampNotes.push(t('admin.community.warnFlat', { min: STATUTORY_LATE_FEE_MIN }))
+      if (apr !== rawApr || pct !== rawPct) {
+        setForm(f => ({ ...f, interest_apr: apr ?? '', late_fee_pct: pct ?? '' }))
+      }
       const patch = {
         name: (form.name || '').trim() || 'My Community',
         location: (form.location || '').trim() || null,
@@ -145,9 +163,10 @@ export default function CommunitySettings() {
         monthly_dues: numOrNull(form.monthly_dues),
         // FL compliance config — annual APR replaces the legacy monthly rate.
         // null = charge nothing (the platform never invents interest/fees).
-        interest_apr: numOrNull(form.interest_apr),
-        late_fee_flat: numOrNull(form.late_fee_flat),
-        late_fee_pct: numOrNull(form.late_fee_pct),
+        // Values clamped above to the statutory caps.
+        interest_apr: apr,
+        late_fee_flat: rawFlat,
+        late_fee_pct: pct,
         // Column is NOT NULL (default 24) — never write null.
         amenity_refund_cutoff_hours: numOrNull(form.amenity_refund_cutoff_hours) ?? 24,
         association_address: (form.association_address || '').trim() || null,
@@ -157,7 +176,10 @@ export default function CommunitySettings() {
         supabase.from('communities').update(patch).eq('id', communityId)
       )
       if (error) throw error
-      setStatus('ready'); setSuccessMsg(t('admin.community.settingsSaved'))
+      setStatus('ready')
+      setSuccessMsg(clampNotes.length
+        ? `${t('admin.community.settingsSaved')} ${clampNotes.join(' ')}`
+        : t('admin.community.settingsSaved'))
     } catch (err) {
       setError(err?.message || t('admin.community.saveFailed')); setStatus('error')
     }
