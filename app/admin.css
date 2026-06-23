@@ -104,7 +104,12 @@
 }
 
 /* ── First-visit admin welcome modal (dark, plan + features) ─────────────── */
-.awl-overlay { position: fixed; inset: 0; z-index: 200; background: rgba(10, 8, 16, 0.55); display: grid; place-items: center; padding: 18px; }
+.awl-overlay {
+  position: fixed; top: 0; left: 0;
+  width: 100vw; height: 100vh; height: 100dvh; z-index: 200;
+  background: rgba(10, 8, 16, 0.55);
+  display: grid; place-items: center; padding: 18px;
+}
 .awl-modal {
   width: 100%; max-width: 400px; max-height: 92vh; overflow-y: auto; position: relative;
   background: linear-gradient(180deg, #20232f 0%, #14161e 100%); color: #fff;
