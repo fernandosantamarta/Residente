@@ -33,7 +33,13 @@ export function AdminWelcome() {
       .from('communities')
       .select('name, home_count, unit_count, plan, subscription_status, created_at')
       .eq('id', communityId).single()
-      .then(({ data }) => { if (!cancelled) { setRow(data); setOpen(true) } })
+      .then(({ data }) => {
+        if (cancelled || !data) return
+        setRow(data)
+        // Only welcome communities on their free trial — don't pop on established
+        // / active communities (e.g. Palm Grove Test).
+        if (trialState(data).phase === 'trial') setOpen(true)
+      })
     return () => { cancelled = true }
   }, [communityId])
 
