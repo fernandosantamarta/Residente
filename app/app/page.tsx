@@ -12,6 +12,7 @@ import { useAuth } from '@/app/providers'
 import { stripeEnabled, supabase } from '@/lib/supabase'
 import { usePreferences } from '@/lib/preferences'
 import { useScheduleEvents } from '@/lib/schedule'
+import { useCheckout } from '@/components/CheckoutProvider'
 import { useT } from '@/lib/i18n'
 import { DetailDialog } from './track/_sections/DetailDialog'
 import { RequestFormDialog } from './voice/_sections/RequestForm'
@@ -1018,6 +1019,7 @@ function CommunityCalendarDialog({ onClose }: { onClose: () => void }) {
 // one click away.
 function QuickPayDialog({ onClose }: { onClose: () => void }) {
   const t = useT()
+  const { openCheckout } = useCheckout()
   const { resident, balance } = useMyResident() as any
   const [prefs] = usePreferences()
   const methods = prefs.payment_methods.map((pm, i) => ({ ...pm, is_default: i === 0 }))
@@ -1033,17 +1035,12 @@ function QuickPayDialog({ onClose }: { onClose: () => void }) {
     if (!amt || amt <= 0) { setError(t('home.payErrAmount')); return }
     if (methods.length && !cardId) { setError(t('home.payErrMethod')); return }
     if (stripeEnabled && supabase && resident) {
-      setBusy(true); setError('')
-      try {
-        const { data, error } = await supabase.functions.invoke('create-checkout', {
-          body: { resident_id: resident.id, amount: amt },
-        })
-        if (error) throw error
-        if (data?.url) { window.location.href = data.url; return }
-        setDone(true)
-      } catch (e: any) {
-        setError(e?.message || t('home.payErrCheckout'))
-      } finally { setBusy(false) }
+      setError('')
+      openCheckout({
+        fn: 'create-checkout',
+        body: { resident_id: resident.id, amount: amt },
+        onComplete: () => setDone(true),
+      })
     } else {
       setDone(true)
     }

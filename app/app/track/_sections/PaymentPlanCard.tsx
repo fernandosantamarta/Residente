@@ -7,7 +7,8 @@
 
 import { useState } from 'react'
 import { fmtMoney } from '@/lib/dues'
-import { useMyPaymentPlan, payInstallment } from '@/lib/payment-plans'
+import { useMyPaymentPlan } from '@/lib/payment-plans'
+import { useCheckout } from '@/components/CheckoutProvider'
 import { useT } from '@/lib/i18n'
 import { DetailDialog } from './DetailDialog'
 
@@ -20,6 +21,7 @@ const fmtDate = (d: string | Date | null | undefined) => {
 
 export function PaymentPlanCard({ resident }: { resident: any }) {
   const t = useT()
+  const { openCheckout } = useCheckout()
   const { openCase, plan, loading, requestPlan, withdrawPlan } = useMyPaymentPlan()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -62,12 +64,15 @@ export function PaymentPlanCard({ resident }: { resident: any }) {
     if (err) setError(err)
   }
 
-  const onPayInstallment = async () => {
+  const onPayInstallment = () => {
     if (!plan || !resident) return
-    setBusy(true); setError(null)
+    setError(null)
     const installmentNo = (plan.paid_count ?? 0) + 1
-    const err = await payInstallment(resident.id, plan.id, installmentNo, Number(plan.installment_amount) || 0)
-    if (err) { setError(err); setBusy(false) }   // redirects to Stripe on success
+    openCheckout({
+      fn: 'create-checkout',
+      body: { resident_id: resident.id, amount: Number(plan.installment_amount) || 0, plan_id: plan.id, installment_no: installmentNo },
+      returnUrl: '/app/track?submitted=1#pay',
+    })
   }
 
   return (

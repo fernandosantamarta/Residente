@@ -892,14 +892,13 @@ function FinesDueCard() {
   )
   const [payingId, setPayingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const { openCheckout } = useCheckout()
 
   if (fines.length === 0) return null
 
-  const onPay = async (id: string) => {
+  const onPay = (id: string) => {
     setError(null)
-    setPayingId(id)
-    const err = await payFine(id)   // redirects to Stripe on success
-    if (err) { setError(err); setPayingId(null) }
+    openCheckout({ fn: 'create-fine-checkout', body: { violation_id: id }, returnUrl: '/app/documents?fine_paid=1#violations' })
   }
 
   return (

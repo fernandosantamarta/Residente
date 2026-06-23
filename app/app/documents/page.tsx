@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase'
 import { DetailDialog } from '../track/_sections/DetailDialog'
 import { ContestFineControl } from '../track/_sections/ContestFineControl'
 import { Dropdown } from '@/components/Dropdown'
+import { useCheckout } from '@/components/CheckoutProvider'
 import { useT } from '@/lib/i18n'
 
 // ─── shared helpers ────────────────────────────────────────────────────────
@@ -936,6 +937,7 @@ const DEMO_VIOLATIONS = [
 // Demo fallback so it renders in preview.
 function MyViolationsPanel() {
   const t = useT()
+  const { openCheckout } = useCheckout()
   const { violations } = useMyViolations()
   const data: any[] = violations.length ? violations : DEMO_VIOLATIONS
   const isReal = violations.length > 0
@@ -979,11 +981,9 @@ function MyViolationsPanel() {
   const statusTone = (v: any): string =>
     isPaid(v) ? 'paid' : v.status === 'closed' ? 'closed' : underReview(v) ? 'review' : 'open'
 
-  const onPay = async (v: any) => {
+  const onPay = (v: any) => {
     setPayError(null)
-    setPayingId(v.id)
-    const err = await payFine(v.id)   // redirects to Stripe on success
-    if (err) { setPayError(err); setPayingId(null) }
+    openCheckout({ fn: 'create-fine-checkout', body: { violation_id: v.id }, returnUrl: '/app/documents?fine_paid=1#violations' })
   }
 
   return (
