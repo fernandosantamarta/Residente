@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { loadStripe, type Stripe } from '@stripe/stripe-js'
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from '@stripe/react-stripe-js'
-import { TrialCountdown } from './TrialCountdown'
 import { useT } from '@/lib/i18n'
 
 // Generic in-app Stripe Embedded Checkout modal — powers EVERY checkout
@@ -56,7 +55,6 @@ export function CheckoutModal({ createSession, onClose, onComplete, title, count
     <div className="cho-overlay" onClick={onClose}>
       <div className="cho-modal" onClick={(e) => e.stopPropagation()}>
         <button className="cho-close" onClick={onClose} aria-label={t('admin.billing.close')}>×</button>
-        {countdownTo && <TrialCountdown to={countdownTo} />}
         <div className="cho-body">
           {err ? (
             <div className="cho-msg">{err}</div>

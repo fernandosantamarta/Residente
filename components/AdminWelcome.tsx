@@ -5,6 +5,7 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { planForHomes, monthlyTotalLabel } from '@/lib/plan'
 import { trialState } from '@/lib/trial'
+import { TrialCountdown } from '@/components/TrialCountdown'
 import { useCheckout } from '@/components/CheckoutProvider'
 import { useT } from '@/lib/i18n'
 
@@ -65,6 +66,8 @@ export function AdminWelcome() {
 
         <h2 className="awl-title">{t('admin.welcome.title')}</h2>
         <p className="awl-sub">{t('admin.welcome.sub', { name: row.name || t('admin.welcome.yourCommunity') })}</p>
+
+        {onTrial && trial.endsAt && <TrialCountdown to={trial.endsAt} />}
 
         <div className="awl-plan awl-plan-featured">
           {onTrial && <span className="awl-plan-badge">{t('admin.welcome.badge')}</span>}
