@@ -23,6 +23,16 @@ export function AdminWelcome() {
   const communityId = profile?.community_id
   const [row, setRow] = useState<any>(null)
   const [open, setOpen] = useState(false)
+  // Portal target appended to <html>, NOT <body> — on mobile body has
+  // overflow-x:hidden, and iOS Safari clips position:fixed descendants of an
+  // overflow box into a rectangle. Mounting above <body> lets the overlay fill
+  // the whole screen.
+  const [portalEl] = useState(() => (typeof document === 'undefined' ? null : document.createElement('div')))
+  useEffect(() => {
+    if (!portalEl) return
+    document.documentElement.appendChild(portalEl)
+    return () => { try { document.documentElement.removeChild(portalEl) } catch { /* ignore */ } }
+  }, [portalEl])
 
   useEffect(() => {
     if (!hasSupabase || !supabase || !communityId) return
@@ -52,7 +62,7 @@ export function AdminWelcome() {
     try { localStorage.setItem(`${SEEN_KEY}:${communityId}`, '1') } catch { /* ignore */ }
   }
 
-  if (!open || !row) return null
+  if (!open || !row || !portalEl) return null
 
   const homes = row.home_count ?? row.unit_count ?? 0
   const band = planForHomes(homes)
@@ -115,6 +125,6 @@ export function AdminWelcome() {
         <div className="awl-foot">{t('admin.welcome.foot')}</div>
       </div>
     </div>,
-    document.body,
+    portalEl,
   )
 }
