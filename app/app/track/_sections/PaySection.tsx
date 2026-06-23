@@ -7,6 +7,7 @@ import { stripeEnabled, supabase } from '@/lib/supabase'
 import { usePreferences, newId, PaymentMethod } from '@/lib/preferences'
 import { fmtMoney, monthsCovered, monthsOwed } from '@/lib/dues'
 import { useMyViolations, payFine } from '@/lib/violations'
+import { useCheckout } from '@/components/CheckoutProvider'
 import { useT } from '@/lib/i18n'
 import { DetailDialog } from './DetailDialog'
 import { PaymentPlanCard } from './PaymentPlanCard'
@@ -54,6 +55,7 @@ const DEMO_STATEMENTS = [
 // preferences).
 export function PaySection() {
   const t = useT()
+  const { openCheckout } = useCheckout()
   const { resident, balance, monthlyDues, payments, loading, status } = useMyResident() as any
   const [prefs, patchPrefs] = usePreferences()
   const [checkout, setCheckout] = useState({ loading: false, error: '' })
@@ -224,18 +226,14 @@ export function PaySection() {
 
   // Save a card on file via Stripe hosted Checkout (setup mode) — redirects to
   // Stripe and back to #pay. Used by "+ Add New" and the autopay setup CTA.
-  const addCard = async () => {
+  const addCard = () => {
     if (!stripeLive) return
     setAutopayErr('')
-    try {
-      const { data, error } = await supabase.functions.invoke('create-setup-checkout', {
-        body: { resident_id: resident.id },
-      })
-      if (error) throw error
-      if (data?.url) window.location.href = data.url
-    } catch (err: any) {
-      setAutopayErr(err?.message || t('pay.errStartCardSetup'))
-    }
+    openCheckout({
+      fn: 'create-setup-checkout',
+      body: { resident_id: resident.id },
+      returnUrl: '/app/track?card=saved#pay',
+    })
   }
 
   // Turn autopay on/off against the resident's default saved card.
@@ -295,20 +293,15 @@ export function PaySection() {
         }
       })
 
-  const startCheckout = async () => {
+  const startCheckout = () => {
     // Demo / no-Stripe: simulate a successful payment instead of dead-clicking,
     // mirroring the Home Quick-Pay popup.
     if (!stripeEnabled || !resident) { setDemoPaid(currentBalance); return }
-    setCheckout({ loading: true, error: '' })
-    try {
-      const { data, error } = await supabase.functions.invoke('create-checkout', {
-        body: { resident_id: resident.id, amount: currentBalance },
-      })
-      if (error) throw error
-      if (data?.url) window.location.href = data.url
-    } catch (err: any) {
-      setCheckout({ loading: false, error: err?.message || t('pay.errCheckoutFailed') })
-    }
+    openCheckout({
+      fn: 'create-checkout',
+      body: { resident_id: resident.id, amount: currentBalance },
+      returnUrl: '/app/track?submitted=1#pay',
+    })
   }
 
   return (

@@ -5,6 +5,7 @@ import type { Session, User } from '@supabase/supabase-js'
 import { supabase, hasSupabase, getProfile, type Profile } from '@/lib/supabase'
 import { applyAppIcon, getAppIcon } from '@/lib/appIcon'
 import { isNativeApp } from '@/lib/nativePush'
+import { CheckoutProvider } from '@/components/CheckoutProvider'
 
 type AuthContextValue = {
   session: Session | null
@@ -110,7 +111,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ session, profile, setProfile }}>
-      {children}
+      <CheckoutProvider>
+        {children}
+      </CheckoutProvider>
     </AuthContext.Provider>
   )
 }

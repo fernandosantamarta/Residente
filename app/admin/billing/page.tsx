@@ -4,10 +4,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { manageSubscription } from '@/lib/signup'
-import { embeddedCheckout } from '@/lib/checkout'
 import { planForHomes, monthlyTotalLabel } from '@/lib/plan'
 import { useTrial } from '@/hooks/useTrial'
-import { CheckoutModal } from '@/components/CheckoutModal'
+import { useCheckout } from '@/components/CheckoutProvider'
 import { useT } from '@/lib/i18n'
 
 // Plan & billing — the community's Residente subscription. Lifted out of the
@@ -22,8 +21,8 @@ export default function AdminBilling() {
   const [community, setCommunity] = useState<any>(null)
   const [status, setStatus] = useState('loading') // loading | ready | none | error
   const [showSub, setShowSub] = useState(false)
-  const [showCheckout, setShowCheckout] = useState(false)
   const { state: trial } = useTrial()
+  const { openCheckout } = useCheckout()
 
   const load = useCallback(async () => {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
@@ -39,7 +38,12 @@ export default function AdminBilling() {
   useEffect(() => { load() }, [load])
 
   // Open the in-app embedded checkout (no redirect out to Stripe's hosted page).
-  const activatePlan = () => setShowCheckout(true)
+  const activatePlan = () => openCheckout({
+    fn: 'create-subscription-checkout',
+    title: t('admin.billing.addPaymentTitle'),
+    countdownTo: trial.phase === 'trial' ? trial.endsAt : null,
+    onComplete: () => load(),
+  })
 
   if (status === 'loading') return <div className="admin-page"><div className="admin-note">{t('admin.billing.loading')}</div></div>
   if (status === 'none') return (
@@ -130,15 +134,6 @@ export default function AdminBilling() {
         />
       )}
 
-      {showCheckout && (
-        <CheckoutModal
-          title={t('admin.billing.addPaymentTitle')}
-          countdownTo={onTrial && trial.endsAt ? trial.endsAt : null}
-          createSession={() => embeddedCheckout('create-subscription-checkout')}
-          onClose={() => setShowCheckout(false)}
-          onComplete={() => { setShowCheckout(false); load() }}
-        />
-      )}
     </div>
   )
 }
