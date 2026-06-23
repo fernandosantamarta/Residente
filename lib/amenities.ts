@@ -247,7 +247,7 @@ export function useAmenityHub() {
   const amenities = live ? dbAmenities : DEMO_AMENITIES
   const reservations = live ? dbReservations : localReservations
 
-  const book = useCallback(async (input: BookInput): Promise<string | null> => {
+  const book = useCallback(async (input: BookInput, onCheckout?: (a: { fn: string; body: Record<string, unknown>; returnUrl: string }) => void): Promise<string | null> => {
     if (live && canUseDb) {
       // Priced amenity + Stripe configured → hold the slot as 'pending' and
       // send the resident to Stripe; the webhook flips it to 'paid'. Free (or
@@ -274,6 +274,13 @@ export function useAmenityHub() {
       const id = data?.id ?? null
 
       if (paid && id) {
+        // In-app embedded checkout when the caller provides openCheckout (the
+        // reservation is already held 'pending'; the webhook flips it to paid).
+        // Falls back to the hosted redirect otherwise.
+        if (onCheckout) {
+          onCheckout({ fn: 'create-amenity-checkout', body: { reservation_id: id }, returnUrl: '/app/schedule?amenity_paid=1#amenities' })
+          return id
+        }
         const { data: co, error: coErr } = await supabase!.functions.invoke(
           'create-amenity-checkout',
           { body: { reservation_id: id } },

@@ -15,6 +15,7 @@ import {
   useAmenityHub,
   withinRefundWindow,
 } from '@/lib/amenities'
+import { useCheckout } from '@/components/CheckoutProvider'
 
 function todayISO() {
   const d = new Date()
@@ -46,6 +47,7 @@ function KindIcon({ kind }: { kind: AmenityKind }) {
 
 export function AmenitiesSection() {
   const t = useT()
+  const { openCheckout } = useCheckout()
   const { amenities, reservations, byAmenity, live, book, cancel, reschedule, takenSlots, refundCutoffHours } = useAmenityHub()
 
   const [query, setQuery] = useState('')
@@ -235,7 +237,7 @@ export function AmenitiesSection() {
           taken={takenSlots(active.id, todayISO())}
           takenForDate={(iso: string) => takenSlots(active.id, iso)}
           onClose={() => setActive(null)}
-          onBook={async input => { await book(input); setActive(null) }}
+          onBook={async input => { await book(input, openCheckout); setActive(null) }}
         />
       )}
 

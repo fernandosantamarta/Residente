@@ -7,6 +7,7 @@ import { hasSupabase, signIn, signUp, supabase, getProfile } from '@/lib/supabas
 import { useAuth } from '../providers'
 import { isNativeApp } from '@/lib/nativePush'
 import { planForHomes, monthlyTotalLabel } from '@/lib/plan'
+import { useCheckout } from '@/components/CheckoutProvider'
 import {
   provisionAccount,
   stashPendingProvision,
@@ -31,7 +32,7 @@ type Who = 'resident' | 'board'
 type Step =
   | 'property' | 'role'
   | 'community' | 'plan' | 'documents' | 'connect' | 'details' | 'account'
-  | 'working' | 'confirm-email' | 'pending-approval'
+  | 'working' | 'confirm-email' | 'pending-approval' | 'pay-now'
 
 const FLOW: Record<Who, Step[]> = {
   resident: ['property', 'role', 'connect', 'details', 'account'],
@@ -61,6 +62,7 @@ function smartFile(docState: DocSectionState[], docs: DocSection[], key: 'ccrs' 
 export default function SignupPage() {
   const router = useRouter()
   const { setProfile } = useAuth()
+  const { openCheckout } = useCheckout()
   const [step, setStep] = useState<Step>('property')
   const [who, setWho] = useState<Who | null>(null)
   const [propertyType, setPropertyType] = useState<PropertyType | null>(null)
@@ -114,6 +116,23 @@ export default function SignupPage() {
     setWho(w)
     setErr(null)
     setStep(w === 'resident' ? 'connect' : 'community')
+  }
+
+  // Send a freshly-provisioned board into the admin (refresh the profile first on
+  // native so the admin gate sees the new community/role).
+  const goToAdmin = async () => {
+    if (isNative && supabase) {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session?.user) {
+          const { data: fresh } = await getProfile(session.user.id)
+          if (fresh) setProfile({ ...fresh, email: session.user.email ?? fresh.email })
+        }
+      } catch { /* the admin page will refetch */ }
+      router.replace('/admin')
+    } else {
+      window.location.assign('/admin')
+    }
   }
 
   const finish = async () => {
@@ -241,7 +260,10 @@ export default function SignupPage() {
       // Resident whose email/address didn't match the roster → awaiting board
       // approval. Don't route into the cockpit; show the waiting screen.
       if (res.pending) { setStep('pending-approval'); setBusy(false); return }
-      const dest = res.role === 'resident' ? '/onboard' : '/admin'
+      // Board just created a community — offer to add a card now (optional)
+      // before entering the dashboard. Residents go straight to consent.
+      if (res.role !== 'resident') { setStep('pay-now'); setBusy(false); return }
+      const dest = '/onboard'
       // In the native app a hard window.location navigation gets handed to Safari
       // (and lands on /login with no session). Route client-side so it stays in
       // the app. Refresh the profile in context first so the destination's
@@ -398,6 +420,32 @@ export default function SignupPage() {
                 Continue
               </Link>
             </div>
+          </>
+        )}
+
+        {step === 'pay-now' && (
+          <>
+            <div className="su-kicker">You&apos;re all set</div>
+            <h1 className="su-h1">Add a card now?</h1>
+            <p className="su-sub">
+              Your community is on 3 months free — no charge today. Add a payment
+              method now and it simply bills when the free months end, or skip and
+              add it anytime from your subscription page.
+            </p>
+            <HouseArt />
+            <div className="su-actions">
+              <button className="su-btn" type="button" onClick={() => openCheckout({
+                fn: 'create-subscription-checkout',
+                title: 'Add payment',
+                countdownTo: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
+                onComplete: () => { void goToAdmin() },
+              })}>
+                Add a card now
+              </button>
+            </div>
+            <button type="button" className="su-skip" onClick={() => { void goToAdmin() }}>
+              Skip — start my 3 free months
+            </button>
           </>
         )}
         </div>
