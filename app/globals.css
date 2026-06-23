@@ -4113,6 +4113,34 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 [data-theme="sketch"] .tag-hosted  { color: #0A2440; background: rgba(15, 28, 46, 0.08); }
 
 /* ---- WHERE YOUR DUES GO — matches the other cockpit cards ---- */
+/* Tenant rent-demand banner (the one pay screen a tenant sees). */
+[data-theme="sketch"] .rdmd-banner {
+  background: linear-gradient(135deg, #FFF4E8, #FFE7CF);
+  border: 1px solid #E14909; border-radius: 16px;
+  padding: 18px 20px; margin: 0 0 18px;
+}
+[data-theme="sketch"] .rdmd-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+[data-theme="sketch"] .rdmd-badge {
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  color: #fff; background: #E14909; padding: 3px 9px; border-radius: 999px;
+}
+[data-theme="sketch"] .rdmd-title { font-size: 18px; font-weight: 700; margin: 0; color: #1F2233; }
+[data-theme="sketch"] .rdmd-body { font-size: 14px; line-height: 1.5; color: #4a3f36; margin: 0 0 12px; }
+[data-theme="sketch"] .rdmd-pay { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+[data-theme="sketch"] .rdmd-amount {
+  display: inline-flex; align-items: center; background: #fff;
+  border: 1px solid #E14909; border-radius: 10px; padding: 0 12px; height: 44px;
+}
+[data-theme="sketch"] .rdmd-amount-prefix { font-weight: 700; color: #1F2233; margin-right: 4px; }
+[data-theme="sketch"] .rdmd-amount input { border: none; outline: none; background: none; font-size: 16px; width: 110px; font-family: inherit; }
+[data-theme="sketch"] .rdmd-pay-btn {
+  height: 44px; padding: 0 22px; border: none; border-radius: 10px;
+  background: #E14909; color: #fff; font-weight: 700; font-size: 15px; cursor: pointer;
+}
+[data-theme="sketch"] .rdmd-pay-btn:hover { background: #C53D06; }
+[data-theme="sketch"] .rdmd-paid { font-weight: 600; color: #067647; background: rgba(6,118,71,0.1); padding: 10px 14px; border-radius: 10px; }
+[data-theme="sketch"] .rdmd-note { font-size: 11.5px; color: #8a7d72; line-height: 1.5; margin: 12px 0 0; }
+
 [data-theme="sketch"] .dues-section {
   background: var(--bg-card);
   border: 1px solid rgba(15, 28, 46, 0.08);

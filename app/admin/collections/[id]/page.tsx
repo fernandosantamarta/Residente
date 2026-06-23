@@ -82,6 +82,7 @@ export default function CollectionCaseDetail() {
   const [payments, setPayments] = useState<any[]>([])
   const [notices, setNotices] = useState<CollectionNoticeRow[]>([])
   const [plans, setPlans] = useState<PaymentPlanRow[]>([])
+  const [demand, setDemand] = useState<any>(null) // active tenant rent demand, if any
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState('')
   const [msg, setMsg] = useState('')
@@ -117,8 +118,16 @@ export default function CollectionCaseDetail() {
       const { data: pl } = (await withTimeout(
         supabase.from('ev_payment_plans').select('*').eq('case_id', id).order('created_at', { ascending: false }),
       )) as any
+      // Active tenant rent demand (FS 720.3085(8)/718.116(11)), if one is open.
+      let dm: any = null
+      try {
+        const { data: d } = (await withTimeout(
+          supabase.from('ev_rent_demands').select('*').eq('case_id', id).eq('status', 'active').maybeSingle(),
+        )) as any
+        dm = d || null
+      } catch { /* table may not exist yet — ignore */ }
       setC(cs); setCommunity(comm || null); setResident(res); setPayments(pays)
-      setNotices(ns || []); setPlans(pl || []); setStatus('ready')
+      setNotices(ns || []); setPlans(pl || []); setDemand(dm); setStatus('ready')
     } catch (err: any) {
       setError(err?.message || t('admin.collectionsDetail.couldNotLoadCase')); setStatus('error')
     }
@@ -155,6 +164,41 @@ export default function CollectionCaseDetail() {
     const { data } = (await supabase.from('payments').select('amount, created_at').eq('resident_id', resident.id)) as any
     setPayments(data || [])
     setMsg(`Recorded ${fmtMoney(amount)}`)
+  }
+
+  // Issue the statutory demand for rent from the tenant (FS 720.3085(8) /
+  // 718.116(11)). Opens a stateful demand record + logs the notice. The tenant
+  // then pays the unit's balance directly (in-app if they have an account); the
+  // demand is satisfied when the owner's payoff reaches $0.
+  const demandRent = async (obligation: number) => {
+    if (!resident || !c) return
+    try {
+      const { error: dErr } = await withTimeout(supabase.from('ev_rent_demands').insert({
+        community_id: c.community_id, case_id: id, resident_id: resident.id,
+        owner_profile_id: resident.profile_id || null,
+        tenant_profile_id: resident.tenant_profile_id || null,
+        obligation_at_demand: obligation,
+        created_by: (await supabase.auth.getUser()).data.user?.id || null,
+      }))
+      if (dErr) throw dErr
+      // Log the statutory notice on the case timeline.
+      await withTimeout(supabase.from('ev_collection_notices').insert({
+        community_id: c.community_id, case_id: id, kind: 'tenant_rent_demand',
+        method: 'both', recipient_name: resident.tenant_name || t('admin.collectionsDetail.theTenant'),
+      }))
+      setMsg(t('admin.collectionsDetail.rentDemandIssued')); load()
+    } catch (err: any) { setError(err?.message || t('admin.collectionsDetail.updateFailed')) }
+  }
+
+  const releaseDemand = async (reason: 'paid_in_full' | 'withdrawn') => {
+    if (!demand) return
+    try {
+      const { error } = await withTimeout(supabase.from('ev_rent_demands')
+        .update({ status: 'released', released_at: new Date().toISOString().slice(0, 10), released_reason: reason })
+        .eq('id', demand.id))
+      if (error) throw error
+      setMsg(t('admin.collectionsDetail.rentDemandReleased')); load()
+    } catch (err: any) { setError(err?.message || t('admin.collectionsDetail.updateFailed')) }
   }
 
   if (status === 'loading') return <div className="admin-page"><div className="admin-note">{t('admin.collectionsDetail.loading')}</div></div>
@@ -284,6 +328,46 @@ export default function CollectionCaseDetail() {
           }, t('admin.collectionsDetail.balanceSnapshotSaved'))}>{t('admin.collectionsDetail.saveBalanceSnapshot')}</button>
         )}
       </section>
+
+      {/* ---- Tenant rent demand (FS 720.3085(8) / 718.116(11)) ---- */}
+      {(() => {
+        const leased = !!(resident && (resident.is_rented || resident.tenant_name || resident.tenant_email || resident.tenant_profile_id))
+        const owed = payoff?.payoff ?? Number(c.total_balance) ?? 0
+        if (!leased && !demand) return null
+        return (
+          <section style={card}>
+            <h2 className="bc-title" style={{ marginBottom: 4 }}>{t('admin.collectionsDetail.rentDemandTitle')}</h2>
+            <p className="admin-dek" style={{ marginTop: 0 }}>{t('admin.collectionsDetail.rentDemandIntro')}</p>
+            {demand ? (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                <div className="admin-note" style={{ background: 'rgba(6,118,71,0.08)' }}>
+                  {t('admin.collectionsDetail.rentDemandActive', { date: demand.demanded_at })}
+                  {' · '}{t('admin.collectionsDetail.rentDemandObligation', { amount: fmt$(demand.obligation_at_demand || 0) })}
+                  {' · '}{t('admin.collectionsDetail.rentDemandRemaining', { amount: fmt$(owed) })}
+                  {demand.tenant_profile_id
+                    ? ' · ' + t('admin.collectionsDetail.rentDemandTenantInApp')
+                    : ' · ' + t('admin.collectionsDetail.rentDemandTenantNoAccount')}
+                </div>
+                {owed <= 0 && <div className="admin-note" style={{ background: 'rgba(6,118,71,0.12)', fontWeight: 600 }}>{t('admin.collectionsDetail.rentDemandSatisfied')}</div>}
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <Link className="admin-btn-ghost" href={`/admin/collections/${id}/document?type=tenant_demand`}>{t('admin.collectionsDetail.rentDemandPrint')}</Link>
+                  <button className="admin-btn-ghost" onClick={() => releaseDemand('paid_in_full')}>{t('admin.collectionsDetail.rentDemandReleasePaid')}</button>
+                  <button className="admin-btn-ghost" onClick={() => releaseDemand('withdrawn')}>{t('admin.collectionsDetail.rentDemandWithdraw')}</button>
+                </div>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                <button className="admin-primary-btn" disabled={owed <= 0} onClick={() => demandRent(owed)}
+                  title={owed <= 0 ? t('admin.collectionsDetail.rentDemandNoBalance') : t('admin.collectionsDetail.rentDemandBtnTitle')}>
+                  {t('admin.collectionsDetail.rentDemandBtn')}
+                </button>
+                <Link className="admin-btn-ghost" href={`/admin/collections/${id}/document?type=tenant_demand`}>{t('admin.collectionsDetail.rentDemandPreview')}</Link>
+                {owed <= 0 && <span className="muted" style={{ fontSize: 12.5 }}>{t('admin.collectionsDetail.rentDemandNoBalance')}</span>}
+              </div>
+            )}
+          </section>
+        )
+      })()}
 
       {/* ---- Notices ledger ---- */}
       <section style={card}>
