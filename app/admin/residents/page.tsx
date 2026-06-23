@@ -173,6 +173,36 @@ export default function Residents() {
     [rows],
   )
 
+  // Owners who requested a tenant account from their app Settings — the board
+  // approves (sends the non-voting tenant invite) or rejects.
+  const tenantRequests = useMemo(
+    () => rows.filter(r => r.tenant_request_state === 'pending'),
+    [rows],
+  )
+
+  const approveTenantRequest = async (r) => {
+    setInviteBusyId(r.id); setError(''); setInviteMsg('')
+    try {
+      // Mark approved first, then fire the existing tenant invite.
+      await withTimeout(supabase.from('residents').update({ tenant_request_state: 'approved' }).eq('id', r.id))
+      const { data, error } = await supabase.functions.invoke('voice-invite-owner', { body: { resident_id: r.id, tenant: true } })
+      if (error) throw error
+      if (data && data.ok === false) throw new Error(data.error || 'Invite failed')
+      await logAudit({ community_id: communityId, event_type: 'tenant.approved', target_type: 'resident', target_id: r.id, metadata: { email_sent: !!data?.email_sent } })
+      setInviteMsg(t('admin.residents.tenantInviteSent')); load()
+    } catch (err) {
+      setError(err?.message || t('admin.residents.errSendInvitation'))
+    } finally { setInviteBusyId(null) }
+  }
+
+  const rejectTenantRequest = async (id) => {
+    try {
+      await withTimeout(supabase.from('residents').update({ tenant_request_state: 'rejected' }).eq('id', id))
+      await logAudit({ community_id: communityId, event_type: 'tenant.rejected', target_type: 'resident', target_id: id })
+      load()
+    } catch (err) { setError(err?.message || t('admin.residents.errRemoveResident')) }
+  }
+
   // Most-recent ownership transfer per unit, so the roster can flag a household
   // whose account was handed to a new owner (admin oversight).
   const transferByResident = useMemo(() => {
@@ -506,6 +536,40 @@ export default function Residents() {
                         <button type="button" className="admin-btn-ghost" onClick={() => contactResident(r)}>{t('admin.residents.contactBtn')}</button>
                         <button type="button" className="admin-btn-ghost" onClick={() => rejectResident(r.id)}>{t('admin.residents.rejectBtn')}</button>
                         <button type="button" className="admin-primary-btn" onClick={() => approveResident(r.id)}>{t('admin.residents.approveBtn')}</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Tenant requests — owners who asked (from their Settings) to give
+              their renter a non-voting account. Approve = send the tenant invite. */}
+          {tenantRequests.length > 0 && (
+            <div className="card pending-card" style={{ borderColor: 'var(--warn)' }}>
+              <div className="card-head">
+                <div>
+                  <h2>{t('admin.residents.tenantReqCardTitle')}</h2>
+                  <div className="sub">{t('admin.residents.tenantReqCardSub')}</div>
+                </div>
+                <span className="pill" style={{ background: 'var(--warn)', color: '#fff' }}>{tenantRequests.length}</span>
+              </div>
+              <table className="tbl">
+                <tbody>
+                  {tenantRequests.map(r => (
+                    <tr className="tr" key={r.id}>
+                      <td className="pend-who">
+                        <span className="strong">{r.full_name || t('admin.residents.pendingNoName')}</span>
+                        <span className="muted"> · {r.unit_number || r.address || t('admin.residents.pendingNoUnit')}</span>
+                      </td>
+                      <td className="muted pend-detail">
+                        <span className="pend-detail-label">{t('admin.residents.tenantReqProposed')}</span>{' '}
+                        {r.tenant_name || '—'} · {r.tenant_email || '—'}
+                      </td>
+                      <td className="pend-act">
+                        <button type="button" className="admin-btn-ghost" disabled={inviteBusyId === r.id} onClick={() => rejectTenantRequest(r.id)}>{t('admin.residents.rejectBtn')}</button>
+                        <button type="button" className="admin-primary-btn" disabled={inviteBusyId === r.id} onClick={() => approveTenantRequest(r)}>{inviteBusyId === r.id ? t('admin.residents.sendingSingle') : t('admin.residents.tenantReqApprove')}</button>
                       </td>
                     </tr>
                   ))}

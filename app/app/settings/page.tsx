@@ -7,6 +7,7 @@ import { signOut, supabase, hasSupabase } from '@/lib/supabase'
 import { deleteAccount } from '@/lib/signup'
 import { DangerAction } from '@/components/DangerAction'
 import { useCommunityData } from '@/hooks/useCommunityData'
+import { useMyResident } from '@/hooks/useMyResident'
 import {
   HOMEPAGE_LABEL,
   LANGUAGE_LABEL,
@@ -273,6 +274,9 @@ export default function Settings() {
           <SectionCard title={t('settings.secVault')}>
             <HomeVaultPanel />
           </SectionCard>
+
+          {/* Renders its own section only for an owner whose unit is/leased — null otherwise. */}
+          <TenantRequestPanel />
 
           <SectionCard title={t('settings.secTransfer')}>
             <HomeTransferPanel />
@@ -551,6 +555,96 @@ function HomeVaultPanel() {
         </div>
       )}
     </>
+  )
+}
+
+// Tenant / renter request — an owner who leases their unit submits their
+// tenant's name + email and requests board approval. The owner only PROPOSES;
+// the actual non-voting account is created by the board (Easy Track → Approve).
+// Renders nothing for tenants or accounts with no roster row.
+function TenantRequestPanel() {
+  const t = useT()
+  const { resident, isTenant, loading } = useMyResident()
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  // Local override so the UI reflects a submit/cancel without refetching.
+  const [override, setOverride] = useState<string | null | undefined>(undefined)
+
+  if (loading || isTenant || !resident) return null
+
+  const hasAccount = !!resident.tenant_profile_id
+  const state = override !== undefined ? override : (resident.tenant_request_state || null)
+  const tName = resident.tenant_name as string | null
+  const tEmail = resident.tenant_email as string | null
+
+  const submit = async () => {
+    if (!email.trim() || !supabase) { setErr(t('settings.tenantReqNeedEmail')); return }
+    setBusy(true); setErr(null)
+    try {
+      const { error } = await supabase.from('residents').update({
+        tenant_name: name.trim() || null,
+        tenant_email: email.trim().toLowerCase(),
+        tenant_phone: phone.trim() || null,
+        tenant_request_state: 'pending',
+        tenant_requested_at: new Date().toISOString().slice(0, 10),
+      }).eq('id', resident.id)
+      if (error) throw error
+      setOverride('pending')
+    } catch (e) { setErr((e as Error).message || t('settings.tenantReqFailed')) }
+    finally { setBusy(false) }
+  }
+
+  const cancel = async () => {
+    if (!supabase) return
+    setBusy(true); setErr(null)
+    try {
+      const { error } = await supabase.from('residents').update({ tenant_request_state: null }).eq('id', resident.id)
+      if (error) throw error
+      setOverride(null)
+    } catch (e) { setErr((e as Error).message || t('settings.tenantReqFailed')) }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <SectionCard title={t('settings.secTenant')}>
+      {hasAccount ? (
+        <div className="hv-xfer-success">{t('settings.tenantReqActive', { name: tName || tEmail || t('settings.tenantReqYourTenant') })}</div>
+      ) : state === 'pending' ? (
+        <>
+          <div className="hv-xfer-warn">
+            <strong>{t('settings.tenantReqPendingStrong')}</strong> {t('settings.tenantReqPendingBody', { name: tName || tEmail || '' })}
+          </div>
+          <button type="button" className="hv-btn-ghost" disabled={busy} onClick={cancel} style={{ marginTop: 10 }}>
+            {t('settings.tenantReqCancel')}
+          </button>
+        </>
+      ) : (
+        <>
+          <p style={{ marginTop: 0, fontSize: 13, color: 'var(--text-dim)', lineHeight: 1.5 }}>{t('settings.tenantReqIntro')}</p>
+          <label className="hv-field">
+            <span className="hv-label">{t('settings.tenantReqName')}</span>
+            <input className="hv-input" value={name} onChange={e => setName(e.target.value)} placeholder={t('settings.tenantReqNamePh')} />
+          </label>
+          <label className="hv-field">
+            <span className="hv-label">{t('settings.tenantReqEmail')}</span>
+            <input className="hv-input" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="tenant@email.com" />
+          </label>
+          <label className="hv-field">
+            <span className="hv-label">{t('settings.tenantReqPhone')}</span>
+            <input className="hv-input" value={phone} onChange={e => setPhone(e.target.value)} placeholder={t('settings.tenantReqPhonePh')} />
+          </label>
+          {state === 'rejected' && <div className="hv-xfer-warn">{t('settings.tenantReqRejected')}</div>}
+          {err && <div className="hv-err">{err}</div>}
+          <button type="button" className="hv-btn" disabled={busy || !email.trim()} onClick={submit} style={{ marginTop: 10 }}>
+            {busy ? t('settings.tenantReqSubmitting') : t('settings.tenantReqSubmit')}
+          </button>
+          <p style={{ marginTop: 10, fontSize: 11.5, color: 'var(--text-faint)', lineHeight: 1.5 }}>{t('settings.tenantReqNote')}</p>
+        </>
+      )}
+    </SectionCard>
   )
 }
 
