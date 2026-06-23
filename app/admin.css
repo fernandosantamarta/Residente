@@ -134,7 +134,7 @@
 .cho-msg { padding: 30px 8px; text-align: center; color: #6b5544; font-size: 14px; }
 
 /* ── Trial countdown ─────────────────────────────────────────────────────── */
-.cd-wrap { background: linear-gradient(135deg, #2b2f49 0%, #1f2233 100%); border-radius: 14px; padding: 13px 14px; margin-bottom: 16px; text-align: center; }
+.cd-wrap { background: rgba(255, 255, 255, 0.06); border: 1px solid rgba(255, 255, 255, 0.16); border-radius: 14px; padding: 13px 14px; margin-bottom: 16px; text-align: center; }
 .cd-urgent { background: linear-gradient(135deg, #ff6a2b 0%, #e14909 100%); }
 .cd-label { color: rgba(255, 255, 255, 0.8); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 9px; }
 .cd-boxes { display: flex; justify-content: center; gap: 8px; }
