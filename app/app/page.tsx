@@ -202,7 +202,8 @@ export default function Home() {
               sample vote. A signed-in resident (profile set, community still loading on
               first paint) must NOT flash the demo "Pool vendor" vote — they get their
               real open votes, which are empty until meetings load (so no flicker). */}
-          <OpenVotesBand demo={demo && !profile} />
+          {/* Tenants are non-voting — no open-votes band. */}
+          {!isTenant && <OpenVotesBand demo={demo && !profile} />}
 
           {/* ROW 1 — Financial Overview (with embedded trend chart) + Quick Actions */}
           <section className="dash-row1">
