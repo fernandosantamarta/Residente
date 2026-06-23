@@ -485,7 +485,7 @@ export default function ReportsPage() {
                     const fee = lateFeeOf(r)
                     return (
                     <Fragment key={r.id}>
-                    <tr>
+                    <tr className="behind-row">
                       <td className="strong">{r.full_name || t('admin.reports.residentFallback')}</td>
                       <td className="muted period-col">{r.unit_number || r.address || '—'}</td>
                       <td className="due">

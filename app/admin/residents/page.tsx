@@ -606,7 +606,7 @@ export default function Residents() {
           )}
           {status === 'ready' && rows.length > 0 && (
             <div className="card">
-              <table className="tbl">
+              <table className="tbl roster-tbl">
                 <thead>
                   <tr>
                     <th>{t('admin.residents.thOwner')}</th><th>{t('admin.residents.thUnit')}</th><th className="contact-col">{t('admin.residents.thContact')}</th>

@@ -2130,9 +2130,24 @@
 .crep .behind-payform { padding-top: 12px; }
 
 @media (max-width: 640px) {
-  /* Stack the action cluster so Notify / Record / Collect don't clip off-screen. */
-  .crep .behind-tbl .behind-act { flex-wrap: wrap; justify-content: flex-start; gap: 10px 14px; margin-top: 4px; }
-  .crep .behind-tbl td.act { white-space: normal; width: auto; }
+  /* Reflow each "Who's behind" row into a stacked card (a 4-col table with three
+     action buttons overflows a phone). Name + balance on top, then the actions on
+     their own full-width row. CSS-only: flatten the table elements to block/flex. */
+  .crep .behind-tbl, .crep .behind-tbl tbody { display: block; }
+  .crep .behind-tbl thead { display: none; }
+  .crep .behind-tbl tr.behind-row {
+    display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px;
+    border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 10px;
+  }
+  .crep .behind-tbl tr.behind-row td { display: block; border: none; padding: 0; }
+  .crep .behind-tbl td.strong { flex: 1 1 auto; min-width: 0; }
+  .crep .behind-tbl td.period-col { display: none; }
+  .crep .behind-tbl td.due { flex: 0 0 auto; text-align: right; }
+  .crep .behind-tbl td.act { flex: 1 1 100%; width: auto; white-space: normal; }
+  .crep .behind-tbl .behind-act { justify-content: flex-start; flex-wrap: wrap; gap: 10px 14px; margin-top: 6px; }
+  /* The inline record-payment form spans the full width below the card. */
+  .crep .behind-payrow, .crep .behind-payrow > td { display: block; width: 100%; }
+  .crep .behind-payrow > td { padding: 0 0 14px; }
 }
 
 /* Text-link actions, like the mock's "View →". */
@@ -2346,6 +2361,30 @@
 
 @media (max-width: 640px) {
   .etrack .tbl .contact-col { display: none; }
+
+  /* Roster reflow — replace the horizontal-scroll table with stacked cards on a
+     phone (the .admin-page.etrack min-width:560 scroll defeated real responsive
+     layout). Owner on top, then unit · status · Open on a second row. Scoped to
+     .roster-tbl so it never touches the pending-approvals or import tables. */
+  .admin-page.etrack .roster-tbl { min-width: 0; }
+  .etrack .roster-tbl, .etrack .roster-tbl tbody { display: block; }
+  .etrack .roster-tbl thead { display: none; }
+  .etrack .roster-tbl tr.tr {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+    border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 10px;
+  }
+  .etrack .roster-tbl tr.tr td { display: block; border: none; padding: 0; }
+  .etrack .roster-tbl tr.tr td:first-child { flex: 1 1 100%; }           /* owner */
+  .etrack .roster-tbl tr.tr td:nth-child(2) { flex: 0 0 auto; font-size: 12.5px; color: var(--text-dim); } /* unit */
+  .etrack .roster-tbl tr.tr td:nth-child(4) { flex: 0 0 auto; }          /* status pill */
+  .etrack .roster-tbl tr.tr td.act { flex: 0 0 auto; margin-left: auto; } /* Open → right */
+  /* Expanded editor stacks full-width below the card. */
+  .etrack .roster-tbl tr.tr-edit { display: block; margin-bottom: 10px; }
+  .etrack .roster-tbl tr.tr-edit > td { display: block; width: 100%; }
+
+  /* Pending-approvals table was reflowed earlier but the blanket min-width:560
+     still forced it to scroll — clear it so the stacked cards actually fit. */
+  .admin-page.etrack .pending-card .tbl { min-width: 0; }
 
   /* Vendor list: on phones a 4-column table overflows (the ★/× actions clip off
      the right edge). Reflow each row into a stacked CARD instead — vendor block
