@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { startEmbeddedSubscriptionCheckout, manageSubscription } from '@/lib/signup'
+import { manageSubscription } from '@/lib/signup'
+import { embeddedCheckout } from '@/lib/checkout'
 import { planForHomes, monthlyTotalLabel } from '@/lib/plan'
 import { useTrial } from '@/hooks/useTrial'
 import { CheckoutModal } from '@/components/CheckoutModal'
@@ -133,11 +134,7 @@ export default function AdminBilling() {
         <CheckoutModal
           title={t('admin.billing.addPaymentTitle')}
           countdownTo={onTrial && trial.endsAt ? trial.endsAt : null}
-          fetchClientSecret={async () => {
-            const cs = await startEmbeddedSubscriptionCheckout()
-            if (!cs) throw new Error('Could not start checkout')
-            return cs
-          }}
+          createSession={() => embeddedCheckout('create-subscription-checkout')}
           onClose={() => setShowCheckout(false)}
           onComplete={() => { setShowCheckout(false); load() }}
         />

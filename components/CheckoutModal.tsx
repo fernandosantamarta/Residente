@@ -6,44 +6,51 @@ import { EmbeddedCheckoutProvider, EmbeddedCheckout } from '@stripe/react-stripe
 import { TrialCountdown } from './TrialCountdown'
 import { useT } from '@/lib/i18n'
 
-// Generic in-app Stripe Embedded Checkout modal. `fetchClientSecret` returns the
-// embedded session's client_secret from whichever checkout edge fn this is for,
-// so the same modal powers every checkout (subscription, dues, fines, amenities,
-// autopay). On completion Stripe fires onComplete (sessions are created with
-// redirect_on_completion:'never'), so we close + let the caller refresh in place.
-let stripeCache: Promise<Stripe | null> | null = null
-async function getStripe(): Promise<Stripe | null> {
-  if (stripeCache) return stripeCache
+// Generic in-app Stripe Embedded Checkout modal — powers EVERY checkout
+// (subscription, dues, autopay, amenities, fines). `createSession` calls the
+// relevant edge fn in embedded mode and returns the session's client_secret plus,
+// for Stripe Connect flows, the connected `account` (so loadStripe scopes to the
+// HOA's account). Sessions are created with redirect_on_completion:'never', so
+// onComplete fires in-app and we let the caller close + refresh — no redirect out.
+let pkCache: string | null = null
+async function getPk(): Promise<string | null> {
+  if (pkCache) return pkCache
   try {
     const res = await fetch('/api/stripe/config')
     const { publishableKey } = await res.json()
-    if (!publishableKey) return null
-    stripeCache = loadStripe(publishableKey)
-    return stripeCache
+    pkCache = publishableKey || null
+    return pkCache
   } catch {
     return null
   }
 }
 
-export function CheckoutModal({ fetchClientSecret, onClose, onComplete, title, countdownTo }: {
-  fetchClientSecret: () => Promise<string>
+export function CheckoutModal({ createSession, onClose, onComplete, title, countdownTo }: {
+  createSession: () => Promise<{ clientSecret: string; account?: string | null }>
   onClose: () => void
   onComplete?: () => void
   title?: string
   countdownTo?: Date | null
 }) {
   const t = useT()
-  const [stripe, setStripe] = useState<Promise<Stripe | null> | null>(null)
-  const [err, setErr] = useState(false)
+  const [ready, setReady] = useState<{ stripe: Promise<Stripe | null>; clientSecret: string } | null>(null)
+  const [err, setErr] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelled = false
-    getStripe().then((s) => {
-      if (cancelled) return
-      if (s) setStripe(Promise.resolve(s)); else setErr(true)
-    })
+    ;(async () => {
+      try {
+        const pk = await getPk()
+        if (!pk) throw new Error(t('checkout.unavailable'))
+        const { clientSecret, account } = await createSession()
+        if (cancelled) return
+        setReady({ stripe: loadStripe(pk, account ? { stripeAccount: account } : undefined), clientSecret })
+      } catch (e) {
+        if (!cancelled) setErr((e as Error)?.message || t('checkout.unavailable'))
+      }
+    })()
     return () => { cancelled = true }
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div className="cho-overlay" onClick={onClose}>
@@ -53,9 +60,9 @@ export function CheckoutModal({ fetchClientSecret, onClose, onComplete, title, c
         {countdownTo && <TrialCountdown to={countdownTo} />}
         <div className="cho-body">
           {err ? (
-            <div className="cho-msg">{t('checkout.unavailable')}</div>
-          ) : stripe ? (
-            <EmbeddedCheckoutProvider stripe={stripe} options={{ fetchClientSecret, onComplete }}>
+            <div className="cho-msg">{err}</div>
+          ) : ready ? (
+            <EmbeddedCheckoutProvider stripe={ready.stripe} options={{ clientSecret: ready.clientSecret, onComplete }}>
               <EmbeddedCheckout />
             </EmbeddedCheckoutProvider>
           ) : (

@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
   try {
-    const { reservation_id } = await req.json()
+    const { reservation_id, embedded } = await req.json()
     if (!reservation_id || typeof reservation_id !== 'string') {
       return json({ error: 'reservation_id is required' }, 400)
     }
@@ -68,7 +68,7 @@ Deno.serve(async (req) => {
     // so the later refund targets the same account it was charged on.
     const connectedAccount = await connectedAccountFor(supabase, res.community_id)
 
-    const session = await stripe.checkout.sessions.create({
+    const params: any = {
       mode: 'payment',
       line_items: [{
         quantity: 1,
@@ -93,9 +93,16 @@ Deno.serve(async (req) => {
       payment_intent_data: {
         metadata: { reservation_id: res.id, community_id: res.community_id },
       },
-    }, acctOpts(connectedAccount))
+    }
+    if (embedded) {
+      params.ui_mode = 'embedded'
+      params.redirect_on_completion = 'never'
+      delete params.success_url
+      delete params.cancel_url
+    }
+    const session = await stripe.checkout.sessions.create(params, acctOpts(connectedAccount))
 
-    return json({ url: session.url })
+    return json(embedded ? { client_secret: session.client_secret, account: connectedAccount ?? null } : { url: session.url })
   } catch (err) {
     console.error('create-amenity-checkout failed:', err)
     return json({ error: (err as Error).message }, 400)

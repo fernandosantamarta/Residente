@@ -36,7 +36,7 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
   try {
-    const { violation_id } = await req.json()
+    const { violation_id, embedded } = await req.json()
     if (!violation_id || typeof violation_id !== 'string') {
       return json({ error: 'violation_id is required' }, 400)
     }
@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
     // the violation by metadata, so recording stays account-agnostic.
     const connectedAccount = await connectedAccountFor(supabase, v.community_id)
 
-    const session = await stripe.checkout.sessions.create({
+    const params: any = {
       mode: 'payment',
       line_items: [{
         quantity: 1,
@@ -99,9 +99,16 @@ Deno.serve(async (req) => {
       payment_intent_data: {
         metadata: { violation_id: v.id, community_id: v.community_id },
       },
-    }, acctOpts(connectedAccount))
+    }
+    if (embedded) {
+      params.ui_mode = 'embedded'
+      params.redirect_on_completion = 'never'
+      delete params.success_url
+      delete params.cancel_url
+    }
+    const session = await stripe.checkout.sessions.create(params, acctOpts(connectedAccount))
 
-    return json({ url: session.url })
+    return json(embedded ? { client_secret: session.client_secret, account: connectedAccount ?? null } : { url: session.url })
   } catch (err) {
     console.error('create-fine-checkout failed:', err)
     return json({ error: (err as Error).message }, 400)

@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
   try {
     // plan_id / installment_no / charge_type are optional — present when the
     // resident is paying a payment-plan installment rather than ad-hoc dues.
-    const { resident_id, amount, plan_id, installment_no, charge_type } = await req.json()
+    const { resident_id, amount, plan_id, installment_no, charge_type, embedded } = await req.json()
 
     // Validate inputs before touching Stripe.
     if (!resident_id || typeof resident_id !== 'string') {
@@ -142,6 +142,13 @@ Deno.serve(async (req) => {
       },
     }
 
+    if (embedded) {
+      params.ui_mode = 'embedded'
+      params.redirect_on_completion = 'never'
+      delete params.success_url
+      delete params.cancel_url
+    }
+
     const acctOpts = connectedAccount ? { stripeAccount: connectedAccount } : undefined
     let session
     try {
@@ -159,7 +166,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({ url: session.url })
+    return json(embedded ? { client_secret: session.client_secret, account: connectedAccount ?? null } : { url: session.url })
   } catch (err) {
     console.error('create-checkout failed:', err)
     return json({ error: (err as Error).message }, 400)

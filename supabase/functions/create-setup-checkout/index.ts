@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
   try {
-    const { resident_id } = await req.json()
+    const { resident_id, embedded } = await req.json()
     if (!resident_id || typeof resident_id !== 'string') {
       return json({ error: 'resident_id is required' }, 400)
     }
@@ -95,6 +95,12 @@ Deno.serve(async (req) => {
     if (account) {
       params.payment_method_options = { us_bank_account: { verification_method: 'automatic' } }
     }
+    if (embedded) {
+      params.ui_mode = 'embedded'
+      params.redirect_on_completion = 'never'
+      delete params.success_url
+      delete params.cancel_url
+    }
 
     let session
     try {
@@ -112,7 +118,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({ url: session.url })
+    return json(embedded ? { client_secret: session.client_secret, account: account ?? null } : { url: session.url })
   } catch (err) {
     console.error('create-setup-checkout failed:', err)
     return json({ error: (err as Error).message }, 400)
