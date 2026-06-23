@@ -1181,7 +1181,7 @@ export const en: Record<string, string> = {
   "admin.welcome.feat2": "Board voting, meetings & minutes",
   "admin.welcome.feat3": "Documents, rules & violation tracking",
   "admin.welcome.feat4": "Maintenance, amenities & a community calendar",
-  "admin.welcome.cta": "Explore your dashboard",
+  "admin.welcome.cta": "Continue your subscription",
   "admin.welcome.foot": "No card needed now. Add payment anytime. Cancel anytime.",
   "admin.welcome.close": "Close",
   "admin.billing.addPaymentTitle": "Add payment",

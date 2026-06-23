@@ -56,7 +56,6 @@ export function CheckoutModal({ createSession, onClose, onComplete, title, count
     <div className="cho-overlay" onClick={onClose}>
       <div className="cho-modal" onClick={(e) => e.stopPropagation()}>
         <button className="cho-close" onClick={onClose} aria-label={t('admin.billing.close')}>×</button>
-        {title && <div className="cho-title">{title}</div>}
         {countdownTo && <TrialCountdown to={countdownTo} />}
         <div className="cho-body">
           {err ? (

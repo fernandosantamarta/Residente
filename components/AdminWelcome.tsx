@@ -5,6 +5,7 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { planForHomes, monthlyTotalLabel } from '@/lib/plan'
 import { trialState } from '@/lib/trial'
+import { useCheckout } from '@/components/CheckoutProvider'
 import { useT } from '@/lib/i18n'
 
 // One-time dark "welcome" modal shown the first time a board member opens the
@@ -15,6 +16,7 @@ const SEEN_KEY = 'residente_admin_welcome_v1'
 
 export function AdminWelcome() {
   const t = useT()
+  const { openCheckout } = useCheckout()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const [row, setRow] = useState<any>(null)
@@ -91,7 +93,10 @@ export function AdminWelcome() {
           ))}
         </ul>
 
-        <button className="awl-cta" onClick={close}>{t('admin.welcome.cta')}</button>
+        <button className="awl-cta" onClick={() => {
+          close()
+          openCheckout({ fn: 'create-subscription-checkout', countdownTo: onTrial && trial.endsAt ? trial.endsAt : null })
+        }}>{t('admin.welcome.cta')}</button>
         <div className="awl-foot">{t('admin.welcome.foot')}</div>
       </div>
     </div>
