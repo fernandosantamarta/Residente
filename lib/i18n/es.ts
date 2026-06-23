@@ -471,6 +471,7 @@ export const es: Record<string, string> = {
   "pay.last4Label": "Últimos 4 dígitos",
   "pay.loadingBalance": "Cargando saldo",
   "pay.makePayment": "Realizar pago",
+  "pay.allPaidUp": "Estás al día",
   "pay.manageAutopay": "Administrar pago automático",
   "pay.methodEndingIn": "{brand} terminada en {last4}",
   "pay.nextPayment": "Próximo pago",

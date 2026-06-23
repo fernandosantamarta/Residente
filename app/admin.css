@@ -1193,8 +1193,21 @@
 }
 /* Manage-subscription dialog: keep it scrollable on short screens but hide the
    scrollbar so it reads as a clean card. */
-.sub-modal-noscroll { scrollbar-width: none; -ms-overflow-style: none; }
+.sub-modal-noscroll { scrollbar-width: none; -ms-overflow-style: none; max-width: 460px; padding: 22px; }
 .sub-modal-noscroll::-webkit-scrollbar { width: 0; height: 0; display: none; }
+/* Manage Subscription popup + plan grid — roomier on desktop. */
+.sub-plan-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+@media (min-width: 768px) {
+  .sub-modal-noscroll { max-width: 700px; padding: 32px 38px; }
+  .sub-plan-grid { grid-template-columns: repeat(4, 1fr); gap: 12px; }
+}
+/* "My Subscription" page — more spacious desktop layout. */
+@media (min-width: 900px) {
+  .bill-card { max-width: 780px; padding: 34px 40px; }
+  .bill-plan-name { font-size: 28px; }
+  .bill-price-amt { font-size: 40px; }
+  .bill-card-head { align-items: center; }
+}
 .admin-check-body { display: flex; flex-direction: column; gap: 1px; flex: 1; min-width: 0; }
 .admin-check-label { font-size: 14.5px; font-weight: 600; color: var(--text); }
 .admin-check-item.done .admin-check-label { color: var(--text-dim); }

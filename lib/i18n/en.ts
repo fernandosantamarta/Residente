@@ -481,6 +481,7 @@ export const en: Record<string, string> = {
   "pay.last4Label": "Last 4 digits",
   "pay.loadingBalance": "Loading balance",
   "pay.makePayment": "Make Payment",
+  "pay.allPaidUp": "You're all paid up",
   "pay.manageAutopay": "Manage Autopay",
   "pay.methodEndingIn": "{brand} ending in {last4}",
   "pay.nextPayment": "Next payment",

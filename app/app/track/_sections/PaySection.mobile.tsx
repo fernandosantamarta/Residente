@@ -289,6 +289,7 @@ export function PaySection() {
   const lastPaidIso = history[0]?.date
 
   const startCheckout = () => {
+    if (currentBalance <= 0) return   // nothing due — never open a $0 checkout
     // Demo / no-Stripe: simulate a successful payment instead of dead-clicking,
     // mirroring the Home Quick-Pay popup.
     if (!stripeEnabled || !resident) { setDemoPaid(currentBalance); return }
@@ -367,9 +368,9 @@ export function PaySection() {
             )}
             <div className="pay-balance-actions">
               <button type="button" className="pay-cta-primary"
-                disabled={checkout.loading || isLoading}
+                disabled={checkout.loading || isLoading || currentBalance <= 0}
                 onClick={startCheckout}>
-                {checkout.loading ? t('pay.startingCheckout') : t('pay.makePayment')}
+                {checkout.loading ? t('pay.startingCheckout') : currentBalance <= 0 ? t('pay.allPaidUp') : t('pay.makePayment')}
               </button>
               <button type="button" className="pay-cta-secondary"
                 onClick={() => setAccountOpen(true)}>
