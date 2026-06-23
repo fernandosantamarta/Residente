@@ -23,7 +23,7 @@
 .trial-banner {
   position: relative; overflow: hidden;
   display: flex; align-items: center; justify-content: space-between; gap: 14px;
-  padding: 11px 18px 13px;
+  padding: 11px 18px 16px;
   padding-top: calc(11px + env(safe-area-inset-top, 0px));
   background: linear-gradient(120deg, #2c3052 0%, #1b1e2e 100%);
   color: #fff;
@@ -49,8 +49,13 @@
   transition: transform 0.12s ease;
 }
 .trial-banner-cta:hover { transform: translateY(-1px); }
-.trial-banner-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: rgba(255, 255, 255, 0.16); }
-.trial-banner-progress > span { display: block; height: 100%; background: rgba(255, 255, 255, 0.85); border-radius: 0 3px 3px 0; transition: width 0.6s ease; }
+.trial-banner-progress { position: absolute; left: 0; right: 0; bottom: 0; height: 6px; background: rgba(255, 255, 255, 0.2); }
+.trial-banner-progress > span {
+  display: block; height: 100%; border-radius: 0 6px 6px 0;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.8), #ffffff);
+  box-shadow: 0 0 10px rgba(255, 255, 255, 0.6);
+  transition: width 0.6s ease;
+}
 /* Banner owns the inset, so the header below it doesn't add it again. */
 .trial-banner + .admin-top { padding-top: 18px; }
 

@@ -27,7 +27,10 @@ export function AdminWelcome() {
     if (!hasSupabase || !supabase || !communityId) return
     let seen = true
     try { seen = !!localStorage.getItem(`${SEEN_KEY}:${communityId}`) } catch { /* private mode */ }
-    if (seen) return
+    // ?welcome=1 forces it open even if already dismissed — handy for previewing
+    // on a phone where you can't clear localStorage.
+    const force = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('welcome') === '1'
+    if (seen && !force) return
     let cancelled = false
     supabase
       .from('communities')
