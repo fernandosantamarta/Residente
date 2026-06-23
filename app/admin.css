@@ -107,7 +107,7 @@
 .awl-overlay {
   position: fixed; top: 0; left: 0;
   width: 100vw; height: 100vh; height: 100dvh; z-index: 200;
-  background: rgba(10, 8, 16, 0.55);
+  background: transparent;
   display: grid; place-items: center; padding: 18px;
 }
 .awl-modal {
