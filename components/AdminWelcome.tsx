@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { planForHomes, monthlyTotalLabel } from '@/lib/plan'
@@ -68,7 +69,9 @@ export function AdminWelcome() {
     t('admin.welcome.feat4'),
   ]
 
-  return (
+  // Portal to <body> so the fixed overlay covers the whole screen — inside the
+  // admin layout a transformed ancestor clips it into a weird rectangle on iOS.
+  return createPortal(
     <div className="awl-overlay" onClick={close}>
       <div className="awl-modal" onClick={(e) => e.stopPropagation()}>
         <button className="awl-close" onClick={close} aria-label={t('admin.welcome.close')}>×</button>
@@ -111,6 +114,7 @@ export function AdminWelcome() {
         }}>{t('admin.welcome.cta')}</button>
         <div className="awl-foot">{t('admin.welcome.foot')}</div>
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
