@@ -64,6 +64,23 @@ export async function startSubscriptionCheckout(): Promise<string | null> {
   }
 }
 
+// In-app Embedded Checkout variant: returns the session's client_secret (instead
+// of a hosted URL) so CheckoutModal can render Stripe Checkout inside the app.
+export async function startEmbeddedSubscriptionCheckout(): Promise<string | null> {
+  if (!hasSupabase || !supabase) return null
+  try {
+    const { data: { session } } = await supabase.auth.getSession()
+    const { data, error } = await supabase.functions.invoke('create-subscription-checkout', {
+      body: { embedded: true },
+      headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+    })
+    if (error || !data?.client_secret) return null
+    return data.client_secret as string
+  } catch {
+    return null
+  }
+}
+
 // Opens the Stripe Billing Customer Portal (manage card / invoices / cancel
 // anytime) for the caller's community. Returns the portal URL or null on
 // failure. Admin/board only — the edge fn 403s residents. Used by the /admin

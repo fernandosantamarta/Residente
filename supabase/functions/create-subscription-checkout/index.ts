@@ -45,6 +45,8 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
   try {
+    const body = await req.json().catch(() => ({}))
+    const embedded = body?.embedded === true
     // Caller's JWT → RLS scopes them to their own community row.
     const authHeader = req.headers.get('Authorization') ?? ''
     const supabase = createClient(
@@ -122,6 +124,15 @@ Deno.serve(async (req) => {
       subscription_data: subData,
       metadata: { community_id: community.id, plan: band.plan },
     }
+    // Embedded mode renders Checkout inside the app (no redirect). With
+    // redirect_on_completion:'never' the modal closes + refreshes in place
+    // (success_url/cancel_url are hosted-only, so drop them).
+    if (embedded) {
+      params.ui_mode = 'embedded'
+      params.redirect_on_completion = 'never'
+      delete params.success_url
+      delete params.cancel_url
+    }
 
     let session
     try {
@@ -139,7 +150,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    return json({ url: session.url })
+    return json(embedded ? { client_secret: session.client_secret } : { url: session.url })
   } catch (err) {
     console.error('create-subscription-checkout failed:', err)
     return json({ error: (err as Error).message }, 400)

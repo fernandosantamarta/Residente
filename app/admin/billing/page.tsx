@@ -3,9 +3,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { startSubscriptionCheckout, manageSubscription } from '@/lib/signup'
+import { startEmbeddedSubscriptionCheckout, manageSubscription } from '@/lib/signup'
 import { planForHomes, monthlyTotalLabel } from '@/lib/plan'
 import { useTrial } from '@/hooks/useTrial'
+import { CheckoutModal } from '@/components/CheckoutModal'
 import { useT } from '@/lib/i18n'
 
 // Plan & billing — the community's Residente subscription. Lifted out of the
@@ -19,8 +20,8 @@ export default function AdminBilling() {
   const communityId = profile?.community_id
   const [community, setCommunity] = useState<any>(null)
   const [status, setStatus] = useState('loading') // loading | ready | none | error
-  const [paying, setPaying] = useState(false)
   const [showSub, setShowSub] = useState(false)
+  const [showCheckout, setShowCheckout] = useState(false)
   const { state: trial } = useTrial()
 
   const load = useCallback(async () => {
@@ -36,12 +37,8 @@ export default function AdminBilling() {
   }, [communityId])
   useEffect(() => { load() }, [load])
 
-  const activatePlan = async () => {
-    setPaying(true)
-    const url = await startSubscriptionCheckout()
-    if (url) { window.location.assign(url); return }
-    setPaying(false)
-  }
+  // Open the in-app embedded checkout (no redirect out to Stripe's hosted page).
+  const activatePlan = () => setShowCheckout(true)
 
   if (status === 'loading') return <div className="admin-page"><div className="admin-note">{t('admin.billing.loading')}</div></div>
   if (status === 'none') return (
@@ -114,8 +111,8 @@ export default function AdminBilling() {
 
         <div className="bill-actions">
           {needsActivation && (
-            <button className="admin-primary-btn" onClick={pastDue ? () => setShowSub(true) : activatePlan} disabled={paying}>
-              {paying ? t('admin.billing.opening') : pastDue ? t('admin.billing.manageSubscription') : t('admin.billing.subscribeNow')}
+            <button className="admin-primary-btn" onClick={pastDue ? () => setShowSub(true) : activatePlan}>
+              {pastDue ? t('admin.billing.manageSubscription') : t('admin.billing.subscribeNow')}
             </button>
           )}
           <button className="admin-secondary-btn" onClick={() => setShowSub(true)}>{t('admin.billing.manageSubscription')}</button>
@@ -129,6 +126,20 @@ export default function AdminBilling() {
           currentHomes={homes}
           onClose={() => setShowSub(false)}
           onChanged={() => { setShowSub(false); load() }}
+        />
+      )}
+
+      {showCheckout && (
+        <CheckoutModal
+          title={t('admin.billing.addPaymentTitle')}
+          countdownTo={onTrial && trial.endsAt ? trial.endsAt : null}
+          fetchClientSecret={async () => {
+            const cs = await startEmbeddedSubscriptionCheckout()
+            if (!cs) throw new Error('Could not start checkout')
+            return cs
+          }}
+          onClose={() => setShowCheckout(false)}
+          onComplete={() => { setShowCheckout(false); load() }}
         />
       )}
     </div>
