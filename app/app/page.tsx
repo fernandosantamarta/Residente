@@ -70,7 +70,7 @@ export default function Home() {
   const t = useT()
   const { community, categories, loading: communityLoading } = useCommunityData()
   const { profile } = useAuth() || {}
-  const { balance: myBalance, status: myDues, loading: residentLoading } = useMyResident()
+  const { balance: myBalance, status: myDues, isTenant, loading: residentLoading } = useMyResident()
   const { expenses, loading: expensesLoading } = useExpenses()
 
   // Real community when one is linked; otherwise the demo (marketing preview
@@ -225,6 +225,8 @@ export default function Home() {
             <section className="glance-row">
               <div className="glance-head">{t('home.atAGlance')}</div>
               <div className="glance-cards">
+                {/* "Your balance" is the owner's dues — hidden for tenants. */}
+                {!isTenant && (
                 <GlanceCard
                   icon="home" iconTone="orange"
                   label={t('home.glanceYourBalance')}
@@ -232,6 +234,7 @@ export default function Home() {
                   captionText={myBalance != null && myBalance > 0 ? t('home.glanceDueNow') : t('home.glancePaid')}
                   captionTone={myBalance != null && myBalance > 0 ? 'red' : 'green'}
                 />
+                )}
                 <GlanceCard
                   icon="shield" iconTone="green"
                   label={t('home.glanceReserveBalance')}
@@ -258,6 +261,8 @@ export default function Home() {
             <RecentActivity demo={demo} />
           </section>
 
+          {/* "Where your dues go" — owner-facing dues breakdown; hidden for tenants. */}
+          {!isTenant && (
           <DuesSection
             monthlyDues={monthlyDues}
             unitCount={unitCount}
@@ -267,6 +272,7 @@ export default function Home() {
             communityRating={communityRating}
             personalRating={personalRating}
           />
+          )}
         </>
       )}
     </>
@@ -877,12 +883,14 @@ function QuickActions() {
   // Pay happens in a popup right here; the rest navigate. Submit a request and
   // Contact management both land on Contact but pre-select a different category
   // (?cat=), so they're not the same destination.
+  const { isTenant } = useMyResident()
   const [payOpen, setPayOpen] = useState(false)
   const [requestOpen, setRequestOpen] = useState(false)
   const [contactOpen, setContactOpen] = useState(false)
   const [calOpen, setCalOpen] = useState(false)
   const items: QaItem[] = [
-    { icon: 'pay',  title: t('home.qaMakePayment'),    sub: t('home.qaMakePaymentSub'), onClick: () => setPayOpen(true) },
+    // "Make payment" is owner-only — dues are the owner's obligation.
+    ...(isTenant ? [] : [{ icon: 'pay' as const, title: t('home.qaMakePayment'), sub: t('home.qaMakePaymentSub'), onClick: () => setPayOpen(true) }]),
     { icon: 'note', title: t('home.qaSubmitRequest'),  sub: t('home.qaSubmitRequestSub'),  onClick: () => setRequestOpen(true) },
     { icon: 'mail', title: t('home.qaContact'),        sub: t('home.qaContactSub'), onClick: () => setContactOpen(true) },
     { icon: 'cal',  title: t('home.qaViewCalendar'),   sub: t('home.qaViewCalendarSub'),     onClick: () => setCalOpen(true) },

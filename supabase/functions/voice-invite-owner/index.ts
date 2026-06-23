@@ -43,7 +43,11 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405)
 
   try {
-    const { resident_id } = await req.json().catch(() => ({}))
+    const { resident_id, tenant } = await req.json().catch(() => ({}))
+    // tenant=true invites the unit's TENANT (leased home) instead of the owner:
+    // links residents.tenant_profile_id (never profile_id) and never sets a
+    // unit_number, so the tenant is a non-voting member. The owner keeps the vote.
+    const isTenant = tenant === true
     if (!resident_id || typeof resident_id !== 'string') {
       return json({ error: 'resident_id is required' }, 400)
     }
@@ -72,16 +76,17 @@ Deno.serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE)
     const { data: resident, error: rErr } = await admin
       .from('residents')
-      .select('id, community_id, full_name, first_name, last_name, email, profile_id')
+      .select('id, community_id, full_name, first_name, last_name, email, profile_id, tenant_name, tenant_email, tenant_profile_id')
       .eq('id', resident_id)
       .single()
     if (rErr || !resident) return json({ error: 'Resident not found' }, 404)
     if (resident.community_id !== callerProfile.community_id) {
       return json({ error: 'Forbidden — different community' }, 403)
     }
-    if (!resident.email) return json({ error: 'Resident has no email on file' }, 400)
+    const inviteAddr = isTenant ? resident.tenant_email : resident.email
+    if (!inviteAddr) return json({ error: isTenant ? 'No tenant email on file' : 'Resident has no email on file' }, 400)
 
-    const email = String(resident.email).toLowerCase()
+    const email = String(inviteAddr).toLowerCase()
 
     // 3. Community name for the email body.
     const { data: community } = await admin
@@ -94,7 +99,7 @@ Deno.serve(async (req) => {
     // 4. Generate the action link. Try invite first (creates the auth user);
     //    if the user already exists, fall back to magiclink (re-invite).
     let action_link = ''
-    let user_id: string | null = resident.profile_id
+    let user_id: string | null = isTenant ? resident.tenant_profile_id : resident.profile_id
 
     const inviteRes = await admin.auth.admin.generateLink({
       type: 'invite',
@@ -137,7 +142,9 @@ Deno.serve(async (req) => {
     //    it manually rather than locking out a single owner.
     let emailSent = false
     if (RESEND_API_KEY) {
-      const firstName = resident.first_name || resident.full_name || 'neighbor'
+      const firstName = isTenant
+        ? (resident.tenant_name || 'neighbor')
+        : (resident.first_name || resident.full_name || 'neighbor')
       const subject = `You're invited to ${communityName} on Residente`
       const html = inviteEmailHtml({
         firstName: String(firstName),
@@ -165,12 +172,20 @@ Deno.serve(async (req) => {
       }
     }
 
-    // 6. Mark the resident invited (and link to their new auth profile).
-    const patch: Record<string, unknown> = { invited_at: new Date().toISOString() }
-    if (user_id) patch.profile_id = user_id
-    const { error: upErr } = await admin
-      .from('residents').update(patch).eq('id', resident_id)
-    if (upErr) console.error('Failed to update residents.invited_at:', upErr)
+    // 6. Link the new auth profile. Tenant → tenant_profile_id (never the owner
+    //    link, never a unit_number → stays non-voting). Owner → profile_id + invited_at.
+    const patch: Record<string, unknown> = {}
+    if (isTenant) {
+      if (user_id) patch.tenant_profile_id = user_id
+    } else {
+      patch.invited_at = new Date().toISOString()
+      if (user_id) patch.profile_id = user_id
+    }
+    if (Object.keys(patch).length) {
+      const { error: upErr } = await admin
+        .from('residents').update(patch).eq('id', resident_id)
+      if (upErr) console.error('Failed to link invited account:', upErr)
+    }
 
     return json({ ok: true, email_sent: emailSent, action_link })
   } catch (err) {

@@ -101,7 +101,10 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
   // below so the hook count stays stable across logout. Preview forces it on
   // for demo screenshots.
   const { count: unreadCount } = useUnreadNoticeCount()
-  const { resident: myResident } = useMyResident() // keep mounted before the auth guard for stable hook order
+  const { resident: myResident, isTenant } = useMyResident() // keep mounted before the auth guard for stable hook order
+  // Tenants (leased units) don't see Pay/dues — that's the owner's obligation.
+  // They get Home · Requests (Voice) · Documents · Schedule.
+  const visibleNav = isTenant ? NAV.filter(i => i.href !== '/app/track') : NAV
   const pendingReplies = useMyPendingReplies()   // unread board replies → Easy Voice badge
   const homeHasAlert = isPreview || unreadCount > 0
   const showRightRail = pathname === '/app'
@@ -189,7 +192,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
         )}
 
         <nav className="nav">
-          {NAV.map(item => (
+          {visibleNav.map(item => (
             <Link
               key={item.href}
               href={isPreview ? `${item.href}?preview=1` : item.href}

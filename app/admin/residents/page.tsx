@@ -225,6 +225,23 @@ export default function Residents() {
     } finally { setInviteBusyId(null) }
   }
 
+  // Invite the unit's TENANT (leased home) to their own non-voting account.
+  // Same edge function, tenant flag — links tenant_profile_id, no unit/no vote.
+  const sendTenantInvite = async (id) => {
+    if (!hasSupabase || !communityId) return
+    setInviteBusyId(id); setError(''); setInviteMsg('')
+    try {
+      const { data, error } = await supabase.functions.invoke('voice-invite-owner', { body: { resident_id: id, tenant: true } })
+      if (error) throw error
+      if (data && data.ok === false) throw new Error(data.error || 'Invite failed')
+      await logAudit({ community_id: communityId, event_type: 'invite.sent', target_type: 'resident', target_id: id, metadata: { tenant: true, email_sent: !!data?.email_sent } })
+      setInviteMsg(t('admin.residents.tenantInviteSent'))
+      load()
+    } catch (err) {
+      setError(err?.message || t('admin.residents.errSendInvitation'))
+    } finally { setInviteBusyId(null) }
+  }
+
   // Owners who have an email but were never invited — the bulk-invite targets.
   const uninvited = useMemo(() => rows.filter(r => r.email && !r.invited_at && !r.activated_at && !r.profile_id), [rows])
 
@@ -620,6 +637,7 @@ export default function Residents() {
                     <ResidentRow key={r.id} r={r}
                       onLocal={editLocal} onCommit={commit} onRemove={remove}
                       onInvite={sendInvite} inviteBusy={inviteBusyId === r.id}
+                      onInviteTenant={sendTenantInvite}
                       transfer={transferByResident.get(r.id)} onTransfer={transferOwnership} />
                   ))}
                 </tbody>
@@ -636,7 +654,7 @@ export default function Residents() {
 // activation pill | Open). "Open" expands the full household editor in-place so
 // every working field (address, subdivision, opening balance, mailing address,
 // tenant) is still editable — nothing is read-only-only.
-function ResidentRow({ r, onLocal, onCommit, onRemove, onInvite, inviteBusy, transfer, onTransfer }) {
+function ResidentRow({ r, onLocal, onCommit, onRemove, onInvite, inviteBusy, onInviteTenant, transfer, onTransfer }) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const activated = !!(r.activated_at || r.profile_id)
@@ -725,6 +743,22 @@ function ResidentRow({ r, onLocal, onCommit, onRemove, onInvite, inviteBusy, tra
                 <input className="admin-input" defaultValue={r.tenant_phone ?? ''}
                   onBlur={e => onCommit(r.id, { tenant_phone: e.target.value.trim() || null })} /></label>
             </div>
+            {/* Tenant app account — a leased unit can invite its tenant to a
+                non-voting account (they see Home/Requests/Documents/Schedule, not
+                dues or voting). Needs a tenant email; shows "active" once linked. */}
+            {(r.tenant_email || r.tenant_profile_id) && (
+              <div className="res-tenant-invite" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', margin: '4px 0 4px' }}>
+                {r.tenant_profile_id ? (
+                  <span className="pill ok" style={{ fontSize: 11.5 }}>{t('admin.residents.tenantAccountActive')}</span>
+                ) : (
+                  <button type="button" className="admin-btn-sm" disabled={inviteBusy || !r.tenant_email}
+                    onClick={() => onInviteTenant(r.id)} title={t('admin.residents.tenantInviteTitle')}>
+                    {inviteBusy ? t('admin.residents.sendingSingle') : t('admin.residents.inviteTenantBtn')}
+                  </button>
+                )}
+                <span className="muted" style={{ fontSize: 11.5 }}>{t('admin.residents.tenantInviteHint')}</span>
+              </div>
+            )}
 
             {/* Admin-initiated ownership transfer — the expanded form. The
                 trigger lives in the foot next to "Send invite" (below). Emails

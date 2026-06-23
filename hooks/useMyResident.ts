@@ -9,7 +9,7 @@ const withTimeout = (p, ms = 10000) =>
     new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms)),
   ])
 
-const EMPTY = { resident: null, balance: null, status: 'paid', payments: [], monthlyDues: 0, interestRate: 0, loading: false }
+const EMPTY = { resident: null, balance: null, status: 'paid', payments: [], monthlyDues: 0, interestRate: 0, isTenant: false, loading: false }
 
 // Finds the roster row for the signed-in user (matched by email) and computes
 // what they currently owe — opening balance + accrued dues − payments.
@@ -34,6 +34,7 @@ export function useMyResident() {
         // column, so this returns an error we ignore and fall back to the
         // legacy email match — dues never break during the transition.
         let resident: any = null
+        let isTenant = false
         try {
           const byId = await withTimeout(
             supabase.from('residents').select('*').eq('profile_id', profileId).limit(1)
@@ -60,8 +61,30 @@ export function useMyResident() {
           }
         }
 
+        // Tenant match — a leased unit's tenant is linked via tenant_profile_id
+        // (set by the tenant invite), not profile_id/email. They're NON-voting
+        // and never see dues (the owner's obligation), so we flag isTenant and
+        // skip the balance/payments load entirely.
+        if (!resident) {
+          try {
+            const byTenant = await withTimeout(
+              supabase.from('residents').select('*').eq('tenant_profile_id', profileId).limit(1)
+            )
+            if (!byTenant.error && byTenant.data && byTenant.data[0]) {
+              resident = byTenant.data[0]
+              isTenant = true
+            }
+          } catch { /* column may not exist yet — ignore */ }
+        }
+
         if (!resident) {
           if (!cancelled) setState(EMPTY)
+          return
+        }
+
+        // Tenants don't see dues — return the unit/community context only.
+        if (isTenant) {
+          if (!cancelled) setState({ ...EMPTY, resident, isTenant: true, loading: false })
           return
         }
 
@@ -89,7 +112,7 @@ export function useMyResident() {
         const balance = residentBalance(resident, monthlyDues, payments, duesCfg)
         setState({
           resident, balance, status: duesStatus(balance, monthlyDues),
-          payments, monthlyDues, interestRate: duesCfg.apr, loading: false,
+          payments, monthlyDues, interestRate: duesCfg.apr, isTenant: false, loading: false,
         })
       } catch (err) {
         if (!cancelled) setState(EMPTY)

@@ -10,6 +10,9 @@ import { PaySection as PaySectionMobile } from './_sections/PaySection.mobile'
 import { VendorSection as VendorSectionMobile } from './_sections/VendorSection.mobile'
 import { ReportsSection as ReportsSectionMobile } from './_sections/ReportsSection.mobile'
 import { SegTabs, SegTab } from '@/components/SegTabs'
+import { useMyResident } from '@/hooks/useMyResident'
+import { useRouter } from 'next/navigation'
+import { useEffect } from 'react'
 import { useT } from '@/lib/i18n'
 
 // Easy Track — the resident hub that merges the former Pay, Vendor, and
@@ -19,7 +22,15 @@ import { useT } from '@/lib/i18n'
 
 export default function EasyTrack() {
   const t = useT()
+  const router = useRouter()
   const [tab, setTab] = useState('pay')
+
+  // Tenants (leased units) have no dues view — Easy Track is owner-only. If one
+  // reaches it by URL, send them Home. (The nav already hides this tab for them.)
+  const { isTenant, loading: residentLoading } = useMyResident()
+  useEffect(() => {
+    if (!residentLoading && isTenant) router.replace('/app')
+  }, [isTenant, residentLoading, router])
 
   const TABS: SegTab[] = [
     { id: 'pay',     label: t('pay.tabPay') },

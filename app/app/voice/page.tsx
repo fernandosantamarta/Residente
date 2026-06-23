@@ -10,6 +10,7 @@ import { ProposalsRulesSection as ProposalsRulesSectionMobile } from './_section
 import ArcView from '../arc/page'
 import { SegTabs, SegTab } from '@/components/SegTabs'
 import { useMyPendingReplies } from '@/hooks/useAwaitingMessages'
+import { useMyResident } from '@/hooks/useMyResident'
 import { useT } from '@/lib/i18n'
 
 // Easy Voice — the resident hub that merges the former Voice (Meetings &
@@ -32,13 +33,18 @@ export default function EasyVoice() {
   const t = useT()
   const [tab, setTab] = useState('board')
   const pendingReplies = useMyPendingReplies()
+  const { isTenant } = useMyResident()
   const searchParams = useSearchParams()
   const catParam = searchParams.get('cat')
 
+  // Tenants (leased units) are non-voting and don't submit architectural
+  // requests — those belong to the owner. They keep Board + Contact (requests).
   const TABS: SegTab[] = [
     { id: 'board',         label: t('voice.tabBoard') },
-    { id: 'proposals',     label: 'Voting' },
-    { id: 'architectural', label: 'Architectural' },
+    ...(isTenant ? [] : [
+      { id: 'proposals',     label: 'Voting' },
+      { id: 'architectural', label: 'Architectural' },
+    ] as SegTab[]),
     { id: 'contact',       label: (
       <>
         {t('voice.tabContact')}
@@ -46,6 +52,11 @@ export default function EasyVoice() {
       </>
     ) },
   ]
+
+  // If a tenant lands on a now-hidden tab (via hash/deep-link), fall back to Board.
+  useEffect(() => {
+    if (isTenant && (tab === 'proposals' || tab === 'architectural')) setTab('board')
+  }, [isTenant, tab])
 
   // Honor the URL hash so links like /app/voice#contact (and #architectural)
   // open the right tab instead of always landing on Board.
@@ -82,11 +93,11 @@ export default function EasyVoice() {
       </div>
 
       {tab === 'board' && <BoardSection />}
-      {tab === 'proposals' && (<>
+      {tab === 'proposals' && !isTenant && (<>
         <div className="rsv-web"><ProposalsRulesSection /></div>
         <div className="rsv-mob"><ProposalsRulesSectionMobile /></div>
       </>)}
-      {tab === 'architectural' && <ArcView />}
+      {tab === 'architectural' && !isTenant && <ArcView />}
       {tab === 'contact' && <ContactSection />}
     </div>
   )
