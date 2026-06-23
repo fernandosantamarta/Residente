@@ -572,11 +572,13 @@ function TenantRequestPanel() {
   const [err, setErr] = useState<string | null>(null)
   // Local override so the UI reflects a submit/cancel without refetching.
   const [override, setOverride] = useState<string | null | undefined>(undefined)
+  const [removed, setRemoved] = useState(false)
+  const [confirmRemove, setConfirmRemove] = useState(false)
 
   if (loading || isTenant || !resident) return null
 
-  const hasAccount = !!resident.tenant_profile_id
-  const state = override !== undefined ? override : (resident.tenant_request_state || null)
+  const hasAccount = !!resident.tenant_profile_id && !removed
+  const state = removed ? null : (override !== undefined ? override : (resident.tenant_request_state || null))
   const tName = resident.tenant_name as string | null
   const tEmail = resident.tenant_email as string | null
 
@@ -608,10 +610,44 @@ function TenantRequestPanel() {
     finally { setBusy(false) }
   }
 
+  // Fully remove the current tenant (revoke their access). Afterwards the form
+  // reappears so the owner can request a different tenant — i.e. switch.
+  const remove = async () => {
+    if (!supabase) return
+    setBusy(true); setErr(null)
+    try {
+      const { data, error } = await supabase.functions.invoke('tenant-remove', { body: { resident_id: resident.id } })
+      if (error) throw error
+      if (data && data.ok === false) throw new Error(data.error || 'Remove failed')
+      setRemoved(true); setOverride(null); setConfirmRemove(false)
+      setName(''); setEmail(''); setPhone('')
+    } catch (e) { setErr((e as Error).message || t('settings.tenantReqFailed')) }
+    finally { setBusy(false) }
+  }
+
   return (
     <SectionCard title={t('settings.secTenant')}>
       {hasAccount ? (
-        <div className="hv-xfer-success">{t('settings.tenantReqActive', { name: tName || tEmail || t('settings.tenantReqYourTenant') })}</div>
+        <>
+          <div className="hv-xfer-success">{t('settings.tenantReqActive', { name: tName || tEmail || t('settings.tenantReqYourTenant') })}</div>
+          {confirmRemove ? (
+            <div className="hv-xfer-warn" style={{ marginTop: 10 }}>
+              {t('settings.tenantReqRemoveConfirm')}
+              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
+                <button type="button" className="hv-danger-btn" disabled={busy} onClick={remove}>
+                  {busy ? t('settings.tenantReqSubmitting') : t('settings.tenantReqRemoveYes')}
+                </button>
+                <button type="button" className="hv-btn-ghost" disabled={busy} onClick={() => setConfirmRemove(false)}>{t('settings.hvCancel')}</button>
+              </div>
+            </div>
+          ) : (
+            <button type="button" className="hv-btn-ghost" style={{ marginTop: 10 }} onClick={() => { setConfirmRemove(true); setErr(null) }}>
+              {t('settings.tenantReqRemove')}
+            </button>
+          )}
+          <p style={{ fontSize: 11.5, color: 'var(--text-faint)', lineHeight: 1.5, marginTop: 8 }}>{t('settings.tenantReqSwitchNote')}</p>
+          {err && <div className="hv-err">{err}</div>}
+        </>
       ) : state === 'pending' ? (
         <>
           <div className="hv-xfer-warn">

@@ -272,6 +272,22 @@ export default function Residents() {
     } finally { setInviteBusyId(null) }
   }
 
+  // Fully remove a unit's tenant (revoke account link + membership + community).
+  // Switching = remove, then Invite tenant with the new email.
+  const removeTenant = async (id) => {
+    setInviteBusyId(id); setError(''); setInviteMsg('')
+    try {
+      const { data, error } = await supabase.functions.invoke('tenant-remove', { body: { resident_id: id } })
+      if (error) throw error
+      if (data && data.ok === false) throw new Error(data.error || 'Remove failed')
+      await logAudit({ community_id: communityId, event_type: 'tenant.removed', target_type: 'resident', target_id: id })
+      setInviteMsg(t('admin.residents.tenantRemoved'))
+      load()
+    } catch (err) {
+      setError(err?.message || t('admin.residents.errSendInvitation'))
+    } finally { setInviteBusyId(null) }
+  }
+
   // Owners who have an email but were never invited — the bulk-invite targets.
   const uninvited = useMemo(() => rows.filter(r => r.email && !r.invited_at && !r.activated_at && !r.profile_id), [rows])
 
@@ -701,7 +717,7 @@ export default function Residents() {
                     <ResidentRow key={r.id} r={r}
                       onLocal={editLocal} onCommit={commit} onRemove={remove}
                       onInvite={sendInvite} inviteBusy={inviteBusyId === r.id}
-                      onInviteTenant={sendTenantInvite}
+                      onInviteTenant={sendTenantInvite} onRemoveTenant={removeTenant}
                       transfer={transferByResident.get(r.id)} onTransfer={transferOwnership} />
                   ))}
                 </tbody>
@@ -718,7 +734,7 @@ export default function Residents() {
 // activation pill | Open). "Open" expands the full household editor in-place so
 // every working field (address, subdivision, opening balance, mailing address,
 // tenant) is still editable — nothing is read-only-only.
-function ResidentRow({ r, onLocal, onCommit, onRemove, onInvite, inviteBusy, onInviteTenant, transfer, onTransfer }) {
+function ResidentRow({ r, onLocal, onCommit, onRemove, onInvite, inviteBusy, onInviteTenant, onRemoveTenant, transfer, onTransfer }) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const activated = !!(r.activated_at || r.profile_id)
@@ -813,14 +829,20 @@ function ResidentRow({ r, onLocal, onCommit, onRemove, onInvite, inviteBusy, onI
             {(r.tenant_email || r.tenant_profile_id) && (
               <div className="res-tenant-invite" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', margin: '4px 0 4px' }}>
                 {r.tenant_profile_id ? (
-                  <span className="pill ok" style={{ fontSize: 11.5 }}>{t('admin.residents.tenantAccountActive')}</span>
+                  <>
+                    <span className="pill ok" style={{ fontSize: 11.5 }}>{t('admin.residents.tenantAccountActive')}</span>
+                    <button type="button" className="admin-btn-sm admin-btn-warn" disabled={inviteBusy}
+                      onClick={() => onRemoveTenant(r.id)} title={t('admin.residents.tenantRemoveTitle')}>
+                      {inviteBusy ? t('admin.residents.sendingSingle') : t('admin.residents.tenantRemoveBtn')}
+                    </button>
+                  </>
                 ) : (
                   <button type="button" className="admin-btn-sm" disabled={inviteBusy || !r.tenant_email}
                     onClick={() => onInviteTenant(r.id)} title={t('admin.residents.tenantInviteTitle')}>
                     {inviteBusy ? t('admin.residents.sendingSingle') : t('admin.residents.inviteTenantBtn')}
                   </button>
                 )}
-                <span className="muted" style={{ fontSize: 11.5 }}>{t('admin.residents.tenantInviteHint')}</span>
+                <span className="muted" style={{ fontSize: 11.5 }}>{r.tenant_profile_id ? t('admin.residents.tenantRemoveHint') : t('admin.residents.tenantInviteHint')}</span>
               </div>
             )}
 
