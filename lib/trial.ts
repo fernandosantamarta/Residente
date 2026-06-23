@@ -15,10 +15,21 @@ export interface TrialState {
   daysLeft: number   // 0 when expired or not applicable
 }
 
+// Communities kept out of the trial UI entirely (banner / countdown / welcome /
+// expiry gate) — e.g. the App Store demo, which should read as a clean,
+// established community to reviewers.
+export const TRIAL_EXCLUDED_COMMUNITIES = new Set<string>([
+  '7ba2983b-f19f-4095-b744-b2773b00d230', // Sunset Lakes — Apple review demo
+])
+
 export function trialState(input: {
+  id?: string | null
   created_at?: string | null
   subscription_status?: string | null
 }): TrialState {
+  if (input.id && TRIAL_EXCLUDED_COMMUNITIES.has(input.id)) {
+    return { phase: 'none', endsAt: null, daysLeft: 0 }
+  }
   const status = input.subscription_status
   if (status === 'active') return { phase: 'active', endsAt: null, daysLeft: 0 }
   // 'free' communities are on their 3 free months too — treat them like 'trial'

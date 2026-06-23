@@ -30,7 +30,7 @@ export function useTrial(): { state: TrialState; communityName: string; loading:
   }, [communityId])
 
   return {
-    state: trialState(row || {}),
+    state: trialState({ ...(row || {}), id: communityId }),
     communityName: row?.name || 'your community',
     loading,
   }

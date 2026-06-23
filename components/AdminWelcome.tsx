@@ -38,7 +38,7 @@ export function AdminWelcome() {
         setRow(data)
         // Only welcome communities on their free trial — don't pop on established
         // / active communities (e.g. Palm Grove Test).
-        if (trialState(data).phase === 'trial') setOpen(true)
+        if (trialState({ ...data, id: communityId }).phase === 'trial') setOpen(true)
       })
     return () => { cancelled = true }
   }, [communityId])
@@ -52,7 +52,7 @@ export function AdminWelcome() {
 
   const homes = row.home_count ?? row.unit_count ?? 0
   const band = planForHomes(homes)
-  const trial = trialState(row)
+  const trial = trialState({ ...row, id: communityId })
   const onTrial = trial.phase === 'trial'
   const trialDate = trial.endsAt
     ? trial.endsAt.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
