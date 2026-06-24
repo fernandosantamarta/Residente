@@ -4167,4 +4167,10 @@ export const es: Record<string, string> = {
   "admin.requests.woPanelTitle": "Orden de trabajo",
   "admin.requests.woCreate": "Crear orden de trabajo",
   "admin.requests.woNoneHint": "Convierte este problema de mantenimiento en un trabajo registrado: asigna un proveedor, establece una prioridad y una fecha objetivo.",
+
+  // === work-order → budget expense ===
+  "admin.requests.woExpenseCat": "Asignar este costo a una partida del presupuesto",
+  "admin.requests.woExpenseCatNone": "Sin categoría",
+  "admin.requests.woExpenseHint": "El costo real se registra como un gasto de la comunidad en esta partida del presupuesto, y aparece en Presupuesto, Informes y el gráfico financiero del residente.",
+  "admin.requests.woExpenseRecorded": "Se registró {amount} en el presupuesto.",
 }

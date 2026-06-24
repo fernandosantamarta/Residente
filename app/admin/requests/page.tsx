@@ -16,6 +16,7 @@ import {
   startPatch,
   completePatch,
   cancelPatch,
+  recordWorkOrderExpense,
 } from '@/lib/workOrders'
 import { useT } from '@/lib/i18n'
 
@@ -1120,6 +1121,11 @@ function WorkOrderPanel({
   const [photo, setPhoto] = useState<File | null>(null)
   const [completeSaving, setCompleteSaving] = useState(false)
 
+  // Budget integration: categories for the completion form's "file this spend
+  // to" picker (a completed work order's cost becomes a community expense).
+  const [budgetCats, setBudgetCats] = useState<{ id: string; name: string }[]>([])
+  const [expenseCat, setExpenseCat] = useState('')
+
   // Translated work-order labels (reuse the existing admin.workOrders.* keys).
   const woStatusLabel: Record<WorkOrderStatus, string> = {
     assigned:    t('admin.workOrders.statusAssigned'),
@@ -1161,6 +1167,23 @@ function WorkOrderPanel({
     }
   }, [request.id, t])
   useEffect(() => { loadWo() }, [loadWo])
+
+  // Load this community's budget categories so the board can file the completed
+  // work order's cost against a budget line; pre-select a maintenance/repair
+  // category when one exists.
+  useEffect(() => {
+    if (!hasSupabase || !supabase) return
+    let cancelled = false
+    supabase.from('budget_categories').select('id, name').eq('community_id', request.community_id)
+      .then(({ data }) => {
+        if (cancelled) return
+        const cats = ((data as { id: string; name: string }[]) || [])
+        setBudgetCats(cats)
+        const m = cats.find(c => /maint|repair|upkeep/i.test(c.name))
+        if (m) setExpenseCat(m.id)
+      })
+    return () => { cancelled = true }
+  }, [request.community_id])
 
   const submitCreate = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -1236,10 +1259,29 @@ function WorkOrderPanel({
         photoPath,
         photoName,
       }))
+      // Budget integration: file the actual cost as a community expense
+      // (idempotent). Wrapped so a missing migration / RLS hiccup never blocks
+      // the completion itself.
+      const spent = actualCost === '' ? null : Number(actualCost)
+      let budgetMsg = ''
+      if (spent != null && spent > 0) {
+        try {
+          const recorded = await recordWorkOrderExpense({
+            communityId: request.community_id,
+            workOrderId: wo.id,
+            amount: spent,
+            vendor: vendorName(wo.vendor_id),
+            description: request.subject,
+            categoryId: expenseCat || null,
+            createdBy: profileId ?? null,
+          })
+          if (recorded) budgetMsg = ' ' + t('admin.requests.woExpenseRecorded', { amount: fmtMoney(spent) })
+        } catch { /* expense is a nicety; never block completion on it */ }
+      }
       setWo(updated)
       setCompleting(false)
       setActualCost(''); setNotes(''); setPhoto(null)
-      onSent(t('admin.workOrders.successCompleted', { title: updated.title }))
+      onSent(t('admin.workOrders.successCompleted', { title: updated.title }) + budgetMsg)
     } catch (e: any) {
       setErr(e?.message || t('admin.workOrders.errUpdate'))
     } finally {
@@ -1388,6 +1430,17 @@ function WorkOrderPanel({
             <textarea className="admin-input admin-textarea" rows={3} style={{ width: '100%', boxSizing: 'border-box' }}
               value={notes} onChange={e => setNotes(e.target.value)} placeholder={t('admin.workOrders.completionNotesPlaceholder')} />
           </div>
+          {budgetCats.length > 0 && (
+            <div>
+              <label style={labelCss}>{t('admin.requests.woExpenseCat')}</label>
+              <select className="admin-input" style={{ width: '100%', boxSizing: 'border-box' }}
+                value={expenseCat} onChange={e => setExpenseCat(e.target.value)}>
+                <option value="">{t('admin.requests.woExpenseCatNone')}</option>
+                {budgetCats.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+              <div style={{ fontSize: 11, color: 'var(--text-dim)', marginTop: 4 }}>{t('admin.requests.woExpenseHint')}</div>
+            </div>
+          )}
           <div>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#E14909' }}>
               <input type="file" accept="image/*" hidden onChange={e => setPhoto(e.target.files?.[0] || null)} />

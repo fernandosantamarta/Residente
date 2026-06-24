@@ -4220,4 +4220,10 @@ export const en: Record<string, string> = {
   "admin.requests.woPanelTitle": "Work order",
   "admin.requests.woCreate": "Create work order",
   "admin.requests.woNoneHint": "Turn this maintenance issue into a tracked vendor job — assign a vendor, set a priority and target date.",
+
+  // === work-order → budget expense ===
+  "admin.requests.woExpenseCat": "File this cost to a budget line",
+  "admin.requests.woExpenseCatNone": "Uncategorized",
+  "admin.requests.woExpenseHint": "The actual cost is logged as a community expense in this budget line — it then shows up in Budget, Reports, and the resident financial chart.",
+  "admin.requests.woExpenseRecorded": "Logged {amount} to the budget.",
 }

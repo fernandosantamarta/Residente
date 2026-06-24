@@ -4167,4 +4167,10 @@ export const pt: Record<string, string> = {
   "admin.requests.woPanelTitle": "Ordem de serviço",
   "admin.requests.woCreate": "Criar ordem de serviço",
   "admin.requests.woNoneHint": "Transforme este problema de manutenção em um trabalho rastreado — atribua um fornecedor, defina uma prioridade e uma data alvo.",
+
+  // === work-order → budget expense ===
+  "admin.requests.woExpenseCat": "Lançar este custo em uma linha do orçamento",
+  "admin.requests.woExpenseCatNone": "Sem categoria",
+  "admin.requests.woExpenseHint": "O custo real é lançado como uma despesa da comunidade nesta linha do orçamento — e aparece em Orçamento, Relatórios e no gráfico financeiro do morador.",
+  "admin.requests.woExpenseRecorded": "Registrado {amount} no orçamento.",
 }

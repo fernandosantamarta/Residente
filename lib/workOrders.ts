@@ -168,3 +168,40 @@ export function completePatch(opts: {
 export function cancelPatch(): WorkOrderPatch {
   return { status: 'cancelled' }
 }
+
+// Budget integration: a completed work order's actual cost IS a community
+// expense, so record it once in public.ev_expenses — the same ledger Budget
+// actuals, Reports, and the resident Home chart all read. Idempotent on
+// work_order_id so re-completing never double-posts. Returns true if a new
+// expense row was written. Requires supabase/work-order-expense.sql (which adds
+// the ev_expenses.work_order_id column).
+export async function recordWorkOrderExpense(input: {
+  communityId: string
+  workOrderId: string
+  amount: number
+  vendor: string | null
+  description: string | null
+  categoryId: string | null
+  createdBy: string | null
+}): Promise<boolean> {
+  if (!hasSupabase || !supabase) return false
+  // Never double-post for the same work order.
+  const { data: existing } = await withTimeout(
+    supabase.from('ev_expenses').select('id').eq('work_order_id', input.workOrderId).limit(1),
+  )
+  if (existing && (existing as any[]).length) return false
+  const { error } = await withTimeout(
+    supabase.from('ev_expenses').insert({
+      community_id:  input.communityId,
+      work_order_id: input.workOrderId,
+      category_id:   input.categoryId,
+      amount:        input.amount,
+      spent_on:      new Date().toISOString().slice(0, 10),
+      vendor:        input.vendor,
+      description:   input.description,
+      created_by:    input.createdBy,
+    }),
+  )
+  if (error) throw error
+  return true
+}
