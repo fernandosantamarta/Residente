@@ -1,7 +1,6 @@
 -- ============================================================================
 -- Residente — Operator Console (A) + Automation plumbing (B)
 -- Combined migration. Run ONCE in the Supabase SQL editor. Idempotent / safe to re-run.
--- Order is dependency-safe (all reference only pre-existing tables).
 -- ============================================================================
 
 
@@ -78,12 +77,16 @@ begin
       res.created_at,
       null::timestamptz,
       'soon'::text,
-      'Pending resident: ' || coalesce(res.full_name, res.email, '(no name)'),
-      res.email,
+      coalesce(res.full_name, '(no name)'),
+      -- the eyeball-verify line: email · street address · unit. Operators
+      -- approve by confirming these match a real owner, so show all three.
+      coalesce(res.email, 'no email')
+        || coalesce(' · ' || nullif(res.address, ''), '')
+        || ' · Unit ' || coalesce(res.unit_number, '—'),
       'pending'::text,
       'approve_resident'::text,
       '/admin/residents'::text,
-      coalesce(res.full_name, res.email)
+      null::text
     from public.residents res
     join public.communities c on c.id = res.community_id
     where ops and res.approval_state = 'pending'

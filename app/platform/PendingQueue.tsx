@@ -189,7 +189,12 @@ export default function PendingQueue() {
                                     <div style={{ minWidth: 0 }}>
                                       <div style={{ fontWeight: 600 }}>{it.title}</div>
                                       {(it.subtitle || it.actor_name) && (
-                                        <div style={{ fontSize: 12, color: C.muted, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }}>
+                                        <div style={{ fontSize: 12, color: C.muted,
+                                          // approval rows wrap so the full email · address · unit
+                                          // verify line is readable; other rows stay one-line.
+                                          ...(isApproval
+                                            ? { whiteSpace: 'normal', maxWidth: 460 }
+                                            : { overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 320 }) }}>
                                           {it.actor_name || it.subtitle}
                                         </div>
                                       )}
