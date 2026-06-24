@@ -696,10 +696,7 @@ function FinancialOverview({
 
       <div className="fin-foot">
         <button className="fin-view-btn" type="button" onClick={() => setBudgetOpen(true)}>
-          {/* Full label on desktop; just "Budget" on phones so it fits on one row
-              with the pace stats. */}
-          <span className="fvb-full">{t('home.finViewBudget')}</span>
-          <span className="fvb-short">{t('home.finBudget')}</span>
+          {t('home.finViewBudget')}
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <polyline points="9 18 15 12 9 6"/>
           </svg>

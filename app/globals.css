@@ -3647,8 +3647,6 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   grid-column: 2;
   justify-self: center;
 }
-/* Desktop shows the full "View budget"; the short "Budget" is phone-only. */
-[data-theme="sketch"] .fin-view-btn .fvb-short { display: none; }
 [data-theme="sketch"] .fin-view-btn {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 10px 16px;
@@ -10252,23 +10250,21 @@ textarea[disabled] {
     white-space: normal;
   }
 
-  /* Phone: fit the "Budget" button on ONE row with the three pace stats. Swap
-     the long label for the short one, lay the foot out as a flex row, and let
-     the stats spread to fill the remaining width compactly. */
-  [data-theme="sketch"] .fin-view-btn .fvb-full { display: none; }
-  [data-theme="sketch"] .fin-view-btn .fvb-short { display: inline; }
+  /* Stack the "view budget" button above the stats (original), and skew the
+     three pace stats to the RIGHT of their row. */
   [data-theme="sketch"] .fin-foot {
-    display: flex; align-items: center; gap: 12px;
+    grid-template-columns: 1fr;
+    gap: 14px;
   }
   [data-theme="sketch"] .fin-foot .fin-view-btn {
-    flex: 0 0 auto; padding: 9px 14px;
+    grid-column: 1;
+    justify-self: start;
   }
   [data-theme="sketch"] .fin-foot .fin-stats {
-    flex: 1 1 auto; min-width: 0;
-    display: flex; justify-content: space-between; gap: 8px;
+    grid-column: 1;
+    justify-self: end;
   }
-  [data-theme="sketch"] .fin-stat-label { font-size: 8.5px; letter-spacing: 0.2px; white-space: nowrap; }
-  [data-theme="sketch"] .fin-stat-value { font-size: 15px; }
+  [data-theme="sketch"] .fin-stats { gap: 28px; }
 
   /* "At a glance" + "Recent activity" had no mobile override, so they stayed a
      2-column grid and got crushed side-by-side on phones. Stack them with a
