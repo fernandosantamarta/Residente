@@ -330,6 +330,7 @@ export const es: Record<string, string> = {
   "home.finOverview": "Resumen financiero",
   "home.finSpentThisYear": "Gastado este año",
   "home.finViewBudget": "Ver presupuesto",
+  "home.finBudget": "Presupuesto",
   "home.finYearToDate": "Lo que va del año",
   "home.glanceCollectionRate": "Tasa de cobro",
   "home.glanceBudgetPace": "Ritmo del presupuesto",
