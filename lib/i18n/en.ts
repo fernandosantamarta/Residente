@@ -4216,7 +4216,7 @@ export const en: Record<string, string> = {
   "admin.minutes.errorPublish": "Could not publish the minutes.",
 
   // === consolidation: charges→reports, work-orders→thread ===
-  "admin.reports.assessmentsSub": "Each home's monthly dues, billed automatically on the 1st of the month. A record of what's charged — kept separate from the payments above, and it never changes anyone's live balance.",
+  "admin.reports.assessmentsSub": "Auto-generated monthly dues charges, kept separate from the payments received above.",
   "admin.requests.woPanelTitle": "Work order",
   "admin.requests.woCreate": "Create work order",
   "admin.requests.woNoneHint": "Turn this maintenance issue into a tracked vendor job — assign a vendor, set a priority and target date.",

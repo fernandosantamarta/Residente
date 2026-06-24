@@ -4163,7 +4163,7 @@ export const es: Record<string, string> = {
   "admin.minutes.errorPublish": "No se pudo publicar el acta.",
 
   // === consolidation: charges→reports, work-orders→thread ===
-  "admin.reports.assessmentsSub": "Las cuotas mensuales de cada vivienda, generadas automáticamente el día 1 del mes. Un registro de lo que se cobra, separado de los pagos de arriba, y nunca cambia el saldo en vivo de nadie.",
+  "admin.reports.assessmentsSub": "Cuotas mensuales generadas automáticamente, separadas de los pagos recibidos arriba.",
   "admin.requests.woPanelTitle": "Orden de trabajo",
   "admin.requests.woCreate": "Crear orden de trabajo",
   "admin.requests.woNoneHint": "Convierte este problema de mantenimiento en un trabajo registrado: asigna un proveedor, establece una prioridad y una fecha objetivo.",
