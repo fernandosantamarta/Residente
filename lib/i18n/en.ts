@@ -338,7 +338,6 @@ export const en: Record<string, string> = {
   "home.finOverview": "Financial Overview",
   "home.finSpentThisYear": "Spent this year",
   "home.finViewBudget": "View budget",
-  "home.finBudget": "Budget",
   "home.finYearToDate": "Year to date",
   "home.glanceCollectionRate": "Collection rate",
   "home.glanceBudgetPace": "Budget on pace",

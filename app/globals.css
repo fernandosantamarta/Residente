@@ -10250,19 +10250,16 @@ textarea[disabled] {
     white-space: normal;
   }
 
-  /* Stack the "view budget" button above the stats (original), and skew the
-     three pace stats to the RIGHT of their row. */
+  /* Stack the "view budget" button above the stats, and pull the two stats in
+     tight so they fit a phone-width card instead of spilling past it. */
   [data-theme="sketch"] .fin-foot {
     grid-template-columns: 1fr;
     gap: 14px;
   }
-  [data-theme="sketch"] .fin-foot .fin-view-btn {
-    grid-column: 1;
-    justify-self: start;
-  }
+  [data-theme="sketch"] .fin-foot .fin-view-btn,
   [data-theme="sketch"] .fin-foot .fin-stats {
     grid-column: 1;
-    justify-self: end;
+    justify-self: start;
   }
   [data-theme="sketch"] .fin-stats { gap: 28px; }
 
