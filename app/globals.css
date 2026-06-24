@@ -3621,18 +3621,16 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   font-variant-numeric: tabular-nums;
 }
 
-[data-theme="sketch"] .fin-right { min-width: 0; display: flex; align-items: center; }
+[data-theme="sketch"] .fin-right { min-width: 0; }
 [data-theme="sketch"] .fin-chart {
-  /* The SVG viewBox is 560×200. Match that ratio so it scales UNIFORMLY at any
-     width (no horizontal squish/stretch). A fixed height instead forced a
-     560×200 graph into e.g. 310×140 and compressed everything horizontally — the
-     "stretched" look. height caps the size on wide screens. */
+  /* Fill the navy Financial-Overview panel: full width of its column and the
+     panel's height. preserveAspectRatio="none" lets the area chart stretch to
+     fill (it's a decorative trend backdrop, so filling reads better than a small
+     centered graph). */
   width: 100%;
-  max-width: 560px;
-  aspect-ratio: 560 / 200;
-  height: auto;
+  height: 100%;
+  min-height: 132px;
   display: block;
-  margin: 0 auto;
 }
 
 /* Bottom row: View budget button on the left, 3 pace stats centered */
