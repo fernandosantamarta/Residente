@@ -231,7 +231,12 @@ button { font-family: inherit; }
   grid-template-columns: 220px 1fr 340px;
   min-height: 100vh;
   width: 100%;
-  min-width: 1280px;   /* never collapses narrower than this — horizontal scroll if needed */
+  /* Sits just under the 1199px breakpoint where the layout flips to the stacked
+     single-column view. Previously 1280px, which left a 1200–1280px dead zone:
+     the cockpit stayed 1280 wide while the viewport was narrower, so body's
+     overflow-x:hidden clipped the right rail ("Up next" + "Your residence").
+     Keeping the floor below the breakpoint lets it hand off cleanly with no clip. */
+  min-width: 1180px;
   max-width: 1920px;   /* stop growing past this — empty space on both sides instead */
   margin: 0 auto;       /* centered when viewport is wider than max */
 }
