@@ -10250,16 +10250,19 @@ textarea[disabled] {
     white-space: normal;
   }
 
-  /* Stack the "view budget" button above the stats, and pull the two stats in
-     tight so they fit a phone-width card instead of spilling past it. */
+  /* Stack the "view budget" button above the stats; button left, the three pace
+     stats centered on their row. Pull the stats in tight so they fit a phone. */
   [data-theme="sketch"] .fin-foot {
     grid-template-columns: 1fr;
     gap: 14px;
   }
-  [data-theme="sketch"] .fin-foot .fin-view-btn,
-  [data-theme="sketch"] .fin-foot .fin-stats {
+  [data-theme="sketch"] .fin-foot .fin-view-btn {
     grid-column: 1;
     justify-self: start;
+  }
+  [data-theme="sketch"] .fin-foot .fin-stats {
+    grid-column: 1;
+    justify-self: center;
   }
   [data-theme="sketch"] .fin-stats { gap: 28px; }
 
