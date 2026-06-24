@@ -231,11 +231,13 @@ button { font-family: inherit; }
   grid-template-columns: 220px 1fr 340px;
   min-height: 100vh;
   width: 100%;
-  /* Floor for the full 3-column desktop. Below ~1300px the right rail reflows
-     under the main as a two-up row (see the 1200–1300px band below) instead of
-     squishing the 3 columns or clipping — so this floor stays clear of the
-     viewport in that range. */
-  min-width: 1200px;
+  /* No min-width floor: a floor + margin:0 auto made the cockpit wider than the
+     viewport in the tight range and bled off BOTH edges (overflow-x:hidden then
+     clipped "Up next" on the left and "Your residence" on the right). Instead the
+     layout reflows responsively — the right rail drops under the main as a two-up
+     row below 1300px (and the inner columns reflow) — so it never exceeds the
+     viewport at any width or zoom. */
+  min-width: 0;
   max-width: 1920px;   /* stop growing past this — empty space on both sides instead */
   margin: 0 auto;       /* centered when viewport is wider than max */
 }
@@ -572,23 +574,16 @@ button { font-family: inherit; }
   padding: 32px 24px 24px; display: flex; flex-direction: column; gap: 24px;
   position: sticky; top: 0; height: 100vh; overflow-y: auto;
 }
-/* In the sidebar, "Up next" acts as direct flex children (no layout change).
-   In the reflow band below it becomes a real column next to "Your residence". */
 .up-block { display: contents; }
 
-/* Tight desktop (1200–1300px): not enough room for a comfortable 3rd column, so
-   drop the right rail UNDER the main as a two-up row — Up next | Your residence —
-   keeping the sidebar and a roomy main, instead of squishing 3 cols or clipping. */
-@media (min-width: 1200px) and (max-width: 1300px) {
-  .cockpit { grid-template-columns: 220px 1fr; min-width: 0; }
-  .rail-right {
-    grid-column: 1 / -1;
-    display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;
-    position: static; height: auto; overflow: visible;
-    border-left: none; border-top: 1px solid var(--border);
-    padding: 24px 40px 40px;
-  }
-  .up-block { display: flex; flex-direction: column; gap: 16px; }
+/* Once the full 3-column desktop won't fit (<1301px), HIDE the right rail rather
+   than reflow or clip it — "Up next" lives in Easy Schedule and "Your residence"
+   in Easy Track, so it's redundant. The main takes the full width. display:none
+   has no conflicting rule in the ≤1199 mobile block (which keeps its !important
+   single-column + hamburger layout), so this hides the rail at every width <1301. */
+@media (max-width: 1300px) {
+  .cockpit { grid-template-columns: 220px 1fr; }
+  .rail-right { display: none; }
 }
 .feed-head { display: flex; justify-content: space-between; align-items: center; }
 .feed-title { font-size: 12px; font-weight: 600; letter-spacing: 1.6px; text-transform: uppercase; color: var(--text-dim); }
@@ -3628,9 +3623,14 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 
 [data-theme="sketch"] .fin-right { min-width: 0; }
 [data-theme="sketch"] .fin-chart {
-  width: 560px;
-  height: 140px;
-  max-width: 100%;
+  /* Hold the designed 560×140 render box's 4:1 ratio at ANY width so the chart
+     (and its month labels) scale uniformly instead of squishing horizontally
+     when the container narrows at high zoom. The ≤767 phone block keeps its own
+     fixed height, so phones are untouched. */
+  width: 100%;
+  max-width: 560px;
+  aspect-ratio: 4 / 1;
+  height: auto;
   display: block;
   margin: 0 auto;
 }
