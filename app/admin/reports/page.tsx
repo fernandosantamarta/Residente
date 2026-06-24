@@ -591,7 +591,7 @@ export default function ReportsPage() {
                 <h2>{t('admin.charges.pageTitle')}</h2>
                 <div className="sub">{t('admin.reports.assessmentsSub')}</div>
                 {assessments.length > 0 && (
-                  <div className="sub" style={{ color: '#E14909', fontWeight: 700, marginTop: 3 }}>
+                  <div className="sub" style={{ display: 'block', color: '#E14909', fontWeight: 700, marginTop: 3 }}>
                     {t('admin.charges.tableSub', { count: assessments.length, total: fmtMoney(assessmentsTotal) })}
                   </div>
                 )}
