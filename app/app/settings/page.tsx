@@ -574,6 +574,7 @@ function TenantRequestPanel() {
   const [override, setOverride] = useState<string | null | undefined>(undefined)
   const [removed, setRemoved] = useState(false)
   const [confirmRemove, setConfirmRemove] = useState(false)
+  const [modalOpen, setModalOpen] = useState(false)
 
   if (loading || isTenant || !resident) return null
 
@@ -625,9 +626,32 @@ function TenantRequestPanel() {
     finally { setBusy(false) }
   }
 
+  const rowDesc = hasAccount ? t('settings.tenantRowActive')
+    : state === 'pending' ? t('settings.tenantRowPending')
+    : t('settings.tenantRowAdd')
+
   return (
     <SectionCard title={t('settings.secTenant')}>
-      {hasAccount ? (
+      <button type="button" className="set-row" onClick={() => { setErr(null); setConfirmRemove(false); setModalOpen(true) }}>
+        <span className="set-row-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+        </span>
+        <span className="set-row-body">
+          <span className="set-row-title">{t('settings.secTenant')}</span>
+          <span className="set-row-desc">{rowDesc}</span>
+        </span>
+        <svg className="set-row-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </button>
+
+      {modalOpen && (
+      <div className="hv-modal-overlay" onClick={() => !busy && setModalOpen(false)}>
+        <div className="hv-modal" onClick={e => e.stopPropagation()}>
+          <div className="hv-modal-title">{t('settings.secTenant')}</div>
+          {hasAccount ? (
         <>
           <div className="hv-xfer-success">{t('settings.tenantReqActive', { name: tName || tEmail || t('settings.tenantReqYourTenant') })}</div>
           {confirmRemove ? (
@@ -679,6 +703,12 @@ function TenantRequestPanel() {
           </button>
           <p style={{ marginTop: 10, fontSize: 11.5, color: 'var(--text-faint)', lineHeight: 1.5 }}>{t('settings.tenantReqNote')}</p>
         </>
+      )}
+          <div className="hv-modal-actions">
+            <button type="button" className="hv-btn-ghost" onClick={() => setModalOpen(false)}>{t('settings.hvClose')}</button>
+          </div>
+        </div>
+      </div>
       )}
     </SectionCard>
   )

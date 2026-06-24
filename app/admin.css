@@ -1620,6 +1620,19 @@
 .cset .cset-backrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .cset .cset-backrow .admin-backlink { margin-bottom: 12px; }
 
+/* Pager — compact page nav for long admin lists; optional right-slot action. */
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
+.pager-nav { display: inline-flex; align-items: center; gap: 10px; }
+.pager-btn {
+  background: none; border: 1px solid var(--border); border-radius: 9px;
+  padding: 6px 12px; font-size: 13px; font-weight: 600; color: var(--text-dim);
+  cursor: pointer; font-family: inherit;
+}
+.pager-btn:hover:not(:disabled) { color: var(--text); border-color: var(--pink); }
+.pager-btn:disabled { opacity: 0.4; cursor: default; }
+.pager-info { font-size: 12.5px; color: var(--text-faint); font-weight: 600; white-space: nowrap; }
+.pager .pager-export { margin-left: auto; }
+
 /* Indent the page-header text so it lines up with the card CONTENT (cards pad
    24px), not the card's outer edge — "Board & roles" sits over "Board members",
    the dek over the section's first line, etc. Applies across the clean admin
@@ -2377,6 +2390,9 @@
     border: 1px solid var(--border); border-radius: 14px; padding: 14px; margin-bottom: 10px;
   }
   .etrack .roster-tbl tr.tr td { display: block; border: none; padding: 0; }
+  /* Hide the long email on the card (this rule must out-specify the td block
+     rule above, which was re-showing it and overflowing "Open" off the edge). */
+  .etrack .roster-tbl tr.tr td.contact-col { display: none; }
   .etrack .roster-tbl tr.tr td:first-child { flex: 1 1 100%; }           /* owner */
   .etrack .roster-tbl tr.tr td:nth-child(2) { flex: 0 0 auto; font-size: 12.5px; color: var(--text-dim); } /* unit */
   .etrack .roster-tbl tr.tr td:nth-child(4) { flex: 0 0 auto; }          /* status pill */

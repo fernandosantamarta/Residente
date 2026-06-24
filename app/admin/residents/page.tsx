@@ -6,6 +6,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { downloadCsv, exportFilename } from '@/lib/exportCsv'
 import { logAudit } from '@/lib/audit'
 import { transferHome } from '@/lib/homeVault'
+import { Pager } from '@/components/Pager'
 import { Dropdown } from '@/components/Dropdown'
 import { EasyTrackTabs } from '../EasyTrackTabs'
 import { useT } from '@/lib/i18n'
@@ -76,6 +77,8 @@ export default function Residents() {
   const [rows, setRows] = useState([])
   const [community, setCommunity] = useState(null)
   const [transfers, setTransfers] = useState([]) // home_transfers for this community (admin visibility)
+  const [rosterPage, setRosterPage] = useState(0)
+  const ROSTER_SIZE = 12
   const [status, setStatus] = useState('loading') // loading | ready | none | error
   const [error, setError] = useState('')
   const [pending, setPending] = useState(null) // parsed CSV / pasted rows awaiting confirm
@@ -701,7 +704,11 @@ export default function Residents() {
           {status === 'ready' && rows.length === 0 && (
             <div className="card"><div className="roster-empty">{t('admin.residents.emptyRoster')}</div></div>
           )}
-          {status === 'ready' && rows.length > 0 && (
+          {status === 'ready' && rows.length > 0 && (() => {
+            const pageCount = Math.ceil(filtered.length / ROSTER_SIZE)
+            const page = Math.min(rosterPage, Math.max(0, pageCount - 1))
+            const paged = filtered.slice(page * ROSTER_SIZE, (page + 1) * ROSTER_SIZE)
+            return (
             <div className="card">
               <table className="tbl roster-tbl">
                 <thead>
@@ -713,7 +720,7 @@ export default function Residents() {
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr><td colSpan={5}><div className="roster-empty">{t('admin.residents.noSearchResults')}</div></td></tr>
-                  ) : filtered.map(r => (
+                  ) : paged.map(r => (
                     <ResidentRow key={r.id} r={r}
                       onLocal={editLocal} onCommit={commit} onRemove={remove}
                       onInvite={sendInvite} inviteBusy={inviteBusyId === r.id}
@@ -722,8 +729,10 @@ export default function Residents() {
                   ))}
                 </tbody>
               </table>
+              <Pager page={page} pageCount={pageCount} onPage={setRosterPage} />
             </div>
-          )}
+            )
+          })()}
         </>
       )}
     </div>

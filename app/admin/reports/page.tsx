@@ -16,6 +16,7 @@ import { downloadCsv, exportFilename, type CsvColumn } from '@/lib/exportCsv'
 import { residentBalance, communityDuesConfig, adminLateFees, fmtMoney } from '@/lib/dues'
 import { Dropdown } from '@/components/Dropdown'
 import { RecordPaymentForm } from '@/components/RecordPaymentForm'
+import { Pager } from '@/components/Pager'
 import { logAudit } from '@/lib/audit'
 import { useT } from '@/lib/i18n'
 
@@ -78,6 +79,8 @@ export default function ReportsPage() {
   const [openPayId, setOpenPayId] = useState<string | null>(null)
   const [remindBusyId, setRemindBusyId] = useState<string | null>(null)
   const [remindMsg, setRemindMsg] = useState('')
+  const [behindPage, setBehindPage] = useState(0)
+  const BEHIND_SIZE = 12
 
   // Picking a preset rewrites the from/to range the rest of the page reads;
   // "custom" leaves the current range alone and surfaces the date inputs.
@@ -464,9 +467,6 @@ export default function ReportsPage() {
                 <h2>{t('admin.reports.behindTitle')}</h2>
                 <div className="sub">{delinquents.length === 1 ? t('admin.reports.behindSubSingular', { count: delinquents.length }) : t('admin.reports.behindSubPlural', { count: delinquents.length })}</div>
               </div>
-              <button type="button" className="admin-secondary-btn" onClick={exportDelinquents} disabled={delinquents.length === 0}>
-                {t('admin.reports.exportCsvBtn')}
-              </button>
             </div>
             {remindMsg && <div className="admin-success" role="status" style={{ margin: '0 0 12px' }}>{remindMsg}</div>}
             {delinquents.length === 0 ? (
@@ -475,13 +475,18 @@ export default function ReportsPage() {
                   ? t('admin.reports.noHouseholdsRoster')
                   : t('admin.reports.everyoneCurrent')}
               </div>
-            ) : (
+            ) : (() => {
+              const pageCount = Math.ceil(delinquents.length / BEHIND_SIZE)
+              const page = Math.min(behindPage, Math.max(0, pageCount - 1))
+              const paged = delinquents.slice(page * BEHIND_SIZE, (page + 1) * BEHIND_SIZE)
+              return (
+              <>
               <table className="tbl behind-tbl">
                 <thead>
                   <tr><th>{t('admin.reports.colOwner')}</th><th className="period-col">{t('admin.reports.colUnit')}</th><th>{t('admin.reports.colBalanceOwed')}</th><th className="act"></th></tr>
                 </thead>
                 <tbody>
-                  {delinquents.map(({ r, bal }) => {
+                  {paged.map(({ r, bal }) => {
                     const fee = lateFeeOf(r)
                     return (
                     <Fragment key={r.id}>
@@ -527,7 +532,15 @@ export default function ReportsPage() {
                   )})}
                 </tbody>
               </table>
-            )}
+              <Pager page={page} pageCount={pageCount} onPage={setBehindPage}
+                right={(
+                  <button type="button" className="admin-btn-sm pager-export" onClick={exportDelinquents}>
+                    {t('admin.reports.exportCsvBtn')}
+                  </button>
+                )} />
+              </>
+              )
+            })()}
           </div>
 
           <p className="note">
