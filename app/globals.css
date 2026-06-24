@@ -10251,7 +10251,7 @@ textarea[disabled] {
   }
 
   /* Stack the "view budget" button above the stats; button left, the three pace
-     stats centered on their row. Pull the stats in tight so they fit a phone. */
+     stats spread edge-to-edge across the full row. */
   [data-theme="sketch"] .fin-foot {
     grid-template-columns: 1fr;
     gap: 14px;
@@ -10262,9 +10262,10 @@ textarea[disabled] {
   }
   [data-theme="sketch"] .fin-foot .fin-stats {
     grid-column: 1;
-    justify-self: center;
+    justify-self: stretch;
+    justify-content: space-between;
   }
-  [data-theme="sketch"] .fin-stats { gap: 28px; }
+  [data-theme="sketch"] .fin-stats { gap: 10px; }
 
   /* "At a glance" + "Recent activity" had no mobile override, so they stayed a
      2-column grid and got crushed side-by-side on phones. Stack them with a
