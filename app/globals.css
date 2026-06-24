@@ -3623,16 +3623,20 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 
 [data-theme="sketch"] .fin-right { min-width: 0; }
 [data-theme="sketch"] .fin-chart {
-  /* Hold the designed 560×140 render box's 4:1 ratio at ANY width so the chart
-     (and its month labels) scale uniformly instead of squishing horizontally
-     when the container narrows at high zoom. The ≤767 phone block keeps its own
-     fixed height, so phones are untouched. */
   width: 100%;
   max-width: 560px;
-  aspect-ratio: 4 / 1;
-  height: auto;
+  height: 140px;
   display: block;
   margin: 0 auto;
+}
+
+/* Stack the Financial-Overview row earlier (it only stacked at ≤767 before) so
+   that as you zoom in, the chart gets the FULL card width instead of cramming
+   into ~280px and squishing horizontally. At ≤1024 the chart reaches its 560px
+   max — a clean, undistorted 560×140 — instead of distorting. Zoomed-out (3-col)
+   keeps the side-by-side cards with the chart at its normal fixed height. */
+@media (max-width: 1024px) {
+  [data-theme="sketch"] .dash-row1 { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Bottom row: View budget button on the left, 3 pace stats centered */
