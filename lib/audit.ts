@@ -97,6 +97,8 @@ export type AuditEventType =
   // niche / event-driven advisories (compliance: Advisories)
   | 'advisory.event_recorded'
   | 'advisory.event_resolved'
+  // payment reminders (Reports → Notify-to-pay)
+  | 'payment.reminder_sent'
 
 export type AuditTargetType =
   | 'vote' | 'ballot' | 'meeting' | 'document' | 'notice'

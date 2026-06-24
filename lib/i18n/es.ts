@@ -4161,4 +4161,10 @@ export const es: Record<string, string> = {
   "admin.minutes.errorLoad": "No se pudo cargar la reunión.",
   "admin.minutes.errorSave": "No se pudo guardar el borrador.",
   "admin.minutes.errorPublish": "No se pudo publicar el acta.",
+
+  // === consolidation: charges→reports, work-orders→thread ===
+  "admin.reports.assessmentsSub": "Cuotas mensuales generadas automáticamente — el libro de obligaciones, emitido el día 1 de cada mes. Distinto de los pagos recibidos arriba; los saldos se calculan en vivo, así que esto no se suma encima.",
+  "admin.requests.woPanelTitle": "Orden de trabajo",
+  "admin.requests.woCreate": "Crear orden de trabajo",
+  "admin.requests.woNoneHint": "Convierte este problema de mantenimiento en un trabajo registrado: asigna un proveedor, establece una prioridad y una fecha objetivo.",
 }

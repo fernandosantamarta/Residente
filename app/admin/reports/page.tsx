@@ -19,6 +19,7 @@ import { RecordPaymentForm } from '@/components/RecordPaymentForm'
 import { Pager } from '@/components/Pager'
 import { logAudit } from '@/lib/audit'
 import { useT } from '@/lib/i18n'
+import { useMonthlyCharges, type MonthlyChargeStatus, type MonthlyCharge } from '@/hooks/useMonthlyCharges'
 
 // Period presets behind the "Year to date" dropdown. Each maps to a from/to
 // range; "custom" reveals the raw date inputs so any window is still reachable.
@@ -53,6 +54,26 @@ const CHARGE_LABEL: Record<string, string> = {
   assessment: 'Assessment', interest: 'Interest', late_fee: 'Late fee', cost: 'Cost', fine: 'Fine', other: 'Other',
 }
 const chargeLabel = (t: string | null) => (t ? (CHARGE_LABEL[t] || t) : 'Dues')
+
+// Monthly-assessment ledger display helpers (mirrors the old standalone charges
+// page): a billing period like "June 2026" from its YYYY-MM-DD start, a short
+// due date, and the pill tone per generated-charge status.
+const periodLabel = (iso: string): string => {
+  if (!iso) return '—'
+  const [y, m] = iso.split('-').map(Number)
+  if (!y || !m) return iso
+  return new Date(Date.UTC(y, m - 1, 1)).toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
+}
+const dateLabel = (iso: string): string => {
+  if (!iso) return '—'
+  const [y, m, d] = iso.split('-').map(Number)
+  if (!y || !m || !d) return iso
+  return new Date(Date.UTC(y, m - 1, d)).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric', timeZone: 'UTC' })
+}
+const ASSESSMENT_PILL: Record<MonthlyChargeStatus, string> = {
+  'pending': 'due', 'paid-in-full': 'ok', 'partial': 'warn', 'reversed': 'warn',
+}
+
 type Expense = { id: string; amount: number; spent_on: string; category_id: string | null; vendor: string | null; description: string | null }
 type Resident = { id: string; full_name: string | null; unit_number: string | null; address: string | null; opening_balance: number | null; created_at?: string | null; profile_id?: string | null; email?: string | null }
 
@@ -73,6 +94,12 @@ export default function ReportsPage() {
   const [to, setTo] = useState(todayISO())
   const [period, setPeriod] = useState<PeriodKey>('ytd')
   const [category, setCategory] = useState<string>('all')
+
+  // The auto-generated monthly-dues ledger (ev_monthly_charges) — the cron-minted
+  // obligations, distinct from payments received. Read-only audit view; balances
+  // stay formula-based in lib/dues.ts, so nothing here is summed into what's owed.
+  const { charges: assessments, loading: assessmentsLoading, error: assessmentsError, reload: reloadAssessments } = useMonthlyCharges()
+  const assessmentsTotal = useMemo(() => assessments.reduce((s, c) => s + (Number(c.amount) || 0), 0), [assessments])
 
   // Per-row state for the "Who's behind" actions: which row's record-payment
   // form is open, and the in-flight / result state of a payment reminder.
@@ -322,6 +349,17 @@ export default function ReportsPage() {
     ]
     downloadCsv(exportFilename('residente-past-due', todayISO()), delinquents, cols)
   }
+  const exportAssessments = () => {
+    const cols: CsvColumn<MonthlyCharge>[] = [
+      { label: 'Period', value: c => periodLabel(c.billing_period_start) },
+      { label: 'Due date', value: c => c.due_date || '' },
+      { label: 'Resident', value: c => c.residentName || '' },
+      { label: 'Unit', value: c => c.residentUnit || '' },
+      { label: 'Amount', value: c => (Number(c.amount) || 0).toFixed(2) },
+      { label: 'Status', value: c => t(`admin.charges.status.${c.status}`) },
+    ]
+    downloadCsv(exportFilename('residente-monthly-assessments', todayISO()), assessments, cols)
+  }
 
   // The board-facing report list. Each row fronts the real CSV exporters above;
   // QuickBooks variants ride along as a secondary action where one exists.
@@ -541,6 +579,66 @@ export default function ReportsPage() {
               </>
               )
             })()}
+          </div>
+
+          {/* Monthly assessments — the auto-generated dues obligations ledger
+              (the cron-minted assessments), distinct from the payments received
+              above. Read-only audit view, sourced from useMonthlyCharges. */}
+          <div className="card">
+            <div className="card-head">
+              <div>
+                <h2>{t('admin.charges.pageTitle')}</h2>
+                <div className="sub">{t('admin.reports.assessmentsSub')}</div>
+                {assessments.length > 0 && (
+                  <div className="sub">{t('admin.charges.tableSub', { count: assessments.length, total: fmtMoney(assessmentsTotal) })}</div>
+                )}
+              </div>
+              {assessments.length > 0 && (
+                <button type="button" className="admin-btn-sm" onClick={exportAssessments}>
+                  {t('admin.reports.exportCsvBtn')}
+                </button>
+              )}
+            </div>
+            {assessmentsLoading ? (
+              <div style={{ textAlign: 'center', padding: '22px 16px', color: 'var(--text-dim)', fontSize: 13.5 }}>
+                {t('admin.charges.loading')}
+              </div>
+            ) : assessmentsError ? (
+              <div className="admin-note admin-note-err">
+                {t('admin.charges.loadError')}
+                <button type="button" className="admin-btn-ghost" onClick={reloadAssessments}>{t('admin.charges.retry')}</button>
+              </div>
+            ) : assessments.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '22px 16px', color: 'var(--text-dim)', fontSize: 13.5 }}>
+                {t('admin.charges.empty')}
+              </div>
+            ) : (
+              <table className="tbl">
+                <thead>
+                  <tr>
+                    <th>{t('admin.charges.colPeriod')}</th>
+                    <th className="period-col">{t('admin.charges.colDue')}</th>
+                    <th>{t('admin.charges.colResident')}</th>
+                    <th>{t('admin.charges.colAmount')}</th>
+                    <th>{t('admin.charges.colStatus')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {assessments.map(c => (
+                    <tr key={c.id}>
+                      <td className="strong">{periodLabel(c.billing_period_start)}</td>
+                      <td className="muted period-col">{dateLabel(c.due_date)}</td>
+                      <td>
+                        {c.residentName || t('admin.charges.unknownResident')}
+                        {c.residentUnit ? <span className="muted"> · {c.residentUnit}</span> : null}
+                      </td>
+                      <td className="strong">{fmtMoney(c.amount)}</td>
+                      <td><span className={`pill ${ASSESSMENT_PILL[c.status] || 'due'}`}>{t(`admin.charges.status.${c.status}`)}</span></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
           </div>
 
           <p className="note">

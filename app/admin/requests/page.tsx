@@ -6,6 +6,17 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { Dropdown } from '@/components/Dropdown'
 import { EasyVoiceTabs } from '../EasyVoiceTabs'
 import { useRequestThread, sendThreadMessage, systemLine, SYS_REOPENED, type ThreadMessage } from '@/lib/requestThread'
+import {
+  type WorkOrder,
+  type WorkOrderStatus,
+  type Priority as WoPriority,
+  PRIORITIES as WO_PRIORITIES,
+  createWorkOrder,
+  updateWorkOrderStatus,
+  startPatch,
+  completePatch,
+  cancelPatch,
+} from '@/lib/workOrders'
 import { useT } from '@/lib/i18n'
 
 const withTimeout = <T,>(p: PromiseLike<T>, ms = 10000): Promise<T> =>
@@ -75,6 +86,35 @@ const STATUS_COLOR: Record<string, string> = {
   resolved:    '#067647',
 }
 
+// Work-order helpers — used by the compact panel inside the open thread. The
+// money/date formatters and the status/priority chip colors mirror the (now
+// removed) standalone Work orders page so the panel reads the same way.
+const fmtMoney = (n: number | null | undefined) =>
+  n == null ? '—' : '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+const fmtDateTime = (d: string | null | undefined) =>
+  d ? new Date(d).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—'
+const WO_STATUS_COLOR: Record<WorkOrderStatus, string> = {
+  assigned:    '#175CD3',
+  in_progress: '#B54708',
+  completed:   '#067647',
+  cancelled:   '#475467',
+}
+const WO_PRIORITY_COLOR: Record<WoPriority, string> = {
+  low:       '#475467',
+  normal:    '#175CD3',
+  urgent:    '#B54708',
+  emergency: '#B42318',
+}
+// datetime-local wants "YYYY-MM-DDTHH:mm" in local time.
+const todayPlusDaysLocal = (n: number) => {
+  const d = new Date()
+  d.setDate(d.getDate() + n)
+  const pad = (x: number) => String(x).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+type VendorOption = { id: string; name: string; category: string | null }
+
 type Request = {
   id: string
   profile_id: string
@@ -130,6 +170,8 @@ export default function RequestsAdmin() {
   const [listPage, setListPage] = useState(0)
   // Board roster for the "Assign to" picker (residents.is_board → profiles.id).
   const [boardMembers, setBoardMembers] = useState<BoardMember[]>([])
+  // Community vendor list for the in-thread work-order picker.
+  const [vendors, setVendors] = useState<VendorOption[]>([])
 
   // "Message a resident" composer — board-initiated outreach.
   const [residents, setResidents] = useState<ResidentOption[]>([])
@@ -254,6 +296,24 @@ export default function RequestsAdmin() {
           .filter((r: any) => r.profile_id)
           .map((r: any) => ({ id: r.profile_id as string, name: r.full_name || t('admin.requests.triageBoardFallback') })))
       } catch { /* leave empty — assignment is optional */ }
+    })()
+    return () => { cancelled = true }
+  }, [communityId])
+
+  // Community vendor list for the in-thread work-order picker (community-scoped).
+  useEffect(() => {
+    if (!hasSupabase || !supabase || !communityId) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { data } = await supabase!
+          .from('vendors')
+          .select('id, name, category')
+          .eq('community_id', communityId)
+          .order('name', { ascending: true })
+        if (cancelled) return
+        setVendors((data || []).map((v: any) => ({ id: v.id, name: v.name, category: v.category ?? null })))
+      } catch { /* leave empty — vendor picker just shows "no vendor" */ }
     })()
     return () => { cancelled = true }
   }, [communityId])
@@ -778,6 +838,7 @@ export default function RequestsAdmin() {
                   <AdminThread
                     request={selected}
                     profileId={profile?.id}
+                    vendors={vendors}
                     openAttachment={openAttachment}
                     onSent={msg => setSuccessMsg(msg)}
                     onSetStatus={setRequestStatus}
@@ -817,10 +878,11 @@ const fmtMsgTime = (d: string) =>
 // The board side of a Contact thread: the full message log plus a reply box.
 // A board reply posts a 'board' message and (by default) emails the resident.
 function AdminThread({
-  request, profileId, openAttachment, onSent, onSetStatus, onSetLocked,
+  request, profileId, vendors, openAttachment, onSent, onSetStatus, onSetLocked,
 }: {
   request: Request
   profileId?: string
+  vendors: VendorOption[]
   openAttachment: (path: string) => void
   onSent: (msg: string) => void
   onSetStatus: (r: Request, next: Status) => Promise<void>
@@ -961,6 +1023,9 @@ function AdminThread({
   return (
     <div style={{ marginTop: 12 }}>
       {messageLog}
+      {/* Work-order panel — turn this maintenance thread into a tracked vendor
+          job (create, assign, advance) without leaving the conversation. */}
+      <WorkOrderPanel request={request} profileId={profileId} vendors={vendors} openAttachment={openAttachment} onSent={onSent} />
       {(
         <>
           {/* iMessage-style composer: a rounded field with an attach clip, plus a
@@ -1009,6 +1074,334 @@ function AdminThread({
             </div>
           )}
         </>
+      )}
+    </div>
+  )
+}
+
+// Small squared chip — same shape as the thread's status chip, sized for the
+// inline work-order summary row.
+function woChip(color: string): React.CSSProperties {
+  return { fontSize: 11.5, fontWeight: 700, color, background: color + '14', padding: '3px 9px', borderRadius: 4, whiteSpace: 'nowrap' }
+}
+
+// Compact work-order panel that lives inside the open maintenance thread. It
+// replaces the old standalone /admin/work-orders page: the board can turn the
+// conversation into a tracked vendor job (assign a vendor, set priority + SLA),
+// then advance it Assigned → In progress → Completed (recording the actual cost,
+// notes, and an optional photo) — all without leaving the thread. Existing thread
+// features (messages, reply, status, triage) are untouched; this is additive.
+function WorkOrderPanel({
+  request, profileId, vendors, openAttachment, onSent,
+}: {
+  request: Request
+  profileId?: string
+  vendors: VendorOption[]
+  openAttachment: (path: string) => void
+  onSent: (msg: string) => void
+}) {
+  const t = useT()
+  const [wo, setWo] = useState<WorkOrder | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [err, setErr] = useState('')
+
+  // Create form (collapsed by default).
+  const [creating, setCreating] = useState(false)
+  const [vendorId, setVendorId] = useState('')
+  const [priority, setPriority] = useState<WoPriority>('normal')
+  const [estimate, setEstimate] = useState('')
+  const [slaDueAt, setSlaDueAt] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  // Completion form (revealed by the Complete action).
+  const [completing, setCompleting] = useState(false)
+  const [actualCost, setActualCost] = useState('')
+  const [notes, setNotes] = useState('')
+  const [photo, setPhoto] = useState<File | null>(null)
+  const [completeSaving, setCompleteSaving] = useState(false)
+
+  // Translated work-order labels (reuse the existing admin.workOrders.* keys).
+  const woStatusLabel: Record<WorkOrderStatus, string> = {
+    assigned:    t('admin.workOrders.statusAssigned'),
+    in_progress: t('admin.workOrders.statusInProgress'),
+    completed:   t('admin.workOrders.statusCompleted'),
+    cancelled:   t('admin.workOrders.statusCancelled'),
+  }
+  const woPrioLabel: Record<WoPriority, string> = {
+    low:       t('admin.workOrders.priorityLow'),
+    normal:    t('admin.workOrders.priorityNormal'),
+    urgent:    t('admin.workOrders.priorityUrgent'),
+    emergency: t('admin.workOrders.priorityEmergency'),
+  }
+  const vendorName = (id: string | null) =>
+    id ? (vendors.find(v => v.id === id)?.name || t('admin.workOrders.unknownVendor')) : t('admin.workOrders.noVendor')
+
+  // Newest work order for THIS request. No by-request helper exists in
+  // lib/workOrders.ts (listWorkOrders filters status/priority/vendor only), so a
+  // single scoped select is the minimal query here.
+  const loadWo = useCallback(async () => {
+    if (!hasSupabase || !supabase) { setLoading(false); return }
+    setLoading(true); setErr('')
+    try {
+      const { data, error } = await withTimeout(
+        supabase!.from('work_orders').select('*')
+          .eq('request_id', request.id)
+          .order('created_at', { ascending: false })
+          .limit(1)
+      )
+      if (error) throw error
+      setWo(((data as WorkOrder[]) || [])[0] || null)
+    } catch (e: any) {
+      const msg = e?.message || ''
+      // Table missing (feature not provisioned) → just hide the panel silently.
+      if (/schema cache|does not exist|find the table/i.test(msg)) setWo(null)
+      else setErr(msg || t('admin.workOrders.errorLoad'))
+    } finally {
+      setLoading(false)
+    }
+  }, [request.id, t])
+  useEffect(() => { loadWo() }, [loadWo])
+
+  const submitCreate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (estimate !== '' && (isNaN(Number(estimate)) || Number(estimate) < 0)) { setErr(t('admin.workOrders.errCost')); return }
+    setSaving(true); setErr('')
+    try {
+      const created = await createWorkOrder({
+        communityId: request.community_id,
+        assignedBy: profileId ?? null,
+        title: request.subject,
+        description: request.body || null,
+        requestId: request.id,
+        vendorId: vendorId || null,
+        priority,
+        estimatedCost: estimate === '' ? null : Number(estimate),
+        slaDueAt: slaDueAt ? new Date(slaDueAt).toISOString() : null,
+      })
+      setWo(created)
+      setCreating(false)
+      setVendorId(''); setPriority('normal'); setEstimate(''); setSlaDueAt('')
+      onSent(t('admin.workOrders.successCreated', { title: created.title }))
+    } catch (e: any) {
+      setErr(e?.message || t('admin.workOrders.errCreate'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const startWork = async () => {
+    if (!wo) return
+    setErr('')
+    try {
+      const updated = await updateWorkOrderStatus(wo.id, startPatch())
+      setWo(updated)
+      onSent(t('admin.workOrders.successStarted', { title: updated.title }))
+    } catch (e: any) {
+      setErr(e?.message || t('admin.workOrders.errUpdate'))
+    }
+  }
+
+  const cancelWork = async () => {
+    if (!wo) return
+    setErr('')
+    try {
+      const updated = await updateWorkOrderStatus(wo.id, cancelPatch())
+      setWo(updated)
+      onSent(t('admin.workOrders.successCancelled', { title: updated.title }))
+    } catch (e: any) {
+      setErr(e?.message || t('admin.workOrders.errUpdate'))
+    }
+  }
+
+  const submitComplete = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!wo) return
+    if (actualCost !== '' && (isNaN(Number(actualCost)) || Number(actualCost) < 0)) { setErr(t('admin.workOrders.errCost')); return }
+    if (photo && photo.size > MAX_FILE) { setErr(t('admin.workOrders.errPhotoSize')); return }
+    setCompleteSaving(true); setErr('')
+    try {
+      let photoPath: string | null = null
+      let photoName: string | null = null
+      if (photo && supabase) {
+        const ext = photo.name.includes('.') ? photo.name.split('.').pop()!.toLowerCase() : 'bin'
+        const path = `${request.community_id}/${wo.id}/${crypto.randomUUID()}.${ext}`
+        const up = await supabase.storage.from('request-attachments').upload(path, photo)
+        if ((up as any).error) throw (up as any).error
+        photoPath = path
+        photoName = photo.name
+      }
+      const updated = await updateWorkOrderStatus(wo.id, completePatch({
+        actualCost: actualCost === '' ? null : Number(actualCost),
+        notes: notes.trim() || null,
+        photoPath,
+        photoName,
+      }))
+      setWo(updated)
+      setCompleting(false)
+      setActualCost(''); setNotes(''); setPhoto(null)
+      onSent(t('admin.workOrders.successCompleted', { title: updated.title }))
+    } catch (e: any) {
+      setErr(e?.message || t('admin.workOrders.errUpdate'))
+    } finally {
+      setCompleteSaving(false)
+    }
+  }
+
+  if (loading) return null
+
+  const card: React.CSSProperties = {
+    marginTop: 14, padding: '12px 14px', border: '1px solid var(--border)',
+    borderRadius: 10, background: 'var(--bg-elev)',
+  }
+  const labelCss: React.CSSProperties = { display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 4 }
+
+  // No work order yet — offer to create one (collapsed control + inline form).
+  if (!wo) {
+    return (
+      <div style={card}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)' }}>{t('admin.requests.woPanelTitle')}</span>
+          {!creating && (
+            <button type="button" className="admin-primary-btn" onClick={() => { setCreating(true); setErr(''); setSlaDueAt(todayPlusDaysLocal(7)) }}>
+              {t('admin.requests.woCreate')}
+            </button>
+          )}
+        </div>
+        {!creating && (
+          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 6 }}>{t('admin.requests.woNoneHint')}</div>
+        )}
+        {creating && (
+          <form onSubmit={submitCreate} style={{ display: 'grid', gap: 10, marginTop: 10 }}>
+            <div>
+              <label style={labelCss}>{t('admin.workOrders.labelVendor')}</label>
+              <Dropdown<string>
+                value={vendorId}
+                onChange={setVendorId}
+                ariaLabel={t('admin.workOrders.labelVendor')}
+                options={[
+                  { value: '', label: t('admin.workOrders.noVendorYet') },
+                  ...vendors.map(v => ({ value: v.id, label: v.category ? `${v.name} · ${v.category}` : v.name })),
+                ]}
+              />
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              <div>
+                <label style={labelCss}>{t('admin.workOrders.labelPriority')}</label>
+                <Dropdown<WoPriority>
+                  value={priority}
+                  onChange={setPriority}
+                  ariaLabel={t('admin.workOrders.labelPriority')}
+                  options={WO_PRIORITIES.map(p => ({ value: p, label: woPrioLabel[p] }))}
+                />
+              </div>
+              <div>
+                <label style={labelCss}>{t('admin.workOrders.labelEstimate')}</label>
+                <input className="admin-input" type="number" min="0" step="0.01" inputMode="decimal" style={{ width: '100%', boxSizing: 'border-box' }}
+                  value={estimate} onChange={e => setEstimate(e.target.value)} placeholder="0.00" />
+              </div>
+            </div>
+            <div>
+              <label style={labelCss}>{t('admin.workOrders.labelSla')}</label>
+              <input className="admin-input" type="datetime-local" style={{ width: '100%', boxSizing: 'border-box' }}
+                value={slaDueAt} onChange={e => setSlaDueAt(e.target.value)} />
+            </div>
+            {err && <div className="admin-note admin-note-err">{err}</div>}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+              <button type="button" className="admin-btn-ghost admin-btn-ghost-orange" style={{ marginLeft: 0 }} onClick={() => { setCreating(false); setErr('') }} disabled={saving}>{t('admin.workOrders.cancel')}</button>
+              <button type="submit" className="admin-primary-btn" disabled={saving}>
+                {saving ? t('admin.workOrders.saving') : t('admin.workOrders.create')}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    )
+  }
+
+  const open = wo.status === 'assigned' || wo.status === 'in_progress'
+
+  // A work order exists — summarize it and offer the lifecycle actions.
+  return (
+    <div style={card}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)' }}>{t('admin.requests.woPanelTitle')}</div>
+          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 3 }}>
+            {vendorName(wo.vendor_id)}
+            {wo.sla_due_at ? ` · ${t('admin.workOrders.slaDue', { date: fmtDate(wo.sla_due_at) })}` : ''}
+          </div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <span style={woChip(WO_PRIORITY_COLOR[wo.priority])}>{woPrioLabel[wo.priority]}</span>
+          <span style={woChip(WO_STATUS_COLOR[wo.status])}>{woStatusLabel[wo.status]}</span>
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', marginTop: 8, fontSize: 12, color: 'var(--text-dim)' }}>
+        <span>{t('admin.workOrders.estimate')}: <strong style={{ color: 'var(--text)' }}>{fmtMoney(wo.estimated_cost)}</strong></span>
+        {wo.status === 'completed' && (
+          <span>{t('admin.workOrders.actual')}: <strong style={{ color: 'var(--text)' }}>{fmtMoney(wo.actual_cost)}</strong></span>
+        )}
+        {wo.started_at && <span>{t('admin.workOrders.startedAt', { date: fmtDateTime(wo.started_at) })}</span>}
+        {wo.completed_at && <span>{t('admin.workOrders.completedAt', { date: fmtDateTime(wo.completed_at) })}</span>}
+      </div>
+
+      {wo.status === 'completed' && (wo.completion_notes || wo.completion_photo_path) && (
+        <div style={{ marginTop: 8, padding: '8px 10px', background: 'rgba(6,118,71,0.06)', border: '1px solid rgba(6,118,71,0.22)', borderRadius: 6 }}>
+          {wo.completion_notes && <div style={{ fontSize: 12.5, color: 'var(--text)', whiteSpace: 'pre-wrap' }}>{wo.completion_notes}</div>}
+          {wo.completion_photo_path && (
+            <button type="button" className="admin-btn-ghost" style={{ marginLeft: 0, marginTop: wo.completion_notes ? 6 : 0 }}
+              onClick={() => openAttachment(wo.completion_photo_path!)}>
+              {wo.completion_photo_name || t('admin.workOrders.viewPhoto')}
+            </button>
+          )}
+        </div>
+      )}
+
+      {err && <div className="admin-note admin-note-err" style={{ marginTop: 8 }}>{err}</div>}
+
+      {/* Lifecycle actions — Start / Complete / Cancel. */}
+      {open && !completing && (
+        <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+          {wo.status === 'assigned' && (
+            <button type="button" className="admin-primary-btn" onClick={startWork}>{t('admin.workOrders.startWork')}</button>
+          )}
+          {wo.status === 'in_progress' && (
+            <button type="button" className="admin-primary-btn" onClick={() => { setCompleting(true); setErr(''); setActualCost(wo.estimated_cost != null ? String(wo.estimated_cost) : '') }}>
+              {t('admin.workOrders.markComplete')}
+            </button>
+          )}
+          <button type="button" className="admin-btn-ghost admin-btn-ghost-orange" style={{ marginLeft: 0 }} onClick={cancelWork}>{t('admin.workOrders.cancel')}</button>
+        </div>
+      )}
+
+      {/* Completion form — actual cost, notes, optional photo. */}
+      {completing && (
+        <form onSubmit={submitComplete} style={{ display: 'grid', gap: 10, marginTop: 10 }}>
+          <div>
+            <label style={labelCss}>{t('admin.workOrders.labelActualCost')}</label>
+            <input className="admin-input" type="number" min="0" step="0.01" inputMode="decimal" style={{ width: '100%', boxSizing: 'border-box' }}
+              value={actualCost} onChange={e => setActualCost(e.target.value)} placeholder="0.00" />
+          </div>
+          <div>
+            <label style={labelCss}>{t('admin.workOrders.labelCompletionNotes')}</label>
+            <textarea className="admin-input admin-textarea" rows={3} style={{ width: '100%', boxSizing: 'border-box' }}
+              value={notes} onChange={e => setNotes(e.target.value)} placeholder={t('admin.workOrders.completionNotesPlaceholder')} />
+          </div>
+          <div>
+            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 13, color: '#E14909' }}>
+              <input type="file" accept="image/*" hidden onChange={e => setPhoto(e.target.files?.[0] || null)} />
+              <Clip />
+              {photo ? photo.name : t('admin.workOrders.attachPhoto')}
+            </label>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+            <button type="button" className="admin-btn-ghost admin-btn-ghost-orange" style={{ marginLeft: 0 }} onClick={() => { setCompleting(false); setErr('') }} disabled={completeSaving}>{t('admin.workOrders.cancel')}</button>
+            <button type="submit" className="admin-primary-btn" disabled={completeSaving}>
+              {completeSaving ? t('admin.workOrders.saving') : t('admin.workOrders.markComplete')}
+            </button>
+          </div>
+        </form>
       )}
     </div>
   )
