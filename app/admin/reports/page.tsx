@@ -109,6 +109,16 @@ export default function ReportsPage() {
   const [behindPage, setBehindPage] = useState(0)
   const [assessmentsPage, setAssessmentsPage] = useState(0)
   const BEHIND_SIZE = 12
+  // Mobile shows fewer assessment rows per page (5) than desktop (12).
+  const [isMobile, setIsMobile] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.matchMedia) return
+    const mq = window.matchMedia('(max-width: 640px)')
+    const update = () => setIsMobile(mq.matches)
+    update()
+    mq.addEventListener('change', update)
+    return () => mq.removeEventListener('change', update)
+  }, [])
 
   // Picking a preset rewrites the from/to range the rest of the page reads;
   // "custom" leaves the current range alone and surfaces the date inputs.
@@ -611,9 +621,10 @@ export default function ReportsPage() {
                 {t('admin.charges.empty')}
               </div>
             ) : (() => {
-              const pageCount = Math.ceil(assessments.length / BEHIND_SIZE)
+              const ASSESS_SIZE = isMobile ? 5 : BEHIND_SIZE
+              const pageCount = Math.ceil(assessments.length / ASSESS_SIZE)
               const page = Math.min(assessmentsPage, Math.max(0, pageCount - 1))
-              const paged = assessments.slice(page * BEHIND_SIZE, (page + 1) * BEHIND_SIZE)
+              const paged = assessments.slice(page * ASSESS_SIZE, (page + 1) * ASSESS_SIZE)
               return (
               <>
               <table className="tbl">
