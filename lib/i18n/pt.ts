@@ -4163,7 +4163,7 @@ export const pt: Record<string, string> = {
   "admin.minutes.errorPublish": "Não foi possível publicar a ata.",
 
   // === consolidation: charges→reports, work-orders→thread ===
-  "admin.reports.assessmentsSub": "Cobranças mensais geradas automaticamente — o livro de obrigações, emitido no dia 1 de cada mês. Distinto dos pagamentos recebidos acima; os saldos continuam calculados ao vivo, então isto não é somado por cima.",
+  "admin.reports.assessmentsSub": "As taxas mensais de cada unidade, geradas automaticamente no dia 1 do mês. Um registro do que é cobrado, separado dos pagamentos acima, e nunca altera o saldo ao vivo de ninguém.",
   "admin.requests.woPanelTitle": "Ordem de serviço",
   "admin.requests.woCreate": "Criar ordem de serviço",
   "admin.requests.woNoneHint": "Transforme este problema de manutenção em um trabalho rastreado — atribua um fornecedor, defina uma prioridade e uma data alvo.",

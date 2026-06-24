@@ -594,7 +594,7 @@ export default function ReportsPage() {
                 )}
               </div>
               {assessments.length > 0 && (
-                <button type="button" className="admin-btn-sm" onClick={exportAssessments}>
+                <button type="button" className="admin-primary-btn" onClick={exportAssessments}>
                   {t('admin.reports.exportCsvBtn')}
                 </button>
               )}
