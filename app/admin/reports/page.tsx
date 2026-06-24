@@ -107,6 +107,7 @@ export default function ReportsPage() {
   const [remindBusyId, setRemindBusyId] = useState<string | null>(null)
   const [remindMsg, setRemindMsg] = useState('')
   const [behindPage, setBehindPage] = useState(0)
+  const [assessmentsPage, setAssessmentsPage] = useState(0)
   const BEHIND_SIZE = 12
 
   // Picking a preset rewrites the from/to range the rest of the page reads;
@@ -593,11 +594,6 @@ export default function ReportsPage() {
                   <div className="sub">{t('admin.charges.tableSub', { count: assessments.length, total: fmtMoney(assessmentsTotal) })}</div>
                 )}
               </div>
-              {assessments.length > 0 && (
-                <button type="button" className="admin-primary-btn" onClick={exportAssessments}>
-                  {t('admin.reports.exportCsvBtn')}
-                </button>
-              )}
             </div>
             {assessmentsLoading ? (
               <div style={{ textAlign: 'center', padding: '22px 16px', color: 'var(--text-dim)', fontSize: 13.5 }}>
@@ -612,7 +608,12 @@ export default function ReportsPage() {
               <div style={{ textAlign: 'center', padding: '22px 16px', color: 'var(--text-dim)', fontSize: 13.5 }}>
                 {t('admin.charges.empty')}
               </div>
-            ) : (
+            ) : (() => {
+              const pageCount = Math.ceil(assessments.length / BEHIND_SIZE)
+              const page = Math.min(assessmentsPage, Math.max(0, pageCount - 1))
+              const paged = assessments.slice(page * BEHIND_SIZE, (page + 1) * BEHIND_SIZE)
+              return (
+              <>
               <table className="tbl">
                 <thead>
                   <tr>
@@ -624,7 +625,7 @@ export default function ReportsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {assessments.map(c => (
+                  {paged.map(c => (
                     <tr key={c.id}>
                       <td className="strong">{periodLabel(c.billing_period_start)}</td>
                       <td className="muted period-col">{dateLabel(c.due_date)}</td>
@@ -638,7 +639,15 @@ export default function ReportsPage() {
                   ))}
                 </tbody>
               </table>
-            )}
+              <Pager page={page} pageCount={pageCount} onPage={setAssessmentsPage}
+                right={(
+                  <button type="button" className="admin-btn-sm pager-export" onClick={exportAssessments}>
+                    {t('admin.reports.exportCsvBtn')}
+                  </button>
+                )} />
+              </>
+              )
+            })()}
           </div>
 
           <p className="note">
