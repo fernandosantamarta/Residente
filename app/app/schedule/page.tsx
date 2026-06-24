@@ -10,6 +10,7 @@ import {
   useScheduleEvents,
 } from '@/lib/schedule'
 import { usePreferences } from '@/lib/preferences'
+import { downloadICS, addToGoogle } from '@/lib/ics'
 import { useT } from '@/lib/i18n'
 import { SegTabs, SegTab } from '@/components/SegTabs'
 import { AmenitiesSection } from './_sections/AmenitiesSection'
@@ -447,8 +448,18 @@ function CalendarView() {
               {t('schedule.subscribeSub')}
             </div>
             <div className="sched-subscribe-row">
-              <button className="sched-subscribe-btn">Apple / .ics</button>
-              <button className="sched-subscribe-btn">Google</button>
+              <button
+                className="sched-subscribe-btn"
+                onClick={() => downloadICS(allEvents, 'residente-calendar.ics', t('schedule.calName'))}
+              >
+                Apple / .ics
+              </button>
+              <button
+                className="sched-subscribe-btn"
+                onClick={() => addToGoogle(allEvents, 'residente-calendar.ics', t('schedule.calName'))}
+              >
+                Google
+              </button>
             </div>
           </div>
         </aside>

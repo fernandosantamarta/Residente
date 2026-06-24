@@ -72,7 +72,7 @@ export default function ResidentCollectionsPage() {
         <h2 className="con-card-title">Collections</h2>
         {loading && <div className="con-empty">Loading…</div>}
         {!loading && open.length === 0 && closed.length === 0 && (
-          <div className="con-empty">Your account is in good standing — no collection cases. 🎉</div>
+          <div className="con-empty">Your account is in good standing — no collection cases.</div>
         )}
         {!loading && open.length === 0 && closed.length > 0 && (
           <div className="con-empty">Your account is current. No open collection cases.</div>

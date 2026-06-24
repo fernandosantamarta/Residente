@@ -4287,6 +4287,17 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   font-weight: 500;
   margin-top: 2px;
 }
+/* Mobile only: stack the annual total and the homes/unit line onto two rows,
+   wrapping long addresses cleanly. Desktop keeps the single inline " · " line. */
+@media (max-width: 767px) {
+  [data-theme="sketch"] .dues-meta-sep { display: none; }
+  [data-theme="sketch"] .dues-meta-annual,
+  [data-theme="sketch"] .dues-meta-sub {
+    display: block;
+    overflow-wrap: anywhere;
+  }
+  [data-theme="sketch"] .dues-meta-sub { margin-top: 2px; }
+}
 [data-theme="sketch"] .dues-updated {
   font-size: 11px;
   color: #0A2440;
@@ -8808,6 +8819,16 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   transition: border-color 0.12s ease, background-color 0.12s ease, transform 0.08s ease;
 }
 [data-theme="sketch"] .doc-cat:hover { border-color: #E14909; background: rgba(225, 73, 9, 0.05); }
+/* Selected category — clear feedback that the tap landed and the list below is
+   now filtered (tap again to clear). */
+[data-theme="sketch"] .doc-cat.active { border-color: #E14909; background: rgba(225, 73, 9, 0.10); box-shadow: inset 0 0 0 1px rgba(225, 73, 9, 0.35); }
+[data-theme="sketch"] .doc-cat.active .doc-cat-icon { background: #E14909; color: #fff; }
+/* "Showing <category>" note above the filtered results. */
+[data-theme="sketch"] .doc-filter-note {
+  font-size: 12.5px; font-weight: 600; color: #C45F2A;
+  background: rgba(225, 73, 9, 0.08); border-radius: 8px;
+  padding: 6px 10px; margin-bottom: 10px;
+}
 [data-theme="sketch"] .doc-cat-icon {
   display: inline-flex; align-items: center; justify-content: center;
   width: 36px; height: 36px; border-radius: 10px;
@@ -9764,6 +9785,17 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 }
 [data-theme="sketch"] .ev-back:hover { border-color: #E14909; background: rgba(225, 73, 9, 0.08); }
 [data-theme="sketch"] .ev-back svg { width: 16px; height: 16px; color: #E14909; }
+/* Mobile only: drop the orange pill and render a plain navy text back link,
+   matching the admin Reports / collections "← back" style. Desktop keeps the pill. */
+@media (max-width: 767px) {
+  [data-theme="sketch"] .ev-back {
+    padding: 0; margin-bottom: 14px; gap: 4px;
+    background: none; border: none; border-radius: 0;
+    color: #0A2440; font-size: 13.5px; font-weight: 600;
+  }
+  [data-theme="sketch"] .ev-back:hover { background: none; border-color: transparent; opacity: 0.75; }
+  [data-theme="sketch"] .ev-back svg { color: #0A2440; }
+}
 
 [data-theme="sketch"] .rep-maint { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
 [data-theme="sketch"] .rep-maint-stat {

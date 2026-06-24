@@ -413,7 +413,9 @@ function DuesSection({
           <div className="dues-stat-label">{statLabel}</div>
           <div className="dues-stat-value">{fmtMoney(multiplier)}</div>
           <div className="dues-stat-meta">
-            {t('home.duesAnnualMeta', { amount: fmtMoney(annualMultiplier), sub })}
+            <span className="dues-meta-annual">{t('home.duesAnnualOnly', { amount: fmtMoney(annualMultiplier) })}</span>
+            <span className="dues-meta-sep"> · </span>
+            <span className="dues-meta-sub">{sub}</span>
           </div>
           <div className="dues-updated">
             {t('home.duesLastUpdated', { date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) })}

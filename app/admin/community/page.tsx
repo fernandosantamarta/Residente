@@ -171,6 +171,9 @@ export default function CommunitySettings() {
         amenity_refund_cutoff_hours: numOrNull(form.amenity_refund_cutoff_hours) ?? 24,
         association_address: (form.association_address || '').trim() || null,
         association_officer_name: (form.association_officer_name || '').trim() || null,
+        // Emergency contact number residents see on Easy Voice → Contact. null
+        // hides the number and shows the generic "contact your office" line.
+        emergency_phone: (form.emergency_phone || '').trim() || null,
       }
       const { error } = await withTimeout(
         supabase.from('communities').update(patch).eq('id', communityId)
@@ -254,6 +257,8 @@ export default function CommunitySettings() {
               </div>
               {field('name', t('admin.community.fieldCommunityName'), { placeholder: 'Sunset Lakes' })}
               {field('location', t('admin.community.fieldLocation'), { placeholder: 'Miramar, FL' })}
+              {field('emergency_phone', t('admin.community.fieldEmergencyPhone'), {
+                type: 'tel', placeholder: '(305) 555-4567', hint: t('admin.community.hintEmergencyPhone') })}
               <div className="grid2" style={{ gap: 16 }}>
                 <label className="admin-field">
                   <span className="admin-field-label">{t('admin.community.fieldType')}</span>

@@ -89,7 +89,7 @@ export default function ResidentEnforcementPage() {
         <h2 className="con-card-title">Your violations &amp; fines</h2>
         {loading && <div className="con-empty">Loading…</div>}
         {!loading && violations.length === 0 && (
-          <div className="con-empty">You have no violations or fines on record. 🎉</div>
+          <div className="con-empty">You have no violations or fines on record.</div>
         )}
         {!loading && violations.map(v => {
           const isFine = v.kind === 'fine'

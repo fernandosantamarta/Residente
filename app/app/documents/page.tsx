@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Fragment, ReactNode, useEffect, useMemo, useState } from 'react'
+import { Fragment, ReactNode, useEffect, useMemo, useRef, useState } from 'react'
 import { SegTabs, SegTab } from '@/components/SegTabs'
 import { useCategoriesData, useRulesData, DEMO_RULES } from '@/lib/rules'
 import { computeStats, useViolationsData, useMyViolations, payFine } from '@/lib/violations'
@@ -270,6 +270,14 @@ export default function EasyDocs() {
   const [listOpen, setListOpen] = useState<null | 'pinned' | 'recent' | 'popular'>(null)
   const [catOpen, setCatOpen] = useState(false)       // phone-only "all doc categories" popup
   const [ruleCatOpen, setRuleCatOpen] = useState(false)   // phone-only "all rule categories" popup
+  // The "Recent documents" results card — picking a category on a phone scrolls
+  // it into view so the filter visibly takes effect (the grid sits above it).
+  const docResultsRef = useRef<HTMLDivElement>(null)
+  const scrollToDocResults = () => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 760) {
+      requestAnimationFrame(() => docResultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+    }
+  }
 
   async function openDoc(doc: any) {
     setBusy(doc.id); setDocError('')
@@ -311,6 +319,13 @@ export default function EasyDocs() {
   }, [docList, docSearch, docFilterCategory, docFilterPeriod])
 
   const recent = docFiltered.slice(0, 6)
+
+  // Localized label for the currently-selected document category (the filter
+  // value stores the raw English label that the DB category matches against).
+  const activeCatLabel = useMemo(() => {
+    const m = CATEGORY_GRID.find(c => c.label.toLowerCase() === docFilterCategory.toLowerCase())
+    return m ? t(`documents.cat_${m.key}_label`) : docFilterCategory
+  }, [docFilterCategory, t])
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -616,9 +631,11 @@ export default function EasyDocs() {
                 <div className="doc-cat-grid">
                   {CATEGORY_GRID.map(c => {
                     const count = categoryCounts[c.label.toLowerCase()] || 0
+                    const active = docFilterCategory.toLowerCase() === c.label.toLowerCase()
                     return (
-                      <button key={c.key} type="button" className="doc-cat"
-                        onClick={() => setDocFilterCategory(c.label)}>
+                      <button key={c.key} type="button" className={`doc-cat${active ? ' active' : ''}`}
+                        aria-pressed={active}
+                        onClick={() => { setDocFilterCategory(active ? 'all' : c.label); scrollToDocResults() }}>
                         <span className="doc-cat-icon"><DocCatIcon name={c.key} /></span>
                         <span className="doc-cat-body">
                           <span className="doc-cat-label">{t(`documents.cat_${c.key}_label`)}</span>
@@ -689,16 +706,25 @@ export default function EasyDocs() {
               </section>
             </div>
 
-            <div className="doc-row">
+            <div className="doc-row" ref={docResultsRef}>
               <section className="doc-card">
                 <div className="doc-card-head">
                   <h2 className="doc-card-title">{t('documents.recentDocuments')}</h2>
-                  <button type="button" className="doc-card-link" onClick={() => setListOpen('recent')}>{t('documents.viewAll')}</button>
+                  {(docFilterCategory !== 'all' || docSearch.trim())
+                    ? <button type="button" className="doc-card-link" onClick={() => { setDocFilterCategory('all'); setDocSearch('') }}>{t('documents.clearFilter')}</button>
+                    : <button type="button" className="doc-card-link" onClick={() => setListOpen('recent')}>{t('documents.viewAll')}</button>}
                 </div>
+                {docFilterCategory !== 'all' && (
+                  <div className="doc-filter-note">{t('documents.showingCategory', { category: activeCatLabel })}</div>
+                )}
                 {docError && <div className="doc-err">{docError}</div>}
                 {docLoading && <div className="doc-empty">{t('documents.loading')}</div>}
                 {!docLoading && recent.length === 0 && (
-                  <div className="doc-empty">{t('documents.noDocumentsYet')}</div>
+                  <div className="doc-empty">
+                    {(docFilterCategory !== 'all' || docSearch.trim())
+                      ? t('documents.noDocumentsMatch')
+                      : t('documents.noDocumentsYet')}
+                  </div>
                 )}
                 {!docLoading && recent.length > 0 && (
                   <div className="doc-recent">
@@ -873,7 +899,7 @@ export default function EasyDocs() {
               const count = categoryCounts[c.label.toLowerCase()] || 0
               return (
                 <button type="button" className="rd-list-row" key={c.key}
-                  onClick={() => { setCatOpen(false); setDocFilterCategory(c.label) }}>
+                  onClick={() => { setCatOpen(false); setDocFilterCategory(c.label); scrollToDocResults() }}>
                   <span className="doc-cat-icon"><DocCatIcon name={c.key} /></span>
                   <span className="rd-list-body">
                     <span className="rd-list-title">{t(`documents.cat_${c.key}_label`)}</span>

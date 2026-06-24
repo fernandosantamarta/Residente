@@ -33,6 +33,10 @@ export default function AdminHome() {
   // The "Paste your roster" popup — paste owners straight from Excel/Sheets and
   // import them without leaving the overview.
   const [showPaste, setShowPaste] = useState(false)
+  // In-app poster preview — the fallback used on phones / the Capacitor webview
+  // where a real print window can't open (holds the poster HTML, null = closed).
+  const [poster, setPoster] = useState<string | null>(null)
+  const posterFrameRef = useRef<HTMLIFrameElement>(null)
 
   const load = useCallback(async () => {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
@@ -82,7 +86,8 @@ export default function AdminHome() {
     const name = esc(community?.name || 'our community')
     const code = community?.join_code ? esc(community.join_code) : ''
     const logo = `${origin}/residente-logo.png`
-    const html = `<!doctype html><html><head><meta charset="utf-8">
+    const buildHtml = (inApp: boolean) => `<!doctype html><html><head><meta charset="utf-8">
+${inApp ? '<meta name="viewport" content="width=816, initial-scale=1">' : ''}
 <title>Join ${name} — Residente</title>
 <style>
   @page { size: letter portrait; margin: 0; }
@@ -135,19 +140,27 @@ export default function AdminHome() {
     </div>
     <div class="foot"><span>Questions? Ask your community board.</span><span>Powered by Residente</span></div>
   </div>
-  <script>
+  ${inApp ? '' : `<script>
     var img = document.getElementById('qr'), printed = false;
     function go(){ if (printed) return; printed = true; window.focus(); window.print(); }
     if (img && img.complete) setTimeout(go, 300);
     else if (img) { img.addEventListener('load', function(){ setTimeout(go, 300); }); img.addEventListener('error', go); }
     setTimeout(go, 2500);
-  </script>
+  </script>`}
 </body></html>`
-    const w = window.open('', '_blank')
-    if (!w) return
-    w.document.open()
-    w.document.write(html)
-    w.document.close()
+
+    // Desktop: open a real print window (best for Save-as-PDF). Phones and the
+    // in-app Capacitor webview block window.open and have no print dialog, so
+    // fall back to an in-app overlay that shows the poster without ejecting.
+    let w: Window | null = null
+    try { w = window.open('', '_blank') } catch { w = null }
+    if (w) {
+      w.document.open()
+      w.document.write(buildHtml(false))
+      w.document.close()
+      return
+    }
+    setPoster(buildHtml(true))
   }
 
   if (status === 'loading') return <div className="admin-page"><div className="admin-note">{t('admin.overview.loading')}</div></div>
@@ -327,6 +340,23 @@ export default function AdminHome() {
           onClose={() => setShowPaste(false)}
           onSaved={load}
         />
+      )}
+
+      {poster && (
+        <div className="poster-overlay" role="dialog" aria-modal="true" aria-label={t('admin.overview.posterPreviewTitle')}>
+          <div className="poster-overlay-bar">
+            <span className="poster-overlay-title">{t('admin.overview.posterPreviewTitle')}</span>
+            <button
+              type="button"
+              className="poster-overlay-print"
+              onClick={() => { const f = posterFrameRef.current; try { f?.contentWindow?.focus(); f?.contentWindow?.print() } catch { /* no print in some webviews */ } }}
+            >
+              {t('admin.overview.posterPrintSave')}
+            </button>
+            <button type="button" className="poster-overlay-close" aria-label={t('admin.overview.close')} onClick={() => setPoster(null)}>×</button>
+          </div>
+          <iframe ref={posterFrameRef} className="poster-overlay-frame" title={t('admin.overview.posterPreviewTitle')} srcDoc={poster} />
+        </div>
       )}
     </div>
   )

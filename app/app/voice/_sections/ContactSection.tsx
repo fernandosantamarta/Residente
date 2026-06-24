@@ -4,6 +4,7 @@ import React, { Fragment, ReactNode, useState, useEffect, useCallback, useRef } 
 import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
+import { useCommunityData } from '@/hooks/useCommunityData'
 import { RequestForm, useCatLabel, IconClip, type Category } from './RequestForm'
 import { useRequestThread, sendThreadMessage, systemLine } from '@/lib/requestThread'
 import { useT } from '@/lib/i18n'
@@ -52,6 +53,11 @@ export function ContactSection() {
     : s === 'resolved' ? t('board.statusResolvedReq')
     : s
   const { profile } = useAuth() || {}
+  // Emergency contact number — set by the board in Admin → Community & Compliance
+  // (communities.emergency_phone). No placeholder: if it isn't set we show the
+  // generic "contact your management office" line instead of a fake number.
+  const { community } = useCommunityData()
+  const emergencyPhone = (community?.emergency_phone || '').trim()
   // Quick actions on Home link here with ?cat= so the right category is already
   // selected when the resident arrives.
   const sp = useSearchParams()
@@ -288,8 +294,14 @@ export function ContactSection() {
         <div className="con-emerg-body">
           <div className="con-emerg-title">{t('board.emergTitle')}</div>
           <div className="con-emerg-sub">
-            {t('board.emergSub')}{' '}
-            <a href="tel:3055554567">(305) 555-4567</a>.
+            {emergencyPhone ? (
+              <>
+                {t('board.emergSub')}{' '}
+                <a href={`tel:${emergencyPhone.replace(/[^\d+]/g, '')}`}>{emergencyPhone}</a>.
+              </>
+            ) : (
+              t('board.emergSubNoPhone')
+            )}
           </div>
         </div>
       </section>

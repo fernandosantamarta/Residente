@@ -1620,6 +1620,17 @@
 .cset .cset-backrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .cset .cset-backrow .admin-backlink { margin-bottom: 12px; }
 
+/* Join-poster in-app preview — the fallback shown on phones / the Capacitor
+   webview where a real print window can't open. A full-screen overlay so it
+   never ejects the board out of the app; iframe scales the US-Letter sheet to
+   fit the screen width (poster HTML carries width=816 viewport meta). */
+.poster-overlay { position: fixed; inset: 0; z-index: 1000; background: #2A1206; display: flex; flex-direction: column; }
+.poster-overlay-bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #2A1206; color: #fff; }
+.poster-overlay-title { font-size: 14px; font-weight: 700; margin-right: auto; }
+.poster-overlay-print { padding: 8px 14px; border-radius: 999px; border: none; background: #E14909; color: #fff; font-weight: 700; font-size: 13px; cursor: pointer; }
+.poster-overlay-close { width: 34px; height: 34px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: transparent; color: #fff; font-size: 20px; line-height: 1; cursor: pointer; flex-shrink: 0; }
+.poster-overlay-frame { flex: 1; width: 100%; border: none; background: #fff; }
+
 /* Pager — compact page nav for long admin lists; optional right-slot action. */
 .pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 14px; }
 .pager-nav { display: inline-flex; align-items: center; gap: 10px; }
