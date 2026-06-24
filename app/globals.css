@@ -3621,22 +3621,18 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
   font-variant-numeric: tabular-nums;
 }
 
-[data-theme="sketch"] .fin-right { min-width: 0; }
+[data-theme="sketch"] .fin-right { min-width: 0; display: flex; align-items: center; }
 [data-theme="sketch"] .fin-chart {
+  /* The SVG viewBox is 560×200. Match that ratio so it scales UNIFORMLY at any
+     width (no horizontal squish/stretch). A fixed height instead forced a
+     560×200 graph into e.g. 310×140 and compressed everything horizontally — the
+     "stretched" look. height caps the size on wide screens. */
   width: 100%;
   max-width: 560px;
-  height: 140px;
+  aspect-ratio: 560 / 200;
+  height: auto;
   display: block;
   margin: 0 auto;
-}
-
-/* Stack the Financial-Overview row earlier (it only stacked at ≤767 before) so
-   that as you zoom in, the chart gets the FULL card width instead of cramming
-   into ~280px and squishing horizontally. At ≤1024 the chart reaches its 560px
-   max — a clean, undistorted 560×140 — instead of distorting. Zoomed-out (3-col)
-   keeps the side-by-side cards with the chart at its normal fixed height. */
-@media (max-width: 1024px) {
-  [data-theme="sketch"] .dash-row1 { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* Bottom row: View budget button on the left, 3 pace stats centered */
