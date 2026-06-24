@@ -1625,11 +1625,18 @@
    never ejects the board out of the app; iframe scales the US-Letter sheet to
    fit the screen width (poster HTML carries width=816 viewport meta). */
 .poster-overlay { position: fixed; inset: 0; z-index: 1000; background: #2A1206; display: flex; flex-direction: column; }
-.poster-overlay-bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #2A1206; color: #fff; }
-.poster-overlay-title { font-size: 14px; font-weight: 700; margin-right: auto; }
-.poster-overlay-print { padding: 8px 14px; border-radius: 999px; border: none; background: #E14909; color: #fff; font-weight: 700; font-size: 13px; cursor: pointer; }
-.poster-overlay-close { width: 34px; height: 34px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: transparent; color: #fff; font-size: 20px; line-height: 1; cursor: pointer; flex-shrink: 0; }
-.poster-overlay-frame { flex: 1; width: 100%; border: none; background: #fff; }
+.poster-overlay-bar {
+  display: flex; align-items: center; gap: 10px; background: #2A1206; color: #fff;
+  /* Clear the iOS status bar / notch so the controls aren't under the time. */
+  padding: calc(10px + env(safe-area-inset-top, 0px)) 14px 10px;
+}
+.poster-overlay-title { font-size: 14px; font-weight: 700; margin-right: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.poster-overlay-print { flex-shrink: 0; padding: 8px 14px; border-radius: 999px; border: none; background: #E14909; color: #fff; font-weight: 700; font-size: 13px; cursor: pointer; white-space: nowrap; }
+.poster-overlay-close { flex-shrink: 0; width: 34px; height: 34px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.3); background: transparent; color: #fff; font-size: 20px; line-height: 1; cursor: pointer; }
+/* Scroll area; the poster is scaled to fit width via an inline transform. */
+.poster-overlay-stage { flex: 1; overflow: auto; -webkit-overflow-scrolling: touch; display: flex; justify-content: center; align-items: flex-start; padding: 12px; }
+.poster-overlay-box { flex: none; }
+.poster-overlay-frame { width: 816px; height: 1056px; border: none; background: #fff; display: block; transform-origin: top left; }
 
 /* Pager — compact page nav for long admin lists; optional right-slot action. */
 .pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin-top: 14px; }

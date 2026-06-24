@@ -327,7 +327,7 @@ export const es: Record<string, string> = {
   "home.duesTotalMonthlyIncome": "Ingreso mensual total",
   "home.duesYourMonthlyDues": "Tu cuota mensual",
   "home.duesYourRating": "Tu calificación",
-  "home.duesYourShareUnit": "Tu parte, Unidad {unit}",
+  "home.duesYourShareUnit": "Unidad {unit}",
   "home.finActualPace": "Ritmo real",
   "home.finDelta": "Diferencia",
   "home.finExpectedPace": "Ritmo esperado",

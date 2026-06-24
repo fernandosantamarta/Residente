@@ -37,6 +37,15 @@ export default function AdminHome() {
   // where a real print window can't open (holds the poster HTML, null = closed).
   const [poster, setPoster] = useState<string | null>(null)
   const posterFrameRef = useRef<HTMLIFrameElement>(null)
+  // Scale factor that fits the 816px-wide poster into the screen (never upscale).
+  const [posterScale, setPosterScale] = useState(1)
+  useEffect(() => {
+    if (!poster) return
+    const calc = () => setPosterScale(Math.min(1, (window.innerWidth - 24) / 816))
+    calc()
+    window.addEventListener('resize', calc)
+    return () => window.removeEventListener('resize', calc)
+  }, [poster])
 
   const load = useCallback(async () => {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
@@ -355,7 +364,20 @@ ${inApp ? '<meta name="viewport" content="width=816, initial-scale=1">' : ''}
             </button>
             <button type="button" className="poster-overlay-close" aria-label={t('admin.overview.close')} onClick={() => setPoster(null)}>×</button>
           </div>
-          <iframe ref={posterFrameRef} className="poster-overlay-frame" title={t('admin.overview.posterPreviewTitle')} srcDoc={poster} />
+          {/* The poster is a fixed 816×1056 (US-Letter @96dpi). We scale it down to
+              fit the screen width with a transform — viewport meta alone doesn't
+              scale iframe content, so on phones it would otherwise clip. */}
+          <div className="poster-overlay-stage">
+            <div className="poster-overlay-box" style={{ width: 816 * posterScale, height: 1056 * posterScale }}>
+              <iframe
+                ref={posterFrameRef}
+                className="poster-overlay-frame"
+                title={t('admin.overview.posterPreviewTitle')}
+                srcDoc={poster}
+                style={{ transform: `scale(${posterScale})` }}
+              />
+            </div>
+          </div>
         </div>
       )}
     </div>

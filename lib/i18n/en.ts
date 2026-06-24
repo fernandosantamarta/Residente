@@ -335,7 +335,7 @@ export const en: Record<string, string> = {
   "home.duesTotalMonthlyIncome": "Total monthly income",
   "home.duesYourMonthlyDues": "Your monthly dues",
   "home.duesYourRating": "Your rating",
-  "home.duesYourShareUnit": "Your share, Unit {unit}",
+  "home.duesYourShareUnit": "Unit {unit}",
   "home.finActualPace": "Actual pace",
   "home.finDelta": "Delta",
   "home.finExpectedPace": "Expected pace",
