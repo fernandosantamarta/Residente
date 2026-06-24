@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/providers'
 import { usePlatformConsole, usePlatformThread, sendPlatformReply, openCommunityThread, PlatformRequest, PlatformResident, PlatformOperator, OperatorRole, AuditEntry } from '@/hooks/usePlatform'
 import { DangerAction } from '@/components/DangerAction'
+import PendingQueue from './PendingQueue'
 
 const fmtDate = (s: string) =>
   s ? new Date(s).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—'
@@ -60,9 +61,10 @@ const subStatusColor = (s: string | null) =>
 const subStatusBg = (s: string | null) =>
   s === 'active' ? C.goodSoft : s === 'past_due' ? C.badSoft : s === 'cancelled' || s === 'canceled' ? C.warnSoft : s === 'trial' ? C.infoSoft : C.accentSoft
 
-type Tab = 'overview' | 'communities' | 'subscriptions' | 'support' | 'operators' | 'activity'
+type Tab = 'overview' | 'pending' | 'communities' | 'subscriptions' | 'support' | 'operators' | 'activity'
 const TABS: { key: Tab; label: string }[] = [
   { key: 'overview', label: 'Overview' },
+  { key: 'pending', label: 'Pending' },
   { key: 'communities', label: 'Communities' },
   { key: 'subscriptions', label: 'Subscriptions' },
   { key: 'support', label: 'Support' },
@@ -74,10 +76,10 @@ const TABS: { key: Tab; label: string }[] = [
 // in Overview + Subscriptions, so omitting those from a role hides all revenue
 // from it. Founder (owner) manages the team, so only Founder gets Operators.
 const ROLE_TABS: Record<OperatorRole, Tab[]> = {
-  owner:    ['overview', 'communities', 'subscriptions', 'support', 'operators', 'activity'],
-  billing:  ['overview', 'subscriptions', 'communities', 'activity'],
-  operator: ['communities', 'support', 'activity'],
-  support:  ['support', 'activity'],
+  owner:    ['overview', 'pending', 'communities', 'subscriptions', 'support', 'operators', 'activity'],
+  billing:  ['overview', 'pending', 'subscriptions', 'communities', 'activity'],
+  operator: ['pending', 'communities', 'support', 'activity'],
+  support:  ['pending', 'support', 'activity'],
 }
 
 // Per-home monthly rate (cents) by plan tier — mirrors lib/plan.ts. Uses the
@@ -1074,6 +1076,7 @@ export default function PlatformConsole() {
               }}>
               {t.label}
               {t.key === 'support' && openCount > 0 && <span className="plat-badge">{openCount}</span>}
+              {t.key === 'pending' && openCount > 0 && <span className="plat-badge">{openCount}</span>}
             </button>
           )
         })}
@@ -1081,6 +1084,8 @@ export default function PlatformConsole() {
 
       {/* OVERVIEW — everything on one page */}
       {curTab === 'overview' && (<>{attentionBanner}{statsGrid}{subscriptionsSection(true)}{communitiesSection(true)}</>)}
+
+      {curTab === 'pending' && <PendingQueue />}
 
       {/* COMMUNITIES */}
       {curTab === 'communities' && communitiesSection(false)}

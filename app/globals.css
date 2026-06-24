@@ -10791,3 +10791,47 @@ textarea[disabled] {
 [data-theme="sketch"] .sched-filter-modal .sched-filter { color: #FFFFFF; }
 [data-theme="sketch"] .sched-filter-modal .sched-filter:not(.on) { color: rgba(255, 255, 255, 0.5); }
 [data-theme="sketch"] .sched-filter-modal .sched-filter:hover { background: rgba(255, 255, 255, 0.08); }
+
+
+/* === A+B: operator console + automation === */
+/* ── B1: Monthly assessments ledger (/admin/charges) ──────────────────────
+   Scoped to .cmcharge, mirroring the .crep (Reports) card/table/pill styling so
+   the read-only ledger matches the rest of the admin financials surface. */
+.cmcharge .card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 18px; padding: 22px 24px;
+  box-shadow: 0 1px 2px rgba(42, 18, 6, 0.05); margin-bottom: 18px;
+}
+.cmcharge .card-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 16px; margin-bottom: 14px;
+}
+.cmcharge .card-head h2 {
+  margin: 0; font-family: 'AmpFix', 'Fraunces', Georgia, serif;
+  font-weight: 500; font-size: 20px; letter-spacing: -0.01em;
+}
+.cmcharge .card-head .sub { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+.cmcharge .tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.cmcharge .tbl th {
+  text-align: left; font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--text-faint);
+  padding: 0 12px 10px; border-bottom: 1px solid var(--border);
+}
+.cmcharge .tbl td {
+  padding: 14px 12px; border-bottom: 1px solid var(--border);
+  color: var(--text); vertical-align: middle;
+}
+.cmcharge .tbl tr:last-child td { border-bottom: none; }
+.cmcharge .tbl .muted { color: var(--text-dim); }
+.cmcharge .tbl .strong { font-weight: 600; }
+.cmcharge .pill {
+  display: inline-block; font-size: 11px; font-weight: 700; padding: 4px 11px;
+  border-radius: 999px; min-width: 70px; text-align: center; white-space: nowrap;
+}
+.cmcharge .pill.ok   { color: var(--ok);   background: rgba(6, 118, 71, 0.12); }
+.cmcharge .pill.warn { color: #B54708;     background: rgba(181, 71, 8, 0.12); }
+.cmcharge .pill.due  { color: var(--due);  background: rgba(194, 54, 10, 0.12); }
+@media (max-width: 640px) {
+  .cmcharge .card { padding: 18px 16px; overflow-x: auto; }
+  .cmcharge .tbl { min-width: 520px; }
+}

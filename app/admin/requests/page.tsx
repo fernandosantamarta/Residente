@@ -16,6 +16,16 @@ const withTimeout = <T,>(p: PromiseLike<T>, ms = 10000): Promise<T> =>
 
 type Category = 'maintenance' | 'appeal' | 'account' | 'other'
 type Status = 'new' | 'in_progress' | 'resolved'
+type Priority = 'low' | 'normal' | 'urgent'
+
+const PRIORITIES: Priority[] = ['low', 'normal', 'urgent']
+// Sort weight so urgent floats to the top, then normal, then low.
+const PRIORITY_RANK: Record<string, number> = { urgent: 0, normal: 1, low: 2 }
+const PRIORITY_COLOR: Record<string, string> = {
+  urgent: '#B42318',   // red
+  normal: '#475467',   // slate
+  low:    '#067647',   // green
+}
 
 const CATS: { value: Category; label: string }[] = [
   { value: 'maintenance', label: 'Maintenance issue' },
@@ -35,6 +45,12 @@ const catColor = (c: string) => CAT_COLOR[c] || '#475467'
 // Small squared category tag.
 function catTag(c: string): React.CSSProperties {
   const col = catColor(c)
+  return { fontSize: 10.5, fontWeight: 700, color: col, background: col + '1A', padding: '1px 6px', borderRadius: 3, whiteSpace: 'nowrap' }
+}
+
+// Small squared priority tag — same shape as the category tag.
+function prioTag(p: string): React.CSSProperties {
+  const col = PRIORITY_COLOR[p] || '#475467'
   return { fontSize: 10.5, fontWeight: 700, color: col, background: col + '1A', padding: '1px 6px', borderRadius: 3, whiteSpace: 'nowrap' }
 }
 
@@ -82,9 +98,13 @@ type Request = {
   replies_locked: boolean | null
   last_message_at: string | null
   last_message_role: string | null
+  priority: string | null
+  sla_due_at: string | null
+  assigned_to: string | null
 }
 
 type ResidentOption = { id: string; name: string; unit: string | null; email: string | null }
+type BoardMember = { id: string; name: string }
 
 const MAX_FILE = 10 * 1024 * 1024  // 10MB
 
@@ -106,7 +126,10 @@ export default function RequestsAdmin() {
   const [composing, setComposing] = useState(false)
   const [search, setSearch] = useState('')
   const [catFilter, setCatFilter] = useState<'all' | Category>('all')
+  const [prioFilter, setPrioFilter] = useState<'all' | Priority>('all')
   const [listPage, setListPage] = useState(0)
+  // Board roster for the "Assign to" picker (residents.is_board → profiles.id).
+  const [boardMembers, setBoardMembers] = useState<BoardMember[]>([])
 
   // "Message a resident" composer — board-initiated outreach.
   const [residents, setResidents] = useState<ResidentOption[]>([])
@@ -133,6 +156,12 @@ export default function RequestsAdmin() {
     { value: 'in_progress', label: tStatusLabel['in_progress'] },
     { value: 'resolved',    label: tStatusLabel['resolved'] },
   ]
+  // Translated priority labels for the badge, filter, and per-request dropdown.
+  const tPrioLabel: Record<string, string> = {
+    low:    t('admin.requests.triagePrioLow'),
+    normal: t('admin.requests.triagePrioNormal'),
+    urgent: t('admin.requests.triagePrioUrgent'),
+  }
 
   useEffect(() => {
     if (!successMsg) return
@@ -201,6 +230,30 @@ export default function RequestsAdmin() {
           id: p.id, name: p.full_name || t('admin.requests.residentFallback'), unit: p.unit_number ?? null, email: p.email ?? null,
         })))
       } catch { /* leave empty */ }
+    })()
+    return () => { cancelled = true }
+  }, [communityId])
+
+  // Board roster for the triage "Assign to" picker. The board lives on
+  // residents.is_board; assigned_to references profiles.id, so we key off
+  // residents.profile_id (the account behind the roster entry).
+  useEffect(() => {
+    if (!hasSupabase || !supabase || !communityId) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { data } = await supabase!
+          .from('residents')
+          .select('profile_id, full_name')
+          .eq('community_id', communityId)
+          .eq('is_board', true)
+          .not('profile_id', 'is', null)
+          .order('full_name', { ascending: true })
+        if (cancelled) return
+        setBoardMembers((data || [])
+          .filter((r: any) => r.profile_id)
+          .map((r: any) => ({ id: r.profile_id as string, name: r.full_name || t('admin.requests.triageBoardFallback') })))
+      } catch { /* leave empty — assignment is optional */ }
     })()
     return () => { cancelled = true }
   }, [communityId])
@@ -341,6 +394,43 @@ export default function RequestsAdmin() {
     }
   }
 
+  // Triage: set a request's priority (low / normal / urgent). Optimistic, with
+  // rollback on failure — mirrors the status/lock writers.
+  const setRequestPriority = async (r: Request, next: Priority) => {
+    const prev = r.priority
+    setRows(rs => rs.map(x => x.id === r.id ? { ...x, priority: next } : x))   // optimistic
+    try {
+      const { error } = await withTimeout(
+        supabase!.from('resident_requests').update({ priority: next }).eq('id', r.id)
+      )
+      if (error) throw error
+      setSuccessMsg(t('admin.requests.triageSuccessPriority', { subject: r.subject, priority: tPrioLabel[next] || next }))
+    } catch (err: any) {
+      setRows(rs => rs.map(x => x.id === r.id ? { ...x, priority: prev } : x))   // roll back
+      setError(err?.message || t('admin.requests.errorUpdateRequest'))
+    }
+  }
+
+  // Triage: assign a request to a board member (or unassign with '').
+  const setRequestAssignee = async (r: Request, assignedTo: string) => {
+    const prev = r.assigned_to
+    const next = assignedTo || null
+    setRows(rs => rs.map(x => x.id === r.id ? { ...x, assigned_to: next } : x))   // optimistic
+    try {
+      const { error } = await withTimeout(
+        supabase!.from('resident_requests').update({ assigned_to: next }).eq('id', r.id)
+      )
+      if (error) throw error
+      const who = boardMembers.find(b => b.id === next)?.name
+      setSuccessMsg(next
+        ? t('admin.requests.triageSuccessAssigned', { subject: r.subject, name: who || t('admin.requests.triageBoardFallback') })
+        : t('admin.requests.triageSuccessUnassigned', { subject: r.subject }))
+    } catch (err: any) {
+      setRows(rs => rs.map(x => x.id === r.id ? { ...x, assigned_to: prev } : x))   // roll back
+      setError(err?.message || t('admin.requests.errorUpdateRequest'))
+    }
+  }
+
   // A thread is "awaiting your reply" when the last message was the resident's
   // and it isn't closed — the board owes a response.
   const awaiting = (r: Request) => r.last_message_role === 'resident' && r.status !== 'resolved'
@@ -348,10 +438,20 @@ export default function RequestsAdmin() {
     (r.last_message_at && r.last_message_at > r.created_at ? r.last_message_at : r.created_at)
   const byActivity = (a: Request, b: Request) => lastActivity(b).localeCompare(lastActivity(a))
 
-  // Every conversation, awaiting-reply first, then newest activity. Folders are
-  // just filtered views of this one list (no more confusing Received/Sent split).
+  // Triage rank: an open URGENT thread that's awaiting your reply is the most
+  // pressing thing in the queue, so it floats above everything else.
+  const prioRank = (r: Request) => PRIORITY_RANK[r.priority || 'normal'] ?? 1
+  const urgentAwaiting = (r: Request) => r.priority === 'urgent' && awaiting(r)
+
+  // Every conversation, sorted: urgent+awaiting first, then awaiting-reply, then
+  // by priority, then newest activity. Folders are just filtered views of this
+  // one list (no more confusing Received/Sent split).
   const allSorted = [...rows]
-    .sort((a, b) => (awaiting(b) ? 1 : 0) - (awaiting(a) ? 1 : 0) || byActivity(a, b))
+    .sort((a, b) =>
+      (urgentAwaiting(b) ? 1 : 0) - (urgentAwaiting(a) ? 1 : 0) ||
+      (awaiting(b) ? 1 : 0) - (awaiting(a) ? 1 : 0) ||
+      prioRank(a) - prioRank(b) ||
+      byActivity(a, b))
   const needsList = allSorted.filter(awaiting)
   const resolvedList = allSorted.filter(r => r.status === 'resolved')
   const awaitingCount = needsList.length
@@ -360,6 +460,7 @@ export default function RequestsAdmin() {
   const q = search.trim().toLowerCase()
   const shownList = activeList.filter(r => {
     if (catFilter !== 'all' && r.category !== catFilter) return false
+    if (prioFilter !== 'all' && (r.priority || 'normal') !== prioFilter) return false
     if (q && !`${r.submitter_name || ''} ${r.subject || ''}`.toLowerCase().includes(q)) return false
     return true
   })
@@ -393,8 +494,8 @@ export default function RequestsAdmin() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, selected?.last_message_at, selected?.last_message_role])
 
-  // Back to page 1 whenever the folder, search, or category filter changes.
-  useEffect(() => { setListPage(0) }, [tab, search, catFilter])
+  // Back to page 1 whenever the folder, search, category, or priority filter changes.
+  useEffect(() => { setListPage(0) }, [tab, search, catFilter, prioFilter])
 
   // Keep a valid selection: when the folder/list changes, fall back to the first
   // conversation in view (and never point at a row from the other folder).
@@ -477,6 +578,14 @@ export default function RequestsAdmin() {
               </button>
             </div>
             <span className="msg-head-actions" style={{ display: 'inline-flex', alignItems: 'center', gap: 10 }}>
+              <div className="msg-head-cat" style={{ width: 160 }}>
+                <Dropdown<'all' | Priority>
+                  value={prioFilter}
+                  onChange={setPrioFilter}
+                  ariaLabel={t('admin.requests.triageFilterByPriorityLabel')}
+                  options={[{ value: 'all', label: t('admin.requests.triageAllPriorities') }, ...PRIORITIES.map(p => ({ value: p, label: tPrioLabel[p] || p }))]}
+                />
+              </div>
               <div className="msg-head-cat" style={{ width: 180 }}>
                 <Dropdown<'all' | Category>
                   value={catFilter}
@@ -538,6 +647,9 @@ export default function RequestsAdmin() {
                     </div>
                     <div style={{ fontSize: 12.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', marginTop: 2 }}>{r.subject}</div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 5, minHeight: 16, flexWrap: 'wrap' }}>
+                      {(r.priority === 'urgent' || r.priority === 'low') && (
+                        <span style={prioTag(r.priority)}>{tPrioLabel[r.priority] || r.priority}</span>
+                      )}
                       <span style={catTag(r.category)}>{tCatLabel[r.category] || r.category}</span>
                       {need && (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, fontWeight: 700, color: '#E14909' }}>
@@ -629,10 +741,38 @@ export default function RequestsAdmin() {
                       </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      {(selected.priority === 'urgent' || selected.priority === 'low') && (
+                        <span style={chip(PRIORITY_COLOR[selected.priority] || '#475467')}>{tPrioLabel[selected.priority] || selected.priority}</span>
+                      )}
                       <span style={chip(catColor(selected.category))}>{tCatLabel[selected.category] || selected.category}</span>
                       {selected.replies_locked && <span style={chip('#475467')}>{t('admin.requests.repliesOff')}</span>}
                       {selected.origin === 'board' && <span style={chip('#7C3AED')}>{t('admin.requests.outbound')}</span>}
                       <span style={chip(STATUS_COLOR[selected.status] || '#475467')}>{tStatusLabel[selected.status] || selected.status}</span>
+                    </div>
+                  </div>
+                  {/* Triage controls: priority + assignee. Both write back to the
+                      request and re-sort the queue. */}
+                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end', paddingTop: 12 }}>
+                    <div style={{ minWidth: 150 }}>
+                      <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 4 }}>{t('admin.requests.triagePriorityLabel')}</label>
+                      <Dropdown<Priority>
+                        value={(selected.priority as Priority) || 'normal'}
+                        onChange={p => setRequestPriority(selected, p)}
+                        ariaLabel={t('admin.requests.triagePriorityLabel')}
+                        options={PRIORITIES.map(p => ({ value: p, label: tPrioLabel[p] || p }))}
+                      />
+                    </div>
+                    <div style={{ minWidth: 180 }}>
+                      <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 4 }}>{t('admin.requests.triageAssignLabel')}</label>
+                      <Dropdown<string>
+                        value={selected.assigned_to || ''}
+                        onChange={v => setRequestAssignee(selected, v)}
+                        ariaLabel={t('admin.requests.triageAssignLabel')}
+                        options={[
+                          { value: '', label: t('admin.requests.triageUnassigned') },
+                          ...boardMembers.map(b => ({ value: b.id, label: b.name })),
+                        ]}
+                      />
                     </div>
                   </div>
                   <AdminThread

@@ -239,6 +239,7 @@ export default function MeetingsPage() {
                   onRecordAgenda={() => recordAgenda(m)}
                   onPublishMinutes={() => publishMinutes(m)}
                   docHref={(type: string) => docHref(m.id, type)}
+                  minutesHref={`/admin/meetings/${m.id}/minutes`}
                 />
               ))}
             </div>
@@ -263,6 +264,7 @@ function MeetingCard({
   onRecordAgenda,
   onPublishMinutes,
   docHref,
+  minutesHref,
 }: {
   m: MeetingRow
   onRecordPosting: () => void
@@ -270,6 +272,7 @@ function MeetingCard({
   onRecordAgenda: () => void
   onPublishMinutes: () => void
   docHref: (type: string) => string
+  minutesHref: string
 }) {
   const t = useT()
   const req = requiredNotice(m)
@@ -370,6 +373,7 @@ function MeetingCard({
         <a className="admin-btn-ghost" href={docHref('notice')}>{t('admin.meetings.linkNotice')}</a>
         <a className="admin-btn-ghost" href={docHref('agenda')}>{t('admin.meetings.linkAgenda')}</a>
         <a className="admin-btn-ghost" href={docHref('affidavit')}>{t('admin.meetings.linkAffidavit')}</a>
+        <a className="admin-btn-ghost" href={minutesHref}>{t('admin.minutes.captureMinutes')}</a>
       </div>
     </div>
   )
