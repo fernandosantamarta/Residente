@@ -205,6 +205,22 @@ export default function ArcPage() {
     } catch { /* audit must not block */ }
   }
 
+  // ---- hurricane-protection specifications (community-level; FS 718.113(5) / 720.3035(6)) ----
+  const setHurricaneSpecs = async (adopted: boolean) => {
+    const val = adopted ? todayYmd() : null
+    const prev = community
+    setCommunity((c: any) => c ? { ...c, hurricane_specs_adopted_at: val } : c)
+    try {
+      const { error } = (await withTimeout(supabase.from('communities').update({ hurricane_specs_adopted_at: val }).eq('id', communityId))) as any
+      if (error) throw error
+      if (communityId) logAudit({ community_id: communityId, event_type: 'arc.hurricane_specs_adopted', target_type: 'community', target_id: communityId })
+      setMsg(adopted ? 'Hurricane-protection specifications recorded.' : 'Adoption cleared.')
+    } catch (err: any) {
+      setCommunity(prev)
+      setError(err?.message || 'Could not update hurricane specifications (run supabase/compliance-slice5.sql?)')
+    }
+  }
+
   // ---- intake form ----
   const [form, setForm] = useState<any>({
     resident_id: '', request_type: 'exterior_alteration', description: '', is_material_alteration: false,
@@ -350,6 +366,25 @@ export default function ArcPage() {
 
       {status === 'ready' && (
         <>
+          {/* ---- Hurricane-protection specifications (FS 718.113(5) condo / 720.3035(6) HOA) ---- */}
+          <div className="card" style={{ borderLeft: `4px solid ${community?.hurricane_specs_adopted_at ? '#067647' : '#B54708'}` }}>
+            <div className="card-head"><div><h2>Hurricane-protection specifications</h2></div></div>
+            <p style={{ fontSize: 12.5, opacity: 0.78, margin: '0 0 10px' }}>
+              Florida law requires the board {isCondo ? '' : 'or architectural committee '}to adopt
+              hurricane-protection specifications for each {isCondo ? 'building' : 'structure'} (which may set
+              color, style, and materials, and must comply with the building code), regardless of when the
+              community was created. A conforming installation {isCondo ? 'is not a material alteration' : 'may not be denied by the committee'} (FS {isCondo ? '718.113(5)' : '720.3035(6)'}).
+            </p>
+            {community?.hurricane_specs_adopted_at ? (
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 13, color: '#067647', fontWeight: 600 }}>✓ Specifications adopted {community.hurricane_specs_adopted_at}</span>
+                <button type="button" className="admin-btn-ghost" onClick={() => setHurricaneSpecs(false)}>Clear</button>
+              </div>
+            ) : (
+              <button type="button" className="admin-primary-btn" onClick={() => setHurricaneSpecs(true)}>Record adoption of specifications</button>
+            )}
+          </div>
+
           {/* ---- Log a request ---- */}
           <div className="card">
             <div className="card-head"><div><h2>{t('admin.arc.logCardHeading')}</h2></div></div>

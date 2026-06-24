@@ -151,6 +151,24 @@ export default function GovernancePage() {
     } catch (err: any) { setError(err?.message || t('admin.governance.errRecordManager')) }
   }
 
+  // ---- CAM transparency disclosure (FS 468.4334(3)(b)) ----
+  // Records posting / change / re-posting dates that drive the governance:cam-disclosure-*
+  // advisory signals. Optimistic; columns added by supabase/compliance-slice5.sql.
+  const updateManager = async (id: string, patch: Record<string, any>, ok?: string) => {
+    setError('')
+    const prev = managers
+    setManagers((ms) => ms.map(m => m.id === id ? { ...m, ...patch } : m))
+    try {
+      const { error } = (await withTimeout(supabase.from('ev_managers').update(patch).eq('id', id))) as any
+      if (error) throw error
+      if (communityId) logAudit({ community_id: communityId, event_type: 'governance.cam_disclosure_updated', target_type: 'manager', target_id: id })
+      if (ok) setMsg(ok)
+    } catch (err: any) {
+      setManagers(prev)
+      setError(err?.message || 'Could not update the manager disclosure (run supabase/compliance-slice5.sql?)')
+    }
+  }
+
   // ---- conflict disclosure intake ----
   const [cForm, setCForm] = useState<any>({})
   const addDisclosure = async (e: any) => {
@@ -249,6 +267,31 @@ export default function GovernancePage() {
                     {m.license_type ? `${String(m.license_type).toUpperCase()} ` : ''}{m.license_number || ''}
                     {m.license_expiry ? ` · ${t('admin.governance.exp')} ${m.license_expiry}` : ''} · {m.dbpr_verified ? t('admin.governance.dbprVerified') : t('admin.governance.notDbprVerified')}
                   </div>
+                  {m.status !== 'inactive' && (() => {
+                    const today = new Date().toISOString().slice(0, 10)
+                    const stale = !!m.info_changed_at && (!m.disclosure_updated_at || m.disclosure_updated_at < m.info_changed_at)
+                    return (
+                      <div style={{ marginTop: 8, paddingTop: 8, borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+                        <div style={{ fontSize: 11.5, fontWeight: 700, opacity: 0.7 }}>CAM disclosure (FS 468.4334(3)(b))</div>
+                        <div style={{ fontSize: 12, opacity: 0.7, margin: '2px 0 6px' }}>
+                          {m.disclosure_posted_at
+                            ? <>Posted {m.disclosure_posted_at}{m.disclosure_updated_at ? ` · updated ${m.disclosure_updated_at}` : ''}{stale ? ' · update due (info changed)' : ''}</>
+                            : 'Not yet posted — provide members the manager name, contact, hours & duties.'}
+                        </div>
+                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                          {!m.disclosure_posted_at && (
+                            <button type="button" className="admin-btn-ghost" onClick={() => updateManager(m.id, { disclosure_posted_at: today, disclosure_updated_at: today }, 'Disclosure marked posted.')}>Mark disclosure posted</button>
+                          )}
+                          {m.disclosure_posted_at && (
+                            <button type="button" className="admin-btn-ghost" onClick={() => updateManager(m.id, { info_changed_at: today }, 'Marked: manager information changed.')}>Mark info changed</button>
+                          )}
+                          {stale && (
+                            <button type="button" className="admin-primary-btn" onClick={() => updateManager(m.id, { disclosure_updated_at: today }, 'Disclosure marked re-posted.')}>Mark disclosure re-posted</button>
+                          )}
+                        </div>
+                      </div>
+                    )
+                  })()}
                 </div>
               ))}
             </div>

@@ -61,6 +61,17 @@ export const MINUTES_AVAILABLE_DAYS = rule(30, 'FS 718.111(12) / 720.303(4)', {
   note: 'minutes should be drafted/available to owners promptly after the meeting',
 })
 
+// Condo video-conference meeting notice content + recording (HB 913, ch. 2025-175,
+// eff. 2025-07-01 — NOT HB 1021/2024). If a board meeting is held by video conference,
+// the notice must state it is by video conference and include a hyperlink (join link), a
+// conference telephone number, and the physical-location address where owners can attend
+// in person; the meeting must be RECORDED and the recording maintained as an official
+// record (FS 718.112(2)(c)1 / 718.112(2)(d)2). HOA law (720.303(2)) has NO
+// video-conference authorization, so this duty is CONDO-ONLY.
+export const VC_NOTICE_EFFECTIVE = rule('2025-07-01', 'FS 718.112(2)(c)1 (HB 913, ch. 2025-175)', {
+  note: 'condo video-conference notice content + recording-as-official-record; eff. 2025-07-01; condo only',
+})
+
 // ----------------------------------------------------------------------------
 // Domain types
 // ----------------------------------------------------------------------------
@@ -85,6 +96,12 @@ export interface MeetingRow {
   affects_use_rules?: boolean | null
   is_budget_meeting?: boolean | null
   emergency?: boolean | null
+  // condo video-conference notice content (FS 718.112(2)(c)1) — compliance-slice5.sql
+  is_video_conference?: boolean | null
+  vc_join_url?: string | null
+  vc_phone?: string | null
+  vc_physical_location?: string | null
+  recording_retained?: boolean | null
 }
 
 export interface NoticeRequirement {
@@ -170,8 +187,8 @@ export function meetingsSignals(
 ): ComplianceSignal[] {
   const out: ComplianceSignal[] = []
   const regime = asType(community?.association_type)
-  void regime
   const nowMs = toDate(now)!.getTime()
+  const vcEffective = toDate(VC_NOTICE_EFFECTIVE.value)
 
   for (const m of meetings) {
     const sched = toDate(m.scheduled_at)
@@ -244,6 +261,37 @@ export function meetingsSignals(
           detail: `The meeting was held ${ageDays} days ago. Minutes are official records owners may inspect.`,
           href: HREF,
           citation: MINUTES_AVAILABLE_DAYS.citation,
+        }))
+      }
+    }
+
+    // 3. Video-conference notice content + recording (condo only; FS 718.112(2)(c)1,
+    // HB 913, eff. 2025-07-01). HOA has no video-conference authorization.
+    if (regime === 'condo' && m.is_video_conference && sched && vcEffective && sched.getTime() >= vcEffective.getTime()) {
+      const missing: string[] = []
+      if (!String(m.vc_join_url ?? '').trim()) missing.push('a join link (hyperlink)')
+      if (!String(m.vc_phone ?? '').trim()) missing.push('a conference telephone number')
+      if (!String(m.vc_physical_location ?? '').trim()) missing.push('the physical-location address')
+      if (upcoming && !m.emergency && missing.length) {
+        out.push(signal({
+          id: `meetings:vc-notice:${m.id}`,
+          domain: DOMAIN,
+          severity: 'soon',
+          title: `${label}: the video-conference notice is missing required access details`,
+          detail: `A board meeting held by video conference must state it is by video conference and include ${missing.join(', ')}. Add the missing detail to the notice.`,
+          href: HREF,
+          citation: 'FS 718.112(2)(c)1',
+        }))
+      }
+      if (isHeld(m) && !m.recording_retained) {
+        out.push(signal({
+          id: `meetings:vc-recording:${m.id}`,
+          domain: DOMAIN,
+          severity: 'overdue',
+          title: `${label}: record and retain the video-conference meeting`,
+          detail: 'A meeting held by video conference must be recorded and the recording maintained as an official record of the association.',
+          href: HREF,
+          citation: 'FS 718.112(2)(c)1 / 718.112(2)(d)2',
         }))
       }
     }

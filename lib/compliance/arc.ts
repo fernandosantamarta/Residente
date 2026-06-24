@@ -48,6 +48,18 @@ export const MATERIAL_ALTERATION_APPROVAL_PCT = rule(75, 'FS 718.113(2)', {
   note: 'condo: material alteration needs 75% of total voting interests unless the declaration provides otherwise',
 })
 
+// Mandatory hurricane-protection specifications (HB 1021 condo / HB 1203 HOA, both
+// eff. 2024-07-01). The board (or HOA architectural committee) MUST adopt
+// hurricane-protection specifications for each building/structure — they may set
+// color/style/materials and must comply with the applicable building code — for every
+// community regardless of when it was created. Installation that conforms is, for a
+// condo, NOT a material alteration (FS 718.113(5)); for an HOA, the committee may not
+// deny a conforming owner application (FS 720.3035(6)). Advisory — the board records the
+// adoption date once specifications are in place.
+export const HURRICANE_SPECS_REQUIRED = rule(true, 'FS 718.113(5) / 720.3035(6)', {
+  note: 'board must adopt hurricane-protection specifications for each building/structure; both regimes; eff. 2024-07-01',
+})
+
 // ----------------------------------------------------------------------------
 // Domain types
 // ----------------------------------------------------------------------------
@@ -214,6 +226,24 @@ export function arcSignals(
         citation: MATERIAL_ALTERATION_APPROVAL_PCT.citation,
       }))
     }
+  }
+
+  // 4. Mandatory hurricane-protection specifications (community-level, both regimes).
+  // The board must adopt specs for each building/structure (eff. 2024-07-01); a conforming
+  // installation is then not a material alteration (condo) and may not be denied (HOA).
+  if (community && !toDate(community.hurricane_specs_adopted_at)) {
+    const condo = regime === 'condo'
+    out.push(signal({
+      id: 'arc:hurricane-specs',
+      domain: DOMAIN,
+      severity: 'soon',
+      title: `Adopt hurricane-protection specifications for each ${condo ? 'building' : 'structure'}`,
+      detail: condo
+        ? 'Florida law requires the board to adopt hurricane-protection specifications (which may set color, style, and materials, and must comply with the building code) for each building. A conforming installation is not a material alteration, and the board may not refuse a conforming owner installation. Record the adoption date once specifications are in place.'
+        : 'Florida law requires the board or architectural committee to adopt hurricane-protection specifications (which may set color and style, and must comply with the building code) for each structure, regardless of when the community was created. The committee may not deny a conforming owner application. Record the adoption date once specifications are in place.',
+      href: HREF,
+      citation: condo ? 'FS 718.113(5)' : 'FS 720.3035(6)',
+    }))
   }
 
   return out

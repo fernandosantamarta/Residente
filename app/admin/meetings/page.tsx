@@ -76,6 +76,8 @@ export default function MeetingsPage() {
 
   useEffect(() => { load() }, [load])
 
+  const isCondo = community?.association_type !== 'hoa'
+
   // ---- intake form ----
   const [form, setForm] = useState<any>({
     type: 'board',
@@ -85,6 +87,10 @@ export default function MeetingsPage() {
     affects_use_rules: false,
     is_budget_meeting: false,
     emergency: false,
+    is_video_conference: false,
+    vc_join_url: '',
+    vc_phone: '',
+    vc_physical_location: '',
   })
   const setF = (k: string, val: any) => setForm((f: any) => ({ ...f, [k]: val }))
   const [saving, setSaving] = useState(false)
@@ -93,6 +99,7 @@ export default function MeetingsPage() {
     e.preventDefault()
     setSaving(true); setError('')
     try {
+      const isVc = isCondo && !!form.is_video_conference
       const insert: Record<string, any> = {
         community_id: communityId,
         type: form.type,
@@ -102,13 +109,17 @@ export default function MeetingsPage() {
         affects_use_rules: !!form.affects_use_rules,
         is_budget_meeting: !!form.is_budget_meeting,
         emergency: !!form.emergency,
+        is_video_conference: isVc,
+        vc_join_url: isVc ? ((form.vc_join_url || '').trim() || null) : null,
+        vc_phone: isVc ? ((form.vc_phone || '').trim() || null) : null,
+        vc_physical_location: isVc ? ((form.vc_physical_location || '').trim() || null) : null,
         status: 'draft',
         minutes_status: 'pending',
         created_by: profile?.id ?? null,
       }
       const { error } = (await withTimeout(supabase.from('ev_meetings').insert(insert))) as any
       if (error) throw error
-      setForm({ type: 'board', title: '', scheduled_at: '', affects_assessments: false, affects_use_rules: false, is_budget_meeting: false, emergency: false })
+      setForm({ type: 'board', title: '', scheduled_at: '', affects_assessments: false, affects_use_rules: false, is_budget_meeting: false, emergency: false, is_video_conference: false, vc_join_url: '', vc_phone: '', vc_physical_location: '' })
       setMsg(t('admin.meetings.meetingLogged'))
       load()
     } catch (err: any) { setError(err?.message || t('admin.meetings.errorScheduleMeeting')) }
@@ -146,6 +157,12 @@ export default function MeetingsPage() {
     const now = new Date().toISOString()
     await patchMeeting(m.id, { minutes_published_at: now, minutes_status: 'published' }, t('admin.meetings.minutesPublished'))
     if (communityId) logAudit({ community_id: communityId, event_type: 'meeting.minutes_published', target_type: 'meeting', target_id: m.id })
+  }
+
+  // Video-conference meeting must be recorded + the recording kept as an official record
+  // (FS 718.112(2)(c)1 / (2)(d)2). Marks recording_retained → clears the advisory signal.
+  const markRecording = async (m: MeetingRow) => {
+    await patchMeeting(m.id, { recording_retained: true }, 'Video-conference recording marked retained.')
   }
 
   const docHref = (id: string, type: string) => `/admin/meetings/${id}/document?type=${type}`
@@ -218,6 +235,24 @@ export default function MeetingsPage() {
                 {t('admin.meetings.checkboxEmergency')}
               </label>
             </div>
+            {isCondo && (
+              <div style={{ border: '1px dashed #cbd5e1', borderRadius: 10, padding: 12, margin: '4px 0 10px' }}>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, fontWeight: 600 }}>
+                  <input type="checkbox" checked={!!form.is_video_conference} onChange={e => setF('is_video_conference', e.target.checked)} />
+                  Held by video conference (FS 718.112(2)(c)1 — notice must include a join link, a call-in number &amp; the physical address; the meeting must be recorded)
+                </label>
+                {form.is_video_conference && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginTop: 10 }}>
+                    <label className="admin-field"><span className="admin-field-label">Join link (hyperlink)</span>
+                      <input className="admin-input" value={form.vc_join_url} placeholder="https://…" onChange={e => setF('vc_join_url', e.target.value)} /></label>
+                    <label className="admin-field"><span className="admin-field-label">Conference phone number</span>
+                      <input className="admin-input" value={form.vc_phone} placeholder="+1 …" onChange={e => setF('vc_phone', e.target.value)} /></label>
+                    <label className="admin-field"><span className="admin-field-label">Physical location to attend</span>
+                      <input className="admin-input" value={form.vc_physical_location} placeholder="Clubhouse, 123 Main St" onChange={e => setF('vc_physical_location', e.target.value)} /></label>
+                  </div>
+                )}
+              </div>
+            )}
             <div className="card-cta">
               {error && status === 'ready' && <span className="admin-err-inline">{error}</span>}
               <button type="submit" className="admin-primary-btn" disabled={saving || !form.scheduled_at}>{saving ? t('admin.meetings.saving') : t('admin.meetings.logMeeting')}</button>
@@ -234,10 +269,12 @@ export default function MeetingsPage() {
                 <MeetingCard
                   key={m.id}
                   m={m}
+                  isCondo={isCondo}
                   onRecordPosting={() => recordPosting(m)}
                   onRecordMailing={() => recordMailing(m)}
                   onRecordAgenda={() => recordAgenda(m)}
                   onPublishMinutes={() => publishMinutes(m)}
+                  onMarkRecording={() => markRecording(m)}
                   docHref={(type: string) => docHref(m.id, type)}
                   minutesHref={`/admin/meetings/${m.id}/minutes`}
                 />
@@ -259,18 +296,22 @@ function chip(color: string): React.CSSProperties {
 // ----------------------------------------------------------------------------
 function MeetingCard({
   m,
+  isCondo,
   onRecordPosting,
   onRecordMailing,
   onRecordAgenda,
   onPublishMinutes,
+  onMarkRecording,
   docHref,
   minutesHref,
 }: {
   m: MeetingRow
+  isCondo: boolean
   onRecordPosting: () => void
   onRecordMailing: () => void
   onRecordAgenda: () => void
   onPublishMinutes: () => void
+  onMarkRecording: () => void
   docHref: (type: string) => string
   minutesHref: string
 }) {
@@ -313,6 +354,16 @@ function MeetingCard({
   }
   const minutesStatus = String(m.minutes_status ?? 'pending')
 
+  // Condo video-conference notice content (FS 718.112(2)(c)1, HB 913).
+  const isVc = isCondo && !!m.is_video_conference
+  const vcMissing = (isVc
+    ? [
+        !String(m.vc_join_url ?? '').trim() && 'join link',
+        !String(m.vc_phone ?? '').trim() && 'call-in number',
+        !String(m.vc_physical_location ?? '').trim() && 'physical address',
+      ].filter(Boolean)
+    : []) as string[]
+
   const borderColor = satisfied || m.emergency
     ? '#067647'
     : pastDeadline && !given
@@ -340,6 +391,11 @@ function MeetingCard({
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
           <span style={chip(noticeColor)}>{noticeLabel}</span>
+          {isVc && (
+            <span style={chip(vcMissing.length ? '#B54708' : '#067647')}>
+              {vcMissing.length ? `VC notice: add ${vcMissing.join(', ')}` : 'Video conference ✓'}
+            </span>
+          )}
           {isPast && (
             <span style={chip(minutesStatus === 'published' || minutesStatus === 'approved' ? '#067647' : '#B54708')}>
               {t('admin.meetings.minutesChip')}: {minutesStatus}
@@ -369,6 +425,9 @@ function MeetingCard({
         )}
         {isPast && minutesStatus !== 'published' && minutesStatus !== 'approved' && (
           <button className="admin-primary-btn" onClick={onPublishMinutes}>{t('admin.meetings.btnPublishMinutes')}</button>
+        )}
+        {isVc && isPast && !m.recording_retained && (
+          <button className="admin-btn-ghost" onClick={onMarkRecording}>Mark recording retained</button>
         )}
         <a className="admin-btn-ghost" href={docHref('notice')}>{t('admin.meetings.linkNotice')}</a>
         <a className="admin-btn-ghost" href={docHref('agenda')}>{t('admin.meetings.linkAgenda')}</a>

@@ -13,6 +13,8 @@ import {
   toDate,
   ymd,
   calendarDaysUntil,
+  addBusinessDays,
+  businessDaysBetween,
   signal,
   forType,
   type AssociationType,
@@ -51,15 +53,18 @@ export const CERT_VALIDITY_YEARS = rule(
   'FS 718.112(2)(d)4 / 720.3033(1)',
   { note: 'condo cert valid 7 yr; HOA 4 yr' },
 )
-// Continuing education. Condo: ~1 hour/year. HOA: 4 hours (≤2,500 parcels) or 8
-// hours (>2,500 parcels) over the term.
-export const CONDO_CE_HOURS_PER_YEAR = rule(1, 'FS 718.112(2)(d)4', { note: 'continuing education hours/year' })
+// Continuing education (HB 1021 condo / HB 1203 HOA, both eff. 2024-07-01).
+// Condo: at least 1 hour/year on recent changes to Ch. 718, due one year after the
+// most recent certification and annually thereafter (FS 718.112(2)(d)4.b). HOA: 4
+// hours/year if the association has fewer than 2,500 parcels, 8 hours/year if it has
+// 2,500 or more (FS 720.3033(1)(a)5).
+export const CONDO_CE_HOURS_PER_YEAR = rule(1, 'FS 718.112(2)(d)4.b', { note: 'condo: ≥1 continuing-education hour per year' })
 export const HOA_CE_HOURS = rule(
   { small: 4, large: 8 } as { small: number; large: number },
-  'FS 720.3033(1)',
-  { note: '4 hr if ≤2,500 parcels; 8 hr if >2,500' },
+  'FS 720.3033(1)(a)5',
+  { note: '4 hr/yr if <2,500 parcels; 8 hr/yr if ≥2,500' },
 )
-export const HOA_CE_LARGE_PARCELS = rule(2500, 'FS 720.3033(1)', { note: 'parcel threshold for the 8-hour tier' })
+export const HOA_CE_LARGE_PARCELS = rule(2500, 'FS 720.3033(1)(a)5', { note: '≥2,500 parcels → the 8-hour tier' })
 
 // A director who is more than 90 days delinquent in a monetary obligation is
 // ineligible / deemed to have abandoned the seat (advisory — board acts).
@@ -75,6 +80,17 @@ export const CONFLICT_CONTRACT_APPROVAL = rule('two-thirds of directors present'
 // larger than 10 units OR has an annual budget over $100,000.
 export const CAM_TRIGGER_UNITS = rule(10, 'FS 468.431(2)', { note: '>10 units requires a licensed CAM' })
 export const CAM_TRIGGER_BUDGET = rule(100_000, 'FS 468.431(2)', { note: '>$100k annual budget requires a licensed CAM' })
+
+// CAM transparency disclosure (HB 1021, eff. 2024-07-01): a manager/management firm
+// authorized by contract must provide members the assigned manager's name, contact
+// information, hours of availability, and a summary of duties; the association posts it
+// where it keeps its records; the manager/firm must UPDATE the posted disclosure within
+// 14 business days after any change. (2025 amendments generalized the duty from HOAs to
+// all community associations, so it applies to both regimes.) The statute states no
+// penalty for this duty.
+export const CAM_DISCLOSURE_UPDATE_BUSINESS_DAYS = rule(14, 'FS 468.4334(3)(b)', {
+  note: 'post the CAM name/contact/hours/duties; update within 14 business days of any change; both regimes',
+})
 
 // ----------------------------------------------------------------------------
 // Row shapes.
@@ -125,6 +141,10 @@ export interface ManagerRow {
   license_expiry?: string | null
   dbpr_verified?: boolean | null
   status?: 'active' | 'inactive' | string | null
+  // CAM transparency disclosure (FS 468.4334(3)(b)) — added by compliance-slice5.sql
+  disclosure_posted_at?: string | null
+  disclosure_updated_at?: string | null
+  info_changed_at?: string | null
 }
 export interface ConflictVendorRow {     // vendors with director_owned = true
   id: string
@@ -178,6 +198,16 @@ export function certExpiry(completedAt: string | Date | null | undefined, regime
   const d = toDate(completedAt)
   if (!d) return null
   return new Date(Date.UTC(d.getUTCFullYear() + forType(CERT_VALIDITY_YEARS.value, regime), d.getUTCMonth(), d.getUTCDate()))
+}
+
+/** Required annual continuing-education hours for a sitting director: 1 for a condo
+ *  director; for an HOA director, 4 if the association has fewer than 2,500 parcels, 8
+ *  if it has 2,500 or more (FS 718.112(2)(d)4.b / 720.3033(1)(a)5). */
+export function annualCeHours(community: Record<string, any> | null | undefined): number {
+  const regime = regimeOf(community?.association_type)
+  if (regime === 'condo') return CONDO_CE_HOURS_PER_YEAR.value
+  const parcels = Number(community?.parcel_count) || 0
+  return parcels >= HOA_CE_LARGE_PARCELS.value ? HOA_CE_HOURS.value.large : HOA_CE_HOURS.value.small
 }
 
 /** Does the association need a licensed CAM (>10 units OR >$100k budget)? */
@@ -280,14 +310,21 @@ export function governanceSignals(
     if (latestTermStart && !hasInitial) {
       const ageDays = Math.round((toDate(now)!.getTime() - latestTermStart) / 86400000)
       if (ageDays > INITIAL_CERT_DAYS.value) {
+        // A director who does not certify within 90 days is SUSPENDED from the board
+        // until compliant; the HOA board may temporarily fill the seat. The lapse does
+        // not affect the validity of any board action (FS 720.3033(1)(b)-(c) /
+        // 718.112(2)(d)4.b). Advisory — the board decides.
+        const suspendNote = regime === 'hoa'
+          ? ` A director who has not certified within ${INITIAL_CERT_DAYS.value} days is suspended from the board until he or she complies, and the board may temporarily fill the seat. The lapse does not affect the validity of any board action.`
+          : ` A condominium director who fails to timely file the written certification and educational certificate is suspended from service on the board until he or she complies.`
         out.push(signal({
           id: `governance:cert-missing:${d.id}`,
           domain: 'Directors & management',
           severity: 'overdue',
           title: `${label} has no director certification on file`,
-          detail: `Elected ~${ageDays} days ago. Within ${INITIAL_CERT_DAYS.value} days a director must complete the educational course or sign a written certification of having read the governing documents.`,
+          detail: `Elected ~${ageDays} days ago. Within ${INITIAL_CERT_DAYS.value} days a director must complete the educational course or sign a written certification of having read the governing documents.${suspendNote}`,
           href: HREF,
-          citation: INITIAL_CERT_DAYS.citation,
+          citation: regime === 'hoa' ? 'FS 720.3033(1)(b)' : 'FS 718.112(2)(d)4.b',
         }))
       } else if (ageDays >= INITIAL_CERT_DAYS.value - 30) {
         out.push(signal({
@@ -319,6 +356,47 @@ export function governanceSignals(
             detail: `Valid through ${ymd(exp)} (${forType(CERT_VALIDITY_YEARS.value, regime)}-year ${regime === 'hoa' ? 'HOA' : 'condo'} validity).`,
             href: HREF,
             citation: CERT_VALIDITY_YEARS.citation,
+          }))
+        }
+      }
+    }
+
+    // --- Annual continuing education (FS 718.112(2)(d)4.b condo / 720.3033(1)(a)5 HOA) ---
+    // Due once the director is more than a year past their baseline certification: a
+    // condo director needs ≥1 CE hour/year, an HOA director 4 or 8 depending on size.
+    const baselineCert = dCerts
+      .filter(c => c.completed_at && (c.kind === 'initial' || c.kind === 'recert'))
+      .sort((a, b) => (toDate(b.completed_at)!.getTime()) - (toDate(a.completed_at)!.getTime()))[0]
+    if (baselineCert) {
+      const baselineAge = dateDaysAgo(baselineCert.completed_at, now) ?? 0
+      if (baselineAge > 365) {
+        const ceHours = annualCeHours(community)
+        const ceCite = regime === 'hoa' ? 'FS 720.3033(1)(a)5' : 'FS 718.112(2)(d)4.b'
+        const latestCe = dCerts
+          .filter(c => c.kind === 'continuing' && c.completed_at)
+          .sort((a, b) => (toDate(b.completed_at)!.getTime()) - (toDate(a.completed_at)!.getTime()))[0]
+        const ceAgeDays = latestCe ? dateDaysAgo(latestCe.completed_at, now) : null
+        if (ceAgeDays == null || ceAgeDays > 365) {
+          out.push(signal({
+            id: `governance:ce-due:${d.id}`,
+            domain: 'Directors & management',
+            severity: 'soon',
+            title: `${label} owes the annual director continuing education (${ceHours} hour${ceHours === 1 ? '' : 's'})`,
+            detail: regime === 'hoa'
+              ? `An HOA director must complete ${ceHours} hour(s) of continuing education each year. No continuing-education certificate in the last 12 months is on file. Advisory — record it once completed.`
+              : `A condominium director must complete at least ${ceHours} hour of continuing education each year on recent changes to Chapter 718. No continuing-education certificate in the last 12 months is on file. Advisory — record it once completed.`,
+            href: HREF,
+            citation: ceCite,
+          }))
+        } else if (latestCe?.hours != null && Number(latestCe.hours) < ceHours) {
+          out.push(signal({
+            id: `governance:ce-short:${d.id}`,
+            domain: 'Directors & management',
+            severity: 'info',
+            title: `${label}'s recorded continuing education (${Number(latestCe.hours)} hr) is below the ${ceHours}-hour annual requirement`,
+            detail: `The most recent continuing-education certificate records ${Number(latestCe.hours)} hour(s); ${ceHours} are required each year. Advisory.`,
+            href: HREF,
+            citation: ceCite,
           }))
         }
       }
@@ -387,6 +465,43 @@ export function governanceSignals(
           detail: `${activeMgr.name || 'The recorded manager'}'s license has not been marked DBPR-verified.`,
           href: HREF,
           citation: 'FS 468.432',
+        }))
+      }
+    }
+  }
+
+  // --- CAM transparency disclosure: posting + 14-business-day update (FS 468.4334(3)(b)) ---
+  // The duty attaches whenever a manager/firm is engaged (independent of the CAM-required
+  // size threshold). Both regimes. The statute states no penalty — advisory only.
+  const disclosureMgr = managers.find(m => String(m.status ?? 'active') === 'active')
+  if (disclosureMgr) {
+    if (!disclosureMgr.disclosure_posted_at) {
+      out.push(signal({
+        id: 'governance:cam-disclosure-missing',
+        domain: 'Directors & management',
+        severity: 'soon',
+        title: 'Post the community-association-manager disclosure for members',
+        detail: `Provide members the assigned manager's name, contact information, hours of availability, and a summary of duties, and post it where the association keeps its records (${disclosureMgr.name || 'recorded manager'}).`,
+        href: HREF,
+        citation: CAM_DISCLOSURE_UPDATE_BUSINESS_DAYS.citation,
+      }))
+    } else {
+      const changed = toDate(disclosureMgr.info_changed_at)
+      const updated = toDate(disclosureMgr.disclosure_updated_at)
+      if (changed && (!updated || updated.getTime() < changed.getTime())) {
+        const elapsed = businessDaysBetween(changed, now)
+        const due = addBusinessDays(changed, CAM_DISCLOSURE_UPDATE_BUSINESS_DAYS.value)
+        const late = elapsed > CAM_DISCLOSURE_UPDATE_BUSINESS_DAYS.value
+        out.push(signal({
+          id: 'governance:cam-disclosure-stale',
+          domain: 'Directors & management',
+          severity: late ? 'overdue' : 'soon',
+          title: late
+            ? 'The posted CAM disclosure is overdue for an update'
+            : `Update the posted CAM disclosure by ${due ? ymd(due) : ''}`,
+          detail: `The manager's information changed on ${ymd(changed)}; the posted disclosure must be updated within ${CAM_DISCLOSURE_UPDATE_BUSINESS_DAYS.value} business days of any change. Mark it updated once re-posted.`,
+          href: HREF,
+          citation: CAM_DISCLOSURE_UPDATE_BUSINESS_DAYS.citation,
         }))
       }
     }
