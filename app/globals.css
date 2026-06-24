@@ -6815,7 +6815,14 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
     gap: 6px;
   }
   [data-theme="sketch"] .activity-cell-status { justify-self: start; }
-  [data-theme="sketch"] .fin-chart { height: 130px; }
+  /* Phone: stack the $-spent block above the chart so the chart goes full-width
+     instead of being squeezed into a narrow 2nd column, and let it hold its own
+     560:200 proportions (no squish/clip). */
+  [data-theme="sketch"] .fin-main { grid-template-columns: 1fr; gap: 14px; }
+  [data-theme="sketch"] .fin-chart {
+    width: 100%; height: auto; min-height: 0;
+    aspect-ratio: 560 / 200;
+  }
 }
 
 /* ============================================================
