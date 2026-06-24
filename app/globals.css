@@ -9124,8 +9124,8 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 /* All vendors table */
 [data-theme="sketch"] .ven-table { display: flex; flex-direction: column; }
 [data-theme="sketch"] .ven-row {
-  display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) 80px minmax(0, 1.4fr);
-  gap: 12px; padding: 11px 0; align-items: center;
+  display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(112px, 1fr) minmax(0, 1.4fr);
+  gap: 20px; padding: 11px 0; align-items: center;
   font-size: 13px; color: #0A2440;
   border-top: 1px solid rgba(15, 28, 46, 0.06);
 }
@@ -9198,8 +9198,10 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .ven-vcard-btn:hover { border-color: #E14909; background: rgba(225, 73, 9, 0.06); }
 
 /* Star rating */
-[data-theme="sketch"] .ven-rating { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: #0A2440; }
+[data-theme="sketch"] .ven-rating { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 700; color: #0A2440; white-space: nowrap; }
 [data-theme="sketch"] .ven-rating svg { width: 14px; height: 14px; color: #E1A40B; }
+/* No-rating state: mute the star so it doesn't read as a real (gold) score. */
+[data-theme="sketch"] .ven-rating-empty svg { color: rgba(10, 36, 64, 0.28); }
 
 /* Quick actions */
 [data-theme="sketch"] .ven-quick { display: flex; flex-direction: column; gap: 4px; }
