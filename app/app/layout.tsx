@@ -505,6 +505,7 @@ function RightRail() {
 
   return (
     <aside className="rail-right">
+      <div className="up-block">
       <div className="up-head">
         <div className="up-title">{t('rail.upNext')}</div>
         <Link href="/app/schedule" className="up-see-all">{t('rail.viewAll')}</Link>
@@ -538,6 +539,7 @@ function RightRail() {
             <div key={it.id} className="up-row">{row}</div>
           )
         })}
+      </div>
       </div>
 
       <div className="household">

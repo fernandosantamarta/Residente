@@ -231,12 +231,11 @@ button { font-family: inherit; }
   grid-template-columns: 220px 1fr 340px;
   min-height: 100vh;
   width: 100%;
-  /* Sits just under the 1199px breakpoint where the layout flips to the stacked
-     single-column view. Previously 1280px, which left a 1200–1280px dead zone:
-     the cockpit stayed 1280 wide while the viewport was narrower, so body's
-     overflow-x:hidden clipped the right rail ("Up next" + "Your residence").
-     Keeping the floor below the breakpoint lets it hand off cleanly with no clip. */
-  min-width: 1180px;
+  /* Floor for the full 3-column desktop. Below ~1300px the right rail reflows
+     under the main as a two-up row (see the 1200–1300px band below) instead of
+     squishing the 3 columns or clipping — so this floor stays clear of the
+     viewport in that range. */
+  min-width: 1200px;
   max-width: 1920px;   /* stop growing past this — empty space on both sides instead */
   margin: 0 auto;       /* centered when viewport is wider than max */
 }
@@ -572,6 +571,24 @@ button { font-family: inherit; }
   background: var(--bg-elev); border-left: 1px solid var(--border);
   padding: 32px 24px 24px; display: flex; flex-direction: column; gap: 24px;
   position: sticky; top: 0; height: 100vh; overflow-y: auto;
+}
+/* In the sidebar, "Up next" acts as direct flex children (no layout change).
+   In the reflow band below it becomes a real column next to "Your residence". */
+.up-block { display: contents; }
+
+/* Tight desktop (1200–1300px): not enough room for a comfortable 3rd column, so
+   drop the right rail UNDER the main as a two-up row — Up next | Your residence —
+   keeping the sidebar and a roomy main, instead of squishing 3 cols or clipping. */
+@media (min-width: 1200px) and (max-width: 1300px) {
+  .cockpit { grid-template-columns: 220px 1fr; min-width: 0; }
+  .rail-right {
+    grid-column: 1 / -1;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start;
+    position: static; height: auto; overflow: visible;
+    border-left: none; border-top: 1px solid var(--border);
+    padding: 24px 40px 40px;
+  }
+  .up-block { display: flex; flex-direction: column; gap: 16px; }
 }
 .feed-head { display: flex; justify-content: space-between; align-items: center; }
 .feed-title { font-size: 12px; font-weight: 600; letter-spacing: 1.6px; text-transform: uppercase; color: var(--text-dim); }
