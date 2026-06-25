@@ -442,6 +442,40 @@ export async function extractArcReviewFromFile(
   } catch { return null }
 }
 
+export interface ExtractedRequestReply {
+  observed_text: string
+  suggested_rule_id: string | null
+  suggested_rule_title: string | null
+  draft_response: string
+}
+
+// AI: read a resident request/message (+ attached photo) and draft a board reply.
+// Board-assist: describes the issue, references a relevant rule if any, and drafts
+// a reply for the board to review and send. Takes a Blob (the attachment is
+// downloaded from request-attachments) + the rule book + the request text. Null if
+// AI isn't configured / failed.
+export async function extractRequestReplyFromFile(
+  file: Blob,
+  rules: { id: string; section?: string | null; title?: string | null }[],
+  requestText?: string,
+): Promise<ExtractedRequestReply | null> {
+  if (!hasSupabase || !supabase || !file) return null
+  try {
+    const file_base64 = await fileToBase64(file)
+    const media_type = file.type || 'image/png'
+    const context_rules = (rules || []).map(r => ({ id: r.id, section: r.section || undefined, title: r.title || undefined }))
+    const { data, error } = await supabase.functions.invoke('extract-doc', { body: { file_base64, media_type, kind: 'request', context_rules, request_text: requestText || '' } })
+    if (error || !data?.ok || !data?.data) return null
+    const d = data.data as any
+    return {
+      observed_text: String(d.observed_text || '').trim(),
+      suggested_rule_id: d.suggested_rule_id ? String(d.suggested_rule_id) : null,
+      suggested_rule_title: d.suggested_rule_title ? String(d.suggested_rule_title).trim() : null,
+      draft_response: String(d.draft_response || '').trim(),
+    }
+  } catch { return null }
+}
+
 // Apply extracted billing settings + rules to the provisioned community.
 // Best-effort and field-isolated. Returns the number of rules written.
 export async function applyExtractedSetup(communityId: string, ex: ExtractedSetup): Promise<{ settings: boolean; rules: number }> {

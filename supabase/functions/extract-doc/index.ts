@@ -254,9 +254,42 @@ function arcPrompt(rules: any[], requestText: string): string {
   )
 }
 
+// ---- request: read a resident request/message (+ photo), draft a board reply ----
+const REQUEST_TOOL = {
+  name: 'request_reply',
+  description: "Summarize a resident's request and draft a helpful reply for the board to review and send.",
+  input_schema: {
+    type: 'object',
+    properties: {
+      observed_text: { type: 'string', description: 'A factual description of the issue/situation, including what any attached photo shows.' },
+      suggested_rule_id: { type: 'string', description: 'The id of a community rule/policy relevant to this request, if any. Omit if none applies.' },
+      suggested_rule_title: { type: 'string', description: 'The title of that rule (or a short label). Omit if none applies.' },
+      draft_response: { type: 'string', description: 'A concise, warm, professional draft reply to the resident for the BOARD to review and send: acknowledge the issue, reference the relevant rule/next step if any. Do not promise specific timelines or commitments as if final.' },
+    },
+    required: ['observed_text', 'draft_response'],
+    additionalProperties: false,
+  },
+}
+function requestPrompt(rules: any[], requestText: string): string {
+  const list = (rules || [])
+    .filter(r => r && (r.title || r.id))
+    .map(r => `- id=${r.id || ''} | ${[r.section, r.title].filter(Boolean).join(' — ')}`)
+    .join('\n')
+  return (
+    'You are assisting a Florida HOA/condo board answering a resident request or message (maintenance, ' +
+    'records, a question, a complaint — possibly with a photo). Using the request_reply tool: (1) ' +
+    'describe the issue, including what any attached photo shows; (2) note a relevant community rule/' +
+    'policy by id if one applies; (3) draft a warm, concise, professional reply for the BOARD to review ' +
+    'and send. Be helpful and neutral; suggest the next step but do not commit to specific timelines or ' +
+    'outcomes as if final, and never invent rules.\n\n' +
+    (requestText ? `Resident's request: ${requestText}\n\n` : '') +
+    'Community rules / policies:\n' + (list || '(none provided)')
+  )
+}
+
 // Resolve the tool + prompt for a request. Most kinds are static; `categorize`
-// builds its enum from the client-sent category list, `violation`/`arc` inject the
-// community rule book (and `arc` the request text) into their prompts.
+// builds its enum from the client-sent category list, `violation`/`arc`/`request`
+// inject the community rule book (and `arc`/`request` the request text).
 function specFor(kind: string, body: any): { tool: any; prompt: string } | null {
   switch (kind) {
     case 'budget': return { tool: BUDGET_TOOL, prompt: BUDGET_PROMPT }
@@ -268,6 +301,7 @@ function specFor(kind: string, body: any): { tool: any; prompt: string } | null 
     }
     case 'violation': return { tool: VIOLATION_TOOL, prompt: violationPrompt(body?.context_rules) }
     case 'arc': return { tool: ARC_TOOL, prompt: arcPrompt(body?.context_rules, String(body?.request_text || '')) }
+    case 'request': return { tool: REQUEST_TOOL, prompt: requestPrompt(body?.context_rules, String(body?.request_text || '')) }
     default: return null
   }
 }

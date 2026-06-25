@@ -6,6 +6,8 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { Dropdown } from '@/components/Dropdown'
 import { EasyVoiceTabs } from '../EasyVoiceTabs'
 import { useRequestThread, sendThreadMessage, systemLine, SYS_REOPENED, type ThreadMessage } from '@/lib/requestThread'
+import { useRulesData } from '@/lib/rules'
+import { extractRequestReplyFromFile } from '@/lib/signupImport'
 import {
   type WorkOrder,
   type WorkOrderStatus,
@@ -157,6 +159,7 @@ export default function RequestsAdmin() {
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
   const [rows, setRows] = useState<Request[]>([])
+  const rules = useRulesData() // community rule book — context for the AI reply assist
   const [status, setStatus] = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError] = useState('')
   const [successMsg, setSuccessMsg] = useState('')
@@ -840,6 +843,7 @@ export default function RequestsAdmin() {
                     request={selected}
                     profileId={profile?.id}
                     vendors={vendors}
+                    rules={rules}
                     openAttachment={openAttachment}
                     onSent={msg => setSuccessMsg(msg)}
                     onSetStatus={setRequestStatus}
@@ -879,11 +883,12 @@ const fmtMsgTime = (d: string) =>
 // The board side of a Contact thread: the full message log plus a reply box.
 // A board reply posts a 'board' message and (by default) emails the resident.
 function AdminThread({
-  request, profileId, vendors, openAttachment, onSent, onSetStatus, onSetLocked,
+  request, profileId, vendors, rules, openAttachment, onSent, onSetStatus, onSetLocked,
 }: {
   request: Request
   profileId?: string
   vendors: VendorOption[]
+  rules: any[]
   openAttachment: (path: string) => void
   onSent: (msg: string) => void
   onSetStatus: (r: Request, next: Status) => Promise<void>
@@ -899,6 +904,28 @@ function AdminThread({
   const [expanded, setExpanded] = useState(false)   // closed convos minimize until expanded
   const closed = request.status === 'resolved'
   const locked = !!request.replies_locked
+
+  // AI reply assist — read the resident's attached photo + their request text,
+  // describe the issue, note a relevant rule, and draft a reply for the board to
+  // review and send. Board-assist: it pre-fills the draft; nothing auto-sends.
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiReview, setAiReview] = useState<null | { observed_text: string; suggested_rule_title: string | null; draft_response: string }>(null)
+  const [aiErr, setAiErr] = useState('')
+  const reviewWithAi = async () => {
+    const path = request.attachment_path
+    if (!path) return
+    setAiBusy(true); setAiErr(''); setAiReview(null)
+    try {
+      const { data: blob, error } = await supabase!.storage.from('request-attachments').download(path)
+      if (error || !blob) { setAiErr(t('admin.requests.aiUnavailable')); return }
+      const requestText = [request.subject, request.body].filter(Boolean).join('. ')
+      const review = await extractRequestReplyFromFile(blob, (rules || []).map((x: any) => ({ id: x.id, section: x.section, title: x.title })), requestText)
+      if (!review) { setAiErr(t('admin.requests.aiUnavailable')); return }
+      setAiReview(review)
+      if (review.draft_response) setDraft(review.draft_response) // pre-fill the reply for the board to edit/send
+    } catch { setAiErr(t('admin.requests.aiUnavailable')) }
+    finally { setAiBusy(false) }
+  }
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); if (!sending && (draft.trim() || file)) send() }
@@ -1029,6 +1056,24 @@ function AdminThread({
       <WorkOrderPanel request={request} profileId={profileId} vendors={vendors} openAttachment={openAttachment} onSent={onSent} />
       {(
         <>
+          {request.attachment_path && (
+            <div style={{ marginBottom: 10 }}>
+              <button type="button" className="admin-btn-ghost admin-btn-ghost-orange" disabled={aiBusy}
+                style={{ color: '#6941C6', borderColor: 'rgba(105,65,198,0.4)', marginLeft: 0 }}
+                title={t('admin.requests.aiTitle')} onClick={reviewWithAi}>
+                {aiBusy ? t('admin.requests.aiReading') : t('admin.requests.aiBtn')}
+              </button>
+              {aiErr && <div className="admin-note admin-note-warn" style={{ marginTop: 8 }}>{aiErr}</div>}
+              {aiReview && (
+                <div style={{ marginTop: 10, padding: 12, border: '1px solid #d6c4f0', borderRadius: 10, background: '#faf7ff' }}>
+                  <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6, color: '#6941C6', fontWeight: 700, marginBottom: 6 }}>{t('admin.requests.aiPanelTitle')}</div>
+                  {aiReview.observed_text && <div style={{ fontSize: 12.5, marginBottom: 6 }}><span style={{ fontWeight: 600 }}>{t('admin.requests.aiObserved')}: </span>{aiReview.observed_text}</div>}
+                  {aiReview.suggested_rule_title && <div style={{ fontSize: 12.5, marginBottom: 6 }}><span style={{ fontWeight: 600 }}>{t('admin.requests.aiRule')}: </span>{aiReview.suggested_rule_title}</div>}
+                  <div style={{ fontSize: 11.5, color: '#6941C6', marginTop: 2 }}>{t('admin.requests.aiDisclaimer')}</div>
+                </div>
+              )}
+            </div>
+          )}
           {/* iMessage-style composer: a rounded field with an attach clip, plus a
               circular send button. */}
           <div className="imsg-composer">
