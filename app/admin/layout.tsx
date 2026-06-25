@@ -81,6 +81,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const { canAny, perms, loading: permLoading } = usePermissions()
   const { state: trial, communityName } = useTrial()
 
+  // Operator mode = a platform operator entered this community from the console
+  // (platform_return_to is parked in localStorage until they exit). While visiting
+  // we hide the board-facing trial banner + setup popup — the operator isn't the
+  // board, and they already have the orange operator bar with an exit button. This
+  // also stops the refresh "pile-up" of operator bar + trial banner + setup popup.
+  const [operatorMode, setOperatorMode] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const rt = window.localStorage.getItem('platform_return_to')
+    setOperatorMode(!!isPlatformAdmin && !!rt && rt !== (profile?.community_id ?? null))
+  }, [isPlatformAdmin, profile?.community_id])
+
   // Tab-overflow → dropdown. The desktop tab row collapses into the section
   // dropdown (next to the search) when the tabs can't fit the nav width — instead
   // of a fixed breakpoint, which broke once there were ~12 tabs. A hidden
@@ -226,8 +238,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <div className="admin">
       <OperatorBanner isPlatformAdmin={isPlatformAdmin} currentCommunity={profile?.community_id ?? null} />
-      <TrialBanner state={trial} />
-      <AdminWelcome />
+      {!operatorMode && <TrialBanner state={trial} />}
+      {!operatorMode && <AdminWelcome />}
       <header className="admin-top">
         <div className="admin-brand">
           <Link href="/admin" className="admin-brand-home">

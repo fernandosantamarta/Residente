@@ -83,6 +83,9 @@ export default function AdminHome() {
   // — so the guide never re-asks for what's already there.
   useEffect(() => {
     if (status !== 'ready' || !community?.id || typeof window === 'undefined') return
+    // A platform operator visiting from the console (operator mode) shouldn't get
+    // the board's setup-guide popup — it's the board's checklist, not theirs.
+    if (localStorage.getItem('platform_return_to')) return
     if (localStorage.getItem(`residente.setupGuide.dismissed.${community.id}`) === '1') return
     const complete =
       (counts?.board || 0) >= 1 &&
