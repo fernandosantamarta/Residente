@@ -206,6 +206,7 @@ export default function EasyDocs() {
   const rawCategories = useCategoriesData()
   const allCategories = usingDemoRules ? DEMO_RULE_SECTIONS : rawCategories
   const [ruleSearch, setRuleSearch] = useState('')
+  const [globalSearch, setGlobalSearch] = useState('') // unified search across rules + documents
   const [activeCategory, setActiveCategory] = useState<string>('all')
   // Pressing Enter in the rules search jumps straight to the best matching rule
   // in a popup (instead of leaving you to hunt through the category cards).
@@ -328,6 +329,49 @@ export default function EasyDocs() {
     return out
   }, [docList, docSearch, docFilterCategory, docFilterPeriod])
 
+  // Unified instant search across BOTH rules and documents. Ranks title matches
+  // over section/category over body, returns the best mixed results. A rule match
+  // shows a snippet of the rule text around the term; clicking opens its detail.
+  const globalResults = useMemo(() => {
+    const q = globalSearch.trim().toLowerCase()
+    if (!q) return [] as { type: 'rule' | 'doc'; item: any; title: string; snippet: string; score: number }[]
+    const out: { type: 'rule' | 'doc'; item: any; title: string; snippet: string; score: number }[] = []
+    for (const r of rulesList) {
+      const title = (r.title || '').toLowerCase()
+      const section = (r.section || 'General').toLowerCase()
+      const body = (r.body || '').toLowerCase()
+      let score = 0
+      if (title.includes(q)) score += 100
+      if (section.includes(q)) score += 40
+      if (body.includes(q)) score += 20
+      if (!score) continue
+      let snippet = (r.section || 'General') as string
+      const bi = body.indexOf(q)
+      if (bi >= 0 && r.body) {
+        const start = Math.max(0, bi - 30)
+        snippet = (start > 0 ? '…' : '') + String(r.body).slice(start, bi + q.length + 70).trim() + '…'
+      }
+      out.push({ type: 'rule', item: r, title: r.title || r.section || 'Rule', snippet, score })
+    }
+    for (const d of docList) {
+      const title = (d.title || '').toLowerCase()
+      const cat = (d.category || '').toLowerCase()
+      let score = 0
+      if (title.includes(q)) score += 90
+      if (cat.includes(q)) score += 30
+      if (!score) continue
+      out.push({ type: 'doc', item: d, title: d.title || 'Document', snippet: d.category || '', score })
+    }
+    return out.sort((a, b) => b.score - a.score).slice(0, 12)
+  }, [globalSearch, rulesList, docList])
+
+  // Click a result → see more: a rule opens its detail popup, a doc opens the file.
+  const onSearchResult = (res: { type: 'rule' | 'doc'; item: any }) => {
+    if (res.type === 'rule') setRuleDetail(res.item)
+    else openDoc(res.item)
+    setGlobalSearch('')
+  }
+
   const recent = docFiltered.slice(0, 6)
 
   // Localized label for the currently-selected document category (the filter
@@ -345,6 +389,46 @@ export default function EasyDocs() {
         <h1 className="voice-page-title">Easy Documents</h1>
         <p className="voice-page-sub">{t('documents.hubSub')}</p>
       </div>
+
+      {/* Unified smart search — one box across every rule + document. Type and the
+          best matches surface; click a rule to read it or a document to open it. */}
+      <div className="easydocs-smartsearch" style={{ position: 'relative', maxWidth: 560, margin: '0 auto 16px', width: '100%' }}>
+        <div className="rb-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
+          </svg>
+          <input name="easydocs-search" type="search" value={globalSearch}
+            onChange={e => setGlobalSearch(e.target.value)}
+            placeholder={t('documents.smartSearchPlaceholder')} aria-label={t('documents.smartSearchPlaceholder')} />
+          {globalSearch && (
+            <button type="button" onClick={() => setGlobalSearch('')} aria-label={t('documents.smartSearchClear')}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9aa0ac', fontSize: 18, lineHeight: 1, padding: '0 4px' }}>×</button>
+          )}
+        </div>
+        {globalSearch.trim() && (
+          <div className="easydocs-smartsearch-results" role="listbox"
+            style={{ position: 'absolute', zIndex: 40, left: 0, right: 0, marginTop: 6, background: '#fff', border: '1px solid rgba(10,36,64,0.12)', borderRadius: 12, boxShadow: '0 14px 44px rgba(10,36,64,0.18)', maxHeight: 440, overflowY: 'auto', padding: 6 }}>
+            {globalResults.length === 0 ? (
+              <div style={{ padding: '16px 12px', color: '#6b6f7d', fontSize: 13.5 }}>{t('documents.smartSearchNoResults')}</div>
+            ) : globalResults.map((res, i) => (
+              <button key={`${res.type}-${i}`} type="button" role="option" onClick={() => onSearchResult(res)}
+                style={{ display: 'flex', gap: 10, alignItems: 'flex-start', width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: '10px', borderRadius: 8 }}
+                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(10,36,64,0.04)')}
+                onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
+                <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 800, letterSpacing: 0.5, marginTop: 1,
+                  color: res.type === 'rule' ? '#6941C6' : '#0E7490', background: res.type === 'rule' ? 'rgba(105,65,198,0.12)' : 'rgba(14,116,144,0.12)', borderRadius: 5, padding: '3px 6px' }}>
+                  {res.type === 'rule' ? t('documents.smartSearchRule') : t('documents.smartSearchDoc')}
+                </span>
+                <span style={{ minWidth: 0 }}>
+                  <span style={{ display: 'block', fontWeight: 700, fontSize: 13.5, color: '#0A2440' }}>{res.title}</span>
+                  <span style={{ display: 'block', fontSize: 12, color: '#6b6f7d', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{res.snippet}</span>
+                </span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       <div className="track-segtabs">
         <SegTabs tabs={DOC_TABS} active={tab} onChange={setTab} ariaLabel={t('documents.sectionsAria')} />
       </div>
