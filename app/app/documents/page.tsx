@@ -10,6 +10,7 @@ import { useDocuments } from '@/hooks/useDocuments'
 import { supabase } from '@/lib/supabase'
 import { DetailDialog } from '../track/_sections/DetailDialog'
 import { ContestFineControl } from '../track/_sections/ContestFineControl'
+import { EstoppelSection } from './_sections/EstoppelSection'
 import { Dropdown } from '@/components/Dropdown'
 import { useCheckout } from '@/components/CheckoutProvider'
 import { useT } from '@/lib/i18n'
@@ -171,6 +172,7 @@ export default function EasyDocs() {
     { id: 'documents',  label: t('documents.tabDocuments') },
     { id: 'rules',      label: t('documents.tabRules') },
     { id: 'violations', label: 'My Violations' },
+    { id: 'estoppel',   label: 'Estoppel' },
   ]
 
   // Which section is showing. The segmented control switches between them;
@@ -182,7 +184,7 @@ export default function EasyDocs() {
   // Honor the URL hash (#rules / #documents / #violations) so deep links and the
   // "Back to My Violations" link from /app/enforcement open the right tab.
   useEffect(() => {
-    const ids = ['rules', 'documents', 'violations']
+    const ids = ['rules', 'documents', 'violations', 'estoppel']
     const fromHash = () => {
       const h = window.location.hash.replace('#', '')
       if (ids.includes(h)) setTab(h)
@@ -861,6 +863,14 @@ export default function EasyDocs() {
             </span>
             <span className="myv-link-open">Open &rarr;</span>
           </Link>
+        </div>
+      </section>
+      )}
+
+      {tab === 'estoppel' && (
+      <section id="easydocs-estoppel" style={{ scrollMarginTop: 56 }}>
+        <div className="rb-wrap">
+          <EstoppelSection />
         </div>
       </section>
       )}
