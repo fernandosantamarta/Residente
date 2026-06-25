@@ -87,6 +87,11 @@ function DocInner() {
 
   const isCondo = community?.association_type !== 'hoa'
   const today = ymd(new Date())
+  // For the 30-day notice the statutory pay-by date must be anchored to the date
+  // the notice was actually sent (notice_30_sent_at), not the rendering date.
+  // If the case has no sent_at recorded yet (notice not yet mailed), fall back
+  // to today so the draft still renders a usable date.
+  const noticeBase = c.notice_30_sent_at || today
   const amount = payoff ? fmtMoney(payoff.payoff) : null
   const ownerName = resident?.full_name || c.unit_label || 'Owner of record'
 
@@ -173,7 +178,7 @@ function DocInner() {
       {/* Body per type */}
       {type === 'notice_30' && (
         <Body>
-          <p>The following amounts are currently due on your account to {community?.name || 'the association'}, and <strong>must be paid within thirty (30) days after the date of this letter</strong> (on or before <strong>{ymd(addCalendarDays(today, 30))}</strong>). This letter shall serve as the association&apos;s notice of its intent to proceed with further collection action against the above {isCondo ? 'unit' : 'parcel'} no sooner than 30 days after the date of this letter, unless you pay in full the amounts set forth below:</p>
+          <p>The following amounts are currently due on your account to {community?.name || 'the association'}, and <strong>must be paid within thirty (30) days after the date of this notice</strong> (on or before <strong>{ymd(addCalendarDays(noticeBase, 30))}</strong>). This letter shall serve as the association&apos;s notice of its intent to proceed with further collection action against the above {isCondo ? 'unit' : 'parcel'} no sooner than 30 days after the date of this notice, unless you pay in full the amounts set forth below:</p>
           <table style={tbl}><tbody>
             <Trow label={isCondo ? 'Maintenance / assessments due' : 'Assessments due'} value={payoff ? fmtMoney(payoff.gross.principal) : <Em>confirm from ledger</Em>} />
             <Trow label="Late fee, if applicable" value={payoff ? fmtMoney(payoff.gross.lateFee) : <Em>—</Em>} />

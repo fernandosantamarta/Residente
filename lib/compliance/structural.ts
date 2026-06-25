@@ -516,7 +516,7 @@ export function structuralSignals(
 
     // 45-day owner-summary / local-enforcement reporting clock after a report
     // is received (milestone).
-    if (a.kind === 'milestone' && a.report_received_at && !a.owner_notice_sent_at) {
+    if (a.kind === 'milestone' && a.report_received_at && !a.owner_notice_sent_at && !TERMINAL.has(String(a.status))) {
       const deadline = addCalendarDays(a.report_received_at, MILESTONE_REPORT_NOTICE_DAYS.value)
       if (deadline) {
         const d = calendarDaysUntil(deadline, now)

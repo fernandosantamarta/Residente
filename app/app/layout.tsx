@@ -41,6 +41,10 @@ const NAV: NavItem[] = [
   { href: '/app/voice',     label: 'Easy Voice', icon: <><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="22"/></> },
   { href: '/app/documents', label: 'Easy Documents', match: ['/app/rules'], icon: <><path d="M4 4h12l4 4v12H4z"/><path d="M8 9h8M8 13h8M8 17h5"/></> },
   { href: '/app/schedule',  label: 'Easy Schedule',  icon: <><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 9h18M8 3v4M16 3v4"/></> },
+  // Owner-account pages — secondary, so they live in the rail / mobile "More"
+  // drawer (not the 5-slot bottom bar). Hidden for tenants (see visibleNav).
+  { href: '/app/collections', label: 'Account Standing', icon: <><path d="M12 3v18"/><path d="M7 7h10"/><path d="m7 7-3.5 6a3.5 3.5 0 0 0 7 0z"/><path d="m17 7-3.5 6a3.5 3.5 0 0 0 7 0z"/><path d="M9 21h6"/></> },
+  { href: '/app/estoppel',    label: 'Estoppel',         icon: <><path d="M6 3h12v11H6z"/><path d="M9 7h6M9 10h4"/><path d="M9 17l3-2 3 2v4l-3-2-3 2z"/></> },
 ]
 // Settings is intentionally not in NAV — the bottom-left user-block in
 // rail-footer is the entry point, matching the profile-tab pattern.
@@ -104,7 +108,9 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
   const { resident: myResident, isTenant } = useMyResident() // keep mounted before the auth guard for stable hook order
   // Tenants (leased units) don't see Pay/dues — that's the owner's obligation.
   // They get Home · Requests (Voice) · Documents · Schedule.
-  const visibleNav = isTenant ? NAV.filter(i => i.href !== '/app/track') : NAV
+  const visibleNav = isTenant
+    ? NAV.filter(i => !['/app/track', '/app/collections', '/app/estoppel'].includes(i.href))
+    : NAV
   const pendingReplies = useMyPendingReplies()   // unread board replies → Easy Voice badge
   const homeHasAlert = isPreview || unreadCount > 0
   const showRightRail = pathname === '/app'

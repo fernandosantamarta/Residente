@@ -51,15 +51,18 @@ export type DocCategory = typeof DOC_CATEGORIES[number]
 
 // FL-required record types an in-scope association must post online.
 // (HB 913 broadened the set — bank records/ledgers + permits added above.)
-export const FL_REQUIRED_CATEGORIES: { label: DocCategory; statute: string }[] = [
+// `regimes` (optional): limits the entry to the listed regime(s). Absent = both.
+// — Insurance: HOA-only obligation (FS 720.303(4)(b)1); not a condo-posting requirement.
+// — Inspection Reports: condo-only obligation (FS 718.111(12)(g)2); not HOA 720.303(4)(b).
+export const FL_REQUIRED_CATEGORIES: { label: DocCategory; statute: string; regimes?: AssociationType[] }[] = [
   { label: 'Governing Documents',       statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
   { label: 'Financial Documents',       statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
   { label: 'Rules & Policies',          statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
   { label: 'Reports & Meeting Minutes', statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
-  { label: 'Insurance',                 statute: '720.303(4)(b)1' },
+  { label: 'Insurance',                 statute: '720.303(4)(b)1',  regimes: ['hoa'] },
   { label: 'Vendor & Contracts',        statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
   { label: 'Director Records',          statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
-  { label: 'Inspection Reports',        statute: '718.111(12)(g)2' },
+  { label: 'Inspection Reports',        statute: '718.111(12)(g)2', regimes: ['condo'] },
   { label: 'Bank Records & Ledgers',    statute: '718.111(12)(a) / 720.303(4) (HB 913)' },
 ]
 
@@ -83,6 +86,72 @@ export const POSTING_IN_FORCE = rule(
 // Once a record is created/received, an in-scope association must post it within
 // 30 days.
 export const POSTING_CLOCK_DAYS = rule(30, 'FS 718.111(12)(g) / 720.303(4)(b)', { note: 'days to post a new official record' })
+
+// ── Website-posting per-record COMPLETENESS (Slice 5) ──────────────────────
+// The enumerated records an in-scope association must post on its
+// password-protected website. CONDO has 15 (a–o, incl. the post-Surfside
+// structural trio + the $500 bid-summary rule); HOA has 13 (a–m, no structural
+// trio, plus current insurance policies). Reference checklist for the board.
+// FS 718.111(12)(g)2 (condo) / 720.303(4)(b)1 (HOA). validated:false.
+export const CONDO_WEBSITE_RECORDS: { label: string; statute: string }[] = [
+  { label: 'Recorded declaration + amendments',                       statute: '718.111(12)(g)2.a' },
+  { label: 'Recorded bylaws + amendments',                            statute: '718.111(12)(g)2.b' },
+  { label: 'Articles of incorporation + amendments',                  statute: '718.111(12)(g)2.c' },
+  { label: 'Rules of the association',                                statute: '718.111(12)(g)2.d' },
+  { label: 'Executory contracts + current-year bid list',             statute: '718.111(12)(g)2.e' },
+  { label: 'Annual budget + any proposed budget',                     statute: '718.111(12)(g)2.f' },
+  { label: 'Financial report + monthly statements to be considered',  statute: '718.111(12)(g)2.g' },
+  { label: 'Director certifications',                                 statute: '718.111(12)(g)2.h' },
+  { label: 'Contracts/transactions with a director-affiliated party', statute: '718.111(12)(g)2.i' },
+  { label: 'Conflict-of-interest documents',                          statute: '718.111(12)(g)2.j' },
+  { label: 'Unit-owner meeting notice + agenda (≥14 days prior)',     statute: '718.111(12)(g)2.k' },
+  { label: 'Board meeting notice + agenda',                           statute: '718.111(12)(g)2.l' },
+  { label: 'Structural / life-safety inspection reports',             statute: '718.111(12)(g)2.m' },
+  { label: 'Structural integrity reserve study',                      statute: '718.111(12)(g)2.n' },
+  { label: 'Building permits for ongoing/planned construction',       statute: '718.111(12)(g)2.o' },
+]
+export const HOA_WEBSITE_RECORDS: { label: string; statute: string }[] = [
+  { label: 'Articles of incorporation + amendments',                  statute: '720.303(4)(b)1.a' },
+  { label: 'Recorded bylaws + amendments',                            statute: '720.303(4)(b)1.b' },
+  { label: 'Declaration of covenants + amendments',                   statute: '720.303(4)(b)1.c' },
+  { label: 'Current rules of the association',                        statute: '720.303(4)(b)1.d' },
+  { label: 'Executory contracts + current-year bid list',             statute: '720.303(4)(b)1.e' },
+  { label: 'Annual budget + any proposed budget',                     statute: '720.303(4)(b)1.f' },
+  { label: 'Financial report + monthly statements to be considered',  statute: '720.303(4)(b)1.g' },
+  { label: 'Current insurance policies',                              statute: '720.303(4)(b)1.h' },
+  { label: 'Director certifications',                                 statute: '720.303(4)(b)1.i' },
+  { label: 'Contracts/transactions with a director-affiliated party', statute: '720.303(4)(b)1.j' },
+  { label: 'Conflict-of-interest documents',                          statute: '720.303(4)(b)1.k' },
+  { label: 'Member meeting notice + agenda (≥14 days prior)',         statute: '720.303(4)(b)1.l' },
+  { label: 'Board meeting notice + agenda',                           statute: '720.303(4)(b)1.m' },
+]
+
+// The portal must be PASSWORD-PROTECTED: a subpage accessible only to owners (condo:
+// unit owners) and association employees, with a username/password provided on written
+// request. FS 718.111(12)(g)1.b–c / 720.303(4)(b)2–3.
+export const WEBSITE_PASSWORD_PROTECTED = rule(true, 'FS 718.111(12)(g)1.b / 720.303(4)(b)2', {
+  note: 'records portal restricted to owners + employees; username/password on written request',
+})
+
+// Bid CURRENCY: the posted list of bids covers a rolling 12-month look-back; condo
+// additionally keeps bid summaries over $500 posted for 1 year. FS 718.111(12)(g)2.e /
+// 720.303(4)(b)1.e. (No generic 30-day posting clock appears in either posting
+// paragraph — that clock is a Residente convenience, not a statutory deadline.)
+export const BID_POSTING_LOOKBACK_MONTHS = rule(12, 'FS 718.111(12)(g)2.e / 720.303(4)(b)1.e', { note: 'list of bids received within the past year stays posted' })
+export const CONDO_BID_SUMMARY_RETENTION_YEARS = rule(1, 'FS 718.111(12)(g)2.e', { note: 'condo: bid summaries over $500 kept on the website 1 year' })
+
+// The DOC_CATEGORIES that map to the regime's enumerated website records. The
+// completeness signal flags a required category that has a document on file but none
+// posted (disjoint from the category-GAP signal, which flags a category with no
+// document at all). Condo adds Inspection Reports + Building Permits; HOA adds Insurance.
+const CONDO_REQUIRED_POSTED_CATEGORIES: string[] = [
+  'Governing Documents', 'Rules & Policies', 'Financial Documents', 'Reports & Meeting Minutes',
+  'Notices & Announcements', 'Vendor & Contracts', 'Director Records', 'Inspection Reports', 'Building Permits',
+]
+const HOA_REQUIRED_POSTED_CATEGORIES: string[] = [
+  'Governing Documents', 'Rules & Policies', 'Financial Documents', 'Reports & Meeting Minutes',
+  'Notices & Announcements', 'Vendor & Contracts', 'Director Records', 'Insurance',
+]
 
 // HOA ONLY (FS 720.306(1)(b)): within 30 days after RECORDING an amendment to the
 // governing documents in the public records, the association must provide members
@@ -247,8 +316,9 @@ export function officialRecordsSignals(
   // --- Posting obligations (only once the community is in scope) ---
   if (applies && community.website_posting_enabled) {
     // (1) Required-category gaps — one aggregate signal listing what's missing.
+    // Filter to entries that apply to this community's regime before checking presence.
     const present = new Set(documents.map(d => String(d.category ?? '').toLowerCase()))
-    const missing = FL_REQUIRED_CATEGORIES.filter(c => !present.has(c.label.toLowerCase()))
+    const missing = FL_REQUIRED_CATEGORIES.filter(c => (!c.regimes || c.regimes.includes(regime)) && !present.has(c.label.toLowerCase()))
     if (missing.length) {
       out.push(signal({
         id: 'records:category-gaps',
@@ -305,6 +375,45 @@ export function officialRecordsSignals(
         detail: 'Protected personal information must be redacted before a record is produced or posted.',
         href: HREF,
         citation: REDACTION_PROTECTED.citation,
+      }))
+    }
+
+    // (4) The portal must be password-protected (owners + employees only).
+    if (!community.website_password_protected) {
+      out.push(signal({
+        id: 'records:website-password',
+        domain: 'Official records',
+        severity: 'soon',
+        title: 'Confirm the records portal is password-protected',
+        detail: 'The website/app must contain a section that is inaccessible to the general public and accessible only to owners and association employees, with a username and password provided on written request. Mark the portal password-protected once that is in place.',
+        href: HREF,
+        citation: WEBSITE_PASSWORD_PROTECTED.citation,
+      }))
+    }
+
+    // (5) Per-record COMPLETENESS — required record TYPES that have a document on file
+    // but none posted to the owner portal. Regime-aware; disjoint from the
+    // category-gap signal above (which flags types with no document at all).
+    const requiredCats = regime === 'hoa' ? HOA_REQUIRED_POSTED_CATEGORIES : CONDO_REQUIRED_POSTED_CATEGORIES
+    const byCat = new Map<string, { any: boolean; posted: boolean }>()
+    for (const d of documents) {
+      const c = String(d.category ?? '')
+      const e = byCat.get(c) ?? { any: false, posted: false }
+      e.any = true
+      if (d.posted_to_portal) e.posted = true
+      byCat.set(c, e)
+    }
+    const presentUnposted = requiredCats.filter(c => { const e = byCat.get(c); return !!e && e.any && !e.posted })
+    if (presentUnposted.length) {
+      const total = regime === 'hoa' ? HOA_WEBSITE_RECORDS.length : CONDO_WEBSITE_RECORDS.length
+      out.push(signal({
+        id: 'records:website-completeness',
+        domain: 'Official records',
+        severity: 'soon',
+        title: `${presentUnposted.length} required record type(s) are on file but not posted to the portal`,
+        detail: `These statutory record types have a document on file but none marked posted: ${presentUnposted.join(', ')}. Each of the ${total} enumerated records must be posted (bids stay posted with a 12-month look-back). Mark each one posted once it is live on the portal.`,
+        href: HREF,
+        citation: regime === 'hoa' ? 'FS 720.303(4)(b)1' : 'FS 718.111(12)(g)2',
       }))
     }
   }

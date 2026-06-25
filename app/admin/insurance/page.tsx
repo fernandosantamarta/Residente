@@ -352,7 +352,9 @@ function PolicyCard({
   const isProperty = p.kind === 'property'
   const fmt = (n: any) => '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US')
   const nextDue = isProperty ? appraisalNextDue(p.last_appraisal_date) : null
-  const underBond = !isProperty && maxFunds && maxFunds > 0 && (Number(p.amount) || 0) > 0 && (Number(p.amount) || 0) < maxFunds
+  // Show the under-bond chip whenever the bond amount is below the estimated
+  // max-funds floor (including zero-amount entries — mirrors INS-01 signal fix).
+  const underBond = !isProperty && maxFunds && maxFunds > 0 && (Number(p.amount) || 0) < maxFunds
 
   return (
     <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${accent}`, borderRadius: 12, padding: '14px 16px', background: '#fff' }}>

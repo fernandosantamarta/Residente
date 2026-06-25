@@ -149,8 +149,8 @@ export default function EstoppelCertificate() {
           <Row label="Date of issuance" value={issued} />
           <Row label="Association" value={community?.name} />
           <Row label="Association address" value={community?.association_address || <em style={{ color: '#B54708' }}>set in Community settings</em>} />
-          <Row label="Unit / parcel" value={req.unit_label} />
-          <Row label="Owner of record" value={req.unit_label} />
+          <Row label="Unit / parcel" value={resident?.unit_number ?? req.unit_label} />
+          <Row label="Owner of record" value={resident?.full_name ?? req.unit_label} />
           <Row label="Parking / garage space(s)" value={<em style={{ color: '#888' }}>confirm</em>} />
           <Row label="Requested by" value={`${req.requestor_name || '—'}${req.requestor_type ? ` (${String(req.requestor_type).replace(/_/g, ' ')})` : ''}`} />
           <Row label="Certificate fee" value={req.fee_waived ? `${fmtMoney(0)} (waived — late delivery)` : fmtMoney(fee)} />

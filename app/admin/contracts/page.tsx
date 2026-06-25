@@ -301,7 +301,9 @@ function ContractCard({
   const overThreshold = threshold > 0 && amount > threshold
   const hasException = !!c.exception_basis && c.exception_basis !== 'none'
   const isService = c.contract_kind === 'services' || c.contract_kind === 'management'
-  const needsWriting = isService || (Number(c.term_months) || 0) > 12
+  // Exception basis exempts from both the bidding AND the writing requirement
+  // (FS 718.3026(2)(a) / 720.3055(2)(a)1), so mirror the bid-needed guard here.
+  const needsWriting = (isService || (Number(c.term_months) || 0) > 12) && !hasException
   const fmt = (n: any) => '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US')
 
   const bidGap = overThreshold && !hasException && !c.bids_obtained

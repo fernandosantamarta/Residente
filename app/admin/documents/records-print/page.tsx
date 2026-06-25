@@ -125,7 +125,7 @@ function DocInner() {
           <table style={{ ...tbl, marginTop: 12 }}><thead><tr>
             <th style={th}>Record type</th><th style={th}>Made available</th><th style={th}>Not made available (basis)</th><th style={th}>N/A</th>
           </tr></thead><tbody>
-            {FL_REQUIRED_CATEGORIES.map(c => (
+            {FL_REQUIRED_CATEGORIES.filter(c => !c.regimes || c.regimes.includes(isHoa ? 'hoa' : 'condo')).map(c => (
               <tr key={c.label}>
                 <td style={td}>{c.label}<div style={{ fontSize: 11, color: '#888' }}>FS {c.statute}</div></td>
                 <td style={tdC}>☐</td><td style={tdC}>☐ ____________</td><td style={tdC}>☐</td>

@@ -202,6 +202,7 @@ export function advisoriesSignals(
     if (kind === 'receivership_notice') {
       const due = addCalendarDays(e.event_date, RECEIVERSHIP_CURE_DAYS.value)!
       const d = calendarDaysUntil(due, now)
+      if (!(d < 0 || d <= RECEIVERSHIP_CURE_DAYS.value)) continue
       out.push(signal({
         id: `advisory:receivership-cure:${e.id}`,
         domain: 'Turnover & receivership',
@@ -222,7 +223,7 @@ export function advisoriesSignals(
       out.push(signal({
         id: `advisory:invoice-delivery:${e.id}`,
         domain: 'Owner notices',
-        severity: 'info',
+        severity: d < 0 ? 'overdue' : 'soon',
         title: d < 0 ? 'Invoice delivery-method change — notice period elapsed' : 'Invoice delivery-method change is in its 30-day notice period',
         detail: `A 30-day notice of a change to how assessment invoices/statements are delivered was recorded ${ymd(e.event_date)}. The new method may not be used before ${ymd(due)}, and only after each owner affirmatively acknowledges the change (FS 718.121(4)(b)-(c)).`,
         href: HREF,

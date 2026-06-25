@@ -151,11 +151,16 @@ export function electionMilestones(e: ElectionRow): {
   }
 }
 
-/** Whether a completed election met the condo 20% ballot-cast quorum. */
+/** Whether a completed election met the condo 20% ballot-cast quorum.
+ *  Returns null when either eligible_count or ballots_cast is absent/zero —
+ *  this prevents a spurious 'quorum failed' signal when the row was inserted
+ *  without a ballots_cast value (no DB NOT NULL constraint on the column). */
 export function electionQuorumMet(e: ElectionRow): boolean | null {
   const eligible = Number(e.eligible_count) || 0
-  const cast = Number(e.ballots_cast) || 0
   if (!eligible) return null
+  // Guard: if ballots_cast is absent (null/undefined) treat as unknown, not 0.
+  if (e.ballots_cast == null) return null
+  const cast = Number(e.ballots_cast)
   return (cast / eligible) * 100 >= ELECTION_QUORUM_PCT.value
 }
 
@@ -225,12 +230,22 @@ export function electionsSignals(
         }
       }
 
-      // 2. Candidate window (40-day).
+      // 2. Candidate window (40-day). Mirrors the first-notice/ballot milestones:
+      //    an overdue branch once the deadline passes, then a 'soon' nudge as it
+      //    approaches (a missed candidate deadline can force the election to be
+      //    rescheduled, so it is actionable — not merely informational).
       if (ms.candidateBy && !e.candidate_deadline_at) {
         const days = calendarDaysUntil(ms.candidateBy, now)
-        if (days >= 0 && days <= 10) {
+        if (ms.candidateBy.getTime() < nowMs) {
           out.push(signal({
-            id: `elections:candidate-window:${e.id}`, domain: DOMAIN, severity: 'info',
+            id: `elections:candidate-late:${e.id}`, domain: DOMAIN, severity: 'overdue',
+            title: `${label}: the 40-day candidate-notice deadline has passed`,
+            detail: `Candidates had to give written notice of intent by ${ymd(ms.candidateBy)} (at least 40 days before the election). If too few candidates qualified, the election may need to be rescheduled.`,
+            href: HREF, citation: CANDIDATE_NOTICE_DAYS.citation,
+          }))
+        } else if (days <= 10) {
+          out.push(signal({
+            id: `elections:candidate-window:${e.id}`, domain: DOMAIN, severity: 'soon',
             title: `${label}: the candidate-notice deadline is ${ymd(ms.candidateBy)}`,
             detail: 'Candidates must give written notice of intent at least 40 days before the election.',
             href: HREF, citation: CANDIDATE_NOTICE_DAYS.citation,
@@ -264,9 +279,9 @@ export function electionsSignals(
       const met = electionQuorumMet(e)
       if (met === false) {
         out.push(signal({
-          id: `elections:quorum:${e.id}`, domain: DOMAIN, severity: 'soon',
+          id: `elections:quorum:${e.id}`, domain: DOMAIN, severity: 'overdue',
           title: `${label}: fewer than ${ELECTION_QUORUM_PCT.value}% of eligible voters cast a ballot`,
-          detail: `${e.ballots_cast ?? 0} of ${e.eligible_count ?? 0} eligible voters. At least ${ELECTION_QUORUM_PCT.value}% must cast a ballot for a valid condo election; the prior board may continue.`,
+          detail: `${e.ballots_cast ?? 0} of ${e.eligible_count ?? 0} eligible voters. At least ${ELECTION_QUORUM_PCT.value}% must cast a ballot for a valid condo election; the prior board continues in place and a new election is required.`,
           href: HREF, citation: ELECTION_QUORUM_PCT.citation,
         }))
       }

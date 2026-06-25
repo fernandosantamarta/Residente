@@ -66,6 +66,10 @@ export type AuditEventType =
   | 'governance.eligibility_updated'
   | 'governance.manager_recorded'
   | 'governance.conflict_disclosed'
+  // 2024–25 bill duties (compliance Slice 5)
+  | 'governance.cam_disclosure_updated'
+  | 'arc.hurricane_specs_adopted'
+  | 'records.website_settings_updated'
   // violations / fines / hearings / suspension (compliance domain G)
   | 'enforcement.fine_proposed'
   | 'enforcement.hearing_noticed'
@@ -115,6 +119,7 @@ export type AuditTargetType =
   | 'insurance_policy'
   | 'contract'
   | 'compliance_event'
+  | 'community'
 
 export interface LogAuditArgs {
   community_id: string

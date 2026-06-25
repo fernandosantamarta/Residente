@@ -588,14 +588,14 @@ function DocInner() {
               </tbody></table>
             </>
           )}
-          <p style={cite}>Budget adoption + notice under {isHoa ? 'FS 720.303(2)' : 'FS 718.112(2)(e)'}. A reserve waiver, if any, requires a majority of ALL voting interests and is prohibited for SIRS structural components.</p>
+          <p style={cite}>Budget adoption + notice under {isHoa ? 'FS 720.303(2)' : 'FS 718.112(2)(e)'}. A reserve waiver, if any, requires {isHoa ? 'a majority of the voting interests present at a meeting at which a quorum is present (FS 720.303(6)(f))' : 'a majority of ALL voting interests'}; for condos, SIRS structural component reserves may not be waived.</p>
         </Body>
       )}
 
       {/* ---------- Reserve funding worksheet ---------- */}
       {type === 'reserve_worksheet' && (
         <Body>
-          <p>Reserve component funding status. Underfunded reserves increase the risk of a special assessment; SIRS structural components must be fully funded for budgets adopted on/after 2026-01-01 and may not be waived.</p>
+          <p>Reserve component funding status. Underfunded reserves increase the risk of a special assessment.{!isHoa ? ' SIRS structural components must be fully funded for budgets adopted on/after 2026-01-01 and may not be waived (FS 718.112(2)(g)2).' : ''}</p>
           {reserves.length === 0 ? <p><Em>{t('admin.financialsDocument.noReserveComponents')}</Em></p> : (
             <table style={tbl}><thead><tr>
               <th style={th}>{t('admin.financialsDocument.colComponent')}</th><th style={th}>{t('admin.financialsDocument.colSirs')}</th><th style={thR}>{t('admin.financialsDocument.colCurrent')}</th><th style={thR}>{t('admin.financialsDocument.colFullyFunded')}</th><th style={thR}>{t('admin.financialsDocument.colPctFunded')}</th>

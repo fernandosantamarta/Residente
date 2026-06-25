@@ -240,7 +240,7 @@ export function financialSignals(
         href: HREF,
         citation: cite,
       }))
-    } else if (required === 'audited') {
+    } else if (required === 'audited' && (!haveTier || AUDIT_TIER_RANK[haveTier as AuditTier] < AUDIT_TIER_RANK['audited'])) {
       out.push(signal({
         id: 'financial:audit-tier-required',
         domain: 'Financial reporting',

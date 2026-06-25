@@ -61,6 +61,17 @@ export const MINUTES_AVAILABLE_DAYS = rule(30, 'FS 718.111(12) / 720.303(4)', {
   note: 'minutes should be drafted/available to owners promptly after the meeting',
 })
 
+// Condo video-conference meeting notice content + recording (HB 913, ch. 2025-175,
+// eff. 2025-07-01 — NOT HB 1021/2024). If a board meeting is held by video conference,
+// the notice must state it is by video conference and include a hyperlink (join link), a
+// conference telephone number, and the physical-location address where owners can attend
+// in person; the meeting must be RECORDED and the recording maintained as an official
+// record (FS 718.112(2)(c)1 / 718.112(2)(d)2). HOA law (720.303(2)) has NO
+// video-conference authorization, so this duty is CONDO-ONLY.
+export const VC_NOTICE_EFFECTIVE = rule('2025-07-01', 'FS 718.112(2)(c)1 (HB 913, ch. 2025-175)', {
+  note: 'condo video-conference notice content + recording-as-official-record; eff. 2025-07-01; condo only',
+})
+
 // ----------------------------------------------------------------------------
 // Domain types
 // ----------------------------------------------------------------------------
@@ -85,6 +96,12 @@ export interface MeetingRow {
   affects_use_rules?: boolean | null
   is_budget_meeting?: boolean | null
   emergency?: boolean | null
+  // condo video-conference notice content (FS 718.112(2)(c)1) — compliance-slice5.sql
+  is_video_conference?: boolean | null
+  vc_join_url?: string | null
+  vc_phone?: string | null
+  vc_physical_location?: string | null
+  recording_retained?: boolean | null
 }
 
 export interface NoticeRequirement {
@@ -139,11 +156,23 @@ export function noticeGivenDate(m: MeetingRow): Date | null {
   return toDate(req.mailed ? m.notice_mailed_at : m.notice_posted_at)
 }
 
-/** Whether the recorded notice satisfies the lead-time requirement. */
+/** Whether the recorded notice satisfies the lead-time requirement.
+ *  For the 48-hour board-meeting rule the comparison is ms-precise (the statute
+ *  requires 48 continuous hours, not 2 calendar days). For all mailed/14-day
+ *  requirements the existing calendar-day comparison via noticeDeadline() applies.
+ */
 export function noticeSatisfied(m: MeetingRow): boolean {
+  const req = requiredNotice(m)
   const given = noticeGivenDate(m)
+  if (!given) return false
+  if (!req.mailed) {
+    // 48-hour continuous posting: compare timestamps directly.
+    const sched = toDate(m.scheduled_at)
+    if (!sched) return false
+    return (sched.getTime() - given.getTime()) >= BOARD_MEETING_NOTICE_HOURS.value * 3_600_000
+  }
   const deadline = noticeDeadline(m)
-  if (!given || !deadline) return false
+  if (!deadline) return false
   return given.getTime() <= deadline.getTime()
 }
 
@@ -170,8 +199,8 @@ export function meetingsSignals(
 ): ComplianceSignal[] {
   const out: ComplianceSignal[] = []
   const regime = asType(community?.association_type)
-  void regime
   const nowMs = toDate(now)!.getTime()
+  const vcEffective = toDate(VC_NOTICE_EFFECTIVE.value)
 
   for (const m of meetings) {
     const sched = toDate(m.scheduled_at)
@@ -181,7 +210,8 @@ export function meetingsSignals(
     const upcoming = !!sched && sched.getTime() >= nowMs // today or future (a held meeting is handled by the minutes block)
 
     // 1. Notice obligations for an upcoming meeting.
-    if (upcoming && deadline && !m.emergency) {
+    // Guard against held meetings — isHeld meetings are handled by the minutes block below.
+    if (upcoming && !isHeld(m) && deadline && !m.emergency) {
       const given = noticeGivenDate(m)
       if (!given) {
         const daysToDeadline = calendarDaysUntil(deadline, now)
@@ -244,6 +274,37 @@ export function meetingsSignals(
           detail: `The meeting was held ${ageDays} days ago. Minutes are official records owners may inspect.`,
           href: HREF,
           citation: MINUTES_AVAILABLE_DAYS.citation,
+        }))
+      }
+    }
+
+    // 3. Video-conference notice content + recording (condo only; FS 718.112(2)(c)1,
+    // HB 913, eff. 2025-07-01). HOA has no video-conference authorization.
+    if (regime === 'condo' && m.is_video_conference && sched && vcEffective && sched.getTime() >= vcEffective.getTime()) {
+      const missing: string[] = []
+      if (!String(m.vc_join_url ?? '').trim()) missing.push('a join link (hyperlink)')
+      if (!String(m.vc_phone ?? '').trim()) missing.push('a conference telephone number')
+      if (!String(m.vc_physical_location ?? '').trim()) missing.push('the physical-location address')
+      if (upcoming && !m.emergency && missing.length) {
+        out.push(signal({
+          id: `meetings:vc-notice:${m.id}`,
+          domain: DOMAIN,
+          severity: 'soon',
+          title: `${label}: the video-conference notice is missing required access details`,
+          detail: `A board meeting held by video conference must state it is by video conference and include ${missing.join(', ')}. Add the missing detail to the notice.`,
+          href: HREF,
+          citation: 'FS 718.112(2)(c)1',
+        }))
+      }
+      if (isHeld(m) && !m.recording_retained) {
+        out.push(signal({
+          id: `meetings:vc-recording:${m.id}`,
+          domain: DOMAIN,
+          severity: 'overdue',
+          title: `${label}: record and retain the video-conference meeting`,
+          detail: 'A meeting held by video conference must be recorded and the recording maintained as an official record of the association.',
+          href: HREF,
+          citation: 'FS 718.112(2)(c)1 / 718.112(2)(d)2',
         }))
       }
     }

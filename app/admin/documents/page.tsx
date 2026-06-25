@@ -470,6 +470,23 @@ export default function AdminEasyDocs() {
     }
   }
 
+  // Mark the records portal password-protected (owners + employees only) — clears the
+  // FS 718.111(12)(g)1.b / 720.303(4)(b)2 advisory signal. Optimistic.
+  const toggleWebsitePassword = async () => {
+    const next = !community?.website_password_protected
+    setCommunity((c: any) => c ? { ...c, website_password_protected: next } : c)
+    try {
+      const { error } = await withTimeoutDocs(
+        supabase.from('communities').update({ website_password_protected: next }).eq('id', communityId)
+      )
+      if (error) throw error
+      if (communityId) logAudit({ community_id: communityId, event_type: 'records.website_settings_updated', target_type: 'community', target_id: communityId })
+    } catch (err: any) {
+      setCommunity((c: any) => c ? { ...c, website_password_protected: !next } : c)
+      setDocError(err?.message || 'Could not update the portal setting (run supabase/compliance-slice5.sql?)')
+    }
+  }
+
   const recordsApplies = postingApplies(community)
   const isHoa = community?.association_type === 'hoa'
   const openRecRequests = recRequests.filter(r => r.status !== 'resolved' && r.status !== 'cancelled')
@@ -499,14 +516,15 @@ export default function AdminEasyDocs() {
             </div>
           )}
 
-          {/* Set up from a rule book PDF — same governing-docs intake pattern. */}
+          {/* Set up from a rule book PDF — PDF parsing not yet wired; card shows
+              Coming soon until the extract-setup edge function is connected. */}
           <div className="card lever">
             <div className="card-head">
               <div>
                 <h2>{t('admin.documents.ruleBookPdfTitle')}</h2>
                 <div className="sub">{t('admin.documents.ruleBookPdfSub')}</div>
               </div>
-              <span className="doc-badge">{t('admin.documents.setsItselfUp')}</span>
+              <span className="doc-badge">Coming soon</span>
             </div>
             <div className="docsetup" onClick={() => pdfInputRef.current?.click()}>
               <UploadGlyph />
@@ -529,7 +547,7 @@ export default function AdminEasyDocs() {
                 <button type="button" className="admin-secondary-btn" onClick={() => pdfInputRef.current?.click()}>
                   {pdfFile ? t('admin.documents.pickAnother') : t('admin.documents.chooseFile')}
                 </button>
-                <button type="button" className="admin-primary-btn" onClick={importPdf} disabled={!pdfFile}>{t('admin.documents.importBtn')}</button>
+                <button type="button" className="admin-primary-btn" onClick={importPdf} disabled>{t('admin.documents.importBtn')}</button>
               </div>
             </div>
           </div>
@@ -881,7 +899,7 @@ export default function AdminEasyDocs() {
                   {t('admin.documents.floridaComplianceDesc')}
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 8 }}>
-                  {FL_REQUIRED_CATEGORIES.map(({ label, statute }) => {
+                  {FL_REQUIRED_CATEGORIES.filter(c => !c.regimes || c.regimes.includes(isHoa ? 'hoa' : 'condo')).map(({ label, statute }) => {
                     const present = docRows.some(
                       (d: any) => (d.category || '').toLowerCase() === label.toLowerCase()
                     )
@@ -910,6 +928,12 @@ export default function AdminEasyDocs() {
                 <p style={{ margin: '12px 0 0', fontSize: 12, color: 'var(--text-faint)' }}>
                   <strong>{t('admin.documents.publicNoticesLabel')}</strong> {t('admin.documents.publicNoticesDesc')}
                 </p>
+                {recordsApplies && (
+                  <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12.5, fontWeight: 600, marginTop: 12, paddingTop: 12, borderTop: '1px solid rgba(0,0,0,0.08)' }}>
+                    <input type="checkbox" checked={!!community?.website_password_protected} onChange={toggleWebsitePassword} style={{ marginTop: 2 }} />
+                    <span>The records portal is password-protected — accessible only to owners and employees, with a username/password on written request (FS 718.111(12)(g)1.b / 720.303(4)(b)2)</span>
+                  </label>
+                )}
               </div>
 
               {/* Archive — clean table (mock columns + preserved posting/amendment). */}
