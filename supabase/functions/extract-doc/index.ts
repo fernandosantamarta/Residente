@@ -219,9 +219,44 @@ function violationPrompt(rules: any[]): string {
   )
 }
 
+// ---- arc: review a proposed architectural change, suggest a decision (board decides) ----
+const ARC_TOOL = {
+  name: 'arc_review',
+  description: 'Review a proposed architectural change from the photo/plan, match a rule, suggest a decision, and draft a board response.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      observed_text: { type: 'string', description: 'A factual description of the change the owner is proposing, as shown in the photo/plan.' },
+      suggested_rule_id: { type: 'string', description: 'The id of the single most relevant rule/guideline from the provided list. Omit if none clearly applies.' },
+      suggested_rule_title: { type: 'string', description: 'The title of that rule (or a short label).' },
+      recommendation: { type: 'string', enum: ['approve', 'approve_with_conditions', 'deny', 'more_info'], description: 'A SUGGESTED decision for the board to consider — never final; the board decides.' },
+      draft_response: { type: 'string', description: 'A concise, neutral, professional draft response to the owner for the BOARD to review and send. Reference the relevant rule. Do NOT phrase it as a final decision.' },
+    },
+    required: ['observed_text', 'draft_response'],
+    additionalProperties: false,
+  },
+}
+function arcPrompt(rules: any[], requestText: string): string {
+  const list = (rules || [])
+    .filter(r => r && (r.title || r.id))
+    .map(r => `- id=${r.id || ''} | ${[r.section, r.title].filter(Boolean).join(' — ')}`)
+    .join('\n')
+  return (
+    'You are assisting a Florida HOA/condo architectural review committee (ARC). The attached image or ' +
+    'document shows a proposed architectural change an owner submitted for approval. Using the arc_review ' +
+    'tool: (1) describe what is being proposed; (2) match it to the single most relevant rule/guideline ' +
+    'from the list by id; (3) recommend a decision (approve / approve_with_conditions / deny / more_info) ' +
+    'as a SUGGESTION for the board — you are NOT the decision-maker; (4) draft a concise, neutral, ' +
+    'professional response to the owner for the BOARD to review and send. Do not phrase it as a final ' +
+    'decision, and never invent rules.\n\n' +
+    (requestText ? `Owner's request: ${requestText}\n\n` : '') +
+    'Community rules / architectural guidelines:\n' + (list || '(none provided)')
+  )
+}
+
 // Resolve the tool + prompt for a request. Most kinds are static; `categorize`
-// builds its enum from the client-sent category list and `violation` injects the
-// community rule book into its prompt.
+// builds its enum from the client-sent category list, `violation`/`arc` inject the
+// community rule book (and `arc` the request text) into their prompts.
 function specFor(kind: string, body: any): { tool: any; prompt: string } | null {
   switch (kind) {
     case 'budget': return { tool: BUDGET_TOOL, prompt: BUDGET_PROMPT }
@@ -232,6 +267,7 @@ function specFor(kind: string, body: any): { tool: any; prompt: string } | null 
       return { tool: categorizeTool(cats), prompt: CATEGORIZE_PROMPT }
     }
     case 'violation': return { tool: VIOLATION_TOOL, prompt: violationPrompt(body?.context_rules) }
+    case 'arc': return { tool: ARC_TOOL, prompt: arcPrompt(body?.context_rules, String(body?.request_text || '')) }
     default: return null
   }
 }

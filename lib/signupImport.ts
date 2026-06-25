@@ -211,7 +211,7 @@ export interface ExtractedSetup {
   reserves?: { name: string; target?: number }[]
 }
 
-const fileToBase64 = (file: File): Promise<string> =>
+const fileToBase64 = (file: Blob): Promise<string> =>
   new Promise((resolve, reject) => {
     const reader = new FileReader()
     reader.onload = () => {
@@ -401,6 +401,43 @@ export async function extractViolationFromPhoto(
       suggested_rule_title: d.suggested_rule_title ? String(d.suggested_rule_title).trim() : null,
       draft_description: String(d.draft_description || '').trim(),
       suggested_fine: typeof d.suggested_fine === 'number' && Number.isFinite(d.suggested_fine) ? d.suggested_fine : null,
+    }
+  } catch { return null }
+}
+
+export interface ExtractedArcReview {
+  observed_text: string
+  suggested_rule_id: string | null
+  suggested_rule_title: string | null
+  recommendation: string | null // approve | approve_with_conditions | deny | more_info
+  draft_response: string
+}
+
+// AI: review a proposed architectural change from the owner's attached photo/plan.
+// The board-ASSIST companion to extractViolationFromPhoto: it describes the
+// proposal, matches a rule, SUGGESTS a decision, and drafts a response for the
+// board to review and send (never auto-sends, never auto-decides). Takes a Blob
+// (the attachment is downloaded from storage) + the rule book + the request text.
+// Null if AI isn't configured / failed.
+export async function extractArcReviewFromFile(
+  file: Blob,
+  rules: { id: string; section?: string | null; title?: string | null }[],
+  requestText?: string,
+): Promise<ExtractedArcReview | null> {
+  if (!hasSupabase || !supabase || !file) return null
+  try {
+    const file_base64 = await fileToBase64(file)
+    const media_type = file.type || 'image/png'
+    const context_rules = (rules || []).map(r => ({ id: r.id, section: r.section || undefined, title: r.title || undefined }))
+    const { data, error } = await supabase.functions.invoke('extract-doc', { body: { file_base64, media_type, kind: 'arc', context_rules, request_text: requestText || '' } })
+    if (error || !data?.ok || !data?.data) return null
+    const d = data.data as any
+    return {
+      observed_text: String(d.observed_text || '').trim(),
+      suggested_rule_id: d.suggested_rule_id ? String(d.suggested_rule_id) : null,
+      suggested_rule_title: d.suggested_rule_title ? String(d.suggested_rule_title).trim() : null,
+      recommendation: d.recommendation ? String(d.recommendation) : null,
+      draft_response: String(d.draft_response || '').trim(),
     }
   } catch { return null }
 }

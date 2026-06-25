@@ -22,6 +22,8 @@ import {
   type ArcStatus,
 } from '@/lib/compliance/arc'
 import { logAudit } from '@/lib/audit'
+import { useRulesData } from '@/lib/rules'
+import { extractArcReviewFromFile } from '@/lib/signupImport'
 import { Tip } from '@/components/Tip'
 import { Dropdown } from '@/components/Dropdown'
 import { AttorneyNote } from '../AttorneyNote'
@@ -47,6 +49,7 @@ export default function ArcPage() {
   const [community, setCommunity]   = useState<any>(null)
   const [requests, setRequests]     = useState<ArcRequestRow[]>([])
   const [residents, setResidents]   = useState<any[]>([])
+  const rules = useRulesData() // community rule book — context for the AI ARC assist
   const [status, setStatus]         = useState<'loading' | 'ready' | 'none' | 'error'>('loading')
   const [error, setError]           = useState('')
   const [msg, setMsg]               = useState('')
@@ -490,6 +493,7 @@ export default function ArcPage() {
                   r={r}
                   community={community}
                   isCondo={isCondo}
+                  rules={rules}
                   onDecide={decide}
                   onWithdraw={withdraw}
                   onSendLetter={sendLetter}
@@ -516,11 +520,12 @@ export default function ArcPage() {
 // Request card with inline decision form
 // ----------------------------------------------------------------------------
 function ArcRequestCard({
-  r, community, isCondo, onDecide, onWithdraw, onSendLetter,
+  r, community, isCondo, rules, onDecide, onWithdraw, onSendLetter,
 }: {
   r: ArcRequestRow
   community: any
   isCondo: boolean
+  rules: any[]
   onDecide: (r: ArcRequestRow, status: ArcStatus, reason?: string) => Promise<void>
   onWithdraw: (r: ArcRequestRow) => Promise<void>
   onSendLetter: (r: ArcRequestRow) => Promise<boolean>
@@ -558,6 +563,27 @@ function ArcRequestCard({
   const [busy, setBusy] = useState(false)
   const [confirmSend, setConfirmSend] = useState(false)
   const [sending, setSending] = useState(false)
+
+  // AI ARC assist — downloads the owner's attached photo/plan and asks AI to
+  // describe it, match a rule, SUGGEST a decision, and draft a response. The board
+  // reviews and decides; nothing is auto-sent or auto-decided.
+  const [arcAiBusy, setArcAiBusy] = useState(false)
+  const [arcReview, setArcReview] = useState<null | { observed_text: string; suggested_rule_title: string | null; recommendation: string | null; draft_response: string }>(null)
+  const [arcAiErr, setArcAiErr] = useState('')
+  const reviewWithAi = async () => {
+    const path = (r as any).attachment_path
+    if (!path) return
+    setArcAiBusy(true); setArcAiErr(''); setArcReview(null)
+    try {
+      const { data: blob, error: dErr } = await supabase.storage.from('request-attachments').download(path)
+      if (dErr || !blob) { setArcAiErr(t('admin.arc.aiUnavailable')); return }
+      const review = await extractArcReviewFromFile(blob, (rules || []).map((x: any) => ({ id: x.id, section: x.section, title: x.title })), r.description || '')
+      if (!review) { setArcAiErr(t('admin.arc.aiUnavailable')); return }
+      setArcReview(review)
+      if (review.draft_response) setReason(review.draft_response) // prefill the decision reason for the board to edit/use
+    } catch { setArcAiErr(t('admin.arc.aiUnavailable')) }
+    finally { setArcAiBusy(false) }
+  }
 
   const doSend = async () => {
     setSending(true)
@@ -610,6 +636,14 @@ function ArcRequestCard({
               {(r as any).attachment_name || t('admin.arc.viewAttachment')}
             </button>
           )}
+          {(r as any).attachment_path && isOpen && (
+            <div>
+              <button type="button" className="admin-btn-ghost" disabled={arcAiBusy} onClick={reviewWithAi}
+                style={{ marginTop: 6, color: '#6941C6' }} title={t('admin.arc.aiTitle')}>
+                {arcAiBusy ? t('admin.arc.aiReading') : t('admin.arc.aiBtn')}
+              </button>
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
           {isCondo && r.is_material_alteration && (
@@ -623,6 +657,18 @@ function ArcRequestCard({
           )}
         </div>
       </div>
+
+      {arcAiErr && <div className="admin-note admin-note-warn" style={{ marginTop: 10 }}>{arcAiErr}</div>}
+      {arcReview && (
+        <div style={{ marginTop: 12, padding: 12, border: '1px solid #d6c4f0', borderRadius: 10, background: '#faf7ff' }}>
+          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6, color: '#6941C6', fontWeight: 700, marginBottom: 6 }}>{t('admin.arc.aiPanelTitle')}</div>
+          {arcReview.observed_text && <div style={{ fontSize: 12.5, marginBottom: 6 }}><span style={{ fontWeight: 600 }}>{t('admin.arc.aiObserved')}: </span>{arcReview.observed_text}</div>}
+          {arcReview.suggested_rule_title && <div style={{ fontSize: 12.5, marginBottom: 6 }}><span style={{ fontWeight: 600 }}>{t('admin.arc.aiRule')}: </span>{arcReview.suggested_rule_title}</div>}
+          {arcReview.recommendation && <div style={{ fontSize: 12.5, marginBottom: 6 }}><span style={{ fontWeight: 600 }}>{t('admin.arc.aiRecommendation')}: </span>{t(`admin.arc.aiRec.${arcReview.recommendation}`)}</div>}
+          {arcReview.draft_response && <div style={{ fontSize: 12.5, marginBottom: 6 }}><span style={{ fontWeight: 600 }}>{t('admin.arc.aiDraft')}: </span>{arcReview.draft_response}</div>}
+          <div style={{ fontSize: 11.5, color: '#6941C6', marginTop: 2 }}>{t('admin.arc.aiDisclaimer')}</div>
+        </div>
+      )}
 
       {/* Actions */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
