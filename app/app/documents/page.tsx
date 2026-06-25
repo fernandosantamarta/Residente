@@ -825,7 +825,13 @@ export default function EasyDocs() {
       </section>
       )}
 
-      {tab === 'estoppel' && <EstoppelSection />}
+      {tab === 'estoppel' && (
+      <section id="easydocs-estoppel" style={{ scrollMarginTop: 56 }}>
+        <div className="rb-wrap">
+          <EstoppelSection />
+        </div>
+      </section>
+      )}
 
       {/* A single document — detail in place. */}
       {docDetail && (

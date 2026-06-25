@@ -44,7 +44,7 @@ export function EstoppelSection() {
   useEffect(() => { load() }, [load])
 
   return (
-    <section className="con-wrap ev-section">
+    <>
       <div className="voice-page-head">
         <h1 className="voice-page-title">Estoppel certificates</h1>
         <p className="voice-page-sub">
@@ -83,7 +83,7 @@ export function EstoppelSection() {
           )
         })}
       </section>
-    </section>
+    </>
   )
 }
 
