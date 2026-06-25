@@ -111,6 +111,9 @@ export default function ReportsPage() {
   const BEHIND_SIZE = 12
   // Mobile shows fewer assessment rows per page (5) than desktop (12).
   const [isMobile, setIsMobile] = useState(false)
+  // On mobile, tapping a table row opens a detail sheet — hover tooltips don't
+  // exist on touch, so long addresses need a tap-to-see.
+  const [rowDetail, setRowDetail] = useState<{ title: string; rows: { label: string; value: string }[] } | null>(null)
   useEffect(() => {
     if (typeof window === 'undefined' || !window.matchMedia) return
     const mq = window.matchMedia('(max-width: 640px)')
@@ -540,7 +543,12 @@ export default function ReportsPage() {
                     const fee = lateFeeOf(r)
                     return (
                     <Fragment key={r.id}>
-                    <tr className="behind-row">
+                    <tr className="behind-row" style={isMobile ? { cursor: 'pointer' } : undefined}
+                      onClick={() => isMobile && setRowDetail({ title: r.full_name || t('admin.reports.residentFallback'), rows: [
+                        { label: t('admin.reports.colOwner'), value: r.full_name || t('admin.reports.residentFallback') },
+                        { label: t('admin.reports.colUnit'), value: r.unit_number || r.address || '—' },
+                        { label: t('admin.reports.colBalanceOwed'), value: fmt$(bal) },
+                      ] })}>
                       <td className="strong">{r.full_name || t('admin.reports.residentFallback')}</td>
                       <td className="muted period-col">
                     <span title={r.unit_number || r.address || ''}
@@ -560,14 +568,14 @@ export default function ReportsPage() {
                           <button type="button" className="admin-primary-btn behind-notify"
                             disabled={remindBusyId === r.id || !r.profile_id}
                             title={!r.profile_id ? t('admin.reports.notifyNeedsAccount') : t('admin.reports.notifyTitle')}
-                            onClick={() => sendReminder(r, bal)}>
+                            onClick={(e) => { e.stopPropagation(); sendReminder(r, bal) }}>
                             {remindBusyId === r.id ? t('admin.reports.notifySending') : t('admin.reports.notifyBtn')}
                           </button>
-                          <button type="button" className="go" onClick={() => setOpenPayId(id => id === r.id ? null : r.id)}>
+                          <button type="button" className="go" onClick={(e) => { e.stopPropagation(); setOpenPayId(id => id === r.id ? null : r.id) }}>
                             {openPayId === r.id ? t('admin.reports.recordClose') : t('admin.reports.recordPaymentBtn')}
                           </button>
                           {/* Collect = last resort: escalate to a collections case. */}
-                          <Link href={`/admin/collections?resident=${r.id}&from=reports`} className="go dim" style={{ textDecoration: 'none' }}>{t('admin.reports.collectLink')}</Link>
+                          <Link href={`/admin/collections?resident=${r.id}&from=reports`} className="go dim" style={{ textDecoration: 'none' }} onClick={(e) => e.stopPropagation()}>{t('admin.reports.collectLink')}</Link>
                         </div>
                       </td>
                     </tr>
@@ -645,7 +653,14 @@ export default function ReportsPage() {
                 </thead>
                 <tbody>
                   {paged.map(c => (
-                    <tr key={c.id}>
+                    <tr key={c.id} style={isMobile ? { cursor: 'pointer' } : undefined}
+                      onClick={() => isMobile && setRowDetail({ title: c.residentName || t('admin.charges.unknownResident'), rows: [
+                        { label: t('admin.charges.colPeriod'), value: periodLabel(c.billing_period_start) },
+                        { label: t('admin.charges.colDue'), value: dateLabel(c.due_date) },
+                        { label: t('admin.charges.colResident'), value: (c.residentName || t('admin.charges.unknownResident')) + (c.residentUnit ? ' · ' + c.residentUnit : '') },
+                        { label: t('admin.charges.colAmount'), value: fmtMoney(c.amount) },
+                        { label: t('admin.charges.colStatus'), value: t(`admin.charges.status.${c.status}`) },
+                      ] })}>
                       <td className="strong">{periodLabel(c.billing_period_start)}</td>
                       <td className="muted period-col">{dateLabel(c.due_date)}</td>
                       <td>
@@ -676,6 +691,23 @@ export default function ReportsPage() {
             {t('admin.reports.quickbooksNote')}
           </p>
         </>
+      )}
+
+      {rowDetail && (
+        <div onClick={() => setRowDetail(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,20,30,0.45)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'white', width: '100%', maxWidth: 480, borderRadius: '16px 16px 0 0', padding: '18px 20px 28px', boxShadow: '0 -8px 40px rgba(0,0,0,0.18)' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
+              <div style={{ fontWeight: 800, fontSize: 16, color: '#0A2440' }}>{rowDetail.title}</div>
+              <button type="button" onClick={() => setRowDetail(null)} aria-label="Close" style={{ border: 'none', background: 'none', fontSize: 20, lineHeight: 1, color: '#6b6f7d', cursor: 'pointer', padding: 4 }}>✕</button>
+            </div>
+            {rowDetail.rows.map((row, i) => (
+              <div key={i} style={{ display: 'flex', justifyContent: 'space-between', gap: 14, padding: '10px 0', borderTop: i ? '1px solid rgba(10,36,64,0.07)' : 'none' }}>
+                <span style={{ color: '#6b6f7d', fontSize: 13, flexShrink: 0 }}>{row.label}</span>
+                <span style={{ fontWeight: 600, fontSize: 13.5, color: '#0A2440', textAlign: 'right', wordBreak: 'break-word' }}>{row.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
     </div>
   )
