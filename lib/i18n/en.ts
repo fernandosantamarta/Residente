@@ -594,6 +594,8 @@ export const en: Record<string, string> = {
   "pay.stripeSecureNote": "We'll open Stripe's secure form to capture your card — we never touch the full number, only the brand and last 4. You can also manage saved methods in Settings.",
   "pay.subheading": "View your balance, make payments, and manage your payment methods.",
   "pay.submittedNote": "Payment submitted. Card payments post right away; bank (ACH) transfers take a few business days to appear.",
+  "pay.chargeFailedTitle": "Your automatic payment didn't go through",
+  "pay.chargeFailedBody": "Your last automatic charge was declined. Please pay below or update your card to stay current.",
   "pay.supportSub": "If you have any questions or need assistance, our support team is here to help.",
   "pay.supportTitle": "Need help with a payment?",
   "pay.tabPay": "Pay",

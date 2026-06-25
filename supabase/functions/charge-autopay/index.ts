@@ -88,8 +88,20 @@ Deno.serve(async (req) => {
       }, acctOpts(account))
       results.push({ resident_id: r.id, status: pi.status })
     } catch (err) {
-      // A declined off-session charge throws; log and continue with the rest.
-      results.push({ resident_id: r.id, status: 'failed', detail: (err as Error).message })
+      // A declined off-session charge throws HERE (it never reaches the webhook),
+      // so record the failure on the resident's row — the Pay screen shows a
+      // banner and the board can flag it. A later successful payment clears it
+      // (stripe-webhook). Best-effort: never let recording abort the batch.
+      const reason = (err as { raw?: { message?: string }; message?: string })?.raw?.message
+        || (err as Error)?.message || 'Payment was declined'
+      results.push({ resident_id: r.id, status: 'failed', detail: reason })
+      try {
+        await admin.from('residents').update({
+          last_charge_failed_at: new Date().toISOString(),
+          last_charge_fail_reason: String(reason).slice(0, 300),
+          last_charge_fail_kind: 'autopay',
+        }).eq('id', r.id)
+      } catch { /* columns may not exist until payment-failures.sql is run */ }
     }
   }
 

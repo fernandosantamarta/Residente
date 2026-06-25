@@ -27,6 +27,10 @@
     {
       "path": "/api/cron/charge-monthly-dues",
       "schedule": "0 0 1 * *"
+    },
+    {
+      "path": "/api/cron/release-amenity-holds",
+      "schedule": "0 * * * *"
     }
   ]
 }

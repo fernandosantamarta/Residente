@@ -138,8 +138,60 @@ async function recordDuesPayment(session: Stripe.Checkout.Session): Promise<Resp
     console.error('Failed to insert payment:', error)
     return new Response('Insert failed', { status: 500 })
   }
+  // A successful payment clears any prior off-session failure banner. Best-effort.
+  await clearChargeFailure(resident_id)
   if (plan_id) await advancePlan(plan_id)
   return received()
+}
+
+// Clears the off-session failure flag on a resident once any payment lands
+// (manual or autopay), so the "payment didn't go through" banner disappears.
+// Best-effort: a missing column (payment-failures.sql not run yet) is ignored.
+async function clearChargeFailure(residentId: string | null | undefined) {
+  if (!residentId) return
+  try {
+    await admin.from('residents').update({
+      last_charge_failed_at: null, last_charge_fail_reason: null, last_charge_fail_kind: null,
+    }).eq('id', residentId)
+  } catch { /* column may not exist yet */ }
+}
+
+const escapeHtml = (s: string) => String(s ?? '')
+  .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+
+// Email the board when their platform subscription payment fails, so they can
+// fix it before service is interrupted. Best-effort: no RESEND_API_KEY (or no
+// board emails) just skips silently. Mirrors the work-order-notify-vendor send.
+async function emailBoardSubscriptionFailed(subscriptionId: string) {
+  const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+  if (!RESEND_API_KEY) return
+  const FROM = Deno.env.get('NOTIFY_FROM') || 'Residente <onboarding@resend.dev>'
+  const APP_URL = Deno.env.get('APP_URL') || 'https://residente.io'
+
+  const { data: community } = await admin.from('communities')
+    .select('id, name').eq('stripe_subscription_id', subscriptionId).single()
+  if (!community) return
+  const { data: board } = await admin.from('profiles')
+    .select('email').eq('community_id', community.id).in('role', ['board_member', 'admin'])
+  const emails = [...new Set((board ?? []).map((b: { email?: string }) => b.email).filter(Boolean))] as string[]
+  if (!emails.length) return
+
+  const name = String(community.name || 'your community')
+  const safe = escapeHtml(name)
+  const html = `
+    <div style="font-family:-apple-system,BlinkMacSystemFont,system-ui,sans-serif;color:#1F2233;line-height:1.55;max-width:520px;margin:0 auto;padding:24px;">
+      <div style="display:inline-block;padding:4px 10px;background:#E14909;color:#fff;border-radius:999px;font-size:11px;font-weight:700;letter-spacing:1px;text-transform:uppercase;margin-bottom:14px;">Payment failed</div>
+      <h1 style="font-size:19px;margin:0 0 8px;">Your Residente payment didn't go through</h1>
+      <p style="font-size:14px;color:#555;margin:0 0 18px;">The latest subscription payment for <strong>${safe}</strong> was declined. Update your payment method to keep ${safe} running — there's no interruption if you update it soon.</p>
+      <p style="margin:0 0 8px;"><a href="${APP_URL}/admin/billing" style="display:inline-block;background:#E14909;color:#fff;padding:11px 22px;border-radius:8px;text-decoration:none;font-weight:600;">Update payment method</a></p>
+      <p style="font-size:12px;color:#8a8e9c;margin-top:24px;">You're receiving this because you're listed as a board member or admin for ${safe} on Residente.</p>
+    </div>`.trim()
+
+  await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: FROM, to: emails, subject: `Payment failed — ${name}`, html }),
+  })
 }
 
 // Post a contra `payments` row that nets out a settled dues charge which later
@@ -362,6 +414,7 @@ Deno.serve(async (req) => {
         console.error('Failed to insert autopay payment:', error)
         return new Response('Insert failed', { status: 500 })
       }
+      await clearChargeFailure(resident_id)
       if (plan_id) await advancePlan(plan_id)
     }
   }
@@ -381,6 +434,9 @@ Deno.serve(async (req) => {
       await admin.from('communities')
         .update({ subscription_status: 'past_due' })
         .eq('stripe_subscription_id', inv.subscription)
+      // Proactively email the board — past_due was previously only discoverable
+      // by opening /admin/billing. Best-effort: never fail the webhook on email.
+      try { await emailBoardSubscriptionFailed(inv.subscription) } catch (e) { console.error('board payment-failed email:', e) }
     }
   }
   if (event.type === 'invoice.paid') {

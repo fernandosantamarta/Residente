@@ -551,6 +551,8 @@ export const pt: Record<string, string> = {
   "pay.stripeSecureNote": "Abriremos o formulário seguro da Stripe para cadastrar seu cartão — nunca temos acesso ao número completo, apenas à bandeira e aos últimos 4 dígitos. Você também pode gerenciar as formas salvas em Configurações.",
   "pay.dismiss": "Dispensar",
   "pay.submittedNote": "Pagamento enviado. Pagamentos com cartão são registrados na hora; transferências bancárias (ACH) levam alguns dias úteis para aparecer.",
+  "pay.chargeFailedTitle": "Seu pagamento automático não foi concluído",
+  "pay.chargeFailedBody": "Sua última cobrança automática foi recusada. Pague abaixo ou atualize seu cartão para ficar em dia.",
   "pay.subheading": "Veja seu saldo, faça pagamentos e gerencie suas formas de pagamento.",
   "pay.supportSub": "Se você tiver dúvidas ou precisar de ajuda, nossa equipe de suporte está à disposição.",
   "pay.supportTitle": "Precisa de ajuda com um pagamento?",

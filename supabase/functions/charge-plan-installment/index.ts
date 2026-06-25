@@ -60,6 +60,7 @@ Deno.serve(async (req) => {
   const accountByCommunity = new Map<string, string | null>()
 
   for (const p of plans ?? []) {
+    let failResidentId: string | null = null   // captured so the catch can flag the resident
     try {
       const cents = Math.round((Number(p.installment_amount) || 0) * 100)
       if (cents <= 0) { results.push({ plan_id: p.id, status: 'skipped', detail: 'no amount' }); continue }
@@ -75,6 +76,7 @@ Deno.serve(async (req) => {
       if (!resident?.stripe_customer_id || !resident?.autopay_pm_id) {
         results.push({ plan_id: p.id, status: 'skipped', detail: 'no saved method' }); continue
       }
+      failResidentId = resident.id
 
       if (!accountByCommunity.has(p.community_id)) {
         const { data: c } = await admin.from('communities')
@@ -110,8 +112,21 @@ Deno.serve(async (req) => {
       }, { idempotencyKey: `plan-${p.id}-${installmentNo}`, ...acctOpts(account) })
       results.push({ plan_id: p.id, status: pi.status })
     } catch (err) {
-      // A declined off-session charge throws; log and continue with the rest.
-      results.push({ plan_id: p.id, status: 'failed', detail: (err as Error).message })
+      // A declined off-session charge throws HERE (never reaches the webhook), so
+      // record it on the resident so the Pay screen + board can surface it. A
+      // later successful payment clears it (stripe-webhook). Best-effort.
+      const reason = (err as { raw?: { message?: string }; message?: string })?.raw?.message
+        || (err as Error)?.message || 'Payment was declined'
+      results.push({ plan_id: p.id, status: 'failed', detail: reason })
+      if (failResidentId) {
+        try {
+          await admin.from('residents').update({
+            last_charge_failed_at: new Date().toISOString(),
+            last_charge_fail_reason: String(reason).slice(0, 300),
+            last_charge_fail_kind: 'installment',
+          }).eq('id', failResidentId)
+        } catch { /* columns may not exist until payment-failures.sql is run */ }
+      }
     }
   }
 
