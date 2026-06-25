@@ -287,6 +287,79 @@ function requestPrompt(rules: any[], requestText: string): string {
   )
 }
 
+// ---- events: pull community events off a flyer / newsletter / schedule ----
+const EVENTS_TOOL = {
+  name: 'calendar_events',
+  description: 'Return the community events found in the flyer / schedule / calendar.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      events: {
+        type: 'array',
+        description: 'One entry per dated community event found anywhere in the document.',
+        items: {
+          type: 'object',
+          properties: {
+            title: { type: 'string', description: 'Event name / title.' },
+            date: { type: 'string', description: 'Event date as YYYY-MM-DD. Include the year from the document; if no year is shown, use the nearest upcoming year so the date is in the future. Omit the event entirely if no date can be determined.' },
+            time: { type: 'string', description: 'Time of day if shown, e.g. "6:00 PM". Omit if not shown.' },
+            kind: { type: 'string', description: 'A short category: event, meeting, maintenance, amenity, holiday. Omit if unclear.' },
+            location: { type: 'string', description: 'Location if shown. Omit otherwise.' },
+            vendor: { type: 'string', description: 'Organizer / vendor if shown. Omit otherwise.' },
+          },
+          required: ['title', 'date'],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['events'],
+    additionalProperties: false,
+  },
+}
+const EVENTS_PROMPT =
+  'You are importing a Florida HOA/condo community calendar. The attached document — a flyer, ' +
+  'newsletter, printed schedule, or a photo of one — lists community events. Using the calendar_events ' +
+  'tool, extract EVERY dated event: title, date (as YYYY-MM-DD; take the year from the document, or the ' +
+  'nearest upcoming year if none is shown), time of day if shown, a short kind/category, and location/' +
+  'organizer if shown. Skip anything that is not a dated event. Report only what is shown — never invent ' +
+  'events or dates.'
+
+// ---- amenities: pull bookable amenities off an amenities list / rules doc ----
+const AMENITIES_TOOL = {
+  name: 'amenities',
+  description: 'Return the bookable community amenities found in the document.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      amenities: {
+        type: 'array',
+        description: 'One entry per amenity found in the document.',
+        items: {
+          type: 'object',
+          properties: {
+            name: { type: 'string', description: 'Amenity name, e.g. "Clubhouse", "Pool", "Tennis Court".' },
+            kind: { type: 'string', description: 'A short category: clubhouse, pool, gym, court, room, grill, other. Omit if unclear.' },
+            description: { type: 'string', description: 'Short description if given. Omit otherwise.' },
+            location: { type: 'string', description: 'Location if given. Omit otherwise.' },
+            capacity: { type: 'number', description: 'Max occupancy / capacity if stated. Omit otherwise.' },
+            hours: { type: 'string', description: 'Hours of availability if stated, e.g. "8am–10pm". Omit otherwise.' },
+            price_dollars: { type: 'number', description: 'Reservation / usage fee in US dollars if stated. Omit otherwise.' },
+          },
+          required: ['name'],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['amenities'],
+    additionalProperties: false,
+  },
+}
+const AMENITIES_PROMPT =
+  'You are setting up a Florida HOA/condo community\'s bookable amenities. The attached document — an ' +
+  'amenities list, the rules, or a photo — describes the community amenities. Using the amenities tool, ' +
+  'extract each amenity: name, a short kind/category, description, location, capacity, hours, and any ' +
+  'reservation fee in dollars. Report only what is shown — never invent amenities or fees.'
+
 // Resolve the tool + prompt for a request. Most kinds are static; `categorize`
 // builds its enum from the client-sent category list, `violation`/`arc`/`request`
 // inject the community rule book (and `arc`/`request` the request text).
@@ -295,6 +368,8 @@ function specFor(kind: string, body: any): { tool: any; prompt: string } | null 
     case 'budget': return { tool: BUDGET_TOOL, prompt: BUDGET_PROMPT }
     case 'insurance': return { tool: INSURANCE_TOOL, prompt: INSURANCE_PROMPT }
     case 'minutes': return { tool: MINUTES_TOOL, prompt: MINUTES_PROMPT }
+    case 'events': return { tool: EVENTS_TOOL, prompt: EVENTS_PROMPT }
+    case 'amenities': return { tool: AMENITIES_TOOL, prompt: AMENITIES_PROMPT }
     case 'categorize': {
       const cats = Array.isArray(body?.categories) && body.categories.length ? body.categories.map(String) : DEFAULT_DOC_CATEGORIES
       return { tool: categorizeTool(cats), prompt: CATEGORIZE_PROMPT }

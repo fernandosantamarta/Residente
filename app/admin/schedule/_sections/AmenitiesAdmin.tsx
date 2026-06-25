@@ -1,6 +1,6 @@
 'use client'
 
-import { ChangeEvent, FormEvent, Fragment, useEffect, useMemo, useState } from 'react'
+import { ChangeEvent, FormEvent, Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AmenityInput,
   AmenityKind,
@@ -13,6 +13,7 @@ import {
 } from '@/lib/amenities'
 import { Dropdown } from '@/components/Dropdown'
 import { Pagination, paginate } from '@/components/Pagination'
+import { extractAmenitiesFromFile, type ExtractedAmenity } from '@/lib/signupImport'
 import { useT } from '@/lib/i18n'
 
 const PAGE_SIZE = 8
@@ -152,6 +153,50 @@ export function AmenitiesAdmin() {
   const [error, setError] = useState('')
   const [page, setPage] = useState(1)
   const [resPage, setResPage] = useState(1)
+
+  // AI: read an amenities list / rules doc / photo → amenities to review + add.
+  const [amBusy, setAmBusy] = useState(false)
+  const [amExtracted, setAmExtracted] = useState<ExtractedAmenity[] | null>(null)
+  const [amErr, setAmErr] = useState('')
+  const amFileRef = useRef<HTMLInputElement>(null)
+  const coerceAmenityKind = (k?: string): AmenityKind => {
+    const v = (k || '').toLowerCase().trim()
+    if ((['pool', 'clubhouse', 'gym', 'court', 'marina', 'other'] as string[]).includes(v)) return v as AmenityKind
+    if (/pool|spa/.test(v)) return 'pool'
+    if (/gym|fitness|exercise/.test(v)) return 'gym'
+    if (/court|tennis|pickle|basket/.test(v)) return 'court'
+    if (/marina|dock|boat/.test(v)) return 'marina'
+    if (/club|hall|room|lounge|house/.test(v)) return 'clubhouse'
+    return 'other'
+  }
+  const onPickAmenityDoc = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]; e.target.value = ''
+    if (!file) return
+    setAmBusy(true); setAmErr(''); setAmExtracted(null)
+    extractAmenitiesFromFile(file)
+      .then(list => { if (list && list.length) setAmExtracted(list); else setAmErr(t('admin.scheduleAmenitiesAdmin.aiUnavailable')) })
+      .catch(() => setAmErr(t('admin.scheduleAmenitiesAdmin.aiUnavailable')))
+      .finally(() => setAmBusy(false))
+  }
+  const addExtractedAmenities = async () => {
+    if (!amExtracted || !amExtracted.length) return
+    setAmBusy(true); setError('')
+    try {
+      for (const a of amExtracted) {
+        await addAmenity({
+          name: a.name, kind: coerceAmenityKind(a.kind),
+          description: a.description, location: a.location,
+          capacity: a.capacity, hours: a.hours,
+          rules: [], priceCents: a.price_dollars ? Math.round(a.price_dollars * 100) : 0,
+          bookable: true, slotMinutes: 60,
+        })
+      }
+      const n = amExtracted.length
+      setAmExtracted(null)
+      setSuccessMsg(t('admin.scheduleAmenitiesAdmin.aiAdded', { count: n }))
+    } catch (e: any) { setError(e?.message || t('admin.scheduleAmenitiesAdmin.aiAddFailed')) }
+    finally { setAmBusy(false) }
+  }
 
   // "Book for a resident" form.
   const [bf, setBf] = useState({ residentId: '', amenityId: '', date: todayISO(), slot: '', party: '1', note: '' })
@@ -364,10 +409,38 @@ export function AmenitiesAdmin() {
         </div>
         <form className="admin-sched-form" onSubmit={onSubmit}>
           <AmenityFormFields form={form} onField={(k, v) => setForm(prev => ({ ...prev, [k]: v }))} />
-          <div className="admin-sched-form-foot">
+          <div className="admin-sched-form-foot" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
             <button type="submit" className="admin-primary-btn">{t('admin.scheduleAmenitiesAdmin.btnAddAmenity')}</button>
+            <button type="button" className="admin-secondary-btn" disabled={amBusy}
+              title={t('admin.scheduleAmenitiesAdmin.aiTitle')} onClick={() => amFileRef.current?.click()}>
+              {amBusy ? t('admin.scheduleAmenitiesAdmin.aiReading') : t('admin.scheduleAmenitiesAdmin.aiBtn')}
+            </button>
+            <input ref={amFileRef} type="file" accept=".pdf,application/pdf,image/png,image/jpeg,image/webp"
+              onChange={onPickAmenityDoc} style={{ display: 'none' }} />
           </div>
         </form>
+        {amErr && <div className="admin-note admin-note-warn" style={{ marginTop: 4 }}>{amErr}</div>}
+        {amExtracted && (
+          <div style={{ marginTop: 12, padding: 12, border: '1px solid rgba(0,0,0,0.1)', borderRadius: 10, background: '#fafafa' }}>
+            <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 8 }}>{t('admin.scheduleAmenitiesAdmin.aiReviewTitle', { count: amExtracted.length })}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+              {amExtracted.map((a, i) => (
+                <div key={i} style={{ fontSize: 13 }}>
+                  <span style={{ fontWeight: 600 }}>{a.name}</span>
+                  <span style={{ color: '#6b6f7d' }}>
+                    {a.kind ? ` · ${a.kind}` : ''}{a.hours ? ` · ${a.hours}` : ''}{a.price_dollars ? ` · $${a.price_dollars}` : ''}{a.location ? ` · ${a.location}` : ''}
+                  </span>
+                </div>
+              ))}
+            </div>
+            <div style={{ display: 'flex', gap: 10, marginTop: 12 }}>
+              <button type="button" className="admin-primary-btn" disabled={amBusy} onClick={addExtractedAmenities}>
+                {t('admin.scheduleAmenitiesAdmin.aiAddAll', { count: amExtracted.length })}
+              </button>
+              <button type="button" className="admin-btn-ghost" onClick={() => setAmExtracted(null)}>{t('admin.scheduleAmenitiesAdmin.aiDiscard')}</button>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ---------- LIST ---------- */}

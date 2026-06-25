@@ -476,6 +476,43 @@ export async function extractRequestReplyFromFile(
   } catch { return null }
 }
 
+export interface ExtractedEvent { title: string; date: string; time?: string; kind?: string; location?: string; vendor?: string }
+
+// AI: read a flyer/newsletter/schedule (PDF or photo) → community events for the
+// board to review before importing onto the calendar. Null if AI isn't configured.
+export async function extractEventsFromFile(file: File): Promise<ExtractedEvent[] | null> {
+  if (!hasSupabase || !supabase || !file) return null
+  try {
+    const file_base64 = await fileToBase64(file)
+    const media_type = file.type || (/\.pdf$/i.test(file.name) ? 'application/pdf' : 'image/png')
+    const { data, error } = await supabase.functions.invoke('extract-doc', { body: { file_base64, media_type, kind: 'events' } })
+    if (error || !data?.ok || !Array.isArray(data?.data?.events)) return null
+    const str = (v: any) => (v == null ? undefined : String(v).trim() || undefined)
+    return (data.data.events as any[])
+      .map(e => ({ title: String(e?.title || '').trim(), date: String(e?.date || '').trim(), time: str(e?.time), kind: str(e?.kind), location: str(e?.location), vendor: str(e?.vendor) }))
+      .filter(e => e.title && e.date)
+  } catch { return null }
+}
+
+export interface ExtractedAmenity { name: string; kind?: string; description?: string; location?: string; capacity?: number; hours?: string; price_dollars?: number }
+
+// AI: read an amenities list / rules doc (PDF or photo) → bookable amenities for
+// the board to review before adding. Null if AI isn't configured / failed.
+export async function extractAmenitiesFromFile(file: File): Promise<ExtractedAmenity[] | null> {
+  if (!hasSupabase || !supabase || !file) return null
+  try {
+    const file_base64 = await fileToBase64(file)
+    const media_type = file.type || (/\.pdf$/i.test(file.name) ? 'application/pdf' : 'image/png')
+    const { data, error } = await supabase.functions.invoke('extract-doc', { body: { file_base64, media_type, kind: 'amenities' } })
+    if (error || !data?.ok || !Array.isArray(data?.data?.amenities)) return null
+    const str = (v: any) => (v == null ? undefined : String(v).trim() || undefined)
+    const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
+    return (data.data.amenities as any[])
+      .map(a => ({ name: String(a?.name || '').trim(), kind: str(a?.kind), description: str(a?.description), location: str(a?.location), capacity: num(a?.capacity), hours: str(a?.hours), price_dollars: num(a?.price_dollars) }))
+      .filter(a => a.name)
+  } catch { return null }
+}
+
 // Apply extracted billing settings + rules to the provisioned community.
 // Best-effort and field-isolated. Returns the number of rules written.
 export async function applyExtractedSetup(communityId: string, ex: ExtractedSetup): Promise<{ settings: boolean; rules: number }> {

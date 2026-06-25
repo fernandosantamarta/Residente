@@ -13,6 +13,7 @@ import { Dropdown } from '@/components/Dropdown'
 import { Pagination, paginate } from '@/components/Pagination'
 import { SegTabs, SegTab } from '@/components/SegTabs'
 import { AmenitiesAdmin } from './_sections/AmenitiesAdmin'
+import { extractEventsFromFile } from '@/lib/signupImport'
 import { useT } from '@/lib/i18n'
 
 const EVENTS_PAGE_SIZE = 8
@@ -130,6 +131,7 @@ function CalendarAdmin() {
   const [error, setError] = useState<string>('')
   const [pdfFile, setPdfFile] = useState<File | null>(null)
   const [pdfStatus, setPdfStatus] = useState<string>('')
+  const [pdfBusy, setPdfBusy] = useState(false)
   const [xlsFile, setXlsFile] = useState<File | null>(null)
   // CSV import: parsed rows awaiting the board's confirmation, plus any
   // file-level read error (binary .xlsx dropped in, empty file, etc.).
@@ -259,12 +261,28 @@ function CalendarAdmin() {
     setPreview(null)
     setImportError('')
   }
-  const importPdf = () => {
-    if (!pdfFile) return
-    // PDF date/title extraction needs document parsing we don't have yet —
-    // it belongs with Genie's AI document-ingestion work, not a one-off here.
-    // Same deferral as the Rules page. Use the CSV path for now.
-    setPdfStatus(t('admin.schedule.pdfNotWired', { name: pdfFile.name }))
+  // Read a flyer/newsletter/photo of events with AI (extract-doc) and stage the
+  // events it finds in the same review→confirm flow the CSV import uses. Inert
+  // until ANTHROPIC_API_KEY is set — a null result just points back to CSV.
+  const importPdf = async () => {
+    if (!pdfFile || pdfBusy) return
+    setPdfBusy(true); setPdfStatus(t('admin.schedule.pdfReading')); setPreview(null); setImportError('')
+    try {
+      const events = await extractEventsFromFile(pdfFile)
+      if (events && events.length) {
+        const rows: ParsedRow[] = events.map(e => {
+          const date = coerceDate(e.date)
+          return { title: e.title, date, kind: coerceKind(e.kind), time: e.time, vendor: e.vendor, location: e.location, raw: e.date, ok: Boolean(e.title && date) }
+        })
+        setPreview(rows); setPdfStatus('')
+      } else {
+        setPdfStatus(t('admin.schedule.pdfAiUnavailable'))
+      }
+    } catch {
+      setPdfStatus(t('admin.schedule.pdfAiUnavailable'))
+    } finally {
+      setPdfBusy(false)
+    }
   }
   // Read the picked CSV and stage the parsed rows for confirmation. We never
   // land events straight from a file — the board reviews the preview first.
@@ -440,7 +458,7 @@ function CalendarAdmin() {
             kind="pdf"
             title={t('admin.schedule.pdfTitle')}
             sub={t('admin.schedule.pdfSub')}
-            accept="application/pdf"
+            accept=".pdf,application/pdf,image/png,image/jpeg,image/webp"
             file={pdfFile}
             note={pdfStatus}
             onPick={onPickPdf}
