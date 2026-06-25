@@ -30,7 +30,7 @@
     },
     {
       "path": "/api/cron/release-amenity-holds",
-      "schedule": "0 * * * *"
+      "schedule": "0 5 * * *"
     }
   ]
 }
