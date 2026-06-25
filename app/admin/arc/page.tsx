@@ -25,7 +25,6 @@ import { logAudit } from '@/lib/audit'
 import { Tip } from '@/components/Tip'
 import { Dropdown } from '@/components/Dropdown'
 import { AttorneyNote } from '../AttorneyNote'
-import { ComplianceBackLink } from '../ComplianceBackLink'
 import { EasyVoiceTabs } from '../EasyVoiceTabs'
 import { useT } from '@/lib/i18n'
 
@@ -332,7 +331,6 @@ export default function ArcPage() {
 
   return (
     <div className="admin-page cset">
-      <ComplianceBackLink />
       <EasyVoiceTabs active="architectural" />
       <div className="admin-kicker" style={{ marginTop: 18 }}>{t('admin.arc.kicker')}</div>
       <h1 className="admin-h1">{t('admin.arc.heading')}</h1>

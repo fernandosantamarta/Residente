@@ -227,6 +227,40 @@ export default function EnforcementPage() {
     } catch { setError(t('admin.enforcement.couldNotOpenEvidence')) }
   }
 
+  // Open a violation's own evidence photo (private bucket, short-lived signed URL).
+  const openViolationPhoto = async (path: string) => {
+    try {
+      const { data } = await supabase.storage.from('violation-evidence').createSignedUrl(path, 3600)
+      if (data?.signedUrl) window.open(data.signedUrl, '_blank', 'noopener')
+    } catch { setError(t('admin.enforcement.couldNotOpenEvidence')) }
+  }
+
+  // Best-effort auto-purge: when a board opens enforcement, delete evidence photos
+  // past their retention window (the DB trigger sets evidence_expires_at on close)
+  // and clear the path — keeps storage tidy without a scheduled job.
+  useEffect(() => {
+    if (!hasSupabase || !supabase) return
+    const expired = (violations as any[]).filter(v => v.evidence_path && v.evidence_expires_at && new Date(v.evidence_expires_at) < new Date())
+    if (!expired.length) return
+    void (async () => {
+      for (const v of expired) {
+        try {
+          await supabase.storage.from('violation-evidence').remove([v.evidence_path])
+          await supabase.from('ev_violations').update({ evidence_path: null, evidence_expires_at: null }).eq('id', v.id)
+        } catch { /* best-effort */ }
+      }
+    })()
+  }, [violations])
+
+  // Evidence retention window (days after a case closes), configurable per community.
+  const [retentionDays, setRetentionDays] = useState('')
+  useEffect(() => { if (community) setRetentionDays(String((community as any).evidence_retention_days ?? 365)) }, [community])
+  const saveRetention = async () => {
+    const n = Math.max(0, Math.round(Number(retentionDays) || 0)) || 365
+    setRetentionDays(String(n))
+    try { await supabase.from('communities').update({ evidence_retention_days: n }).eq('id', communityId); setMsg(t('admin.enforcement.retentionSaved')) } catch { /* non-fatal */ }
+  }
+
   // ---- propose-fine intake ----
   const [form, setForm] = useState<any>({ resident_id: '', continuing: false, hearing_required: true })
   const setF = (k: string, val: any) => setForm((f: any) => ({ ...f, [k]: val }))
@@ -236,15 +270,25 @@ export default function EnforcementPage() {
   // book, and draft the notice. Everything PREFILLS into the editable form for
   // the board to review; nothing is saved until they pick the owner and submit.
   const [vPhotoBusy, setVPhotoBusy] = useState(false)
+  const [vPhotoFile, setVPhotoFile] = useState<File | null>(null)
+  const [vPhotoPreview, setVPhotoPreview] = useState('')
+  const [vPhotoObserved, setVPhotoObserved] = useState('')
   const photoInputRef = useRef<HTMLInputElement>(null)
+  const clearViolationPhoto = () => { setVPhotoFile(null); setVPhotoPreview(''); setVPhotoObserved('') }
   const onPickViolationPhoto = (e: any) => {
     const file = e.target.files && e.target.files[0]
     e.target.value = ''
     if (!file) return
+    // Hold the photo as evidence (uploaded on submit) regardless of AI; then read
+    // it best-effort to prefill the rule + draft notice and describe what it shows.
+    setVPhotoFile(file)
+    setVPhotoPreview(URL.createObjectURL(file))
+    setVPhotoObserved('')
     setVPhotoBusy(true); setError('')
     extractViolationFromPhoto(file, rules.map(r => ({ id: r.id, section: r.section, title: r.title, fine: r.fine })))
       .then(ex => {
         if (!ex) { setError(t('admin.enforcement.aiPhotoUnavailable')); return }
+        if (ex.observed_text) setVPhotoObserved(ex.observed_text)
         setF('rule_title', ex.suggested_rule_title || form.rule_title)
         setF('notes', ex.draft_description)
         // Only prefill the flat amount for a one-time fine — a continuing /
@@ -283,10 +327,22 @@ export default function EnforcementPage() {
         insert.amount = Math.min(Number(form.amount) || 0, FINE_PER_VIOLATION_MAX.value)
       }
       if ((form.cure_by || '').trim()) insert.cure_by = form.cure_by
-      const { error } = (await withTimeout(supabase.from('ev_violations').insert(insert))) as any
+      const { data: inserted, error } = (await withTimeout(supabase.from('ev_violations').insert(insert).select('id').single())) as any
       if (error) throw error
+      // Attach the photo as evidence on the new violation (best-effort — the fine is
+      // already saved, so an upload hiccup must not read as a failure). Path is
+      // <community_id>/<violation_id>.<ext> to match the bucket's RLS.
+      if (inserted?.id && vPhotoFile) {
+        try {
+          const ext = (vPhotoFile.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+          const path = `${communityId}/${inserted.id}.${ext}`
+          const { error: upErr } = await supabase.storage.from('violation-evidence').upload(path, vPhotoFile, { upsert: true, contentType: vPhotoFile.type || 'image/jpeg' })
+          if (!upErr) await supabase.from('ev_violations').update({ evidence_path: path }).eq('id', inserted.id)
+        } catch { /* evidence is best-effort */ }
+      }
       if (communityId) logAudit({ community_id: communityId, event_type: 'enforcement.fine_proposed', target_type: 'violation' })
       setForm({ resident_id: '', continuing: false, hearing_required: true })
+      clearViolationPhoto()
       setMsg(t('admin.enforcement.fineProposedMsg'))
       load()
     } catch (err: any) { setError(err?.message || t('admin.enforcement.couldNotPropose')) }
@@ -398,6 +454,27 @@ export default function EnforcementPage() {
               <input ref={photoInputRef} type="file" accept="image/png,image/jpeg,image/webp"
                 onChange={onPickViolationPhoto} style={{ display: 'none' }} />
             </div>
+            <p className="admin-dek" style={{ margin: '0 0 10px', fontSize: 12.5 }}>{t('admin.enforcement.photoHelp')}</p>
+            {vPhotoPreview && (
+              <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', margin: '0 0 14px', padding: 12, border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, background: '#fafafa' }}>
+                <img src={vPhotoPreview} alt="" style={{ width: 84, height: 84, objectFit: 'cover', borderRadius: 8, flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12.5, fontWeight: 700, color: '#067647' }}>{t('admin.enforcement.photoAttached')}</div>
+                  {vPhotoObserved && (
+                    <div style={{ fontSize: 12.5, marginTop: 4, color: '#0A2440' }}>
+                      <span style={{ fontWeight: 600 }}>{t('admin.enforcement.photoObservedLabel')}: </span>{vPhotoObserved}
+                    </div>
+                  )}
+                  <button type="button" className="admin-btn-ghost" style={{ marginTop: 6, color: '#B42318' }} onClick={clearViolationPhoto}>{t('admin.enforcement.photoRemove')}</button>
+                </div>
+              </div>
+            )}
+            <div style={{ fontSize: 12, color: 'rgba(10,36,64,0.6)', margin: '0 0 12px', display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+              {t('admin.enforcement.retentionPre')}
+              <input className="admin-input" type="number" min="0" style={{ width: 70, padding: '4px 8px' }} value={retentionDays}
+                onChange={e => setRetentionDays(e.target.value)} onBlur={saveRetention} aria-label={t('admin.enforcement.retentionPre')} />
+              {t('admin.enforcement.retentionPost')}
+            </div>
             <form className="admin-form" onSubmit={proposeFine}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
               <div className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldOwner')}</span>
@@ -454,6 +531,7 @@ export default function EnforcementPage() {
                 <ViolationCard
                   key={v.id} v={v} hearing={hearingByViolation.get(String(v.id))} regime={community?.association_type === 'hoa' ? 'hoa' : 'condo'}
                   committeeOk={committeeOk}
+                  onOpenEvidence={openViolationPhoto}
                   onSendNotice={() => sendHearingNotice(v)}
                   onSchedule={(date: string) => scheduleHearing(v, hearingByViolation.get(String(v.id)), date)}
                   onDecision={(d: any) => recordDecision(v, hearingByViolation.get(String(v.id)), d)}
@@ -688,8 +766,9 @@ function CommitteeManager({ members, communityId, createdBy, onChange, setError 
 // ----------------------------------------------------------------------------
 // Violation card (the hearing ladder)
 // ----------------------------------------------------------------------------
-function ViolationCard({ v, hearing, regime, committeeOk, onSendNotice, onSchedule, onDecision, onLevy, onPatch }: {
+function ViolationCard({ v, hearing, regime, committeeOk, onOpenEvidence, onSendNotice, onSchedule, onDecision, onLevy, onPatch }: {
   v: ViolationRow; hearing: HearingRow | undefined; regime: 'condo' | 'hoa'; committeeOk: boolean
+  onOpenEvidence: (path: string) => void
   onSendNotice: () => void; onSchedule: (date: string) => void; onDecision: (d: any) => void; onLevy: () => void
   onPatch: (patch: Record<string, any>, ok?: string) => void
 }) {
@@ -731,6 +810,11 @@ function ViolationCard({ v, hearing, regime, committeeOk, onSendNotice, onSchedu
 
       {/* Stage actions */}
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 12, alignItems: 'center' }}>
+        {(v as any).evidence_path && (
+          <button type="button" className="admin-btn-ghost" onClick={() => onOpenEvidence((v as any).evidence_path)}>
+            {t('admin.enforcement.photoEvidenceBtn')}
+          </button>
+        )}
         {stage === 'proposed' && (
           <button className="admin-primary-btn" onClick={onSendNotice}>{t('admin.enforcement.btnSendHearingNotice')}</button>
         )}
