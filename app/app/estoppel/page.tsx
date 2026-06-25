@@ -49,8 +49,8 @@ export default function ResidentEstoppelPage() {
       <div className="voice-page-head">
         <h1 className="voice-page-title">Estoppel certificates</h1>
         <p className="voice-page-sub">
-          An estoppel certificate states the amounts owed on your unit/parcel at sale or refinance. It&apos;s
-          usually requested by a buyer or title/closing agent — when one is requested, you&apos;ll see it here.
+          An estoppel certificate states the amounts owed on your unit/parcel at sale or refinance.<br />
+          It&apos;s usually requested by a buyer or title/closing agent. When one is requested, you&apos;ll see it here.
         </p>
       </div>
 
