@@ -47,7 +47,7 @@ export function useMonthlyCharges() {
       const { data, error: qErr } = await withTimeout(
         supabase
           .from('ev_monthly_charges')
-          .select('id, community_id, resident_id, billing_period_start, billing_period_end, due_date, amount, status, created_at, notes, residents(full_name, unit_number)')
+          .select('id, community_id, resident_id, billing_period_start, billing_period_end, due_date, amount, status, created_at, notes, residents(full_name, unit_number, address)')
           .eq('community_id', communityId)
           .order('due_date', { ascending: false }),
       )
@@ -64,7 +64,7 @@ export function useMonthlyCharges() {
         created_at: r.created_at,
         notes: r.notes ?? null,
         residentName: r.residents?.full_name ?? null,
-        residentUnit: r.residents?.unit_number ?? null,
+        residentUnit: r.residents?.unit_number ?? r.residents?.address ?? null,
       }))
       setCharges(rows)
       setLoading(false)

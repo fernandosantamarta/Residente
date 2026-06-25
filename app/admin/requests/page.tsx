@@ -1301,17 +1301,19 @@ function WorkOrderPanel({
   if (!wo) {
     return (
       <div style={card}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-          <span style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)' }}>{t('admin.requests.woPanelTitle')}</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+          <div style={{ minWidth: 0, flex: '1 1 200px' }}>
+            <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)' }}>{t('admin.requests.woPanelTitle')}</div>
+            {!creating && (
+              <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 4 }}>{t('admin.requests.woNoneHint')}</div>
+            )}
+          </div>
           {!creating && (
-            <button type="button" className="admin-primary-btn" onClick={() => { setCreating(true); setErr(''); setSlaDueAt(todayPlusDaysLocal(7)) }}>
+            <button type="button" className="admin-primary-btn" style={{ flexShrink: 0 }} onClick={() => { setCreating(true); setErr(''); setSlaDueAt(todayPlusDaysLocal(7)) }}>
               {t('admin.requests.woCreate')}
             </button>
           )}
         </div>
-        {!creating && (
-          <div style={{ fontSize: 12, color: 'var(--text-dim)', marginTop: 6 }}>{t('admin.requests.woNoneHint')}</div>
-        )}
         {creating && (
           <form onSubmit={submitCreate} style={{ display: 'grid', gap: 10, marginTop: 10 }}>
             <div>

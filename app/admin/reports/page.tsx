@@ -542,7 +542,12 @@ export default function ReportsPage() {
                     <Fragment key={r.id}>
                     <tr className="behind-row">
                       <td className="strong">{r.full_name || t('admin.reports.residentFallback')}</td>
-                      <td className="muted period-col">{r.unit_number || r.address || '—'}</td>
+                      <td className="muted period-col">
+                    <span title={r.unit_number || r.address || ''}
+                      style={{ display: 'inline-block', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}>
+                      {r.unit_number || r.address || '—'}
+                    </span>
+                  </td>
                       <td className="due">
                         {fmt$(bal)}
                         {fee > 0 && <span className="behind-fee">{t('admin.reports.inclLateFee', { fee: fmtMoney(fee) })}</span>}
@@ -644,8 +649,11 @@ export default function ReportsPage() {
                       <td className="strong">{periodLabel(c.billing_period_start)}</td>
                       <td className="muted period-col">{dateLabel(c.due_date)}</td>
                       <td>
-                        {c.residentName || t('admin.charges.unknownResident')}
-                        {c.residentUnit ? <span className="muted"> · {c.residentUnit}</span> : null}
+                        <span title={`${c.residentName || ''}${c.residentUnit ? ' · ' + c.residentUnit : ''}`.trim()}
+                          style={{ display: 'inline-block', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}>
+                          {c.residentName || t('admin.charges.unknownResident')}
+                          {c.residentUnit ? <span className="muted"> · {c.residentUnit}</span> : null}
+                        </span>
                       </td>
                       <td className="strong">{fmtMoney(c.amount)}</td>
                       <td><span className={`pill ${ASSESSMENT_PILL[c.status] || 'due'}`}>{t(`admin.charges.status.${c.status}`)}</span></td>
