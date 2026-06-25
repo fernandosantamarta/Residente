@@ -1201,10 +1201,20 @@ function WorkOrderPanel({
         estimatedCost: estimate === '' ? null : Number(estimate),
         slaDueAt: slaDueAt ? new Date(slaDueAt).toISOString() : null,
       })
+      // Best-effort: dispatch the job to the assigned vendor by email. No-op if
+      // the vendor has no email on file or the edge fn isn't deployed yet — it
+      // never blocks the work order itself.
+      let vendorMsg = ''
+      if (created.vendor_id && supabase) {
+        try {
+          const { data } = await supabase.functions.invoke('work-order-notify-vendor', { body: { work_order_id: created.id } })
+          if ((data as any)?.email_sent) vendorMsg = ' ' + t('admin.requests.woVendorEmailed')
+        } catch { /* notification is best-effort */ }
+      }
       setWo(created)
       setCreating(false)
       setVendorId(''); setPriority('normal'); setEstimate(''); setSlaDueAt('')
-      onSent(t('admin.workOrders.successCreated', { title: created.title }))
+      onSent(t('admin.workOrders.successCreated', { title: created.title }) + vendorMsg)
     } catch (e: any) {
       setErr(e?.message || t('admin.workOrders.errCreate'))
     } finally {

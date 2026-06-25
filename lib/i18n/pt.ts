@@ -4173,4 +4173,7 @@ export const pt: Record<string, string> = {
   "admin.requests.woExpenseCatNone": "Sem categoria",
   "admin.requests.woExpenseHint": "O custo real é lançado como uma despesa da comunidade nesta linha do orçamento — e aparece em Orçamento, Relatórios e no gráfico financeiro do morador.",
   "admin.requests.woExpenseRecorded": "Registrado {amount} no orçamento.",
+
+  // === work-order vendor dispatch ===
+  "admin.requests.woVendorEmailed": "· fornecedor notificado por e-mail",
 }

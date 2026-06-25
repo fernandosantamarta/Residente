@@ -4226,4 +4226,7 @@ export const en: Record<string, string> = {
   "admin.requests.woExpenseCatNone": "Uncategorized",
   "admin.requests.woExpenseHint": "The actual cost is logged as a community expense in this budget line — it then shows up in Budget, Reports, and the resident financial chart.",
   "admin.requests.woExpenseRecorded": "Logged {amount} to the budget.",
+
+  // === work-order vendor dispatch ===
+  "admin.requests.woVendorEmailed": "· vendor emailed",
 }
