@@ -302,7 +302,13 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           >
             {t(item.label)}
             {item.requiresAccounting && !acctAccess && (
-              <span className="admin-nav-lock" title={t('admin.nav.accountingLocked')} aria-label="Locked" style={{ marginLeft: 5, fontSize: 11, opacity: 0.8 }}>🔒</span>
+              <span className="admin-nav-lock" title={t('admin.nav.accountingLocked')} aria-label="Locked"
+                style={{ marginLeft: 5, display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', opacity: 0.7 }}>
+                <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                  <path d="M5 7V5.1a3 3 0 0 1 6 0V7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  <rect x="3.4" y="7" width="9.2" height="6.6" rx="1.7" fill="currentColor" />
+                </svg>
+              </span>
             )}
             {item.href === '/admin/board' && awaitingMsgs > 0 && (
               <span className="admin-nav-badge" title={t('admin.voiceBadgeTitle', { count: awaitingMsgs })}>
