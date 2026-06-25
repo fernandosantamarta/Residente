@@ -694,8 +694,8 @@ export default function ReportsPage() {
       )}
 
       {rowDetail && (
-        <div onClick={() => setRowDetail(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,20,30,0.45)', zIndex: 1000, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()} style={{ background: 'white', width: '100%', maxWidth: 480, borderRadius: '16px 16px 0 0', padding: '18px 20px 28px', boxShadow: '0 -8px 40px rgba(0,0,0,0.18)' }}>
+        <div onClick={() => setRowDetail(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,20,30,0.45)', zIndex: 1000, display: 'flex', alignItems: isMobile ? 'flex-end' : 'center', justifyContent: 'center', padding: isMobile ? 0 : 20 }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: 'white', width: '100%', maxWidth: 480, borderRadius: isMobile ? '16px 16px 0 0' : 16, padding: '18px 20px 28px', boxShadow: isMobile ? '0 -8px 40px rgba(0,0,0,0.18)' : '0 12px 48px rgba(0,0,0,0.22)' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
               <div style={{ fontWeight: 800, fontSize: 16, color: '#0A2440' }}>{rowDetail.title}</div>
               <button type="button" onClick={() => setRowDetail(null)} aria-label="Close" style={{ border: 'none', background: 'none', fontSize: 20, lineHeight: 1, color: '#6b6f7d', cursor: 'pointer', padding: 4 }}>✕</button>
