@@ -1,6 +1,6 @@
 'use client'
 
-import { ChangeEvent, ReactNode, useEffect, useRef, useState } from 'react'
+import { ChangeEvent, ReactNode, useCallback, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { signOut, supabase, hasSupabase } from '@/lib/supabase'
@@ -30,6 +30,7 @@ import {
 } from '@/lib/homeVault'
 import { loadNotificationPrefs, saveNotificationPrefs } from '@/lib/notificationPrefs'
 import { useT } from '@/lib/i18n'
+import type { EstoppelRequestRow } from '@/lib/compliance/estoppel'
 import { useAppIcon, type AppIconChoice } from '@/lib/appIcon'
 import { loadResidentLists, addContact, addVehicle, addPet, removeResidentRow } from '@/lib/residentLists'
 import {
@@ -47,7 +48,7 @@ type DialogKey =
   | 'email' | 'sms' | 'push' | 'quiet-hours'
   | 'homepage' | 'calendar' | 'payment' | 'privacy'
   | 'unit' | 'contacts' | 'vehicles' | 'pets'
-  | 'refer' | 'updates' | 'appicon'
+  | 'refer' | 'updates' | 'appicon' | 'estoppel'
 
 export default function Settings() {
   const t = useT()
@@ -283,19 +284,11 @@ export default function Settings() {
           </SectionCard>
 
           {/* Estoppel — a sale/refinance payoff document, so it lives with the
-              other "selling my home" tools (Home Vault + Transfer). The plain
-              description demystifies the word; the row opens the existing page. */}
+              other "selling my home" tools (Home Vault + Transfer). Opens a popup
+              that explains it, shows requests on the unit, and lets an owner request one. */}
           <SectionCard title={t('settings.secEstoppel')}>
-            <Link href="/app/estoppel" className="set-row">
-              <span className="set-row-icon"><IconShield /></span>
-              <span className="set-row-body">
-                <span className="set-row-title">{t('settings.rowEstoppel')}</span>
-                <span className="set-row-desc">{t('settings.rowEstoppelDesc')}</span>
-              </span>
-              <svg className="set-row-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                <polyline points="9 18 15 12 9 6"/>
-              </svg>
-            </Link>
+            <Row icon={<IconShield />} title={t('settings.rowEstoppel')} desc={t('settings.rowEstoppelDesc')}
+              onClick={() => setDialog('estoppel')} />
           </SectionCard>
 
           <button className="set-logout" onClick={() => signOut()}>
@@ -968,6 +961,7 @@ function dialogTitle(k: DialogKey, t: (key: string) => string): string {
     payment:        'settings.dlgPaymentTitle',
     privacy:        'settings.dlgPrivacyTitle',
     unit:           'settings.dlgUnitTitle',
+    estoppel:       'settings.secEstoppel',
     contacts:       'settings.rowContacts',
     vehicles:       'settings.rowVehicles',
     pets:           'settings.rowPets',
@@ -1309,9 +1303,104 @@ function DialogBody({
     case 'appicon':
       return <AppIconDialog />
 
+    case 'estoppel':
+      return <EstoppelDialog profileId={profileId} communityId={communityId} />
+
     default:
       return <p>{t('settings.dlgUnknown')}</p>
   }
+}
+
+// Estoppel popup body: a plain explainer, the read-only requests already on the
+// owner's unit, and a "Request an estoppel" form for a selling owner. The request
+// inserts an ev_estoppel_requests row (owner / owner_designee) the board fulfills
+// in /admin/estoppel — needs the owner-insert RLS (supabase/estoppel-owner-request.sql).
+function EstoppelDialog({ profileId, communityId }: { profileId: string | null; communityId: string | null }) {
+  const t = useT()
+  const [rows, setRows] = useState<EstoppelRequestRow[]>([])
+  const [loading, setLoading] = useState(true)
+  const [requesting, setRequesting] = useState(false)
+  const [coName, setCoName] = useState('')
+  const [coEmail, setCoEmail] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [err, setErr] = useState('')
+
+  const reload = useCallback(async () => {
+    if (!hasSupabase || !supabase || !profileId) { setLoading(false); return }
+    setLoading(true)
+    try {
+      const { data } = await supabase.from('ev_estoppel_requests').select('*')
+        .eq('profile_id', profileId).order('received_at', { ascending: false })
+      setRows((data as EstoppelRequestRow[]) || [])
+    } catch { /* ignore */ }
+    setLoading(false)
+  }, [profileId])
+  useEffect(() => { reload() }, [reload])
+
+  const submit = async () => {
+    if (!supabase || !communityId || !profileId) return
+    setBusy(true); setErr(''); setMsg('')
+    try {
+      const { error } = await supabase.from('ev_estoppel_requests').insert({
+        community_id: communityId,
+        profile_id: profileId,
+        requestor_type: coName.trim() ? 'owner_designee' : 'owner',
+        requestor_name: coName.trim() || null,
+        requestor_email: coEmail.trim() || null,
+        request_method: 'electronic',
+        status: 'new',
+      })
+      if (error) throw error
+      setMsg(t('settings.estReqSent')); setCoName(''); setCoEmail(''); setRequesting(false)
+      await reload()
+    } catch (e: any) {
+      setErr(e?.message || t('settings.estReqFailed'))
+    } finally { setBusy(false) }
+  }
+
+  const inputStyle = { width: '100%', padding: '10px 12px', border: '1px solid var(--line, #d8d8d8)', borderRadius: 10, fontSize: 14, marginTop: 8, boxSizing: 'border-box' as const }
+
+  return (
+    <div>
+      <p className="set-row-desc" style={{ lineHeight: 1.5, marginTop: 0 }}>{t('settings.estExplain')}</p>
+
+      <div style={{ marginTop: 16 }}>
+        <div className="set-row-title" style={{ marginBottom: 6 }}>{t('settings.estRequestsLabel')}</div>
+        {loading ? <div className="set-row-desc">{t('settings.estLoading')}</div>
+          : rows.length === 0 ? <div className="set-row-desc">{t('settings.estNone')}</div>
+          : (
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {rows.map(r => (
+                <li key={r.id} className="set-row-desc" style={{ marginBottom: 4 }}>
+                  <strong>{r.requestor_name || t('settings.estRequestorOwner')}</strong>
+                  {` · ${r.status || 'new'}`}{r.received_at ? ` · ${r.received_at}` : ''}
+                </li>
+              ))}
+            </ul>
+          )}
+      </div>
+
+      <div style={{ marginTop: 18 }}>
+        {!requesting ? (
+          <button type="button" className="set-btn-primary" onClick={() => { setRequesting(true); setMsg('') }}>{t('settings.estRequestBtn')}</button>
+        ) : (
+          <div>
+            <div className="set-row-desc" style={{ lineHeight: 1.5 }}>{t('settings.estRequestHint')}</div>
+            <input style={inputStyle} placeholder={t('settings.estCoName')} value={coName} onChange={e => setCoName(e.target.value)} />
+            <input style={inputStyle} placeholder={t('settings.estCoEmail')} value={coEmail} onChange={e => setCoEmail(e.target.value)} />
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 12 }}>
+              <button type="button" className="set-btn-primary" disabled={busy} onClick={submit}>{busy ? t('settings.estSending') : t('settings.estSubmit')}</button>
+              <button type="button" onClick={() => { setRequesting(false); setErr('') }} style={{ background: 'none', border: 'none', color: 'var(--text-dim, #667085)', cursor: 'pointer', fontSize: 14 }}>{t('settings.estCancel')}</button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {msg && <div className="set-row-desc" style={{ marginTop: 12, color: 'var(--ok, #1a7f37)' }}>{msg}</div>}
+      {err && <div className="set-row-desc" style={{ marginTop: 12, color: 'var(--err, #b42318)' }}>{err}</div>}
+    </div>
+  )
 }
 
 // Home-screen icon background chooser (white / black). Self-contained: reads +
