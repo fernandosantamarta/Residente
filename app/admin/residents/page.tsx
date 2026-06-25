@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { downloadCsv, exportFilename } from '@/lib/exportCsv'
-import { parseRosterCsv } from '@/lib/signupImport'
+import { parseRosterCsv, extractRosterFromFile } from '@/lib/signupImport'
 import { logAudit } from '@/lib/audit'
 import { transferHome } from '@/lib/homeVault'
 import { Pager } from '@/components/Pager'
@@ -76,6 +76,9 @@ export default function Residents() {
   const [subFilter, setSubFilter] = useState('all')
   const [grid, setGrid] = useState(() => [blankGridRow(), blankGridRow(), blankGridRow()])
   const fileRef = useRef(null)
+  // AI document import — a separate hidden picker (PDF or photo) + busy state.
+  const aiFileRef = useRef(null)
+  const [aiBusy, setAiBusy] = useState(false)
   // "More →" hint fades out as the import sheet is scrolled right.
   const [hintOpacity, setHintOpacity] = useState(1)
   // Magic-link invites (ported from the old Voice Roster).
@@ -426,6 +429,23 @@ export default function Residents() {
     reader.readAsText(file)
   }
 
+  // Read a roster/ledger document with AI (PDF or photo, any layout). On success
+  // the extracted rows flow into the same confirm preview as CSV (tie-out + cancel),
+  // so the board reviews them before they import.
+  const onPickAiDoc = async (e) => {
+    const file = e.target.files && e.target.files[0]
+    e.target.value = ''
+    if (!file) return
+    setAiBusy(true); setError('')
+    try {
+      const rows = await extractRosterFromFile(file)
+      if (rows && rows.length) setPending(rows)
+      else setError(t('admin.residents.aiFailed'))
+    } catch {
+      setError(t('admin.residents.aiFailed'))
+    } finally { setAiBusy(false) }
+  }
+
   const confirmImport = async () => {
     if (!pending) return
     setImporting(true); setError('')
@@ -670,10 +690,19 @@ export default function Residents() {
                 onClick={downloadTemplate}>
                 {t('admin.residents.downloadTemplate')}
               </button>
+              <button type="button" className="admin-secondary-btn"
+                title={t('admin.residents.aiUploadTitle')}
+                disabled={aiBusy}
+                onClick={() => aiFileRef.current && aiFileRef.current.click()}>
+                {aiBusy ? t('admin.residents.aiReading') : t('admin.residents.aiUpload')}
+              </button>
               {error && <span className="admin-err-inline">{error}</span>}
             </div>
             <input name="residents-csv" ref={fileRef} type="file" accept=".csv,text/csv"
               onChange={onPickFile} style={{ display: 'none' }} />
+            <input name="residents-ai-doc" ref={aiFileRef} type="file"
+              accept=".pdf,application/pdf,image/png,image/jpeg,image/webp"
+              onChange={onPickAiDoc} style={{ display: 'none' }} />
           </div>
 
           {pending && (

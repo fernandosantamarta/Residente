@@ -235,6 +235,30 @@ export async function extractSetupFromPdf(file: File): Promise<ExtractedSetup | 
   } catch { return null }
 }
 
+// AI document → roster rows. Sends an uploaded PDF or image (a scanned ledger, a
+// photo of a spreadsheet, any layout) to the extract-roster edge fn (Claude
+// vision) and returns parsed RosterRow[] for the board to review before import.
+// Returns null if AI isn't configured / the call failed (caller falls back to CSV).
+export async function extractRosterFromFile(file: File): Promise<RosterRow[] | null> {
+  if (!hasSupabase || !supabase || !file) return null
+  try {
+    const file_base64 = await fileToBase64(file)
+    const media_type = file.type || (/\.pdf$/i.test(file.name) ? 'application/pdf' : 'image/png')
+    const { data, error } = await supabase.functions.invoke('extract-roster', { body: { file_base64, media_type } })
+    if (error || !data?.ok || !Array.isArray(data?.owners)) return null
+    return (data.owners as any[])
+      .map(o => ({
+        full_name: String(o?.full_name || '').trim(),
+        unit_number: o?.unit_number ? String(o.unit_number).trim() : '',
+        email: o?.email ? String(o.email).trim() : '',
+        phone: o?.phone ? String(o.phone).trim() : '',
+        address: o?.address ? String(o.address).trim() : '',
+        opening_balance: typeof o?.opening_balance === 'number' && Number.isFinite(o.opening_balance) ? o.opening_balance : undefined,
+      }))
+      .filter(r => r.full_name)
+  } catch { return null }
+}
+
 // Apply extracted billing settings + rules to the provisioned community.
 // Best-effort and field-isolated. Returns the number of rules written.
 export async function applyExtractedSetup(communityId: string, ex: ExtractedSetup): Promise<{ settings: boolean; rules: number }> {
