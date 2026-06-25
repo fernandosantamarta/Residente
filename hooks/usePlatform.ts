@@ -38,6 +38,16 @@ export type AuditEntry = {
   action: string; target_type: string | null; target_id: string | null
   detail: Record<string, any> | null; created_at: string
 }
+// One row per community for the AI Insights tab — this calendar month's AI spend
+// + call count, lifetime totals, the monthly cap (cents), and when AI was last
+// used. From the platform_ai_usage() RPC (security definer; admins only).
+export type PlatformAiUsage = {
+  community_id: string; name: string | null; plan: string | null
+  cap_cents: number
+  month_cost_cents: number; month_calls: number
+  total_cost_cents: number; total_calls: number
+  last_used_at: string | null
+}
 
 // Lightweight boolean — is the signed-in user a Residente platform operator?
 // Used to conditionally show the Platform Console link. Returns null while loading.
@@ -94,6 +104,7 @@ export function usePlatformConsole() {
   const [audit, setAudit] = useState<AuditEntry[]>([])
   const [myRole, setMyRole] = useState<OperatorRole | null>(null)
   const [myRoles, setMyRoles] = useState<OperatorRole[]>([])
+  const [aiUsage, setAiUsage] = useState<PlatformAiUsage[]>([])
   const [loading, setLoading] = useState(true)
 
   // Only the FIRST load shows the loading shell; every reload after a
@@ -138,6 +149,10 @@ export function usePlatformConsole() {
       // Recent activity (audit log).
       const { data: log } = await supabase.rpc('platform_audit', { p_limit: 100 })
       setAudit((log ?? []) as AuditEntry[])
+      // AI usage per community (this month + lifetime + cap). Tolerant: returns
+      // an error until supabase/ai-usage.sql is applied — leave it empty then.
+      const { data: ai } = await supabase.rpc('platform_ai_usage')
+      setAiUsage((ai ?? []) as PlatformAiUsage[])
     } finally {
       loadedOnce.current = true
       if (first) setLoading(false)
@@ -271,10 +286,20 @@ export function usePlatformConsole() {
     return null
   }, [load])
 
+  // Set a community's monthly AI cap (cents). 0 = unlimited. Platform admins only
+  // (enforced in the DB function). Refreshes the console after.
+  const setAiCap = useCallback(async (communityId: string, cents: number): Promise<string | null> => {
+    if (!hasSupabase || !supabase) return 'Not connected'
+    const { error } = await supabase.rpc('platform_set_ai_cap', { p_community: communityId, p_cents: Math.max(0, Math.round(cents)) })
+    if (error) return error.message
+    await load()
+    return null
+  }, [load])
+
   return {
-    isAdmin, myRole, myRoles, communities, requests, operators, audit, loading, reload: load,
+    isAdmin, myRole, myRoles, communities, requests, operators, audit, aiUsage, loading, reload: load,
     setRequestStatus, enterCommunity, addOperator, removeOperator, setOperatorRole,
-    setOperatorExtraRoles, removeCommunity, fetchResidents, removeResident, transferOwnership,
+    setOperatorExtraRoles, removeCommunity, fetchResidents, removeResident, transferOwnership, setAiCap,
   }
 }
 

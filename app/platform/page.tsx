@@ -61,12 +61,13 @@ const subStatusColor = (s: string | null) =>
 const subStatusBg = (s: string | null) =>
   s === 'active' ? C.goodSoft : s === 'past_due' ? C.badSoft : s === 'cancelled' || s === 'canceled' ? C.warnSoft : s === 'trial' ? C.infoSoft : C.accentSoft
 
-type Tab = 'overview' | 'pending' | 'communities' | 'subscriptions' | 'support' | 'operators' | 'activity'
+type Tab = 'overview' | 'pending' | 'communities' | 'subscriptions' | 'ai-insights' | 'support' | 'operators' | 'activity'
 const TABS: { key: Tab; label: string }[] = [
   { key: 'overview', label: 'Overview' },
   { key: 'pending', label: 'Pending' },
   { key: 'communities', label: 'Communities' },
   { key: 'subscriptions', label: 'Subscriptions' },
+  { key: 'ai-insights', label: 'AI Insights' },
   { key: 'support', label: 'Support' },
   { key: 'operators', label: 'Operators' },
   { key: 'activity', label: 'Activity' },
@@ -76,8 +77,8 @@ const TABS: { key: Tab; label: string }[] = [
 // in Overview + Subscriptions, so omitting those from a role hides all revenue
 // from it. Founder (owner) manages the team, so only Founder gets Operators.
 const ROLE_TABS: Record<OperatorRole, Tab[]> = {
-  owner:    ['overview', 'pending', 'communities', 'subscriptions', 'support', 'operators', 'activity'],
-  billing:  ['overview', 'pending', 'subscriptions', 'communities', 'activity'],
+  owner:    ['overview', 'pending', 'communities', 'subscriptions', 'ai-insights', 'support', 'operators', 'activity'],
+  billing:  ['overview', 'pending', 'subscriptions', 'ai-insights', 'communities', 'activity'],
   operator: ['pending', 'communities', 'support', 'activity'],
   support:  ['pending', 'support', 'activity'],
 }
@@ -88,6 +89,8 @@ const PLAN_RATE_CENTS: Record<string, number> = { free: 0, pro: 200, premium: 40
 const communityMonthlyCents = (c: { plan: string | null; home_count: number | null; unit_count: number | null }) =>
   (PLAN_RATE_CENTS[c.plan || 'free'] ?? 0) * Number(c.home_count ?? c.unit_count ?? 0)
 const fmtMoney = (cents: number) => `$${Math.round(cents / 100).toLocaleString('en-US')}`
+// AI costs are small (cents to low dollars), so show two decimals here.
+const fmtCents = (cents: number) => `$${(Number(cents || 0) / 100).toFixed(2)}`
 
 // 'owner' in the DB and "Owner" in the UI — the role that manages the team.
 const ROLES: { key: OperatorRole; label: string; blurb: string }[] = [
@@ -415,11 +418,55 @@ function SupportThread({ req, onResolve, onReopen, onChanged }: {
   )
 }
 
+// Editable monthly AI cap + On/Off kill switch for one community (AI Insights
+// tab). $0 = OFF — the edge functions block all AI extraction for that community.
+// Commits on blur / Enter; "Turn off" sets $0, "Enable" restores $5.
+function CapCell({ row, onSave }: { row: PlatformAiUsage; onSave: (cents: number) => Promise<string | null> }) {
+  const off = (row.cap_cents || 0) <= 0
+  const [val, setVal] = useState((row.cap_cents / 100).toFixed(2))
+  const [busy, setBusy] = useState(false)
+  useEffect(() => { setVal((row.cap_cents / 100).toFixed(2)) }, [row.cap_cents])
+  const commit = async (cents: number) => {
+    if (cents === row.cap_cents) return
+    setBusy(true); await onSave(cents); setBusy(false)
+  }
+  const commitInput = () => {
+    const dollars = Number(val)
+    if (!Number.isFinite(dollars) || dollars < 0) { setVal((row.cap_cents / 100).toFixed(2)); return }
+    commit(Math.round(dollars * 100))
+  }
+  if (off) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span style={{ fontSize: 11, fontWeight: 700, padding: '4px 10px', borderRadius: 999, background: C.badSoft, color: C.bad }}>OFF</span>
+        <button type="button" disabled={busy} onClick={() => commit(500)}
+          style={{ fontSize: 12, fontWeight: 600, color: C.good, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+          Enable
+        </button>
+      </div>
+    )
+  }
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+      <span style={{ color: C.muted }}>$</span>
+      <input value={val} onChange={e => setVal(e.target.value)} onBlur={commitInput}
+        onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur() }}
+        inputMode="decimal" disabled={busy}
+        style={{ width: 58, background: C.bg, color: C.text, border: `1px solid ${C.border}`, borderRadius: 7, padding: '5px 8px', fontSize: 13, textAlign: 'right' }} />
+      <span style={{ color: C.muted, fontSize: 11 }}>/mo</span>
+      <button type="button" disabled={busy} onClick={() => commit(0)} title="Turn AI off for this community"
+        style={{ fontSize: 11.5, fontWeight: 600, color: C.bad, background: 'none', border: 'none', cursor: 'pointer', padding: '0 0 0 4px' }}>
+        Turn off
+      </button>
+    </div>
+  )
+}
+
 export default function PlatformConsole() {
   const {
-    isAdmin, myRole, myRoles, communities, requests, operators, audit, loading, reload,
+    isAdmin, myRole, myRoles, communities, requests, operators, audit, aiUsage, loading, reload,
     setRequestStatus, enterCommunity, addOperator, removeOperator, setOperatorRole,
-    setOperatorExtraRoles, removeCommunity, fetchResidents, removeResident, transferOwnership,
+    setOperatorExtraRoles, removeCommunity, fetchResidents, removeResident, transferOwnership, setAiCap,
   } = usePlatformConsole()
   const router = useRouter()
   const { profile } = useAuth() || {}
@@ -1092,6 +1139,90 @@ export default function PlatformConsole() {
 
       {/* SUBSCRIPTIONS */}
       {curTab === 'subscriptions' && subscriptionsSection(false)}
+
+      {/* AI INSIGHTS — document-reader usage + the per-community cost cap / kill switch */}
+      {curTab === 'ai-insights' && (() => {
+        const monthTotal = aiUsage.reduce((s, r) => s + (Number(r.month_cost_cents) || 0), 0)
+        const monthCalls = aiUsage.reduce((s, r) => s + (Number(r.month_calls) || 0), 0)
+        const activeCount = aiUsage.filter(r => (Number(r.month_calls) || 0) > 0).length
+        const offCount = aiUsage.filter(r => (Number(r.cap_cents) || 0) <= 0).length
+        return (
+        <section style={card}>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+            <h2 style={{ fontSize: 15, fontWeight: 700 }}>AI Insights</h2>
+            <span style={{ color: C.muted, fontSize: 12 }}>Document-reader usage + the monthly cost cap, per community.</span>
+          </div>
+          <p style={{ color: C.muted, fontSize: 12.5, margin: '4px 0 16px' }}>
+            The AI readers (roster, balances, budget, insurance, rules) bill per document. Each community has a monthly cap; once it&apos;s hit, AI pauses for that community until next month. Set a cap to <strong>$0</strong> to turn AI off entirely.
+          </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 18 }}>
+            {[
+              { label: 'This month', val: fmtCents(monthTotal), sub: `${monthCalls} call${monthCalls === 1 ? '' : 's'}`, col: C.accent },
+              { label: 'Using AI', val: String(activeCount), sub: `of ${aiUsage.length} communities`, col: C.text },
+              { label: 'Turned off', val: String(offCount), sub: offCount === 1 ? 'community' : 'communities', col: offCount > 0 ? C.bad : C.muted },
+            ].map(k => (
+              <div key={k.label} style={{ background: C.bg, border: `1px solid ${C.border}`, borderRadius: 12, padding: '14px 16px' }}>
+                <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6, color: C.muted, fontWeight: 700 }}>{k.label}</div>
+                <div style={{ fontSize: 26, fontWeight: 800, color: k.col, lineHeight: 1.15, marginTop: 4 }}>{k.val}</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{k.sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {aiUsage.length === 0 ? (
+            <div style={{ color: C.muted, fontSize: 13, padding: '12px 0' }}>
+              No AI usage yet. (If this stays empty after communities use the readers, run <code>supabase/ai-usage.sql</code>.)
+            </div>
+          ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="plat-table" style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
+              <thead>
+                <tr>
+                  <th style={th}>Community</th>
+                  <th style={th}>This month</th>
+                  <th style={th}>Monthly cap</th>
+                  <th style={th}>Used</th>
+                  <th style={th}>Lifetime</th>
+                  <th style={th}>Last used</th>
+                </tr>
+              </thead>
+              <tbody>
+                {aiUsage.map(r => {
+                  const cap = Number(r.cap_cents) || 0
+                  const spent = Number(r.month_cost_cents) || 0
+                  const pct = cap > 0 ? Math.min(999, Math.round((spent / cap) * 100)) : null
+                  const tone = cap <= 0 ? C.bad : pct == null ? C.muted : pct >= 100 ? C.bad : pct >= 80 ? C.warn : C.good
+                  return (
+                    <tr key={r.community_id}>
+                      <td style={{ ...td, fontWeight: 700 }}>
+                        {r.name || '—'}
+                        {r.plan ? <span style={{ color: C.muted, fontWeight: 500, fontSize: 12 }}> · {r.plan}</span> : null}
+                      </td>
+                      <td style={td}>
+                        {fmtCents(spent)}
+                        <span style={{ color: C.muted, fontSize: 12 }}> · {r.month_calls} call{Number(r.month_calls) === 1 ? '' : 's'}</span>
+                      </td>
+                      <td style={td}><CapCell row={r} onSave={(c) => setAiCap(r.community_id, c)} /></td>
+                      <td style={td}>
+                        {cap <= 0
+                          ? <span style={{ color: C.bad, fontWeight: 600 }}>off</span>
+                          : <span style={{ fontWeight: 700, color: tone }}>{pct}%</span>}
+                      </td>
+                      <td style={{ ...td, color: C.muted }}>
+                        {fmtCents(Number(r.total_cost_cents) || 0)}<span style={{ fontSize: 12 }}> · {r.total_calls}</span>
+                      </td>
+                      <td style={{ ...td, color: C.muted }}>{r.last_used_at ? fmtDate(r.last_used_at) : '—'}</td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          )}
+        </section>
+        )
+      })()}
 
       {/* SUPPORT */}
       {curTab === 'support' && supportSection}

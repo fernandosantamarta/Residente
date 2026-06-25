@@ -18,6 +18,7 @@
 //          for structured extraction; set to claude-opus-4-8 for max accuracy).
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
+import { communityOf, checkCap, recordUsage } from '../_shared/ai-metering.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -84,13 +85,21 @@ Deno.serve(async (req) => {
   const authHeader = req.headers.get('Authorization') ?? ''
   const token = authHeader.replace(/^Bearer\s+/i, '')
   if (!token) return json({ error: 'Not authenticated.' }, 401)
+  let userId = ''
   try {
     const admin = createClient(SUPABASE_URL, ANON_KEY)
     const { data: { user }, error } = await admin.auth.getUser(token)
     if (error || !user) return json({ error: 'Not authenticated.' }, 401)
+    userId = user.id
   } catch {
     return json({ error: 'Auth check failed.' }, 401)
   }
+
+  // Per-community monthly AI cap — refuse once a community is over its limit
+  // (fails open if metering infra isn't set up yet).
+  const communityId = await communityOf(userId)
+  const cap = await checkCap(communityId)
+  if (!cap.allowed) return json({ error: 'Monthly AI limit reached.', code: 'limit_reached', cap_cents: cap.capCents, spent_cents: cap.spentCents }, 429)
 
   let fileBase64 = ''
   let mediaType = ''
@@ -133,6 +142,7 @@ Deno.serve(async (req) => {
     const toolUse = (data?.content || []).find((b: any) => b.type === 'tool_use' && b.name === 'roster')
     const owners = toolUse?.input?.owners
     if (!Array.isArray(owners)) return json({ error: 'No structured result.' }, 502)
+    await recordUsage({ communityId, userId, fn: 'extract-roster', kind: 'roster', model: MODEL, usage: data?.usage })
     return json({ ok: true, owners })
   } catch (e) {
     console.error('extract-roster failed', e)
