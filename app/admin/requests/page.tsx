@@ -12,7 +12,6 @@ import {
   type WorkOrder,
   type WorkOrderStatus,
   type Priority as WoPriority,
-  PRIORITIES as WO_PRIORITIES,
   createWorkOrder,
   updateWorkOrderStatus,
   startPatch,
@@ -814,31 +813,6 @@ export default function RequestsAdmin() {
                       <span style={chip(STATUS_COLOR[selected.status] || '#475467')}>{tStatusLabel[selected.status] || selected.status}</span>
                     </div>
                   </div>
-                  {/* Triage controls: priority + assignee. Both write back to the
-                      request and re-sort the queue. */}
-                  <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end', paddingTop: 12 }}>
-                    <div style={{ minWidth: 150 }}>
-                      <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 4 }}>{t('admin.requests.triagePriorityLabel')}</label>
-                      <Dropdown<Priority>
-                        value={(selected.priority as Priority) || 'normal'}
-                        onChange={p => setRequestPriority(selected, p)}
-                        ariaLabel={t('admin.requests.triagePriorityLabel')}
-                        options={PRIORITIES.map(p => ({ value: p, label: tPrioLabel[p] || p }))}
-                      />
-                    </div>
-                    <div style={{ minWidth: 180 }}>
-                      <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: 'var(--text-dim)', marginBottom: 4 }}>{t('admin.requests.triageAssignLabel')}</label>
-                      <Dropdown<string>
-                        value={selected.assigned_to || ''}
-                        onChange={v => setRequestAssignee(selected, v)}
-                        ariaLabel={t('admin.requests.triageAssignLabel')}
-                        options={[
-                          { value: '', label: t('admin.requests.triageUnassigned') },
-                          ...boardMembers.map(b => ({ value: b.id, label: b.name })),
-                        ]}
-                      />
-                    </div>
-                  </div>
                   <AdminThread
                     request={selected}
                     profileId={profile?.id}
@@ -848,6 +822,9 @@ export default function RequestsAdmin() {
                     onSent={msg => setSuccessMsg(msg)}
                     onSetStatus={setRequestStatus}
                     onSetLocked={setRepliesLocked}
+                    boardMembers={boardMembers}
+                    onSetPriority={setRequestPriority}
+                    onSetAssignee={setRequestAssignee}
                   />
                 </>
               ) : (
@@ -884,6 +861,7 @@ const fmtMsgTime = (d: string) =>
 // A board reply posts a 'board' message and (by default) emails the resident.
 function AdminThread({
   request, profileId, vendors, rules, openAttachment, onSent, onSetStatus, onSetLocked,
+  boardMembers, onSetPriority, onSetAssignee,
 }: {
   request: Request
   profileId?: string
@@ -893,6 +871,9 @@ function AdminThread({
   onSent: (msg: string) => void
   onSetStatus: (r: Request, next: Status) => Promise<void>
   onSetLocked: (r: Request, locked: boolean) => Promise<void>
+  boardMembers: BoardMember[]
+  onSetPriority: (r: Request, p: Priority) => void
+  onSetAssignee: (r: Request, assignedTo: string) => void
 }) {
   const t = useT()
   const { messages, loading, reload } = useRequestThread(request.id)
@@ -904,6 +885,13 @@ function AdminThread({
   const [expanded, setExpanded] = useState(false)   // closed convos minimize until expanded
   const closed = request.status === 'resolved'
   const locked = !!request.replies_locked
+
+  // Triage labels for the compact priority + assignee controls in the manage row.
+  const prioLabel: Record<Priority, string> = {
+    low: t('admin.requests.triagePrioLow'),
+    normal: t('admin.requests.triagePrioNormal'),
+    urgent: t('admin.requests.triagePrioUrgent'),
+  }
 
   // AI reply assist — read the resident's attached photo + their request text,
   // describe the issue, note a relevant rule, and draft a reply for the board to
@@ -1105,8 +1093,31 @@ function AdminThread({
               {t('admin.requests.emailResident')}
             </label>
           </div>
-          {/* Secondary management — both actions on one row, pushed right, orange. */}
-          <div className="imsg-composer-opts" style={{ justifyContent: 'flex-end', marginTop: 20 }}>
+          {/* Secondary management — triage (priority + assignee) on the left,
+              reply-lock + close on the right, one row. */}
+          <div className="imsg-composer-opts" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-dim)' }}>{t('admin.requests.triagePriorityLabel')}</span>
+              <Dropdown<Priority>
+                value={(request.priority as Priority) || 'normal'}
+                onChange={p => onSetPriority(request, p)}
+                ariaLabel={t('admin.requests.triagePriorityLabel')}
+                options={PRIORITIES.map(p => ({ value: p, label: prioLabel[p] || p }))}
+              />
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-dim)' }}>{t('admin.requests.triageAssignLabel')}</span>
+              <Dropdown<string>
+                value={request.assigned_to || ''}
+                onChange={v => onSetAssignee(request, v)}
+                ariaLabel={t('admin.requests.triageAssignLabel')}
+                options={[
+                  { value: '', label: t('admin.requests.triageUnassigned') },
+                  ...boardMembers.map(b => ({ value: b.id, label: b.name })),
+                ]}
+              />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }} />
             <button type="button" className="admin-btn-ghost admin-btn-ghost-orange" style={{ marginLeft: 0, color: '#E14909', borderColor: 'rgba(225,73,9,0.45)' }} onClick={() => onSetLocked(request, !locked)}>
               {locked ? t('admin.requests.allowReplies') : t('admin.requests.turnOffReplies')}
             </button>
@@ -1154,7 +1165,9 @@ function WorkOrderPanel({
   // Create form (collapsed by default).
   const [creating, setCreating] = useState(false)
   const [vendorId, setVendorId] = useState('')
-  const [priority, setPriority] = useState<WoPriority>('normal')
+  // The work order inherits the request's priority (set in the triage controls
+  // above) — no separate priority picker here, so it's not asked for twice.
+  const priority: WoPriority = (request.priority as WoPriority) || 'normal'
   const [estimate, setEstimate] = useState('')
   const [slaDueAt, setSlaDueAt] = useState('')
   const [saving, setSaving] = useState(false)
@@ -1259,7 +1272,7 @@ function WorkOrderPanel({
       }
       setWo(created)
       setCreating(false)
-      setVendorId(''); setPriority('normal'); setEstimate(''); setSlaDueAt('')
+      setVendorId(''); setEstimate(''); setSlaDueAt('')
       onSent(t('admin.workOrders.successCreated', { title: created.title }) + vendorMsg)
     } catch (e: any) {
       setErr(e?.message || t('admin.workOrders.errCreate'))
@@ -1420,24 +1433,15 @@ function WorkOrderPanel({
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
               <div>
-                <label style={labelCss}>{t('admin.workOrders.labelPriority')}</label>
-                <Dropdown<WoPriority>
-                  value={priority}
-                  onChange={setPriority}
-                  ariaLabel={t('admin.workOrders.labelPriority')}
-                  options={WO_PRIORITIES.map(p => ({ value: p, label: woPrioLabel[p] }))}
-                />
-              </div>
-              <div>
                 <label style={labelCss}>{t('admin.workOrders.labelEstimate')}</label>
                 <input className="admin-input" type="number" min="0" step="0.01" inputMode="decimal" style={{ width: '100%', boxSizing: 'border-box' }}
                   value={estimate} onChange={e => setEstimate(e.target.value)} placeholder="0.00" />
               </div>
-            </div>
-            <div>
-              <label style={labelCss}>{t('admin.workOrders.labelSla')}</label>
-              <input className="admin-input" type="datetime-local" style={{ width: '100%', boxSizing: 'border-box' }}
-                value={slaDueAt} onChange={e => setSlaDueAt(e.target.value)} />
+              <div>
+                <label style={labelCss}>{t('admin.workOrders.labelSla')}</label>
+                <input className="admin-input" type="datetime-local" style={{ width: '100%', boxSizing: 'border-box' }}
+                  value={slaDueAt} onChange={e => setSlaDueAt(e.target.value)} />
+              </div>
             </div>
             {err && <div className="admin-note admin-note-err">{err}</div>}
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>

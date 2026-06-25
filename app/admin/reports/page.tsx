@@ -561,6 +561,7 @@ export default function ReportsPage() {
                   <th className="period-col">{t('admin.reports.colPeriod')}</th>
                   <th>{t('admin.reports.colRows')}</th>
                   <th className="act"></th>
+                  <th className="act"></th>
                 </tr>
               </thead>
               <tbody>
@@ -569,14 +570,22 @@ export default function ReportsPage() {
                     <td className="strong">{r.name}</td>
                     <td className="muted period-col">{r.period}</td>
                     <td className="muted">{r.count}</td>
-                    <td className="act">
-                      {r.actions.map(a => (
-                        <button key={a.label} type="button" className={`go${a.dim ? ' dim' : ''}`}
-                          onClick={a.onClick} disabled={r.count === 0 || a.disabled}>
-                          {a.label}
-                        </button>
-                      ))}
-                    </td>
+                    {/* One cell per action so each lines up as its own column
+                        across every row (the Export CSV button no longer shifts
+                        when the secondary action's label is wider). */}
+                    {[0, 1].map(i => {
+                      const a = r.actions[i]
+                      return (
+                        <td key={i} className="act">
+                          {a && (
+                            <button type="button" className={`go${a.dim ? ' dim' : ''}`}
+                              onClick={a.onClick} disabled={r.count === 0 || a.disabled}>
+                              {a.label}
+                            </button>
+                          )}
+                        </td>
+                      )
+                    })}
                   </tr>
                 ))}
               </tbody>

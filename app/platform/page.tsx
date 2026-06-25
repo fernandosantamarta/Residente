@@ -61,12 +61,11 @@ const subStatusColor = (s: string | null) =>
 const subStatusBg = (s: string | null) =>
   s === 'active' ? C.goodSoft : s === 'past_due' ? C.badSoft : s === 'cancelled' || s === 'canceled' ? C.warnSoft : s === 'trial' ? C.infoSoft : C.accentSoft
 
-type Tab = 'overview' | 'pending' | 'communities' | 'subscriptions' | 'ai-insights' | 'support' | 'operators' | 'activity'
+type Tab = 'overview' | 'pending' | 'communities' | 'ai-insights' | 'support' | 'operators' | 'activity'
 const TABS: { key: Tab; label: string }[] = [
   { key: 'overview', label: 'Overview' },
   { key: 'pending', label: 'Pending' },
   { key: 'communities', label: 'Communities' },
-  { key: 'subscriptions', label: 'Subscriptions' },
   { key: 'ai-insights', label: 'AI Insights' },
   { key: 'support', label: 'Support' },
   { key: 'operators', label: 'Operators' },
@@ -74,13 +73,14 @@ const TABS: { key: Tab; label: string }[] = [
 ]
 
 // Which tabs each operator role may see — the mock's role-views. Money lives only
-// in Overview + Subscriptions, so omitting those from a role hides all revenue
-// from it. Founder (owner) manages the team, so only Founder gets Operators.
+// in the Overview revenue tiles + the Communities tab's revenue column, both
+// gated to owner/billing, so omitting Overview from a role hides all revenue from
+// it. Founder (owner) manages the team, so only Founder gets Operators.
 const ROLE_TABS: Record<OperatorRole, Tab[]> = {
   // AI Insights (cost + the API budget/kill switch) is OWNER-ONLY — no other
   // Residente operator role can see it (and the RPCs behind it are owner-gated too).
-  owner:    ['overview', 'pending', 'communities', 'subscriptions', 'ai-insights', 'support', 'operators', 'activity'],
-  billing:  ['overview', 'pending', 'subscriptions', 'communities', 'activity'],
+  owner:    ['overview', 'pending', 'communities', 'ai-insights', 'support', 'operators', 'activity'],
+  billing:  ['overview', 'pending', 'communities', 'activity'],
   operator: ['pending', 'communities', 'support', 'activity'],
   support:  ['pending', 'support', 'activity'],
 }
@@ -487,17 +487,15 @@ export default function PlatformConsole() {
   const { profile } = useAuth() || {}
   const [tab, setTab] = useState<Tab>('overview')
   const [entering, setEntering] = useState<string | null>(null)
-  // Per-list search queries (communities, subscriptions, roster modal).
+  // Per-list search queries (communities, roster modal).
   const [commQuery, setCommQuery] = useState('')
-  const [subQuery, setSubQuery] = useState('')
   const [rosterQuery, setRosterQuery] = useState('')
-  // Pagination for the communities + subscriptions tables (used in Overview and
-  // in their own tabs — the lists are long, so page through 8 at a time).
+  // Pagination for the communities table (used in Overview and its own tab —
+  // the list is long, so page through a screenful at a time).
   const PAGE_SIZE = 8           // support inbox
-  const LIST_PAGE_SIZE = 9      // communities + subscriptions tabs
-  const OVERVIEW_PREVIEW = 5    // shorter preview of those lists in the Overview
+  const LIST_PAGE_SIZE = 9      // communities tab
+  const OVERVIEW_PREVIEW = 5    // shorter preview of the list in the Overview
   const [commPage, setCommPage] = useState(1)
-  const [subsPage, setSubsPage] = useState(1)
   const [aiPage, setAiPage] = useState(1)
   const [aiExpanded, setAiExpanded] = useState<string | null>(null) // community_id whose AI breakdown is open
   const [supportPage, setSupportPage] = useState(1)
@@ -539,6 +537,10 @@ export default function PlatformConsole() {
   // Ownership reassignment is the operator backstop for orphaned communities —
   // owner/operator teams only (the DB function enforces the same rule).
   const canTransfer = effectiveRoles.includes('owner') || effectiveRoles.includes('operator')
+  // Revenue (per-home $ + MRR) is owner/billing only. Communities + Subscriptions
+  // are now one tab; onboarding & support roles see it with the money column
+  // removed entirely (not just blanked), so they never see what a community pays.
+  const canSeeRevenue = effectiveRoles.includes('owner') || effectiveRoles.includes('billing')
   // Residents roster modal (per community)
   const [rosterFor, setRosterFor] = useState<{ id: string; name: string } | null>(null)
   const [roster, setRoster] = useState<PlatformResident[]>([])
@@ -712,8 +714,6 @@ export default function PlatformConsole() {
   // Search-filtered views (the lists stay alphabetical from the hook).
   const filteredCommunities = communities.filter(c =>
     matchesQuery(commQuery, [c.name, c.location, c.created_by_name, c.created_by_email, c.owner_name, c.owner_email, c.join_code, c.plan, c.subscription_status]))
-  const filteredSubs = communities.filter(c =>
-    matchesQuery(subQuery, [c.name, c.plan, c.subscription_status]))
   const filteredRoster = roster.filter(r =>
     matchesQuery(rosterQuery, [r.full_name, r.email, r.unit_number, r.board_position]))
 
@@ -768,7 +768,7 @@ export default function PlatformConsole() {
   // its detail modal so the operator lands right on the one that needs them.
   const jumpToStatus = (status: string) => {
     const hit = communities.find(c => (c.subscription_status || 'active') === status)
-    setTab('subscriptions')
+    setTab('communities')
     if (hit) { setHighlightId(hit.id); setSubDetail(hit) }
   }
 
@@ -811,9 +811,17 @@ export default function PlatformConsole() {
    const pagedCommunities = filteredCommunities.slice((commPageC - 1) * size, commPageC * size)
    return (
     <section style={{ ...card, marginBottom: 18 }}>
-      <h2 style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Communities</h2>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
+        <h2 style={{ fontSize: 15, fontWeight: 700 }}>Communities</h2>
+        {canSeeRevenue && (
+          <span style={{ fontSize: 13, color: C.muted }}>
+            MRR <strong style={{ color: C.accent }}>{fmtMoney(mrrCents)}/mo</strong> · {activeCount} active · {paying.length} on a paid plan
+            {pastDueCount > 0 && <span style={{ color: C.bad, fontWeight: 700 }}> · {pastDueCount} past due</span>}
+          </span>
+        )}
+      </div>
       <p style={{ color: C.muted, fontSize: 12.5, marginBottom: 14 }}>
-        {inOverview ? <>Click a row to open the full <strong style={{ color: C.accent }}>Communities</strong> tab.</> : <>Click <strong style={{ color: C.accent }}>Manage</strong> to drop into a community and run it as an operator.</>}
+        {inOverview ? <>Click a row to open the full <strong style={{ color: C.accent }}>Communities</strong> tab.</> : <>Plan, status, and {canSeeRevenue ? 'monthly revenue' : 'size'} for every community. Click <strong style={{ color: C.accent }}>Manage</strong> to drop in and run one as an operator.</>}
       </p>
       {communities.length === 0 ? (
         <div style={{ color: C.muted, fontSize: 13.5 }}>No communities yet.</div>
@@ -827,7 +835,7 @@ export default function PlatformConsole() {
         <div style={{ overflowX: 'auto' }}>
           <table className="plat-table" style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
             <thead><tr>
-              {['Community', 'Created by', 'Plan', 'Residents', 'Board', 'Join code', 'Created', ''].map(h => <th key={h} style={th}>{h}</th>)}
+              {['Community', 'Created by', 'Plan', 'Status', 'Residents', ...(canSeeRevenue ? ['Monthly'] : []), 'Join code', ''].map(h => <th key={h} style={th}>{h}</th>)}
             </tr></thead>
             <tbody>
               {pagedCommunities.map(c => (
@@ -840,6 +848,7 @@ export default function PlatformConsole() {
                     <div style={{ fontWeight: 600 }}>{c.created_by_name || '—'}</div>
                     {c.created_by_email && <div style={{ fontSize: 12, color: C.muted, maxWidth: 190, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{c.created_by_email}</div>}
                   </td>
+                  <td style={{ ...td, textTransform: 'capitalize', fontWeight: 600 }}>{c.plan || 'free'}</td>
                   <td style={td}>
                     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, textTransform: 'capitalize',
                       background: subStatusBg(c.subscription_status), color: subStatusColor(c.subscription_status) }}>
@@ -848,9 +857,10 @@ export default function PlatformConsole() {
                     </span>
                   </td>
                   <td style={td}>{c.resident_count}</td>
-                  <td style={td}>{c.board_count}</td>
+                  {canSeeRevenue && (
+                    <td style={{ ...td, fontWeight: 700 }}>{communityMonthlyCents(c) > 0 ? `${fmtMoney(communityMonthlyCents(c))}/mo` : 'Free'}</td>
+                  )}
                   <td style={{ ...td, fontFamily: 'ui-monospace, monospace', letterSpacing: 1, color: C.muted }}>{c.join_code || '—'}</td>
-                  <td style={{ ...td, color: C.muted }}>{fmtDate(c.created_at)}</td>
                   <td style={td}>
                     {canEnter ? (
                       <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', flexWrap: 'nowrap', whiteSpace: 'nowrap' }}>
@@ -890,70 +900,6 @@ export default function PlatformConsole() {
             </tbody>
           </table>
           <Paginator page={commPageC} pageSize={size} total={filteredCommunities.length} onPage={setCommPage} />
-        </div>
-        )}
-        </>
-      )}
-    </section>
-   )
-  }
-
-  const subscriptionsSection = (inOverview: boolean) => {
-   const size = inOverview ? OVERVIEW_PREVIEW : LIST_PAGE_SIZE
-   const subsPageC = Math.min(subsPage, Math.max(1, Math.ceil(filteredSubs.length / size)))
-   const pagedSubs = filteredSubs.slice((subsPageC - 1) * size, subsPageC * size)
-   return (
-    <section style={{ ...card, marginBottom: 18 }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 4 }}>
-        <h2 style={{ fontSize: 15, fontWeight: 700 }}>Subscriptions</h2>
-        <span style={{ fontSize: 13, color: C.muted }}>
-          MRR <strong style={{ color: C.accent }}>{fmtMoney(mrrCents)}/mo</strong> · {activeCount} active · {paying.length} on a paid plan
-          {pastDueCount > 0 && <span style={{ color: C.bad, fontWeight: 700 }}> · {pastDueCount} past due</span>}
-        </span>
-      </div>
-      <p style={{ color: C.muted, fontSize: 12.5, marginBottom: 14 }}>
-        {inOverview ? <>Click a row to open the full <strong style={{ color: C.accent }}>Subscriptions</strong> tab.</> : <>Every community&apos;s plan, status, and monthly amount. MRR counts active subscriptions only.</>}
-      </p>
-      {communities.length === 0 ? (
-        <div style={{ color: C.muted, fontSize: 13.5 }}>No communities yet.</div>
-      ) : (
-        <>
-        <input value={subQuery} onChange={e => { setSubQuery(e.target.value); setSubsPage(1) }}
-          placeholder="Search subscriptions…" aria-label="Search subscriptions" style={searchInput} />
-        {filteredSubs.length === 0 ? (
-          <div style={{ color: C.muted, fontSize: 13.5 }}>No subscriptions match &ldquo;{subQuery}&rdquo;.</div>
-        ) : (
-        <div style={{ overflowX: 'auto' }}>
-          <table className="plat-table" style={{ width: '100%', borderCollapse: 'collapse', minWidth: 720 }}>
-            <thead><tr>
-              {['Community', 'Plan', 'Status', 'Homes', 'Monthly', 'Billing'].map(h => <th key={h} style={th}>{h}</th>)}
-            </tr></thead>
-            <tbody>
-              {pagedSubs.map(c => {
-                const monthly = communityMonthlyCents(c)
-                return (
-                  <tr key={c.id} className={c.subscription_status === 'past_due' ? 'is-pastdue' : undefined}
-                    onClick={() => { if (inOverview) setTab('subscriptions'); setHighlightId(c.id); setSubDetail(c) }}
-                    style={{ cursor: 'pointer',
-                      ...(!inOverview && highlightId === c.id ? { background: C.accentSoft, boxShadow: `inset 3px 0 0 ${C.accent}` } : {}) }}>
-                    <td style={{ ...td, fontWeight: 700 }}>{c.name || '—'}</td>
-                    <td style={{ ...td, textTransform: 'capitalize' }}>{c.plan || 'free'}</td>
-                    <td style={td}>
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 999, textTransform: 'capitalize',
-                        background: subStatusBg(c.subscription_status), color: subStatusColor(c.subscription_status) }}>
-                        <span style={{ width: 6, height: 6, borderRadius: '50%', background: subStatusColor(c.subscription_status) }} />
-                        {c.subscription_status || 'active'}
-                      </span>
-                    </td>
-                    <td style={{ ...td, fontWeight: 700 }}>{c.home_count ?? c.unit_count ?? '—'}</td>
-                    <td style={{ ...td, fontWeight: 700 }}>{monthly > 0 ? `${fmtMoney(monthly)}/mo` : 'Free'}</td>
-                    <td style={{ ...td, color: C.muted }}>{c.stripe_subscription_id ? 'Stripe' : '—'}</td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-          <Paginator page={subsPageC} pageSize={size} total={filteredSubs.length} onPage={setSubsPage} />
         </div>
         )}
         </>
@@ -1147,15 +1093,12 @@ export default function PlatformConsole() {
       </div>
 
       {/* OVERVIEW — everything on one page */}
-      {curTab === 'overview' && (<>{attentionBanner}{statsGrid}{subscriptionsSection(true)}{communitiesSection(true)}</>)}
+      {curTab === 'overview' && (<>{attentionBanner}{statsGrid}{communitiesSection(true)}</>)}
 
       {curTab === 'pending' && <PendingQueue />}
 
       {/* COMMUNITIES */}
       {curTab === 'communities' && communitiesSection(false)}
-
-      {/* SUBSCRIPTIONS */}
-      {curTab === 'subscriptions' && subscriptionsSection(false)}
 
       {/* AI INSIGHTS — document-reader usage + the per-community cost cap / kill switch */}
       {curTab === 'ai-insights' && (() => {
@@ -1175,12 +1118,9 @@ export default function PlatformConsole() {
         const pagedAi = aiUsage.slice((aiPageC - 1) * AI_SIZE, aiPageC * AI_SIZE)
         return (
         <section style={card}>
-          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-            <h2 style={{ fontSize: 15, fontWeight: 700 }}>AI Insights</h2>
-            <span style={{ color: C.muted, fontSize: 12 }}>Document-reader usage + the monthly cost cap, per community.</span>
-          </div>
+          <h2 style={{ fontSize: 15, fontWeight: 700 }}>AI Insights</h2>
           <p style={{ color: C.muted, fontSize: 12.5, margin: '4px 0 16px' }}>
-            The AI readers (roster, balances, budget, insurance, rules) bill per document. Each community has a monthly cap; once it&apos;s hit, AI pauses for that community until next month. Set a cap to <strong>$0</strong> to turn AI off entirely.
+            See how much each community spends on Residente&apos;s AI <strong>document readers</strong> — the tools that read an uploaded roster, balance sheet, budget, insurance policy, or governing-doc PDF and turn it into structured data the board can review and import. Usage is billed per document. Every community has a monthly cap: once it&apos;s reached, AI pauses there until the next month. Set a cap to <strong>$0</strong> to switch AI off for that community entirely.
           </p>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, marginBottom: 18 }}>
@@ -1545,10 +1485,12 @@ export default function PlatformConsole() {
                 <span style={{ color: C.muted }}>Homes</span>
                 <span style={{ fontWeight: 700 }}>{subDetail.home_count ?? subDetail.unit_count ?? '—'}</span>
               </div>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '11px 0', borderTop: `1px solid ${C.border}` }}>
-                <span style={{ color: C.muted }}>Monthly</span>
-                <span style={{ fontWeight: 700 }}>{communityMonthlyCents(subDetail) > 0 ? `${fmtMoney(communityMonthlyCents(subDetail))}/mo` : 'Free'}</span>
-              </div>
+              {canSeeRevenue && (
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '11px 0', borderTop: `1px solid ${C.border}` }}>
+                  <span style={{ color: C.muted }}>Monthly</span>
+                  <span style={{ fontWeight: 700 }}>{communityMonthlyCents(subDetail) > 0 ? `${fmtMoney(communityMonthlyCents(subDetail))}/mo` : 'Free'}</span>
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '11px 0', borderTop: `1px solid ${C.border}` }}>
                 <span style={{ color: C.muted }}>Join code</span>
                 <span style={{ fontWeight: 700, fontFamily: 'ui-monospace, monospace', letterSpacing: 1 }}>{subDetail.join_code || '—'}</span>

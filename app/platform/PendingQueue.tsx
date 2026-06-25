@@ -43,6 +43,9 @@ export default function PendingQueue() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const [goingId, setGoingId] = useState<string | null>(null)
+  // Which community cards are expanded. Collapsed by default so Pending reads as a
+  // tidy list of communities; click one to drop down its sections.
+  const [openComm, setOpenComm] = useState<Set<string>>(new Set())
 
   // i18n label for an item type (the group sub-header + the row's kind chip).
   const typeLabel = (k: PlatformPendingItem['item_type']) => t(`admin.opsQueue.type.${k}`)
@@ -151,13 +154,26 @@ export default function PendingQueue() {
           {groups.map(g => {
             const types = TYPE_ORDER.filter(ty => g.byType.has(ty))
             const count = [...g.byType.values()].reduce((s, a) => s + a.length, 0)
+            const ck = g.communityId || g.name
+            // Auto-expand when there's only one community so it isn't a pointless click.
+            const isOpen = openComm.has(ck) || groups.length === 1
             return (
-              <section key={g.communityId || g.name} style={{ ...card }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+              <section key={ck} style={{ ...card }}>
+                <button type="button" aria-expanded={isOpen}
+                  onClick={() => setOpenComm(s => { const n = new Set(s); if (n.has(ck)) n.delete(ck); else n.add(ck); return n })}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, marginBottom: isOpen ? 12 : 0,
+                    background: 'none', border: 'none', cursor: 'pointer', padding: 0, textAlign: 'left', color: C.text }}>
+                  <span aria-hidden="true" style={{ color: C.muted, fontSize: 12, width: 12, flexShrink: 0 }}>{isOpen ? '▾' : '▸'}</span>
                   <h3 style={{ fontSize: 15, fontWeight: 800, margin: 0 }}>{g.name}</h3>
                   <span style={{ fontSize: 11.5, fontWeight: 700, color: C.muted, background: C.bg, borderRadius: 999, padding: '2px 9px' }}>{count}</span>
-                </div>
-                {types.map(ty => {
+                  {/* Collapsed preview: which sections are inside + their counts. */}
+                  {!isOpen && (
+                    <span style={{ fontSize: 11.5, color: C.muted, marginLeft: 'auto', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '55%' }}>
+                      {types.map(ty => `${typeLabel(ty)} (${(g.byType.get(ty) || []).length})`).join(' · ')}
+                    </span>
+                  )}
+                </button>
+                {isOpen && types.map(ty => {
                   const rows = g.byType.get(ty) || []
                   const isApproval = ty === 'resident_approval'
                   return (
