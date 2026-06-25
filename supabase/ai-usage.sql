@@ -108,3 +108,30 @@ begin
     order by 3 desc nulls last;
 end $$;
 grant execute on function public.platform_ai_usage_by_kind() to authenticated;
+
+-- ---------- PLATFORM: AI usage per COMMUNITY × feature (operator/owner only) ----------
+-- Drill-down for the AI Insights table: expand a community to see what IT spent AI
+-- on, by document kind, this month + lifetime (cents + call counts). The client
+-- computes each row's % of that community's month total.
+drop function if exists public.platform_ai_usage_by_community_kind();
+create or replace function public.platform_ai_usage_by_community_kind()
+returns table (
+  community_id uuid, fn text, kind text,
+  month_cost_cents numeric, month_calls bigint,
+  total_cost_cents numeric, total_calls bigint
+) language plpgsql stable security definer as $$
+begin
+  if not public.is_platform_owner(auth.uid()) then
+    raise exception 'not a platform owner';
+  end if;
+  return query
+    select u.community_id, u.fn, coalesce(u.kind, '') as kind,
+      coalesce(sum(u.cost_cents) filter (where u.created_at >= date_trunc('month', now())), 0),
+      coalesce(count(*) filter (where u.created_at >= date_trunc('month', now())), 0),
+      coalesce(sum(u.cost_cents), 0),
+      count(*)
+    from public.ev_ai_usage u
+    group by u.community_id, u.fn, coalesce(u.kind, '')
+    order by 4 desc nulls last;
+end $$;
+grant execute on function public.platform_ai_usage_by_community_kind() to authenticated;

@@ -55,6 +55,9 @@ export type PlatformAiUsageByKind = {
   month_cost_cents: number; month_calls: number
   total_cost_cents: number; total_calls: number
 }
+// Per-community × feature breakdown — the drill-down when a community row in AI
+// Insights is expanded. From platform_ai_usage_by_community_kind().
+export type PlatformAiUsageByCommunityKind = PlatformAiUsageByKind & { community_id: string }
 
 // Lightweight boolean — is the signed-in user a Residente platform operator?
 // Used to conditionally show the Platform Console link. Returns null while loading.
@@ -113,6 +116,7 @@ export function usePlatformConsole() {
   const [myRoles, setMyRoles] = useState<OperatorRole[]>([])
   const [aiUsage, setAiUsage] = useState<PlatformAiUsage[]>([])
   const [aiByKind, setAiByKind] = useState<PlatformAiUsageByKind[]>([])
+  const [aiByCommKind, setAiByCommKind] = useState<PlatformAiUsageByCommunityKind[]>([])
   const [loading, setLoading] = useState(true)
 
   // Only the FIRST load shows the loading shell; every reload after a
@@ -165,8 +169,10 @@ export function usePlatformConsole() {
         setAiUsage((ai ?? []) as PlatformAiUsage[])
         const { data: byKind } = await supabase.rpc('platform_ai_usage_by_kind')
         setAiByKind((byKind ?? []) as PlatformAiUsageByKind[])
+        const { data: byCommKind } = await supabase.rpc('platform_ai_usage_by_community_kind')
+        setAiByCommKind((byCommKind ?? []) as PlatformAiUsageByCommunityKind[])
       } else {
-        setAiUsage([]); setAiByKind([])
+        setAiUsage([]); setAiByKind([]); setAiByCommKind([])
       }
     } finally {
       loadedOnce.current = true
@@ -312,7 +318,7 @@ export function usePlatformConsole() {
   }, [load])
 
   return {
-    isAdmin, myRole, myRoles, communities, requests, operators, audit, aiUsage, aiByKind, loading, reload: load,
+    isAdmin, myRole, myRoles, communities, requests, operators, audit, aiUsage, aiByKind, aiByCommKind, loading, reload: load,
     setRequestStatus, enterCommunity, addOperator, removeOperator, setOperatorRole,
     setOperatorExtraRoles, removeCommunity, fetchResidents, removeResident, transferOwnership, setAiCap,
   }

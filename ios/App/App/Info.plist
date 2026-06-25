@@ -26,6 +26,10 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Residente uses the camera so you can take a photo of a violation, maintenance issue, or document to attach to a request.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Residente lets you attach photos from your library to requests, violations, and architectural submissions.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>remote-notification</string>

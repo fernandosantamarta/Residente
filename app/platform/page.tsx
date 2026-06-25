@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, Fragment } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/providers'
@@ -479,7 +479,7 @@ function CapCell({ row, onSave }: { row: PlatformAiUsage; onSave: (cents: number
 
 export default function PlatformConsole() {
   const {
-    isAdmin, myRole, myRoles, communities, requests, operators, audit, aiUsage, aiByKind, loading, reload,
+    isAdmin, myRole, myRoles, communities, requests, operators, audit, aiUsage, aiByKind, aiByCommKind, loading, reload,
     setRequestStatus, enterCommunity, addOperator, removeOperator, setOperatorRole,
     setOperatorExtraRoles, removeCommunity, fetchResidents, removeResident, transferOwnership, setAiCap,
   } = usePlatformConsole()
@@ -499,6 +499,7 @@ export default function PlatformConsole() {
   const [commPage, setCommPage] = useState(1)
   const [subsPage, setSubsPage] = useState(1)
   const [aiPage, setAiPage] = useState(1)
+  const [aiExpanded, setAiExpanded] = useState<string | null>(null) // community_id whose AI breakdown is open
   const [supportPage, setSupportPage] = useState(1)
   const [selectedReqId, setSelectedReqId] = useState<string | null>(null)
   // Operator → community "new message" composer.
@@ -1163,6 +1164,11 @@ export default function PlatformConsole() {
         const activeCount = aiUsage.filter(r => (Number(r.month_calls) || 0) > 0).length
         const offCount = aiUsage.filter(r => (Number(r.cap_cents) || 0) <= 0).length
         const kindMonthTotal = aiByKind.reduce((s, r) => s + (Number(r.month_cost_cents) || 0), 0)
+        // Per-community breakdown by feature (this month) for the expandable drill-down.
+        const byComm: Record<string, any[]> = {}
+        for (const k of (aiByCommKind as any[])) {
+          if ((Number(k.month_calls) || 0) > 0) (byComm[k.community_id] ||= []).push(k)
+        }
         // Paginate the per-community table so a large roster of communities stays readable.
         const AI_SIZE = LIST_PAGE_SIZE
         const aiPageC = Math.min(aiPage, Math.max(1, Math.ceil(aiUsage.length / AI_SIZE)))
@@ -1240,10 +1246,21 @@ export default function PlatformConsole() {
                   const spent = Number(r.month_cost_cents) || 0
                   const pct = cap > 0 ? Math.min(999, Math.round((spent / cap) * 100)) : null
                   const tone = cap <= 0 ? C.bad : pct == null ? C.muted : pct >= 100 ? C.bad : pct >= 80 ? C.warn : C.good
+                  const detail = byComm[r.community_id] || []
+                  const canExpand = detail.length > 0
+                  const isOpen = aiExpanded === r.community_id
                   return (
-                    <tr key={r.community_id}>
+                    <Fragment key={r.community_id}>
+                    <tr>
                       <td style={{ ...td, fontWeight: 700 }}>
-                        {r.name || '—'}
+                        {canExpand ? (
+                          <button type="button" onClick={() => setAiExpanded(isOpen ? null : r.community_id)}
+                            title="Show what this community spent AI on"
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', fontWeight: 700, color: C.text, padding: 0, display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ color: C.muted, fontSize: 11, width: 10 }}>{isOpen ? '▾' : '▸'}</span>
+                            {r.name || '—'}
+                          </button>
+                        ) : (r.name || '—')}
                         {r.plan ? <span style={{ color: C.muted, fontWeight: 500, fontSize: 12 }}> · {r.plan}</span> : null}
                       </td>
                       <td style={td}>
@@ -1261,6 +1278,31 @@ export default function PlatformConsole() {
                       </td>
                       <td style={{ ...td, color: C.muted }}>{r.last_used_at ? fmtDate(r.last_used_at) : '—'}</td>
                     </tr>
+                    {isOpen && canExpand && (
+                      <tr>
+                        <td colSpan={6} style={{ ...td, background: C.bg, padding: '4px 12px 14px' }}>
+                          <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6, color: C.muted, fontWeight: 700, margin: '6px 0 8px' }}>What they used AI on — this month</div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                            {detail.map((d: any) => {
+                              const ds = Number(d.month_cost_cents) || 0
+                              const dpct = spent > 0 ? Math.round((ds / spent) * 100) : 0
+                              return (
+                                <div key={`${d.fn}|${d.kind}`} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                  <div style={{ width: 170, flexShrink: 0, fontSize: 12.5, fontWeight: 600 }}>{aiFeatureLabel(d.fn, d.kind)}</div>
+                                  <div style={{ flex: 1, minWidth: 50, height: 6, background: '#fff', borderRadius: 3, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+                                    <div style={{ height: '100%', width: `${dpct}%`, background: C.accent }} />
+                                  </div>
+                                  <div style={{ width: 168, flexShrink: 0, textAlign: 'right', fontSize: 12, color: C.muted }}>
+                                    <span style={{ color: C.text, fontWeight: 700 }}>{fmtCents(ds)}</span> · {d.month_calls} doc{Number(d.month_calls) === 1 ? '' : 's'} · {dpct}%
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   )
                 })}
               </tbody>
