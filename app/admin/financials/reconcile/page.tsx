@@ -16,6 +16,7 @@ import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useAccountingAccess } from '@/hooks/useAccountingAccess'
 import { useT } from '@/lib/i18n'
 import { CASH_CODES } from '@/lib/gl/reconcile'
 
@@ -33,6 +34,7 @@ export default function ReconcilePage() {
   const communityId = profile?.community_id
   const { can, loading: permLoading } = usePermissions()
   const canManage = can('financials.manage')
+  const { enabled: acctEnabled, loading: acctLoading } = useAccountingAccess()
 
   const [bankTx, setBankTx] = useState<any[]>([])
   const [entryById, setEntryById] = useState<Record<string, EntryInfo>>({})
@@ -142,6 +144,26 @@ export default function ReconcilePage() {
         <span style={{ fontWeight: 600 }}>{e.memo || e.source_type}</span>
         {' '}<span style={{ opacity: 0.7 }}>({e.entry_date || '—'} · {fundLabel(e.fund)} · {fmt$(e.cashDelta)} {dirLabel(-e.cashDelta)})</span>
         <span style={{ opacity: 0.55 }}>{conf}</span>
+      </div>
+    )
+  }
+
+  // Paid feature gate: bank reconciliation needs the accounting add-on. Not
+  // entitled → show the upsell instead of the queue (server routes also 403).
+  if (!acctLoading && !acctEnabled) {
+    return (
+      <div className="admin-page cset">
+        <div className="admin-kicker"><Link href="/admin/financials" style={{ color: 'inherit', textDecoration: 'none' }}>&larr; {t('admin.financials.pageTitle')}</Link></div>
+        <h1 className="admin-h1">{t('admin.reconcile.title')}</h1>
+        <div className="card">
+          <div className="card-head">
+            <div>
+              <h2>{t('admin.accounting.upsellTitle')} <span style={{ opacity: 0.6, fontWeight: 500 }}>· {t('admin.accounting.upsellPrice')}</span></h2>
+              <div className="sub" style={{ maxWidth: 560 }}>{t('admin.accounting.upsellBody')}</div>
+            </div>
+            <Link href="/admin/billing" className="admin-primary-btn" style={{ textDecoration: 'none' }}>{t('admin.accounting.upsellCta')}</Link>
+          </div>
+        </div>
       </div>
     )
   }

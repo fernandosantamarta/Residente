@@ -35,6 +35,7 @@ import { NextResponse } from 'next/server'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { buildLedger, trialBalance } from '@/lib/gl/project'
 import { residentBalance, communityDuesConfig } from '@/lib/dues'
+import { communityHasAccounting } from '@/lib/accountingServer'
 
 export const dynamic = 'force-dynamic'
 
@@ -76,6 +77,11 @@ async function handle(req: Request, allowCommit: boolean) {
   const communityId = u.searchParams.get('community_id') || body.community_id
   if (!communityId) {
     return NextResponse.json({ error: 'community_id is required (no fleet-wide rebuild)' }, { status: 400 })
+  }
+  // Paid feature: the persisted GL backs reconciliation + the CPA bundle, so it
+  // requires the accounting add-on (or the global rollout flag).
+  if (!(await communityHasAccounting(admin, communityId))) {
+    return NextResponse.json({ error: 'Accounting add-on not enabled for this community' }, { status: 403 })
   }
   const commit = allowCommit && (u.searchParams.get('commit') === '1' || body.commit === true)
 

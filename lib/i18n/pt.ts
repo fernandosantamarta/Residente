@@ -3958,6 +3958,7 @@ export const pt: Record<string, string> = {
 
   // Espaço de contabilidade (/admin/accounting — o complemento pago)
   "admin.nav.accounting": "Contabilidade",
+  "admin.nav.accountingLocked": "Complemento — desbloqueie por $49/mês",
   "admin.accounting.kicker": "Dinheiro",
   "admin.accounting.title": "Contabilidade",
   "admin.accounting.dek": "Os livros da sua associação em um só lugar — um razão geral de verdade, conciliação bancária automática e demonstrações verificadas com o banco. Somente leitura: nada aqui movimenta dinheiro.",

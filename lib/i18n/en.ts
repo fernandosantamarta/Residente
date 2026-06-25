@@ -4011,6 +4011,7 @@ export const en: Record<string, string> = {
 
   // Accounting workspace (/admin/accounting — the paid add-on home)
   "admin.nav.accounting": "Accounting",
+  "admin.nav.accountingLocked": "Add-on — unlock for $49/mo",
   "admin.accounting.kicker": "Money",
   "admin.accounting.title": "Accounting",
   "admin.accounting.dek": "Your association's books in one place — a real general ledger, automatic bank reconciliation, and bank-verified statements. Read-only: nothing here moves money.",

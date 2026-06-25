@@ -3958,6 +3958,7 @@ export const es: Record<string, string> = {
 
   // Espacio de contabilidad (/admin/accounting — el complemento de pago)
   "admin.nav.accounting": "Contabilidad",
+  "admin.nav.accountingLocked": "Complemento — desbloquéalo por $49/mes",
   "admin.accounting.kicker": "Dinero",
   "admin.accounting.title": "Contabilidad",
   "admin.accounting.dek": "Los libros de tu asociación en un solo lugar — un libro mayor real, conciliación bancaria automática y estados financieros verificados con el banco. Solo lectura: nada aquí mueve dinero.",

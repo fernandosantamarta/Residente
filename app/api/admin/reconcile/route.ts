@@ -36,6 +36,7 @@ import {
   proposeMatches, CASH_CODES, DEFAULT_TOLERANCE, DEFAULT_WINDOW_DAYS,
   type BankTxn, type MatchableEntry,
 } from '@/lib/gl/reconcile'
+import { communityHasAccounting } from '@/lib/accountingServer'
 
 export const dynamic = 'force-dynamic'
 
@@ -81,6 +82,11 @@ async function handle(req: Request, allowCommit: boolean) {
   const communityId = u.searchParams.get('community_id') || body.community_id
   if (!communityId) {
     return NextResponse.json({ error: 'community_id is required (no fleet-wide reconcile)' }, { status: 400 })
+  }
+  // Paid feature: bank reconciliation requires the accounting add-on (or the
+  // global rollout flag). Refuse even with a valid CRON_SECRET if not entitled.
+  if (!(await communityHasAccounting(admin, communityId))) {
+    return NextResponse.json({ error: 'Accounting add-on not enabled for this community' }, { status: 403 })
   }
   const commit = allowCommit && (u.searchParams.get('commit') === '1' || body.commit === true)
   const toleranceCents = numParam(u.searchParams.get('tolerance'), DEFAULT_TOLERANCE)

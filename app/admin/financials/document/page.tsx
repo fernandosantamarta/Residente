@@ -19,6 +19,7 @@ import { useAuth } from '@/app/providers'
 import { useT } from '@/lib/i18n'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { usePermissions } from '@/hooks/usePermissions'
+import { useAccountingAccess } from '@/hooks/useAccountingAccess'
 import { logAudit } from '@/lib/audit'
 import { downloadCsv, exportFilename } from '@/lib/exportCsv'
 import { ymd } from '@/lib/compliance/rules-core'
@@ -65,6 +66,7 @@ function DocInner() {
   const { profile } = useAuth() || {}
   const { can } = usePermissions()
   const canManage = can('financials.manage')
+  const { enabled: acctEnabled, loading: acctLoading } = useAccountingAccess()
   const communityId = profile?.community_id
   const search = useSearchParams()
   const type = (search?.get('type') || 'statement') as DocType
@@ -162,6 +164,21 @@ function DocInner() {
 
   if (status === 'loading') return <div style={{ padding: 40 }}>{t('admin.financialsDocument.loading')}</div>
   if (status === 'error') return <div style={{ padding: 40, color: '#B42318' }}>{error}</div>
+
+  // The CPA handoff package is part of the paid accounting add-on. Phase-1
+  // statements (cash statement, budget vs actual, balance sheet, rev/exp) stay
+  // free; only the CPA bundle is gated. Not entitled → show the upsell.
+  if (type === 'cpa_bundle' && !acctLoading && !acctEnabled) {
+    return (
+      <div style={{ maxWidth: 720, margin: '0 auto', padding: '40px 24px' }}>
+        <h1 style={{ fontSize: 22, fontWeight: 800, color: '#1F2233', marginBottom: 6 }}>{TITLES.cpa_bundle}</h1>
+        <p style={{ color: '#6b6f7d', marginBottom: 18 }}>{t('admin.accounting.upsellBody')}</p>
+        <a href="/admin/billing" style={{ display: 'inline-block', background: '#E14909', color: '#fff', padding: '11px 22px', borderRadius: 8, textDecoration: 'none', fontWeight: 700 }}>
+          {t('admin.accounting.upsellCta')} · {t('admin.accounting.upsellPrice')}
+        </a>
+      </div>
+    )
+  }
 
   const today = ymd(new Date())
   const isHoa = community?.association_type === 'hoa'

@@ -29,6 +29,8 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { accountingEnabled } from '@/lib/accounting'
+import { communityHasAccounting } from '@/lib/accountingServer'
 
 export const dynamic = 'force-dynamic'
 
@@ -77,19 +79,23 @@ export async function GET(req: Request) {
     }
   }
 
-  // ---- 2) Target set: communities that have linked their bank ----
+  // ---- 2) Target set: communities that have linked their bank AND are entitled
+  //         to the paid accounting engine (add-on or global rollout flag). A
+  //         non-entitled community is skipped entirely — never auto-reconciled. ----
   let targets: string[] = []
   if (onlyCommunity) {
-    targets = [onlyCommunity]
+    targets = (await communityHasAccounting(admin, onlyCommunity)) ? [onlyCommunity] : []
   } else {
     const { data: comms, error } = await admin
       .from('communities')
-      .select('id')
+      .select('id, accounting_addon')
       .eq('plaid_status', 'active')
     if (error) {
       return NextResponse.json({ error: `communities query failed: ${error.message}`, plaid_sync: plaidSync }, { status: 500 })
     }
-    targets = (comms ?? []).map((c: any) => String(c.id))
+    targets = (comms ?? [])
+      .filter((c: any) => accountingEnabled || c.accounting_addon)
+      .map((c: any) => String(c.id))
   }
 
   // Drive an existing CRON_SECRET-gated admin route for one community.

@@ -223,9 +223,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   // mobile section dropdown. activeNavHref drives the dropdown's current value.
   const { enabled: acctAccess } = useAccountingAccess()
   const visibleNav = ADMIN_NAV
-    // The paid Accounting tab shows when the community is entitled (global rollout
-    // flag OR the purchased add-on); otherwise hidden (page still reachable by URL).
-    .filter(item => !item.requiresAccounting || acctAccess)
+    // The paid Accounting tab always shows (for anyone with financials.view), but
+    // when the community isn't entitled it carries a 🔒 and opens the upsell — so
+    // boards discover the add-on instead of it being invisible.
     .filter(item => !item.anyPerm || permLoading || canAny(item.anyPerm))
   const activeNavHref = (visibleNav.find(item => navActive(pathname, item)) || visibleNav[0])?.href || '/admin'
 
@@ -301,6 +301,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             className={`admin-nav-item${navActive(pathname, item) ? ' active' : ''}`}
           >
             {t(item.label)}
+            {item.requiresAccounting && !acctAccess && (
+              <span className="admin-nav-lock" title={t('admin.nav.accountingLocked')} aria-label="Locked" style={{ marginLeft: 5, fontSize: 11, opacity: 0.8 }}>🔒</span>
+            )}
             {item.href === '/admin/board' && awaitingMsgs > 0 && (
               <span className="admin-nav-badge" title={t('admin.voiceBadgeTitle', { count: awaitingMsgs })}>
                 {awaitingMsgs}
