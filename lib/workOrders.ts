@@ -34,6 +34,10 @@ export type WorkOrder = {
   completion_photo_name: string | null
   created_at: string
   updated_at: string
+  quote_status: 'none' | 'submitted' | 'approved' | 'rejected'
+  quoted_cost: number | null
+  quote_note: string | null
+  quote_submitted_at: string | null
 }
 
 const withTimeout = <T,>(p: PromiseLike<T>, ms = 10000): Promise<T> =>
@@ -131,6 +135,8 @@ export type WorkOrderPatch = Partial<{
   priority: Priority
   sla_due_at: string | null
   estimated_cost: number | null
+  quote_status: 'none' | 'submitted' | 'approved' | 'rejected'
+  quoted_cost: number | null
 }>
 
 // Apply a patch (typically a status advance, optionally with completion data)

@@ -1246,6 +1246,27 @@ function WorkOrderPanel({
     }
   }
 
+  // Vendor-quote decisions. Approve locks the quoted price in as the estimate
+  // (so it flows to the budget on completion); reject sends it back.
+  const approveQuote = async () => {
+    if (!wo) return
+    setErr('')
+    try {
+      const updated = await updateWorkOrderStatus(wo.id, { quote_status: 'approved', estimated_cost: wo.quoted_cost })
+      setWo(updated)
+      onSent(t('admin.requests.woQuoteApproved'))
+    } catch (e: any) { setErr(e?.message || t('admin.workOrders.errUpdate')) }
+  }
+  const rejectQuote = async () => {
+    if (!wo) return
+    setErr('')
+    try {
+      const updated = await updateWorkOrderStatus(wo.id, { quote_status: 'rejected' })
+      setWo(updated)
+      onSent(t('admin.requests.woQuoteRejected'))
+    } catch (e: any) { setErr(e?.message || t('admin.workOrders.errUpdate')) }
+  }
+
   const submitComplete = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!wo) return
@@ -1399,6 +1420,30 @@ function WorkOrderPanel({
         {wo.started_at && <span>{t('admin.workOrders.startedAt', { date: fmtDateTime(wo.started_at) })}</span>}
         {wo.completed_at && <span>{t('admin.workOrders.completedAt', { date: fmtDateTime(wo.completed_at) })}</span>}
       </div>
+
+      {wo.quote_status === 'submitted' && wo.quoted_cost != null && (
+        <div style={{ marginTop: 10, padding: '10px 12px', background: 'rgba(225,73,9,0.06)', border: '1px solid rgba(225,73,9,0.22)', borderRadius: 8 }}>
+          <div style={{ fontSize: 12.5, fontWeight: 700, color: 'var(--text)' }}>{t('admin.requests.woQuoteTitle')}</div>
+          <div style={{ fontSize: 15, fontWeight: 800, marginTop: 3, color: 'var(--text)' }}>
+            {fmtMoney(wo.quoted_cost)}
+            {wo.estimated_cost != null && wo.estimated_cost > 0 && (
+              <span style={{ fontSize: 12, fontWeight: 600, color: 'var(--text-dim)', marginLeft: 8 }}>
+                {wo.quoted_cost === wo.estimated_cost
+                  ? t('admin.requests.woQuoteOnEstimate')
+                  : t(wo.quoted_cost > wo.estimated_cost ? 'admin.requests.woQuoteOver' : 'admin.requests.woQuoteUnder', { amount: fmtMoney(Math.abs(wo.quoted_cost - wo.estimated_cost)) })}
+              </span>
+            )}
+          </div>
+          {wo.quote_note && <div style={{ fontSize: 12.5, color: 'var(--text)', marginTop: 5, whiteSpace: 'pre-wrap' }}>{wo.quote_note}</div>}
+          <div style={{ display: 'flex', gap: 8, marginTop: 9 }}>
+            <button type="button" className="admin-primary-btn" onClick={approveQuote}>{t('admin.requests.woQuoteApprove')}</button>
+            <button type="button" className="admin-btn-ghost admin-btn-ghost-orange" style={{ marginLeft: 0 }} onClick={rejectQuote}>{t('admin.requests.woQuoteReject')}</button>
+          </div>
+        </div>
+      )}
+      {wo.quote_status === 'approved' && wo.quoted_cost != null && (
+        <div style={{ fontSize: 12, color: '#067647', marginTop: 8, fontWeight: 600 }}>{t('admin.requests.woQuoteApprovedNote', { amount: fmtMoney(wo.quoted_cost) })}</div>
+      )}
 
       {wo.status === 'completed' && (wo.completion_notes || wo.completion_photo_path) && (
         <div style={{ marginTop: 8, padding: '8px 10px', background: 'rgba(6,118,71,0.06)', border: '1px solid rgba(6,118,71,0.22)', borderRadius: 6 }}>

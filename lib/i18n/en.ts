@@ -4229,4 +4229,15 @@ export const en: Record<string, string> = {
 
   // === work-order vendor dispatch ===
   "admin.requests.woVendorEmailed": "· vendor emailed",
+
+  // === work-order vendor quotes ===
+  "admin.requests.woQuoteTitle": "Vendor quote",
+  "admin.requests.woQuoteOnEstimate": "on your estimate",
+  "admin.requests.woQuoteOver": "{amount} over estimate",
+  "admin.requests.woQuoteUnder": "{amount} under estimate",
+  "admin.requests.woQuoteApprove": "Approve",
+  "admin.requests.woQuoteReject": "Reject",
+  "admin.requests.woQuoteApproved": "Quote approved.",
+  "admin.requests.woQuoteRejected": "Quote rejected.",
+  "admin.requests.woQuoteApprovedNote": "✓ Approved at {amount}",
 }

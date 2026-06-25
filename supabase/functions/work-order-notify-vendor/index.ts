@@ -22,6 +22,7 @@ const corsHeaders = {
 
 const RESEND_API_KEY    = Deno.env.get('RESEND_API_KEY') ?? ''
 const NOTIFY_FROM_VOICE = Deno.env.get('NOTIFY_FROM_VOICE') ?? 'Residente <onboarding@resend.dev>'
+const APP_URL = Deno.env.get('APP_URL') ?? 'https://residente.io'
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') ?? ''
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 const ANON_KEY     = Deno.env.get('SUPABASE_ANON_KEY') ?? ''
@@ -66,7 +67,7 @@ Deno.serve(async (req) => {
     //    is already proven above).
     const { data: wo, error: woErr } = await admin
       .from('work_orders')
-      .select('id, community_id, request_id, vendor_id, title, description, priority, sla_due_at, estimated_cost')
+      .select('id, community_id, request_id, vendor_id, title, description, priority, sla_due_at, estimated_cost, quote_token')
       .eq('id', work_order_id)
       .single()
     if (woErr || !wo) return json({ error: 'Work order not found' }, 404)
@@ -114,6 +115,7 @@ Deno.serve(async (req) => {
       estimatedCost: wo.estimated_cost != null ? Number(wo.estimated_cost) : null,
       boardName: String(callerProfile.full_name || ''),
       boardEmail: String(callerProfile.email || ''),
+      quoteUrl: wo.quote_token ? `${APP_URL}/wo-quote/${wo.quote_token}` : '',
     })
     const sendRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -148,7 +150,7 @@ function fmtDate(iso: string): string {
 function vendorEmailHtml(a: {
   vendorName: string; communityName: string; title: string; description: string;
   location: string; priority: string; slaDueAt: string; estimatedCost: number | null;
-  boardName: string; boardEmail: string;
+  boardName: string; boardEmail: string; quoteUrl: string;
 }): string {
   const row = (label: string, value: string) => value
     ? `<tr><td style="padding:6px 0;color:#8a8e9c;font-size:12px;width:120px;vertical-align:top;">${escapeHtml(label)}</td><td style="padding:6px 0;color:#1F2233;font-size:13px;font-weight:600;">${value}</td></tr>`
@@ -171,6 +173,7 @@ function vendorEmailHtml(a: {
           ${row('Est. budget', escapeHtml(budget))}
         </table>
       </div>
+      ${a.quoteUrl ? `<p style="margin:0 0 18px;"><a href="${a.quoteUrl}" style="display:inline-block;background:#E14909;color:white;padding:11px 22px;border-radius:8px;text-decoration:none;font-weight:600;">Submit your quote</a></p>` : ''}
       ${contact ? `<p style="margin:0 0 22px;font-size:13px;">Questions? Contact ${escapeHtml(contact)} — or just reply to this email.</p>` : ''}
       <p style="font-size:12px;color:#8a8e9c;margin-top:28px;">You're receiving this because ${escapeHtml(a.communityName)} listed you as a vendor on Residente and assigned you this job.</p>
     </div>
