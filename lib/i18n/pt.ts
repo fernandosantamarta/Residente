@@ -252,6 +252,7 @@ export const pt: Record<string, string> = {
   "documents.rulesHeroTitlePre": "Regras",
   "documents.ruleSingular": "regra",
   "documents.rulesSearchPlaceholder": "Buscar regras e políticas…",
+  "documents.ruleViewCategory": "Ver tudo nesta categoria",
   "documents.sectionDescArchitectural": "Alterações externas, pintura e aprovações.",
   "documents.sectionDescCount": "{count} {rules} nesta seção.",
   "documents.sectionDescFire": "Churrasqueiras, fogueiras e segurança contra incêndio.",

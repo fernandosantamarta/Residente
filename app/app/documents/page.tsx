@@ -207,6 +207,16 @@ export default function EasyDocs() {
   const allCategories = usingDemoRules ? DEMO_RULE_SECTIONS : rawCategories
   const [ruleSearch, setRuleSearch] = useState('')
   const [activeCategory, setActiveCategory] = useState<string>('all')
+  // Pressing Enter in the rules search jumps straight to the best matching rule
+  // in a popup (instead of leaving you to hunt through the category cards).
+  const [ruleDetail, setRuleDetail] = useState<any | null>(null)
+  const openTopRuleMatch = () => {
+    const q = ruleSearch.trim().toLowerCase()
+    if (!q) return
+    const hit = rulesList.find(r =>
+      `${r.title || ''} ${r.body || ''} ${(r.section || 'General')}`.toLowerCase().includes(q))
+    if (hit) setRuleDetail(hit)
+  }
   const [chipPage, setChipPage] = useState(0)   // category-chip carousel page
   // No auto-scroll: the rules now render right under the category carousel
   // (replacing the cards), so scrolling into view just caused a jarring jump.
@@ -364,6 +374,7 @@ export default function EasyDocs() {
                 type="search"
                 value={ruleSearch}
                 onChange={e => setRuleSearch(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); openTopRuleMatch() } }}
                 placeholder={t('documents.rulesSearchPlaceholder')}
               />
             </div>
@@ -596,6 +607,7 @@ export default function EasyDocs() {
                 type="search"
                 value={docSearch}
                 onChange={e => setDocSearch(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); const d = docFiltered[0]; if (d) setDocDetail({ title: d.title, category: d.category, date: d.uploaded_at, doc: d }) } }}
                 placeholder={t('documents.docsSearchPlaceholder')}
               />
             </div>
@@ -843,6 +855,30 @@ export default function EasyDocs() {
             <p className="rd-detail-foot-note">
               {t('documents.boardPublishedNote')}
             </p>
+          )}
+        </DetailDialog>
+      )}
+
+      {/* A single rule — opened by pressing Enter in the rules search. */}
+      {ruleDetail && (
+        <DetailDialog
+          eyebrow={(ruleDetail.section || '').trim() || t('documents.generalCategory')}
+          title={ruleDetail.title}
+          onClose={() => setRuleDetail(null)}
+          footer={
+            <button type="button" className="ven-cta-primary"
+              onClick={() => { const s = (ruleDetail.section || '').trim(); setRuleDetail(null); setTab('rules'); setActiveCategory(s || 'all') }}>
+              {t('documents.ruleViewCategory')}
+            </button>
+          }
+        >
+          {ruleDetail.fine != null && Number(ruleDetail.fine) > 0 && (
+            <div style={{ marginBottom: 12 }}>
+              <span className="rb-rule-fine">{t('documents.fineLabel', { amount: fmtMoney(ruleDetail.fine) })}</span>
+            </div>
+          )}
+          {ruleDetail.body && (
+            <p style={{ fontSize: 14.5, lineHeight: 1.65, whiteSpace: 'pre-wrap', margin: 0, color: 'var(--text)' }}>{ruleDetail.body}</p>
           )}
         </DetailDialog>
       )}

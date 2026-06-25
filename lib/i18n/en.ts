@@ -260,6 +260,7 @@ export const en: Record<string, string> = {
   "documents.rulesHeroTitlePre": "Rules",
   "documents.ruleSingular": "rule",
   "documents.rulesSearchPlaceholder": "Search rules…",
+  "documents.ruleViewCategory": "See all in this category",
   "documents.sectionDescArchitectural": "Exterior changes, paint, and approvals.",
   "documents.sectionDescCount": "{count} {rules} in this section.",
   "documents.sectionDescFire": "Grills, fire pits, and burn safety.",
