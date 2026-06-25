@@ -81,3 +81,30 @@ begin
     where id = p_community;
 end $$;
 grant execute on function public.platform_set_ai_cap(uuid, int) to authenticated;
+
+-- ---------- PLATFORM: AI usage broken down by FEATURE (operator/owner only) ----------
+-- "Where is AI being used most" — one row per (function, document kind): roster,
+-- budget, insurance, rules, categorize (records filing), minutes, violation photos.
+-- This-month + lifetime spend/calls. Ordered by this month's spend, highest first.
+drop function if exists public.platform_ai_usage_by_kind();
+create or replace function public.platform_ai_usage_by_kind()
+returns table (
+  fn text, kind text,
+  month_cost_cents numeric, month_calls bigint,
+  total_cost_cents numeric, total_calls bigint
+) language plpgsql stable security definer as $$
+begin
+  if not public.is_platform_owner(auth.uid()) then
+    raise exception 'not a platform owner';
+  end if;
+  return query
+    select u.fn, coalesce(u.kind, '') as kind,
+      coalesce(sum(u.cost_cents) filter (where u.created_at >= date_trunc('month', now())), 0),
+      coalesce(count(*) filter (where u.created_at >= date_trunc('month', now())), 0),
+      coalesce(sum(u.cost_cents), 0),
+      count(*)
+    from public.ev_ai_usage u
+    group by u.fn, coalesce(u.kind, '')
+    order by 3 desc nulls last;
+end $$;
+grant execute on function public.platform_ai_usage_by_kind() to authenticated;

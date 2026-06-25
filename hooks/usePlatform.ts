@@ -48,6 +48,13 @@ export type PlatformAiUsage = {
   total_cost_cents: number; total_calls: number
   last_used_at: string | null
 }
+// "Where is AI used most" — one row per (function, document kind): roster, budget,
+// insurance, rules, categorize, minutes, violation. From platform_ai_usage_by_kind().
+export type PlatformAiUsageByKind = {
+  fn: string; kind: string
+  month_cost_cents: number; month_calls: number
+  total_cost_cents: number; total_calls: number
+}
 
 // Lightweight boolean — is the signed-in user a Residente platform operator?
 // Used to conditionally show the Platform Console link. Returns null while loading.
@@ -105,6 +112,7 @@ export function usePlatformConsole() {
   const [myRole, setMyRole] = useState<OperatorRole | null>(null)
   const [myRoles, setMyRoles] = useState<OperatorRole[]>([])
   const [aiUsage, setAiUsage] = useState<PlatformAiUsage[]>([])
+  const [aiByKind, setAiByKind] = useState<PlatformAiUsageByKind[]>([])
   const [loading, setLoading] = useState(true)
 
   // Only the FIRST load shows the loading shell; every reload after a
@@ -155,8 +163,10 @@ export function usePlatformConsole() {
       if (me?.role === 'owner') {
         const { data: ai } = await supabase.rpc('platform_ai_usage')
         setAiUsage((ai ?? []) as PlatformAiUsage[])
+        const { data: byKind } = await supabase.rpc('platform_ai_usage_by_kind')
+        setAiByKind((byKind ?? []) as PlatformAiUsageByKind[])
       } else {
-        setAiUsage([])
+        setAiUsage([]); setAiByKind([])
       }
     } finally {
       loadedOnce.current = true
@@ -302,7 +312,7 @@ export function usePlatformConsole() {
   }, [load])
 
   return {
-    isAdmin, myRole, myRoles, communities, requests, operators, audit, aiUsage, loading, reload: load,
+    isAdmin, myRole, myRoles, communities, requests, operators, audit, aiUsage, aiByKind, loading, reload: load,
     setRequestStatus, enterCommunity, addOperator, removeOperator, setOperatorRole,
     setOperatorExtraRoles, removeCommunity, fetchResidents, removeResident, transferOwnership, setAiCap,
   }

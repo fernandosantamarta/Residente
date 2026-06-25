@@ -79,6 +79,8 @@ export default function Residents() {
   const [transfers, setTransfers] = useState([]) // home_transfers for this community (admin visibility)
   const [rosterPage, setRosterPage] = useState(0)
   const ROSTER_SIZE = 12
+  const [reviewPage, setReviewPage] = useState(0) // paginates the import-review table
+  const REVIEW_SIZE = 25
   const [status, setStatus] = useState('loading') // loading | ready | none | error
   const [error, setError] = useState('')
   const [pending, setPending] = useState(null) // parsed CSV / pasted rows awaiting confirm
@@ -742,41 +744,54 @@ export default function Residents() {
                     <div className="sub">{t('admin.residents.reviewNote')}</div>
                   </div>
                 </div>
-                <div style={{ overflowX: 'auto' }}>
-                  <table className="tbl" style={{ minWidth: 640 }}>
-                    <thead>
-                      <tr>
-                        <th>{t('admin.residents.colOwner')}</th>
-                        <th>{t('admin.residents.colUnit')}</th>
-                        <th>{t('admin.residents.colEmail')}</th>
-                        <th>{t('admin.residents.colPhone')}</th>
-                        <th>{t('admin.residents.colBalance')}</th>
-                        <th className="act"></th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pending.map((p, i) => (
-                        <tr className="tr" key={p._k}>
-                          <td><input className="admin-input" style={{ minWidth: 150 }} value={p.full_name || ''}
-                            onChange={e => editPending(p._k, 'full_name', e.target.value)} /></td>
-                          <td><input className="admin-input" style={{ minWidth: 80 }} value={p.unit_number || ''}
-                            onChange={e => editPending(p._k, 'unit_number', e.target.value)} /></td>
-                          <td><input className="admin-input" type="email" style={{ minWidth: 170 }} value={p.email || ''}
-                            onChange={e => editPending(p._k, 'email', e.target.value)} /></td>
-                          <td><input className="admin-input" style={{ minWidth: 120 }} value={p.phone || ''}
-                            onChange={e => editPending(p._k, 'phone', e.target.value)} /></td>
-                          <td><input className="admin-input" inputMode="decimal" placeholder={t('admin.residents.phBalance')}
-                            style={{ minWidth: 90, textAlign: 'right' }} value={p._balText || ''}
-                            onChange={e => editPendingBal(p._k, e.target.value)} /></td>
-                          <td className="act">
-                            <button type="button" className="import-del" onClick={() => removePending(p._k)}
-                              aria-label={t('admin.residents.ariaRemovePending', { row: String(i + 1) })}>&times;</button>
-                          </td>
+                {(() => {
+                  const pageCount = Math.ceil(pending.length / REVIEW_SIZE)
+                  const page = Math.min(reviewPage, Math.max(0, pageCount - 1))
+                  const pagedPending = pending.slice(page * REVIEW_SIZE, (page + 1) * REVIEW_SIZE)
+                  return (
+                  <>
+                  <div style={{ overflowX: 'auto' }}>
+                    <table className="tbl" style={{ minWidth: 640 }}>
+                      <thead>
+                        <tr>
+                          <th>{t('admin.residents.colOwner')}</th>
+                          <th>{t('admin.residents.colUnit')}</th>
+                          <th>{t('admin.residents.colEmail')}</th>
+                          <th>{t('admin.residents.colPhone')}</th>
+                          <th>{t('admin.residents.colBalance')}</th>
+                          <th className="act"></th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody>
+                        {pagedPending.map((p, i) => {
+                          const gi = page * REVIEW_SIZE + i
+                          return (
+                          <tr className="tr" key={p._k}>
+                            <td><input className="admin-input" style={{ minWidth: 150 }} value={p.full_name || ''}
+                              onChange={e => editPending(p._k, 'full_name', e.target.value)} /></td>
+                            <td><input className="admin-input" style={{ minWidth: 80 }} value={p.unit_number || ''}
+                              onChange={e => editPending(p._k, 'unit_number', e.target.value)} /></td>
+                            <td><input className="admin-input" type="email" style={{ minWidth: 170 }} value={p.email || ''}
+                              onChange={e => editPending(p._k, 'email', e.target.value)} /></td>
+                            <td><input className="admin-input" style={{ minWidth: 120 }} value={p.phone || ''}
+                              onChange={e => editPending(p._k, 'phone', e.target.value)} /></td>
+                            <td><input className="admin-input" inputMode="decimal" placeholder={t('admin.residents.phBalance')}
+                              style={{ minWidth: 90, textAlign: 'right' }} value={p._balText || ''}
+                              onChange={e => editPendingBal(p._k, e.target.value)} /></td>
+                            <td className="act">
+                              <button type="button" className="import-del" onClick={() => removePending(p._k)}
+                                aria-label={t('admin.residents.ariaRemovePending', { row: String(gi + 1) })}>&times;</button>
+                            </td>
+                          </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {pageCount > 1 && <Pager page={page} pageCount={pageCount} onPage={setReviewPage} />}
+                  </>
+                  )
+                })()}
               </div>
               <div className="res-import-bar">
                 <span>

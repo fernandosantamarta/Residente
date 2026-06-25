@@ -93,6 +93,19 @@ const communityMonthlyCents = (c: { plan: string | null; home_count: number | nu
 const fmtMoney = (cents: number) => `$${Math.round(cents / 100).toLocaleString('en-US')}`
 // AI costs are small (cents to low dollars), so show two decimals here.
 const fmtCents = (cents: number) => `$${(Number(cents || 0) / 100).toFixed(2)}`
+// Friendly label for each AI feature (function + document kind) — drives the
+// "where is AI used most" breakdown. Keyed `${fn}|${kind}`.
+const AI_FEATURE_LABEL: Record<string, string> = {
+  'extract-roster|roster': 'Owner roster & balances',
+  'extract-doc|budget': 'Budgets',
+  'extract-doc|insurance': 'Insurance policies',
+  'extract-setup|rules': 'Governing-doc rules',
+  'extract-doc|categorize': 'Records filing',
+  'extract-doc|minutes': 'Meeting minutes',
+  'extract-doc|violation': 'Violation photos',
+}
+const aiFeatureLabel = (fn: string, kind: string) =>
+  AI_FEATURE_LABEL[`${fn}|${kind}`] || kind || fn || 'Other'
 
 // 'owner' in the DB and "Owner" in the UI — the role that manages the team.
 const ROLES: { key: OperatorRole; label: string; blurb: string }[] = [
@@ -466,7 +479,7 @@ function CapCell({ row, onSave }: { row: PlatformAiUsage; onSave: (cents: number
 
 export default function PlatformConsole() {
   const {
-    isAdmin, myRole, myRoles, communities, requests, operators, audit, aiUsage, loading, reload,
+    isAdmin, myRole, myRoles, communities, requests, operators, audit, aiUsage, aiByKind, loading, reload,
     setRequestStatus, enterCommunity, addOperator, removeOperator, setOperatorRole,
     setOperatorExtraRoles, removeCommunity, fetchResidents, removeResident, transferOwnership, setAiCap,
   } = usePlatformConsole()
@@ -485,6 +498,7 @@ export default function PlatformConsole() {
   const OVERVIEW_PREVIEW = 5    // shorter preview of those lists in the Overview
   const [commPage, setCommPage] = useState(1)
   const [subsPage, setSubsPage] = useState(1)
+  const [aiPage, setAiPage] = useState(1)
   const [supportPage, setSupportPage] = useState(1)
   const [selectedReqId, setSelectedReqId] = useState<string | null>(null)
   // Operator → community "new message" composer.
@@ -1148,6 +1162,11 @@ export default function PlatformConsole() {
         const monthCalls = aiUsage.reduce((s, r) => s + (Number(r.month_calls) || 0), 0)
         const activeCount = aiUsage.filter(r => (Number(r.month_calls) || 0) > 0).length
         const offCount = aiUsage.filter(r => (Number(r.cap_cents) || 0) <= 0).length
+        const kindMonthTotal = aiByKind.reduce((s, r) => s + (Number(r.month_cost_cents) || 0), 0)
+        // Paginate the per-community table so a large roster of communities stays readable.
+        const AI_SIZE = LIST_PAGE_SIZE
+        const aiPageC = Math.min(aiPage, Math.max(1, Math.ceil(aiUsage.length / AI_SIZE)))
+        const pagedAi = aiUsage.slice((aiPageC - 1) * AI_SIZE, aiPageC * AI_SIZE)
         return (
         <section style={card}>
           <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
@@ -1172,11 +1191,37 @@ export default function PlatformConsole() {
             ))}
           </div>
 
+          {/* Where AI is used — spend by document type this month, highest first.
+              Answers "what are they spending AI on" at a glance. */}
+          {aiByKind.length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6, color: C.muted, fontWeight: 700, marginBottom: 10 }}>Where AI is used — this month</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {aiByKind.map(r => {
+                  const spent = Number(r.month_cost_cents) || 0
+                  const pct = kindMonthTotal > 0 ? Math.round((spent / kindMonthTotal) * 100) : 0
+                  return (
+                    <div key={`${r.fn}|${r.kind}`} style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                      <div style={{ width: 170, flexShrink: 0, fontSize: 13, fontWeight: 600 }}>{aiFeatureLabel(r.fn, r.kind)}</div>
+                      <div style={{ flex: 1, minWidth: 60, height: 8, background: C.bg, borderRadius: 4, overflow: 'hidden', border: `1px solid ${C.border}` }}>
+                        <div style={{ height: '100%', width: `${pct}%`, background: C.accent }} />
+                      </div>
+                      <div style={{ width: 168, flexShrink: 0, textAlign: 'right', fontSize: 12.5, color: C.muted }}>
+                        <span style={{ color: C.text, fontWeight: 700 }}>{fmtCents(spent)}</span> · {r.month_calls} call{Number(r.month_calls) === 1 ? '' : 's'} · {pct}%
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
           {aiUsage.length === 0 ? (
             <div style={{ color: C.muted, fontSize: 13, padding: '12px 0' }}>
               No AI usage yet. (If this stays empty after communities use the readers, run <code>supabase/ai-usage.sql</code>.)
             </div>
           ) : (
+          <>
           <div style={{ overflowX: 'auto' }}>
             <table className="plat-table" style={{ width: '100%', borderCollapse: 'collapse', minWidth: 760 }}>
               <thead>
@@ -1190,7 +1235,7 @@ export default function PlatformConsole() {
                 </tr>
               </thead>
               <tbody>
-                {aiUsage.map(r => {
+                {pagedAi.map(r => {
                   const cap = Number(r.cap_cents) || 0
                   const spent = Number(r.month_cost_cents) || 0
                   const pct = cap > 0 ? Math.min(999, Math.round((spent / cap) * 100)) : null
@@ -1221,6 +1266,8 @@ export default function PlatformConsole() {
               </tbody>
             </table>
           </div>
+          <Paginator page={aiPageC} pageSize={AI_SIZE} total={aiUsage.length} onPage={setAiPage} />
+          </>
           )}
         </section>
         )
