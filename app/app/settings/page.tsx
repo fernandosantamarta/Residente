@@ -282,6 +282,22 @@ export default function Settings() {
             <HomeTransferPanel />
           </SectionCard>
 
+          {/* Estoppel — a sale/refinance payoff document, so it lives with the
+              other "selling my home" tools (Home Vault + Transfer). The plain
+              description demystifies the word; the row opens the existing page. */}
+          <SectionCard title={t('settings.secEstoppel')}>
+            <Link href="/app/estoppel" className="set-row">
+              <span className="set-row-icon"><IconShield /></span>
+              <span className="set-row-body">
+                <span className="set-row-title">{t('settings.rowEstoppel')}</span>
+                <span className="set-row-desc">{t('settings.rowEstoppelDesc')}</span>
+              </span>
+              <svg className="set-row-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <polyline points="9 18 15 12 9 6"/>
+              </svg>
+            </Link>
+          </SectionCard>
+
           <button className="set-logout" onClick={() => signOut()}>
             <span className="set-logout-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
