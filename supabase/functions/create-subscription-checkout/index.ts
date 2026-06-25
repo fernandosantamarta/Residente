@@ -34,10 +34,10 @@ const json = (body: unknown, status = 200) =>
 
 // Pricing bands — mirror of lib/plan.ts. Keep in sync.
 function bandForHomes(homes: number): { plan: string; perHomeCents: number; flatCents: number; label: string } {
-  if (homes <= 25)  return { plan: 'free',       perHomeCents: 0,    flatCents: 2500, label: 'Starter' }
-  if (homes <= 100) return { plan: 'pro',        perHomeCents: 200,  flatCents: 0,    label: 'Pro' }
-  if (homes <= 500) return { plan: 'premium',    perHomeCents: 400,  flatCents: 0,    label: 'Premium' }
-  return              { plan: 'enterprise', perHomeCents: 800,  flatCents: 0,    label: 'Enterprise' }
+  if (homes <= 25)  return { plan: 'free',       perHomeCents: 0,    flatCents: 2500, label: 'Cottage' }
+  if (homes <= 100) return { plan: 'pro',        perHomeCents: 200,  flatCents: 0,    label: 'Village' }
+  if (homes <= 500) return { plan: 'premium',    perHomeCents: 400,  flatCents: 0,    label: 'Town' }
+  return              { plan: 'enterprise', perHomeCents: 600,  flatCents: 0,    label: 'City' }
 }
 
 Deno.serve(async (req) => {

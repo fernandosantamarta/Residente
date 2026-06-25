@@ -64,7 +64,7 @@ export default function AdminBilling() {
   const homes = community?.home_count ?? community?.unit_count ?? 0
   const sub = community?.subscription_status
   const plan = community?.plan
-  const isPaidPlan = Boolean(plan)   // every tier is paid now (Starter is the flat $25/mo tier)
+  const isPaidPlan = Boolean(plan)   // every tier is paid now (Cottage is the flat $25/mo tier)
   const pastDue = sub === 'past_due'
   const onTrial = sub === 'trial'
   // Show the "Subscribe / add payment" button whenever they aren't active yet —
@@ -140,15 +140,15 @@ export default function AdminBilling() {
 
 // In-app subscription management — cancel (at period end) / resume / change
 // plan. Talks to the manage-subscription edge fn; no Stripe portal redirect.
-const TIER_RATE: Record<string, number> = { free: 0, pro: 200, premium: 400, enterprise: 800 }
+const TIER_RATE: Record<string, number> = { free: 0, pro: 200, premium: 400, enterprise: 600 }
 type TierKey = 'free' | 'pro' | 'premium' | 'enterprise'
 // Plan boxes for the picker — all four tiers, like the landing Pricing section.
 // Selecting Free is a downgrade = cancel the paid subscription at period end.
 const PLAN_CARDS: { key: TierKey; name: string; per: number; band: string; popular?: boolean }[] = [
   { key: 'free',       name: 'Free',       per: 0,    band: 'Up to 25 homes' },
-  { key: 'pro',        name: 'Pro',        per: 200,  band: '26–100 homes', popular: true },
-  { key: 'premium',    name: 'Premium',    per: 400,  band: '101–500 homes' },
-  { key: 'enterprise', name: 'Enterprise', per: 800,  band: '500+ homes' },
+  { key: 'pro',        name: 'Village',    per: 200,  band: '26–100 homes', popular: true },
+  { key: 'premium',    name: 'Town',       per: 400,  band: '101–500 homes' },
+  { key: 'enterprise', name: 'City',       per: 600,  band: '500+ homes' },
 ]
 // Optional add-ons — ONLY the ones actually built (each is purchasable + billed).
 // Keep in sync with ADDONS in supabase/functions/manage-subscription. API access &
