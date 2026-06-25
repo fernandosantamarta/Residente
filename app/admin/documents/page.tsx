@@ -95,6 +95,11 @@ const RULE_EMPTY = { section: '', title: '', body: '', fine: '' }
 // compliance signal producer.
 const DOC_EMPTY: { title: string; category: DocCategory } = { title: '', category: 'Governing Documents' }
 
+// A doc filed under these categories carries rules we can pull into the rule book.
+const RULE_BEARING_CATEGORIES = ['Governing Documents', 'Rules & Policies']
+const isRuleBearing = (cat?: string) => RULE_BEARING_CATEGORIES.includes(cat || '')
+const isPdfFile = (f?: File | null) => !!f && (f.type === 'application/pdf' || /\.pdf$/i.test(f.name))
+
 export default function AdminEasyDocs() {
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
@@ -268,6 +273,9 @@ export default function AdminEasyDocs() {
   // board picks the category by hand (no hint shown).
   const [docCatBusy, setDocCatBusy] = useState(false)
   const [docCatSuggested, setDocCatSuggested] = useState<string | null>(null)
+  // When the uploaded doc is a rule-bearing PDF, offer to also pull its rules into
+  // the rule book in the same action (the bridge between the archive and Rules).
+  const [docExtractRules, setDocExtractRules] = useState(false)
   const [govFile, setGovFile] = useState(null)
   const [docSaving, setDocSaving] = useState(false)
   const [docSuccessMsg, setDocSuccessMsg] = useState('')
@@ -335,6 +343,8 @@ export default function AdminEasyDocs() {
     if (!docFile) { setDocError('Choose a file to upload'); return }
     if (!docForm.title.trim()) { setDocError('Give the document a title'); return }
     setDocSaving(true); setDocError('')
+    // Capture before the form resets — if asked, we extract rules after filing.
+    const fileForRules = (docExtractRules && isRuleBearing(docForm.category) && isPdfFile(docFile)) ? docFile : null
     try {
       const ext = docFile.name.includes('.') ? docFile.name.split('.').pop().toLowerCase() : 'bin'
       const path = `${communityId}/${crypto.randomUUID()}.${ext}`
@@ -355,12 +365,24 @@ export default function AdminEasyDocs() {
         throw error
       }
       setDocRows(rs => [data, ...rs])
+      // Bridge to the rule book: the doc is now filed; if it's a rule-bearing
+      // governing doc and the board opted in, also extract its rules and stage
+      // them on the Rules tab for review. Best-effort — the file is already saved.
+      let stagedRules = 0
+      if (fileForRules) {
+        try {
+          const ex = await extractSetupFromPdf(fileForRules)
+          const rules = (ex?.rules || []).filter(r => r?.title && r.title.trim())
+          if (rules.length) { setPdfRules(rules); stagedRules = rules.length }
+        } catch { /* the document is already filed; rule extraction is a bonus */ }
+      }
       setDocForm(DOC_EMPTY)
       setDocFile(null)
-      setDocCatSuggested(null); setDocCatBusy(false)
+      setDocCatSuggested(null); setDocCatBusy(false); setDocExtractRules(false)
       if (docFileRef.current) docFileRef.current.value = ''
       setShowUpload(false)
-      setDocSuccessMsg(`Uploaded "${row.title}".`)
+      if (stagedRules) { setTab('rules'); setRuleSuccessMsg(t('admin.documents.rulesFromDocStaged', { count: String(stagedRules) })) }
+      else setDocSuccessMsg(`Uploaded "${row.title}".`)
 
       // Tell residents a new library document is available. Uploads through the
       // Voice tab already fire a 'document_uploaded' notice; the main Documents
@@ -966,17 +988,26 @@ export default function AdminEasyDocs() {
                         onChange={e => {
                           const file = e.target.files?.[0] || null
                           setDocFile(file)
-                          setDocCatSuggested(null)
+                          setDocCatSuggested(null); setDocExtractRules(false)
                           if (file) {
                             // AI auto-categorize: prefill the category Dropdown with a
-                            // suggestion the board can still change before saving.
+                            // suggestion the board can still change before saving. If it
+                            // reads as a rule-bearing governing PDF, pre-tick "also extract rules".
                             setDocCatBusy(true)
                             classifyDocCategory(file, [...DOC_CATEGORIES]).then(cat => {
-                              if (cat) { setDocField('category', cat); setDocCatSuggested(cat) }
+                              if (cat) { setDocField('category', cat); setDocCatSuggested(cat); if (isRuleBearing(cat) && isPdfFile(file)) setDocExtractRules(true) }
                             }).finally(() => setDocCatBusy(false))
                           }
                         }} />
                     </label>
+                    {/* Bridge: rule-bearing governing PDF → offer to also pull its
+                        rules into the rule book in the same upload. */}
+                    {isRuleBearing(docForm.category) && isPdfFile(docFile) && (
+                      <label className="admin-field" style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8 }}>
+                        <input type="checkbox" checked={docExtractRules} onChange={e => setDocExtractRules(e.target.checked)} style={{ marginTop: 3 }} />
+                        <span style={{ fontSize: 13 }}>{t('admin.documents.alsoExtractRules')}</span>
+                      </label>
+                    )}
                     {/* Bulk option — file many at once into the selected category. */}
                     <div className="adddoc-bulk">
                       <span className="adddoc-bulk-label">{t('admin.documents.bulkUploadHint')}</span>

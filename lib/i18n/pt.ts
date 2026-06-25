@@ -2114,6 +2114,8 @@ export const pt: Record<string, string> = {
   "admin.documents.rulesAdded": "Adicionada(s) {count} regra{suffix} ao livro de regulamentos.",
   "admin.documents.catReading": "Lendo…",
   "admin.documents.categoryAutoSuggested": "A IA classificou como {category} — altere abaixo se necessário.",
+  "admin.documents.alsoExtractRules": "Também extrair as regras deste documento para o seu livro de regulamentos",
+  "admin.documents.rulesFromDocStaged": "Arquivado — e encontradas {count} regras para revisar no seu livro de regulamentos abaixo.",
   "admin.documents.removeRuleAria": "Remover regra {row}",
   "admin.documents.ruleBookTitle": "Livro de regulamentos",
   "admin.documents.ruleFieldLabel": "Regra",

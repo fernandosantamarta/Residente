@@ -2114,6 +2114,8 @@ export const es: Record<string, string> = {
   "admin.documents.rulesAdded": "Se agregaron {count} regla{suffix} al libro de reglamentos.",
   "admin.documents.catReading": "Leyendo…",
   "admin.documents.categoryAutoSuggested": "La IA lo clasificó como {category} — cámbielo abajo si hace falta.",
+  "admin.documents.alsoExtractRules": "También extraer las reglas de este documento a su libro de reglamentos",
+  "admin.documents.rulesFromDocStaged": "Archivado — y se encontraron {count} reglas para revisar en su libro de reglamentos abajo.",
   "admin.documents.removeRuleAria": "Eliminar regla {row}",
   "admin.documents.ruleBookTitle": "Libro de reglamentos",
   "admin.documents.ruleFieldLabel": "Regla",

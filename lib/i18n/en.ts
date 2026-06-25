@@ -2165,6 +2165,8 @@ export const en: Record<string, string> = {
   "admin.documents.rulesAdded": "Added {count} rule{suffix} to the rule book.",
   "admin.documents.catReading": "Reading…",
   "admin.documents.categoryAutoSuggested": "AI filed this under {category} — change it below if needed.",
+  "admin.documents.alsoExtractRules": "Also pull the rules from this into your rule book",
+  "admin.documents.rulesFromDocStaged": "Filed — and found {count} rules to review in your rule book below.",
   "admin.documents.removeRuleAria": "Remove rule {row}",
   "admin.documents.ruleBookTitle": "Rule book",
   "admin.documents.ruleFieldLabel": "Rule",
