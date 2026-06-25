@@ -2262,23 +2262,6 @@
 }
 .etrack .search input::placeholder { color: var(--text-faint); }
 
-/* Admin Documents smart-search reuses the .search markup but lives outside the
-   .etrack toolbar, so it missed all the styling above — the SVG had no size and
-   rendered huge. Give it the same pill treatment, full-width in its centered box. */
-.easydocs-combined .search {
-  display: inline-flex; align-items: center; gap: 9px; width: 100%; box-sizing: border-box;
-  padding: 9px 15px; border-radius: 999px;
-  background: #FBF7F1; border: 1.5px solid rgba(199, 111, 69, 0.30);
-  transition: border-color 0.12s, background 0.12s;
-}
-.easydocs-combined .search:focus-within { border-color: #E14909; background: #fff; box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.12); }
-.easydocs-combined .search svg { width: 16px; height: 16px; color: #C76F45; flex-shrink: 0; }
-.easydocs-combined .search input {
-  border: none; background: none; outline: none; width: 100%;
-  font-family: inherit; font-size: 13.5px; color: var(--text);
-}
-.easydocs-combined .search input::placeholder { color: var(--text-faint); }
-
 /* Compact triage (priority + assignee) in the Contact reply manage-row. The
    dropdowns default to width:100% and would grow to fill the row — and push the
    assignee onto a second line — so pin them to small fixed widths, each label +

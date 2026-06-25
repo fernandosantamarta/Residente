@@ -621,53 +621,6 @@ export default function AdminEasyDocs() {
     <div className="easydocs-combined">
       <EasyDocsTabs active={tab} onSelect={setTab} />
 
-      {/* Unified smart search — one box across the rule book + document archive.
-          Click a rule to read it, or a document to open the file. */}
-      <div style={{ position: 'relative', maxWidth: 560, margin: '12px auto 4px', width: '100%' }}>
-        <div className="search">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="7" /><path d="m21 21-4.3-4.3" />
-          </svg>
-          <input value={globalSearch} onChange={e => setGlobalSearch(e.target.value)}
-            placeholder={t('documents.smartSearchPlaceholder')} aria-label={t('documents.smartSearchPlaceholder')} />
-          {globalSearch && (
-            <button type="button" onClick={() => setGlobalSearch('')} aria-label={t('documents.smartSearchClear')}
-              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9aa0ac', fontSize: 18, lineHeight: 1, padding: '0 4px' }}>×</button>
-          )}
-        </div>
-        {globalSearch.trim() && (
-          <div role="listbox" style={{ position: 'absolute', zIndex: 40, left: 0, right: 0, marginTop: 6, background: '#fff', border: '1px solid rgba(10,36,64,0.12)', borderRadius: 12, boxShadow: '0 14px 44px rgba(10,36,64,0.18)', maxHeight: 440, overflowY: 'auto', padding: 6 }}>
-            {globalResults.length === 0 ? (
-              <div style={{ padding: '16px 12px', color: '#6b6f7d', fontSize: 13.5 }}>{t('documents.smartSearchNoResults')}</div>
-            ) : globalResults.map((res, i) => (
-              <button key={`${res.type}-${i}`} type="button" role="option" onClick={() => onSearchResult(res)}
-                style={{ display: 'flex', gap: 10, alignItems: 'flex-start', width: '100%', textAlign: 'left', background: 'none', border: 'none', cursor: 'pointer', padding: '10px', borderRadius: 8 }}
-                onMouseEnter={e => (e.currentTarget.style.background = 'rgba(10,36,64,0.04)')}
-                onMouseLeave={e => (e.currentTarget.style.background = 'none')}>
-                <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 800, letterSpacing: 0.5, marginTop: 1,
-                  color: res.type === 'rule' ? '#6941C6' : '#0E7490', background: res.type === 'rule' ? 'rgba(105,65,198,0.12)' : 'rgba(14,116,144,0.12)', borderRadius: 5, padding: '3px 6px' }}>
-                  {res.type === 'rule' ? t('documents.smartSearchRule') : t('documents.smartSearchDoc')}
-                </span>
-                <span style={{ minWidth: 0 }}>
-                  <span style={{ display: 'block', fontWeight: 700, fontSize: 13.5, color: '#0A2440' }}>{res.title}</span>
-                  <span style={{ display: 'block', fontSize: 12, color: '#6b6f7d', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{res.snippet}</span>
-                </span>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {searchRuleDetail && (
-        <AdminModal title={searchRuleDetail.title || t('documents.smartSearchRule')}
-          sub={searchRuleDetail.section || 'General'}
-          onClose={() => setSearchRuleDetail(null)}>
-          <div style={{ whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.55, color: '#2a3340' }}>
-            {searchRuleDetail.body || '—'}
-          </div>
-        </AdminModal>
-      )}
-
       {/* ════════════════════════════════════════════════════════════════
           RULES SECTION
       ════════════════════════════════════════════════════════════════ */}
