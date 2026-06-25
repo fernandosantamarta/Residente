@@ -19,6 +19,7 @@ import {
   type BudgetCategoryRow, type ReserveComponentRow, type FinancialFilingRow, type FilingType,
 } from '@/lib/compliance/financials'
 import { fetchGlCurrentFyRevenue } from '@/lib/gl/liveRevenue'
+import { useAccountingAccess } from '@/hooks/useAccountingAccess'
 import { useT } from '@/lib/i18n'
 
 const withTimeout = (p: any, ms = 10000) =>
@@ -41,6 +42,7 @@ export default function FinancialsPage() {
   const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
+  const { enabled: acctEnabled } = useAccountingAccess()
   const [community, setCommunity] = useState<any>(null)
   const [budgets, setBudgets] = useState<BudgetCategoryRow[]>([])
   const [reserves, setReserves] = useState<ReserveComponentRow[]>([])
@@ -204,6 +206,19 @@ export default function FinancialsPage() {
     waived: t('admin.financials.statusWaived'),
   }
 
+  // Small "$49/mo add-on" lock tag shown beside the paid accounting features
+  // (bank reconciliation + CPA bundle) when the community isn't entitled — the
+  // row still links through to the upsell on those pages.
+  const LockTag = () => (
+    <span title={t('admin.nav.accountingLocked')} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, marginLeft: 8, fontSize: 11, fontWeight: 700, color: '#B54708', background: '#B5470814', borderRadius: 999, padding: '2px 8px', whiteSpace: 'nowrap' }}>
+      <svg width="10" height="10" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+        <path d="M5 7V5.1a3 3 0 0 1 6 0V7" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <rect x="3.4" y="7" width="9.2" height="6.6" rx="1.7" fill="currentColor" />
+      </svg>
+      {t('admin.accounting.upsellPrice')}
+    </span>
+  )
+
   return (
     <div className="admin-page cset">
       <ComplianceBackLink />
@@ -312,7 +327,7 @@ export default function FinancialsPage() {
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
                 </span>
                 <div className="wsrow-main">
-                  <div className="wsrow-title">{t('admin.financials.reconcileRowTitle')}</div>
+                  <div className="wsrow-title">{t('admin.financials.reconcileRowTitle')}{!acctEnabled && <LockTag />}</div>
                   <div className="wsrow-desc">{t('admin.financials.reconcileRowDesc')}</div>
                 </div>
                 <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
@@ -443,7 +458,7 @@ export default function FinancialsPage() {
                       )}
                     </span>
                     <div className="wsrow-main">
-                      <div className="wsrow-title">{d.label}</div>
+                      <div className="wsrow-title">{d.label}{d.type === 'cpa_bundle' && !acctEnabled && <LockTag />}</div>
                       <div className="wsrow-desc">{d.live ? t('admin.financials.liveStatement') : t('admin.financials.draftTemplate')}</div>
                     </div>
                     <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
