@@ -12,6 +12,7 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { BudgetCategories } from '../BudgetCategories'
 import { ExpensesLog } from '../community/ExpensesLog'
+import { AccountingSection } from './AccountingSection'
 import { useT } from '@/lib/i18n'
 
 const withTimeout = (p: any, ms = 10000) =>
@@ -243,6 +244,11 @@ export default function BudgetPage() {
 
           {/* Expenses log — manual dated spend entries. */}
           <ExpensesLog communityId={communityId!} />
+
+          {/* Accounting & bank reconciliation — the paid add-on workspace, now
+              consolidated here beside the ledger (was the standalone /admin/accounting
+              tab). Shows the upsell when the community isn't entitled. */}
+          <AccountingSection communityId={communityId} />
         </>
       )}
     </div>

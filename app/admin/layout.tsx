@@ -10,7 +10,6 @@ import { Dropdown } from '@/components/Dropdown'
 import { SectionScroll } from '@/components/SectionScroll'
 import { SiteFooterSlim } from '@/components/SiteFooter'
 import { useAuth } from '../providers'
-import { useAccountingAccess } from '@/hooks/useAccountingAccess'
 import { usePlatformAdmin, usePlatformRoles } from '@/hooks/usePlatform'
 import { usePermissions } from '@/hooks/usePermissions'
 import { useAwaitingMessages, useArcPending, usePendingApprovals } from '@/hooks/useAwaitingMessages'
@@ -29,14 +28,13 @@ import { AdminWelcome } from '@/components/AdminWelcome'
 //   Easy Voice     → Meetings, Roster, Board, Contact (EasyVoiceTabs)
 //   Easy Documents → Rules, Documents, Violations (EasyDocsTabs)
 // The admin-only setup section (Community) leads.
-type AdminNavItem = { href: string; label: string; match?: string[]; exact?: boolean; anyPerm?: Permission[]; requiresAccounting?: boolean }
+type AdminNavItem = { href: string; label: string; match?: string[]; exact?: boolean; anyPerm?: Permission[] }
 // `label` holds the i18n key (rendered with t()); badge logic keys off href.
 const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin',            label: 'admin.nav.overview', exact: true },
   { href: '/admin/community',  label: 'admin.nav.community', anyPerm: ['community.manage'] },
   { href: '/admin/compliance', label: 'admin.nav.compliance', anyPerm: ['compliance.manage', 'financials.view', 'payments.view', 'violations.manage'], match: ['/admin/estoppel', '/admin/collections', '/admin/structural', '/admin/financials', '/admin/governance', '/admin/enforcement', '/admin/meetings', '/admin/elections', '/admin/insurance', '/admin/contracts', '/admin/advisories'] },
-  { href: '/admin/budget',     label: 'admin.nav.budget', anyPerm: ['community.manage', 'financials.view'] },
-  { href: '/admin/accounting', label: 'admin.nav.accounting', anyPerm: ['financials.view'], requiresAccounting: true },
+  { href: '/admin/budget',     label: 'admin.nav.budget', anyPerm: ['community.manage', 'financials.view'], match: ['/admin/accounting'] },
   { href: '/admin/reports',    label: 'admin.nav.reports', anyPerm: ['financials.view', 'payments.view'] },
   { href: '/admin/residents',  label: 'admin.nav.easyTrack', anyPerm: ['residents.view', 'residents.manage'], match: ['/admin/vendor'] },
   { href: '/admin/board',      label: 'admin.nav.easyVoice', anyPerm: ['voice.manage', 'roles.manage'], match: ['/admin/voice', '/admin/requests', '/admin/roles', '/admin/arc'] },
@@ -221,11 +219,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
   // Visible nav items (perm-filtered) — shared by the desktop tab row and the
   // mobile section dropdown. activeNavHref drives the dropdown's current value.
-  const { enabled: acctAccess } = useAccountingAccess()
   const visibleNav = ADMIN_NAV
-    // The paid Accounting tab always shows (for anyone with financials.view), but
-    // when the community isn't entitled it carries a 🔒 and opens the upsell — so
-    // boards discover the add-on instead of it being invisible.
     .filter(item => !item.anyPerm || permLoading || canAny(item.anyPerm))
   const activeNavHref = (visibleNav.find(item => navActive(pathname, item)) || visibleNav[0])?.href || '/admin'
 
@@ -301,15 +295,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             className={`admin-nav-item${navActive(pathname, item) ? ' active' : ''}`}
           >
             {t(item.label)}
-            {item.requiresAccounting && !acctAccess && (
-              <span className="admin-nav-lock" title={t('admin.nav.accountingLocked')} aria-label="Locked"
-                style={{ marginLeft: 5, display: 'inline-flex', alignItems: 'center', verticalAlign: 'middle', opacity: 0.7 }}>
-                <svg width="11" height="11" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-                  <path d="M5 7V5.1a3 3 0 0 1 6 0V7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                  <rect x="3.4" y="7" width="9.2" height="6.6" rx="1.7" fill="currentColor" />
-                </svg>
-              </span>
-            )}
             {item.href === '/admin/board' && awaitingMsgs > 0 && (
               <span className="admin-nav-badge" title={t('admin.voiceBadgeTitle', { count: awaitingMsgs })}>
                 {awaitingMsgs}
