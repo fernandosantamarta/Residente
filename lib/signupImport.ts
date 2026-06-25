@@ -322,6 +322,89 @@ export async function extractInsuranceFromFile(file: File, subhint?: string): Pr
   } catch { return null }
 }
 
+// AI: classify a governing document into one official-records category. Sends
+// the canonical category list (DOC_CATEGORIES, passed by the caller) so the
+// suggestion is always one of the real categories. Returns the suggested category
+// string, or null if AI isn't configured / failed (caller keeps the default).
+export async function classifyDocCategory(file: File, categories: string[]): Promise<string | null> {
+  if (!hasSupabase || !supabase || !file) return null
+  try {
+    const file_base64 = await fileToBase64(file)
+    const media_type = file.type || (/\.pdf$/i.test(file.name) ? 'application/pdf' : 'image/png')
+    const { data, error } = await supabase.functions.invoke('extract-doc', { body: { file_base64, media_type, kind: 'categorize', categories } })
+    if (error || !data?.ok) return null
+    const cat = data?.data?.category ? String(data.data.category) : ''
+    return cat && categories.includes(cat) ? cat : null
+  } catch { return null }
+}
+
+export interface ExtractedMinutesMotion {
+  motion: string; moved_by?: string; seconded_by?: string
+  votes_for?: number; votes_against?: number; votes_abstain?: number; outcome?: string
+}
+export interface ExtractedMinutesAction { action: string; owner?: string; due?: string }
+export interface ExtractedMinutes { motions: ExtractedMinutesMotion[]; action_items: ExtractedMinutesAction[] }
+
+// AI: read a meeting-minutes PDF/photo → motions, vote tallies, action items,
+// for the board to review before saving. Null if AI isn't configured / failed.
+export async function extractMinutesFromFile(file: File): Promise<ExtractedMinutes | null> {
+  if (!hasSupabase || !supabase || !file) return null
+  try {
+    const file_base64 = await fileToBase64(file)
+    const media_type = file.type || (/\.pdf$/i.test(file.name) ? 'application/pdf' : 'image/png')
+    const { data, error } = await supabase.functions.invoke('extract-doc', { body: { file_base64, media_type, kind: 'minutes' } })
+    if (error || !data?.ok || !data?.data) return null
+    const d = data.data as any
+    const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
+    const str = (v: any) => (v == null ? undefined : String(v).trim() || undefined)
+    const motions: ExtractedMinutesMotion[] = (Array.isArray(d.motions) ? d.motions : [])
+      .map((m: any) => ({
+        motion: String(m?.motion || '').trim(),
+        moved_by: str(m?.moved_by), seconded_by: str(m?.seconded_by),
+        votes_for: num(m?.votes_for), votes_against: num(m?.votes_against), votes_abstain: num(m?.votes_abstain),
+        outcome: str(m?.outcome),
+      }))
+      .filter((m: ExtractedMinutesMotion) => m.motion)
+    const action_items: ExtractedMinutesAction[] = (Array.isArray(d.action_items) ? d.action_items : [])
+      .map((a: any) => ({ action: String(a?.action || '').trim(), owner: str(a?.owner), due: str(a?.due) }))
+      .filter((a: ExtractedMinutesAction) => a.action)
+    return { motions, action_items }
+  } catch { return null }
+}
+
+export interface ExtractedViolation {
+  observed_text: string
+  suggested_rule_id: string | null
+  suggested_rule_title: string | null
+  draft_description: string
+  suggested_fine: number | null
+}
+
+// AI: read a violation photo, match it to a community rule, and draft the notice.
+// The caller passes the rule book (id/section/title/fine) as matching context.
+// Null if AI isn't configured / failed (caller fills the form by hand).
+export async function extractViolationFromPhoto(
+  file: File,
+  rules: { id: string; section?: string | null; title?: string | null; fine?: number | null }[],
+): Promise<ExtractedViolation | null> {
+  if (!hasSupabase || !supabase || !file) return null
+  try {
+    const file_base64 = await fileToBase64(file)
+    const media_type = file.type || 'image/png'
+    const context_rules = (rules || []).map(r => ({ id: r.id, section: r.section || undefined, title: r.title || undefined, fine: typeof r.fine === 'number' ? r.fine : undefined }))
+    const { data, error } = await supabase.functions.invoke('extract-doc', { body: { file_base64, media_type, kind: 'violation', context_rules } })
+    if (error || !data?.ok || !data?.data) return null
+    const d = data.data as any
+    return {
+      observed_text: String(d.observed_text || '').trim(),
+      suggested_rule_id: d.suggested_rule_id ? String(d.suggested_rule_id) : null,
+      suggested_rule_title: d.suggested_rule_title ? String(d.suggested_rule_title).trim() : null,
+      draft_description: String(d.draft_description || '').trim(),
+      suggested_fine: typeof d.suggested_fine === 'number' && Number.isFinite(d.suggested_fine) ? d.suggested_fine : null,
+    }
+  } catch { return null }
+}
+
 // Apply extracted billing settings + rules to the provisioned community.
 // Best-effort and field-isolated. Returns the number of rules written.
 export async function applyExtractedSetup(communityId: string, ex: ExtractedSetup): Promise<{ settings: boolean; rules: number }> {

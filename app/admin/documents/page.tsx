@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef, ChangeEvent } from 'react'
 import { AdminModal } from '../AdminModal'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { extractSetupFromPdf } from '@/lib/signupImport'
+import { extractSetupFromPdf, classifyDocCategory } from '@/lib/signupImport'
 import { useT } from '@/lib/i18n'
 import {
   addStoredCategory,
@@ -263,6 +263,11 @@ export default function AdminEasyDocs() {
   const [docError, setDocError] = useState('')
   const [docForm, setDocForm] = useState(DOC_EMPTY)
   const [docFile, setDocFile] = useState(null)
+  // AI auto-categorize on file pick (single-document modal). Inert until
+  // ANTHROPIC_API_KEY is set — classifyDocCategory returns null and the
+  // board picks the category by hand (no hint shown).
+  const [docCatBusy, setDocCatBusy] = useState(false)
+  const [docCatSuggested, setDocCatSuggested] = useState<string | null>(null)
   const [govFile, setGovFile] = useState(null)
   const [docSaving, setDocSaving] = useState(false)
   const [docSuccessMsg, setDocSuccessMsg] = useState('')
@@ -352,6 +357,7 @@ export default function AdminEasyDocs() {
       setDocRows(rs => [data, ...rs])
       setDocForm(DOC_EMPTY)
       setDocFile(null)
+      setDocCatSuggested(null); setDocCatBusy(false)
       if (docFileRef.current) docFileRef.current.value = ''
       setShowUpload(false)
       setDocSuccessMsg(`Uploaded "${row.title}".`)
@@ -932,7 +938,7 @@ export default function AdminEasyDocs() {
               {showUpload && (
                 <AdminModal title={t('admin.documents.addDocModalTitle')}
                   sub={t('admin.documents.addDocModalSub')}
-                  onClose={() => setShowUpload(false)}>
+                  onClose={() => { setShowUpload(false); setDocCatSuggested(null); setDocCatBusy(false) }}>
                   <form className="admin-form" onSubmit={uploadDoc}>
                     <label className="admin-field">
                       <span className="admin-field-label">{t('admin.documents.titleFieldLabel')}</span>
@@ -943,15 +949,33 @@ export default function AdminEasyDocs() {
                       <span className="admin-field-label">{t('admin.documents.categoryFieldLabel')}</span>
                       <Dropdown
                         value={docForm.category}
-                        onChange={v => setDocField('category', v)}
+                        onChange={v => { setDocField('category', v); setDocCatSuggested(null) }}
                         ariaLabel={t('admin.documents.docCategoryAriaLabel')}
                         options={[...DOC_CATEGORIES].map(c => ({ value: c, label: c }))}
                       />
+                      {docCatBusy ? (
+                        <span className="admin-field-hint">{t('admin.documents.catReading')}</span>
+                      ) : docCatSuggested && docCatSuggested === docForm.category ? (
+                        <span className="admin-field-hint">{t('admin.documents.categoryAutoSuggested', { category: docCatSuggested })}</span>
+                      ) : null}
                     </div>
                     <label className="admin-field">
                       <span className="admin-field-label">{t('admin.documents.fileFieldLabel')}</span>
                       <input name="document" ref={docFileRef} type="file" className="admin-file"
-                        onChange={e => setDocFile(e.target.files?.[0] || null)} />
+                        accept=".pdf,application/pdf,image/png,image/jpeg,image/webp"
+                        onChange={e => {
+                          const file = e.target.files?.[0] || null
+                          setDocFile(file)
+                          setDocCatSuggested(null)
+                          if (file) {
+                            // AI auto-categorize: prefill the category Dropdown with a
+                            // suggestion the board can still change before saving.
+                            setDocCatBusy(true)
+                            classifyDocCategory(file, [...DOC_CATEGORIES]).then(cat => {
+                              if (cat) { setDocField('category', cat); setDocCatSuggested(cat) }
+                            }).finally(() => setDocCatBusy(false))
+                          }
+                        }} />
                     </label>
                     {/* Bulk option — file many at once into the selected category. */}
                     <div className="adddoc-bulk">

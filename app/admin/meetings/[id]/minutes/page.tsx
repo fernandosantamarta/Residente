@@ -11,13 +11,14 @@
 // Aid only — the default sections + secretary certification are starting points;
 // confirm against the governing documents and Florida counsel before adopting.
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams } from 'next/navigation'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { logAudit } from '@/lib/audit'
 import { useT } from '@/lib/i18n'
 import { Dropdown } from '@/components/Dropdown'
+import { extractMinutesFromFile, type ExtractedMinutes } from '@/lib/signupImport'
 import {
   defaultTemplate,
   seedSectionsData,
@@ -139,6 +140,73 @@ export default function MinutesCapturePage() {
       return { ...d, [sectionId]: rows }
     })
 
+  // ---- AI: read a minutes PDF/photo → suggested motions + action items ----
+  // Display-only until the board clicks "Add to minutes"; nothing auto-saves.
+  const [minBusy, setMinBusy] = useState(false)
+  const [minExtract, setMinExtract] = useState<ExtractedMinutes | null>(null)
+  const [minErr, setMinErr] = useState('')
+  const minFileRef = useRef<HTMLInputElement>(null)
+
+  const onPickMinutes = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    setMinBusy(true); setMinErr(''); setMinExtract(null)
+    try {
+      const ex = await extractMinutesFromFile(file)
+      if (ex && (ex.motions.length || ex.action_items.length)) setMinExtract(ex)
+      else setMinErr(t('admin.minutes.aiUnavailable'))
+    } catch {
+      setMinErr(t('admin.minutes.aiUnavailable'))
+    } finally {
+      setMinBusy(false)
+    }
+  }
+
+  // Append the reviewed motions + action items into the repeating sections, using
+  // the page's own sections_data shape (emptyRow + field ids). Skips fields whose
+  // value is undefined or whose id isn't on the section schema.
+  const addExtractedToMinutes = () => {
+    if (!minExtract) return
+    const motionsSec = template.find(s => s.id === 'motions')
+    const actionsSec = template.find(s => s.id === 'action_items')
+    const has = (sec: SectionSchema | undefined, id: string) => !!sec?.fields.some(f => f.id === id)
+
+    setData(d => {
+      const next = { ...d }
+      if (motionsSec && minExtract.motions.length) {
+        const rows: any[] = Array.isArray(next.motions) ? [...next.motions] : []
+        for (const m of minExtract.motions) {
+          const row = emptyRow(motionsSec)
+          if (m.motion !== undefined && has(motionsSec, 'motion')) row.motion = m.motion
+          if (m.moved_by !== undefined && has(motionsSec, 'moved_by')) row.moved_by = m.moved_by
+          if (m.seconded_by !== undefined && has(motionsSec, 'seconded_by')) row.seconded_by = m.seconded_by
+          if (m.votes_for !== undefined && has(motionsSec, 'votes_for')) row.votes_for = m.votes_for
+          if (m.votes_against !== undefined && has(motionsSec, 'votes_against')) row.votes_against = m.votes_against
+          if (m.votes_abstain !== undefined && has(motionsSec, 'votes_abstain')) row.votes_abstain = m.votes_abstain
+          if (m.outcome !== undefined && has(motionsSec, 'outcome')) row.outcome = m.outcome
+          rows.push(row)
+        }
+        next.motions = rows
+      }
+      if (actionsSec && minExtract.action_items.length) {
+        const rows: any[] = Array.isArray(next.action_items) ? [...next.action_items] : []
+        for (const a of minExtract.action_items) {
+          const row = emptyRow(actionsSec)
+          if (a.action !== undefined && has(actionsSec, 'action')) row.action = a.action
+          if (a.owner !== undefined && has(actionsSec, 'owner')) row.owner = a.owner
+          if (a.due !== undefined && has(actionsSec, 'due')) row.due = a.due
+          rows.push(row)
+        }
+        next.action_items = rows
+      }
+      return next
+    })
+
+    setMsg(t('admin.minutes.aiAdded', { motions: minExtract.motions.length, actions: minExtract.action_items.length }))
+    setMinExtract(null)
+  }
+
   // ---- persistence ----
   const upsertMinutes = async (nextStatus: 'draft' | 'published') => {
     const now = new Date().toISOString()
@@ -216,6 +284,73 @@ export default function MinutesCapturePage() {
             {meeting.title || t('admin.minutes.untitledMeeting')}
             {' · '}{t('admin.minutes.attendees', { count: attendanceCount })}
             {isPublished && <> · <strong>{t('admin.minutes.statusPublished')}</strong></>}
+          </div>
+
+          <div className="card">
+            <div className="card-head"><div><h2>{t('admin.minutes.aiHeading')}</h2></div></div>
+            <p className="admin-note" style={{ marginTop: 0 }}>{t('admin.minutes.aiSub')}</p>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <button type="button" className="admin-secondary-btn" disabled={minBusy} onClick={() => minFileRef.current?.click()}>
+                {minBusy ? t('admin.minutes.aiReading') : t('admin.minutes.aiBtn')}
+              </button>
+              <input
+                ref={minFileRef}
+                type="file"
+                accept=".pdf,application/pdf,image/png,image/jpeg,image/webp"
+                onChange={onPickMinutes}
+                style={{ display: 'none' }}
+              />
+              {minErr && <span style={{ color: '#B42318', fontSize: 12.5 }}>{minErr}</span>}
+            </div>
+
+            {minExtract && (
+              <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <div className="admin-note" style={{ marginTop: 0 }}>
+                  {t('admin.minutes.aiFound', { motions: minExtract.motions.length, actions: minExtract.action_items.length })}
+                </div>
+
+                {minExtract.motions.length > 0 && (
+                  <div>
+                    <h3 style={{ margin: '0 0 6px', fontSize: 13.5 }}>{t('admin.minutes.aiMotionsHeading')}</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {minExtract.motions.map((m, i) => (
+                        <div key={i} style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
+                          <div style={{ fontSize: 13.5 }}>{m.motion}</div>
+                          <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+                            {t('admin.minutes.aiMoved')} {m.moved_by || '—'}
+                            {' · '}{t('admin.minutes.aiSeconded')} {m.seconded_by || '—'}
+                            {' · '}{m.votes_for ?? 0}–{m.votes_against ?? 0}–{m.votes_abstain ?? 0}
+                            {m.outcome ? ` · ${m.outcome}` : ''}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {minExtract.action_items.length > 0 && (
+                  <div>
+                    <h3 style={{ margin: '0 0 6px', fontSize: 13.5 }}>{t('admin.minutes.aiActionsHeading')}</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                      {minExtract.action_items.map((a, i) => (
+                        <div key={i} style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
+                          <div style={{ fontSize: 13.5 }}>{a.action}</div>
+                          <div style={{ fontSize: 12, opacity: 0.7, marginTop: 4 }}>
+                            {t('admin.minutes.aiOwner')} {a.owner || '—'}
+                            {' · '}{t('admin.minutes.aiDue')} {a.due || '—'}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                  <button type="button" className="admin-primary-btn" onClick={addExtractedToMinutes}>{t('admin.minutes.aiAdd')}</button>
+                  <button type="button" className="admin-btn-ghost" onClick={() => setMinExtract(null)}>{t('admin.minutes.aiDiscard')}</button>
+                </div>
+              </div>
+            )}
           </div>
 
           {sections.map(section => (

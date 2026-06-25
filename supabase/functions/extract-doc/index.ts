@@ -100,9 +100,140 @@ const INSURANCE_PROMPT =
   'recent appraisal date if shown. Report only values the document actually states — omit any field ' +
   'you are unsure about rather than guessing.'
 
-const KINDS: Record<string, { tool: any; prompt: string }> = {
-  budget: { tool: BUDGET_TOOL, prompt: BUDGET_PROMPT },
-  insurance: { tool: INSURANCE_TOOL, prompt: INSURANCE_PROMPT },
+// ---- categorize: file a governing document under one official-records category ----
+// The category list is sent by the client (single source of truth = DOC_CATEGORIES
+// in lib/compliance/official-records.ts); this hardcoded set is only a fallback.
+const DEFAULT_DOC_CATEGORIES = [
+  'Governing Documents', 'Financial Documents', 'Rules & Policies', 'Reports & Meeting Minutes',
+  'Notices & Announcements', 'Insurance', 'Vendor & Contracts', 'Director Records',
+  'Election & Voting Records', 'Inspection Reports', 'Bank Records & Ledgers', 'Building Permits',
+  'Forms & Applications', 'Maps & Layouts', 'Other',
+]
+function categorizeTool(categories: string[]) {
+  return {
+    name: 'categorize_document',
+    description: "Classify the document into exactly one of the association's official-records categories.",
+    input_schema: {
+      type: 'object',
+      properties: {
+        category: { type: 'string', enum: categories, description: 'The single best-fit category for this document.' },
+      },
+      required: ['category'],
+      additionalProperties: false,
+    },
+  }
+}
+const CATEGORIZE_PROMPT =
+  'You are filing a document into a Florida HOA/condo association\'s official records. Read the ' +
+  'attached document (PDF, scan, or photo) and, using the categorize_document tool, classify it ' +
+  'into the SINGLE best-fit category from the provided list. Base it on what the document actually ' +
+  'is — a declaration/bylaws/amendment is "Governing Documents"; a budget/statement/audit/reserve ' +
+  'study is "Financial Documents"; board or member meeting minutes are "Reports & Meeting Minutes"; ' +
+  'a meeting notice/agenda is "Notices & Announcements"; an insurance policy/certificate is ' +
+  '"Insurance"; a service contract or bid is "Vendor & Contracts"; a bank statement or ledger is ' +
+  '"Bank Records & Ledgers"; a building permit is "Building Permits"; a structural/milestone/SIRS ' +
+  'report is "Inspection Reports". If nothing fits, choose "Other".'
+
+// ---- minutes: motions, votes, and action items from meeting minutes ----
+const MINUTES_TOOL = {
+  name: 'meeting_minutes',
+  description: 'Return the motions, votes, and action items found in the meeting minutes.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      motions: {
+        type: 'array',
+        description: 'Each formal motion made during the meeting.',
+        items: {
+          type: 'object',
+          properties: {
+            motion: { type: 'string', description: 'The text of the motion.' },
+            moved_by: { type: 'string', description: 'Who made the motion. Omit if not stated.' },
+            seconded_by: { type: 'string', description: 'Who seconded it. Omit if not stated.' },
+            votes_for: { type: 'number', description: 'Count voting in favor. Omit if not stated.' },
+            votes_against: { type: 'number', description: 'Count voting against. Omit if not stated.' },
+            votes_abstain: { type: 'number', description: 'Count abstaining. Omit if not stated.' },
+            outcome: { type: 'string', enum: ['passed', 'failed', 'tabled', 'withdrawn'], description: 'The result. Omit if unclear.' },
+          },
+          required: ['motion'],
+          additionalProperties: false,
+        },
+      },
+      action_items: {
+        type: 'array',
+        description: 'Each follow-up task / action item assigned during the meeting.',
+        items: {
+          type: 'object',
+          properties: {
+            action: { type: 'string', description: 'The task / action item.' },
+            owner: { type: 'string', description: 'Who is responsible. Omit if not stated.' },
+            due: { type: 'string', description: 'Due date as YYYY-MM-DD if stated. Omit otherwise.' },
+          },
+          required: ['action'],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ['motions'],
+    additionalProperties: false,
+  },
+}
+const MINUTES_PROMPT =
+  'You are reading the minutes of a Florida HOA/condo association meeting (PDF, scan, or photo). ' +
+  'Using the meeting_minutes tool, extract: every formal MOTION (its text, who moved/seconded it, ' +
+  'the vote tally for/against/abstain, and the outcome), and every ACTION ITEM / follow-up task ' +
+  '(what, who owns it, any due date). Report only what the minutes actually state — omit any field ' +
+  'you are unsure about rather than guessing, and never invent motions or tallies.'
+
+// ---- violation: read a violation photo, match a rule, draft the notice ----
+const VIOLATION_TOOL = {
+  name: 'violation_extract',
+  description: 'Describe the violation in the photo, match it to a community rule, and draft the notice text.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      observed_text: { type: 'string', description: 'A factual description of what the photo shows (the apparent violation).' },
+      suggested_rule_id: { type: 'string', description: 'The id of the single best-matching rule from the provided rule list. Omit if none clearly matches.' },
+      suggested_rule_title: { type: 'string', description: 'The title of that matched rule (or a short label if no rule matched).' },
+      draft_description: { type: 'string', description: 'A concise, neutral, professional draft violation notice: what was observed and which rule it appears to breach.' },
+      suggested_fine: { type: 'number', description: "The matched rule's fine amount in US dollars, if the rule states one. Omit otherwise." },
+    },
+    required: ['observed_text', 'draft_description'],
+    additionalProperties: false,
+  },
+}
+function violationPrompt(rules: any[]): string {
+  const list = (rules || [])
+    .filter(r => r && (r.title || r.id))
+    .map(r => `- id=${r.id || ''} | ${[r.section, r.title].filter(Boolean).join(' — ')}${typeof r.fine === 'number' ? ` (fine $${r.fine})` : ''}`)
+    .join('\n')
+  return (
+    'You are helping a Florida HOA/condo board document a rule violation from a photo. Look at the ' +
+    'attached image and, using the violation_extract tool: (1) describe factually what the photo ' +
+    'shows; (2) match it to the SINGLE best-fitting rule from the community rule book below by its ' +
+    'id; (3) draft a concise, neutral, professional violation-notice description referencing that ' +
+    'rule; (4) report the rule\'s fine amount if it has one. Only match a rule if the photo plausibly ' +
+    'shows a breach of it — if nothing fits, omit the rule fields and still describe what you see. ' +
+    'Do not invent facts about who is responsible.\n\nCommunity rule book:\n' +
+    (list || '(no rules provided)')
+  )
+}
+
+// Resolve the tool + prompt for a request. Most kinds are static; `categorize`
+// builds its enum from the client-sent category list and `violation` injects the
+// community rule book into its prompt.
+function specFor(kind: string, body: any): { tool: any; prompt: string } | null {
+  switch (kind) {
+    case 'budget': return { tool: BUDGET_TOOL, prompt: BUDGET_PROMPT }
+    case 'insurance': return { tool: INSURANCE_TOOL, prompt: INSURANCE_PROMPT }
+    case 'minutes': return { tool: MINUTES_TOOL, prompt: MINUTES_PROMPT }
+    case 'categorize': {
+      const cats = Array.isArray(body?.categories) && body.categories.length ? body.categories.map(String) : DEFAULT_DOC_CATEGORIES
+      return { tool: categorizeTool(cats), prompt: CATEGORIZE_PROMPT }
+    }
+    case 'violation': return { tool: VIOLATION_TOOL, prompt: violationPrompt(body?.context_rules) }
+    default: return null
+  }
 }
 
 const json = (body: unknown, status = 200) =>
@@ -135,19 +266,14 @@ Deno.serve(async (req) => {
   const cap = await checkCap(communityId)
   if (!cap.allowed) return json({ error: 'Monthly AI limit reached.', code: 'limit_reached', cap_cents: cap.capCents, spent_cents: cap.spentCents }, 429)
 
-  let fileBase64 = ''
-  let mediaType = ''
-  let kind = ''
-  let subhint = ''
-  try {
-    const body = await req.json()
-    fileBase64 = String(body?.file_base64 || '')
-    mediaType = String(body?.media_type || '')
-    kind = String(body?.kind || '')
-    subhint = String(body?.subhint || '')
-  } catch { return json({ error: 'Bad request body.' }, 400) }
+  let body: any = null
+  try { body = await req.json() } catch { return json({ error: 'Bad request body.' }, 400) }
+  const fileBase64 = String(body?.file_base64 || '')
+  const mediaType = String(body?.media_type || '')
+  const kind = String(body?.kind || '')
+  const subhint = String(body?.subhint || '')
   if (!fileBase64) return json({ error: 'No document provided.' }, 400)
-  const spec = KINDS[kind]
+  const spec = specFor(kind, body)
   if (!spec) return json({ error: 'Unknown document kind.' }, 400)
 
   // PDFs go in a document block; images (png/jpg/webp/gif) in an image block.

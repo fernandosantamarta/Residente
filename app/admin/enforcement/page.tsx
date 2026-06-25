@@ -7,10 +7,12 @@
 // use-rights suspensions. Advisory posture — nothing here blocks; the board
 // decides each step.
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useAuth } from '@/app/providers'
 import { logAudit } from '@/lib/audit'
 import { supabase, hasSupabase } from '@/lib/supabase'
+import { extractViolationFromPhoto } from '@/lib/signupImport'
+import { useRulesData } from '@/lib/rules'
 import { ymd, calendarDaysUntil, toDate } from '@/lib/compliance/rules-core'
 import {
   STAGE_LABELS, SUSPENSION_BASIS_LABELS, SUSPENSION_RIGHTS_LABELS,
@@ -43,6 +45,7 @@ export default function EnforcementPage() {
   const t = useT()
   const { profile } = useAuth() || {}
   const communityId = profile?.community_id
+  const rules = useRulesData()
   const [community, setCommunity] = useState<any>(null)
   const [violations, setViolations] = useState<ViolationRow[]>([])
   const [hearings, setHearings] = useState<HearingRow[]>([])
@@ -229,6 +232,30 @@ export default function EnforcementPage() {
   const setF = (k: string, val: any) => setForm((f: any) => ({ ...f, [k]: val }))
   const [saving, setSaving] = useState(false)
 
+  // AI photo reader — read a violation photo, match it to a rule in the rule
+  // book, and draft the notice. Everything PREFILLS into the editable form for
+  // the board to review; nothing is saved until they pick the owner and submit.
+  const [vPhotoBusy, setVPhotoBusy] = useState(false)
+  const photoInputRef = useRef<HTMLInputElement>(null)
+  const onPickViolationPhoto = (e: any) => {
+    const file = e.target.files && e.target.files[0]
+    e.target.value = ''
+    if (!file) return
+    setVPhotoBusy(true); setError('')
+    extractViolationFromPhoto(file, rules.map(r => ({ id: r.id, section: r.section, title: r.title, fine: r.fine })))
+      .then(ex => {
+        if (!ex) { setError(t('admin.enforcement.aiPhotoUnavailable')); return }
+        setF('rule_title', ex.suggested_rule_title || form.rule_title)
+        setF('notes', ex.draft_description)
+        // Only prefill the flat amount for a one-time fine — a continuing /
+        // per-day fine is entered as a daily rate, not a lump sum.
+        if (ex.suggested_fine != null && !form.continuing) setF('amount', String(ex.suggested_fine))
+        setMsg(t('admin.enforcement.aiPhotoAnalyzed'))
+      })
+      .catch(() => setError(t('admin.enforcement.aiPhotoUnavailable')))
+      .finally(() => setVPhotoBusy(false))
+  }
+
   const proposeFine = async (e: any) => {
     e.preventDefault()
     setSaving(true); setError('')
@@ -246,6 +273,7 @@ export default function EnforcementPage() {
         hearing_required: form.hearing_required !== false,
         enforcement_stage: 'proposed',
         fine_continuing: !!form.continuing,
+        notes: form.notes?.trim() || null,
         created_by: profile?.id ?? null,
       }
       if (form.continuing) {
@@ -361,7 +389,15 @@ export default function EnforcementPage() {
 
           {/* ---- Propose a fine ---- */}
           <div className="card">
-            <div className="card-head"><div><h2>{t('admin.enforcement.proposeFineTitle')}</h2></div></div>
+            <div className="card-head">
+              <div><h2>{t('admin.enforcement.proposeFineTitle')}</h2></div>
+              <button type="button" className="admin-secondary-btn" disabled={vPhotoBusy}
+                title={t('admin.enforcement.aiPhotoTitle')} onClick={() => photoInputRef.current?.click()}>
+                {vPhotoBusy ? t('admin.enforcement.aiReading') : t('admin.enforcement.aiBtnPhoto')}
+              </button>
+              <input ref={photoInputRef} type="file" accept="image/png,image/jpeg,image/webp"
+                onChange={onPickViolationPhoto} style={{ display: 'none' }} />
+            </div>
             <form className="admin-form" onSubmit={proposeFine}>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 12 }}>
               <div className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldOwner')}</span>
@@ -390,6 +426,8 @@ export default function EnforcementPage() {
               <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldCureBy')}</span>
                 <input className="admin-input" type="date" value={form.cure_by ?? ''} onChange={e => setF('cure_by', e.target.value)} /></label>
             </div>
+            <label className="admin-field" style={{ marginTop: 10 }}><span className="admin-field-label">{t('admin.enforcement.fieldNotes')}</span>
+              <textarea className="admin-input" rows={3} value={form.notes ?? ''} placeholder={t('admin.enforcement.notesPlaceholder')} onChange={e => setF('notes', e.target.value)} /></label>
             <div style={{ display: 'flex', gap: 18, flexWrap: 'wrap', margin: '10px 0' }}>
               <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
                 <input type="checkbox" checked={!!form.continuing} onChange={e => setF('continuing', e.target.checked)} />
