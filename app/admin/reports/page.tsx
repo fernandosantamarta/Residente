@@ -8,11 +8,12 @@
 // Read-only: every button is a client-side CSV download (lib/exportCsv), so
 // there's nothing to mutate and no edge function to call.
 
-import { useState, useEffect, useCallback, useMemo, Fragment } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef, Fragment, type ChangeEvent } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { downloadCsv, exportFilename, type CsvColumn } from '@/lib/exportCsv'
+import { parseRosterCsv } from '@/lib/signupImport'
 import { residentBalance, communityDuesConfig, adminLateFees, fmtMoney } from '@/lib/dues'
 import { Dropdown } from '@/components/Dropdown'
 import { RecordPaymentForm } from '@/components/RecordPaymentForm'
@@ -105,6 +106,14 @@ export default function ReportsPage() {
   // form is open, and the in-flight / result state of a payment reminder.
   const [openPayId, setOpenPayId] = useState<string | null>(null)
   const [remindBusyId, setRemindBusyId] = useState<string | null>(null)
+
+  // Bulk opening-balance import (migration off a prior manager). Reuses the shared
+  // roster CSV parser; matches each row to an existing resident by unit (then name)
+  // and updates residents.opening_balance. Lives here in the money workspace — the
+  // Residents roster page stays people-only.
+  const balFileRef = useRef<HTMLInputElement>(null)
+  const [pendingBal, setPendingBal] = useState<{ matched: { r: Resident; bal: number }[]; unmatched: string[] } | null>(null)
+  const [importingBal, setImportingBal] = useState(false)
   const [remindMsg, setRemindMsg] = useState('')
   const [behindPage, setBehindPage] = useState(0)
   const [assessmentsPage, setAssessmentsPage] = useState(0)
@@ -230,6 +239,47 @@ export default function ReportsPage() {
     setPayments((data as Payment[]) || [])
     setOpenPayId(null)
     return {}
+  }
+
+  // Parse an uploaded opening-balances CSV and match each row to a resident by
+  // unit (then name); stage the matched updates + any unmatched rows for confirm.
+  const onPickBalanceFile = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => {
+      const rows = parseRosterCsv(String(reader.result || '')).filter(r => typeof r.opening_balance === 'number')
+      const byUnit = new Map(residents.filter(r => r.unit_number).map(r => [r.unit_number!.trim().toLowerCase(), r]))
+      const byName = new Map(residents.map(r => [(r.full_name || '').trim().toLowerCase(), r]))
+      const matched: { r: Resident; bal: number }[] = []
+      const unmatched: string[] = []
+      for (const row of rows) {
+        const hit = (row.unit_number && byUnit.get(row.unit_number.trim().toLowerCase()))
+          || byName.get((row.full_name || '').trim().toLowerCase())
+        if (hit) matched.push({ r: hit, bal: row.opening_balance as number })
+        else unmatched.push(row.unit_number || row.full_name || '?')
+      }
+      if (!matched.length && !unmatched.length) { setError(t('admin.reports.balNoRows')); return }
+      setError(''); setPendingBal({ matched, unmatched })
+    }
+    reader.readAsText(file)
+  }
+
+  // Commit the staged opening balances: one update per matched resident, then refetch.
+  const applyBalanceImport = async () => {
+    if (!pendingBal) return
+    setImportingBal(true); setError('')
+    try {
+      for (const { r, bal } of pendingBal.matched) {
+        const { error } = await supabase!.from('residents').update({ opening_balance: bal }).eq('id', r.id)
+        if (error) throw error
+      }
+      setPendingBal(null)
+      await load()
+    } catch (err: any) {
+      setError(err?.message || t('admin.reports.balImportFailed'))
+    } finally { setImportingBal(false) }
   }
 
   // Notify-to-pay — the everyday tool. Sends a TARGETED notice (in-app + email +
@@ -397,7 +447,10 @@ export default function ReportsPage() {
     },
     {
       name: t('admin.reports.reportHouseholdRoster'), period: t('admin.reports.periodFullRoster'), count: residents.length,
-      actions: [{ label: t('admin.reports.exportCsvBtn'), onClick: exportRoster }],
+      actions: [
+        { label: t('admin.reports.exportCsvBtn'), onClick: exportRoster },
+        { label: t('admin.reports.importBalancesBtn'), onClick: () => balFileRef.current?.click() },
+      ],
     },
   ]
 
@@ -451,6 +504,24 @@ export default function ReportsPage() {
               </div>
             ))}
           </div>
+
+          {/* Hidden picker + confirm bar for the opening-balance import, triggered
+              from the Household Roster row's "Import balances" action below. */}
+          <input ref={balFileRef} type="file" accept=".csv,text/csv" onChange={onPickBalanceFile} style={{ display: 'none' }} />
+          {pendingBal && (
+            <div className="res-import-bar">
+              <span>
+                {t('admin.reports.balPreview', { count: String(pendingBal.matched.length), total: fmt$(pendingBal.matched.reduce((s, m) => s + m.bal, 0)) })}
+                {pendingBal.unmatched.length > 0 && (
+                  <span className="muted" style={{ marginLeft: 8 }}>{t('admin.reports.balUnmatched', { count: String(pendingBal.unmatched.length) })}</span>
+                )}
+              </span>
+              <button type="button" className="admin-primary-btn" disabled={importingBal || !pendingBal.matched.length} onClick={applyBalanceImport}>
+                {importingBal ? t('admin.reports.balApplying') : t('admin.reports.balApply', { count: String(pendingBal.matched.length) })}
+              </button>
+              <button type="button" className="admin-btn-ghost" onClick={() => setPendingBal(null)}>{t('admin.reports.balCancel')}</button>
+            </div>
+          )}
 
           {/* Available reports — the mock's table, wired to the real exporters. */}
           <div className="card">

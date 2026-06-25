@@ -11,10 +11,16 @@ import { hasSupabase, supabase } from './supabase'
 
 export interface RosterRow {
   full_name: string
+  unit_number?: string
   subdivision?: string
   address?: string
   email?: string
   phone?: string
+  // Owner balance carried over from the prior manager, "as of" go-live. Positive
+  // = the owner owes; negative = a credit. Feeds residents.opening_balance, which
+  // residentBalance()/casePayoff()/the GL all read. Undefined when the column is
+  // absent or blank (so we never overwrite a real balance with 0).
+  opening_balance?: number
 }
 
 export interface BudgetRow {
@@ -23,20 +29,81 @@ export interface BudgetRow {
   spent: string
 }
 
-// Roster CSV → residents rows. Columns (header auto-detected): name, subdivision,
-// address, email, phone. Mirrors parseResidentsCsv in app/admin/residents/page.tsx.
+// A quote-aware CSV line splitter (RFC-4180-ish): keeps "fields, with commas" and
+// "escaped ""quotes"" intact. Critical now that a money column is in play — a
+// naive split(',') would shred a quoted "1,234.56" into two cells. Embedded
+// newlines inside a field aren't supported (we split on lines first), which is
+// fine for the roster/balance exports boards actually upload.
+function splitCsvLine(line: string): string[] {
+  const out: string[] = []
+  let cur = ''
+  let q = false
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i]
+    if (q) {
+      if (ch === '"') { if (line[i + 1] === '"') { cur += '"'; i++ } else q = false }
+      else cur += ch
+    } else if (ch === '"') q = true
+    else if (ch === ',') { out.push(cur); cur = '' }
+    else cur += ch
+  }
+  out.push(cur)
+  return out.map(c => c.trim())
+}
+
+type RosterField = 'full_name' | 'unit_number' | 'subdivision' | 'address' | 'email' | 'phone' | 'opening_balance'
+
+// Map a header cell to a known field so boards can put columns in ANY order and
+// include the opening-balance / unit columns the old positional parser dropped.
+// Unrecognized headers are ignored.
+function headerField(h: string): RosterField | null {
+  const k = h.toLowerCase().replace(/[_#]+/g, ' ').replace(/\s+/g, ' ').trim()
+  if (['name', 'full name', 'owner', 'household', 'resident'].includes(k)) return 'full_name'
+  if (['unit', 'unit number', 'unit no', 'apt', 'unit / address'].includes(k)) return 'unit_number'
+  if (['subdivision', 'sub', 'neighborhood', 'village', 'section'].includes(k)) return 'subdivision'
+  if (['address', 'mailing address', 'street', 'street address', 'property address'].includes(k)) return 'address'
+  if (['email', 'e mail', 'email address'].includes(k)) return 'email'
+  if (['phone', 'telephone', 'mobile', 'cell', 'phone number'].includes(k)) return 'phone'
+  if (['opening balance', 'balance', 'balance due', 'amount owed', 'amount due', 'opening ar', 'opening', 'starting balance'].includes(k)) return 'opening_balance'
+  return null
+}
+
+// Roster CSV → residents rows. If the first row names recognizable columns we map
+// by header (any order; picks up unit + opening_balance); otherwise we fall back
+// to the legacy positional layout (name, subdivision, address, email, phone) so
+// older headerless files keep importing exactly as before. Mirrors the parser in
+// app/admin/residents/page.tsx, which now delegates here.
 export function parseRosterCsv(text: string): RosterRow[] {
   const lines = String(text).split(/\r?\n/).map(l => l.trim()).filter(Boolean)
   if (!lines.length) return []
-  const cells = (line: string) => line.split(',').map(c => c.trim())
-  const first = cells(lines[0]).map(c => c.toLowerCase())
-  const hasHeader = first.some(c =>
-    ['name', 'full name', 'subdivision', 'address', 'email', 'phone', 'unit'].includes(c))
+  const head = splitCsvLine(lines[0])
+  const map: Partial<Record<RosterField, number>> = {}
+  let hasHeader = false
+  head.forEach((h, i) => {
+    const f = headerField(h)
+    if (f && map[f] === undefined) { map[f] = i; hasHeader = true }
+  })
   const out: RosterRow[] = []
   for (let i = hasHeader ? 1 : 0; i < lines.length; i++) {
-    const c = cells(lines[i])
+    const c = splitCsvLine(lines[i])
     if (!c[0]) continue
-    out.push({ full_name: c[0], subdivision: c[1] || '', address: c[2] || '', email: c[3] || '', phone: c[4] || '' })
+    if (hasHeader) {
+      const at = (f: RosterField) => (map[f] !== undefined ? (c[map[f]!] || '') : '')
+      const name = at('full_name')
+      if (!name) continue
+      const bal = at('opening_balance')
+      out.push({
+        full_name: name,
+        unit_number: at('unit_number'),
+        subdivision: at('subdivision'),
+        address: at('address'),
+        email: at('email'),
+        phone: at('phone'),
+        opening_balance: bal.trim() ? num(bal) : undefined,
+      })
+    } else {
+      out.push({ full_name: c[0], subdivision: c[1] || '', address: c[2] || '', email: c[3] || '', phone: c[4] || '' })
+    }
   }
   return out
 }
@@ -93,6 +160,7 @@ export async function applySignupImport(
       const rows = roster.map(r => ({
         community_id: communityId,
         full_name: r.full_name.trim(),
+        unit_number: r.unit_number?.trim() || null,
         subdivision: r.subdivision?.trim() || null,
         address: r.address?.trim() || null,
         email: r.email?.trim() || null,
