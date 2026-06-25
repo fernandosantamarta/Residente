@@ -32,10 +32,12 @@ create index if not exists ev_ai_usage_comm_time on public.ev_ai_usage (communit
 
 alter table public.ev_ai_usage enable row level security;
 -- The edge functions write/read via the service role (bypasses RLS). The only
--- client-side reader is the Platform Console, gated to platform admins.
+-- client-side reader is the Platform Console's AI Insights tab, which is
+-- OWNER-ONLY — no other Residente operator role can read AI cost/budget data.
 drop policy if exists "platform admin reads ai usage" on public.ev_ai_usage;
-create policy "platform admin reads ai usage" on public.ev_ai_usage
-  for select to authenticated using ( public.is_platform_admin(auth.uid()) );
+drop policy if exists "platform owner reads ai usage" on public.ev_ai_usage;
+create policy "platform owner reads ai usage" on public.ev_ai_usage
+  for select to authenticated using ( public.is_platform_owner(auth.uid()) );
 
 -- ---------- PLATFORM: AI usage per community (operator only) ----------
 -- Current-calendar-month spend + calls, lifetime spend + calls, the cap, and
@@ -50,8 +52,9 @@ returns table (
   last_used_at timestamptz
 ) language plpgsql stable security definer as $$
 begin
-  if not public.is_platform_admin(auth.uid()) then
-    raise exception 'not a platform admin';
+  -- Owner-only: AI cost/budget is restricted to platform owners.
+  if not public.is_platform_owner(auth.uid()) then
+    raise exception 'not a platform owner';
   end if;
   return query
     select c.id, c.name, c.plan,
@@ -72,7 +75,8 @@ grant execute on function public.platform_ai_usage() to authenticated;
 create or replace function public.platform_set_ai_cap(p_community uuid, p_cents int)
 returns void language plpgsql security definer as $$
 begin
-  if not public.is_platform_admin(auth.uid()) then raise exception 'not a platform admin'; end if;
+  -- Owner-only: changing a community's AI cap / kill switch.
+  if not public.is_platform_owner(auth.uid()) then raise exception 'not a platform owner'; end if;
   update public.communities set ai_monthly_cap_cents = greatest(0, coalesce(p_cents, 500))
     where id = p_community;
 end $$;

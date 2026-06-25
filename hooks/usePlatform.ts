@@ -149,10 +149,15 @@ export function usePlatformConsole() {
       // Recent activity (audit log).
       const { data: log } = await supabase.rpc('platform_audit', { p_limit: 100 })
       setAudit((log ?? []) as AuditEntry[])
-      // AI usage per community (this month + lifetime + cap). Tolerant: returns
-      // an error until supabase/ai-usage.sql is applied — leave it empty then.
-      const { data: ai } = await supabase.rpc('platform_ai_usage')
-      setAiUsage((ai ?? []) as PlatformAiUsage[])
+      // AI usage per community (this month + lifetime + cap). OWNER-ONLY — the
+      // RPC is owner-gated, so skip the call for non-owners (no point firing a
+      // guaranteed-to-fail request). Tolerant: also empty until ai-usage.sql runs.
+      if (me?.role === 'owner') {
+        const { data: ai } = await supabase.rpc('platform_ai_usage')
+        setAiUsage((ai ?? []) as PlatformAiUsage[])
+      } else {
+        setAiUsage([])
+      }
     } finally {
       loadedOnce.current = true
       if (first) setLoading(false)

@@ -77,8 +77,10 @@ const TABS: { key: Tab; label: string }[] = [
 // in Overview + Subscriptions, so omitting those from a role hides all revenue
 // from it. Founder (owner) manages the team, so only Founder gets Operators.
 const ROLE_TABS: Record<OperatorRole, Tab[]> = {
+  // AI Insights (cost + the API budget/kill switch) is OWNER-ONLY — no other
+  // Residente operator role can see it (and the RPCs behind it are owner-gated too).
   owner:    ['overview', 'pending', 'communities', 'subscriptions', 'ai-insights', 'support', 'operators', 'activity'],
-  billing:  ['overview', 'pending', 'subscriptions', 'ai-insights', 'communities', 'activity'],
+  billing:  ['overview', 'pending', 'subscriptions', 'communities', 'activity'],
   operator: ['pending', 'communities', 'support', 'activity'],
   support:  ['pending', 'support', 'activity'],
 }
