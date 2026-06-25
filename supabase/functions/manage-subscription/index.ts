@@ -40,20 +40,21 @@ const ADDONS: Record<string, { name: string; cents: number }> = {
 
 // Bands mirror lib/plan.ts + create-subscription-checkout. A plan override lets
 // the admin sit on a higher tier than their home count implies ("both" model).
-function bandFor(homes: number, planOverride?: string): { plan: string; perHomeCents: number; label: string } {
+function bandFor(homes: number, planOverride?: string): { plan: string; perHomeCents: number; flatCents: number; label: string } {
   const byHomes =
-    homes <= 25  ? { plan: 'free',       perHomeCents: 0,    label: 'Free' } :
-    homes <= 100 ? { plan: 'pro',        perHomeCents: 200,  label: 'Village' } :
-    homes <= 500 ? { plan: 'premium',    perHomeCents: 400,  label: 'Town' } :
-                   { plan: 'enterprise', perHomeCents: 600,  label: 'City' }
+    homes <= 25  ? { plan: 'free',       perHomeCents: 0,    flatCents: 2500, label: 'Cottage' } :
+    homes <= 100 ? { plan: 'pro',        perHomeCents: 200,  flatCents: 0,    label: 'Village' } :
+    homes <= 500 ? { plan: 'premium',    perHomeCents: 400,  flatCents: 0,    label: 'Town' } :
+                   { plan: 'enterprise', perHomeCents: 600,  flatCents: 0,    label: 'City' }
   if (!planOverride || planOverride === byHomes.plan) return byHomes
-  const rates: Record<string, { perHomeCents: number; label: string }> = {
-    pro:        { perHomeCents: 200,  label: 'Village' },
-    premium:    { perHomeCents: 400,  label: 'Town' },
-    enterprise: { perHomeCents: 600,  label: 'City' },
+  const rates: Record<string, { perHomeCents: number; flatCents: number; label: string }> = {
+    free:       { perHomeCents: 0,   flatCents: 2500, label: 'Cottage' },
+    pro:        { perHomeCents: 200, flatCents: 0,    label: 'Village' },
+    premium:    { perHomeCents: 400, flatCents: 0,    label: 'Town' },
+    enterprise: { perHomeCents: 600, flatCents: 0,    label: 'City' },
   }
   const r = rates[planOverride]
-  return r ? { plan: planOverride, perHomeCents: r.perHomeCents, label: r.label } : byHomes
+  return r ? { plan: planOverride, perHomeCents: r.perHomeCents, flatCents: r.flatCents, label: r.label } : byHomes
 }
 
 Deno.serve(async (req) => {
@@ -122,9 +123,6 @@ Deno.serve(async (req) => {
       const newHomes = body.home_count != null && !Number.isNaN(Number(body.home_count))
         ? Math.max(1, Math.floor(Number(body.home_count))) : homes
       const band = bandFor(newHomes, body.plan)
-      if (band.perHomeCents === 0) {
-        return json({ error: 'That size is on the Free plan — cancel your subscription instead of changing plans.' }, 400)
-      }
       if (!subId) return json({ error: 'No active subscription to change. Subscribe first.' }, 400)
 
       const wantAddons = Array.isArray(body.addons)
@@ -139,12 +137,15 @@ Deno.serve(async (req) => {
       // Subscription-item price_data only accepts an existing `product` id (not
       // inline product_data, which is Checkout-only). prices.create DOES accept
       // product_data, so we mint a recurring price first and attach it by id.
+      // Cottage bills a flat $25/mo (quantity 1); the per-home tiers bill
+      // unit_amount × home count.
+      const flat = band.flatCents > 0
       const basePrice = await stripe.prices.create({
-        currency: 'usd', unit_amount: band.perHomeCents, recurring: { interval: 'month' },
+        currency: 'usd', unit_amount: flat ? band.flatCents : band.perHomeCents, recurring: { interval: 'month' },
         product_data: { name: `Residente — ${band.label} plan` },
       })
 
-      const items: Record<string, unknown>[] = [{ id: baseItem.id, price: basePrice.id, quantity: newHomes }]
+      const items: Record<string, unknown>[] = [{ id: baseItem.id, price: basePrice.id, quantity: flat ? 1 : newHomes }]
       // Reconcile add-on items: keep selected, delete deselected, add new.
       const stillWanted = new Set(wantAddons)
       for (const it of sub.items.data) {

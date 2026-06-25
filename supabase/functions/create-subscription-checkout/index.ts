@@ -32,6 +32,12 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, 'Content-Type': 'application/json' },
   })
 
+// Paid add-ons — mirror of manage-subscription + app/admin/billing. Each adds a
+// flat recurring line item on top of the per-home/flat base plan.
+const ADDONS: Record<string, { name: string; cents: number }> = {
+  accounting: { name: 'Accounting & bank reconciliation', cents: 4900 },
+}
+
 // Pricing bands — mirror of lib/plan.ts. Keep in sync.
 function bandForHomes(homes: number): { plan: string; perHomeCents: number; flatCents: number; label: string } {
   if (homes <= 25)  return { plan: 'free',       perHomeCents: 0,    flatCents: 2500, label: 'Cottage' }
@@ -47,6 +53,12 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}))
     const embedded = body?.embedded === true
+    // Optional paid add-ons selected at checkout (e.g. accounting). Each becomes
+    // its own recurring line item on the subscription. Keep in sync with the
+    // ADDONS list in manage-subscription + app/admin/billing.
+    const wantAddons: string[] = Array.isArray(body?.addons)
+      ? [...new Set(body.addons.filter((a: unknown): a is string => typeof a === 'string' && !!ADDONS[a]))]
+      : []
     // Caller's JWT → RLS scopes them to their own community row.
     const authHeader = req.headers.get('Authorization') ?? ''
     const supabase = createClient(
@@ -92,8 +104,42 @@ Deno.serve(async (req) => {
     const createdMs = community.created_at ? new Date(community.created_at).getTime() : Date.now()
     const trialEndsSec = Math.floor((createdMs + 90 * 24 * 60 * 60 * 1000) / 1000)
     const nowSec = Math.floor(Date.now() / 1000)
-    const subData: Record<string, unknown> = { metadata: { community_id: community.id, plan: band.plan } }
+    const wantAccounting = wantAddons.includes('accounting')
+    // Pass the add-on selection through both the session + subscription metadata
+    // so stripe-webhook can grant the entitlement (communities.accounting_addon)
+    // when checkout completes.
+    const meta = { community_id: community.id, plan: band.plan, accounting_addon: String(wantAccounting) }
+    const subData: Record<string, unknown> = { metadata: meta }
     if (trialEndsSec > nowSec + 60) subData.trial_end = trialEndsSec   // else the free months are over: bill now
+
+    // Base plan line item + one flat recurring item per selected add-on. Add-ons
+    // ride the same trial_end, so they're free until the 3 months end too.
+    const lineItems: any[] = [{
+      quantity: flat ? 1 : homes,
+      price_data: {
+        currency: 'usd',
+        unit_amount: flat ? band.flatCents : band.perHomeCents,
+        recurring: { interval: 'month' },
+        product_data: {
+          name: `Residente — ${band.label} plan`,
+          description: flat
+            ? `Flat $${(band.flatCents / 100).toFixed(0)}/mo · up to 25 homes`
+            : `${homes} homes · $${(band.perHomeCents / 100).toFixed(2)}/home/mo`,
+        },
+      },
+    }]
+    for (const key of wantAddons) {
+      const a = ADDONS[key]
+      lineItems.push({
+        quantity: 1,
+        price_data: {
+          currency: 'usd',
+          unit_amount: a.cents,
+          recurring: { interval: 'month' },
+          product_data: { name: `Residente — ${a.name}` },
+        },
+      })
+    }
 
     // Bank (ACH) first, card as the fallback — an association pays from its
     // operating bank account, and ACH has far lower fees + far lower failed-
@@ -104,25 +150,12 @@ Deno.serve(async (req) => {
       customer,
       payment_method_types: ['us_bank_account', 'card'],
       payment_method_options: { us_bank_account: { verification_method: 'automatic' } },
-      line_items: [{
-        quantity: flat ? 1 : homes,
-        price_data: {
-          currency: 'usd',
-          unit_amount: flat ? band.flatCents : band.perHomeCents,
-          recurring: { interval: 'month' },
-          product_data: {
-            name: `Residente — ${band.label} plan`,
-            description: flat
-              ? `Flat $${(band.flatCents / 100).toFixed(0)}/mo · up to 25 homes`
-              : `${homes} homes · $${(band.perHomeCents / 100).toFixed(2)}/home/mo`,
-          },
-        },
-      }],
+      line_items: lineItems,
       success_url: `${APP_URL}/admin?activated=1`,
       cancel_url: `${APP_URL}/admin?checkout=cancelled`,
       // stripe-webhook reads these back to flip the community to active.
       subscription_data: subData,
-      metadata: { community_id: community.id, plan: band.plan },
+      metadata: meta,
     }
     // Embedded mode renders Checkout inside the app (no redirect). With
     // redirect_on_completion:'never' the modal closes + refreshes in place

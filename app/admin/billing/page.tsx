@@ -143,12 +143,13 @@ export default function AdminBilling() {
 const TIER_RATE: Record<string, number> = { free: 0, pro: 200, premium: 400, enterprise: 600 }
 type TierKey = 'free' | 'pro' | 'premium' | 'enterprise'
 // Plan boxes for the picker — all four tiers, like the landing Pricing section.
-// Selecting Free is a downgrade = cancel the paid subscription at period end.
-const PLAN_CARDS: { key: TierKey; name: string; per: number; band: string; popular?: boolean }[] = [
-  { key: 'free',       name: 'Free',       per: 0,    band: 'Up to 25 homes' },
-  { key: 'pro',        name: 'Village',    per: 200,  band: '26–100 homes', popular: true },
-  { key: 'premium',    name: 'Town',       per: 400,  band: '101–500 homes' },
-  { key: 'enterprise', name: 'City',       per: 600,  band: '500+ homes' },
+// There's no $0 plan: the smallest (Cottage) is a flat $25/mo tier. Cancelling is
+// a separate explicit action (the Cancel button), not a plan you select.
+const PLAN_CARDS: { key: TierKey; name: string; per: number; flat?: number; band: string; popular?: boolean }[] = [
+  { key: 'free',       name: 'Cottage',    per: 0,   flat: 2500, band: 'Up to 25 homes' },
+  { key: 'pro',        name: 'Village',    per: 200,             band: '26–100 homes', popular: true },
+  { key: 'premium',    name: 'Town',       per: 400,             band: '101–500 homes' },
+  { key: 'enterprise', name: 'City',       per: 600,             band: '500+ homes' },
 ]
 // Optional add-ons — ONLY the ones actually built (each is purchasable + billed).
 // Keep in sync with ADDONS in supabase/functions/manage-subscription. API access &
@@ -162,7 +163,8 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
   currentHomes: number; onClose: () => void; onChanged: () => void
 }) {
   const t = useT()
-  const initialPlan = (planForHomes(currentHomes).plan !== 'free' ? planForHomes(currentHomes).plan : 'pro') as TierKey
+  const { openCheckout } = useCheckout()
+  const initialPlan = planForHomes(currentHomes).plan as TierKey   // ≤25 homes → 'free' = the $25 Cottage tier
   const [status, setStatus] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [homes, setHomes] = useState(String(currentHomes || ''))
@@ -178,7 +180,7 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
       if (s?.error) setErr(s.error)
       else {
         setStatus(s)
-        if (s?.plan && TIER_RATE[s.plan] && s.plan !== 'free') setTier(s.plan as TierKey)
+        if (s?.plan && PLAN_CARDS.some(p => p.key === s.plan)) setTier(s.plan as TierKey)
         if (Array.isArray(s?.addons)) setAddons(s.addons)
       }
       setLoading(false)
@@ -187,9 +189,11 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
 
   const n = Math.max(0, parseInt(homes || '0', 10) || 0)
   const homesValid = n >= 1
-  const perHome = TIER_RATE[tier]
+  // Cottage is a flat tier (fixed $/mo); the others are per-home × homes.
+  const tierFlat = PLAN_CARDS.find(p => p.key === tier)?.flat
+  const baseCents = tierFlat != null ? tierFlat : TIER_RATE[tier] * n
   const addonCents = ADDONS.filter(a => addons.includes(a.key)).reduce((s, a) => s + a.cents, 0)
-  const totalCents = perHome * n + addonCents
+  const totalCents = baseCents + addonCents
   const totalLabel = `$${(totalCents / 100).toLocaleString('en-US')}/mo`
   const currentPlan = (status?.plan as string) || initialPlan
   const currentAddons: string[] = status?.addons || []
@@ -203,6 +207,19 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
 
   const doChange = async () => {
     if (!homesValid) return
+    // No Stripe subscription yet (e.g. still in the free trial, card skipped at
+    // signup): there's nothing to "change". Start one — bundling any selected
+    // add-ons — via embedded checkout. trial_end keeps it free until day 90, so
+    // a board can turn on Accounting mid-trial without being charged early.
+    if (!status?.has_subscription) {
+      openCheckout({
+        fn: 'create-subscription-checkout',
+        title: t('admin.billing.addPaymentTitle'),
+        body: { addons },
+        onComplete: () => onChanged(),
+      })
+      return
+    }
     setBusy('change'); setErr(null); setMsg(null)
     const r = await manageSubscription('change_plan', { home_count: n, plan: tier, addons })
     if (r?.error) { setErr(r.error); setBusy(null); return }
@@ -281,8 +298,9 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
               <div className="sub-plan-grid">
                 {PLAN_CARDS.map((p) => {
                   const sel = tier === p.key
-                  const free = p.per === 0
-                  const monthly = free ? 'Free' : (homesValid ? `$${((p.per * n) / 100).toLocaleString('en-US')}/mo` : '— /mo')
+                  const flat = p.flat != null
+                  const monthly = flat ? `$${(p.flat! / 100).toLocaleString('en-US')}/mo`
+                    : (homesValid ? `$${((p.per * n) / 100).toLocaleString('en-US')}/mo` : '— /mo')
                   return (
                     <button key={p.key} type="button" onClick={() => setTier(p.key)} style={{
                       textAlign: 'left', cursor: 'pointer', position: 'relative',
@@ -298,7 +316,8 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
                       )}
                       <div style={{ fontSize: 16, fontWeight: 800 }}>{p.name}</div>
                       <div style={{ marginTop: 4, fontSize: 19, fontWeight: 800, lineHeight: 1 }}>
-                        ${p.per / 100}{!free && <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.75 }}> {t('admin.billing.perHomeMo')}</span>}
+                        ${flat ? p.flat! / 100 : p.per / 100}
+                        <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.75 }}> {flat ? '/mo' : t('admin.billing.perHomeMo')}</span>
                       </div>
                       <div style={{ marginTop: 7, fontSize: 12.5, opacity: sel ? 0.9 : 0.6 }}>{p.band}</div>
                       <div style={{ marginTop: 10, paddingTop: 9, borderTop: `1px solid ${sel ? 'rgba(255,255,255,0.3)' : '#f0e8df'}`, fontSize: 13, fontWeight: 700 }}>
@@ -336,28 +355,20 @@ function SubscriptionDialog({ currentHomes, onClose, onChanged }: {
                 })}
               </div>
 
-              {tier === 'free' ? (
-                <button onClick={doCancel} disabled={busy != null || canceling}
-                  style={{ marginTop: 14, width: '100%', padding: '12px', borderRadius: 999, border: '1px solid #e0b4a4', background: '#fff', color: '#b5481f', fontWeight: 800, fontSize: 15, cursor: canceling ? 'default' : 'pointer', opacity: canceling ? 0.5 : 1 }}>
-                  {canceling ? t('admin.billing.alreadySetToCancel') : busy === 'cancel' ? t('admin.billing.canceling') : t('admin.billing.downgradeToFree')}
-                </button>
-              ) : (
-                <button className="admin-primary-btn" style={{ marginTop: 14, width: '100%', padding: '12px', fontSize: 15 }}
-                  onClick={doChange} disabled={busy != null || !changed || !homesValid}>
-                  {busy === 'change' ? t('admin.billing.updating')
-                    : !homesValid ? t('admin.billing.enterHomesCount')
-                    : t(canceling ? 'admin.billing.keepActiveOn' : 'admin.billing.switchTo', { planName: PLAN_CARDS.find(p => p.key === tier)?.name ?? '', price: totalLabel })}
-                </button>
-              )}
+              <button className="admin-primary-btn" style={{ marginTop: 14, width: '100%', padding: '12px', fontSize: 15 }}
+                onClick={doChange} disabled={busy != null || !homesValid || (status?.has_subscription && !changed)}>
+                {busy === 'change' ? t('admin.billing.updating')
+                  : !homesValid ? t('admin.billing.enterHomesCount')
+                  : !status?.has_subscription ? `${t('admin.billing.subscribeNow')} · ${totalLabel}`
+                  : t(canceling ? 'admin.billing.keepActiveOn' : 'admin.billing.switchTo', { planName: PLAN_CARDS.find(p => p.key === tier)?.name ?? '', price: totalLabel })}
+              </button>
               <div style={{ marginTop: 8, fontSize: 12, color: '#8a7560', textAlign: 'center' }}>
-                {tier === 'free'
-                  ? t('admin.billing.freeFootnote')
-                  : t('admin.billing.paidFootnote')}
+                {t('admin.billing.paidFootnote')}
               </div>
             </div>
 
-            {/* Explicit cancel (when not already on the Free/cancel path) */}
-            {status?.has_subscription && !canceling && tier !== 'free' && (
+            {/* Explicit cancel — the only way to stop billing (no $0 plan to pick). */}
+            {status?.has_subscription && !canceling && (
               <div style={{ borderTop: '1px solid #eee', marginTop: 14, paddingTop: 12 }}>
                 <button onClick={doCancel} disabled={busy != null}
                   style={{ width: '100%', padding: '13px', borderRadius: 999, border: '1px solid #e0b4a4', background: '#fff', color: '#b5481f', fontWeight: 800, fontSize: 15, cursor: 'pointer' }}>

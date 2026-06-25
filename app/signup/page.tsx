@@ -75,6 +75,9 @@ export default function SignupPage() {
   const [joinCode, setJoinCode] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  // Optional accounting add-on chosen on the pay-now step ($49/mo, free until the
+  // 3-month trial ends — same as the base plan).
+  const [wantAccounting, setWantAccounting] = useState(false)
 
   // Document-collection wizard state (board / management). `docSection` is the
   // active category; `docState` holds every check + attached file + note so it
@@ -433,10 +436,32 @@ export default function SignupPage() {
               add it anytime from your subscription page.
             </p>
             <HouseArt />
+            <button
+              type="button"
+              onClick={() => setWantAccounting(v => !v)}
+              style={{
+                display: 'flex', alignItems: 'center', gap: 12, width: '100%', textAlign: 'left',
+                cursor: 'pointer', padding: '13px 15px', borderRadius: 14, marginBottom: 14,
+                border: '2px solid ' + (wantAccounting ? '#E5601F' : '#e7ddd2'),
+                background: wantAccounting ? '#fff7f1' : '#fff',
+              }}
+            >
+              <span style={{
+                width: 22, height: 22, borderRadius: 7, flexShrink: 0, display: 'grid', placeItems: 'center',
+                border: '2px solid ' + (wantAccounting ? '#E5601F' : '#cdbfae'),
+                background: wantAccounting ? '#E5601F' : '#fff', color: '#fff', fontSize: 13, fontWeight: 900,
+              }}>{wantAccounting ? '✓' : ''}</span>
+              <span style={{ flex: 1, minWidth: 0 }}>
+                <span style={{ display: 'block', fontSize: 14.5, fontWeight: 700, color: '#2a1206' }}>Add Accounting &amp; bank reconciliation</span>
+                <span style={{ display: 'block', fontSize: 12.5, color: '#8a7560' }}>General ledger, auto bank reconciliation &amp; CPA-ready exports. Free during your trial.</span>
+              </span>
+              <span style={{ flexShrink: 0, fontSize: 14, fontWeight: 800, color: '#E5601F' }}>+$49/mo</span>
+            </button>
             <div className="su-actions">
               <button className="su-btn" type="button" onClick={() => openCheckout({
                 fn: 'create-subscription-checkout',
                 title: 'Add payment',
+                body: { addons: wantAccounting ? ['accounting'] : [] },
                 countdownTo: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000),
                 onComplete: () => { void goToAdmin() },
               })}>

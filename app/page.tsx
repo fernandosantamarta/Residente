@@ -1304,22 +1304,22 @@ function Stat({ n, l }) {
 
 function TrustMarquee() {
   const names = [
-    'Alabama', 'Alaska', 'Arizona', 'Arkansas', 'California',
-    'Colorado', 'Connecticut', 'Delaware', 'Florida', 'Georgia',
-    'Hawaii', 'Idaho', 'Illinois', 'Indiana', 'Iowa',
-    'Kansas', 'Kentucky', 'Louisiana', 'Maine', 'Maryland',
-    'Massachusetts', 'Michigan', 'Minnesota', 'Mississippi', 'Missouri',
-    'Montana', 'Nebraska', 'Nevada', 'New Hampshire', 'New Jersey',
-    'New Mexico', 'New York', 'North Carolina', 'North Dakota', 'Ohio',
-    'Oklahoma', 'Oregon', 'Pennsylvania', 'Rhode Island', 'South Carolina',
-    'South Dakota', 'Tennessee', 'Texas', 'Utah', 'Vermont',
-    'Virginia', 'Washington', 'West Virginia', 'Wisconsin', 'Wyoming',
+    'Miami', 'Orlando', 'Tampa', 'Jacksonville', 'Tallahassee',
+    'Fort Lauderdale', 'St. Petersburg', 'Hialeah', 'Cape Coral', 'Port St. Lucie',
+    'Pembroke Pines', 'Hollywood', 'Gainesville', 'Coral Springs', 'Clearwater',
+    'Miami Gardens', 'Palm Bay', 'West Palm Beach', 'Pompano Beach', 'Lakeland',
+    'Davie', 'Miami Beach', 'Boca Raton', 'Sunrise', 'Deltona',
+    'Plantation', 'Fort Myers', 'Boynton Beach', 'Kissimmee', 'Naples',
+    'Sarasota', 'Daytona Beach', 'Pensacola', 'Delray Beach', 'Ocala',
+    'Wellington', 'Doral', 'Coral Gables', 'Bradenton', 'Melbourne',
+    'Jupiter', 'Key West', 'Sanford', 'Bonita Springs', 'The Villages',
+    'Winter Park', 'Weston', 'Aventura',
   ]
   return (
     <section className="ln-trust" data-anim>
       <div className="ln-trust-label">
         Designed in Florida, for HOAs of every
-        <br />size that make up our beautiful country.
+        <br />size that make up our beautiful state.
       </div>
       <div className="ln-marquee">
         <div className="ln-marquee-track">

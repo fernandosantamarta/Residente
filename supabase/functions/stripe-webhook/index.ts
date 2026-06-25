@@ -214,6 +214,10 @@ Deno.serve(async (req) => {
       const { error } = await admin.from('communities').update({
         subscription_status: 'active',
         ...(plan ? { plan } : {}),
+        // Add-on selected at checkout → unlock the accounting workspace now (it
+        // bills with the plan when the trial ends). Only ever set true here so a
+        // plain subscribe never clobbers an add-on toggled elsewhere.
+        ...(session.metadata?.accounting_addon === 'true' ? { accounting_addon: true } : {}),
         stripe_customer_id: typeof session.customer === 'string' ? session.customer : null,
         stripe_subscription_id: typeof session.subscription === 'string' ? session.subscription : null,
       }).eq('id', community_id)
