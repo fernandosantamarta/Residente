@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { downloadCsv, exportFilename } from '@/lib/exportCsv'
+import { parseRosterCsv } from '@/lib/signupImport'
 import { logAudit } from '@/lib/audit'
 import { transferHome } from '@/lib/homeVault'
 import { Pager } from '@/components/Pager'
@@ -31,26 +32,13 @@ const withTimeout = (p, ms = 10000) =>
     new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms)),
   ])
 
-// CSV parse for the roster import. Columns: name, subdivision, address, email, phone.
-// A header row is auto-detected and skipped.
-function parseResidentsCsv(text) {
-  const lines = String(text).split(/\r?\n/).map(l => l.trim()).filter(Boolean)
-  if (!lines.length) return []
-  const cells = (line) => line.split(',').map(c => c.trim())
-  const first = cells(lines[0]).map(c => c.toLowerCase())
-  const hasHeader = first.some(c =>
-    ['name', 'full name', 'subdivision', 'address', 'email', 'phone', 'unit'].includes(c))
-  const out = []
-  for (let i = hasHeader ? 1 : 0; i < lines.length; i++) {
-    const c = cells(lines[i])
-    if (!c[0]) continue
-    out.push({
-      full_name: c[0], subdivision: c[1] || '', address: c[2] || '',
-      email: c[3] || '', phone: c[4] || '',
-    })
-  }
-  return out
-}
+// Roster CSV parsing lives in lib/signupImport.ts (parseRosterCsv) so the signup
+// onboarding import and this admin re-import stay consistent — same header mapping
+// (any column order), quote-aware splitting, opening_balance + unit_number support.
+
+// Money formatter for the import preview (tie-out against the prior manager's
+// trial balance). USD; communities bill in dollars.
+const fmtUSD = (n) => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 // Sort alphabetically by household name; unit/address (numeric-aware) breaks ties.
 const sortRows = (rs) => [...rs].sort((a, b) => {
@@ -131,6 +119,7 @@ export default function Residents() {
     const cols = [
       { label: 'Name', value: r => r.full_name || '' },
       { label: 'Unit', value: r => r.unit_number || '' },
+      { label: 'Opening balance', value: r => r.opening_balance != null ? Number(r.opening_balance).toFixed(2) : '' },
       { label: 'Subdivision', value: r => r.subdivision || '' },
       { label: 'Address', value: r => r.address || '' },
       { label: 'Email', value: r => r.email || '' },
@@ -429,7 +418,7 @@ export default function Residents() {
     if (!file) return
     const reader = new FileReader()
     reader.onload = () => {
-      const parsed = parseResidentsCsv(reader.result)
+      const parsed = parseRosterCsv(String(reader.result || ''))
       if (parsed.length) { setPending(parsed); setError('') }
       else setError(t('admin.residents.errNoRowsInFile'))
     }
@@ -449,6 +438,11 @@ export default function Residents() {
         email: p.email || null,
         phone: p.phone || null,
         unit_number: p.unit_number || null,
+        // opening_balance has no other UI writer — set it only when the file carried
+        // a real number so a blank cell never zeroes an existing balance. Feeds
+        // residentBalance()/casePayoff()/the GL and shows up in /admin/reports.
+        ...(typeof p.opening_balance === 'number' && Number.isFinite(p.opening_balance)
+          ? { opening_balance: p.opening_balance } : {}),
       }))
       const { error } = await withTimeout(supabase.from('residents').insert(toInsert))
       if (error) throw error
@@ -474,6 +468,29 @@ export default function Residents() {
     t('admin.residents.phEmail'),
     t('admin.residents.phPhone'),
   ]
+
+  // Opening-balance summary for the confirm bar — lets a board tie the import out
+  // to the prior manager's trial balance before committing the migration.
+  const pendingMoney = useMemo(() => {
+    if (!pending) return null
+    const withBal = pending.filter(p => typeof p.opening_balance === 'number' && p.opening_balance !== 0)
+    if (!withBal.length) return null
+    return { count: withBal.length, total: withBal.reduce((s, p) => s + (p.opening_balance || 0), 0) }
+  }, [pending])
+
+  // A blank CSV with the exact headers the parser recognizes (and one example row) —
+  // the fastest way for a board to hand us the roster + opening balances at setup.
+  const downloadTemplate = () => {
+    const example = [{ full_name: 'Jane Smith', unit_number: '101', opening_balance: 1250, email: 'jane@example.com', phone: '555-0100', address: '101 Oak St' }]
+    downloadCsv('residente-roster-template.csv', example, [
+      { label: 'Name', value: r => r.full_name },
+      { label: 'Unit', value: r => r.unit_number },
+      { label: 'Opening balance', value: r => r.opening_balance },
+      { label: 'Email', value: r => r.email },
+      { label: 'Phone', value: r => r.phone },
+      { label: 'Address', value: r => r.address },
+    ])
+  }
 
   return (
     <div className="admin-page etrack">
@@ -648,6 +665,11 @@ export default function Residents() {
                 onClick={() => fileRef.current && fileRef.current.click()}>
                 {t('admin.residents.uploadCSV')}
               </button>
+              <button type="button" className="admin-btn-ghost"
+                title={t('admin.residents.downloadTemplateTitle')}
+                onClick={downloadTemplate}>
+                {t('admin.residents.downloadTemplate')}
+              </button>
               {error && <span className="admin-err-inline">{error}</span>}
             </div>
             <input name="residents-csv" ref={fileRef} type="file" accept=".csv,text/csv"
@@ -658,6 +680,11 @@ export default function Residents() {
             <div className="res-import-bar">
               <span>
                 {t('admin.residents.foundResidents', { count: String(pending.length), suffix: pending.length === 1 ? '' : 's' })}
+                {pendingMoney && (
+                  <span className="muted" style={{ marginLeft: 8 }}>
+                    {t('admin.residents.importOpeningPreview', { count: String(pendingMoney.count), total: fmtUSD(pendingMoney.total) })}
+                  </span>
+                )}
               </span>
               <button type="button" className="admin-primary-btn" disabled={importing} onClick={confirmImport}>
                 {importing ? t('admin.residents.importing') : t('admin.residents.importAll', { count: String(pending.length) })}

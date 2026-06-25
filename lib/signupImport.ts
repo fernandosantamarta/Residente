@@ -165,6 +165,10 @@ export async function applySignupImport(
         address: r.address?.trim() || null,
         email: r.email?.trim() || null,
         phone: r.phone?.trim() || null,
+        // Carry the opening balance from the prior manager at onboarding too (same
+        // as the /admin/residents import) — only when present, never overwrite with 0.
+        ...(typeof r.opening_balance === 'number' && Number.isFinite(r.opening_balance)
+          ? { opening_balance: r.opening_balance } : {}),
       }))
       const { error } = await supabase.from('residents').insert(rows)
       if (!error) result.residents = rows.length
