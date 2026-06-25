@@ -76,8 +76,7 @@ export default function Residents() {
   const [subFilter, setSubFilter] = useState('all')
   const [grid, setGrid] = useState(() => [blankGridRow(), blankGridRow(), blankGridRow()])
   const fileRef = useRef(null)
-  // AI document import — a separate hidden picker (PDF or photo) + busy state.
-  const aiFileRef = useRef(null)
+  // One upload picker: a CSV is parsed directly; a PDF/photo is read by AI.
   const [aiBusy, setAiBusy] = useState(false)
   // "More →" hint fades out as the import sheet is scrolled right.
   const [hintOpacity, setHintOpacity] = useState(1)
@@ -415,35 +414,34 @@ export default function Residents() {
   }
   const gridHasData = grid.some(gridRowHasData)
 
-  const onPickFile = (e) => {
+  // One upload for everything. A CSV is parsed directly; a PDF or photo (any
+  // layout) is read by AI (extract-roster). Either way the result lands in the
+  // same confirm preview so the board reviews before importing. If AI can't read
+  // a PDF/image (not deployed/configured, or a bad scan), we point them to CSV.
+  const onPickAny = (e) => {
     const file = e.target.files && e.target.files[0]
     e.target.value = ''
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      const parsed = parseRosterCsv(String(reader.result || ''))
-      if (parsed.length) { setPending(parsed); setError('') }
-      else setError(t('admin.residents.errNoRowsInFile'))
+    const isCsv = /\.csv$/i.test(file.name) || file.type === 'text/csv' || file.type === 'application/vnd.ms-excel'
+    if (isCsv) {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const parsed = parseRosterCsv(String(reader.result || ''))
+        if (parsed.length) { setPending(parsed); setError('') }
+        else setError(t('admin.residents.errNoRowsInFile'))
+      }
+      reader.onerror = () => setError(t('admin.residents.errReadFile'))
+      reader.readAsText(file)
+      return
     }
-    reader.onerror = () => setError(t('admin.residents.errReadFile'))
-    reader.readAsText(file)
-  }
-
-  // Read a roster/ledger document with AI (PDF or photo, any layout). On success
-  // the extracted rows flow into the same confirm preview as CSV (tie-out + cancel),
-  // so the board reviews them before they import.
-  const onPickAiDoc = async (e) => {
-    const file = e.target.files && e.target.files[0]
-    e.target.value = ''
-    if (!file) return
     setAiBusy(true); setError('')
-    try {
-      const rows = await extractRosterFromFile(file)
-      if (rows && rows.length) setPending(rows)
-      else setError(t('admin.residents.aiFailed'))
-    } catch {
-      setError(t('admin.residents.aiFailed'))
-    } finally { setAiBusy(false) }
+    extractRosterFromFile(file)
+      .then(rows => {
+        if (rows && rows.length) setPending(rows)
+        else setError(t('admin.residents.aiUnavailable'))
+      })
+      .catch(() => setError(t('admin.residents.aiUnavailable')))
+      .finally(() => setAiBusy(false))
   }
 
   const confirmImport = async () => {
@@ -681,28 +679,21 @@ export default function Residents() {
                 {t('admin.residents.pasteImport')}
               </button>
               <button type="button" className="admin-secondary-btn"
-                title={t('admin.residents.uploadCSVTitle')}
+                title={t('admin.residents.uploadFileTitle')}
+                disabled={aiBusy}
                 onClick={() => fileRef.current && fileRef.current.click()}>
-                {t('admin.residents.uploadCSV')}
+                {aiBusy ? t('admin.residents.aiReading') : t('admin.residents.uploadFile')}
               </button>
               <button type="button" className="admin-btn-ghost"
                 title={t('admin.residents.downloadTemplateTitle')}
                 onClick={downloadTemplate}>
                 {t('admin.residents.downloadTemplate')}
               </button>
-              <button type="button" className="admin-secondary-btn"
-                title={t('admin.residents.aiUploadTitle')}
-                disabled={aiBusy}
-                onClick={() => aiFileRef.current && aiFileRef.current.click()}>
-                {aiBusy ? t('admin.residents.aiReading') : t('admin.residents.aiUpload')}
-              </button>
               {error && <span className="admin-err-inline">{error}</span>}
             </div>
-            <input name="residents-csv" ref={fileRef} type="file" accept=".csv,text/csv"
-              onChange={onPickFile} style={{ display: 'none' }} />
-            <input name="residents-ai-doc" ref={aiFileRef} type="file"
-              accept=".pdf,application/pdf,image/png,image/jpeg,image/webp"
-              onChange={onPickAiDoc} style={{ display: 'none' }} />
+            <input name="residents-upload" ref={fileRef} type="file"
+              accept=".csv,text/csv,.pdf,application/pdf,image/png,image/jpeg,image/webp"
+              onChange={onPickAny} style={{ display: 'none' }} />
           </div>
 
           {pending && (
