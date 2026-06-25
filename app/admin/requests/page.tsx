@@ -1096,26 +1096,32 @@ function AdminThread({
           {/* Secondary management — triage (priority + assignee) on the left,
               reply-lock + close on the right, one row. */}
           <div className="imsg-composer-opts" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-dim)' }}>{t('admin.requests.triagePriorityLabel')}</span>
-              <Dropdown<Priority>
-                value={(request.priority as Priority) || 'normal'}
-                onChange={p => onSetPriority(request, p)}
-                ariaLabel={t('admin.requests.triagePriorityLabel')}
-                options={PRIORITIES.map(p => ({ value: p, label: prioLabel[p] || p }))}
-              />
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-              <span style={{ fontSize: 11.5, fontWeight: 600, color: 'var(--text-dim)' }}>{t('admin.requests.triageAssignLabel')}</span>
-              <Dropdown<string>
-                value={request.assigned_to || ''}
-                onChange={v => onSetAssignee(request, v)}
-                ariaLabel={t('admin.requests.triageAssignLabel')}
-                options={[
-                  { value: '', label: t('admin.requests.triageUnassigned') },
-                  ...boardMembers.map(b => ({ value: b.id, label: b.name })),
-                ]}
-              />
+            <div className="imsg-triage">
+              <span className="tri-field">
+                <span className="tri-label">{t('admin.requests.triagePriorityLabel')}</span>
+                <span className="tri-prio">
+                  <Dropdown<Priority>
+                    value={(request.priority as Priority) || 'normal'}
+                    onChange={p => onSetPriority(request, p)}
+                    ariaLabel={t('admin.requests.triagePriorityLabel')}
+                    options={PRIORITIES.map(p => ({ value: p, label: prioLabel[p] || p }))}
+                  />
+                </span>
+              </span>
+              <span className="tri-field">
+                <span className="tri-label">{t('admin.requests.triageAssignLabel')}</span>
+                <span className="tri-assign">
+                  <Dropdown<string>
+                    value={request.assigned_to || ''}
+                    onChange={v => onSetAssignee(request, v)}
+                    ariaLabel={t('admin.requests.triageAssignLabel')}
+                    options={[
+                      { value: '', label: t('admin.requests.triageUnassigned') },
+                      ...boardMembers.map(b => ({ value: b.id, label: b.name })),
+                    ]}
+                  />
+                </span>
+              </span>
             </div>
             <div style={{ flex: 1, minWidth: 0 }} />
             <button type="button" className="admin-btn-ghost admin-btn-ghost-orange" style={{ marginLeft: 0, color: '#E14909', borderColor: 'rgba(225,73,9,0.45)' }} onClick={() => onSetLocked(request, !locked)}>
