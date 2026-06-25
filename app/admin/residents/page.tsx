@@ -54,6 +54,18 @@ const GRID_COLS = ['name', 'unit', 'email', 'phone']
 const blankGridRow = () => ({ name: '', unit: '', email: '', phone: '' })
 const gridRowHasData = (r) => !!(r.name || r.unit || r.email || r.phone)
 
+// Stage parsed/extracted rows for the "Review before importing" table. Every row
+// gets a stable _k so editing/removing one never reorders or clobbers another
+// (React keys by _k, not index), plus a _balText buffer so a half-typed balance
+// like "12." or "-" isn't mangled by per-keystroke number parsing. Both are
+// stripped at write time (confirmImport maps named fields only).
+let _pendingKey = 0
+const stagePending = (rows) => rows.map(r => ({
+  ...r,
+  _k: ++_pendingKey,
+  _balText: typeof r.opening_balance === 'number' && Number.isFinite(r.opening_balance) ? String(r.opening_balance) : '',
+}))
+
 // Residents page — the community roster (people only): who's on the roster,
 // whether they've registered/activated their account, their contact info and
 // tenants, plus invite/transfer/remove. All dues & payment tracking lives in
@@ -409,7 +421,7 @@ export default function Residents() {
       email: r.email.trim(), phone: r.phone.trim(),
       address: r.unit.trim(), subdivision: '',
     }))
-    if (parsed.length) { setPending(parsed); setError('') }
+    if (parsed.length) { setPending(stagePending(parsed)); setError('') }
     else setError(t('admin.residents.errGridEmpty'))
   }
   const gridHasData = grid.some(gridRowHasData)
@@ -427,7 +439,7 @@ export default function Residents() {
       const reader = new FileReader()
       reader.onload = () => {
         const parsed = parseRosterCsv(String(reader.result || ''))
-        if (parsed.length) { setPending(parsed); setError('') }
+        if (parsed.length) { setPending(stagePending(parsed)); setError('') }
         else setError(t('admin.residents.errNoRowsInFile'))
       }
       reader.onerror = () => setError(t('admin.residents.errReadFile'))
@@ -437,31 +449,53 @@ export default function Residents() {
     setAiBusy(true); setError('')
     extractRosterFromFile(file)
       .then(rows => {
-        if (rows && rows.length) setPending(rows)
+        if (rows && rows.length) setPending(stagePending(rows))
         else setError(t('admin.residents.aiUnavailable'))
       })
       .catch(() => setError(t('admin.residents.aiUnavailable')))
       .finally(() => setAiBusy(false))
   }
 
+  // Edit one cell of a staged row in the review table (text fields). Matched by
+  // the stable _k so a prior remove can't shift which row we touch.
+  const editPending = (k, key, val) =>
+    setPending(ps => ps.map(p => (p._k === k ? { ...p, [key]: val } : p)))
+
+  // Opening balance is edited as free text (_balText keeps "12." / "-" intact)
+  // while we keep opening_balance numeric in lockstep for the tie-out total.
+  const editPendingBal = (k, val) =>
+    setPending(ps => ps.map(p => {
+      if (p._k !== k) return p
+      const s = String(val).trim()
+      const n = s ? Number(s.replace(/[^0-9.\-]/g, '')) : NaN
+      return { ...p, _balText: val, opening_balance: Number.isFinite(n) ? n : undefined }
+    }))
+
+  const removePending = (k) =>
+    setPending(ps => { const next = ps.filter(p => p._k !== k); return next.length ? next : null })
+
   const confirmImport = async () => {
     if (!pending) return
     setImporting(true); setError('')
     try {
-      const toInsert = pending.map(p => ({
-        community_id: communityId,
-        full_name: p.full_name,
-        subdivision: p.subdivision || null,
-        address: p.address || null,
-        email: p.email || null,
-        phone: p.phone || null,
-        unit_number: p.unit_number || null,
-        // opening_balance has no other UI writer — set it only when the file carried
-        // a real number so a blank cell never zeroes an existing balance. Feeds
-        // residentBalance()/casePayoff()/the GL and shows up in /admin/reports.
-        ...(typeof p.opening_balance === 'number' && Number.isFinite(p.opening_balance)
-          ? { opening_balance: p.opening_balance } : {}),
-      }))
+      const toInsert = pending
+        // A name can be blanked in the review table — never insert a nameless row.
+        .filter(p => (p.full_name || '').trim())
+        .map(p => ({
+          community_id: communityId,
+          full_name: p.full_name.trim(),
+          subdivision: p.subdivision || null,
+          address: p.address || null,
+          email: p.email || null,
+          phone: p.phone || null,
+          unit_number: p.unit_number || null,
+          // opening_balance has no other UI writer — set it only when the file carried
+          // a real number so a blank cell never zeroes an existing balance. Feeds
+          // residentBalance()/casePayoff()/the GL and shows up in /admin/reports.
+          ...(typeof p.opening_balance === 'number' && Number.isFinite(p.opening_balance)
+            ? { opening_balance: p.opening_balance } : {}),
+        }))
+      if (!toInsert.length) { setError(t('admin.residents.errGridEmpty')); setImporting(false); return }
       const { error } = await withTimeout(supabase.from('residents').insert(toInsert))
       if (error) throw error
       const n = toInsert.length
@@ -697,22 +731,70 @@ export default function Residents() {
           </div>
 
           {pending && (
-            <div className="res-import-bar">
-              <span>
-                {t('admin.residents.foundResidents', { count: String(pending.length), suffix: pending.length === 1 ? '' : 's' })}
-                {pendingMoney && (
-                  <span className="muted" style={{ marginLeft: 8 }}>
-                    {t('admin.residents.importOpeningPreview', { count: String(pendingMoney.count), total: fmtUSD(pendingMoney.total) })}
-                  </span>
-                )}
-              </span>
-              <button type="button" className="admin-primary-btn" disabled={importing} onClick={confirmImport}>
-                {importing ? t('admin.residents.importing') : t('admin.residents.importAll', { count: String(pending.length) })}
-              </button>
-              <button type="button" className="admin-btn-ghost" onClick={() => setPending(null)}>
-                {t('admin.residents.cancel')}
-              </button>
-            </div>
+            <>
+              {/* Review before importing — every staged row is editable so the board
+                  can fix a misread (AI) or a stray cell (CSV) before the migration
+                  write. Remove drops a row; the tie-out total updates live. */}
+              <div className="card import-review">
+                <div className="card-head">
+                  <div>
+                    <h2>{t('admin.residents.reviewTitle')}</h2>
+                    <div className="sub">{t('admin.residents.reviewNote')}</div>
+                  </div>
+                </div>
+                <div style={{ overflowX: 'auto' }}>
+                  <table className="tbl" style={{ minWidth: 640 }}>
+                    <thead>
+                      <tr>
+                        <th>{t('admin.residents.colOwner')}</th>
+                        <th>{t('admin.residents.colUnit')}</th>
+                        <th>{t('admin.residents.colEmail')}</th>
+                        <th>{t('admin.residents.colPhone')}</th>
+                        <th>{t('admin.residents.colBalance')}</th>
+                        <th className="act"></th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pending.map((p, i) => (
+                        <tr className="tr" key={p._k}>
+                          <td><input className="admin-input" style={{ minWidth: 150 }} value={p.full_name || ''}
+                            onChange={e => editPending(p._k, 'full_name', e.target.value)} /></td>
+                          <td><input className="admin-input" style={{ minWidth: 80 }} value={p.unit_number || ''}
+                            onChange={e => editPending(p._k, 'unit_number', e.target.value)} /></td>
+                          <td><input className="admin-input" type="email" style={{ minWidth: 170 }} value={p.email || ''}
+                            onChange={e => editPending(p._k, 'email', e.target.value)} /></td>
+                          <td><input className="admin-input" style={{ minWidth: 120 }} value={p.phone || ''}
+                            onChange={e => editPending(p._k, 'phone', e.target.value)} /></td>
+                          <td><input className="admin-input" inputMode="decimal" placeholder={t('admin.residents.phBalance')}
+                            style={{ minWidth: 90, textAlign: 'right' }} value={p._balText || ''}
+                            onChange={e => editPendingBal(p._k, e.target.value)} /></td>
+                          <td className="act">
+                            <button type="button" className="import-del" onClick={() => removePending(p._k)}
+                              aria-label={t('admin.residents.ariaRemovePending', { row: String(i + 1) })}>&times;</button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <div className="res-import-bar">
+                <span>
+                  {t('admin.residents.foundResidents', { count: String(pending.length), suffix: pending.length === 1 ? '' : 's' })}
+                  {pendingMoney && (
+                    <span className="muted" style={{ marginLeft: 8 }}>
+                      {t('admin.residents.importOpeningPreview', { count: String(pendingMoney.count), total: fmtUSD(pendingMoney.total) })}
+                    </span>
+                  )}
+                </span>
+                <button type="button" className="admin-primary-btn" disabled={importing} onClick={confirmImport}>
+                  {importing ? t('admin.residents.importing') : t('admin.residents.importAll', { count: String(pending.length) })}
+                </button>
+                <button type="button" className="admin-btn-ghost" onClick={() => setPending(null)}>
+                  {t('admin.residents.cancel')}
+                </button>
+              </div>
+            </>
           )}
 
           {/* Search / filter / export toolbar over the roster table. */}

@@ -13,7 +13,7 @@ import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { downloadCsv, exportFilename, type CsvColumn } from '@/lib/exportCsv'
-import { parseRosterCsv } from '@/lib/signupImport'
+import { parseRosterCsv, extractRosterFromFile } from '@/lib/signupImport'
 import { residentBalance, communityDuesConfig, adminLateFees, fmtMoney } from '@/lib/dues'
 import { Dropdown } from '@/components/Dropdown'
 import { RecordPaymentForm } from '@/components/RecordPaymentForm'
@@ -114,6 +114,9 @@ export default function ReportsPage() {
   const balFileRef = useRef<HTMLInputElement>(null)
   const [pendingBal, setPendingBal] = useState<{ matched: { r: Resident; bal: number }[]; unmatched: string[] } | null>(null)
   const [importingBal, setImportingBal] = useState(false)
+  // A CSV is parsed in-browser; a PDF/photo is read by AI (extract-roster) — true
+  // while that round-trip is in flight so the button can show "Reading…".
+  const [balBusy, setBalBusy] = useState(false)
   const [remindMsg, setRemindMsg] = useState('')
   const [behindPage, setBehindPage] = useState(0)
   const [assessmentsPage, setAssessmentsPage] = useState(0)
@@ -241,29 +244,47 @@ export default function ReportsPage() {
     return {}
   }
 
-  // Parse an uploaded opening-balances CSV and match each row to a resident by
-  // unit (then name); stage the matched updates + any unmatched rows for confirm.
+  // Match extracted/parsed roster rows to existing residents by unit (then name)
+  // and stage the opening-balance updates + any unmatched rows for confirm. Shared
+  // by the CSV and AI paths — this workspace only updates balances on residents
+  // that already exist (the roster import that creates them lives in /admin/residents).
+  const stageBalances = (rows: ReturnType<typeof parseRosterCsv>) => {
+    const withBal = rows.filter(r => typeof r.opening_balance === 'number')
+    const byUnit = new Map(residents.filter(r => r.unit_number).map(r => [r.unit_number!.trim().toLowerCase(), r]))
+    const byName = new Map(residents.map(r => [(r.full_name || '').trim().toLowerCase(), r]))
+    const matched: { r: Resident; bal: number }[] = []
+    const unmatched: string[] = []
+    for (const row of withBal) {
+      const hit = (row.unit_number && byUnit.get(row.unit_number.trim().toLowerCase()))
+        || byName.get((row.full_name || '').trim().toLowerCase())
+      if (hit) matched.push({ r: hit, bal: row.opening_balance as number })
+      else unmatched.push(row.unit_number || row.full_name || '?')
+    }
+    if (!matched.length && !unmatched.length) { setError(t('admin.reports.balNoRows')); return }
+    setError(''); setPendingBal({ matched, unmatched })
+  }
+
+  // One picker for the opening-balances import: a CSV is parsed in-browser; a PDF
+  // or photo (scanned ledger, any layout) is read by AI (extract-roster). Either
+  // way the result flows through stageBalances → the confirm bar. If AI can't read
+  // the file (not configured, or a bad scan), we point the board back to CSV.
   const onPickBalanceFile = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      const rows = parseRosterCsv(String(reader.result || '')).filter(r => typeof r.opening_balance === 'number')
-      const byUnit = new Map(residents.filter(r => r.unit_number).map(r => [r.unit_number!.trim().toLowerCase(), r]))
-      const byName = new Map(residents.map(r => [(r.full_name || '').trim().toLowerCase(), r]))
-      const matched: { r: Resident; bal: number }[] = []
-      const unmatched: string[] = []
-      for (const row of rows) {
-        const hit = (row.unit_number && byUnit.get(row.unit_number.trim().toLowerCase()))
-          || byName.get((row.full_name || '').trim().toLowerCase())
-        if (hit) matched.push({ r: hit, bal: row.opening_balance as number })
-        else unmatched.push(row.unit_number || row.full_name || '?')
-      }
-      if (!matched.length && !unmatched.length) { setError(t('admin.reports.balNoRows')); return }
-      setError(''); setPendingBal({ matched, unmatched })
+    const isCsv = /\.csv$/i.test(file.name) || file.type === 'text/csv' || file.type === 'application/vnd.ms-excel'
+    if (isCsv) {
+      const reader = new FileReader()
+      reader.onload = () => stageBalances(parseRosterCsv(String(reader.result || '')))
+      reader.onerror = () => setError(t('admin.reports.balReadError'))
+      reader.readAsText(file)
+      return
     }
-    reader.readAsText(file)
+    setBalBusy(true); setError('')
+    extractRosterFromFile(file)
+      .then(rows => { if (rows && rows.length) stageBalances(rows); else setError(t('admin.reports.balAiUnavailable')) })
+      .catch(() => setError(t('admin.reports.balAiUnavailable')))
+      .finally(() => setBalBusy(false))
   }
 
   // Commit the staged opening balances: one update per matched resident, then refetch.
@@ -429,7 +450,7 @@ export default function ReportsPage() {
   // QuickBooks variants ride along as a secondary action where one exists.
   const REPORTS: {
     name: string; period: string; count: number
-    actions: { label: string; onClick: () => void; dim?: boolean }[]
+    actions: { label: string; onClick: () => void; dim?: boolean; disabled?: boolean }[]
   }[] = [
     {
       name: t('admin.reports.reportPaymentLedger'), period: rangeLabel, count: paysInRange.length,
@@ -449,7 +470,7 @@ export default function ReportsPage() {
       name: t('admin.reports.reportHouseholdRoster'), period: t('admin.reports.periodFullRoster'), count: residents.length,
       actions: [
         { label: t('admin.reports.exportCsvBtn'), onClick: exportRoster },
-        { label: t('admin.reports.importBalancesBtn'), onClick: () => balFileRef.current?.click() },
+        { label: balBusy ? t('admin.reports.balReading') : t('admin.reports.importBalancesBtn'), onClick: () => balFileRef.current?.click(), disabled: balBusy },
       ],
     },
   ]
@@ -507,7 +528,12 @@ export default function ReportsPage() {
 
           {/* Hidden picker + confirm bar for the opening-balance import, triggered
               from the Household Roster row's "Import balances" action below. */}
-          <input ref={balFileRef} type="file" accept=".csv,text/csv" onChange={onPickBalanceFile} style={{ display: 'none' }} />
+          <input ref={balFileRef} type="file"
+            accept=".csv,text/csv,.pdf,application/pdf,image/png,image/jpeg,image/webp"
+            onChange={onPickBalanceFile} style={{ display: 'none' }} />
+          {error && !pendingBal && status === 'ready' && (
+            <div className="admin-note admin-note-warn" style={{ marginBottom: 12 }}>{error}</div>
+          )}
           {pendingBal && (
             <div className="res-import-bar">
               <span>
@@ -546,7 +572,7 @@ export default function ReportsPage() {
                     <td className="act">
                       {r.actions.map(a => (
                         <button key={a.label} type="button" className={`go${a.dim ? ' dim' : ''}`}
-                          onClick={a.onClick} disabled={r.count === 0}>
+                          onClick={a.onClick} disabled={r.count === 0 || a.disabled}>
                           {a.label}
                         </button>
                       ))}
