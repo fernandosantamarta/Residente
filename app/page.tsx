@@ -1520,7 +1520,7 @@ function Pricing() {
 
       <div className="ln-addons">
         <div className="ln-addons-text">
-          <span className="ln-addons-label">Town &amp; City add-ons</span>
+          <span className="ln-addons-label">Add-ons</span>
           <span className="ln-addons-list"><strong>Available now:</strong> Accounting &amp; bank reconciliation</span>
           <span className="ln-addons-list"><strong>Coming soon:</strong> API, webhooks &amp; SSO/SAML</span>
         </div>
