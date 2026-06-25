@@ -3,7 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { communityDuesConfig } from '@/lib/dues'
 import { sortSignals } from '@/lib/compliance/rules-core'
 import {
-  collectionsSignals, paymentPlanSignals, delinquentOwnersWithoutCase,
+  collectionsSignals, paymentPlanSignals, delinquencySignals, delinquentOwnersWithoutCase,
   type CollectionCaseRow, type PaymentPlanRow,
 } from '@/lib/compliance/collections'
 
@@ -95,9 +95,27 @@ export async function GET(req: Request) {
       }
     }
 
+    // Delinquent owners with NO open case — surface them to the board even when
+    // auto-open is OFF. (With auto-open ON, those owners were just opened above,
+    // so computing from the post-open `cases` list leaves this empty.) Mirrors
+    // the admin dashboard, which always includes delinquencySignals.
+    const dqResidents = await safe('residents', c.id)
+    const dqPays = await safe('payments', c.id)
+    const dqMap: Record<string, { amount: number }[]> = {}
+    for (const p of dqPays) { (dqMap[p.resident_id] ||= []).push({ amount: Number(p.amount) || 0 }) }
+    const dqCandidates = delinquentOwnersWithoutCase({
+      residents: dqResidents, paymentsByResident: dqMap, cases,
+      monthlyDues: Number(c.monthly_dues) || 0,
+      duesConfig: communityDuesConfig(c),
+      minBalance: Number(c.collections_min_balance) || 0,
+      minDays: Number(c.collections_min_days) || 0,
+      dueDay: Number(c.assessment_due_day) || 1,
+    })
+
     const signals = sortSignals([
       ...collectionsSignals(cases, c.association_type),
       ...paymentPlanSignals(plans),
+      ...delinquencySignals(dqCandidates),
     ])
     const actionable = signals.filter(s => s.severity === 'overdue' || s.severity === 'soon')
     if (!actionable.length && !opened) { summary.push({ community: c.id, actionable: 0 }); continue }

@@ -160,7 +160,7 @@ export function estoppelSignals(rows: EstoppelRequestRow[] = [], now: Date = new
         domain: 'Estoppel',
         severity: 'overdue',
         title: `Estoppel fee for ${label} exceeds the statutory cap`,
-        detail: `Charged ${r.fee_total}; cap for this request is $${maxFee}.`,
+        detail: `Charged $${r.fee_total}; cap for this request is $${maxFee}.`,
         href: '/admin/estoppel',
         citation: ESTOPPEL_FEE_BASE.citation,
       }))

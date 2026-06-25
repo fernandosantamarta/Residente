@@ -491,8 +491,11 @@ export function collectionsSignals(
     }
 
     // 3. Lien recorded — the enforcement window (condo 1 yr / HOA 5 yr) is running.
+    // The window countdown must remain visible even after the board advances to
+    // intent_to_foreclose or foreclosure — a stalled case can still miss the
+    // hard filing deadline (see finding COL-02).
     const lienDeadline = lienEnforceDeadline(c, regime)
-    if (stage === 'lien_recorded' && lienDeadline) {
+    if ((stage === 'lien_recorded' || stage === 'intent_to_foreclose' || stage === 'foreclosure') && lienDeadline) {
       const daysLeft = calendarDaysUntil(lienDeadline, now)
       if (daysLeft < 0) {
         out.push(signal({

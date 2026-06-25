@@ -267,21 +267,26 @@ export function insuranceSignals(
           citation: cite,
         }))
       } else if (regime === 'hoa' && waiverFy > 0 && waiverFy < fy) {
-        // A prior-year waiver has expired and no bond is on file.
+        // A prior-year waiver has expired and no bond is on file — the waiver
+        // is already in the past, so this is a current violation, not upcoming.
         out.push(signal({
           id: 'insurance:bond-waiver-expired',
           domain: 'Insurance',
-          severity: 'soon',
+          severity: 'overdue',
           title: `The fidelity-bond waiver (FY${waiverFy}) has expired and no bond is on file`,
           detail: `An HOA fidelity-bond waiver lasts one fiscal year. With the FY${waiverFy} waiver expired, the association must either obtain fidelity bonding covering ${FIDELITY_BOND_FLOOR_NOTE.value}, or have the members re-approve a waiver for FY${fy} by ${HOA_FIDELITY_BOND_WAIVER_BASIS.value}.`,
           href: HREF,
           citation: cite,
         }))
       } else {
+        // For condos the bond is a continuous mandatory obligation with no grace
+        // period and no waiver right — missing = already in violation ('overdue').
+        // For HOAs the board may simply not have entered the bond yet — 'soon' is
+        // the appropriate advisory posture.
         out.push(signal({
           id: 'insurance:bond-missing',
           domain: 'Insurance',
-          severity: 'soon',
+          severity: regime === 'condo' ? 'overdue' : 'soon',
           title: 'Fidelity bond / insurance for those who handle funds is not recorded',
           detail: regime === 'hoa'
             ? `Florida HOAs must maintain fidelity bonding (or insurance) of everyone who controls or disburses association funds, in an amount covering ${FIDELITY_BOND_FLOOR_NOTE.value}, unless the members annually waive it. Record the bond, or the waiver in the fidelity-bond settings.`
@@ -294,7 +299,19 @@ export function insuranceSignals(
       // Bond on file — check the amount against the estimated funds in custody.
       const maxFunds = estimatedMaxFunds(community, reserves)
       const amount = Number(bond.amount) || 0
-      if (maxFunds > 0 && amount > 0 && amount < maxFunds) {
+      if (maxFunds > 0 && amount <= 0) {
+        // A bond row was recorded but with a zero/blank amount — the shortfall
+        // is still unguarded even though latestPolicy() suppressed bond-missing.
+        out.push(signal({
+          id: 'insurance:bond-zero-amount',
+          domain: 'Insurance',
+          severity: 'soon',
+          title: 'Fidelity bond amount is not recorded',
+          detail: `A fidelity bond entry is on file but the bond amount is $0 or blank. The bond must cover ${FIDELITY_BOND_FLOOR_NOTE.value} (estimated ${fmt$(maxFunds)}); update the entry with the actual coverage amount.`,
+          href: HREF,
+          citation: cite,
+        }))
+      } else if (maxFunds > 0 && amount < maxFunds) {
         out.push(signal({
           id: 'insurance:bond-underinsured',
           domain: 'Insurance',

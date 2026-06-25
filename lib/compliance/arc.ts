@@ -205,7 +205,7 @@ export function arcSignals(
       out.push(signal({
         id: `arc:denial-reasons:${r.id}`,
         domain: DOMAIN,
-        severity: 'soon',
+        severity: 'overdue',
         title: `${label}: a denial must state the specific reason(s)`,
         detail: 'Record the written reason(s) for the denial; architectural standards must be applied consistently.',
         href: HREF,

@@ -114,6 +114,7 @@ export interface ContractRow {
   written_contract?: boolean | null
   exception_basis?: string | null   // one of BID_EXCEPTION_BASES, or null/none
   required_terms_attested?: boolean | null // condo management agreements (718.3025)
+  document_id?: string | null       // FK → documents(id); the signed contract file
   notes?: string | null
 }
 
@@ -188,7 +189,7 @@ export function contractsSignals(
   const bidCite = regime === 'hoa' ? 'FS 720.3055' : 'FS 718.3026'
   const { total: budgetTotal, basis } = totalAnnualBudgetInclReserves(community, budgets)
   const threshold = bidThreshold(regime, budgetTotal)
-  void now // reserved for future date-aware clauses; signals here are state-based
+  // now is used for severity tiering on already-executed contracts.
 
   // Empty-state nudge — this workspace is opt-in data entry.
   if (contracts.length === 0) {
@@ -220,13 +221,16 @@ export function contractsSignals(
   for (const c of contracts) {
     const label = c.vendor || c.description || c.id.slice(0, 8)
     const amount = Number(c.amount) || 0
+    // A contract is 'executed' once executed_on is in the past — at that point
+    // any missing bids or written-form is an existing violation, not a future one.
+    const isExecuted = !!c.executed_on && new Date(c.executed_on) <= now
 
     // 1) Over the competitive-bid threshold, no exception, no bids recorded.
     if (threshold > 0 && amount > threshold && !hasExceptionBasis(c) && !c.bids_obtained) {
       out.push(signal({
         id: `contract:bid-needed:${c.id}`,
         domain: 'Procurement',
-        severity: 'soon',
+        severity: isExecuted ? 'overdue' : 'soon',
         title: `Competitive bids not recorded for ${label}`,
         detail: `This ${fmt$(amount)} contract exceeds the ${pct}% competitive-bid threshold (~${fmt$(threshold)} of ${BID_THRESHOLD_BASIS.value}${basis === 'annual_revenue' ? ', estimated from annual revenue' : ''}). Record the competitive bids obtained, or the statutory exception that applies (emergency, sole county source, professional/employee services${regime === 'hoa' ? ', franchise, cancelable renewal' : ', or a ≤10-unit two-thirds opt-out'}).`,
         href: HREF,
@@ -235,12 +239,14 @@ export function contractsSignals(
     }
 
     // 2) Writing requirement — services (any amount) or a term over one year.
-    const needsWriting = isServiceKind(c.contract_kind) || (Number(c.term_months) || 0) > WRITING_REQUIRED_TERM_MONTHS.value
+    // hasExceptionBasis guards are applied here (and for bid-needed above) because
+    // the professional-service / employee exceptions exempt from both requirements.
+    const needsWriting = (isServiceKind(c.contract_kind) || (Number(c.term_months) || 0) > WRITING_REQUIRED_TERM_MONTHS.value) && !hasExceptionBasis(c)
     if (needsWriting && !c.written_contract) {
       out.push(signal({
         id: `contract:writing-needed:${c.id}`,
         domain: 'Procurement',
-        severity: 'soon',
+        severity: isExecuted ? 'overdue' : 'soon',
         title: `Written contract not recorded for ${label}`,
         detail: `${isServiceKind(c.contract_kind) ? 'A contract for services' : 'A contract not fully performed within one year'} must be in writing. Mark the signed written contract on file once recorded.`,
         href: HREF,

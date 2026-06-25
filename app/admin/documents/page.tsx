@@ -516,14 +516,15 @@ export default function AdminEasyDocs() {
             </div>
           )}
 
-          {/* Set up from a rule book PDF — same governing-docs intake pattern. */}
+          {/* Set up from a rule book PDF — PDF parsing not yet wired; card shows
+              Coming soon until the extract-setup edge function is connected. */}
           <div className="card lever">
             <div className="card-head">
               <div>
                 <h2>{t('admin.documents.ruleBookPdfTitle')}</h2>
                 <div className="sub">{t('admin.documents.ruleBookPdfSub')}</div>
               </div>
-              <span className="doc-badge">{t('admin.documents.setsItselfUp')}</span>
+              <span className="doc-badge">Coming soon</span>
             </div>
             <div className="docsetup" onClick={() => pdfInputRef.current?.click()}>
               <UploadGlyph />
@@ -546,7 +547,7 @@ export default function AdminEasyDocs() {
                 <button type="button" className="admin-secondary-btn" onClick={() => pdfInputRef.current?.click()}>
                   {pdfFile ? t('admin.documents.pickAnother') : t('admin.documents.chooseFile')}
                 </button>
-                <button type="button" className="admin-primary-btn" onClick={importPdf} disabled={!pdfFile}>{t('admin.documents.importBtn')}</button>
+                <button type="button" className="admin-primary-btn" onClick={importPdf} disabled>{t('admin.documents.importBtn')}</button>
               </div>
             </div>
           </div>
@@ -898,7 +899,7 @@ export default function AdminEasyDocs() {
                   {t('admin.documents.floridaComplianceDesc')}
                 </p>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(210px, 1fr))', gap: 8 }}>
-                  {FL_REQUIRED_CATEGORIES.map(({ label, statute }) => {
+                  {FL_REQUIRED_CATEGORIES.filter(c => !c.regimes || c.regimes.includes(isHoa ? 'hoa' : 'condo')).map(({ label, statute }) => {
                     const present = docRows.some(
                       (d: any) => (d.category || '').toLowerCase() === label.toLowerCase()
                     )

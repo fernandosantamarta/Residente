@@ -9,6 +9,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAuth } from '@/app/providers'
+import { logAudit } from '@/lib/audit'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd, calendarDaysUntil, toDate } from '@/lib/compliance/rules-core'
 import {
@@ -148,6 +149,7 @@ export default function EnforcementPage() {
         created_by: profile?.id ?? null,
       }))) as any
       if (error) throw error
+      if (communityId) logAudit({ community_id: communityId, event_type: 'enforcement.hearing_noticed', target_type: 'violation', target_id: v.id })
       await patchViolation(v.id, { enforcement_stage: 'notice_sent' }, t('admin.enforcement.noticeSentMsg'))
     } catch (err: any) { setError(err?.message || t('admin.enforcement.couldNotLogNotice')) }
   }
@@ -182,14 +184,17 @@ export default function EnforcementPage() {
         }))) as any
         if (error) throw error
       }
+      if (communityId) logAudit({ community_id: communityId, event_type: 'enforcement.hearing_decided', target_type: 'violation', target_id: v.id })
       await patchViolation(v.id, { enforcement_stage: d.decision }, d.decision === 'upheld'
         ? t('admin.enforcement.decisionUpheldMsg')
         : t('admin.enforcement.decisionRejectedMsg'))
     } catch (err: any) { setError(err?.message || t('admin.enforcement.couldNotRecordDecision')) }
   }
 
-  const markLevied = (v: ViolationRow) =>
-    patchViolation(v.id, { enforcement_stage: 'levied', levied_at: todayYmd() }, t('admin.enforcement.fineLeviedMsg'))
+  const markLevied = async (v: ViolationRow) => {
+    await patchViolation(v.id, { enforcement_stage: 'levied', levied_at: todayYmd() }, t('admin.enforcement.fineLeviedMsg'))
+    if (communityId) logAudit({ community_id: communityId, event_type: 'enforcement.fine_levied', target_type: 'violation', target_id: v.id })
+  }
 
   // ---- owner-contested fines (HB 1021 / HB 1203) ----
   const contestedFines = useMemo(
@@ -252,6 +257,7 @@ export default function EnforcementPage() {
       if ((form.cure_by || '').trim()) insert.cure_by = form.cure_by
       const { error } = (await withTimeout(supabase.from('ev_violations').insert(insert))) as any
       if (error) throw error
+      if (communityId) logAudit({ community_id: communityId, event_type: 'enforcement.fine_proposed', target_type: 'violation' })
       setForm({ resident_id: '', continuing: false, hearing_required: true })
       setMsg(t('admin.enforcement.fineProposedMsg'))
       load()
@@ -270,6 +276,7 @@ export default function EnforcementPage() {
         created_by: profile?.id ?? null,
       }))) as any
       if (error) throw error
+      if (communityId) logAudit({ community_id: communityId, event_type: 'enforcement.suspension_recorded', target_type: 'suspension', target_id: s.resident_id ?? null })
       setMsg(t('admin.enforcement.suspensionRecordedMsg'))
       load()
     } catch (err: any) { setError(err?.message || t('admin.enforcement.couldNotRecordSuspension')) }
@@ -280,6 +287,7 @@ export default function EnforcementPage() {
     try {
       const { error } = (await withTimeout(supabase.from('ev_suspensions').update(patch).eq('id', id))) as any
       if (error) throw error
+      if (communityId && (patch.status === 'lifted' || patch.ended_at)) logAudit({ community_id: communityId, event_type: 'enforcement.suspension_lifted', target_type: 'suspension', target_id: id })
       if (ok) setMsg(ok)
       await load()
     } catch (err: any) { setError(err?.message || t('admin.enforcement.couldNotUpdateSuspension')) }
@@ -588,6 +596,7 @@ function CommitteeManager({ members, communityId, createdBy, onChange, setError 
         relationship_note: independent ? null : (note.trim() || null), appointed_at: todayYmd(), active: true, created_by: createdBy,
       }))) as any
       if (error) throw error
+      if (communityId) logAudit({ community_id: communityId, event_type: 'enforcement.committee_updated', target_type: 'fining_committee_member' })
       setName(''); setIndependent(true); setNote(''); onChange()
     } catch (err: any) { setError(err?.message || t('admin.enforcement.couldNotAddMember')) }
     finally { setBusy(false) }
@@ -598,6 +607,7 @@ function CommitteeManager({ members, communityId, createdBy, onChange, setError 
     try {
       const { error } = (await withTimeout(supabase.from('ev_fining_committee_members').update({ active: false }).eq('id', id))) as any
       if (error) throw error
+      if (communityId) logAudit({ community_id: communityId, event_type: 'enforcement.committee_updated', target_type: 'fining_committee_member', target_id: id })
       onChange()
     } catch (err: any) { setError(err?.message || t('admin.enforcement.couldNotRemoveMember')) }
   }
@@ -752,8 +762,12 @@ function DecisionForm({ onSubmit }: { onSubmit: (d: any) => void }) {
       <label className="admin-field" style={{ marginTop: 8 }}><span className="admin-field-label">{t('admin.enforcement.fieldMinutesNotes')}</span>
         <textarea className="admin-input" rows={2} value={minutes} onChange={e => setMinutes(e.target.value)} /></label>
       <div style={{ display: 'flex', gap: 10, marginTop: 8, alignItems: 'center' }}>
-        <button className="admin-primary-btn" onClick={() => onSubmit({ decision: 'upheld', present: Number(present) || 0, forV: Number(forV) || 0, against: Number(against) || 0, minutes })}>{t('admin.enforcement.btnRecordUpheld')}</button>
-        <button className="admin-btn-ghost" onClick={() => onSubmit({ decision: 'rejected', present: Number(present) || 0, forV: Number(forV) || 0, against: Number(against) || 0, minutes })}>{t('admin.enforcement.btnRecordRejected')}</button>
+        <button className="admin-primary-btn"
+          disabled={Number(present) < FINING_COMMITTEE_MIN.value || Number(forV) <= Number(against)}
+          onClick={() => onSubmit({ decision: 'upheld', present: Number(present) || 0, forV: Number(forV) || 0, against: Number(against) || 0, minutes })}>{t('admin.enforcement.btnRecordUpheld')}</button>
+        <button className="admin-btn-ghost"
+          disabled={Number(present) < FINING_COMMITTEE_MIN.value || Number(against) < Number(forV)}
+          onClick={() => onSubmit({ decision: 'rejected', present: Number(present) || 0, forV: Number(forV) || 0, against: Number(against) || 0, minutes })}>{t('admin.enforcement.btnRecordRejected')}</button>
         <span style={{ fontSize: 12, opacity: 0.7 }}>{t('admin.enforcement.votesSummary', { outcome: proposed.decision === 'upheld' ? t('admin.enforcement.voteOutcomeUpholds') : t('admin.enforcement.voteOutcomeDoesNotUphold') })}</span>
       </div>
     </div>

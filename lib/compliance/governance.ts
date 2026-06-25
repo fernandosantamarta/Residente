@@ -157,6 +157,12 @@ export interface ConflictDisclosureRow {
   resident_id?: string | null
   related_vendor_id?: string | null
   approved?: boolean | null
+  // Additional columns from ev_conflict_disclosures (governance.sql).
+  // Previously accessed via (x as any) casts in the UI — now typed here.
+  vote_at?: string | null
+  disclosed_at?: string | null
+  subject?: string | null
+  approval_basis?: string | null
 }
 
 // ----------------------------------------------------------------------------
@@ -403,14 +409,29 @@ export function governanceSignals(
     }
 
     // --- Director ≥90 days delinquent (board-recorded eligibility flag) ---
+    // delinquent_since may be null (board flagged but no date recorded); in that
+    // case the fallback of DIRECTOR_DELINQUENCY_DAYS.value lets the overdue branch fire.
     const delinqDays = elig?.delinquent ? (dateDaysAgo(elig.delinquent_since, now) ?? DIRECTOR_DELINQUENCY_DAYS.value) : null
-    if (elig?.delinquent && (delinqDays == null || delinqDays >= DIRECTOR_DELINQUENCY_DAYS.value)) {
+    if (elig?.delinquent && delinqDays != null && delinqDays >= DIRECTOR_DELINQUENCY_DAYS.value) {
       out.push(signal({
         id: `governance:delinquent:${d.id}`,
         domain: 'Directors & management',
         severity: 'overdue',
         title: `${label} is flagged more than ${DIRECTOR_DELINQUENCY_DAYS.value} days delinquent`,
         detail: `A director more than ${DIRECTOR_DELINQUENCY_DAYS.value} days delinquent in a monetary obligation is ineligible to serve. Advisory — confirm and act.`,
+        href: HREF,
+        citation: DIRECTOR_DELINQUENCY_DAYS.citation,
+      }))
+    } else if (elig?.delinquent) {
+      // Director has been flagged delinquent but the 90-day ineligibility clock has
+      // not yet elapsed (or no date was supplied). Emit an advisory so the board
+      // knows the clock is running.
+      out.push(signal({
+        id: `governance:delinquent-pending:${d.id}`,
+        domain: 'Directors & management',
+        severity: 'soon',
+        title: `${label} is flagged delinquent — ${DIRECTOR_DELINQUENCY_DAYS.value}-day ineligibility clock is running`,
+        detail: `${delinqDays != null ? `${delinqDays} of ${DIRECTOR_DELINQUENCY_DAYS.value} days elapsed. ` : ''}A director more than ${DIRECTOR_DELINQUENCY_DAYS.value} days delinquent in a monetary obligation is ineligible to serve. Advisory.`,
         href: HREF,
         citation: DIRECTOR_DELINQUENCY_DAYS.citation,
       }))

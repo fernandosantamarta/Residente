@@ -47,15 +47,20 @@ export function foundationSignals(community: Community, now: Date = new Date()):
     }))
   }
 
-  // Admin late fee over cap (greater of $25 or 5% of the installment).
+  // Admin late fee over cap (greater of $25 or 5% of the installment). The fee
+  // actually charged is the greater of the flat fee and the percentage fee
+  // (mirrors adminLateFees() in lib/dues.ts), so a percentage-only setting above
+  // 5% must trip the cap too — testing the flat fee alone would silently miss it.
   const feeCap = Math.max(STATUTORY_LATE_FEE_MIN, (monthlyDues * STATUTORY_LATE_FEE_PCT) / 100)
   const flat = Number(cfg.lateFeeFlat) || 0
-  if (flat > 0 && monthlyDues > 0 && flat > feeCap + 0.005) {
+  const pct = Number(cfg.lateFeePct) || 0
+  const effectiveFee = Math.max(flat, (monthlyDues * pct) / 100)
+  if (effectiveFee > 0 && monthlyDues > 0 && effectiveFee > feeCap + 0.005) {
     out.push(signal({
       id: 'assess:latefee-over-cap',
       domain: 'Assessments & interest',
       severity: 'overdue',
-      title: `Admin late fee ($${flat}) exceeds the statutory cap ($${Math.round(feeCap)})`,
+      title: `Admin late fee ($${Math.round(effectiveFee)}) exceeds the statutory cap ($${Math.round(feeCap)})`,
       detail: 'The late fee may not exceed the greater of $25 or 5% of the delinquent installment.',
       href: '/admin/community',
       citation: 'FS 718.116(3) / 720.3085(3)',
@@ -108,7 +113,10 @@ export function foundationSignals(community: Community, now: Date = new Date()):
       severity,
       title: spec.title,
       detail,
-      href: '/admin/community',
+      // Point at the Official-records workspace so the dashboard tallies this
+      // under that card's badge (wsBase match). The posting toggle still lives
+      // in Community settings, which the detail text directs the board to.
+      href: '/admin/documents#documents',
       citation: spec.citation,
     }))
   }

@@ -1,10 +1,9 @@
 'use client'
 
-// Easy Voice — Architectural review (resident self-service). A self-contained
-// route (NOT yet wired into the Easy Voice hub tabs / left rail — see the
-// one-line wire-up note at the bottom of this file) so it doesn't collide with
-// in-progress Easy Voice front-end work. Residents submit an architectural-
-// review request for their unit/parcel and track the board's decision; the
+// Easy Voice — Architectural review (resident self-service). Embedded as the
+// 'Architectural' tab in /app/voice (app/app/voice/page.tsx line 100) and also
+// reachable directly at /app/arc. Residents submit an architectural-review
+// request for their unit/parcel and track the board's decision; the
 // ev_arc_requests "owner submits / owner reads own" RLS + the decision→owner
 // personal-notice trigger (supabase/arc.sql) back it. FS 720.3035 / 718.113(2).
 //
@@ -116,9 +115,24 @@ export default function ArcPage() {
         attachmentName = file.name
       }
       const unitLabel = `${profile.full_name || 'Owner'}${profile.unit_number ? ` · Unit ${profile.unit_number}` : ''}`.trim()
+      // Look up the residents FK so owner-submitted rows are consistent with
+      // board-submitted rows (both have resident_id set). profile.id links to
+      // residents.profile_id — the query is best-effort; a null result is fine.
+      let residentId: string | null = null
+      try {
+        const { data: resRow } = (await withTimeout(
+          supabase.from('residents')
+            .select('id')
+            .eq('profile_id', profile.id)
+            .eq('community_id', profile.community_id)
+            .maybeSingle(),
+        )) as any
+        residentId = resRow?.id ?? null
+      } catch { /* non-fatal — resident_id stays null */ }
       const row: Record<string, any> = {
         community_id: profile.community_id,
         profile_id: profile.id,
+        resident_id: residentId,
         unit_label: unitLabel || null,
         request_type: type,
         description: description.trim(),
@@ -310,8 +324,5 @@ function Svg({ children }: { children: ReactNode }) {
   )
 }
 
-// ── To wire into the resident UI when your Easy Voice front-end work settles ──
-// Left rail (app/app/layout.tsx NAV array): add
-//   { href: '/app/arc', label: 'Architectural', icon: <><path d="M3 9 12 3l9 6"/><path d="M5 10v10h14V10"/></> },
-// …or surface it as an Easy Voice hub tab (app/app/voice/page.tsx) once that
-// file is stable. Until then the page is reachable directly at /app/arc.
+// Wired: this component is the 'Architectural' tab inside /app/voice — see
+// app/app/voice/page.tsx (imported as ArcView, rendered at line 100).

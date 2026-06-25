@@ -262,8 +262,10 @@ export function prefillValue(
     case 'quorum_required_pct': return meeting.quorum_required_pct ?? undefined
     case 'scheduled_date': return sched ? ymd(sched) : undefined
     case 'scheduled_time':
+      // Use UTC getters to match ymd() which normalises to UTC midnight — avoids
+      // a date/time contradiction for evening meetings stored in UTC.
       return sched
-        ? `${String(sched.getHours()).padStart(2, '0')}:${String(sched.getMinutes()).padStart(2, '0')}`
+        ? `${String(sched.getUTCHours()).padStart(2, '0')}:${String(sched.getUTCMinutes()).padStart(2, '0')}`
         : undefined
     default: return undefined
   }

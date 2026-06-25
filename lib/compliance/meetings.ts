@@ -156,11 +156,23 @@ export function noticeGivenDate(m: MeetingRow): Date | null {
   return toDate(req.mailed ? m.notice_mailed_at : m.notice_posted_at)
 }
 
-/** Whether the recorded notice satisfies the lead-time requirement. */
+/** Whether the recorded notice satisfies the lead-time requirement.
+ *  For the 48-hour board-meeting rule the comparison is ms-precise (the statute
+ *  requires 48 continuous hours, not 2 calendar days). For all mailed/14-day
+ *  requirements the existing calendar-day comparison via noticeDeadline() applies.
+ */
 export function noticeSatisfied(m: MeetingRow): boolean {
+  const req = requiredNotice(m)
   const given = noticeGivenDate(m)
+  if (!given) return false
+  if (!req.mailed) {
+    // 48-hour continuous posting: compare timestamps directly.
+    const sched = toDate(m.scheduled_at)
+    if (!sched) return false
+    return (sched.getTime() - given.getTime()) >= BOARD_MEETING_NOTICE_HOURS.value * 3_600_000
+  }
   const deadline = noticeDeadline(m)
-  if (!given || !deadline) return false
+  if (!deadline) return false
   return given.getTime() <= deadline.getTime()
 }
 
@@ -198,7 +210,8 @@ export function meetingsSignals(
     const upcoming = !!sched && sched.getTime() >= nowMs // today or future (a held meeting is handled by the minutes block)
 
     // 1. Notice obligations for an upcoming meeting.
-    if (upcoming && deadline && !m.emergency) {
+    // Guard against held meetings — isHeld meetings are handled by the minutes block below.
+    if (upcoming && !isHeld(m) && deadline && !m.emergency) {
       const given = noticeGivenDate(m)
       if (!given) {
         const daysToDeadline = calendarDaysUntil(deadline, now)

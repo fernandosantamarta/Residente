@@ -508,7 +508,6 @@ export function enforcementSignals(
 export function fineDisputeSignals(
   violations: ViolationRow[] = [],
   hearings: HearingRow[] = [],
-  now: Date = new Date(),
 ): ComplianceSignal[] {
   const out: ComplianceSignal[] = []
   const noticedByViolation = new Set<string>()
@@ -516,8 +515,12 @@ export function fineDisputeSignals(
     if (h.violation_id && h.notice_sent_at) noticedByViolation.add(String(h.violation_id))
   }
   for (const v of violations) {
-    if (v.dispute_status !== 'filed') continue
-    if (!noticedByViolation.has(String(v.id))) {
+    // Include both 'filed' and 'under_review' disputes: once a board member moves
+    // a dispute to under_review the fine still must not be imposed until the
+    // committee rules. The dispute-hearing-needed sub-signal stays filed-only
+    // (a hearing is presumably already in motion once status advances to under_review).
+    if (v.dispute_status !== 'filed' && v.dispute_status !== 'under_review') continue
+    if (v.dispute_status === 'filed' && !noticedByViolation.has(String(v.id))) {
       out.push(signal({
         id: `enforcement:dispute-hearing-needed:${v.id}`,
         domain: DOMAIN,
@@ -576,6 +579,24 @@ export function suspensionSignals(
           citation: HEARING_NOTICE_DAYS.citation,
         }))
       }
+    }
+
+    // Advisory: active delinquency-based suspensions should be lifted once the
+    // debt is paid. The board receives no other automated prompt after payment.
+    if (
+      basis === 'delinquency_90' &&
+      String(s.status ?? 'proposed') === 'active' &&
+      !s.ended_at
+    ) {
+      out.push(signal({
+        id: `enforcement:suspension-delinquency-lift-check:${s.id}`,
+        domain: DOMAIN,
+        severity: 'info',
+        title: `${label}: verify whether this delinquency suspension should be lifted`,
+        detail: 'A suspension based on 90-day monetary delinquency must be lifted once the debt is paid. Confirm the owner\'s balance has not been cured and, if it has, lift the suspension.',
+        href: HREF,
+        citation: SUSPENSION_DELINQUENCY_DAYS.citation,
+      }))
     }
   }
   return out

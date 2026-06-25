@@ -51,15 +51,18 @@ export type DocCategory = typeof DOC_CATEGORIES[number]
 
 // FL-required record types an in-scope association must post online.
 // (HB 913 broadened the set — bank records/ledgers + permits added above.)
-export const FL_REQUIRED_CATEGORIES: { label: DocCategory; statute: string }[] = [
+// `regimes` (optional): limits the entry to the listed regime(s). Absent = both.
+// — Insurance: HOA-only obligation (FS 720.303(4)(b)1); not a condo-posting requirement.
+// — Inspection Reports: condo-only obligation (FS 718.111(12)(g)2); not HOA 720.303(4)(b).
+export const FL_REQUIRED_CATEGORIES: { label: DocCategory; statute: string; regimes?: AssociationType[] }[] = [
   { label: 'Governing Documents',       statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
   { label: 'Financial Documents',       statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
   { label: 'Rules & Policies',          statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
   { label: 'Reports & Meeting Minutes', statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
-  { label: 'Insurance',                 statute: '720.303(4)(b)1' },
+  { label: 'Insurance',                 statute: '720.303(4)(b)1',  regimes: ['hoa'] },
   { label: 'Vendor & Contracts',        statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
   { label: 'Director Records',          statute: '718.111(12)(g)2 / 720.303(4)(b)1' },
-  { label: 'Inspection Reports',        statute: '718.111(12)(g)2' },
+  { label: 'Inspection Reports',        statute: '718.111(12)(g)2', regimes: ['condo'] },
   { label: 'Bank Records & Ledgers',    statute: '718.111(12)(a) / 720.303(4) (HB 913)' },
 ]
 
@@ -313,8 +316,9 @@ export function officialRecordsSignals(
   // --- Posting obligations (only once the community is in scope) ---
   if (applies && community.website_posting_enabled) {
     // (1) Required-category gaps — one aggregate signal listing what's missing.
+    // Filter to entries that apply to this community's regime before checking presence.
     const present = new Set(documents.map(d => String(d.category ?? '').toLowerCase()))
-    const missing = FL_REQUIRED_CATEGORIES.filter(c => !present.has(c.label.toLowerCase()))
+    const missing = FL_REQUIRED_CATEGORIES.filter(c => (!c.regimes || c.regimes.includes(regime)) && !present.has(c.label.toLowerCase()))
     if (missing.length) {
       out.push(signal({
         id: 'records:category-gaps',
