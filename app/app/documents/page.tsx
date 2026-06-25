@@ -462,6 +462,36 @@ export default function EasyDocs() {
                       or just the chosen category's rules once one is. */}
                   {activeCategory === 'all' ? (() => {
                     const q = ruleSearch.trim().toLowerCase()
+                    // While searching, show the matching RULES themselves (live, as
+                    // you type) — not the category cards you'd have to click into.
+                    if (q) {
+                      if (rulesFiltered.length === 0) {
+                        return (
+                          <div className="rb-empty rb-empty-card">
+                            <div className="rb-empty-title">{t('documents.noCategoriesMatch')}</div>
+                            <div className="rb-empty-sub">{t('documents.noCategoriesMatchSub')}</div>
+                          </div>
+                        )
+                      }
+                      return (
+                        <div className="rb-rule-list">
+                          {rulesFiltered.map((r: any) => (
+                            <div className="rb-rule" key={r.id}>
+                              <div className="rb-rule-head">
+                                <div className="rb-rule-title">{r.title}</div>
+                                {r.fine != null && Number(r.fine) > 0 && (
+                                  <span className="rb-rule-fine">{t('documents.fineLabel', { amount: fmtMoney(r.fine) })}</span>
+                                )}
+                              </div>
+                              {(r.section || '').trim() && (
+                                <div style={{ fontSize: 12, fontWeight: 600, color: 'var(--pink)', marginTop: 2 }}>{(r.section || '').trim()}</div>
+                              )}
+                              {r.body && <div className="rb-rule-body">{r.body}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    }
                     const cardCategories = sections.filter(name => {
                       if (!q) return true
                       if (name.toLowerCase().includes(q)) return true
