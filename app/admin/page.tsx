@@ -33,6 +33,9 @@ export default function AdminHome() {
   // The "Paste your roster" popup — paste owners straight from Excel/Sheets and
   // import them without leaving the overview.
   const [showPaste, setShowPaste] = useState(false)
+  // First-run welcome popup — the step-by-step setup guide, auto-shown to a board
+  // landing on an incomplete community (dismissal persisted per community).
+  const [showWelcome, setShowWelcome] = useState(false)
   // In-app poster preview — the fallback used on phones / the Capacitor webview
   // where a real print window can't open (holds the poster HTML, null = closed).
   const [poster, setPoster] = useState<string | null>(null)
@@ -73,6 +76,29 @@ export default function AdminHome() {
     }
   }, [communityId])
   useEffect(() => { load() }, [load])
+
+  // Auto-open the welcome/setup popup once per community until setup is complete or
+  // the board dismisses it. The Documents step counts as done whenever docs are
+  // already on file (counts.documents) — including anything gathered during signup
+  // — so the guide never re-asks for what's already there.
+  useEffect(() => {
+    if (status !== 'ready' || !community?.id || typeof window === 'undefined') return
+    if (localStorage.getItem(`residente.setupGuide.dismissed.${community.id}`) === '1') return
+    const complete =
+      (counts?.board || 0) >= 1 &&
+      (counts?.budgets || 0) > 0 &&
+      (Number(community?.monthly_dues) || 0) > 0 &&
+      (counts?.residents || 0) > 1 &&
+      (counts?.documents || 0) >= 1
+    if (!complete) setShowWelcome(true)
+  }, [status, counts, community])
+
+  const dismissWelcome = () => {
+    setShowWelcome(false)
+    if (community?.id && typeof window !== 'undefined') {
+      localStorage.setItem(`residente.setupGuide.dismissed.${community.id}`, '1')
+    }
+  }
 
   const copyCode = async () => {
     if (!community?.join_code) return
@@ -376,6 +402,47 @@ ${inApp ? '<meta name="viewport" content="width=816, initial-scale=1">' : ''}
                 srcDoc={poster}
                 style={{ transform: `scale(${posterScale})` }}
               />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showWelcome && (
+        <div onClick={dismissWelcome} style={{ position: 'fixed', inset: 0, background: 'rgba(20,10,4,0.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16, zIndex: 1000 }}>
+          <div onClick={e => e.stopPropagation()} role="dialog" aria-modal="true" style={{ background: '#fff', borderRadius: 18, maxWidth: 540, width: '100%', maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 12px 40px rgba(42,18,6,0.25)', padding: '22px 22px 18px' }}>
+            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 19, fontWeight: 800 }}>{t('admin.overview.welcomeTitle')}</h2>
+                <p style={{ margin: '6px 0 0', color: '#6b5544', fontSize: 13.5, lineHeight: 1.5 }}>{t('admin.overview.welcomeIntro')}</p>
+              </div>
+              <button type="button" aria-label={t('admin.overview.welcomeClose')} onClick={dismissWelcome} style={{ background: 'none', border: 'none', fontSize: 24, lineHeight: 1, cursor: 'pointer', color: '#9b8576' }}>&times;</button>
+            </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '16px 0' }}>
+              <div className="admin-dash-ring" style={{ ['--pct' as any]: `${pct}%` }}>{pct}%</div>
+              <div style={{ fontSize: 13.5, color: '#6b5544' }}>
+                {doneCount === items.length ? t('admin.overview.allSetLive') : t('admin.overview.nextStep', { step: nextStep || t('admin.overview.finishSetup') })}
+              </div>
+            </div>
+            <ul className="admin-check-list">
+              {items.map((i, idx) => (
+                <li key={i.label} className={`admin-check-item${i.done ? ' done' : ''}`}>
+                  <span className="admin-check-dot">{i.done ? '✓' : idx + 1}</span>
+                  <div className="admin-check-body">
+                    <span className="admin-check-label">{i.label}</span>
+                    <span className="admin-check-hint">{i.hint}</span>
+                  </div>
+                  {i.href === '/admin/documents' ? (
+                    <button type="button" className="admin-check-go" onClick={() => { dismissWelcome(); setShowDocs(true) }} style={{ cursor: 'pointer', border: 'none', background: 'none', font: 'inherit' }}>
+                      {i.done ? t('admin.overview.checklistEditBtn') : t('admin.overview.checklistStartBtn')}
+                    </button>
+                  ) : (
+                    <Link href={i.href} className="admin-check-go" onClick={dismissWelcome}>{i.done ? t('admin.overview.checklistEditBtn') : t('admin.overview.checklistStartBtn')}</Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'flex-end' }}>
+              <button type="button" className="admin-primary-btn" onClick={dismissWelcome}>{t('admin.overview.welcomeGotIt')}</button>
             </div>
           </div>
         </div>
