@@ -2269,8 +2269,8 @@
 .imsg-triage { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .imsg-triage .tri-field { display: inline-flex; align-items: center; gap: 7px; white-space: nowrap; }
 .imsg-triage .tri-label { font-size: 11.5px; font-weight: 600; color: var(--text-dim); }
-.imsg-triage .tri-prio { display: inline-block; width: 92px; }
-.imsg-triage .tri-assign { display: inline-block; width: 130px; }
+.imsg-triage .tri-prio { display: inline-block; width: 122px; }
+.imsg-triage .tri-assign { display: inline-block; width: 150px; }
 .imsg-triage .ad-dd-trigger { padding: 5px 10px; font-size: 12px; }
 .imsg-triage .ad-dd-trigger svg { width: 12px; height: 12px; }
 

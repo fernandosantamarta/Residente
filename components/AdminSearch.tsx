@@ -6,6 +6,8 @@ import { usePermissions } from '@/hooks/usePermissions'
 import type { Permission } from '@/lib/permissions'
 import { sectionSlug } from '@/lib/sectionSlug'
 import { useT } from '@/lib/i18n'
+import { useAuth } from '@/app/providers'
+import { supabase, hasSupabase } from '@/lib/supabase'
 
 // English label/group → i18n key suffix (camelCase). The data arrays keep their
 // English labels (used for the section-slug hrefs + keyword matching); display
@@ -192,6 +194,31 @@ export function AdminSearch() {
     [permLoading, canAny],
   )
 
+  // Deep content search: the rule book + document archive for this community, so
+  // the palette finds an actual rule or document — matched on title, section, or
+  // the rule's body text — not just the page it lives on. Fetched once, the first
+  // time the palette opens, so there's no extra query on every admin page.
+  const { profile } = useAuth() || {}
+  const communityId = profile?.community_id
+  const [content, setContent] = useState<{ rules: any[]; documents: any[] }>({ rules: [], documents: [] })
+  const [contentLoaded, setContentLoaded] = useState(false)
+  useEffect(() => {
+    if (!open || contentLoaded || !hasSupabase || !supabase || !communityId) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const [r, d] = await Promise.all([
+          supabase.from('rules').select('id,title,section,body').eq('community_id', communityId),
+          supabase.from('documents').select('id,title,category').eq('community_id', communityId),
+        ])
+        if (cancelled) return
+        setContent({ rules: r.data || [], documents: d.data || [] })
+        setContentLoaded(true)
+      } catch { /* leave empty — page/section results still work */ }
+    })()
+    return () => { cancelled = true }
+  }, [open, contentLoaded, communityId])
+
   // Global keys: ⌘K/Ctrl+K toggles, Esc closes, and — the type-to-search bit —
   // any bare letter or number opens the palette seeded with that character, so
   // you can just start typing. Skipped when a modifier is held or focus is
@@ -236,17 +263,61 @@ export function AdminSearch() {
       `${trLabel(d)} ${trGroup(d)} ${d.label} ${d.group} ${d.keywords ?? ''}`.toLowerCase().includes(term))
   }, [q, visible, t])
 
+  // Deep content matches (rules + documents), ranked title > section > body.
+  const contentResults = useMemo(() => {
+    const term = q.trim().toLowerCase()
+    type CItem = { type: 'rule' | 'doc'; id: string; title: string; snippet: string; href: string }
+    if (!term || permLoading || !canAny(P.docs)) return [] as CItem[]
+    const out: { item: CItem; score: number }[] = []
+    for (const r of content.rules) {
+      const title = String(r.title || '').toLowerCase()
+      const section = String(r.section || '').toLowerCase()
+      const body = String(r.body || '').toLowerCase()
+      let score = 0
+      if (title.includes(term)) score += 100
+      if (section.includes(term)) score += 40
+      if (body.includes(term)) score += 20
+      if (!score) continue
+      let snippet = String(r.section || 'Rule')
+      const bi = body.indexOf(term)
+      if (bi >= 0 && r.body) {
+        const start = Math.max(0, bi - 30)
+        snippet = (start > 0 ? '…' : '') + String(r.body).slice(start, bi + term.length + 70).trim() + '…'
+      }
+      out.push({ item: { type: 'rule', id: r.id, title: r.title || r.section || 'Rule', snippet, href: '/admin/documents#rules' }, score })
+    }
+    for (const d of content.documents) {
+      const title = String(d.title || '').toLowerCase()
+      const cat = String(d.category || '').toLowerCase()
+      let score = 0
+      if (title.includes(term)) score += 90
+      if (cat.includes(term)) score += 30
+      if (!score) continue
+      out.push({ item: { type: 'doc', id: d.id, title: d.title || 'Document', snippet: d.category || 'Document', href: '/admin/documents#documents' }, score })
+    }
+    return out.sort((a, b) => b.score - a.score).slice(0, 8).map(x => x.item)
+  }, [q, content, permLoading, canAny])
+
+  // Content matches first (the deep search), then the page/section jumps.
+  const rows = useMemo(
+    () => [
+      ...contentResults.map(item => ({ kind: 'content' as const, item })),
+      ...results.map(dest => ({ kind: 'page' as const, dest })),
+    ],
+    [contentResults, results],
+  )
+
   useEffect(() => { setActive(0) }, [q])
 
-  const go = (d?: Dest) => {
-    const dest = d ?? results[active]
-    if (!dest) return
+  const go = (i?: number) => {
+    const row = rows[i ?? active]
+    if (!row) return
     setOpen(false)
-    router.push(dest.href)
+    router.push(row.kind === 'content' ? row.item.href : row.dest.href)
   }
 
   const onInputKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'ArrowDown') { e.preventDefault(); setActive(a => Math.min(a + 1, results.length - 1)) }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive(a => Math.min(a + 1, rows.length - 1)) }
     else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(a => Math.max(a - 1, 0)) }
     else if (e.key === 'Enter') { e.preventDefault(); go() }
   }
@@ -273,17 +344,31 @@ export function AdminSearch() {
               <kbd className="admin-search-kbd">esc</kbd>
             </div>
             <div className="admin-search-results">
-              {results.length === 0 && <div className="admin-search-empty">{t('adminSearch.noMatch', { q })}</div>}
-              {results.map((d, i) => (
+              {rows.length === 0 && <div className="admin-search-empty">{t('adminSearch.noMatch', { q })}</div>}
+              {rows.map((row, i) => row.kind === 'content' ? (
                 <button
-                  key={`${d.href}-${d.label}`}
+                  key={`c-${row.item.type}-${row.item.id}`}
                   type="button"
                   className={`admin-search-item${i === active ? ' active' : ''}`}
                   onMouseEnter={() => setActive(i)}
-                  onClick={() => go(d)}
+                  onClick={() => go(i)}
                 >
-                  <span className="admin-search-item-label">{trLabel(d)}</span>
-                  <span className="admin-search-item-group">{trGroup(d)}</span>
+                  <span className="admin-search-item-label">
+                    {row.item.title}
+                    {row.item.snippet && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-faint)', fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 380 }}>{row.item.snippet}</span>}
+                  </span>
+                  <span className="admin-search-item-group">{row.item.type === 'rule' ? t('documents.smartSearchRule') : t('documents.smartSearchDoc')}</span>
+                </button>
+              ) : (
+                <button
+                  key={`${row.dest.href}-${row.dest.label}`}
+                  type="button"
+                  className={`admin-search-item${i === active ? ' active' : ''}`}
+                  onMouseEnter={() => setActive(i)}
+                  onClick={() => go(i)}
+                >
+                  <span className="admin-search-item-label">{trLabel(row.dest)}</span>
+                  <span className="admin-search-item-group">{trGroup(row.dest)}</span>
                 </button>
               ))}
             </div>
