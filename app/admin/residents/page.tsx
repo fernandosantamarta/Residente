@@ -708,7 +708,17 @@ export default function Residents() {
             const pageCount = Math.ceil(filtered.length / ROSTER_SIZE)
             const page = Math.min(rosterPage, Math.max(0, pageCount - 1))
             const paged = filtered.slice(page * ROSTER_SIZE, (page + 1) * ROSTER_SIZE)
+            const payFailCount = rows.filter(r => r.last_charge_failed_at).length
             return (
+            <>
+            {payFailCount > 0 && (
+              <div className="admin-note admin-note-err" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 9 }}>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" />
+                </svg>
+                {t('admin.residents.payFailedBanner', { count: payFailCount })}
+              </div>
+            )}
             <div className="card">
               <table className="tbl roster-tbl">
                 <thead>
@@ -731,6 +741,7 @@ export default function Residents() {
               </table>
               <Pager page={page} pageCount={pageCount} onPage={setRosterPage} />
             </div>
+            </>
             )
           })()}
         </>
@@ -778,6 +789,13 @@ function ResidentRow({ r, onLocal, onCommit, onRemove, onInvite, inviteBusy, onI
               {transfer && (
                 <span className="pill dim res-xfer-badge" title={t('admin.residents.xferredTitle', { date: String(transfer.created_at).slice(0, 10) })}>
                   ↗ {t('admin.residents.xferredBadge')}
+                </span>
+              )}
+              {r.last_charge_failed_at && (
+                <span className="pill res-payfail-badge"
+                  title={r.last_charge_fail_reason ? String(r.last_charge_fail_reason) : t('admin.residents.payFailedTitle')}
+                  style={{ background: '#fdecec', color: '#a32020', border: '1px solid #f0b4a4', marginLeft: 6 }}>
+                  {t('admin.residents.payFailedBadge')}
                 </span>
               )}
             </span>
