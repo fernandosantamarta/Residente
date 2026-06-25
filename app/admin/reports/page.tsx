@@ -525,9 +525,10 @@ export default function ReportsPage() {
                   : t('admin.reports.everyoneCurrent')}
               </div>
             ) : (() => {
-              const pageCount = Math.ceil(delinquents.length / BEHIND_SIZE)
+              const BEHIND_PAGE_SIZE = isMobile ? 5 : BEHIND_SIZE
+              const pageCount = Math.ceil(delinquents.length / BEHIND_PAGE_SIZE)
               const page = Math.min(behindPage, Math.max(0, pageCount - 1))
-              const paged = delinquents.slice(page * BEHIND_SIZE, (page + 1) * BEHIND_SIZE)
+              const paged = delinquents.slice(page * BEHIND_PAGE_SIZE, (page + 1) * BEHIND_PAGE_SIZE)
               return (
               <>
               <table className="tbl behind-tbl">
