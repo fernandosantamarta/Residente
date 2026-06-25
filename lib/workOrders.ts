@@ -38,6 +38,7 @@ export type WorkOrder = {
   quoted_cost: number | null
   quote_note: string | null
   quote_submitted_at: string | null
+  vendor_notified_at: string | null
 }
 
 const withTimeout = <T,>(p: PromiseLike<T>, ms = 10000): Promise<T> =>

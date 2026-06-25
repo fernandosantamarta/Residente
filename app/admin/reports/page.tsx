@@ -543,8 +543,8 @@ export default function ReportsPage() {
                     const fee = lateFeeOf(r)
                     return (
                     <Fragment key={r.id}>
-                    <tr className="behind-row" style={isMobile ? { cursor: 'pointer' } : undefined}
-                      onClick={() => isMobile && setRowDetail({ title: r.full_name || t('admin.reports.residentFallback'), rows: [
+                    <tr className="behind-row" style={{ cursor: 'pointer' }}
+                      onClick={() => setRowDetail({ title: r.full_name || t('admin.reports.residentFallback'), rows: [
                         { label: t('admin.reports.colOwner'), value: r.full_name || t('admin.reports.residentFallback') },
                         { label: t('admin.reports.colUnit'), value: r.unit_number || r.address || '—' },
                         { label: t('admin.reports.colBalanceOwed'), value: fmt$(bal) },
@@ -653,8 +653,8 @@ export default function ReportsPage() {
                 </thead>
                 <tbody>
                   {paged.map(c => (
-                    <tr key={c.id} style={isMobile ? { cursor: 'pointer' } : undefined}
-                      onClick={() => isMobile && setRowDetail({ title: c.residentName || t('admin.charges.unknownResident'), rows: [
+                    <tr key={c.id} style={{ cursor: 'pointer' }}
+                      onClick={() => setRowDetail({ title: c.residentName || t('admin.charges.unknownResident'), rows: [
                         { label: t('admin.charges.colPeriod'), value: periodLabel(c.billing_period_start) },
                         { label: t('admin.charges.colDue'), value: dateLabel(c.due_date) },
                         { label: t('admin.charges.colResident'), value: (c.residentName || t('admin.charges.unknownResident')) + (c.residentUnit ? ' · ' + c.residentUnit : '') },

@@ -1120,6 +1120,7 @@ function WorkOrderPanel({
   const [notes, setNotes] = useState('')
   const [photo, setPhoto] = useState<File | null>(null)
   const [completeSaving, setCompleteSaving] = useState(false)
+  const [emailingVendor, setEmailingVendor] = useState(false)
 
   // Budget integration: categories for the completion form's "file this spend
   // to" picker (a completed work order's cost becomes a community expense).
@@ -1267,6 +1268,19 @@ function WorkOrderPanel({
     } catch (e: any) { setErr(e?.message || t('admin.workOrders.errUpdate')) }
   }
 
+  // On-demand vendor dispatch (re-send the job email). Stamps vendor_notified_at
+  // server-side, so we reload to refresh the "emailed ✓" indicator.
+  const resendVendor = async () => {
+    if (!wo || !supabase) return
+    setEmailingVendor(true); setErr('')
+    try {
+      const { data } = await supabase.functions.invoke('work-order-notify-vendor', { body: { work_order_id: wo.id } })
+      if ((data as any)?.email_sent) { onSent(t('admin.requests.woVendorEmailedToast')); loadWo() }
+      else setErr(t('admin.requests.woVendorNoEmailErr'))
+    } catch (e: any) { setErr(e?.message || t('admin.workOrders.errUpdate')) }
+    finally { setEmailingVendor(false) }
+  }
+
   const submitComplete = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!wo) return
@@ -1405,6 +1419,18 @@ function WorkOrderPanel({
             {vendorName(wo.vendor_id)}
             {wo.sla_due_at ? ` · ${t('admin.workOrders.slaDue', { date: fmtDate(wo.sla_due_at) })}` : ''}
           </div>
+          {wo.vendor_id && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 5, fontSize: 11.5, flexWrap: 'wrap' }}>
+              <span style={{ color: wo.vendor_notified_at ? '#067647' : 'var(--text-dim)' }}>
+                {wo.vendor_notified_at
+                  ? `✓ ${t('admin.requests.woVendorEmailedAt', { date: fmtDateTime(wo.vendor_notified_at) })}`
+                  : t('admin.requests.woVendorNotEmailed')}
+              </span>
+              <button type="button" className="admin-btn-ghost" style={{ marginLeft: 0, padding: '2px 9px', fontSize: 11.5 }} onClick={resendVendor} disabled={emailingVendor}>
+                {emailingVendor ? t('admin.workOrders.saving') : (wo.vendor_notified_at ? t('admin.requests.woVendorResend') : t('admin.requests.woVendorEmailNow'))}
+              </button>
+            </div>
+          )}
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
           <span style={woChip(WO_PRIORITY_COLOR[wo.priority])}>{woPrioLabel[wo.priority]}</span>

@@ -134,6 +134,9 @@ Deno.serve(async (req) => {
       return json({ error: `Email send failed (${sendRes.status})` }, 502)
     }
 
+    // Best-effort stamp so the panel can show "vendor emailed ✓" (column may not
+    // exist until work-order-vendor-notified.sql is run — never fail on it).
+    try { await admin.from('work_orders').update({ vendor_notified_at: new Date().toISOString() }).eq('id', wo.id) } catch { /* column may not exist yet */ }
     return json({ ok: true, email_sent: true, vendor_email: vendorEmail })
   } catch (err) {
     console.error('work-order-notify-vendor failed:', err)

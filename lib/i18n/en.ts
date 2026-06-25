@@ -4240,4 +4240,12 @@ export const en: Record<string, string> = {
   "admin.requests.woQuoteApproved": "Quote approved.",
   "admin.requests.woQuoteRejected": "Quote rejected.",
   "admin.requests.woQuoteApprovedNote": "✓ Approved at {amount}",
+
+  // === work-order vendor dispatch status ===
+  "admin.requests.woVendorEmailedAt": "Vendor emailed {date}",
+  "admin.requests.woVendorNotEmailed": "Vendor not emailed yet",
+  "admin.requests.woVendorResend": "Re-send",
+  "admin.requests.woVendorEmailNow": "Email vendor",
+  "admin.requests.woVendorEmailedToast": "Vendor emailed.",
+  "admin.requests.woVendorNoEmailErr": "This vendor has no email on file.",
 }

@@ -4187,4 +4187,12 @@ export const es: Record<string, string> = {
   "admin.requests.woQuoteApproved": "Cotización aprobada.",
   "admin.requests.woQuoteRejected": "Cotización rechazada.",
   "admin.requests.woQuoteApprovedNote": "✓ Aprobada en {amount}",
+
+  // === work-order vendor dispatch status ===
+  "admin.requests.woVendorEmailedAt": "Proveedor notificado {date}",
+  "admin.requests.woVendorNotEmailed": "Proveedor aún no notificado",
+  "admin.requests.woVendorResend": "Reenviar",
+  "admin.requests.woVendorEmailNow": "Notificar proveedor",
+  "admin.requests.woVendorEmailedToast": "Proveedor notificado por correo.",
+  "admin.requests.woVendorNoEmailErr": "Este proveedor no tiene correo registrado.",
 }
