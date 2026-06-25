@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, ChangeEvent } from 'react'
 import { AdminModal } from '../AdminModal'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
+import { extractSetupFromPdf } from '@/lib/signupImport'
 import { useT } from '@/lib/i18n'
 import {
   addStoredCategory,
@@ -115,6 +116,11 @@ export default function AdminEasyDocs() {
   const [ruleSaving, setRuleSaving] = useState(false)
   const [pdfFile, setPdfFile] = useState<File | null>(null)
   const [pdfStatus, setPdfStatus] = useState<string>('')
+  const [pdfBusy, setPdfBusy] = useState(false)
+  // Rules read off the uploaded CC&Rs/declaration PDF (extract-setup), staged for
+  // review before they're added to the rule book.
+  const [pdfRules, setPdfRules] = useState<{ section?: string; title: string; body?: string; fine?: number }[] | null>(null)
+  const [pdfAdding, setPdfAdding] = useState(false)
   const pdfInputRef = useRef<HTMLInputElement | null>(null)
   const categories = useCategoriesData()
   const [filterCategory, setFilterCategory] = useState<string>('all')
@@ -191,11 +197,56 @@ export default function AdminEasyDocs() {
 
   const onPickPdf = (e: ChangeEvent<HTMLInputElement>) => {
     setPdfFile(e.target.files?.[0] || null)
-    setPdfStatus('')
+    setPdfStatus(''); setPdfRules(null)
   }
-  const importPdf = () => {
-    if (!pdfFile) return
-    setPdfStatus(`Received ${pdfFile.name} — PDF parsing isn't wired yet, but the file is ready.`)
+  // Read the uploaded governing-doc PDF with AI (extract-setup) and stage the
+  // rules it finds for review. Inert until ANTHROPIC_API_KEY is set — a null
+  // result just shows "couldn't read it" and the board adds rules by hand.
+  const importPdf = async () => {
+    if (!pdfFile || pdfBusy) return
+    setPdfBusy(true); setPdfStatus(''); setPdfRules(null)
+    try {
+      const ex = await extractSetupFromPdf(pdfFile)
+      const rules = (ex?.rules || []).filter(r => r?.title && r.title.trim())
+      if (rules.length) setPdfRules(rules)
+      else setPdfStatus(t('admin.documents.rulesAiUnavailable'))
+    } catch {
+      setPdfStatus(t('admin.documents.rulesAiUnavailable'))
+    } finally {
+      setPdfBusy(false)
+    }
+  }
+  const removePdfRule = (i: number) =>
+    setPdfRules(rs => { const next = (rs || []).filter((_, idx) => idx !== i); return next.length ? next : null })
+
+  // Add every staged rule to the rule book in one pass. New sections become
+  // categories (same as a single add). No per-rule resident broadcast — a bulk
+  // import shouldn't blast a notice per rule (mirrors the "restore samples" seed).
+  const addExtractedRules = async () => {
+    if (!pdfRules || !pdfRules.length || pdfAdding) return
+    setPdfAdding(true); setRuleError('')
+    try {
+      let order = rows.length
+      for (const r of pdfRules) {
+        const section = (r.section || '').trim() || 'General'
+        if (section && !categories.includes(section)) addStoredCategory(section)
+        await insertRule({
+          section,
+          title: r.title.trim(),
+          body: (r.body || '').trim() || null,
+          fine: r.fine == null || r.fine === ('' as any) ? null : Number(r.fine),
+          sort_order: order++,
+        })
+      }
+      const n = pdfRules.length
+      setPdfRules(null); setPdfFile(null); setPdfStatus('')
+      if (pdfInputRef.current) pdfInputRef.current.value = ''
+      setRuleSuccessMsg(t('admin.documents.rulesAdded', { count: String(n), suffix: n === 1 ? '' : 's' }))
+    } catch (err) {
+      setRuleError((err as any)?.message || 'Could not add the rules')
+    } finally {
+      setPdfAdding(false)
+    }
   }
 
   const removeRule = async (id) => {
@@ -524,7 +575,6 @@ export default function AdminEasyDocs() {
                 <h2>{t('admin.documents.ruleBookPdfTitle')}</h2>
                 <div className="sub">{t('admin.documents.ruleBookPdfSub')}</div>
               </div>
-              <span className="doc-badge">Coming soon</span>
             </div>
             <div className="docsetup" onClick={() => pdfInputRef.current?.click()}>
               <UploadGlyph />
@@ -547,9 +597,40 @@ export default function AdminEasyDocs() {
                 <button type="button" className="admin-secondary-btn" onClick={() => pdfInputRef.current?.click()}>
                   {pdfFile ? t('admin.documents.pickAnother') : t('admin.documents.chooseFile')}
                 </button>
-                <button type="button" className="admin-primary-btn" onClick={importPdf} disabled>{t('admin.documents.importBtn')}</button>
+                <button type="button" className="admin-primary-btn" onClick={importPdf} disabled={!pdfFile || pdfBusy}>
+                  {pdfBusy ? t('admin.documents.rulesReading') : t('admin.documents.importBtn')}
+                </button>
               </div>
             </div>
+            {pdfRules && (
+              <div className="docsetup-review" style={{ marginTop: 14, borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: 14 }}>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 2 }}>
+                  {t('admin.documents.rulesFoundTitle', { count: String(pdfRules.length), suffix: pdfRules.length === 1 ? '' : 's' })}
+                </div>
+                <div className="sub" style={{ marginBottom: 10 }}>{t('admin.documents.rulesFoundSub')}</div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 6, maxHeight: 280, overflowY: 'auto' }}>
+                  {pdfRules.map((r, i) => (
+                    <div key={i} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', justifyContent: 'space-between', border: '1px solid rgba(0,0,0,0.06)', borderRadius: 8, padding: '8px 10px' }}>
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: 13.5 }}>
+                          {r.title}
+                          {r.fine != null && r.fine !== ('' as any) ? <span className="muted" style={{ fontWeight: 400 }}> · ${Number(r.fine).toLocaleString('en-US')}</span> : null}
+                        </div>
+                        <div className="muted" style={{ fontSize: 12 }}>{(r.section || 'General')}{r.body ? ` — ${r.body}` : ''}</div>
+                      </div>
+                      <button type="button" className="bc-del" onClick={() => removePdfRule(i)}
+                        aria-label={t('admin.documents.removeRuleAria', { row: String(i + 1) })}>&times;</button>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ display: 'flex', gap: 10, marginTop: 12, alignItems: 'center' }}>
+                  <button type="button" className="admin-primary-btn" disabled={pdfAdding} onClick={addExtractedRules}>
+                    {pdfAdding ? t('admin.documents.addingBtn') : t('admin.documents.rulesAddBtn', { count: String(pdfRules.length) })}
+                  </button>
+                  <button type="button" className="admin-btn-ghost" onClick={() => setPdfRules(null)}>{t('admin.documents.rulesDiscard')}</button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Rule book — numbered clean rows (matches mock). */}

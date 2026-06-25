@@ -259,6 +259,69 @@ export async function extractRosterFromFile(file: File): Promise<RosterRow[] | n
   } catch { return null }
 }
 
+// AI document → operating-budget categories. Sends an uploaded PDF or image (a
+// scanned budget, a photo of a spreadsheet, any layout) to the extract-doc edge
+// fn (kind 'budget', Claude vision) and returns parsed BudgetRow[] for the board
+// to review before saving. Returns null if AI isn't configured / the call failed
+// (caller falls back to CSV).
+export async function extractBudgetFromFile(file: File): Promise<BudgetRow[] | null> {
+  if (!hasSupabase || !supabase || !file) return null
+  try {
+    const file_base64 = await fileToBase64(file)
+    const media_type = file.type || (/\.pdf$/i.test(file.name) ? 'application/pdf' : 'image/png')
+    const { data, error } = await supabase.functions.invoke('extract-doc', { body: { file_base64, media_type, kind: 'budget' } })
+    if (error || !data?.ok || !Array.isArray(data?.data?.categories)) return null
+    return (data.data.categories as any[])
+      .map(c => ({
+        name: String(c?.name || '').trim(),
+        budget: typeof c?.budget === 'number' && Number.isFinite(c.budget) ? String(c.budget) : '',
+        spent: typeof c?.spent === 'number' && Number.isFinite(c.spent) ? String(c.spent) : '',
+      }))
+      .filter(r => r.name)
+  } catch { return null }
+}
+
+// One insurance policy's fields, as read off a declaration page / certificate.
+// Dates are YYYY-MM-DD strings (or undefined); amounts are numbers (or undefined).
+export interface ExtractedInsurance {
+  insurance_kind?: 'property' | 'fidelity_bond'
+  carrier?: string
+  policy_number?: string
+  amount?: number
+  effective_date?: string
+  expiration_date?: string
+  replacement_cost_value?: number
+  last_appraisal_date?: string
+}
+
+// AI document → insurance policy fields. Sends an uploaded PDF or image of a
+// declaration page / certificate to the extract-doc edge fn (kind 'insurance').
+// `subhint` (e.g. "property insurance policy") focuses the read for the section
+// the upload sits under. Returns null if AI isn't configured / the call failed
+// (caller falls back to typing the policy in by hand).
+export async function extractInsuranceFromFile(file: File, subhint?: string): Promise<ExtractedInsurance | null> {
+  if (!hasSupabase || !supabase || !file) return null
+  try {
+    const file_base64 = await fileToBase64(file)
+    const media_type = file.type || (/\.pdf$/i.test(file.name) ? 'application/pdf' : 'image/png')
+    const { data, error } = await supabase.functions.invoke('extract-doc', { body: { file_base64, media_type, kind: 'insurance', subhint: subhint || '' } })
+    if (error || !data?.ok || !data?.data) return null
+    const d = data.data as any
+    const str = (v: any) => (v == null ? undefined : String(v).trim() || undefined)
+    const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
+    return {
+      insurance_kind: d.insurance_kind === 'property' || d.insurance_kind === 'fidelity_bond' ? d.insurance_kind : undefined,
+      carrier: str(d.carrier),
+      policy_number: str(d.policy_number),
+      amount: num(d.amount),
+      effective_date: str(d.effective_date),
+      expiration_date: str(d.expiration_date),
+      replacement_cost_value: num(d.replacement_cost_value),
+      last_appraisal_date: str(d.last_appraisal_date),
+    }
+  } catch { return null }
+}
+
 // Apply extracted billing settings + rules to the provisioned community.
 // Best-effort and field-isolated. Returns the number of rules written.
 export async function applyExtractedSetup(communityId: string, ex: ExtractedSetup): Promise<{ settings: boolean; rules: number }> {

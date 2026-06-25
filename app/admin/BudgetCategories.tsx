@@ -7,6 +7,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
+import { extractBudgetFromFile } from '@/lib/signupImport'
 import { useT } from '@/lib/i18n'
 
 const withTimeout = (p: any, ms = 10000) =>
@@ -60,18 +61,35 @@ export function BudgetCategories({ communityId, onSaved }: { communityId: string
   const removeRow = (i: number) => setRows(rs => rs.filter((_, idx) => idx !== i))
 
   const fileRef = useRef<HTMLInputElement>(null)
+  // One upload: a CSV is parsed in-browser; a PDF/photo of a budget is read by AI
+  // (extract-doc). Either way the rows land in this same editable table to review
+  // before Save. AI failure shows inline (doesn't collapse the editor).
+  const [aiBusy, setAiBusy] = useState(false)
   const onImport = (e: any) => {
     const file = e.target.files && e.target.files[0]
     e.target.value = '' // let the same file be re-imported
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      const parsed = parseCsv(reader.result as string)
-      if (parsed.length) { setRows(parsed); setStatus('ready'); setError('') }
-      else { setError(t('admin.budgetCategories.errorNoCsvRows')); setStatus('error') }
+    setError('')
+    const isCsv = /\.csv$/i.test(file.name) || file.type === 'text/csv' || file.type === 'application/vnd.ms-excel'
+    if (isCsv) {
+      const reader = new FileReader()
+      reader.onload = () => {
+        const parsed = parseCsv(reader.result as string)
+        if (parsed.length) { setRows(parsed); setStatus('ready'); setError('') }
+        else { setError(t('admin.budgetCategories.errorNoCsvRows')); setStatus('error') }
+      }
+      reader.onerror = () => { setError(t('admin.budgetCategories.errorFileRead')); setStatus('error') }
+      reader.readAsText(file)
+      return
     }
-    reader.onerror = () => { setError(t('admin.budgetCategories.errorFileRead')); setStatus('error') }
-    reader.readAsText(file)
+    setAiBusy(true)
+    extractBudgetFromFile(file)
+      .then(cats => {
+        if (cats && cats.length) { setRows(cats); setStatus('ready'); setError('') }
+        else setError(t('admin.budgetCategories.aiUnavailable'))
+      })
+      .catch(() => setError(t('admin.budgetCategories.aiUnavailable')))
+      .finally(() => setAiBusy(false))
   }
 
   const save = async () => {
@@ -203,13 +221,16 @@ export function BudgetCategories({ communityId, onSaved }: { communityId: string
           <div className="bc-actions">
             <button type="button" className="admin-btn-ghost" onClick={addRow}>{t('admin.budgetCategories.addCategory')}</button>
             <button type="button" className="admin-secondary-btn"
-              title={t('admin.budgetCategories.importCsvTitle')}
+              title={t('admin.budgetCategories.uploadFileTitle')}
+              disabled={aiBusy}
               onClick={() => fileRef.current && fileRef.current.click()}>
-              {t('admin.budgetCategories.importCsv')}
+              {aiBusy ? t('admin.budgetCategories.aiReading') : t('admin.budgetCategories.uploadFile')}
             </button>
-            <input name="categories-csv" ref={fileRef} type="file" accept=".csv,text/csv"
+            <input name="categories-csv" ref={fileRef} type="file"
+              accept=".csv,text/csv,.pdf,application/pdf,image/png,image/jpeg,image/webp"
               onChange={onImport} style={{ display: 'none' }} />
             <button type="button" className="admin-btn-ghost" onClick={cancel}>{t('admin.budgetCategories.cancel')}</button>
+            {error && <span style={{ color: '#B42318', fontSize: 12.5, alignSelf: 'center' }}>{error}</span>}
             <button type="button" className="admin-primary-btn" onClick={save}
               disabled={status === 'saving'}>
               {status === 'saving' ? t('admin.budgetCategories.saving') : t('admin.budgetCategories.saveCategories')}

@@ -7,10 +7,11 @@
 // lib/compliance/insurance.ts and surface on /admin/compliance. Nothing here
 // blocks a board action.
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
+import { extractInsuranceFromFile } from '@/lib/signupImport'
 import { ymd } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
 import { useT } from '@/lib/i18n'
@@ -291,6 +292,35 @@ function PolicySection({
   const setF = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }))
   const [saving, setSaving] = useState(false)
 
+  // AI policy reader — upload the declaration page / certificate (PDF or photo)
+  // and Claude (extract-doc) fills the form fields below for the board to review
+  // and Record. The form itself is the review; nothing is saved until they click.
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiErr, setAiErr] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+  const onPickPolicy = (e: any) => {
+    const file = e.target.files && e.target.files[0]
+    e.target.value = ''
+    if (!file) return
+    setAiBusy(true); setAiErr('')
+    extractInsuranceFromFile(file, isProperty ? 'property insurance policy' : 'fidelity bond')
+      .then(ex => {
+        if (!ex) { setAiErr(t('admin.insurance.aiUnavailable')); return }
+        setForm((f: any) => ({
+          ...f,
+          ...(ex.carrier ? { carrier: ex.carrier } : {}),
+          ...(ex.policy_number ? { policy_number: ex.policy_number } : {}),
+          ...(ex.amount != null ? { amount: ex.amount } : {}),
+          ...(ex.effective_date ? { effective_date: ex.effective_date } : {}),
+          ...(ex.expiration_date ? { expiration_date: ex.expiration_date } : {}),
+          ...(isProperty && ex.last_appraisal_date ? { last_appraisal_date: ex.last_appraisal_date } : {}),
+          ...(isProperty && ex.replacement_cost_value != null ? { replacement_cost_value: ex.replacement_cost_value } : {}),
+        }))
+      })
+      .catch(() => setAiErr(t('admin.insurance.aiUnavailable')))
+      .finally(() => setAiBusy(false))
+  }
+
   const submit = async (e: any) => {
     e.preventDefault()
     setSaving(true)
@@ -324,8 +354,15 @@ function PolicySection({
             </>
           )}
         </div>
-        <div className="card-cta">
+        <div className="card-cta" style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
           <button type="submit" className="admin-primary-btn" disabled={saving}>{saving ? t('admin.insurance.saving') : (isProperty ? t('admin.insurance.recordPropertyPolicy') : t('admin.insurance.recordFidelityBond'))}</button>
+          <button type="button" className="admin-secondary-btn" disabled={aiBusy}
+            title={t('admin.insurance.aiUploadTitle')} onClick={() => fileRef.current?.click()}>
+            {aiBusy ? t('admin.insurance.aiReading') : t('admin.insurance.aiUpload')}
+          </button>
+          <input ref={fileRef} type="file" accept=".pdf,application/pdf,image/png,image/jpeg,image/webp"
+            onChange={onPickPolicy} style={{ display: 'none' }} />
+          {aiErr && <span style={{ color: '#B42318', fontSize: 12.5 }}>{aiErr}</span>}
         </div>
       </form>
 
