@@ -1855,6 +1855,7 @@ export const en: Record<string, string> = {
   "admin.collectionsDetail.legalHoldDenied": "Legal hold not approved.",
   "admin.collectionsDetail.installmentAmount": "Installment $",
   "admin.collectionsDetail.ledgerCosts": "Collection / attorney costs",
+  "admin.collectionsDetail.ledgerMailing": "Mailing (certified) costs",
   "admin.collectionsDetail.ledgerFootnote": "Computed from the dues ledger (opening balance + {mo}/mo) at the community's configured interest rate. Confirm before relying on it.",
   "admin.collectionsDetail.ledgerInterest": "Interest (simple, daily-accrued)",
   "admin.collectionsDetail.ledgerLateFees": "Administrative late fees",

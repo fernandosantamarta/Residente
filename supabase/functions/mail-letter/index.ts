@@ -81,6 +81,11 @@ Deno.serve(async (req) => {
     const { data: c, error: cErr } = await supabase.from('ev_collection_cases').select('*').eq('id', caseId).single()
     if (cErr || !c) return json({ error: 'Case not found' }, 404)
     const { data: community } = await supabase.from('communities').select('*').eq('id', c.community_id).single()
+    // Operator kill switch — Residente can disable Lob for a non-paying community
+    // so it can't run up our mailing bill.
+    if ((community as any)?.lob_enabled === false) {
+      return json({ error: 'Certified mail is turned off for this community by Residente. Contact support.' }, 403)
+    }
 
     let resident: any = null
     if (c.resident_id) {
@@ -141,9 +146,16 @@ Deno.serve(async (req) => {
       mailed_to_record_address: toRaw,
     })
     const addCost = isCertified ? COST.certified : COST.first_class
+    // Bill the recoverable mailing cost to its own ledger line (separate from
+    // collection/attorney costs).
     await supabase.from('ev_collection_cases')
-      .update({ cost_balance: (Number(c.cost_balance) || 0) + addCost })
+      .update({ mailing_cost_balance: (Number((c as any).mailing_cost_balance) || 0) + addCost })
       .eq('id', caseId)
+    // Operator cost-tracking ledger (Platform Console).
+    await supabase.from('ev_mail_log').insert({
+      community_id: c.community_id, case_id: caseId, kind: doc.kind,
+      certified: isCertified, cost: addCost, lob_id: lob.id || null,
+    })
 
     return json({ ok: true, lobId: lob.id, expectedDelivery: lob.expected_delivery_date || null, cost: addCost })
   } catch (e) {

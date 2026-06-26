@@ -99,7 +99,7 @@ function DocInner() {
         if (res) {
           const iFroz = cs.freeze_interest == null ? !!cs.on_payment_plan : !!cs.freeze_interest
           const lFroz = cs.freeze_late_fees == null ? !!cs.on_payment_plan : !!cs.freeze_late_fees
-          try { setPayoff(casePayoff(res, comm, pays, { extraCosts: Number(cs.cost_balance) || 0, freezeInterest: iFroz, freezeLateFees: lFroz })) } catch { setPayoff(null) }
+          try { setPayoff(casePayoff(res, comm, pays, { extraCosts: (Number(cs.cost_balance) || 0) + (Number(cs.mailing_cost_balance) || 0), freezeInterest: iFroz, freezeLateFees: lFroz })) } catch { setPayoff(null) }
         }
         setStatus('ready')
       } catch (err: any) {

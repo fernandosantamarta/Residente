@@ -63,11 +63,11 @@ export default function EstoppelCertificate() {
           // Guarded so the cert still renders if the collections tables are absent.
           try {
             const { data: cs } = (await withTimeout(
-              supabase.from('ev_collection_cases').select('cost_balance, lien_recorded_at, stage')
+              supabase.from('ev_collection_cases').select('cost_balance, mailing_cost_balance, lien_recorded_at, stage')
                 .eq('resident_id', r.resident_id).order('opened_at', { ascending: false }).limit(1),
             )) as any
             const k = cs?.[0]
-            extraCosts = Number(k?.cost_balance) || 0
+            extraCosts = (Number(k?.cost_balance) || 0) + (Number(k?.mailing_cost_balance) || 0)
             if (k) {
               const openStages = ['delinquent', 'notice_30', 'intent_to_lien', 'lien_recorded', 'intent_to_foreclose', 'foreclosure']
               if (!cancelled) setLien({ recordedAt: k.lien_recorded_at || null, open: openStages.includes(String(k.stage)) })

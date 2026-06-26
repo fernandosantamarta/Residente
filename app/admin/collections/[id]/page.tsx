@@ -281,7 +281,7 @@ export default function CollectionCaseDetail() {
   // Authoritative payoff from the dues model + recorded costs.
   let payoff: PayoffResult | null = null
   if (resident) {
-    try { payoff = casePayoff(resident, community, payments, { extraCosts: Number(c.cost_balance) || 0, freezeInterest: interestFrozen, freezeLateFees: lateFeesFrozen }) } catch { payoff = null }
+    try { payoff = casePayoff(resident, community, payments, { extraCosts: (Number(c.cost_balance) || 0) + (Number((c as any).mailing_cost_balance) || 0), freezeInterest: interestFrozen, freezeLateFees: lateFeesFrozen }) } catch { payoff = null }
   }
 
   return (
@@ -478,7 +478,10 @@ export default function CollectionCaseDetail() {
                 <LedgerRow label={t('admin.collectionsDetail.ledgerPrincipal')} value={fmt$(payoff.gross.principal)} />
                 <LedgerRow label={t('admin.collectionsDetail.ledgerInterest')} value={fmt$(payoff.gross.interest)} tag={interestFrozen ? t('admin.collectionsDetail.frozenTag') : undefined} />
                 <LedgerRow label={t('admin.collectionsDetail.ledgerLateFees')} value={fmt$(payoff.gross.lateFee)} tag={lateFeesFrozen ? t('admin.collectionsDetail.frozenTag') : undefined} />
-                <LedgerRow label={t('admin.collectionsDetail.ledgerCosts')} value={fmt$(payoff.gross.cost)} />
+                <LedgerRow label={t('admin.collectionsDetail.ledgerCosts')} value={fmt$(Number(c.cost_balance) || 0)} />
+                {(Number((c as any).mailing_cost_balance) || 0) > 0 && (
+                  <LedgerRow label={t('admin.collectionsDetail.ledgerMailing')} value={fmt$((c as any).mailing_cost_balance)} />
+                )}
                 <LedgerRow label={t('admin.collectionsDetail.ledgerPaymentsApplied')} value={'– ' + fmt$(payoff.gross.principal + payoff.gross.interest + payoff.gross.lateFee + payoff.gross.cost - payoff.payoff)} valueColor="#067647" />
               </tbody>
             </table>
