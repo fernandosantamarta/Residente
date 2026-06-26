@@ -160,17 +160,19 @@ function DocInner() {
         }
       `}</style>
 
-      <div className="no-print rp-toolbar" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
-        <div style={{ flex: '1 1 auto', minWidth: 0, fontSize: 12, background: '#FEF3F2', color: '#B42318', padding: '8px 12px', borderRadius: 8, maxWidth: 540, lineHeight: 1.45 }}>
-          {t('admin.collectionsDetailDocument.draftWarning')}
-        </div>
-        <div className="rp-actions" style={{ display: 'flex', gap: 8, flex: '0 0 auto', marginLeft: 'auto', alignItems: 'center' }}>
-          <button onClick={() => history.back()} style={{ background: '#fff', color: '#111', border: '1px solid #d4d4d4', borderRadius: 8, padding: '9px 16px', fontWeight: 600, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>{t('admin.overview.back')}</button>
+      {/* Toolbar: Back hard-left; Mail certified + Print grouped on the right. */}
+      <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 12, fontFamily: 'system-ui, sans-serif' }}>
+        <button onClick={() => history.back()} style={{ background: '#fff', color: '#111', border: '1px solid #d4d4d4', borderRadius: 8, padding: '9px 16px', fontWeight: 600, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>{t('admin.overview.back')}</button>
+        <div className="rp-actions" style={{ display: 'flex', gap: 8, marginLeft: 'auto', alignItems: 'center' }}>
           {MAILABLE.includes(type) && (
             <button onClick={mailCertified} disabled={mailing} style={{ background: '#fff', color: '#111', border: '1px solid #d4d4d4', borderRadius: 8, padding: '9px 16px', fontWeight: 600, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap', opacity: mailing ? 0.6 : 1 }}>{mailing ? t('admin.collectionsDetailDocument.mailing') : t('admin.collectionsDetailDocument.mailCertified')}</button>
           )}
           <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '9px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>{t('admin.collectionsDetailDocument.printButton')}</button>
         </div>
+      </div>
+      {/* DRAFT notice — its own full-width section below the buttons. */}
+      <div className="no-print" style={{ fontSize: 12, background: '#FEF3F2', color: '#B42318', padding: '10px 14px', borderRadius: 8, lineHeight: 1.45, marginBottom: 16, fontFamily: 'system-ui, sans-serif' }}>
+        {t('admin.collectionsDetailDocument.draftWarning')}
       </div>
       {mailMsg && <div className="no-print" style={{ fontFamily: 'system-ui, sans-serif', fontSize: 13, color: mailMsg.startsWith('Mailed') ? '#067647' : '#B42318', marginBottom: 12 }}>{mailMsg}</div>}
 
