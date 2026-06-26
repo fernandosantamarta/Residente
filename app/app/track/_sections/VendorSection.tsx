@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import { RequestDialog } from './RequestDialog'
 import { DetailDialog } from './DetailDialog'
+import { EmergencyReport } from './EmergencyReport'
 import { Dropdown } from '@/components/Dropdown'
 
 // Vendor — board-curated list of trusted service providers, now a section
@@ -41,12 +42,6 @@ const VENDORS: Vendor[] = [
   { id: 'v7',  name: 'BluFresh Elevator Services',  category: 'property',   contact: { phone: '(305) 555-0290', email: 'support@blufresh.com' }, blurb: 'Annual inspections, repairs, mods.' },
   { id: 'v8',  name: 'Apex HVAC Pros',              category: 'hvac',       contact: { phone: '(305) 555-0312', email: 'svc@apexhvac.com' }, blurb: 'Service contracts, emergency replacements.' },
   { id: 'v9',  name: 'Atlas Pest Control',          category: 'property',   contact: { phone: '(305) 555-0331', email: 'hello@atlaspest.com' }, blurb: 'Quarterly perimeter treatment, common-area abatement.' },
-]
-
-const EMERGENCY_CONTACTS = [
-  { id: 'e1', label: '24/7 Hotline',           phone: '(305) 555-0001', desc: 'On-call manager — anything urgent.' },
-  { id: 'e2', label: 'After-Hours Maintenance', phone: '(305) 555-0002', desc: 'Coastal Maintenance after 6 PM.' },
-  { id: 'e3', label: 'Water Emergency',        phone: '(305) 555-0003', desc: 'Flow Right Plumbing — leaks, no water.' },
 ]
 
 const CATEGORY_GRID: { key: VendorCat; label: string }[] = [
@@ -334,25 +329,7 @@ export function VendorSection() {
             </button>
           </section>
 
-          <section className="ven-card ven-emerg">
-            <h3 className="ven-tile-title">{t('vendors.emergencyContacts')}</h3>
-            <div className="ven-emerg-list">
-              {EMERGENCY_CONTACTS.map(c => (
-                <a key={c.id} href={`tel:${c.phone}`} className="ven-emerg-row">
-                  <span className="ven-emerg-icon" aria-hidden="true">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3-8.6A2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .3 1.9.6 2.7a2 2 0 0 1-.4 2.1L8 9.6a16 16 0 0 0 6 6l1.1-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.5 2.7.6a2 2 0 0 1 1.7 2z"/>
-                    </svg>
-                  </span>
-                  <span className="ven-emerg-body">
-                    <span className="ven-emerg-label">{c.label}</span>
-                    <span className="ven-emerg-phone">{c.phone}</span>
-                    <span className="ven-emerg-desc">{c.desc}</span>
-                  </span>
-                </a>
-              ))}
-            </div>
-          </section>
+          <EmergencyReport />
         </aside>
       </div>
 

@@ -211,8 +211,11 @@ begin
 end $$;
 revoke all on function public.emergency_page(uuid, uuid, text, text) from public, anon, authenticated;
 
--- 3a) REPORT — a board officer logs an emergency; the first on-call contact is
--- paged immediately. (A resident-facing report path lands in slice 2B.)
+-- 3a) REPORT — ANY community member raises an emergency; the first on-call
+-- contact is paged immediately (slice 2B opened this to residents). Raising an
+-- alert is an inbound notice to the board, not an outward/irreversible action,
+-- so it is intentionally not permission-gated beyond community membership. The
+-- privileged steps (manage the roster, acknowledge, resolve) stay gated below.
 create or replace function public.emergency_report(
   p_category    text,
   p_severity    text,
@@ -230,10 +233,8 @@ declare
   v_first  uuid;
   v_subj   text;
 begin
-  if not (public.has_permission('voice.manage')
-          or (select role from public.profiles where id = auth.uid()) in ('board_member','admin')) then
-    raise exception 'not allowed to report emergencies';
-  end if;
+  -- Any signed-in member of a community can raise an emergency (residents
+  -- included). Membership is the only gate: a member with no community can't.
   select community_id into cid from public.profiles where id = auth.uid();
   if cid is null then raise exception 'not a member of any community'; end if;
   if coalesce(btrim(p_description), '') = '' then raise exception 'a description is required'; end if;

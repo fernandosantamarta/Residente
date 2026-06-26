@@ -41,6 +41,7 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/board',      label: 'admin.nav.easyVoice', anyPerm: ['voice.manage', 'roles.manage'], match: ['/admin/voice', '/admin/requests', '/admin/roles', '/admin/arc'] },
   { href: '/admin/documents',  label: 'admin.nav.easyDocuments', anyPerm: ['documents.manage', 'violations.manage'], match: ['/admin/rules', '/admin/violations'] },
   { href: '/admin/schedule',   label: 'admin.nav.easySchedule', anyPerm: ['schedule.manage'] },
+  { href: '/admin/emergency',  label: 'admin.nav.emergency', anyPerm: ['voice.manage'] },
   { href: '/admin/billing',    label: 'admin.nav.billing', anyPerm: ['community.manage'] },
 ]
 
