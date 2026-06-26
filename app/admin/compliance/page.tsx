@@ -13,6 +13,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { sortSignals, type ComplianceSignal, type Severity } from '@/lib/compliance/rules-core'
 import { AttorneyNote } from '../AttorneyNote'
 import { ClampText } from '@/components/ClampText'
+import { Pager } from '@/components/Pager'
 import { communityDuesConfig } from '@/lib/dues'
 import { useExpenses } from '@/hooks/useExpenses'
 import { computeCommunityRating } from '@/lib/community-health'
@@ -69,20 +70,20 @@ const wsBase = (href: string) => href.split('#')[0].split('?')[0]
 // every workspace reachable from the dashboard even when nothing is flagged.
 const WORKSPACES: { href: string; label: string; desc: string; color: string; group: string }[] = [
   // Money & assessments
-  { href: '/admin/collections', label: 'Collections & liens', desc: 'Work the statutory ladder — late-assessment notice, intent-to-lien, lien, foreclosure.', color: '#B54708', group: 'Money & assessments' },
-  { href: '/admin/estoppel', label: 'Estoppel certificates', desc: 'Intake requests, track the delivery clock + fee, and issue the certificate.', color: '#175CD3', group: 'Money & assessments' },
   { href: '/admin/financials', label: 'Financial reporting & reserves', desc: 'Audit tier, the annual financial report & budget clocks, and reserve funding.', color: '#0E7490', group: 'Money & assessments' },
+  { href: '/admin/collections', label: 'Collections & liens', desc: 'Work the statutory ladder: late-assessment notice, intent-to-lien, lien, foreclosure.', color: '#B54708', group: 'Money & assessments' },
   { href: '/admin/contracts', label: 'Procurement & contracts', desc: 'Competitive bids over 5% (condo) / 10% (HOA) of the budget, written contracts, and management-agreement terms.', color: '#6D28D9', group: 'Money & assessments' },
+  { href: '/admin/estoppel', label: 'Estoppel certificates', desc: 'Intake requests, track the delivery clock + fee, and issue the certificate.', color: '#175CD3', group: 'Money & assessments' },
   // Governance
   { href: '/admin/governance', label: 'Directors & management', desc: 'Term limits, the director certification clock, conflicts of interest, and CAM licensing.', color: '#9333EA', group: 'Governance' },
   { href: '/admin/meetings', label: 'Meetings & notice', desc: 'Track the 48-hour / 14-day meeting-notice clock, agendas, and minutes availability.', color: '#0891B2', group: 'Governance' },
   { href: '/admin/elections', label: 'Elections & recall', desc: 'The 60 / 40 / 14-day election timeline, the election quorum, and the 5-business-day recall clock.', color: '#7C3AED', group: 'Governance' },
   { href: '/admin/enforcement', label: 'Violations, fines & hearings', desc: 'Run a fine through the independent committee, the 14-day hearing notice, and voting/use-rights suspensions.', color: '#DC6803', group: 'Governance' },
   // Property & records
-  { href: '/admin/structural', label: 'Structural integrity', desc: 'Milestone inspections & SIRS — track each building’s deadlines (condominium only).', color: '#067647', group: 'Property & records' },
-  { href: '/admin/arc', label: 'Architectural review', desc: 'Owner ARC requests against the response deadline, written-reason denials, and material-alteration votes.', color: '#65A30D', group: 'Property & records' },
-  { href: '/admin/documents#documents', label: 'Official records', desc: 'Post required records, track retention, and answer records-inspection requests on the clock.', color: '#7A5AF8', group: 'Property & records' },
+  { href: '/admin/structural', label: 'Structural integrity', desc: 'Milestone inspections & SIRS. Track each building’s deadlines (condominium only).', color: '#067647', group: 'Property & records' },
   { href: '/admin/insurance', label: 'Insurance', desc: 'Property replacement-cost appraisal (every 36 months, condo) and the fidelity bond covering funds in custody.', color: '#DD2590', group: 'Property & records' },
+  { href: '/admin/documents#documents', label: 'Official records', desc: 'Post required records, track retention, and answer records-inspection requests on the clock.', color: '#7A5AF8', group: 'Property & records' },
+  { href: '/admin/arc', label: 'Architectural review', desc: 'Owner ARC requests against the response deadline, written-reason denials, and material-alteration votes.', color: '#65A30D', group: 'Property & records' },
   { href: '/admin/advisories', label: 'Advisories & event clocks', desc: 'Developer turnover, board-vacancy receivership, invoice delivery-method changes, the HOA tiered-report petition, and proxy expiry.', color: '#1D4ED8', group: 'Governance' },
 ]
 const WORKSPACE_GROUPS = ['Money & assessments', 'Governance', 'Property & records']
@@ -214,6 +215,11 @@ export default function CompliancePage() {
   const [error, setError] = useState('')
   // "Needs attention" filter toggle (mock parity): All / Overdue / Due soon.
   const [seg, setSeg] = useState<'all' | 'overdue' | 'soon'>('all')
+  // Pagination for the (potentially long) needs-attention worklist.
+  const [attnPage, setAttnPage] = useState(0)
+  // Jump back to the first page whenever the filter changes so the view never
+  // lands on an out-of-range page.
+  useEffect(() => { setAttnPage(0) }, [seg])
 
   const load = useCallback(async () => {
     if (!hasSupabase || !communityId) { setStatus('none'); return }
@@ -394,11 +400,20 @@ export default function CompliancePage() {
                   ? t('admin.compliance.emptyAll')
                   : seg === 'overdue' ? t('admin.compliance.emptyOverdue') : t('admin.compliance.emptyDueSoon')}
               </div>
-            ) : (
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {attention.map(s => <SignalRow key={s.id} signal={s} />)}
-              </div>
-            )}
+            ) : (() => {
+              const ATTN_SIZE = 8
+              const pageCount = Math.ceil(attention.length / ATTN_SIZE)
+              const page = Math.min(attnPage, Math.max(0, pageCount - 1))
+              const paged = attention.slice(page * ATTN_SIZE, (page + 1) * ATTN_SIZE)
+              return (
+                <>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    {paged.map(s => <SignalRow key={s.id} signal={s} />)}
+                  </div>
+                  {pageCount > 1 && <Pager page={page} pageCount={pageCount} onPage={setAttnPage} />}
+                </>
+              )
+            })()}
           </div>
 
           {/* Workspaces — every compliance domain as a clean row list, grouped
@@ -447,6 +462,9 @@ export default function CompliancePage() {
 function SignalRow({ signal: s }: { signal: ComplianceSignal }) {
   const t = useT()
   const meta = SEVERITY_META[s.severity]
+  // Collections to-dos carry a reviewHref that jumps straight to the owner's
+  // case / 30-day notice; everything else uses its workspace href.
+  const target = s.reviewHref || s.href
   const severityLabel = s.severity === 'overdue' ? t('admin.compliance.severityOverdue')
     : s.severity === 'soon' ? t('admin.compliance.severityDueSoon')
     : t('admin.compliance.severityToDo')
@@ -468,10 +486,10 @@ function SignalRow({ signal: s }: { signal: ComplianceSignal }) {
           text={`${s.domain}${s.citation ? ` · ${s.citation}` : ''}${s.detail ? ` · ${s.detail}` : ''}`}
         />
       </div>
-      {s.href && <span style={{ fontSize: 13, color: meta.color, fontWeight: 700, whiteSpace: 'nowrap', marginTop: 1 }}>{t('admin.compliance.review')} →</span>}
+      {target && <span style={{ fontSize: 13, color: meta.color, fontWeight: 700, whiteSpace: 'nowrap', marginTop: 1 }}>{t('admin.compliance.review')} →</span>}
     </div>
   )
-  return s.href ? <Link href={s.href} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>{body}</Link> : body
+  return target ? <Link href={target} style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>{body}</Link> : body
 }
 
 // Generic workspace glyph — a shield-check, tinted per workspace color.

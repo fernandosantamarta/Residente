@@ -22,7 +22,7 @@ import { useT } from '@/lib/i18n'
 import {
   STAGE_LABELS, NOTICE_KIND_LABELS, nextEscalation, lienEnforceDeadline, noticeMethodWarning, isOpenStage,
   dualAddressRule, resolveNoticeAddresses, noticeAddressWarning, ownerNoticeAddresses,
-  NOTICE_30_DAY_DAYS, INTENT_TO_LIEN_DAYS, INTENT_TO_FORECLOSE_DAYS,
+  NOTICE_30_DAY_DAYS, INTENT_TO_LIEN_DAYS, INTENT_TO_FORECLOSE_DAYS, HOA_FINE_LIEN_FLOOR, QUALIFYING_OFFER_STAY_DAYS,
   type CollectionCaseRow, type CollectionStage, type CollectionNoticeKind, type CollectionNoticeRow, type PaymentPlanRow,
 } from '@/lib/compliance/collections'
 
@@ -89,6 +89,7 @@ export default function CollectionCaseDetail() {
   const [showManualPay, setShowManualPay] = useState(false)
   const [noticePage, setNoticePage] = useState(0)
   const [snapMsg, setSnapMsg] = useState('')
+  const [holdFormOpen, setHoldFormOpen] = useState(false)
   // First load shows the spinner; later refetches (after an action) keep the
   // content mounted so the page doesn't jump back to the top.
   const loadedRef = useRef(false)
@@ -221,6 +222,8 @@ export default function CollectionCaseDetail() {
   const now = new Date()
   const gateReady = esc?.readyAt ? esc.readyAt.getTime() <= toDate(now)!.getTime() : true
   const lienDeadline = lienEnforceDeadline(c, regime)
+  const legalHoldReason = (c as any).legal_hold_reason || null
+  const legalHoldLabel = legalHoldReason ? t(HOLD_REASON_KEY[legalHoldReason] || 'admin.collectionsDetail.holdOther') : null
 
   // Interest & late-fee freeze — each independent. A manual override on the case
   // wins; when untouched (null) it follows the plan automatically (frozen while a
@@ -251,24 +254,45 @@ export default function CollectionCaseDetail() {
 
       {/* ---- Stage ladder ---- */}
       <section style={card}>
-        <h2 className="bc-title" style={{ marginBottom: 20 }}>{t('admin.collectionsDetail.statutoryLadder')}</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
+          <h2 className="bc-title" style={{ margin: 0 }}>{t('admin.collectionsDetail.statutoryLadder')}</h2>
+          {open && !legalHoldReason && !holdFormOpen && (
+            <button className="admin-btn-ghost" style={{ fontSize: 12.5, flexShrink: 0 }} onClick={() => setHoldFormOpen(true)}>{t('admin.collectionsDetail.placeLegalHold')}</button>
+          )}
+        </div>
         <StageBar stage={stage} esc={esc} />
 
         {open && (
           <div style={{ marginTop: 30 }}>
+            <LegalHoldPanel caseRow={c} onPatch={patchCase} formOpen={holdFormOpen} setFormOpen={setHoldFormOpen} />
             {esc?.readyAt && (
               <div className="admin-note" style={{ fontSize: 12.5, marginBottom: 10, borderColor: gateReady ? '#067647' : '#B54708' }}>
                 {gateReady
-                  ? `${t('admin.collectionsDetail.waitingPeriodElapsed')} ${ymd(esc.readyAt)} — ${t('admin.collectionsDetail.youMayProceed')} ${esc.label}. (${esc.citation})`
+                  ? `${t('admin.collectionsDetail.waitingPeriodElapsed')} ${ymd(esc.readyAt)}, ${t('admin.collectionsDetail.youMayProceed')} ${esc.label}. (${esc.citation})`
                   : `${t('admin.collectionsDetail.waitingPeriodRunsUntil')} ${ymd(esc.readyAt)} (${calendarDaysUntil(esc.readyAt, now)} ${t('admin.collectionsDetail.days')}). ${t('admin.collectionsDetail.mayProceedEarlier')} (${esc.citation})`}
               </div>
             )}
-            {stage === 'lien_recorded' && lienDeadline && (
+            {/* Lien enforcement window — stays visible through intent_to_foreclose
+                and foreclosure (the hard filing deadline matters most there), and
+                turns red once the window has lapsed. */}
+            {(stage === 'lien_recorded' || stage === 'intent_to_foreclose' || stage === 'foreclosure') && lienDeadline && (() => {
+              const lapsed = calendarDaysUntil(lienDeadline, now) < 0
+              return (
+                <div className={`admin-note ${lapsed ? 'admin-note-err' : 'admin-note-warn'}`} style={{ fontSize: 12.5, marginBottom: 10 }}>
+                  {lapsed
+                    ? `${t('admin.collectionsDetail.lienWindowLapsed')} ${ymd(lienDeadline)}.`
+                    : regime === 'condo'
+                      ? `${t('admin.collectionsDetail.condoLienDeadline')} ${ymd(lienDeadline)}.`
+                      : `${t('admin.collectionsDetail.hoaLienDeadline')} ${ymd(lienDeadline)}.`}
+                  {' '}({LIEN_CITE})
+                </div>
+              )
+            })()}
+            {/* HB 1203: an HOA fine under $1,000 may not become a lien. Warn on the
+                very page where the board would record one. */}
+            {regime === 'hoa' && c.is_fine_only && (Number(c.principal_balance) || 0) < HOA_FINE_LIEN_FLOOR.value && (
               <div className="admin-note admin-note-warn" style={{ fontSize: 12.5, marginBottom: 10 }}>
-                {regime === 'condo'
-                  ? `${t('admin.collectionsDetail.condoLienDeadline')} ${ymd(lienDeadline)}.`
-                  : `${t('admin.collectionsDetail.hoaLienDeadline')} ${ymd(lienDeadline)}.`}
-                {' '}({LIEN_CITE})
+                {t('admin.collectionsDetail.fineFloorWarning', { amount: '$' + HOA_FINE_LIEN_FLOOR.value })} ({HOA_FINE_LIEN_FLOOR.citation})
               </div>
             )}
 
@@ -282,6 +306,7 @@ export default function CollectionCaseDetail() {
                 profileId={profile?.id ?? null}
                 resident={resident}
                 regime={regime}
+                legalHoldLabel={legalHoldLabel}
                 onAdvanced={load}
                 onError={setError}
               />
@@ -291,7 +316,14 @@ export default function CollectionCaseDetail() {
         {!open && (
           <div className="admin-note" style={{ marginTop: 12 }}>
             {t('admin.collectionsDetail.caseIs')} {STAGE_LABELS[stage].toLowerCase()}{c.resolved_at ? ` (${c.resolved_at})` : ''}.
-            <button className="admin-btn-ghost" onClick={() => patchCase({ stage: 'delinquent', resolved_at: null }, t('admin.collectionsDetail.caseReopened'))}>{t('admin.collectionsDetail.reopen')}</button>
+            {/* Reopening restarts the ladder at delinquent, so clear every prior-
+                cycle stage stamp — otherwise regenerated draft letters would print
+                stale sent/recorded/filed dates. */}
+            <button className="admin-btn-ghost" onClick={() => patchCase({
+              stage: 'delinquent', resolved_at: null,
+              notice_30_sent_at: null, intent_to_lien_sent_at: null, lien_recorded_at: null,
+              intent_to_foreclose_sent_at: null, foreclosure_filed_at: null,
+            }, t('admin.collectionsDetail.caseReopened'))}>{t('admin.collectionsDetail.reopen')}</button>
           </div>
         )}
       </section>
@@ -518,6 +550,16 @@ const NOTICE_DOC: Record<string, string> = {
   tenant_rent_demand: 'tenant_demand',
 }
 
+// Legal-hold reasons → their i18n label key (shared by the hold panel + the
+// advance gate). A held case can't advance the ladder without a counsel ack.
+const HOLD_REASON_KEY: Record<string, string> = {
+  bankruptcy: 'admin.collectionsDetail.holdBankruptcy',
+  scra: 'admin.collectionsDetail.holdScra',
+  qualifying_offer: 'admin.collectionsDetail.holdQualifyingOffer',
+  other: 'admin.collectionsDetail.holdOther',
+}
+const HOLD_REASON_OPTIONS = ['bankruptcy', 'scra', 'qualifying_offer', 'other']
+
 const DOC_LINKS = [
   { type: 'notice_30', label: '30-day notice of late assessment', live: false },
   { type: 'intent_to_lien', label: '45-day intent to record lien', live: false },
@@ -590,15 +632,19 @@ function StageBar({ stage, esc }: {
 const defaultMethod = (kind?: CollectionNoticeKind | null): string =>
   kind === 'late_assessment_30' || kind === 'tenant_rent_demand' ? 'first_class' : 'both'
 
-function StageActions({ adv, caseRow, communityId, profileId, resident, regime, onAdvanced, onError }: {
+function StageActions({ adv, caseRow, communityId, profileId, resident, regime, legalHoldLabel, onAdvanced, onError }: {
   adv: Advance | null; caseRow: CollectionCaseRow; communityId: string; profileId: string | null
   resident: any; regime: 'condo' | 'hoa'
+  legalHoldLabel: string | null
   onAdvanced: () => void; onError: (m: string) => void
 }) {
   const t = useT()
   const [openComposer, setOpenComposer] = useState(false)
   const [form, setForm] = useState<any>({ date: todayYmd(), method: 'both', tracking: '', recipient: '' })
   const [busy, setBusy] = useState(false)
+  // When the case is under a legal hold, advancing the ladder requires an explicit
+  // counsel-reviewed acknowledgment (the one place a blocking gate is justified).
+  const [ack, setAck] = useState(false)
   if (!adv) return <div className="admin-note" style={{ fontSize: 12.5 }}>{t('admin.collectionsDetail.foreclosureFiled')}</div>
 
   // The statutory dual-address rule for this notice, resolved against the owner's
@@ -641,7 +687,7 @@ function StageActions({ adv, caseRow, communityId, profileId, resident, regime, 
     finally { setBusy(false) }
   }
 
-  if (!openComposer) return <button className="admin-primary-btn" style={{ marginLeft: 'auto' }} onClick={() => { setForm({ date: todayYmd(), method: defaultMethod(adv.notice), tracking: '', recipient: '' }); setOpenComposer(true) }}>{adv.label}</button>
+  if (!openComposer) return <button className="admin-primary-btn" style={{ marginLeft: 'auto' }} onClick={() => { setForm({ date: todayYmd(), method: defaultMethod(adv.notice), tracking: '', recipient: '' }); setAck(false); setOpenComposer(true) }}>{adv.label}</button>
 
   return (
     <div style={{ border: '1px dashed #cbd5e1', borderRadius: 10, padding: 12, width: '100%', flexBasis: '100%', marginTop: 14 }}>
@@ -682,8 +728,17 @@ function StageActions({ adv, caseRow, communityId, profileId, resident, regime, 
         </div>
       )}
 
+      {legalHoldLabel && (
+        <div className="admin-note admin-note-err" style={{ fontSize: 12, marginTop: 10 }}>
+          <div style={{ fontWeight: 700 }}>{t('admin.collectionsDetail.advanceUnderHoldWarn', { reason: legalHoldLabel })}</div>
+          <label style={{ display: 'flex', gap: 8, marginTop: 6, alignItems: 'flex-start' }}>
+            <input type="checkbox" checked={ack} onChange={e => setAck(e.target.checked)} style={{ marginTop: 2 }} />
+            <span>{t('admin.collectionsDetail.advanceUnderHoldAck')}</span>
+          </label>
+        </div>
+      )}
       <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
-        <button className="admin-primary-btn" disabled={busy} onClick={run}>{busy ? t('admin.collectionsDetail.saving') : t('admin.collectionsDetail.confirm')}</button>
+        <button className="admin-primary-btn" disabled={busy || (!!legalHoldLabel && !ack)} onClick={run}>{busy ? t('admin.collectionsDetail.saving') : t('admin.collectionsDetail.confirm')}</button>
         <button className="admin-btn-ghost" disabled={busy} onClick={() => setOpenComposer(false)}>{t('admin.collectionsDetail.cancel')}</button>
       </div>
     </div>
@@ -699,6 +754,67 @@ function CostEditor({ caseRow, onSaved }: { caseRow: CollectionCaseRow; onSaved:
       <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
         <input className="admin-input" type="number" min="0" step="0.01" style={{ width: 150 }} value={amt} onChange={e => setAmt(e.target.value)} />
         <button className="admin-btn-ghost" disabled={!amt} onClick={() => { onSaved({ cost_balance: (Number(caseRow.cost_balance) || 0) + Number(amt) }, t('admin.collectionsDetail.costRecorded')); setAmt('') }}>{t('admin.collectionsDetail.addCost')}</button>
+      </div>
+    </div>
+  )
+}
+
+// Per-case legal hold (bankruptcy stay / SCRA / qualifying-offer / other). When
+// set, a red banner shows on the ladder and the advance gate requires a counsel
+// ack. A qualifying offer also surfaces its 60-day statutory-stay countdown.
+function LegalHoldPanel({ caseRow, onPatch, formOpen, setFormOpen }: { caseRow: CollectionCaseRow; onPatch: (p: any, msg: string) => void; formOpen: boolean; setFormOpen: (v: boolean) => void }) {
+  const t = useT()
+  const reason = (caseRow as any).legal_hold_reason || null
+  const at = (caseRow as any).legal_hold_at || null
+  const note = (caseRow as any).legal_hold_note || null
+  const [form, setForm] = useState<{ reason: string; note: string }>({ reason: 'bankruptcy', note: '' })
+
+  if (reason) {
+    const label = t(HOLD_REASON_KEY[reason] || 'admin.collectionsDetail.holdOther')
+    const stayEnds = reason === 'qualifying_offer' && at ? addCalendarDays(at, QUALIFYING_OFFER_STAY_DAYS.value) : null
+    const daysLeft = stayEnds ? calendarDaysUntil(stayEnds, new Date()) : null
+    return (
+      <div className="admin-note admin-note-err" style={{ marginBottom: 10, fontSize: 12.5 }}>
+        <div style={{ fontWeight: 800 }}>{t('admin.collectionsDetail.legalHoldActive', { reason: label })}</div>
+        <div style={{ marginTop: 4 }}>{t('admin.collectionsDetail.legalHoldBlurb')}{at ? ` ${t('admin.collectionsDetail.legalHoldPlacedOn', { date: at })}` : ''}</div>
+        {note && <div style={{ marginTop: 4, opacity: 0.85 }}>{note}</div>}
+        {stayEnds && (
+          <div style={{ marginTop: 4, fontWeight: 700 }}>
+            {daysLeft != null && daysLeft >= 0
+              ? t('admin.collectionsDetail.qualifyingOfferStayEnds', { date: ymd(stayEnds), days: daysLeft })
+              : t('admin.collectionsDetail.qualifyingOfferStayEnded', { date: ymd(stayEnds) })}
+          </div>
+        )}
+        <button className="admin-btn-ghost" style={{ marginTop: 8 }}
+          onClick={() => onPatch({ legal_hold_reason: null, legal_hold_at: null, legal_hold_note: null }, t('admin.collectionsDetail.legalHoldReleased'))}>
+          {t('admin.collectionsDetail.releaseHold')}
+        </button>
+      </div>
+    )
+  }
+
+  // No hold and the form is closed → nothing here; the trigger lives in the
+  // ladder section header (top-right).
+  if (!formOpen) return null
+
+  return (
+    <div style={{ border: '1px dashed #cbd5e1', borderRadius: 10, padding: 12, marginBottom: 10 }}>
+      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>{t('admin.collectionsDetail.placeLegalHold')}</div>
+      <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <div className="admin-field" style={{ minWidth: 220 }}><span className="admin-field-label">{t('admin.collectionsDetail.holdReason')}</span>
+          <Dropdown<string>
+            value={form.reason}
+            onChange={v => setForm(f => ({ ...f, reason: v }))}
+            ariaLabel={t('admin.collectionsDetail.holdReason')}
+            options={HOLD_REASON_OPTIONS.map(r => ({ value: r, label: t(HOLD_REASON_KEY[r]) }))}
+          /></div>
+        <label className="admin-field" style={{ flex: 1, minWidth: 180 }}><span className="admin-field-label">{t('admin.collectionsDetail.holdNote')}</span>
+          <input className="admin-input" value={form.note} placeholder={t('admin.collectionsDetail.holdNotePlaceholder')} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} /></label>
+        <button className="admin-primary-btn"
+          onClick={() => { onPatch({ legal_hold_reason: form.reason, legal_hold_at: todayYmd(), legal_hold_note: form.note.trim() || null }, t('admin.collectionsDetail.legalHoldPlaced')); setFormOpen(false) }}>
+          {t('admin.collectionsDetail.placeHoldBtn')}
+        </button>
+        <button className="admin-btn-ghost" onClick={() => setFormOpen(false)}>{t('admin.collectionsDetail.cancel')}</button>
       </div>
     </div>
   )
@@ -727,16 +843,19 @@ function PaymentPlanSection({ caseRow, plans, profileId, payoffTotal, onChange, 
     setBusy(true)
     try {
       const freq = Number(form.frequency_days) || 30
-      const next = addCalendarDays(form.start_date || todayYmd(), freq)
+      // First installment is due at the plan start (installment #1 in the schedule
+      // render + the printed agreement + the resident-request approve path all use
+      // the start date). recordInstallment then advances next_due by one cadence.
+      const startDate = form.start_date || todayYmd()
       const { data: newPlan, error } = (await withTimeout(supabase.from('ev_payment_plans').insert({
         community_id: caseRow.community_id,
         case_id: caseRow.id,
         status: 'active',
-        start_date: form.start_date || todayYmd(),
+        start_date: startDate,
         installment_amount: form.installment_amount ? Number(form.installment_amount) : null,
         installment_count: form.installment_count ? Number(form.installment_count) : null,
         frequency_days: freq,
-        next_due_at: next ? ymd(next) : null,
+        next_due_at: startDate,
         paid_count: 0,
         created_by: profileId,
       }).select('id').single())) as any
@@ -749,6 +868,8 @@ function PaymentPlanSection({ caseRow, plans, profileId, payoffTotal, onChange, 
   }
 
   const recordInstallment = async (p: PaymentPlanRow) => {
+    if (busy) return // guard a double-click from double-posting (or silently dropping the 2nd intended installment via the dedupe key)
+    setBusy(true)
     const paid = (Number(p.paid_count) || 0) + 1
     const freq = Number(p.frequency_days) || 30
     const done = p.installment_count != null && paid >= Number(p.installment_count)
@@ -785,8 +906,9 @@ function PaymentPlanSection({ caseRow, plans, profileId, payoffTotal, onChange, 
       setPlanOpen(true)
       setPlanMsg(done
         ? t('admin.collectionsDetail.planComplete')
-        : `${t('admin.collectionsDetail.installmentRecorded')} — ${paid}${p.installment_count != null ? '/' + p.installment_count : ''} ${t('admin.collectionsDetail.paid')}`)
+        : `${t('admin.collectionsDetail.installmentRecorded')}: ${paid}${p.installment_count != null ? '/' + p.installment_count : ''} ${t('admin.collectionsDetail.paid')}`)
     } catch (err: any) { onError(err?.message || t('admin.collectionsDetail.updateFailed')) }
+    finally { setBusy(false) }
   }
 
   // Edit an ACTIVE plan in place — raise the installment, add installments
@@ -991,7 +1113,7 @@ function PaymentPlanSection({ caseRow, plans, profileId, payoffTotal, onChange, 
             <button className="admin-btn-ghost" onClick={() => setEditPlan({ amount: active.installment_amount ?? '', count: active.installment_count ?? '', freq: active.frequency_days ?? 30 })}>{t('admin.collectionsDetail.editPlan')}</button>
             <button className="admin-btn-ghost" onClick={() => endPlan(active, 'defaulted')}>{t('admin.collectionsDetail.markDefaulted')}</button>
             <button className="admin-btn-ghost" onClick={() => endPlan(active, 'cancelled')}>{t('admin.collectionsDetail.cancelPlan')}</button>
-            <button className="admin-primary-btn" style={{ marginLeft: 'auto' }} onClick={() => recordInstallment(active)}>{t('admin.collectionsDetail.recordInstallmentPaid')}</button>
+            <button className="admin-primary-btn" style={{ marginLeft: 'auto' }} disabled={busy} onClick={() => recordInstallment(active)}>{busy ? t('admin.collectionsDetail.saving') : t('admin.collectionsDetail.recordInstallmentPaid')}</button>
           </div>
         </div>
       ) : (

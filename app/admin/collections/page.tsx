@@ -261,7 +261,7 @@ export default function CollectionsPage() {
       {status === 'ready' && (
         <div className="card">
           <div className="card-head" style={{ flexWrap: 'wrap' }}>
-            <div>
+            <div style={{ flex: '1 1 240px', minWidth: 0 }}>
               <h2>{t('admin.collections.suggestedTitle', { count: candidates.length })}</h2>
               <div className="sub">
                 {t('admin.collections.suggestedDek')}
@@ -320,7 +320,7 @@ export default function CollectionsPage() {
                 const bal = r.total_balance != null
                   ? Number(r.total_balance)
                   : (res ? residentBalance(res, Number(community?.monthly_dues) || 0, payByResident[res.id] || [], communityDuesConfig(community)) : 0)
-                const action = stage === 'delinquent' ? t('admin.collections.chipStart30Day') : t('admin.collections.openLink')
+                const action = stage === 'delinquent' ? t('admin.collections.chipStart30Day') : t('admin.collections.openAction')
                 return (
                   <tr key={r.id}>
                     <td className="cc-owner">{name}</td>
@@ -435,7 +435,7 @@ function AutoOpenSettings({ community, onSaved }: { community: any; onSaved: () 
     finally { setBusy(false) }
   }
 
-  if (!open) return <button className="admin-btn-ghost" onClick={() => setOpen(true)}>{t('admin.collections.scanSettingsBtn')}</button>
+  if (!open) return <button className="admin-btn-ghost" style={{ marginLeft: 'auto', flexShrink: 0 }} onClick={() => setOpen(true)}>{t('admin.collections.scanSettingsBtn')}</button>
 
   return (
     <div style={{ width: '100%', border: '1px dashed #cbd5e1', borderRadius: 10, padding: 12, marginTop: 8 }}>

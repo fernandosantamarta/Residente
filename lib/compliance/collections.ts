@@ -459,6 +459,7 @@ export function collectionsSignals(
         title: `${label}: begin the statutory collection notice`,
         detail: 'Deliver the 30-day notice of late assessment before charging collection costs or escalating to a lien.',
         href: HREF,
+        reviewHref: `${HREF}/${c.id}`,
         citation: NOTICE_30_DAY_DAYS.citation,
       }))
     }
@@ -475,6 +476,7 @@ export function collectionsSignals(
           title: `${label}: you may now ${esc.label}`,
           detail: `The statutory waiting period elapsed on ${ymd(esc.readyAt)}${daysOver > 0 ? ` (${daysOver} day${daysOver === 1 ? '' : 's'} ago)` : ''}.`,
           href: HREF,
+          reviewHref: `${HREF}/${c.id}`,
           citation: esc.citation,
         }))
       } else if (calendarDaysUntil(esc.readyAt, now) <= 5) {
@@ -485,6 +487,7 @@ export function collectionsSignals(
           title: `${label}: waiting period ends ${ymd(esc.readyAt)}`,
           detail: `You may ${esc.label} on or after that date.`,
           href: HREF,
+          reviewHref: `${HREF}/${c.id}`,
           citation: esc.citation,
         }))
       }
@@ -505,6 +508,7 @@ export function collectionsSignals(
           title: `${label}: the recorded lien's enforcement window has lapsed`,
           detail: `${regime === 'condo' ? 'A condo claim of lien must be foreclosed within 1 year of recording.' : 'The HOA lien limitations period has run.'} Window ended ${ymd(lienDeadline)}.`,
           href: HREF,
+          reviewHref: `${HREF}/${c.id}`,
           citation: LIEN_ENFORCE_WINDOW_DAYS.citation,
         }))
       } else if (regime === 'condo' ? daysLeft <= 60 : daysLeft <= 90) {
@@ -513,8 +517,9 @@ export function collectionsSignals(
           domain: DOMAIN,
           severity: 'soon',
           title: `${label}: the recorded lien must be enforced soon`,
-          detail: `${regime === 'condo' ? 'Foreclose within 1 year of recording' : 'Enforce within the 5-year limitations period'} — window closes ${ymd(lienDeadline)} (${daysLeft} days left).`,
+          detail: `${regime === 'condo' ? 'Foreclose within 1 year of recording' : 'Enforce within the 5-year limitations period'}, window closes ${ymd(lienDeadline)} (${daysLeft} days left).`,
           href: HREF,
+          reviewHref: `${HREF}/${c.id}`,
           citation: LIEN_ENFORCE_WINDOW_DAYS.citation,
         }))
       }
@@ -532,6 +537,7 @@ export function collectionsSignals(
           title: `${label}: an HOA fine under $${HOA_FINE_LIEN_FLOOR.value} cannot become a lien`,
           detail: `This case is fine-only ($${Math.round(principal)}). Under HB 1203 an HOA fine of less than $${HOA_FINE_LIEN_FLOOR.value} may not be secured by a lien.`,
           href: HREF,
+          reviewHref: `${HREF}/${c.id}`,
           citation: HOA_FINE_LIEN_FLOOR.citation,
         }))
       }

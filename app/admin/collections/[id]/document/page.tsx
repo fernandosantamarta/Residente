@@ -96,6 +96,11 @@ function DocInner() {
   // If the case has no sent_at recorded yet (notice not yet mailed), fall back
   // to today so the draft still renders a usable date.
   const noticeBase = c.notice_30_sent_at || today
+  // The 45-day windows likewise anchor to the date each notice was actually sent
+  // (the stored stamp), not the rendering date, so a reprint never drifts the
+  // statutory deadline. Fall back to today when the notice hasn't been logged yet.
+  const lienNoticeBase = c.intent_to_lien_sent_at || today
+  const foreNoticeBase = c.intent_to_foreclose_sent_at || today
   const amount = payoff ? fmtMoney(payoff.payoff) : null
   const ownerName = resident?.full_name || c.unit_label || 'Owner of record'
 
@@ -202,7 +207,7 @@ function DocInner() {
       {type === 'intent_to_lien' && (
         <Body>
           <p>You are hereby notified of the association&apos;s intent to record a <strong>Claim of Lien</strong> against the above unit/parcel for unpaid assessments, interest, late fees, and costs. As of {today}, the amount owed is <strong>{amount || <Em>confirm from ledger</Em>}</strong>.</p>
-          <p>If the total amount is not paid within <strong>forty-five (45) days</strong> of this notice, on or before <strong>{ymd(addCalendarDays(today, 45))}</strong>, the association may record a claim of lien and, thereafter, foreclose that lien and recover its costs and reasonable attorney&apos;s fees.</p>
+          <p>If the total amount is not paid within <strong>forty-five (45) days</strong> of this notice, on or before <strong>{ymd(addCalendarDays(lienNoticeBase, 45))}</strong>, the association may record a claim of lien and, thereafter, foreclose that lien and recover its costs and reasonable attorney&apos;s fees.</p>
           <p style={{ fontSize: 12, color: '#555' }}>This notice is given under {cite('Florida Statutes § 718.121(6)', 'Florida Statutes § 720.3085(4)(b)')} and is being sent by certified or registered mail (return receipt requested) and by first-class U.S. mail to your address of record{ownerDual ? ', and also by first-class U.S. mail to the unit/parcel address because that address differs from your address of record' : ''}.</p>
         </Body>
       )}
@@ -225,7 +230,7 @@ function DocInner() {
       {type === 'intent_to_foreclose' && (
         <Body>
           <p>A Claim of Lien was recorded against the above unit/parcel{c.lien_recorded_at ? ` on ${c.lien_recorded_at}` : ''}. The amount secured by the lien remains unpaid. As of {today}, the amount owed is <strong>{amount || <Em>confirm from ledger</Em>}</strong>.</p>
-          <p>You are hereby notified of the association&apos;s intent to <strong>foreclose</strong> the lien. If the total amount is not paid within <strong>forty-five (45) days</strong> of this notice, on or before <strong>{ymd(addCalendarDays(today, 45))}</strong>, the association may file an action to foreclose its lien and recover its costs and reasonable attorney&apos;s fees.</p>
+          <p>You are hereby notified of the association&apos;s intent to <strong>foreclose</strong> the lien. If the total amount is not paid within <strong>forty-five (45) days</strong> of this notice, on or before <strong>{ymd(addCalendarDays(foreNoticeBase, 45))}</strong>, the association may file an action to foreclose its lien and recover its costs and reasonable attorney&apos;s fees.</p>
           <p style={{ fontSize: 12, color: '#555' }}>This notice is given under {cite('Florida Statutes § 718.116(6)(b)', 'Florida Statutes § 720.3085(5)')}{ownerDual ? (dualStatutory ? ', and is being sent to your address of record and the parcel address' : ', and is being sent to your address of record (with a precautionary copy to the unit address)') : ''}.</p>
         </Body>
       )}

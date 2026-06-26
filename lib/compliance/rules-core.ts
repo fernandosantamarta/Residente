@@ -234,8 +234,12 @@ export interface ComplianceSignal {
   severity: Severity
   title: string
   detail: string
-  /** Deep link to the admin surface that resolves it. */
+  /** Deep link to the admin surface that resolves it. Also used to tally a
+   *  signal under its workspace card, so it stays the workspace BASE path. */
   href?: string
+  /** Optional more-specific target for the row's "Review" action (e.g. a case's
+   *  printable 30-day notice). Falls back to `href` when unset. */
+  reviewHref?: string
   /** FS citation backing the obligation. */
   citation?: string
 }
