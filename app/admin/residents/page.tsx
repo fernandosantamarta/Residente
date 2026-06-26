@@ -1081,15 +1081,8 @@ function ResidentRow({ r, onLocal, onCommit, onRemove, onInvite, inviteBusy, onI
             )}
 
             <div className="edit-foot">
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                <button type="button" className="admin-primary-btn" style={{ padding: '8px 18px', fontSize: 13.5 }} onClick={saveAll}>{t('admin.residents.saveBtn')}</button>
-                {saved && <span style={{ color: '#067647', fontWeight: 700, fontSize: 12.5 }}>{t('admin.residents.savedMsg')}</span>}
-                <span className="muted" style={{ fontSize: 12.5 }}>
-                  {activated ? t('admin.residents.statusActivated') : r.invited_at ? t('admin.residents.statusInvited') : t('admin.residents.statusNone')}
-                  {transfer && <> · {t('admin.residents.xferredFoot', { email: transfer.to_email, date: String(transfer.created_at).slice(0, 10) })}</>}
-                </span>
-              </div>
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+              {/* Household actions — pinned left. */}
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 {/* Transfer ownership — sits next to Send invite. */}
                 <button type="button" className="admin-btn-sm" onClick={() => { setXferOpen(o => !o); setXMsg('') }}>
                   {t('admin.residents.xferOpenBtn')}
@@ -1105,6 +1098,15 @@ function ResidentRow({ r, onLocal, onCommit, onRemove, onInvite, inviteBusy, onI
                 <button type="button" className="admin-btn-sm admin-btn-warn" onClick={() => onRemove(r.id)}>
                   {t('admin.residents.removeHousehold')}
                 </button>
+              </div>
+              {/* Status + Save — pinned right, Save farthest right. */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                <span className="muted" style={{ fontSize: 12.5 }}>
+                  {activated ? t('admin.residents.statusActivated') : r.invited_at ? t('admin.residents.statusInvited') : t('admin.residents.statusNone')}
+                  {transfer && <> · {t('admin.residents.xferredFoot', { email: transfer.to_email, date: String(transfer.created_at).slice(0, 10) })}</>}
+                </span>
+                {saved && <span style={{ color: '#067647', fontWeight: 700, fontSize: 12.5 }}>{t('admin.residents.savedMsg')}</span>}
+                <button type="button" className="admin-primary-btn" style={{ padding: '8px 18px', fontSize: 13.5 }} onClick={saveAll}>{t('admin.residents.saveBtn')}</button>
               </div>
             </div>
           </td>
