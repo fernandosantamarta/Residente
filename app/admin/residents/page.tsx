@@ -751,15 +751,15 @@ export default function Residents() {
                   return (
                   <>
                   <div style={{ overflowX: 'auto' }}>
-                    <table className="tbl" style={{ minWidth: 640 }}>
+                    <table className="tbl" style={{ width: '100%', tableLayout: 'fixed' }}>
                       <thead>
                         <tr>
-                          <th>{t('admin.residents.colOwner')}</th>
-                          <th>{t('admin.residents.colUnit')}</th>
-                          <th>{t('admin.residents.colEmail')}</th>
-                          <th>{t('admin.residents.colPhone')}</th>
-                          <th>{t('admin.residents.colBalance')}</th>
-                          <th className="act"></th>
+                          <th style={{ width: '23%' }}>{t('admin.residents.colOwner')}</th>
+                          <th style={{ width: '11%' }}>{t('admin.residents.colUnit')}</th>
+                          <th style={{ width: '29%' }}>{t('admin.residents.colEmail')}</th>
+                          <th style={{ width: '18%' }}>{t('admin.residents.colPhone')}</th>
+                          <th style={{ width: '13%' }}>{t('admin.residents.colBalance')}</th>
+                          <th className="act" style={{ width: '6%' }}></th>
                         </tr>
                       </thead>
                       <tbody>
@@ -767,16 +767,16 @@ export default function Residents() {
                           const gi = page * REVIEW_SIZE + i
                           return (
                           <tr className="tr" key={p._k}>
-                            <td><input className="admin-input" style={{ minWidth: 150 }} value={p.full_name || ''}
+                            <td><input className="admin-input" style={{ width: '100%' }} value={p.full_name || ''}
                               onChange={e => editPending(p._k, 'full_name', e.target.value)} /></td>
-                            <td><input className="admin-input" style={{ minWidth: 80 }} value={p.unit_number || ''}
+                            <td><input className="admin-input" style={{ width: '100%' }} value={p.unit_number || ''}
                               onChange={e => editPending(p._k, 'unit_number', e.target.value)} /></td>
-                            <td><input className="admin-input" type="email" style={{ minWidth: 170 }} value={p.email || ''}
+                            <td><input className="admin-input" type="email" style={{ width: '100%' }} value={p.email || ''}
                               onChange={e => editPending(p._k, 'email', e.target.value)} /></td>
-                            <td><input className="admin-input" style={{ minWidth: 120 }} value={p.phone || ''}
+                            <td><input className="admin-input" style={{ width: '100%' }} value={p.phone || ''}
                               onChange={e => editPending(p._k, 'phone', e.target.value)} /></td>
                             <td><input className="admin-input" inputMode="decimal" placeholder={t('admin.residents.phBalance')}
-                              style={{ minWidth: 90, textAlign: 'right' }} value={p._balText || ''}
+                              style={{ width: '100%', textAlign: 'right' }} value={p._balText || ''}
                               onChange={e => editPendingBal(p._k, e.target.value)} /></td>
                             <td className="act">
                               <button type="button" className="import-del" onClick={() => removePending(p._k)}

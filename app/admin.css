@@ -705,7 +705,7 @@
 
 /* Residents roster (Residents page) */
 .res-import-bar {
-  margin-top: 20px; padding: 14px 18px;
+  margin-top: 20px; margin-bottom: 28px; padding: 14px 18px;
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
   background: var(--bg-card); border: 1px solid var(--pink); border-radius: 10px;
   font-size: 14px; color: var(--text-dim);
