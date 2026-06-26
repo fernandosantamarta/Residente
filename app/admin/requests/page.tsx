@@ -1097,7 +1097,7 @@ function AdminThread({
           </div>
           {/* Secondary management — triage (priority + assignee) on the left,
               reply-lock + close on the right, one row. */}
-          <div className="imsg-composer-opts" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 28, paddingTop: 16, borderTop: '1px solid var(--border)' }}>
+          <div className="imsg-composer-opts" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginTop: 44 }}>
             <div className="imsg-triage">
               <span className="tri-field">
                 <span className="tri-label">{t('admin.requests.triagePriorityLabel')}</span>

@@ -371,7 +371,10 @@ export function AdminSearch() {
                     {row.item.title}
                     {row.item.snippet && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-faint)', fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 380 }}>{row.item.snippet}</span>}
                   </span>
-                  <span className="admin-search-item-group" style={{ color: DEPTH_META[row.item.depth]?.color, fontWeight: 700 }}>{row.item.type === 'rule' ? t('documents.smartSearchRule') : t('documents.smartSearchDoc')}</span>
+                  <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 800, letterSpacing: 0.5,
+                    color: row.item.type === 'rule' ? '#6941C6' : '#0E7490',
+                    background: row.item.type === 'rule' ? 'rgba(105,65,198,0.12)' : 'rgba(14,116,144,0.12)',
+                    borderRadius: 5, padding: '3px 7px' }}>{row.item.type === 'rule' ? t('documents.smartSearchRule') : t('documents.smartSearchDoc')}</span>
                 </button>
               ) : (
                 <button
