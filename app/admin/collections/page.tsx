@@ -455,50 +455,51 @@ function AutoOpenSettings({ community, onSaved }: { community: any; onSaved: () 
 
   if (!open) return <button className="admin-btn-ghost" style={{ marginLeft: 'auto', flexShrink: 0 }} onClick={() => setOpen(true)}>{t('admin.collections.scanSettingsBtn')}</button>
 
+  // Shared styles so every field + checkbox lines up to the same left edge / width.
+  const fieldStyle: React.CSSProperties = { width: 150 }
+  const checkStyle: React.CSSProperties = { display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5 }
+
   return (
-    <div style={{ width: '100%', border: '1px dashed #cbd5e1', borderRadius: 10, padding: 14, marginTop: 8 }}>
-      {/* Suggested-case scan thresholds — inputs on one row, the toggle on its own. */}
-      <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <label className="admin-field" style={{ maxWidth: 160 }}><span className="admin-field-label">{t('admin.collections.fieldMinBalance')}</span>
+    <div style={{ width: '100%', border: '1px dashed #cbd5e1', borderRadius: 10, padding: 16, marginTop: 8 }}>
+      {/* Suggested-case scan thresholds */}
+      <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+        <label className="admin-field" style={fieldStyle}><span className="admin-field-label">{t('admin.collections.fieldMinBalance')}</span>
           <input className="admin-input" type="number" min="0" step="0.01" value={minBalance} placeholder={t('admin.collections.placeholderAny')} onChange={e => setMinBalance(e.target.value)} /></label>
-        <label className="admin-field" style={{ maxWidth: 160 }}><span className="admin-field-label">{t('admin.collections.fieldMinDays')}</span>
+        <label className="admin-field" style={fieldStyle}><span className="admin-field-label">{t('admin.collections.fieldMinDays')}</span>
           <input className="admin-input" type="number" min="0" step="1" value={minDays} placeholder={t('admin.collections.placeholderAny')} onChange={e => setMinDays(e.target.value)} /></label>
       </div>
-      <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, marginTop: 12 }}>
+      <label style={{ ...checkStyle, marginTop: 14 }}>
         <input type="checkbox" checked={autoOpen} onChange={e => setAutoOpen(e.target.checked)} />
         {t('admin.collections.autoOpenLabel')}
       </label>
+      <p style={{ fontSize: 11.5, opacity: 0.7, margin: '6px 0 0' }}>{t('admin.collections.autoOpenNote')}</p>
 
-      {/* Automatic dues reminders — toggles on one row, number fields on the next. */}
-      <div style={{ borderTop: '1px solid #EEF0F2', marginTop: 14, paddingTop: 14 }}>
-        <div style={{ fontWeight: 700, fontSize: 12.5, marginBottom: 10 }}>{t('admin.collections.reminderTitle')}</div>
-        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginBottom: 12 }}>
-          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5 }}>
-            <input type="checkbox" checked={remEnabled} onChange={e => setRemEnabled(e.target.checked)} />
-            {t('admin.collections.reminderEnabled')}
-          </label>
-          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, opacity: remEnabled ? 1 : 0.5 }}>
-            <input type="checkbox" checked={remEmail} disabled={!remEnabled} onChange={e => setRemEmail(e.target.checked)} />
-            {t('admin.collections.reminderEmail')}
-          </label>
-        </div>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          <label className="admin-field" style={{ maxWidth: 160 }}><span className="admin-field-label">{t('admin.collections.reminderMinDays')}</span>
+      {/* Automatic dues reminders — each toggle on its own line, fields aligned below. */}
+      <div style={{ borderTop: '1px solid #EEF0F2', marginTop: 16, paddingTop: 16 }}>
+        <div style={{ fontWeight: 700, fontSize: 12.5, marginBottom: 12 }}>{t('admin.collections.reminderTitle')}</div>
+        <label style={{ ...checkStyle, marginBottom: 10 }}>
+          <input type="checkbox" checked={remEnabled} onChange={e => setRemEnabled(e.target.checked)} />
+          {t('admin.collections.reminderEnabled')}
+        </label>
+        <label style={{ ...checkStyle, marginBottom: 14, opacity: remEnabled ? 1 : 0.5 }}>
+          <input type="checkbox" checked={remEmail} disabled={!remEnabled} onChange={e => setRemEmail(e.target.checked)} />
+          {t('admin.collections.reminderEmail')}
+        </label>
+        <div style={{ display: 'flex', gap: 14, flexWrap: 'wrap' }}>
+          <label className="admin-field" style={fieldStyle}><span className="admin-field-label">{t('admin.collections.reminderMinDays')}</span>
             <input className="admin-input" type="number" min="0" step="1" value={remMinDays} placeholder="0" disabled={!remEnabled} onChange={e => setRemMinDays(e.target.value)} /></label>
-          <label className="admin-field" style={{ maxWidth: 160 }}><span className="admin-field-label">{t('admin.collections.reminderCadence')}</span>
+          <label className="admin-field" style={fieldStyle}><span className="admin-field-label">{t('admin.collections.reminderCadence')}</span>
             <input className="admin-input" type="number" min="1" step="1" value={remCadence} placeholder="25" disabled={!remEnabled} onChange={e => setRemCadence(e.target.value)} /></label>
         </div>
-        <p style={{ fontSize: 11.5, opacity: 0.7, margin: '10px 0 0' }}>{t('admin.collections.reminderNote')}</p>
+        <p style={{ fontSize: 11.5, opacity: 0.7, margin: '12px 0 0' }}>{t('admin.collections.reminderNote')}</p>
       </div>
 
-      {/* Footer — white left, orange right (button convention). */}
-      <div style={{ display: 'flex', gap: 8, marginTop: 14, alignItems: 'center' }}>
+      {/* Footer — Close right next to Save, right-aligned. */}
+      <div style={{ display: 'flex', gap: 8, marginTop: 18, justifyContent: 'flex-end', alignItems: 'center' }}>
+        {note && <span style={{ fontSize: 11.5, fontWeight: 700, marginRight: 'auto', color: note === t('admin.collections.saved') ? '#067647' : '#B42318' }}>{note}</span>}
         <button className="admin-btn-ghost" disabled={busy} onClick={() => setOpen(false)}>{t('admin.collections.closeBtn')}</button>
-        <button className="admin-primary-btn" style={{ marginLeft: 'auto' }} disabled={busy} onClick={save}>{busy ? t('admin.collections.saving') : t('admin.collections.saveBtn')}</button>
+        <button className="admin-primary-btn" disabled={busy} onClick={save}>{busy ? t('admin.collections.saving') : t('admin.collections.saveBtn')}</button>
       </div>
-      <p style={{ fontSize: 11.5, opacity: 0.7, margin: '8px 0 0' }}>
-        {t('admin.collections.autoOpenNote')} {note && <strong style={{ color: note === t('admin.collections.saved') ? '#067647' : '#B42318' }}>{note}</strong>}
-      </p>
     </div>
   )
 }

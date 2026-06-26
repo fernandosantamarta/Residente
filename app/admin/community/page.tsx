@@ -304,21 +304,19 @@ export default function CommunitySettings() {
                   <span className="field-hint" style={{ whiteSpace: 'pre-line' }}>{t('admin.community.hintFiscalYear')}</span>
                 </label>
                 {field('monthly_dues', t('admin.community.fieldMonthlyDues'), { type: 'number', placeholder: '38', prefix: '$' })}
-                <label className="admin-field">
+                <div className="admin-field">
                   <span className="admin-field-label">{t('admin.community.fieldDueDay')}</span>
-                  <div className="admin-input-wrap">
-                    <select
-                      name="assessment_due_day"
-                      className="admin-input"
-                      value={Number(form?.assessment_due_day) >= 29 ? '31' : (form?.assessment_due_day ? String(form.assessment_due_day) : '1')}
-                      onChange={e => setField('assessment_due_day', e.target.value)}
-                    >
-                      {Array.from({ length: 28 }, (_, i) => i + 1).map(d => <option key={d} value={String(d)}>{d}</option>)}
-                      <option value="31">{t('admin.community.dueDayLast')}</option>
-                    </select>
-                  </div>
+                  <Dropdown<string>
+                    value={Number(form?.assessment_due_day) >= 29 ? '31' : (form?.assessment_due_day ? String(form.assessment_due_day) : '1')}
+                    onChange={v => setField('assessment_due_day', v)}
+                    ariaLabel={t('admin.community.fieldDueDay')}
+                    options={[
+                      ...Array.from({ length: 28 }, (_, i) => ({ value: String(i + 1), label: String(i + 1) })),
+                      { value: '31', label: t('admin.community.dueDayLast') },
+                    ]}
+                  />
                   <span className="field-hint">{t('admin.community.hintDueDay')}</span>
-                </label>
+                </div>
               </div>
               <div className="card-cta">
                 <button type="button" onClick={save} className="admin-primary-btn" disabled={status === 'saving'}>
