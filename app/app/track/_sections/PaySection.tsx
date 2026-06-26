@@ -6,6 +6,7 @@ import { useMyResident } from '@/hooks/useMyResident'
 import { stripeEnabled, supabase } from '@/lib/supabase'
 import { usePreferences, newId, PaymentMethod } from '@/lib/preferences'
 import { fmtMoney, monthsCovered, monthsOwed } from '@/lib/dues'
+import { deriveStatements } from '@/lib/statements'
 import { useMyViolations, payFine } from '@/lib/violations'
 import { useCheckout } from '@/components/CheckoutProvider'
 import { useT } from '@/lib/i18n'
@@ -41,12 +42,27 @@ const DEMO_HISTORY = [
   { id: 'h5', date: '2024-09-12', desc: 'Late Fee Credit',       amount:  -25.00, status: 'paid',    method: 'Adjustment'      },
 ]
 
+// Preview / no-roster-match showcase only. Real residents get statements derived
+// from their actual ledger (deriveStatements); see buildStmtItems below.
 const DEMO_STATEMENTS = [
   { id: 's1', label: 'December 2024 Statement', date: '2024-12-01', size: '1.2 MB' },
   { id: 's2', label: 'November 2024 Statement', date: '2024-11-01', size: '1.1 MB' },
   { id: 's3', label: 'October 2024 Statement',  date: '2024-10-01', size: '1.0 MB' },
   { id: 's4', label: 'September 2024 Statement', date: '2024-09-01', size: '0.9 MB' },
 ]
+
+// A statement normalized for rendering — one shape for both real (ledger-derived)
+// and demo (preview) rows, so the list, the "view all" popup, and the single-
+// statement dialog all render the same way.
+type StmtItem = {
+  id: string
+  title: string
+  meta: string
+  periodLabel: string
+  rows: [string, string][]
+  /** 'YYYY-MM' for real statements — drives the print/PDF route. Absent for demo rows. */
+  period?: string
+}
 
 // Pay — the resident's balance-and-payments surface, now a section of the
 // Easy Track hub. Current balance card with the breakdown ledger, a
@@ -56,7 +72,7 @@ const DEMO_STATEMENTS = [
 export function PaySection() {
   const t = useT()
   const { openCheckout } = useCheckout()
-  const { resident, balance, monthlyDues, payments, loading, status } = useMyResident() as any
+  const { resident, community, duesCfg, balance, monthlyDues, payments, loading, status } = useMyResident() as any
   const [prefs, patchPrefs] = usePreferences()
   const [checkout, setCheckout] = useState({ loading: false, error: '' })
   // Demo-mode payment confirmation (no real Stripe): holds the amount "paid".
@@ -69,7 +85,7 @@ export function PaySection() {
   const [autopayOpen, setAutopayOpen] = useState(false)
   // "View all" list popups + a single statement opened in place.
   const [listOpen, setListOpen] = useState<null | 'history' | 'statements'>(null)
-  const [stmtOpen, setStmtOpen] = useState<typeof DEMO_STATEMENTS[number] | null>(null)
+  const [stmtOpen, setStmtOpen] = useState<StmtItem | null>(null)
   // Demo autopay toggle — lets preview mode flip autopay on/off in place
   // (real autopay goes through Stripe via toggleAutopay).
   const [autopayDemo, setAutopayDemo] = useState<boolean | null>(null)
@@ -293,6 +309,42 @@ export function PaySection() {
         }
       })
 
+  // Statements — derived from the resident's REAL ledger (owner-verifiable: dues
+  // assessed vs. payments received, per month), or the demo set in preview /
+  // no-roster-match mode so the marketing showcase stays alive (cf. DEMO_HISTORY).
+  const realStmts = resident ? deriveStatements(resident, monthlyDues || 0, payments || [], { cfg: duesCfg }) : null
+  const stmtItems: StmtItem[] = realStmts
+    ? realStmts.map((s): StmtItem => {
+        const monthLabel = new Date(`${s.periodStart}T00:00:00`)
+          .toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+        return {
+          id: s.id,
+          period: s.id,
+          title: t('pay.statementMonthLabel', { month: monthLabel }),
+          meta: t('pay.statementMetaBalance', { balance: fmtMoney(s.closingBalance) }),
+          periodLabel: monthLabel,
+          rows: [
+            [t('pay.statementPeriod'), monthLabel],
+            [t('pay.statementOpeningBalance'), fmtMoney(s.openingBalance)],
+            [t('pay.statementDuesAssessed'), fmtMoney(s.dues)],
+            ...(s.interestFees ? [[t('pay.statementInterestFees'), fmtMoney(s.interestFees)] as [string, string]] : []),
+            [t('pay.statementPaymentsReceived'), s.paid ? `-${fmtMoney(s.paid)}` : fmtMoney(0)],
+            [t('pay.statementClosingBalance'), fmtMoney(s.closingBalance)],
+          ],
+        }
+      })
+    : DEMO_STATEMENTS.map((s): StmtItem => ({
+        id: s.id,
+        title: s.label,
+        meta: `${fmtDate(s.date)} · ${s.size}`,
+        periodLabel: `${fmtDate(s.date)} · PDF · ${s.size}`,
+        rows: [
+          [t('pay.statementPeriod'), fmtDate(s.date)],
+          [t('pay.format'), 'PDF'],
+          [t('pay.size'), s.size],
+        ],
+      }))
+
   const startCheckout = () => {
     if (currentBalance <= 0) return   // nothing due — never open a $0 checkout
     // Demo / no-Stripe: simulate a successful payment instead of dead-clicking,
@@ -465,12 +517,14 @@ export function PaySection() {
               <button type="button" className="pay-card-link" onClick={() => setListOpen('statements')}>{t('pay.viewAll')}</button>
             </div>
             <div className="pay-statements">
-              {DEMO_STATEMENTS.map(s => (
+              {stmtItems.length === 0 ? (
+                <div className="pay-empty">{t('pay.statementsEmpty')}</div>
+              ) : stmtItems.map(s => (
                 <button key={s.id} type="button" className="pay-statement" onClick={() => setStmtOpen(s)}>
                   <span className="pay-statement-icon"><PdfIcon /></span>
                   <span className="pay-statement-body">
-                    <span className="pay-statement-title">{s.label}</span>
-                    <span className="pay-statement-meta">{fmtDate(s.date)} &middot; {s.size}</span>
+                    <span className="pay-statement-title">{s.title}</span>
+                    <span className="pay-statement-meta">{s.meta}</span>
                   </span>
                   <span className="pay-statement-dl" aria-label={t('pay.open')}>
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -773,17 +827,19 @@ export function PaySection() {
         <DetailDialog
           eyebrow={t('pay.statements')}
           title={t('pay.allStatements')}
-          period={t('pay.statementCount', { count: DEMO_STATEMENTS.length })}
+          period={t('pay.statementCount', { count: stmtItems.length })}
           onClose={() => setListOpen(null)}
         >
           <div className="pay-statements">
-            {DEMO_STATEMENTS.map(s => (
+            {stmtItems.length === 0 ? (
+              <div className="pay-empty">{t('pay.statementsEmpty')}</div>
+            ) : stmtItems.map(s => (
               <button key={s.id} type="button" className="pay-statement"
                 onClick={() => { setListOpen(null); setStmtOpen(s) }}>
                 <span className="pay-statement-icon"><PdfIcon /></span>
                 <span className="pay-statement-body">
-                  <span className="pay-statement-title">{s.label}</span>
-                  <span className="pay-statement-meta">{fmtDate(s.date)} &middot; {s.size}</span>
+                  <span className="pay-statement-title">{s.title}</span>
+                  <span className="pay-statement-meta">{s.meta}</span>
                 </span>
                 <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
@@ -796,14 +852,32 @@ export function PaySection() {
       {stmtOpen && (
         <DetailDialog
           eyebrow={t('pay.eyebrowStatement')}
-          title={stmtOpen.label}
-          period={`${fmtDate(stmtOpen.date)} · PDF · ${stmtOpen.size}`}
+          title={stmtOpen.title}
+          period={stmtOpen.periodLabel}
           onClose={() => setStmtOpen(null)}
+          footer={stmtOpen.period ? (
+            <a
+              className="ven-cta-primary"
+              href={`/app/track/statement/${stmtOpen.period}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              {t('pay.statementDownloadPdf')}
+            </a>
+          ) : undefined}
         >
           <div className="rd-bd-table">
-            <div className="rd-bd-row"><span className="rd-bd-cat">{t('pay.statementPeriod')}</span><span className="rd-bd-amt">{fmtDate(stmtOpen.date)}</span><span /></div>
-            <div className="rd-bd-row"><span className="rd-bd-cat">{t('pay.format')}</span><span className="rd-bd-amt">PDF</span><span /></div>
-            <div className="rd-bd-row rd-bd-total"><span>{t('pay.size')}</span><span className="rd-bd-amt">{stmtOpen.size}</span><span /></div>
+            {stmtOpen.rows.map(([label, value], i) => {
+              const isClosing = stmtOpen.period && i === stmtOpen.rows.length - 1
+              const credit = value.startsWith('-')
+              return (
+                <div className={`rd-bd-row${isClosing ? ' rd-bd-total' : ''}`} key={label}>
+                  <span className="rd-bd-cat">{label}</span>
+                  <span className={`rd-bd-amt${credit ? ' pay-amt-credit' : ''}`}>{value}</span>
+                  <span />
+                </div>
+              )
+            })}
           </div>
           <p className="rd-detail-foot-note">
             {t('pay.statementFootNote')}

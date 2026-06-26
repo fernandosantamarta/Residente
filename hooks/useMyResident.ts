@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { residentBalance, duesStatus, communityDuesConfig } from '@/lib/dues'
+import { residentBalance, duesStatus, communityDuesConfig, type DuesConfig } from '@/lib/dues'
 
 const withTimeout = (p, ms = 10000) =>
   Promise.race([
@@ -9,7 +9,7 @@ const withTimeout = (p, ms = 10000) =>
     new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms)),
   ])
 
-const EMPTY = { resident: null, balance: null, status: 'paid', payments: [], monthlyDues: 0, interestRate: 0, isTenant: false, loading: false }
+const EMPTY = { resident: null, community: null, duesCfg: { apr: 0 } as DuesConfig, balance: null, status: 'paid', payments: [], monthlyDues: 0, interestRate: 0, isTenant: false, loading: false }
 
 // Finds the roster row for the signed-in user (matched by email) and computes
 // what they currently owe — opening balance + accrued dues − payments.
@@ -111,7 +111,7 @@ export function useMyResident() {
         const payments = payR.data || []
         const balance = residentBalance(resident, monthlyDues, payments, duesCfg)
         setState({
-          resident, balance, status: duesStatus(balance, monthlyDues),
+          resident, community: comR.data || null, duesCfg, balance, status: duesStatus(balance, monthlyDues),
           payments, monthlyDues, interestRate: duesCfg.apr, isTenant: false, loading: false,
         })
       } catch (err) {

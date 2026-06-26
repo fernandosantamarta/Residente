@@ -29,6 +29,14 @@
       "schedule": "0 0 1 * *"
     },
     {
+      "path": "/api/cron/charge-autopay",
+      "schedule": "0 8 * * *"
+    },
+    {
+      "path": "/api/cron/charge-plan-installment",
+      "schedule": "0 9 * * *"
+    },
+    {
       "path": "/api/cron/release-amenity-holds",
       "schedule": "0 5 * * *"
     }
