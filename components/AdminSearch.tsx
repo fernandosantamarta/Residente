@@ -364,18 +364,14 @@ export function AdminSearch() {
                   type="button"
                   title={DEPTH_META[row.item.depth]?.tip}
                   className={`admin-search-item${i === active ? ' active' : ''}`}
-                  style={{ borderLeft: `3px solid ${DEPTH_META[row.item.depth]?.color || 'transparent'}` }}
                   onMouseEnter={() => setActive(i)}
                   onClick={() => go(i)}
                 >
                   <span className="admin-search-item-label">
-                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-                      <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: DEPTH_META[row.item.depth]?.color || 'transparent' }} />
-                      {row.item.title}
-                    </span>
+                    {row.item.title}
                     {row.item.snippet && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-faint)', fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 380 }}>{row.item.snippet}</span>}
                   </span>
-                  <span className="admin-search-item-group" style={{ color: DEPTH_META[row.item.depth]?.color }}>{row.item.type === 'rule' ? t('documents.smartSearchRule') : t('documents.smartSearchDoc')}</span>
+                  <span className="admin-search-item-group" style={{ color: DEPTH_META[row.item.depth]?.color, fontWeight: 700 }}>{row.item.type === 'rule' ? t('documents.smartSearchRule') : t('documents.smartSearchDoc')}</span>
                 </button>
               ) : (
                 <button
