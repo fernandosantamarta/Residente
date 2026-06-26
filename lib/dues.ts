@@ -387,17 +387,21 @@ export function casePayoff(
   resident: Resident | null | undefined,
   community: Record<string, unknown> | null | undefined,
   payments: Payment[] = [],
-  opts: { asOf?: string | Date; extraCosts?: number } = {},
+  opts: { asOf?: string | Date; extraCosts?: number; freeze?: boolean; freezeInterest?: boolean; freezeLateFees?: boolean } = {},
 ): PayoffResult {
   const monthly = Number((community as any)?.monthly_dues) || 0
   const cfg = communityDuesConfig(community)
   const dueDay = Number((community as any)?.assessment_due_day) || 1
   const asOf = opts.asOf ?? new Date()
+  // Good-faith freeze: interest and late fees can each be frozen independently
+  // (zeroed in the payoff). `freeze` freezes both; each resumes once cleared.
+  const fInt = opts.freeze || opts.freezeInterest
+  const fLate = opts.freeze || opts.freezeLateFees
   return buildPayoff({
     installments: deriveInstallments(resident, monthly, { asOf, dueDay }),
-    apr: cfg.apr || 0,
-    lateFeeFlat: cfg.lateFeeFlat || 0,
-    lateFeePct: cfg.lateFeePct || 0,
+    apr: fInt ? 0 : (cfg.apr || 0),
+    lateFeeFlat: fLate ? 0 : (cfg.lateFeeFlat || 0),
+    lateFeePct: fLate ? 0 : (cfg.lateFeePct || 0),
     extraCosts: Number(opts.extraCosts) || 0,
     totalPaid: sumPayments(payments),
     asOf,

@@ -73,7 +73,11 @@ function DocInner() {
         const { data: pl } = (await withTimeout(supabase.from('ev_payment_plans').select('*').eq('case_id', id).order('created_at', { ascending: false }).limit(1))) as any
         if (cancelled) return
         setC(cs); setCommunity(comm || null); setResident(res); setPlan((pl && pl[0]) || null)
-        if (res) { try { setPayoff(casePayoff(res, comm, pays, { extraCosts: Number(cs.cost_balance) || 0 })) } catch { setPayoff(null) } }
+        if (res) {
+          const iFroz = cs.freeze_interest == null ? !!cs.on_payment_plan : !!cs.freeze_interest
+          const lFroz = cs.freeze_late_fees == null ? !!cs.on_payment_plan : !!cs.freeze_late_fees
+          try { setPayoff(casePayoff(res, comm, pays, { extraCosts: Number(cs.cost_balance) || 0, freezeInterest: iFroz, freezeLateFees: lFroz })) } catch { setPayoff(null) }
+        }
         setStatus('ready')
       } catch (err: any) {
         if (!cancelled) { setError(err?.message || 'Could not load'); setStatus('error') }

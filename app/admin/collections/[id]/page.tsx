@@ -6,7 +6,7 @@
 // collection costs, run a payment plan, and generate the draft letters / sworn
 // ledger. Advisory posture: every gate says "you may proceed" — nothing blocks.
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useAuth } from '@/app/providers'
@@ -17,6 +17,7 @@ import { casePayoff, fmtMoney, type PayoffResult } from '@/lib/dues'
 import { RecordPaymentForm } from '@/components/RecordPaymentForm'
 import { Dropdown } from '@/components/Dropdown'
 import { AttorneyNote } from '../../AttorneyNote'
+import { Pager } from '@/components/Pager'
 import { useT } from '@/lib/i18n'
 import {
   STAGE_LABELS, NOTICE_KIND_LABELS, nextEscalation, lienEnforceDeadline, noticeMethodWarning, isOpenStage,
@@ -85,13 +86,21 @@ export default function CollectionCaseDetail() {
   const [demand, setDemand] = useState<any>(null) // active tenant rent demand, if any
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState('')
+  const [showManualPay, setShowManualPay] = useState(false)
+  const [noticePage, setNoticePage] = useState(0)
+  const [snapMsg, setSnapMsg] = useState('')
+  // First load shows the spinner; later refetches (after an action) keep the
+  // content mounted so the page doesn't jump back to the top.
+  const loadedRef = useRef(false)
   const [msg, setMsg] = useState('')
 
   useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(''), 4000); return () => clearTimeout(t) }, [msg])
+  useEffect(() => { if (!snapMsg) return; const x = setTimeout(() => setSnapMsg(''), 3000); return () => clearTimeout(x) }, [snapMsg])
 
   const load = useCallback(async () => {
     if (!hasSupabase || !id) { setStatus('error'); setError('No case'); return }
-    setStatus('loading'); setError('')
+    if (!loadedRef.current) setStatus('loading')
+    setError('')
     try {
       const { data: cs, error: cErr } = (await withTimeout(
         supabase.from('ev_collection_cases').select('*').eq('id', id).single(),
@@ -127,7 +136,7 @@ export default function CollectionCaseDetail() {
         dm = d || null
       } catch { /* table may not exist yet — ignore */ }
       setC(cs); setCommunity(comm || null); setResident(res); setPayments(pays)
-      setNotices(ns || []); setPlans(pl || []); setDemand(dm); setStatus('ready')
+      setNotices(ns || []); setPlans(pl || []); setDemand(dm); loadedRef.current = true; setStatus('ready')
     } catch (err: any) {
       setError(err?.message || t('admin.collectionsDetail.couldNotLoadCase')); setStatus('error')
     }
@@ -213,10 +222,17 @@ export default function CollectionCaseDetail() {
   const gateReady = esc?.readyAt ? esc.readyAt.getTime() <= toDate(now)!.getTime() : true
   const lienDeadline = lienEnforceDeadline(c, regime)
 
+  // Interest & late-fee freeze — each independent. A manual override on the case
+  // wins; when untouched (null) it follows the plan automatically (frozen while a
+  // plan is current, resumes on default/cancel).
+  const interestFrozen = (c as any).freeze_interest == null ? !!c.on_payment_plan : !!(c as any).freeze_interest
+  const lateFeesFrozen = (c as any).freeze_late_fees == null ? !!c.on_payment_plan : !!(c as any).freeze_late_fees
+  const frozen = interestFrozen || lateFeesFrozen
+
   // Authoritative payoff from the dues model + recorded costs.
   let payoff: PayoffResult | null = null
   if (resident) {
-    try { payoff = casePayoff(resident, community, payments, { extraCosts: Number(c.cost_balance) || 0 }) } catch { payoff = null }
+    try { payoff = casePayoff(resident, community, payments, { extraCosts: Number(c.cost_balance) || 0, freezeInterest: interestFrozen, freezeLateFees: lateFeesFrozen }) } catch { payoff = null }
   }
 
   return (
@@ -229,17 +245,17 @@ export default function CollectionCaseDetail() {
         {c.delinquent_since ? ` · ${t('admin.collectionsDetail.delinquentSince')} ${c.delinquent_since}` : ''}
       </p>
 
-      <AttorneyNote />
+      <div className="cset"><AttorneyNote /></div>
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
       {error && <div className="admin-note admin-note-err">{error}</div>}
 
       {/* ---- Stage ladder ---- */}
       <section style={card}>
-        <h2 className="bc-title" style={{ marginBottom: 10 }}>{t('admin.collectionsDetail.statutoryLadder')}</h2>
-        <StageBar stage={stage} />
+        <h2 className="bc-title" style={{ marginBottom: 20 }}>{t('admin.collectionsDetail.statutoryLadder')}</h2>
+        <StageBar stage={stage} esc={esc} />
 
         {open && (
-          <div style={{ marginTop: 14 }}>
+          <div style={{ marginTop: 30 }}>
             {esc?.readyAt && (
               <div className="admin-note" style={{ fontSize: 12.5, marginBottom: 10, borderColor: gateReady ? '#067647' : '#B54708' }}>
                 {gateReady
@@ -256,20 +272,19 @@ export default function CollectionCaseDetail() {
               </div>
             )}
 
-            <StageActions
-              adv={adv}
-              caseRow={c}
-              communityId={c.community_id!}
-              profileId={profile?.id ?? null}
-              resident={resident}
-              regime={regime}
-              onAdvanced={load}
-              onError={setError}
-            />
-
-            <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
               <button className="admin-btn-ghost" onClick={() => patchCase({ stage: 'resolved', resolved_at: todayYmd() }, t('admin.collectionsDetail.caseResolved')).then(() => logAudit({ community_id: c.community_id!, event_type: 'collection.resolved', target_type: 'collection_case', target_id: id }))}>{t('admin.collectionsDetail.markResolved')}</button>
               <button className="admin-btn-ghost" onClick={() => patchCase({ stage: 'cancelled', resolved_at: todayYmd() }, t('admin.collectionsDetail.caseCancelled'))}>{t('admin.collectionsDetail.cancelCase')}</button>
+              <StageActions
+                adv={adv}
+                caseRow={c}
+                communityId={c.community_id!}
+                profileId={profile?.id ?? null}
+                resident={resident}
+                regime={regime}
+                onAdvanced={load}
+                onError={setError}
+              />
             </div>
           </div>
         )}
@@ -281,9 +296,74 @@ export default function CollectionCaseDetail() {
         )}
       </section>
 
+      {/* ---- Statutory notices (under the ladder that creates them) ---- */}
+      <section style={card}>
+        <h2 className="bc-title" style={{ marginBottom: 10 }}>{t('admin.collectionsDetail.statutoryNotices')}</h2>
+        {notices.length === 0 && <div className="admin-note">{t('admin.collectionsDetail.noNoticesLogged')}</div>}
+        {(() => {
+          const NOTICE_SIZE = 5
+          const pageCount = Math.ceil(notices.length / NOTICE_SIZE)
+          const page = Math.min(noticePage, Math.max(0, pageCount - 1))
+          const paged = notices.slice(page * NOTICE_SIZE, (page + 1) * NOTICE_SIZE)
+          return (
+          <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {paged.map(n => {
+            const warn = noticeMethodWarning(n.kind, n.method)
+            const docType = NOTICE_DOC[n.kind]
+            const rowStyle: React.CSSProperties = { display: 'flex', gap: 12, alignItems: 'flex-start', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '11px 14px', background: '#fff', textDecoration: 'none', color: 'inherit' }
+            const body = (
+              <>
+                <span style={{ flexShrink: 0, width: 34, height: 34, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', color: noticeColor(n.kind), background: noticeColor(n.kind) + '18' }}>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><rect x="2" y="4" width="20" height="16" rx="2" /><path d="m22 7-10 6L2 7" /></svg>
+                </span>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 700, fontSize: 13.5, color: '#1F2233' }}>{NOTICE_KIND_LABELS[n.kind as CollectionNoticeKind] || n.kind}</div>
+                <div style={{ fontSize: 12, opacity: 0.7 }}>
+                  {t('admin.collectionsDetail.sent')} {n.sent_at}{n.method ? ` · ${METHODS.find(m => m.value === n.method)?.label || n.method}` : ''}
+                  {n.tracking_number ? ` · #${n.tracking_number}` : ''}
+                  {n.return_receipt_at ? ` · ${t('admin.collectionsDetail.receipt')} ${n.return_receipt_at}` : ''}
+                </div>
+                {(n.mailed_to_record_address || n.mailed_to_unit_address) && (
+                  <div style={{ fontSize: 11.5, opacity: 0.75, marginTop: 4 }}>
+                    {t('admin.collectionsDetail.mailedTo')} {n.mailed_to_record_address || '—'}
+                    {n.dual_address_required && n.mailed_to_unit_address
+                      ? <> + {t('admin.collectionsDetail.unitParcelCopy')} <span style={{ background: '#175CD314', color: '#175CD3', fontWeight: 700, padding: '1px 6px', borderRadius: 999, marginLeft: 4 }}>{t('admin.collectionsDetail.bothAddresses')}</span></>
+                      : null}
+                  </div>
+                )}
+                {warn && <div className="admin-note admin-note-warn" style={{ fontSize: 11.5, marginTop: 6 }}>{warn}</div>}
+                </div>
+                {docType && <span style={{ alignSelf: 'center', flexShrink: 0, color: '#B54708', fontWeight: 700 }} aria-hidden="true">&rarr;</span>}
+              </>
+            )
+            return docType
+              ? <Link key={n.id} href={`/admin/collections/${id}/document?type=${docType}`} style={rowStyle}>{body}</Link>
+              : <div key={n.id} style={rowStyle}>{body}</div>
+          })}
+          </div>
+          {pageCount > 1 && <Pager page={page} pageCount={pageCount} onPage={setNoticePage} />}
+          </>
+          )
+        })()}
+      </section>
+
       {/* ---- Sworn ledger / payoff ---- */}
       <section style={card}>
-        <h2 className="bc-title" style={{ marginBottom: 10 }}>{t('admin.collectionsDetail.payoffLedger')}</h2>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+          <h2 className="bc-title" style={{ margin: 0, display: 'flex', alignItems: 'center' }}>{t('admin.collectionsDetail.payoffLedger')}<span className="coll-payoff-badge">{t('admin.collectionsDetail.autoComputed')}</span></h2>
+          {resident && (
+            <button type="button" aria-pressed={frozen}
+              onClick={() => {
+                const next = !frozen
+                setC((prev: any) => prev ? { ...prev, freeze_interest: next, freeze_late_fees: next } : prev)
+                patchCase({ freeze_interest: next, freeze_late_fees: next }, next ? t('admin.collectionsDetail.freezeBoth') : t('admin.collectionsDetail.freezeBothResumed'))
+              }}
+              style={{ padding: '7px 16px', fontSize: 12.5, fontWeight: 600, borderRadius: 999, cursor: 'pointer', whiteSpace: 'nowrap', transition: 'background .15s ease, border-color .15s ease, color .15s ease', border: `1px solid ${frozen ? '#175CD3' : '#D0D5DD'}`, background: frozen ? '#175CD3' : '#fff', color: frozen ? '#fff' : '#344054' }}>
+              {t('admin.collectionsDetail.freezeBoth')}
+            </button>
+          )}
+        </div>
         {!resident && (
           <div className="admin-note admin-note-warn" style={{ fontSize: 12.5 }}>
             {t('admin.collectionsDetail.linkOwnerWarning')}
@@ -294,39 +374,52 @@ export default function CollectionCaseDetail() {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13.5 }}>
               <tbody>
                 <LedgerRow label={t('admin.collectionsDetail.ledgerPrincipal')} value={fmt$(payoff.gross.principal)} />
-                <LedgerRow label={t('admin.collectionsDetail.ledgerInterest')} value={fmt$(payoff.gross.interest)} />
-                <LedgerRow label={t('admin.collectionsDetail.ledgerLateFees')} value={fmt$(payoff.gross.lateFee)} />
+                <LedgerRow label={t('admin.collectionsDetail.ledgerInterest')} value={fmt$(payoff.gross.interest)} tag={interestFrozen ? t('admin.collectionsDetail.frozenTag') : undefined} />
+                <LedgerRow label={t('admin.collectionsDetail.ledgerLateFees')} value={fmt$(payoff.gross.lateFee)} tag={lateFeesFrozen ? t('admin.collectionsDetail.frozenTag') : undefined} />
                 <LedgerRow label={t('admin.collectionsDetail.ledgerCosts')} value={fmt$(payoff.gross.cost)} />
-                <LedgerRow label={t('admin.collectionsDetail.ledgerPaymentsApplied')} value={'– ' + fmt$(payoff.gross.principal + payoff.gross.interest + payoff.gross.lateFee + payoff.gross.cost - payoff.payoff)} />
-                <tr><td style={{ padding: '8px 10px', fontWeight: 800, borderTop: '2px solid #111' }}>{t('admin.collectionsDetail.ledgerTotal')} ({payoff.asOf})</td><td style={{ padding: '8px 10px', fontWeight: 800, borderTop: '2px solid #111', textAlign: 'right' }}>{fmt$(payoff.payoff)}</td></tr>
+                <LedgerRow label={t('admin.collectionsDetail.ledgerPaymentsApplied')} value={'– ' + fmt$(payoff.gross.principal + payoff.gross.interest + payoff.gross.lateFee + payoff.gross.cost - payoff.payoff)} valueColor="#067647" />
               </tbody>
             </table>
-            <p style={{ fontSize: 11.5, opacity: 0.6, marginTop: 6 }}>
-              {t('admin.collectionsDetail.ledgerFootnote', { mo: fmtMoney(Number(community?.monthly_dues) || 0) })}
-            </p>
+            <div className="coll-payoff-total">
+              <div className="coll-payoff-total-label">{t('admin.collectionsDetail.ledgerTotal')}<span className="coll-payoff-asof">{t('admin.collectionsDetail.asOf')} {payoff.asOf}</span></div>
+              <div className="coll-payoff-total-amt">{fmt$(payoff.payoff)}</div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 16, marginTop: 14, flexWrap: 'wrap' }}>
+              <p style={{ fontSize: 11.5, opacity: 0.6, margin: 0, flex: 1, minWidth: 240 }}>
+                {t('admin.collectionsDetail.ledgerFootnote', { mo: fmtMoney(Number(community?.monthly_dues) || 0) })}
+              </p>
+              {resident && !showManualPay && (
+                <button className="admin-btn-ghost" style={{ flexShrink: 0 }} onClick={() => setShowManualPay(true)}>+ {t('admin.collectionsDetail.recordManualPayment')}</button>
+              )}
+            </div>
+            {resident && showManualPay && (
+              <div style={{ marginTop: 12, padding: '14px 16px', background: 'rgba(0,0,0,0.025)', borderRadius: 10 }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+                  <span className="admin-field-label">{t('admin.collectionsDetail.recordOfflinePayment')}</span>
+                  <button className="admin-btn-ghost" style={{ padding: '4px 10px' }} onClick={() => setShowManualPay(false)}>{t('admin.collectionsDetail.cancel')}</button>
+                </div>
+                <RecordPaymentForm onSubmit={recordPayment} />
+              </div>
+            )}
           </>
         )}
 
-        {resident && (
-          <div style={{ marginTop: 14, padding: '14px 16px', background: 'rgba(0,0,0,0.025)', borderRadius: 10 }}>
-            <span className="admin-field-label" style={{ display: 'block', marginBottom: 8 }}>
-              {t('admin.collectionsDetail.recordOfflinePayment')}
-            </span>
-            <RecordPaymentForm onSubmit={recordPayment} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', gap: 16, marginTop: 40, flexWrap: 'wrap' }}>
+          <CostEditor caseRow={c} onSaved={(p, m) => patchCase(p, m)} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 13, color: '#475467' }}>{t('admin.collectionsDetail.currentCosts')}: <strong style={{ color: '#1F2233', fontWeight: 700 }}>{'$' + (Math.round((Number(c.cost_balance) || 0) * 100) / 100).toLocaleString('en-US')}</strong></span>
+            {snapMsg && <span style={{ fontSize: 12.5, fontWeight: 700, color: '#067647' }}>{snapMsg}</span>}
+            {payoff && (
+              <button className="admin-btn-ghost" onClick={() => { patchCase({
+                principal_balance: payoff!.remaining.principal,
+                interest_balance: payoff!.remaining.interest,
+                late_fee_balance: payoff!.remaining.lateFee,
+                cost_balance: payoff!.remaining.cost,
+                total_balance: payoff!.payoff,
+              }, ''); setSnapMsg(t('admin.collectionsDetail.balanceSnapshotSaved')) }}>{t('admin.collectionsDetail.saveBalanceSnapshot')}</button>
+            )}
           </div>
-        )}
-
-        <CostEditor caseRow={c} onSaved={(p, m) => patchCase(p, m)} />
-
-        {payoff && (
-          <button className="admin-btn-ghost" style={{ marginTop: 8 }} onClick={() => patchCase({
-            principal_balance: payoff!.remaining.principal,
-            interest_balance: payoff!.remaining.interest,
-            late_fee_balance: payoff!.remaining.lateFee,
-            cost_balance: payoff!.remaining.cost,
-            total_balance: payoff!.payoff,
-          }, t('admin.collectionsDetail.balanceSnapshotSaved'))}>{t('admin.collectionsDetail.saveBalanceSnapshot')}</button>
-        )}
+        </div>
       </section>
 
       {/* ---- Tenant rent demand (FS 720.3085(8) / 718.116(11)) ---- */}
@@ -369,47 +462,34 @@ export default function CollectionCaseDetail() {
         )
       })()}
 
-      {/* ---- Notices ledger ---- */}
-      <section style={card}>
-        <h2 className="bc-title" style={{ marginBottom: 10 }}>{t('admin.collectionsDetail.statutoryNotices')}</h2>
-        {notices.length === 0 && <div className="admin-note">{t('admin.collectionsDetail.noNoticesLogged')}</div>}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          {notices.map(n => {
-            const warn = noticeMethodWarning(n.kind, n.method)
-            return (
-              <div key={n.id} style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
-                <div style={{ fontWeight: 700, fontSize: 13.5 }}>{NOTICE_KIND_LABELS[n.kind as CollectionNoticeKind] || n.kind}</div>
-                <div style={{ fontSize: 12, opacity: 0.7 }}>
-                  {t('admin.collectionsDetail.sent')} {n.sent_at}{n.method ? ` · ${METHODS.find(m => m.value === n.method)?.label || n.method}` : ''}
-                  {n.tracking_number ? ` · #${n.tracking_number}` : ''}
-                  {n.return_receipt_at ? ` · ${t('admin.collectionsDetail.receipt')} ${n.return_receipt_at}` : ''}
-                </div>
-                {(n.mailed_to_record_address || n.mailed_to_unit_address) && (
-                  <div style={{ fontSize: 11.5, opacity: 0.75, marginTop: 4 }}>
-                    {t('admin.collectionsDetail.mailedTo')} {n.mailed_to_record_address || '—'}
-                    {n.dual_address_required && n.mailed_to_unit_address
-                      ? <> + {t('admin.collectionsDetail.unitParcelCopy')} <span style={{ background: '#175CD314', color: '#175CD3', fontWeight: 700, padding: '1px 6px', borderRadius: 999, marginLeft: 4 }}>{t('admin.collectionsDetail.bothAddresses')}</span></>
-                      : null}
-                  </div>
-                )}
-                {warn && <div className="admin-note admin-note-warn" style={{ fontSize: 11.5, marginTop: 6 }}>{warn}</div>}
-              </div>
-            )
-          })}
-        </div>
-      </section>
 
       {/* ---- Payment plan ---- */}
-      <PaymentPlanSection caseRow={c} plans={plans} profileId={profile?.id ?? null} onChange={load} onError={setError} />
+      <PaymentPlanSection caseRow={c} plans={plans} profileId={profile?.id ?? null} payoffTotal={payoff ? payoff.payoff : (Number(c.total_balance) || 0)} onChange={load} onError={setError} />
 
       {/* ---- Generate documents ---- */}
       <section style={card}>
         <h2 className="bc-title" style={{ marginBottom: 4 }}>{t('admin.collectionsDetail.generateDocuments')}</h2>
         <p style={{ fontSize: 12, opacity: 0.7, marginTop: 0 }}>{t('admin.collectionsDetail.generateDocumentsHint')}</p>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          {DOC_LINKS.map(d => (
-            <a key={d.type} className="admin-secondary-btn" href={`/admin/collections/${id}/document?type=${d.type}`}>{d.label}</a>
-          ))}
+        <div className="coll-doclist" style={{ marginTop: 10 }}>
+          {DOC_LINKS.map(d => {
+            const col = d.live ? '#0E7490' : '#7A5AF8'
+            return (
+              <a key={d.type} className="coll-docrow" href={`/admin/collections/${id}/document?type=${d.type}`}>
+                <span className="coll-docrow-glyph" style={{ color: col, background: col + '18' }}>
+                  {d.live ? (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><rect x="7" y="11" width="3" height="6" /><rect x="12" y="7" width="3" height="10" /><rect x="17" y="13" width="3" height="4" /></svg>
+                  ) : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" /><path d="M14 2v6h6" /><line x1="8" y1="13" x2="16" y2="13" /><line x1="8" y1="17" x2="16" y2="17" /></svg>
+                  )}
+                </span>
+                <div className="coll-docrow-main">
+                  <div className="coll-docrow-title">{d.label}</div>
+                  <div className="coll-docrow-desc">{d.live ? t('admin.collectionsDetail.liveDocument') : t('admin.collectionsDetail.draftTemplate')}</div>
+                </div>
+                <span className="coll-docrow-arrow" aria-hidden="true">&rarr;</span>
+              </a>
+            )
+          })}
         </div>
       </section>
     </div>
@@ -420,47 +500,87 @@ const LIEN_CITE = 'FS 718.116(5)(b) / FS 95.11(2)(c)'
 
 // NOTE: DOC_LINKS labels are module-scope and cannot use the useT hook.
 // They are left in English. See i18n notes.
+// Color a statutory notice by its kind (escalating severity).
+const NOTICE_COLORS: Record<string, string> = {
+  late_assessment_30: '#175CD3',
+  intent_to_lien_45: '#B54708',
+  intent_to_foreclose_45: '#B42318',
+  tenant_rent_demand: '#0E7490',
+}
+const noticeColor = (k: string) => NOTICE_COLORS[k] || '#175CD3'
+
+// Map a logged notice to its printable document type, so a notice row opens the
+// exact letter that was sent. Kinds without a document just aren't clickable.
+const NOTICE_DOC: Record<string, string> = {
+  late_assessment_30: 'notice_30',
+  intent_to_lien_45: 'intent_to_lien',
+  intent_to_foreclose_45: 'intent_to_foreclose',
+  tenant_rent_demand: 'tenant_demand',
+}
+
 const DOC_LINKS = [
-  { type: 'notice_30', label: '30-day notice of late assessment' },
-  { type: 'intent_to_lien', label: '45-day intent to record lien' },
-  { type: 'claim_of_lien', label: 'Claim of lien (draft)' },
-  { type: 'intent_to_foreclose', label: '45-day intent to foreclose' },
-  { type: 'ledger', label: 'Sworn account ledger' },
-  { type: 'tenant_demand', label: 'Tenant rent demand' },
-  { type: 'payment_plan', label: 'Payment-plan agreement' },
+  { type: 'notice_30', label: '30-day notice of late assessment', live: false },
+  { type: 'intent_to_lien', label: '45-day intent to record lien', live: false },
+  { type: 'claim_of_lien', label: 'Claim of lien (draft)', live: false },
+  { type: 'intent_to_foreclose', label: '45-day intent to foreclose', live: false },
+  { type: 'ledger', label: 'Sworn account ledger', live: true },
+  { type: 'tenant_demand', label: 'Tenant rent demand', live: false },
+  { type: 'payment_plan', label: 'Payment-plan agreement', live: false },
 ]
 
 const card: React.CSSProperties = { border: '1px solid rgba(0,0,0,0.08)', borderRadius: 14, padding: '16px 18px', background: '#fafafa', marginTop: 16 }
 
-function LedgerRow({ label, value }: { label: string; value: string }) {
-  return <tr><td style={{ padding: '6px 10px', borderBottom: '1px solid #eee' }}>{label}</td><td style={{ padding: '6px 10px', borderBottom: '1px solid #eee', textAlign: 'right' }}>{value}</td></tr>
+function LedgerRow({ label, value, valueColor, tag }: { label: string; value: string; valueColor?: string; tag?: string }) {
+  return <tr><td style={{ padding: '7px 10px', borderBottom: '1px solid #EEF0F2', color: '#475467' }}>{label}{tag ? <span style={{ marginLeft: 8, fontSize: 10.5, fontWeight: 700, color: '#175CD3', background: '#175CD314', padding: '1px 7px', borderRadius: 999, verticalAlign: 'middle' }}>{tag}</span> : null}</td><td style={{ padding: '7px 10px', borderBottom: '1px solid #EEF0F2', textAlign: 'right', fontWeight: 600, color: valueColor || '#1F2233' }}>{value}</td></tr>
 }
 
-function StageBar({ stage }: { stage: CollectionStage }) {
+function StageBar({ stage, esc }: {
+  stage: CollectionStage
+  esc: { readyAt: Date | null; label: string; citation: string } | null
+}) {
   const t = useT()
-  const steps: { key: CollectionStage; short: string }[] = [
-    { key: 'delinquent', short: t('admin.collectionsDetail.stageDelinquent') },
-    { key: 'notice_30', short: t('admin.collectionsDetail.stage30day') },
-    { key: 'intent_to_lien', short: t('admin.collectionsDetail.stageIntentToLien') },
-    { key: 'lien_recorded', short: t('admin.collectionsDetail.stageLien') },
-    { key: 'intent_to_foreclose', short: t('admin.collectionsDetail.stageIntentToForeclose') },
-    { key: 'foreclosure', short: t('admin.collectionsDetail.stageForeclosure') },
+  if (stage === 'resolved' || stage === 'cancelled') {
+    return (
+      <div className="coll-steps coll-steps-terminal">
+        <span className="coll-step-node is-done" style={{ background: stage === 'resolved' ? '#067647' : '#98A2B3' }}>✓</span>
+        <span className="coll-step-label" style={{ marginTop: 0, fontWeight: 700 }}>{STAGE_LABELS[stage]}</span>
+      </div>
+    )
+  }
+  // Each statutory stage carries its required notice/waiting period (days). The
+  // current stage also shows a LIVE countdown (or "Ready now") from esc.readyAt.
+  const steps: { key: CollectionStage; label: string; days: number }[] = [
+    { key: 'delinquent',          label: t('admin.collectionsDetail.stageDelinquent'),        days: 0 },
+    { key: 'notice_30',           label: t('admin.collectionsDetail.stage30day'),             days: NOTICE_30_DAY_DAYS.value },
+    { key: 'intent_to_lien',      label: t('admin.collectionsDetail.stageIntentToLien'),      days: INTENT_TO_LIEN_DAYS.value },
+    { key: 'lien_recorded',       label: t('admin.collectionsDetail.stageLien'),              days: 0 },
+    { key: 'intent_to_foreclose', label: t('admin.collectionsDetail.stageIntentToForeclose'), days: INTENT_TO_FORECLOSE_DAYS.value },
+    { key: 'foreclosure',         label: t('admin.collectionsDetail.stageForeclosure'),       days: 0 },
   ]
-  const order = ['delinquent', 'notice_30', 'intent_to_lien', 'lien_recorded', 'intent_to_foreclose', 'foreclosure']
-  const cur = order.indexOf(stage)
-  const terminal = stage === 'resolved' || stage === 'cancelled'
+  const cur = steps.findIndex(s => s.key === stage)
+  let live: { txt: string; ready: boolean } | null = null
+  if (esc?.readyAt) {
+    const daysLeft = Math.ceil((esc.readyAt.getTime() - Date.now()) / 86400000)
+    live = daysLeft <= 0
+      ? { txt: t('admin.collectionsDetail.stageReady'), ready: true }
+      : { txt: `${daysLeft} ${t('admin.collectionsDetail.days')}`, ready: false }
+  }
   return (
-    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+    <div className="coll-steps">
       {steps.map((s, i) => {
-        const done = !terminal && i <= cur
+        const done = i < cur
+        const current = i === cur
         return (
-          <span key={s.key} style={{
-            fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 999,
-            color: done ? '#fff' : '#667085', background: done ? (i === cur ? '#B54708' : '#067647') : '#EAECF0',
-          }}>{s.short}</span>
+          <div key={s.key} className={`coll-step${i <= cur ? ' is-reached' : ''}`}>
+            <span className={`coll-step-node ${done ? 'is-done' : current ? 'is-current' : 'is-future'}`}>
+              {done ? '✓' : i + 1}
+            </span>
+            <span className="coll-step-label">{s.label}</span>
+            {s.days > 0 && <span className="coll-step-days">{s.days} {t('admin.collectionsDetail.days')}</span>}
+            {current && live && <span className={`coll-step-live${live.ready ? ' is-ready' : ''}`}>{live.txt}</span>}
+          </div>
         )
       })}
-      {terminal && <span style={{ fontSize: 11.5, fontWeight: 700, padding: '4px 10px', borderRadius: 999, color: '#fff', background: stage === 'resolved' ? '#067647' : '#98A2B3' }}>{STAGE_LABELS[stage]}</span>}
     </div>
   )
 }
@@ -521,10 +641,10 @@ function StageActions({ adv, caseRow, communityId, profileId, resident, regime, 
     finally { setBusy(false) }
   }
 
-  if (!openComposer) return <button className="admin-primary-btn" onClick={() => { setForm({ date: todayYmd(), method: defaultMethod(adv.notice), tracking: '', recipient: '' }); setOpenComposer(true) }}>{adv.label}</button>
+  if (!openComposer) return <button className="admin-primary-btn" style={{ marginLeft: 'auto' }} onClick={() => { setForm({ date: todayYmd(), method: defaultMethod(adv.notice), tracking: '', recipient: '' }); setOpenComposer(true) }}>{adv.label}</button>
 
   return (
-    <div style={{ border: '1px dashed #cbd5e1', borderRadius: 10, padding: 12 }}>
+    <div style={{ border: '1px dashed #cbd5e1', borderRadius: 10, padding: 12, width: '100%', flexBasis: '100%', marginTop: 14 }}>
       <div style={{ fontWeight: 700, fontSize: 13.5, marginBottom: 8 }}>{adv.label}</div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: 10 }}>
         <label className="admin-field"><span className="admin-field-label">{adv.needsNotice ? t('admin.collectionsDetail.dateSent') : t('admin.collectionsDetail.date')}</span>
@@ -562,7 +682,7 @@ function StageActions({ adv, caseRow, communityId, profileId, resident, regime, 
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
+      <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
         <button className="admin-primary-btn" disabled={busy} onClick={run}>{busy ? t('admin.collectionsDetail.saving') : t('admin.collectionsDetail.confirm')}</button>
         <button className="admin-btn-ghost" disabled={busy} onClick={() => setOpenComposer(false)}>{t('admin.collectionsDetail.cancel')}</button>
       </div>
@@ -574,17 +694,19 @@ function CostEditor({ caseRow, onSaved }: { caseRow: CollectionCaseRow; onSaved:
   const t = useT()
   const [amt, setAmt] = useState('')
   return (
-    <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', marginTop: 12, flexWrap: 'wrap' }}>
-      <label className="admin-field" style={{ maxWidth: 200 }}><span className="admin-field-label">{t('admin.collectionsDetail.addCostLabel')}</span>
-        <input className="admin-input" type="number" min="0" step="0.01" value={amt} onChange={e => setAmt(e.target.value)} /></label>
-      <button className="admin-btn-ghost" disabled={!amt} onClick={() => { onSaved({ cost_balance: (Number(caseRow.cost_balance) || 0) + Number(amt) }, t('admin.collectionsDetail.costRecorded')); setAmt('') }}>{t('admin.collectionsDetail.addCost')}</button>
-      <span style={{ fontSize: 12.5, opacity: 0.7 }}>{t('admin.collectionsDetail.currentCosts')}: {'$' + (Math.round((Number(caseRow.cost_balance) || 0) * 100) / 100).toLocaleString('en-US')}</span>
+    <div>
+      <span className="admin-field-label" style={{ display: 'block', marginBottom: 6, whiteSpace: 'nowrap' }}>{t('admin.collectionsDetail.addCostLabel')}</span>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <input className="admin-input" type="number" min="0" step="0.01" style={{ width: 150 }} value={amt} onChange={e => setAmt(e.target.value)} />
+        <button className="admin-btn-ghost" disabled={!amt} onClick={() => { onSaved({ cost_balance: (Number(caseRow.cost_balance) || 0) + Number(amt) }, t('admin.collectionsDetail.costRecorded')); setAmt('') }}>{t('admin.collectionsDetail.addCost')}</button>
+      </div>
     </div>
   )
 }
 
-function PaymentPlanSection({ caseRow, plans, profileId, onChange, onError }: {
+function PaymentPlanSection({ caseRow, plans, profileId, payoffTotal, onChange, onError }: {
   caseRow: CollectionCaseRow; plans: PaymentPlanRow[]; profileId: string | null
+  payoffTotal: number
   onChange: () => void; onError: (m: string) => void
 }) {
   const t = useT()
@@ -596,6 +718,10 @@ function PaymentPlanSection({ caseRow, plans, profileId, onChange, onError }: {
   const [busy, setBusy] = useState(false)
   // Review sub-form for a resident request: null = show decision buttons.
   const [review, setReview] = useState<any>({ mode: null, amount: '', count: '', freq: '', reason: '' })
+  const [planOpen, setPlanOpen] = useState(false)
+  const [planMsg, setPlanMsg] = useState('')
+  useEffect(() => { if (!planMsg) return; const x = setTimeout(() => setPlanMsg(''), 4000); return () => clearTimeout(x) }, [planMsg])
+  const [editPlan, setEditPlan] = useState<any>(null)
 
   const create = async () => {
     setBusy(true)
@@ -629,6 +755,24 @@ function PaymentPlanSection({ caseRow, plans, profileId, onChange, onError }: {
     // Advance the next due date; harden against a missing/unparseable stored date.
     const next = done ? null : (addCalendarDays(p.next_due_at || todayYmd(), freq) || addCalendarDays(todayYmd(), freq))
     try {
+      // Post the installment as a REAL payment so it lands in the payoff ledger
+      // (payments-applied grows, balance drops). Deterministic client_key →
+      // idempotent, so a double-click can't double-post. This is why a later
+      // cancel/default still shows the paid amounts applied with the rest owed.
+      const amt = Number(p.installment_amount) || 0
+      if (amt > 0 && (caseRow as any).resident_id) {
+        const { error: payErr } = await supabase.rpc('record_offline_payment', {
+          p_community: caseRow.community_id,
+          p_resident: (caseRow as any).resident_id,
+          p_amount: amt,
+          p_method: 'other',
+          p_paid_on: todayYmd(),
+          p_memo: `Plan installment ${paid}${p.installment_count != null ? '/' + p.installment_count : ''}`,
+          p_client_key: `${p.id}:inst:${paid}`,
+          p_case: caseRow.id,
+        })
+        if (payErr) throw payErr
+      }
       await withTimeout(supabase.from('ev_payment_plans').update({
         paid_count: paid,
         // Completed plans have no next installment → clear the date.
@@ -636,9 +780,40 @@ function PaymentPlanSection({ caseRow, plans, profileId, onChange, onError }: {
         status: done ? 'completed' : 'active',
       }).eq('id', p.id))
       if (done) await withTimeout(supabase.from('ev_collection_cases').update({ on_payment_plan: false }).eq('id', caseRow.id))
-      await logAudit({ community_id: caseRow.community_id!, event_type: 'collection.payment_plan_updated', target_type: 'payment_plan', target_id: p.id, metadata: { paid_count: paid } })
+      await logAudit({ community_id: caseRow.community_id!, event_type: 'collection.payment_plan_updated', target_type: 'payment_plan', target_id: p.id, metadata: { paid_count: paid, amount: amt } })
       onChange()
+      setPlanOpen(true)
+      setPlanMsg(done
+        ? t('admin.collectionsDetail.planComplete')
+        : `${t('admin.collectionsDetail.installmentRecorded')} — ${paid}${p.installment_count != null ? '/' + p.installment_count : ''} ${t('admin.collectionsDetail.paid')}`)
     } catch (err: any) { onError(err?.message || t('admin.collectionsDetail.updateFailed')) }
+  }
+
+  // Edit an ACTIVE plan in place — raise the installment, add installments
+  // (extend), or change the cadence. Recomputes the next due from installments
+  // already paid so the schedule stays consistent.
+  const savePlanEdit = async (p: PaymentPlanRow) => {
+    setBusy(true)
+    try {
+      const amount = Number(editPlan.amount) || 0
+      const count = editPlan.count === '' || editPlan.count == null ? null : Number(editPlan.count)
+      const freq = Number(editPlan.freq) || 30
+      const paidN = Number(p.paid_count) || 0
+      const finished = count != null && paidN >= count
+      const next = finished ? null : addCalendarDays(p.start_date || todayYmd(), paidN * freq)
+      await withTimeout(supabase.from('ev_payment_plans').update({
+        installment_amount: amount || null,
+        installment_count: count,
+        frequency_days: freq,
+        next_due_at: finished ? null : (next ? ymd(next) : p.next_due_at),
+        status: finished ? 'completed' : 'active',
+      }).eq('id', p.id))
+      if (finished) await withTimeout(supabase.from('ev_collection_cases').update({ on_payment_plan: false }).eq('id', caseRow.id))
+      await logAudit({ community_id: caseRow.community_id!, event_type: 'collection.payment_plan_updated', target_type: 'payment_plan', target_id: p.id, metadata: { edited: true } })
+      onChange(); setEditPlan(null); setPlanOpen(true)
+      setPlanMsg(t('admin.collectionsDetail.planUpdated'))
+    } catch (err: any) { onError(err?.message || t('admin.collectionsDetail.updateFailed')) }
+    finally { setBusy(false) }
   }
 
   const endPlan = async (p: PaymentPlanRow, status: 'defaulted' | 'cancelled') => {
@@ -740,30 +915,116 @@ function PaymentPlanSection({ caseRow, plans, profileId, onChange, onError }: {
           )}
         </div>
       ) : active ? (
-        <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '12px 14px', background: '#fff' }}>
-          <div style={{ fontWeight: 700 }}>
-            {fmt$(active.installment_amount)} {t('admin.collectionsDetail.every')} {active.frequency_days} {t('admin.collectionsDetail.days')}
-            {active.installment_count ? ` · ${active.paid_count ?? 0}/${active.installment_count} ${t('admin.collectionsDetail.paid')}` : ` · ${active.paid_count ?? 0} ${t('admin.collectionsDetail.paid')}`}
-          </div>
-          <div style={{ fontSize: 12.5, opacity: 0.7, marginTop: 2 }}>{t('admin.collectionsDetail.started')} {active.start_date} · {t('admin.collectionsDetail.nextDue')} {active.next_due_at || '—'}</div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-            <button className="admin-primary-btn" onClick={() => recordInstallment(active)}>{t('admin.collectionsDetail.recordInstallmentPaid')}</button>
+        <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: '4px solid #0E7490', borderRadius: 10, padding: '12px 14px', background: 'linear-gradient(180deg, #F4FBFC, #fff 60%)' }}>
+          <button type="button" onClick={() => setPlanOpen(o => !o)}
+            style={{ all: 'unset', cursor: 'pointer', display: 'flex', width: '100%', boxSizing: 'border-box', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+            <span>
+              <span style={{ display: 'block', fontWeight: 700 }}>
+                {fmt$(active.installment_amount)} {t('admin.collectionsDetail.every')} {active.frequency_days} {t('admin.collectionsDetail.days')}
+                {active.installment_count ? ` · ${active.paid_count ?? 0}/${active.installment_count} ${t('admin.collectionsDetail.paid')}` : ` · ${active.paid_count ?? 0} ${t('admin.collectionsDetail.paid')}`}
+              </span>
+              <span style={{ display: 'block', fontSize: 12.5, opacity: 0.7, marginTop: 2 }}>{t('admin.collectionsDetail.started')} {active.start_date} · {t('admin.collectionsDetail.nextDue')} {active.next_due_at || '—'}</span>
+            </span>
+            <span style={{ color: '#98A2B3', fontSize: 12, flexShrink: 0 }}>{planOpen ? '▲' : '▼'}</span>
+          </button>
+
+          {active.installment_count != null && (
+            <div style={{ height: 7, borderRadius: 4, background: '#E6ECEE', overflow: 'hidden', marginTop: 10 }}>
+              <div style={{ height: '100%', width: `${Math.min(100, ((Number(active.paid_count) || 0) / (Number(active.installment_count) || 1)) * 100)}%`, background: 'linear-gradient(90deg, #0E7490, #22A06B)', transition: 'width .45s ease' }} />
+            </div>
+          )}
+          {planMsg && (
+            <div style={{ marginTop: 10, display: 'inline-flex', alignItems: 'center', color: '#067647', fontWeight: 700, fontSize: 13, background: '#06764712', padding: '6px 12px', borderRadius: 999 }}>
+              {planMsg}
+            </div>
+          )}
+          {active.installment_count != null && (() => {
+            const remaining = (Number(active.installment_amount) || 0) * (Number(active.installment_count) - (Number(active.paid_count) || 0))
+            const short = payoffTotal - remaining
+            if (short <= 0.5) return null
+            return <div style={{ marginTop: 10, fontSize: 12.5, color: '#B42318', fontWeight: 600 }}>{t('admin.collectionsDetail.planShortfallActive', { short: fmt$(short) })}</div>
+          })()}
+
+          {planOpen && active.installment_count != null && (
+            <div style={{ marginTop: 12, borderTop: '1px solid #F2F4F7', paddingTop: 8 }}>
+              {Array.from({ length: Number(active.installment_count) || 0 }).map((_, i) => {
+                const due = addCalendarDays(active.start_date || todayYmd(), i * (Number(active.frequency_days) || 30))
+                const paidN = Number(active.paid_count) || 0
+                const st = i < paidN ? 'paid' : i === paidN ? 'next' : 'upcoming'
+                return (
+                  <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, padding: '5px 0', color: st === 'upcoming' ? '#98A2B3' : '#475467' }}>
+                    <span>#{i + 1} · {fmt$(active.installment_amount)}</span>
+                    <span style={{ fontWeight: st === 'next' ? 700 : 400, color: st === 'paid' ? '#067647' : st === 'next' ? '#B54708' : undefined }}>
+                      {due ? ymd(due) : '—'}{st === 'paid' ? ` · ${t('admin.collectionsDetail.paid')}` : st === 'next' ? ` · ${t('admin.collectionsDetail.nextDue')}` : ''}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {editPlan && (
+            <div style={{ marginTop: 12, padding: '12px 14px', border: '1px dashed #cbd5e1', borderRadius: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: 10, alignItems: 'flex-end' }}>
+                <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.installmentAmount')}</span>
+                  <input className="admin-input" type="number" min="0" step="0.01" value={editPlan.amount ?? ''} onChange={e => setEditPlan((p: any) => ({ ...p, amount: e.target.value }))} /></label>
+                <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.numberOfInstallments')}</span>
+                  <input className="admin-input" type="number" min="1" step="1" value={editPlan.count ?? ''} onChange={e => setEditPlan((p: any) => ({ ...p, count: e.target.value }))} /></label>
+                <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.everyDays')}</span>
+                  <input className="admin-input" type="number" min="1" step="1" value={editPlan.freq ?? ''} onChange={e => setEditPlan((p: any) => ({ ...p, freq: e.target.value }))} /></label>
+              </div>
+              <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+                {payoffTotal > 0 && (
+                  <button className="admin-btn-ghost" type="button" onClick={() => {
+                    const count = Number(editPlan.count) || 6
+                    const amount = Math.ceil((payoffTotal / count) * 100) / 100
+                    setEditPlan((p: any) => ({ ...p, count: String(count), amount: String(amount) }))
+                  }}>{t('admin.collectionsDetail.suggestPlan')}</button>
+                )}
+                <button className="admin-btn-ghost" onClick={() => setEditPlan(null)}>{t('admin.collectionsDetail.cancel')}</button>
+                <button className="admin-primary-btn" style={{ marginLeft: 'auto' }} disabled={busy} onClick={() => savePlanEdit(active)}>{busy ? t('admin.collectionsDetail.saving') : t('admin.collectionsDetail.saveChanges')}</button>
+              </div>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button className="admin-btn-ghost" onClick={() => setEditPlan({ amount: active.installment_amount ?? '', count: active.installment_count ?? '', freq: active.frequency_days ?? 30 })}>{t('admin.collectionsDetail.editPlan')}</button>
             <button className="admin-btn-ghost" onClick={() => endPlan(active, 'defaulted')}>{t('admin.collectionsDetail.markDefaulted')}</button>
             <button className="admin-btn-ghost" onClick={() => endPlan(active, 'cancelled')}>{t('admin.collectionsDetail.cancelPlan')}</button>
+            <button className="admin-primary-btn" style={{ marginLeft: 'auto' }} onClick={() => recordInstallment(active)}>{t('admin.collectionsDetail.recordInstallmentPaid')}</button>
           </div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, alignItems: 'flex-end' }}>
-          <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.installmentAmount')}</span>
-            <input className="admin-input" type="number" min="0" step="0.01" value={form.installment_amount} onChange={e => setForm((f: any) => ({ ...f, installment_amount: e.target.value }))} /></label>
-          <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.numberOfInstallments')}</span>
-            <input className="admin-input" type="number" min="1" step="1" value={form.installment_count} onChange={e => setForm((f: any) => ({ ...f, installment_count: e.target.value }))} /></label>
-          <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.everyDays')}</span>
-            <input className="admin-input" type="number" min="1" step="1" value={form.frequency_days} onChange={e => setForm((f: any) => ({ ...f, frequency_days: e.target.value }))} /></label>
-          <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.start')}</span>
-            <input className="admin-input" type="date" value={form.start_date} onChange={e => setForm((f: any) => ({ ...f, start_date: e.target.value }))} /></label>
-          <button className="admin-primary-btn" disabled={busy} onClick={create}>{busy ? t('admin.collectionsDetail.saving') : t('admin.collectionsDetail.createPlan')}</button>
-        </div>
+        <>
+          {payoffTotal > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+              <span style={{ fontSize: 12.5, color: '#475467' }}>{t('admin.collectionsDetail.balanceToCover')}: <strong style={{ color: '#B54708' }}>{fmt$(payoffTotal)}</strong></span>
+              <button className="admin-btn-ghost" type="button" onClick={() => {
+                const count = Number(form.installment_count) || 6
+                const amount = Math.ceil((payoffTotal / count) * 100) / 100
+                setForm((f: any) => ({ ...f, installment_count: String(count), installment_amount: String(amount) }))
+              }}>{t('admin.collectionsDetail.suggestPlan')}</button>
+            </div>
+          )}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 10, alignItems: 'flex-end' }}>
+            <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.installmentAmount')}</span>
+              <input className="admin-input" type="number" min="0" step="0.01" value={form.installment_amount} onChange={e => setForm((f: any) => ({ ...f, installment_amount: e.target.value }))} /></label>
+            <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.numberOfInstallments')}</span>
+              <input className="admin-input" type="number" min="1" step="1" value={form.installment_count} onChange={e => setForm((f: any) => ({ ...f, installment_count: e.target.value }))} /></label>
+            <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.everyDays')}</span>
+              <input className="admin-input" type="number" min="1" step="1" value={form.frequency_days} onChange={e => setForm((f: any) => ({ ...f, frequency_days: e.target.value }))} /></label>
+            <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.start')}</span>
+              <input className="admin-input" type="date" value={form.start_date} onChange={e => setForm((f: any) => ({ ...f, start_date: e.target.value }))} /></label>
+            <button className="admin-primary-btn" disabled={busy} onClick={create}>{busy ? t('admin.collectionsDetail.saving') : t('admin.collectionsDetail.createPlan')}</button>
+          </div>
+          {(() => {
+            const planTotal = (Number(form.installment_amount) || 0) * (Number(form.installment_count) || 0)
+            if (planTotal <= 0 || payoffTotal <= 0) return null
+            const short = payoffTotal - planTotal
+            if (short <= 0.5) return <div style={{ marginTop: 10, fontSize: 12.5, color: '#067647', fontWeight: 600 }}>{t('admin.collectionsDetail.planCovers', { total: fmt$(planTotal) })}</div>
+            return <div style={{ marginTop: 10, fontSize: 12.5, color: '#B42318', fontWeight: 600 }}>{t('admin.collectionsDetail.planShortfall', { plan: fmt$(planTotal), balance: fmt$(payoffTotal), short: fmt$(short) })}</div>
+          })()}
+        </>
       )}
     </section>
   )

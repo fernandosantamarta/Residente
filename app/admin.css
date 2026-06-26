@@ -704,6 +704,57 @@
 .admin-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 
 /* Residents roster (Residents page) */
+/* Collections — statutory stage stepper (case detail). Numbered nodes joined by
+   a connector that turns green as stages complete; each notice stage shows its
+   required day-count, and the current stage shows a live countdown. */
+.coll-steps { display: flex; align-items: flex-start; margin: 14px 0 10px; }
+.coll-step { flex: 1 1 0; min-width: 80px; display: flex; flex-direction: column; align-items: center; text-align: center; position: relative; padding: 0 2px; }
+.coll-step::before { content: ''; position: absolute; top: 13px; left: -50%; width: 100%; height: 2px; background: #EAECF0; z-index: 0; }
+.coll-step:first-child::before { display: none; }
+.coll-step.is-reached::before { background: #067647; }
+.coll-step-node { position: relative; z-index: 1; width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; }
+.coll-step-node.is-done { background: #067647; color: #fff; }
+.coll-step-node.is-current { background: #fff; color: #B54708; box-shadow: 0 0 0 2px #B54708 inset; }
+.coll-step-node.is-future { background: #EAECF0; color: #667085; }
+.coll-step-label { font-size: 11px; font-weight: 600; color: #344054; margin-top: 6px; line-height: 1.25; }
+.coll-step-days { font-size: 10px; color: #98A2B3; margin-top: 2px; }
+.coll-step-live { font-size: 10px; font-weight: 800; color: #B54708; margin-top: 3px; }
+.coll-step-live.is-ready { color: #067647; }
+.coll-steps-terminal { gap: 10px; align-items: center; }
+
+/* Collections — generate-documents list (case detail). Mirrors the governance
+   wsrow pattern (which is .cset-scoped): tinted icon badge + title + sub-label
+   + arrow, rows separated by dividers. */
+.coll-doclist { display: flex; flex-direction: column; }
+.coll-docrow { display: flex; align-items: center; gap: 14px; padding: 13px 4px; border-top: 1px solid #EAECF0; text-decoration: none; color: inherit; }
+.coll-doclist .coll-docrow:first-child { border-top: none; }
+.coll-docrow-glyph { flex-shrink: 0; width: 38px; height: 38px; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+.coll-docrow-main { flex: 1; min-width: 0; }
+.coll-docrow-title { font-size: 14.5px; font-weight: 600; color: #1F2233; }
+.coll-docrow-desc { font-size: 12.5px; color: #667085; margin-top: 2px; }
+.coll-docrow-arrow { flex-shrink: 0; color: #98A2B3; font-weight: 700; transition: transform .12s, color .12s; }
+.coll-docrow:hover .coll-docrow-arrow { color: #B54708; transform: translateX(2px); }
+.coll-docrow:hover .coll-docrow-title { color: #B54708; }
+
+/* Collections — payoff ledger: colored total band + auto-computed badge */
+.coll-payoff-total { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-top: 14px; padding: 14px 20px; border-radius: 12px; background: linear-gradient(135deg, #FEF4F0, #FCE7DE); border: 1px solid #F6C9B6; flex-wrap: wrap; }
+.coll-payoff-total-label { font-size: 14px; font-weight: 700; color: #1F2233; }
+.coll-payoff-asof { display: inline-block; margin-left: 10px; font-size: 11px; font-weight: 600; color: #8A4B2F; background: #fff; border: 1px solid #F0C9B8; border-radius: 999px; padding: 2px 9px; }
+.coll-payoff-total-amt { font-size: 26px; font-weight: 800; color: #C2360A; line-height: 1; }
+.coll-payoff-badge { display: inline-flex; align-items: center; font-size: 10.5px; font-weight: 700; letter-spacing: .3px; text-transform: uppercase; color: #0E7490; background: #0E749015; border-radius: 999px; padding: 3px 9px; margin-left: 10px; }
+
+/* Collections — open-cases table (owner / unit / balance / action) */
+.coll-cases-tbl { width: 100%; border-collapse: collapse; }
+.coll-cases-tbl th { text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .5px; text-transform: uppercase; color: #98A2B3; padding: 8px 12px; border-bottom: 1px solid #EAECF0; }
+.coll-cases-tbl td { padding: 14px 12px; border-bottom: 1px solid #F2F4F7; font-size: 14px; vertical-align: middle; }
+.coll-cases-tbl tr:last-child td { border-bottom: none; }
+.coll-cases-tbl .cc-owner { font-weight: 700; color: #1F2233; }
+.coll-cases-tbl .cc-unit { color: #667085; }
+.coll-cases-tbl .cc-bal { font-weight: 600; color: #1F2233; }
+.coll-cases-tbl .cc-action { text-align: right; }
+.coll-cases-tbl .cc-action a { color: #B54708; font-weight: 700; text-decoration: none; white-space: nowrap; }
+.coll-cases-tbl .cc-action a:hover { text-decoration: underline; }
+
 .res-import-bar {
   margin-top: 20px; margin-bottom: 28px; padding: 14px 18px;
   display: flex; align-items: center; gap: 14px; flex-wrap: wrap;

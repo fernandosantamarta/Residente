@@ -10,7 +10,7 @@ import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
-import { communityDuesConfig } from '@/lib/dues'
+import { communityDuesConfig, residentBalance } from '@/lib/dues'
 import { ymd, toDate, calendarDaysUntil } from '@/lib/compliance/rules-core'
 import { AttorneyNote } from '../AttorneyNote'
 import { ComplianceBackLink } from '../ComplianceBackLink'
@@ -20,6 +20,7 @@ import {
   type CollectionCaseRow, type CollectionStage, type DelinquentCandidate,
 } from '@/lib/compliance/collections'
 import { Dropdown } from '@/components/Dropdown'
+import { Pager } from '@/components/Pager'
 import { useT } from '@/lib/i18n'
 
 const withTimeout = (p: any, ms = 10000) =>
@@ -51,6 +52,7 @@ export default function CollectionsPage() {
   const [error, setError] = useState('')
   const [msg, setMsg] = useState('')
   const [showClosed, setShowClosed] = useState(false)
+  const [openPage, setOpenPage] = useState(0)
   const [flashIntake, setFlashIntake] = useState(false)
   const deepLinkDone = useRef(false)
 
@@ -295,9 +297,45 @@ export default function CollectionsPage() {
         <div className="card-head"><div><h2>{t('admin.collections.openCasesHeading')}</h2></div></div>
         {status === 'loading' && <div className="admin-note">{t('admin.collections.loading')}</div>}
         {status === 'ready' && open.length === 0 && <div className="admin-note">{t('admin.collections.noOpenCases')}</div>}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {open.map(r => <CaseRow key={r.id} r={r} regime={regime} />)}
-        </div>
+        {open.length > 0 && (() => {
+          const OPEN_SIZE = 10
+          const pageCount = Math.ceil(open.length / OPEN_SIZE)
+          const page = Math.min(openPage, Math.max(0, pageCount - 1))
+          const paged = open.slice(page * OPEN_SIZE, (page + 1) * OPEN_SIZE)
+          return (
+          <>
+          <table className="coll-cases-tbl">
+            <thead><tr>
+              <th>{t('admin.collections.colOwner')}</th>
+              <th>{t('admin.collections.colUnit')}</th>
+              <th>{t('admin.collections.colBalanceOwed')}</th>
+              <th aria-hidden="true"></th>
+            </tr></thead>
+            <tbody>
+              {paged.map(r => {
+                const stage = String(r.stage ?? 'delinquent') as CollectionStage
+                const res = residents.find((x: any) => x.id === r.resident_id)
+                const name = res?.full_name || r.unit_label || r.id.slice(0, 8)
+                const unit = res?.unit_number || '—'
+                const bal = r.total_balance != null
+                  ? Number(r.total_balance)
+                  : (res ? residentBalance(res, Number(community?.monthly_dues) || 0, payByResident[res.id] || [], communityDuesConfig(community)) : 0)
+                const action = stage === 'delinquent' ? t('admin.collections.chipStart30Day') : t('admin.collections.openLink')
+                return (
+                  <tr key={r.id}>
+                    <td className="cc-owner">{name}</td>
+                    <td className="cc-unit">{unit}</td>
+                    <td className="cc-bal">{fmt$(bal)}</td>
+                    <td className="cc-action"><Link href={`/admin/collections/${r.id}`}>{action} &rarr;</Link></td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+          {pageCount > 1 && <Pager page={page} pageCount={pageCount} onPage={setOpenPage} />}
+          </>
+          )
+        })()}
 
         {closed.length > 0 && (
           <div style={{ marginTop: 18 }}>
