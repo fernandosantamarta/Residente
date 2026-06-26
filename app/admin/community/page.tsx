@@ -6,6 +6,7 @@ import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { STATUTORY_MAX_APR, STATUTORY_LATE_FEE_PCT, STATUTORY_LATE_FEE_MIN } from '@/lib/dues'
 import { Dropdown } from '@/components/Dropdown'
+import { AddressFields } from '@/components/AddressFields'
 import { useT } from '@/lib/i18n'
 
 // Hardening (carried from Genie): wrap network promises, never .catch on Supabase.
@@ -386,10 +387,11 @@ export default function CommunitySettings() {
               type: 'number', placeholder: '24',
               hint: t('admin.community.hintAmenityCutoff'),
             })}
-            {field('association_address', t('admin.community.fieldAssocAddress'), {
-              placeholder: '123 Main St, Miramar, FL 33025',
-              hint: t('admin.community.hintAssocAddress'),
-            })}
+            <div className="admin-field">
+              <span className="admin-field-label">{t('admin.community.fieldAssocAddress')}</span>
+              <AddressFields value={form?.association_address ?? ''} onChange={v => setField('association_address', v)} />
+              <span className="field-hint">{t('admin.community.hintAssocAddress')}</span>
+            </div>
             {field('county', t('admin.community.fieldCounty'), {
               placeholder: 'Miami-Dade',
               hint: t('admin.community.hintCounty'),

@@ -3440,6 +3440,8 @@ export const en: Record<string, string> = {
   "admin.residents.pillNoCSV": "No CSV needed",
   "admin.residents.recordedPayment": "Recorded {amount} for {name}",
   "admin.residents.removeHousehold": "Remove household",
+  "admin.residents.saveBtn": "Save",
+  "admin.residents.savedMsg": "Saved ✓",
   "admin.residents.inviteTenantBtn": "Invite tenant",
   "admin.residents.tenantReqCardTitle": "Tenant requests",
   "admin.residents.tenantReqCardSub": "Owners who asked to give their renter a non-voting account. Approve to send the tenant their invite.",

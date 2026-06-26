@@ -951,6 +951,13 @@ function ResidentRow({ r, onLocal, onCommit, onRemove, onInvite, inviteBusy, onI
   // Resend/send-invite label: first send vs re-invite. (Activated owners need no
   // link, so the button is hidden for them — "resend the link only when pending".)
   const inviteLabel = r.invited_at ? t('admin.residents.inviteLabelReinvite') : t('admin.residents.inviteLabelSend')
+  // Explicit save UX: fields still commit on blur, but Enter and the Save button
+  // make it deliberate + show a "Saved" confirmation (blurring the focused input
+  // fires its existing onCommit).
+  const [saved, setSaved] = useState(false)
+  const flashSaved = () => { setSaved(true); window.setTimeout(() => setSaved(false), 2500) }
+  const onEnterSave = (e: any) => { if (e.key === 'Enter') { e.preventDefault(); e.currentTarget.blur?.(); flashSaved() } }
+  const saveAll = () => { try { (document.activeElement as HTMLElement)?.blur?.() } catch { /* noop */ } flashSaved() }
   return (
     <>
       <tr className="tr">
@@ -991,11 +998,11 @@ function ResidentRow({ r, onLocal, onCommit, onRemove, onInvite, inviteBusy, onI
             <div className="edit-grid">
               <label className="admin-field"><span className="admin-field-label">{t('admin.residents.fieldAddress')}</span>
                 <input className="admin-input" placeholder={t('admin.residents.phAddress')} value={r.address ?? ''}
-                  onChange={e => onLocal(r.id, 'address', e.target.value)}
+                  onChange={e => onLocal(r.id, 'address', e.target.value)} onKeyDown={onEnterSave}
                   onBlur={e => onCommit(r.id, { address: e.target.value.trim() || null })} /></label>
               <label className="admin-field"><span className="admin-field-label">{t('admin.residents.fieldSubdivision')}</span>
                 <input className="admin-input" placeholder={t('admin.residents.phSubdivision')} value={r.subdivision ?? ''}
-                  onChange={e => onLocal(r.id, 'subdivision', e.target.value)}
+                  onChange={e => onLocal(r.id, 'subdivision', e.target.value)} onKeyDown={onEnterSave}
                   onBlur={e => onCommit(r.id, { subdivision: e.target.value.trim() || null })} /></label>
             </div>
 
@@ -1005,7 +1012,7 @@ function ResidentRow({ r, onLocal, onCommit, onRemove, onInvite, inviteBusy, onI
             <label className="admin-field">
               <span className="admin-field-label">{t('admin.residents.fieldMailingAddress')}</span>
               <input className="admin-input" defaultValue={r.last_known_address ?? ''}
-                placeholder={t('admin.residents.phMailingAddress')}
+                placeholder={t('admin.residents.phMailingAddress')} onKeyDown={onEnterSave}
                 onBlur={e => onCommit(r.id, { last_known_address: e.target.value.trim() || null })} />
             </label>
             <label className="edit-rented" style={{ margin: '12px 0' }}>
@@ -1015,13 +1022,13 @@ function ResidentRow({ r, onLocal, onCommit, onRemove, onInvite, inviteBusy, onI
             </label>
             <div className="edit-grid">
               <label className="admin-field"><span className="admin-field-label">{t('admin.residents.fieldTenantName')}</span>
-                <input className="admin-input" defaultValue={r.tenant_name ?? ''}
+                <input className="admin-input" defaultValue={r.tenant_name ?? ''} onKeyDown={onEnterSave}
                   onBlur={e => onCommit(r.id, { tenant_name: e.target.value.trim() || null })} /></label>
               <label className="admin-field"><span className="admin-field-label">{t('admin.residents.fieldTenantEmail')}</span>
-                <input className="admin-input" type="email" defaultValue={r.tenant_email ?? ''}
+                <input className="admin-input" type="email" defaultValue={r.tenant_email ?? ''} onKeyDown={onEnterSave}
                   onBlur={e => onCommit(r.id, { tenant_email: e.target.value.trim() || null })} /></label>
               <label className="admin-field"><span className="admin-field-label">{t('admin.residents.fieldTenantPhone')}</span>
-                <input className="admin-input" defaultValue={r.tenant_phone ?? ''}
+                <input className="admin-input" defaultValue={r.tenant_phone ?? ''} onKeyDown={onEnterSave}
                   onBlur={e => onCommit(r.id, { tenant_phone: e.target.value.trim() || null })} /></label>
             </div>
             {/* Tenant app account — a leased unit can invite its tenant to a
@@ -1074,10 +1081,14 @@ function ResidentRow({ r, onLocal, onCommit, onRemove, onInvite, inviteBusy, onI
             )}
 
             <div className="edit-foot">
-              <span className="muted" style={{ fontSize: 12.5 }}>
-                {activated ? t('admin.residents.statusActivated') : r.invited_at ? t('admin.residents.statusInvited') : t('admin.residents.statusNone')}
-                {transfer && <> · {t('admin.residents.xferredFoot', { email: transfer.to_email, date: String(transfer.created_at).slice(0, 10) })}</>}
-              </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                <button type="button" className="admin-primary-btn" style={{ padding: '8px 18px', fontSize: 13.5 }} onClick={saveAll}>{t('admin.residents.saveBtn')}</button>
+                {saved && <span style={{ color: '#067647', fontWeight: 700, fontSize: 12.5 }}>{t('admin.residents.savedMsg')}</span>}
+                <span className="muted" style={{ fontSize: 12.5 }}>
+                  {activated ? t('admin.residents.statusActivated') : r.invited_at ? t('admin.residents.statusInvited') : t('admin.residents.statusNone')}
+                  {transfer && <> · {t('admin.residents.xferredFoot', { email: transfer.to_email, date: String(transfer.created_at).slice(0, 10) })}</>}
+                </span>
+              </div>
               <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 {/* Transfer ownership — sits next to Send invite. */}
                 <button type="button" className="admin-btn-sm" onClick={() => { setXferOpen(o => !o); setXMsg('') }}>
