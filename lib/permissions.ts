@@ -7,6 +7,7 @@ export type Permission =
   | 'residents.view' | 'residents.manage'
   | 'financials.view' | 'financials.manage'
   | 'payments.view' | 'payments.manage'
+  | 'disbursements.initiate' | 'disbursements.approve'
   | 'documents.manage'
   | 'violations.manage'
   | 'compliance.manage'
@@ -29,6 +30,8 @@ export const PERMISSION_GROUPS: { label: string; perms: { key: Permission; label
     { key: 'financials.manage', label: 'Edit budgets & expenses' },
     { key: 'payments.view', label: 'View dues & collections' },
     { key: 'payments.manage', label: 'Manage dues & collections' },
+    { key: 'disbursements.initiate', label: 'Initiate vendor payments' },
+    { key: 'disbursements.approve', label: 'Approve vendor payments (2nd signature)' },
   ] },
   { label: 'Roster', perms: [
     { key: 'residents.view', label: 'View residents' },

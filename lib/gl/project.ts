@@ -55,6 +55,8 @@ export interface LedgerSources {
   expenses: Array<Record<string, any>>            // { id, amount, spent_on, category_id }
   violations?: Array<Record<string, any>>         // { id, amount, status, resolution, closed_at }
   reserveComponents?: Array<Record<string, any>>  // { id, current_balance, created_at }
+  vendorBills?: Array<Record<string, any>>        // { id, bill_date, amount, status, fund, gl_account_code, budget_category_id }
+  disbursements?: Array<Record<string, any>>      // { id, amount, status, fund, paid_on }
   asOf?: Date
 }
 
@@ -204,6 +206,32 @@ export function buildLedger(src: LedgerSources): GLEntry[] {
     if (amt <= 0) continue
     post({ source_type: 'expense', source_key: `expense:${e.id}`, source_id: e.id, entry_date: String(e.spent_on || asOfISO).slice(0, 10),
       fund: 'operating', memo: 'Expense', debitAccount: '5000', creditAccount: '1000', amount: amt, category_id: e.category_id ?? null })
+  }
+
+  // ---- accounts payable: vendor bills (accrual) + their disbursements (cash out) ----
+  // A confirmed bill accrues a payable: Dr expense (5000/5010) / Cr 2010. The cash
+  // never moves until a disbursement is recorded paid: Dr 2010 / Cr cash (1000/1010).
+  // So 2010's net = open payables. Cash-basis (the matched bank row) sees only the
+  // payment leg, and reconcile.ts auto-matches that cash credit — no special-casing.
+  // A bill is a separate source from ev_expenses, so vendor spend is never double-counted.
+  const BILL_POSTED = new Set(['open', 'paid'])      // draft/void don't hit the books
+  const DISB_PAID = new Set(['paid'])                // approved-but-unpaid hasn't moved cash
+  for (const b of src.vendorBills || []) {
+    if (!BILL_POSTED.has(String(b.status))) continue
+    const fund: Fund = b.fund === 'reserve' ? 'reserve' : 'operating'
+    const expenseAccount = String(b.gl_account_code || (fund === 'reserve' ? '5010' : '5000'))
+    post({ source_type: 'bill', source_key: `bill:${b.id}`, source_id: b.id,
+      entry_date: String(b.bill_date || asOfISO).slice(0, 10), fund, memo: 'Vendor bill',
+      debitAccount: expenseAccount, creditAccount: '2010', amount: Number(b.amount) || 0,
+      category_id: b.budget_category_id ?? null })
+  }
+  for (const d of src.disbursements || []) {
+    if (!DISB_PAID.has(String(d.status))) continue
+    const fund: Fund = d.fund === 'reserve' ? 'reserve' : 'operating'
+    post({ source_type: 'bill_payment', source_key: `bill_payment:${d.id}`, source_id: d.id,
+      entry_date: String(d.paid_on || asOfISO).slice(0, 10), fund, memo: 'Bill payment',
+      debitAccount: '2010', creditAccount: fund === 'reserve' ? '1010' : '1000',
+      amount: Number(d.amount) || 0 })
   }
 
   // ---- reserve fund: seed cash from board-stated component balances ----

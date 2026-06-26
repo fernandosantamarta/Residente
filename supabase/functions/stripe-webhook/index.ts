@@ -89,6 +89,20 @@ const received = () => new Response(JSON.stringify({ received: true }), {
   status: 200, headers: { 'Content-Type': 'application/json' },
 })
 
+// Add N business days (skips Sat/Sun) — the estoppel statutory delivery clock.
+// Holidays are not modeled here; the board can adjust the due date in the
+// worklist. Mirrors lib/compliance/rules-core businessDayDeadline (weekday-only).
+function addBusinessDays(from: Date, n: number): Date {
+  const d = new Date(Date.UTC(from.getUTCFullYear(), from.getUTCMonth(), from.getUTCDate()))
+  let added = 0
+  while (added < n) {
+    d.setUTCDate(d.getUTCDate() + 1)
+    const dow = d.getUTCDay()
+    if (dow !== 0 && dow !== 6) added++
+  }
+  return d
+}
+
 // Record a one-time dues / installment payment from a Checkout Session, ONLY once
 // the money has moved. Called for instant card payments (checkout.session.completed
 // with payment_status 'paid') and for settled ACH debits
@@ -336,6 +350,69 @@ Deno.serve(async (req) => {
       return new Response(JSON.stringify({ received: true }), {
         status: 200, headers: { 'Content-Type': 'application/json' },
       })
+    }
+
+    // Estoppel public front door (create-estoppel-checkout) carries an
+    // estoppel_token. The fee is now paid, so CREATE the estoppel request in the
+    // board's worklist (service role). The statutory delivery clock starts at
+    // receipt = payment time. Idempotent: stripe_session_id is unique, so a Stripe
+    // retry that hits the dedup constraint is swallowed.
+    const estoppel_token = session.metadata?.estoppel_token
+    if (estoppel_token) {
+      const expedited = session.metadata?.expedited === '1'
+      const feeBase = Number(session.metadata?.fee_base) || 0
+      const feeExpedited = Number(session.metadata?.fee_expedited) || 0
+      const feeTotal = Number(session.metadata?.fee_total) || ((session.amount_total ?? 0) / 100)
+      const receivedAt = new Date()
+      const dueAt = addBusinessDays(receivedAt, expedited ? 3 : 10)
+      const { error } = await admin.from('ev_estoppel_requests').insert({
+        community_id: session.metadata?.community_id,
+        requestor_name: session.metadata?.requestor_name || null,
+        requestor_email: session.metadata?.requestor_email || null,
+        requestor_type: session.metadata?.requestor_type || 'mortgagee',
+        unit_label: session.metadata?.unit_label || null,
+        request_method: 'electronic',
+        received_at: receivedAt.toISOString().slice(0, 10),
+        due_at: dueAt.toISOString().slice(0, 10),
+        expedited,
+        status: 'new',
+        fee_base: feeBase,
+        fee_expedited: feeExpedited,
+        fee_total: feeTotal,
+        fee_paid: true,
+        paid_via_stripe: true,
+        stripe_session_id: session.id,
+      })
+      // 23505 = unique violation on stripe_session_id (a retry) → treat as success.
+      if (error && (error as any).code !== '23505') {
+        console.error('Failed to create paid estoppel request:', error)
+        return new Response('Insert failed', { status: 500 })
+      }
+      return received()
+    }
+
+    // Special-assessment checkout (create-special-assessment-checkout) carries a
+    // special_assessment_charge_id. Flip that per-unit charge to paid on its own
+    // row (it never lands in public.payments, mirroring fines, so the dues
+    // balance stays clean). Idempotent: the status='pending' guard makes a Stripe
+    // retry a no-op, and an already-paid charge stays paid.
+    const sa_charge_id = session.metadata?.special_assessment_charge_id
+    if (sa_charge_id) {
+      const { error } = await admin
+        .from('ev_special_assessment_charges')
+        .update({
+          status: 'paid',
+          paid_at: new Date().toISOString(),
+          stripe_session_id: session.id,
+          payment_account_id: event.account ?? null,
+        })
+        .eq('id', sa_charge_id)
+        .eq('status', 'pending')
+      if (error) {
+        console.error('Failed to mark special assessment charge paid:', error)
+        return new Response('Update failed', { status: 500 })
+      }
+      return received()
     }
 
     // One-time dues / installment payment. Record ONLY when the money has actually

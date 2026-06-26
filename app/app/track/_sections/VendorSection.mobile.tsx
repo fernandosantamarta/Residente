@@ -12,6 +12,7 @@ import { supabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import { RequestDialog } from './RequestDialog'
 import { DetailDialog } from './DetailDialog'
+import { EmergencyReport } from './EmergencyReport'
 import { Dropdown } from '@/components/Dropdown'
 
 // Vendor — board-curated list of trusted service providers, now a section
@@ -221,6 +222,9 @@ export function VendorSection() {
           {t('vendors.requestRecommendations')}
         </button>
       </section>
+
+      {/* Emergency — real published line + report-to-on-call button. */}
+      <EmergencyReport />
 
       {rateOpen && (
         <RatingDialog

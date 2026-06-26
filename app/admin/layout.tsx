@@ -34,12 +34,14 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin',            label: 'admin.nav.overview', exact: true },
   { href: '/admin/community',  label: 'admin.nav.community', anyPerm: ['community.manage'] },
   { href: '/admin/compliance', label: 'admin.nav.compliance', anyPerm: ['compliance.manage', 'financials.view', 'payments.view', 'violations.manage'], match: ['/admin/estoppel', '/admin/collections', '/admin/structural', '/admin/financials', '/admin/governance', '/admin/enforcement', '/admin/meetings', '/admin/elections', '/admin/insurance', '/admin/contracts', '/admin/advisories'] },
-  { href: '/admin/budget',     label: 'admin.nav.budget', anyPerm: ['community.manage', 'financials.view'], match: ['/admin/accounting'] },
+  { href: '/admin/budget',     label: 'admin.nav.budget', anyPerm: ['community.manage', 'financials.view'], match: ['/admin/accounting', '/admin/assessments'] },
+  { href: '/admin/payables',   label: 'admin.nav.bills', anyPerm: ['financials.view'] },
   { href: '/admin/reports',    label: 'admin.nav.reports', anyPerm: ['financials.view', 'payments.view'] },
   { href: '/admin/residents',  label: 'admin.nav.easyTrack', anyPerm: ['residents.view', 'residents.manage'], match: ['/admin/vendor'] },
   { href: '/admin/board',      label: 'admin.nav.easyVoice', anyPerm: ['voice.manage', 'roles.manage'], match: ['/admin/voice', '/admin/requests', '/admin/roles', '/admin/arc'] },
   { href: '/admin/documents',  label: 'admin.nav.easyDocuments', anyPerm: ['documents.manage', 'violations.manage'], match: ['/admin/rules', '/admin/violations'] },
   { href: '/admin/schedule',   label: 'admin.nav.easySchedule', anyPerm: ['schedule.manage'] },
+  { href: '/admin/emergency',  label: 'admin.nav.emergency', anyPerm: ['voice.manage'] },
   { href: '/admin/billing',    label: 'admin.nav.billing', anyPerm: ['community.manage'] },
 ]
 

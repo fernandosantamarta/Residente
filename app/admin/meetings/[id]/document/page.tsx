@@ -82,6 +82,11 @@ function DocInner() {
   const sched = toDate(meeting.scheduled_at)
   const meetTypeLabel: Record<string, string> = { board: 'Board Meeting', annual: 'Annual Meeting', special: 'Special Meeting', committee: 'Committee Meeting' }
   const meetTitle = meeting.title || meetTypeLabel[String(meeting.type ?? 'board')] || 'Meeting'
+  // The board-curated agenda (meeting-agenda.sql). When set, the notice prints the
+  // real items instead of the placeholder.
+  const agendaItems: string[] = Array.isArray((meeting as any).agenda_data)
+    ? (meeting as any).agenda_data.filter((x: any) => typeof x === 'string' && x.trim())
+    : []
 
   const Em = ({ children }: { children: any }) => <em style={{ color: '#B54708' }}>{children}</em>
 
@@ -195,7 +200,9 @@ function DocInner() {
             <li>Call to order</li>
             <li>Quorum verification</li>
             <li>Approval of prior meeting minutes</li>
-            <li><Em>[Insert agenda items]</Em></li>
+            {agendaItems.length > 0
+              ? agendaItems.map((item, i) => <li key={i}>{item}</li>)
+              : <li><Em>[Insert agenda items — build the agenda from the meeting’s Agenda tab]</Em></li>}
             {meeting.is_budget_meeting && <li>Consideration and adoption of the proposed budget</li>}
             {meeting.affects_assessments && <li>Consideration of special/regular assessment</li>}
             {meeting.affects_use_rules && <li>Consideration of rules regarding unit/parcel use</li>}

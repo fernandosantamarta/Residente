@@ -8700,6 +8700,22 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 }
 [data-theme="sketch"] .ven-rd-textarea::placeholder { color: rgba(10, 36, 64, 0.45); }
 
+[data-theme="sketch"] .ven-rd-input {
+  width: 100%;
+  padding: 11px 14px;
+  background: #FBF7F1;
+  border: 1.5px solid rgba(199, 111, 69, 0.25);
+  border-radius: 12px;
+  font-family: inherit; font-size: 14px; color: #0A2440;
+  outline: none;
+  transition: border-color 0.12s ease, background-color 0.12s ease, box-shadow 0.12s ease;
+}
+[data-theme="sketch"] .ven-rd-input:focus {
+  border-color: #E14909; background: #FFFFFF;
+  box-shadow: 0 0 0 3px rgba(225, 73, 9, 0.14);
+}
+[data-theme="sketch"] .ven-rd-input::placeholder { color: rgba(10, 36, 64, 0.45); }
+
 [data-theme="sketch"] .ven-rd-note { margin: 0; font-size: 12px; color: #0A2440; font-style: italic; }
 
 [data-theme="sketch"] .ven-rd-foot {
@@ -9270,6 +9286,9 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .ven-emerg-label { font-size: 13px; font-weight: 700; color: #0A2440; }
 [data-theme="sketch"] .ven-emerg-phone { font-size: 12.5px; font-weight: 700; color: #C82E2E; }
 [data-theme="sketch"] .ven-emerg-desc { font-size: 11.5px; color: #0A2440; }
+[data-theme="sketch"] .ven-emerg-note {
+  margin: 0 0 4px; font-size: 12px; font-weight: 700; color: #C82E2E;
+}
 
 /* =====================================================================
    /app/reports — 2026-05-27 mockup. Bare-title hero, search/category

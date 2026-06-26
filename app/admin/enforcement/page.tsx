@@ -341,6 +341,12 @@ export default function EnforcementPage() {
         } catch { /* evidence is best-effort */ }
       }
       if (communityId) logAudit({ community_id: communityId, event_type: 'enforcement.fine_proposed', target_type: 'violation' })
+      // Best-effort: also email the owner so the notice reaches their inbox (the
+      // trigger only fires an in-app personal notice). Fire-and-forget — the fine
+      // is already saved, and the function fails soft when email isn't configured.
+      if (inserted?.id && res?.profile_id) {
+        supabase.functions.invoke('violation-notify-email', { body: { violation_id: inserted.id } }).catch(() => {})
+      }
       setForm({ resident_id: '', continuing: false, hearing_required: true })
       clearViolationPhoto()
       setMsg(t('admin.enforcement.fineProposedMsg'))

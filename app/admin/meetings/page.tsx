@@ -429,10 +429,12 @@ function MeetingCard({
         {isVc && isPast && !m.recording_retained && (
           <button className="admin-btn-ghost" onClick={onMarkRecording}>Mark recording retained</button>
         )}
+        <a className="admin-btn-ghost" href={`/admin/meetings/${m.id}/agenda`}>{t('admin.meetings.linkBuildAgenda')}</a>
         <a className="admin-btn-ghost" href={docHref('notice')}>{t('admin.meetings.linkNotice')}</a>
         <a className="admin-btn-ghost" href={docHref('agenda')}>{t('admin.meetings.linkAgenda')}</a>
         <a className="admin-btn-ghost" href={docHref('affidavit')}>{t('admin.meetings.linkAffidavit')}</a>
         <a className="admin-btn-ghost" href={minutesHref}>{t('admin.minutes.captureMinutes')}</a>
+        <a className="admin-btn-ghost" href={`/admin/meetings/${m.id}/packet`} target="_blank" rel="noopener noreferrer">{t('admin.meetings.linkPacket')}</a>
       </div>
     </div>
   )

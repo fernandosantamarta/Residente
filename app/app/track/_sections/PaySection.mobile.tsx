@@ -8,6 +8,7 @@ import { usePreferences, newId, PaymentMethod } from '@/lib/preferences'
 import { fmtMoney, monthsCovered, monthsOwed } from '@/lib/dues'
 import { deriveStatements } from '@/lib/statements'
 import { useMyViolations, payFine } from '@/lib/violations'
+import { useMySpecialAssessments, paySpecialAssessment } from '@/lib/specialAssessments'
 import { useCheckout } from '@/components/CheckoutProvider'
 import { useT } from '@/lib/i18n'
 import { DetailDialog } from './DetailDialog'
@@ -406,6 +407,9 @@ export function PaySection() {
           (matches the open-votes band). Each fine is its own Stripe charge that
           closes itself on payment, so the band vanishes once everything's paid. */}
       <FinesDueCard />
+
+      {/* Special assessments — board-levied charges, each its own Stripe charge. */}
+      <SpecialAssessmentsDueCard />
 
       {/* Payment plan — request/track an installment plan on a collection case. */}
       <PaymentPlanCard resident={resident} />
@@ -928,6 +932,58 @@ function FinesDueCard() {
                   {payingId === v.id ? t('pay.startingCheckout') : t('pay.payNow')}
                 </button>
                 <ContestFineControl violation={v} className="pay-cta-secondary pay-fine-contest" />
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+// Outstanding special assessments (mobile) — mirrors FinesDueCard. Each charge is
+// its own Stripe checkout that settles on payment; kept separate from the dues
+// balance. Hidden when there's nothing open to pay.
+function SpecialAssessmentsDueCard() {
+  const t = useT()
+  const { charges } = useMySpecialAssessments()
+  const [payingId, setPayingId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  if (charges.length === 0) return null
+
+  const onPay = async (id: string) => {
+    setError(null); setPayingId(id)
+    const err = await paySpecialAssessment(id)
+    if (err) { setError(err); setPayingId(null) }
+  }
+
+  return (
+    <section className="pay-fines-band" id="special-assessments">
+      <div className="pay-fines-band-head">
+        <span className="pay-fines-eyebrow">⚠ {t('pay.specialAssessmentsDue')}</span>
+      </div>
+      {error && <div className="pay-err">{error}</div>}
+      <div className="pay-fines-list">
+        {charges.map(c => (
+          <div key={c.id} className="pay-fine-row">
+            <div className="pay-fine-head">
+              <div className="pay-fine-info">
+                <div className="pay-fine-title">
+                  {c.title || t('pay.specialAssessmentGeneric')}
+                  {c.installment_no > 1 ? ` · ${t('pay.saInstallment', { n: c.installment_no })}` : ''}
+                </div>
+                {c.due_date && <div className="pay-fine-meta">{t('pay.dueOn', { date: fmtDate(c.due_date) })}</div>}
+              </div>
+              <div className="pay-fine-amt">{fmtMoney(c.amount)}</div>
+            </div>
+            <div className="pay-fine-foot">
+              {c.description && <p className="pay-fine-note">{c.description}</p>}
+              <div className="pay-fine-actions">
+                <button type="button" className="pay-cta-primary pay-fine-pay"
+                  disabled={payingId === c.id} onClick={() => onPay(c.id)}>
+                  {payingId === c.id ? t('pay.startingCheckout') : t('pay.payNow')}
+                </button>
               </div>
             </div>
           </div>
