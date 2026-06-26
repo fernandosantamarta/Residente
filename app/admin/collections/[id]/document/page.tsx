@@ -66,8 +66,13 @@ function DocInner() {
       const { data, error: fnErr } = await supabase.functions.invoke('mail-letter', {
         body: { caseId: id, docType: type, certified: true },
       })
-      const d = data as any
-      if (fnErr || d?.error) setMailMsg(d?.error || fnErr?.message || 'Could not mail the letter.')
+      let d = data as any
+      // On a non-2xx, supabase-js puts the JSON body on the error's Response
+      // (error.context), not on `data` — read it so the real reason shows.
+      if (fnErr && (fnErr as any).context?.json) {
+        try { d = await (fnErr as any).context.json() } catch { /* keep generic */ }
+      }
+      if (fnErr || d?.error) setMailMsg(d?.error || (fnErr as any)?.message || 'Could not mail the letter.')
       else setMailMsg(`Mailed via certified mail${d?.cost ? ` — $${d.cost} billed to the owner` : ''}.`)
     } catch (e: any) { setMailMsg(e?.message || 'Could not mail the letter.') }
     finally { setMailing(false) }
