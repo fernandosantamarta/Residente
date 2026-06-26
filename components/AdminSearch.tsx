@@ -175,6 +175,15 @@ const SearchIcon = ({ size = 18 }: { size?: number }) => (
   </svg>
 )
 
+// Colour by match depth — how far the search had to dig to find the term.
+// Title = surface (green), section/category = mid (amber), body text = deep (blue).
+const DEPTH_META: Record<string, { color: string; tip: string }> = {
+  title:    { color: '#1B9E6B', tip: 'Matched in the title' },
+  section:  { color: '#C2740C', tip: 'Matched in the section' },
+  category: { color: '#C2740C', tip: 'Matched in the category' },
+  body:     { color: '#3B72C4', tip: 'Matched deep in the text' },
+}
+
 export function AdminSearch() {
   const router = useRouter()
   const t = useT()
@@ -266,7 +275,7 @@ export function AdminSearch() {
   // Deep content matches (rules + documents), ranked title > section > body.
   const contentResults = useMemo(() => {
     const term = q.trim().toLowerCase()
-    type CItem = { type: 'rule' | 'doc'; id: string; title: string; snippet: string; href: string }
+    type CItem = { type: 'rule' | 'doc'; id: string; title: string; snippet: string; href: string; depth: 'title' | 'section' | 'body' | 'category' }
     if (!term || permLoading || !canAny(P.docs)) return [] as CItem[]
     const out: { item: CItem; score: number }[] = []
     for (const r of content.rules) {
@@ -278,13 +287,16 @@ export function AdminSearch() {
       if (section.includes(term)) score += 40
       if (body.includes(term)) score += 20
       if (!score) continue
+      // How deep the match is: right in the title (surface) → section → buried in
+      // the rule's body text (deepest). Drives the result's colour.
+      const depth: CItem['depth'] = title.includes(term) ? 'title' : section.includes(term) ? 'section' : 'body'
       let snippet = String(r.section || 'Rule')
       const bi = body.indexOf(term)
       if (bi >= 0 && r.body) {
         const start = Math.max(0, bi - 30)
         snippet = (start > 0 ? '…' : '') + String(r.body).slice(start, bi + term.length + 70).trim() + '…'
       }
-      out.push({ item: { type: 'rule', id: r.id, title: r.title || r.section || 'Rule', snippet, href: '/admin/documents#rules' }, score })
+      out.push({ item: { type: 'rule', id: r.id, title: r.title || r.section || 'Rule', snippet, href: '/admin/documents#rules', depth }, score })
     }
     for (const d of content.documents) {
       const title = String(d.title || '').toLowerCase()
@@ -293,7 +305,8 @@ export function AdminSearch() {
       if (title.includes(term)) score += 90
       if (cat.includes(term)) score += 30
       if (!score) continue
-      out.push({ item: { type: 'doc', id: d.id, title: d.title || 'Document', snippet: d.category || 'Document', href: '/admin/documents#documents' }, score })
+      const depth: CItem['depth'] = title.includes(term) ? 'title' : 'category'
+      out.push({ item: { type: 'doc', id: d.id, title: d.title || 'Document', snippet: d.category || 'Document', href: '/admin/documents#documents', depth }, score })
     }
     return out.sort((a, b) => b.score - a.score).slice(0, 8).map(x => x.item)
   }, [q, content, permLoading, canAny])
@@ -349,15 +362,20 @@ export function AdminSearch() {
                 <button
                   key={`c-${row.item.type}-${row.item.id}`}
                   type="button"
+                  title={DEPTH_META[row.item.depth]?.tip}
                   className={`admin-search-item${i === active ? ' active' : ''}`}
+                  style={{ borderLeft: `3px solid ${DEPTH_META[row.item.depth]?.color || 'transparent'}` }}
                   onMouseEnter={() => setActive(i)}
                   onClick={() => go(i)}
                 >
                   <span className="admin-search-item-label">
-                    {row.item.title}
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      <span aria-hidden="true" style={{ width: 8, height: 8, borderRadius: '50%', flexShrink: 0, background: DEPTH_META[row.item.depth]?.color || 'transparent' }} />
+                      {row.item.title}
+                    </span>
                     {row.item.snippet && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--text-faint)', fontWeight: 400, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 380 }}>{row.item.snippet}</span>}
                   </span>
-                  <span className="admin-search-item-group">{row.item.type === 'rule' ? t('documents.smartSearchRule') : t('documents.smartSearchDoc')}</span>
+                  <span className="admin-search-item-group" style={{ color: DEPTH_META[row.item.depth]?.color }}>{row.item.type === 'rule' ? t('documents.smartSearchRule') : t('documents.smartSearchDoc')}</span>
                 </button>
               ) : (
                 <button

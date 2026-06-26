@@ -737,7 +737,7 @@ export default function RequestsAdmin() {
             </div>
 
             {/* RIGHT — composer / conversation / empty */}
-            <div style={{ padding: 16, minWidth: 0 }}>
+            <div style={{ padding: 16, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
               {/* Mobile-only: back to the conversation list. */}
               <button type="button" className="msg-back" onClick={() => { setSelectedId(null); setComposing(false) }}>
                 <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6" /></svg>
@@ -1037,10 +1037,12 @@ function AdminThread({
   }
 
   return (
-    <div style={{ marginTop: 12 }}>
+    <div style={{ marginTop: 12, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
       {messageLog}
-      {/* Work-order panel — turn this maintenance thread into a tracked vendor
-          job (create, assign, advance) without leaving the conversation. */}
+      {/* Work-order panel + composer sit at the BOTTOM of the conversation pane
+          (margin-top:auto) so the reply box + triage row hug the bottom of the
+          section even when the thread is short. */}
+      <div style={{ marginTop: 'auto' }}>
       <WorkOrderPanel request={request} profileId={profileId} vendors={vendors} openAttachment={openAttachment} onSent={onSent} />
       {(
         <>
@@ -1087,7 +1089,7 @@ function AdminThread({
           {file && <div className="imsg-composer-opts" style={{ color: '#E14909' }}>{file.name}</div>}
           {err && <div className="admin-note admin-note-err" style={{ marginTop: 8 }}>{err}</div>}
           {/* Email toggle — on-theme orange. */}
-          <div className="imsg-composer-opts">
+          <div className="imsg-composer-opts" style={{ marginLeft: 16 }}>
             <label style={{ display: 'inline-flex', alignItems: 'center', gap: 6, cursor: 'pointer', color: '#E14909', fontWeight: 600 }}>
               <input type="checkbox" checked={emailIt} onChange={e => setEmailIt(e.target.checked)} style={{ accentColor: '#E14909' }} />
               {t('admin.requests.emailResident')}
@@ -1138,6 +1140,7 @@ function AdminThread({
           )}
         </>
       )}
+      </div>
     </div>
   )
 }
