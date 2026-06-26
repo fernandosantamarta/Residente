@@ -25,6 +25,7 @@ import {
 } from '@/lib/compliance/official-records'
 import { ymd } from '@/lib/compliance/rules-core'
 import { logAudit } from '@/lib/audit'
+import { RecordsRequestRoom } from './RecordsRequestRoom'
 
 const RULE_BOOK_PAGE_SIZE = 6
 const DOCS_PAGE_SIZE = 8
@@ -592,6 +593,19 @@ export default function AdminEasyDocs() {
     } catch (err: any) {
       setDocError(err?.message || 'Could not update the request')
     }
+  }
+
+  // Records-request room answered (documents posted via the PII-gated RPC). The
+  // RPC stamped responded_at + posted the docs; refresh the row + archive so the
+  // portal status shows through.
+  const handleRecordsResponded = (requestId: string, posted: number) => {
+    const now = new Date().toISOString()
+    setRecRequests((rs: any[]) => rs.map(r => r.id === requestId ? { ...r, responded_at: now, status: 'resolved' } : r))
+    if (communityId) logAudit({ community_id: communityId, event_type: 'records.request_responded', target_type: 'records_request', target_id: requestId })
+    setDocSuccessMsg(posted > 0
+      ? `Records request answered — ${posted} document${posted === 1 ? '' : 's'} posted to the owner portal.`
+      : 'Records request answered.')
+    loadDocs()
   }
 
   // Mark the records portal password-protected (owners + employees only) — clears the
@@ -1241,28 +1255,36 @@ export default function AdminEasyDocs() {
                       const answered = !!r.responded_at
                       const overdue = !answered && due && due.getTime() < Date.now()
                       return (
-                        <div className="bd-row" key={r.id} style={overdue ? { borderLeft: '4px solid #B42318' } : undefined}>
-                          <div className="bd-main">
-                            <div className="bd-title">{r.subject || t('admin.documents.recordsRequestFallback')}</div>
-                            <div className="bd-meta">
-                              {r.submitter_name && <><span>{r.submitter_name}</span><span className="bd-dot">·</span></>}
-                              <span>{t('admin.documents.requestedOn')} {fmtDate(r.created_at)}</span>
-                              {due && <><span className="bd-dot">·</span>
-                                <span style={{ color: answered ? '#067647' : overdue ? '#B42318' : '#475467', fontWeight: 600 }}>
-                                  {answered ? `${t('admin.documents.answeredOn')} ${fmtDate(r.responded_at)}` : `${t('admin.documents.dueOn')} ${ymd(due)}`}
-                                </span></>}
+                        <div key={r.id}>
+                          <div className="bd-row" style={overdue ? { borderLeft: '4px solid #B42318' } : undefined}>
+                            <div className="bd-main">
+                              <div className="bd-title">{r.subject || t('admin.documents.recordsRequestFallback')}</div>
+                              <div className="bd-meta">
+                                {r.submitter_name && <><span>{r.submitter_name}</span><span className="bd-dot">·</span></>}
+                                <span>{t('admin.documents.requestedOn')} {fmtDate(r.created_at)}</span>
+                                {due && <><span className="bd-dot">·</span>
+                                  <span style={{ color: answered ? '#067647' : overdue ? '#B42318' : '#475467', fontWeight: 600 }}>
+                                    {answered ? `${t('admin.documents.answeredOn')} ${fmtDate(r.responded_at)}` : `${t('admin.documents.dueOn')} ${ymd(due)}`}
+                                  </span></>}
+                              </div>
+                              {r.body && <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>{r.body}</div>}
                             </div>
-                            {r.body && <div style={{ fontSize: 13, opacity: 0.8, marginTop: 4 }}>{r.body}</div>}
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
+                              {!answered && (
+                                <button type="button" className="admin-primary-btn" onClick={() => respondToRequest(r)}>
+                                  {t('admin.documents.markAnsweredBtn')}
+                                </button>
+                              )}
+                              <a href={`/admin/documents/records-print?type=acknowledgement&request=${r.id}`} className="doc-card-link" style={{ fontSize: 12 }}>{t('admin.documents.acknowledgementLink')}</a>
+                              <a href={`/admin/documents/records-print?type=checklist&request=${r.id}`} className="doc-card-link" style={{ fontSize: 12 }}>{t('admin.documents.checklistLink')}</a>
+                            </div>
                           </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-                            {!answered && (
-                              <button type="button" className="admin-primary-btn" onClick={() => respondToRequest(r)}>
-                                {t('admin.documents.markAnsweredBtn')}
-                              </button>
-                            )}
-                            <a href={`/admin/documents/records-print?type=acknowledgement&request=${r.id}`} className="doc-card-link" style={{ fontSize: 12 }}>{t('admin.documents.acknowledgementLink')}</a>
-                            <a href={`/admin/documents/records-print?type=checklist&request=${r.id}`} className="doc-card-link" style={{ fontSize: 12 }}>{t('admin.documents.checklistLink')}</a>
-                          </div>
+                          <RecordsRequestRoom
+                            request={r}
+                            communityId={communityId}
+                            archiveDocs={docRows}
+                            onResponded={handleRecordsResponded}
+                          />
                         </div>
                       )
                     })}

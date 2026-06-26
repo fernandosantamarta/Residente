@@ -185,6 +185,16 @@ const MINUTES_PROMPT =
   '(what, who owns it, any due date). Report only what the minutes actually state — omit any field ' +
   'you are unsure about rather than guessing, and never invent motions or tallies.'
 
+// Transcript path: the board pastes raw meeting notes / a recording transcript and
+// AI DRAFTS structured minutes for review. Same tool/shape as reading a minutes doc.
+const MINUTES_TRANSCRIPT_PROMPT =
+  'Below are raw notes or a transcript from a Florida HOA/condo association meeting. Using the ' +
+  'meeting_minutes tool, DRAFT structured minutes for the board to review: every formal MOTION ' +
+  '(its text, who moved/seconded it, the vote tally for/against/abstain if stated, and the outcome), ' +
+  'and every ACTION ITEM / follow-up task (what, who owns it, any due date). Base everything strictly ' +
+  'on what the notes say — omit any field that is not stated rather than guessing, and never invent ' +
+  'motions, names, or tallies. This is a draft the board will review and edit before adopting.'
+
 // ---- violation: read a violation photo, match a rule, draft the notice ----
 const VIOLATION_TOOL = {
   name: 'violation_extract',
@@ -417,17 +427,28 @@ Deno.serve(async (req) => {
   const mediaType = String(body?.media_type || '')
   const kind = String(body?.kind || '')
   const subhint = String(body?.subhint || '')
-  if (!fileBase64) return json({ error: 'No document provided.' }, 400)
+  // Text path: the 'minutes' kind can DRAFT from pasted notes / a transcript
+  // instead of reading a file. No file + no transcript = nothing to do.
+  const transcriptText = String(body?.transcript_text || '')
+  const isTranscript = !fileBase64 && kind === 'minutes' && !!transcriptText.trim()
+  if (!fileBase64 && !isTranscript) return json({ error: 'No document provided.' }, 400)
   const spec = specFor(kind, body)
   if (!spec) return json({ error: 'Unknown document kind.' }, 400)
 
-  // PDFs go in a document block; images (png/jpg/webp/gif) in an image block.
-  const isPdf = mediaType === 'application/pdf'
-  const source = { type: 'base64', media_type: isPdf ? 'application/pdf' : (mediaType || 'image/png'), data: fileBase64 }
-  const docBlock = isPdf ? { type: 'document', source } : { type: 'image', source }
-  // A caller-supplied hint (e.g. the insurance section the upload sits under)
-  // focuses the read without changing the output shape.
-  const promptText = subhint ? `${spec.prompt} This document is specifically a ${subhint}.` : spec.prompt
+  // Build the user content: a document/image block + prompt for a file, or a
+  // single text block (prompt + transcript) for the notes-to-minutes path.
+  let userContent: any[]
+  if (isTranscript) {
+    userContent = [{ type: 'text', text: `${MINUTES_TRANSCRIPT_PROMPT}\n\nMEETING NOTES / TRANSCRIPT:\n${transcriptText.slice(0, 120000)}` }]
+  } else {
+    const isPdf = mediaType === 'application/pdf'
+    const source = { type: 'base64', media_type: isPdf ? 'application/pdf' : (mediaType || 'image/png'), data: fileBase64 }
+    const docBlock = isPdf ? { type: 'document', source } : { type: 'image', source }
+    // A caller-supplied hint (e.g. the insurance section the upload sits under)
+    // focuses the read without changing the output shape.
+    const promptText = subhint ? `${spec.prompt} This document is specifically a ${subhint}.` : spec.prompt
+    userContent = [docBlock, { type: 'text', text: promptText }]
+  }
 
   try {
     const res = await fetch('https://api.anthropic.com/v1/messages', {
@@ -442,7 +463,7 @@ Deno.serve(async (req) => {
         max_tokens: 8192,
         tools: [spec.tool],
         tool_choice: { type: 'tool', name: spec.tool.name },
-        messages: [{ role: 'user', content: [docBlock, { type: 'text', text: promptText }] }],
+        messages: [{ role: 'user', content: userContent }],
       }),
     })
     if (!res.ok) {

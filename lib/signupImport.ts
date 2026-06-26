@@ -347,6 +347,23 @@ export interface ExtractedMinutes { motions: ExtractedMinutesMotion[]; action_it
 
 // AI: read a meeting-minutes PDF/photo → motions, vote tallies, action items,
 // for the board to review before saving. Null if AI isn't configured / failed.
+function mapExtractedMinutes(d: any): ExtractedMinutes {
+  const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
+  const str = (v: any) => (v == null ? undefined : String(v).trim() || undefined)
+  const motions: ExtractedMinutesMotion[] = (Array.isArray(d?.motions) ? d.motions : [])
+    .map((m: any) => ({
+      motion: String(m?.motion || '').trim(),
+      moved_by: str(m?.moved_by), seconded_by: str(m?.seconded_by),
+      votes_for: num(m?.votes_for), votes_against: num(m?.votes_against), votes_abstain: num(m?.votes_abstain),
+      outcome: str(m?.outcome),
+    }))
+    .filter((m: ExtractedMinutesMotion) => m.motion)
+  const action_items: ExtractedMinutesAction[] = (Array.isArray(d?.action_items) ? d.action_items : [])
+    .map((a: any) => ({ action: String(a?.action || '').trim(), owner: str(a?.owner), due: str(a?.due) }))
+    .filter((a: ExtractedMinutesAction) => a.action)
+  return { motions, action_items }
+}
+
 export async function extractMinutesFromFile(file: File): Promise<ExtractedMinutes | null> {
   if (!hasSupabase || !supabase || !file) return null
   try {
@@ -354,21 +371,19 @@ export async function extractMinutesFromFile(file: File): Promise<ExtractedMinut
     const media_type = file.type || (/\.pdf$/i.test(file.name) ? 'application/pdf' : 'image/png')
     const { data, error } = await supabase.functions.invoke('extract-doc', { body: { file_base64, media_type, kind: 'minutes' } })
     if (error || !data?.ok || !data?.data) return null
-    const d = data.data as any
-    const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
-    const str = (v: any) => (v == null ? undefined : String(v).trim() || undefined)
-    const motions: ExtractedMinutesMotion[] = (Array.isArray(d.motions) ? d.motions : [])
-      .map((m: any) => ({
-        motion: String(m?.motion || '').trim(),
-        moved_by: str(m?.moved_by), seconded_by: str(m?.seconded_by),
-        votes_for: num(m?.votes_for), votes_against: num(m?.votes_against), votes_abstain: num(m?.votes_abstain),
-        outcome: str(m?.outcome),
-      }))
-      .filter((m: ExtractedMinutesMotion) => m.motion)
-    const action_items: ExtractedMinutesAction[] = (Array.isArray(d.action_items) ? d.action_items : [])
-      .map((a: any) => ({ action: String(a?.action || '').trim(), owner: str(a?.owner), due: str(a?.due) }))
-      .filter((a: ExtractedMinutesAction) => a.action)
-    return { motions, action_items }
+    return mapExtractedMinutes(data.data)
+  } catch { return null }
+}
+
+// AI: DRAFT structured minutes from pasted meeting notes / a transcript (text, no
+// file) → motions + action items, for the board to review before saving. Reuses
+// the extract-doc 'minutes' tool via its text path. Null if AI isn't configured.
+export async function draftMinutesFromTranscript(transcript: string): Promise<ExtractedMinutes | null> {
+  if (!hasSupabase || !supabase || !transcript.trim()) return null
+  try {
+    const { data, error } = await supabase.functions.invoke('extract-doc', { body: { kind: 'minutes', transcript_text: transcript } })
+    if (error || !data?.ok || !data?.data) return null
+    return mapExtractedMinutes(data.data)
   } catch { return null }
 }
 

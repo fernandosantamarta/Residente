@@ -162,6 +162,14 @@ export default function BudgetPage() {
         {t('admin.budget.dekBefore')}<Link href="/admin/financials" style={{ color: 'var(--pink)', fontWeight: 600 }}>{t('admin.budget.dekLink')}</Link>{t('admin.budget.dekAfter')}
       </p>
 
+      <Link href="/admin/assessments" className="card" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, textDecoration: 'none', color: 'inherit', marginBottom: 16 }}>
+        <span>
+          <strong style={{ display: 'block' }}>{t('admin.assessments.entryTitle')}</strong>
+          <span className="sub" style={{ fontSize: 13, opacity: 0.75 }}>{t('admin.assessments.entryDek')}</span>
+        </span>
+        <span aria-hidden style={{ fontSize: 20, opacity: 0.5 }}>→</span>
+      </Link>
+
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
       {status === 'none' && <div className="admin-note admin-note-warn">{t('admin.budget.noCommunity')}</div>}
       {status === 'error' && <div className="admin-note admin-note-err">{error}<button type="button" className="admin-btn-ghost" onClick={load}>{t('admin.budget.retry')}</button></div>}

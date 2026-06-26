@@ -18,7 +18,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { logAudit } from '@/lib/audit'
 import { useT } from '@/lib/i18n'
 import { Dropdown } from '@/components/Dropdown'
-import { extractMinutesFromFile, type ExtractedMinutes } from '@/lib/signupImport'
+import { extractMinutesFromFile, draftMinutesFromTranscript, type ExtractedMinutes } from '@/lib/signupImport'
 import {
   defaultTemplate,
   seedSectionsData,
@@ -146,6 +146,21 @@ export default function MinutesCapturePage() {
   const [minExtract, setMinExtract] = useState<ExtractedMinutes | null>(null)
   const [minErr, setMinErr] = useState('')
   const minFileRef = useRef<HTMLInputElement>(null)
+  const [transcript, setTranscript] = useState('')
+
+  const onDraftFromTranscript = async () => {
+    if (!transcript.trim()) return
+    setMinBusy(true); setMinErr(''); setMinExtract(null)
+    try {
+      const ex = await draftMinutesFromTranscript(transcript)
+      if (ex && (ex.motions.length || ex.action_items.length)) setMinExtract(ex)
+      else setMinErr(t('admin.minutes.aiUnavailable'))
+    } catch {
+      setMinErr(t('admin.minutes.aiUnavailable'))
+    } finally {
+      setMinBusy(false)
+    }
+  }
 
   const onPickMinutes = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -301,6 +316,22 @@ export default function MinutesCapturePage() {
                 style={{ display: 'none' }}
               />
               {minErr && <span style={{ color: '#B42318', fontSize: 12.5 }}>{minErr}</span>}
+            </div>
+
+            {/* Or DRAFT from pasted notes / a recording transcript (text path). */}
+            <div style={{ marginTop: 14 }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>{t('admin.minutes.aiTranscriptLabel')}</label>
+              <textarea
+                value={transcript}
+                onChange={e => setTranscript(e.target.value)}
+                placeholder={t('admin.minutes.aiTranscriptPlaceholder')}
+                rows={5}
+                style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', fontSize: 13.5, border: '1px solid #D0D5DD', borderRadius: 9, resize: 'vertical', fontFamily: 'inherit' }}
+              />
+              <button type="button" className="admin-secondary-btn" style={{ marginTop: 8 }}
+                disabled={minBusy || !transcript.trim()} onClick={onDraftFromTranscript}>
+                {minBusy ? t('admin.minutes.aiDrafting') : t('admin.minutes.aiDraftBtn')}
+              </button>
             </div>
 
             {minExtract && (

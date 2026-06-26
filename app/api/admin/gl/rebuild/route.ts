@@ -87,7 +87,7 @@ async function handle(req: Request, allowCommit: boolean) {
 
   try {
     // ---- Load source events (the same tables the live statements read) ----
-    const [{ data: community, error: cErr }, residentsR, paymentsR, expensesR, violationsR, reservesR] =
+    const [{ data: community, error: cErr }, residentsR, paymentsR, expensesR, violationsR, reservesR, billsR, disbR] =
       await Promise.all([
         admin.from('communities').select('*').eq('id', communityId).single(),
         admin.from('residents').select('id, created_at, opening_balance').eq('community_id', communityId),
@@ -95,16 +95,30 @@ async function handle(req: Request, allowCommit: boolean) {
         admin.from('ev_expenses').select('id, amount, spent_on, category_id').eq('community_id', communityId),
         admin.from('ev_violations').select('id, amount, status, resolution, closed_at').eq('community_id', communityId),
         admin.from('ev_reserve_components').select('id, current_balance, created_at').eq('community_id', communityId),
+        admin.from('vendor_bills').select('id, bill_date, amount, status, fund, gl_account_code, budget_category_id').eq('community_id', communityId),
+        admin.from('disbursements').select('id, amount, status, fund, paid_on').eq('community_id', communityId),
       ])
     if (cErr || !community) {
       return NextResponse.json({ error: `community not found: ${cErr?.message || communityId}` }, { status: 404 })
     }
+    // The AP tables (supabase/disbursements.sql) are an additive, later slice. Treat a
+    // MISSING TABLE (relation does not exist) as "feature not installed → no entries"
+    // so this route keeps working before the SQL is run; any OTHER error still fails
+    // closed. Safe to project empty: there can be no persisted bill/bill_payment entries
+    // to garbage-collect if the table never existed.
+    const isMissingTable = (e: any): boolean =>
+      !!e && (e.code === '42P01' || /relation .* does not exist/i.test(e.message || ''))
+    const apTolerant = (r: { data: any; error: any }) =>
+      r.error ? (isMissingTable(r.error) ? { data: [], error: null } : r) : r
+    const billsT = apTolerant(billsR)
+    const disbT = apTolerant(disbR)
     // Fail CLOSED on any source-query error. A partial load (e.g. payments=[] from a
     // transient/RLS error) would still pass every tie-out guard — both sides of the
     // check consume the same empty set — and then the RPC's orphan-GC would wipe the
     // now-"absent" entries. Never project from an incomplete source read.
     const srcErr =
-      residentsR.error || paymentsR.error || expensesR.error || violationsR.error || reservesR.error
+      residentsR.error || paymentsR.error || expensesR.error || violationsR.error || reservesR.error ||
+      billsT.error || disbT.error
     if (srcErr) {
       return NextResponse.json({ error: `source load failed: ${srcErr.message}` }, { status: 502 })
     }
@@ -122,6 +136,8 @@ async function handle(req: Request, allowCommit: boolean) {
       expenses: expensesR.data || [],
       violations: violationsR.data || [],
       reserveComponents: reservesR.data || [],
+      vendorBills: billsT.data || [],
+      disbursements: disbT.data || [],
       asOf,
     })
 
@@ -192,6 +208,8 @@ async function handle(req: Request, allowCommit: boolean) {
         expenses: (expensesR.data || []).length,
         violations: (violationsR.data || []).length,
         reserve_components: (reservesR.data || []).length,
+        vendor_bills: (billsT.data || []).length,
+        disbursements: (disbT.data || []).length,
       },
       rpc,
       trial_balance: tb,

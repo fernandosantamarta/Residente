@@ -12,6 +12,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { ymd, calendarDaysUntil, businessDaysBetween, toDate } from '@/lib/compliance/rules-core'
 import { AttorneyNote } from '../AttorneyNote'
 import { ComplianceBackLink } from '../ComplianceBackLink'
+import { PublicLinkCard } from './PublicLinkCard'
 import { Dropdown } from '@/components/Dropdown'
 import {
   estoppelDueAt, estoppelFee, estoppelValidUntil,
@@ -164,6 +165,8 @@ export default function EstoppelPage() {
       </p>
 
       <AttorneyNote />
+
+      {communityId && <PublicLinkCard communityId={communityId} />}
 
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
 
