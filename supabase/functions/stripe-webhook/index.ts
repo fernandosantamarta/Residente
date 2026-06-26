@@ -116,9 +116,10 @@ async function recordDuesPayment(session: Stripe.Checkout.Session): Promise<Resp
     .from('payments').select('id').eq('stripe_session_id', session.id).maybeSingle()
   if (existing) return received()
 
-  // For an installment, tag the payment to the plan's collection case too.
-  let applied_to_case: string | null = null
-  if (plan_id) {
+  // Tag the payment to a collection case: an explicit metadata tag (owner paying
+  // their payoff to clear the case) wins; otherwise derive it from the plan.
+  let applied_to_case: string | null = session.metadata?.applied_to_case || null
+  if (!applied_to_case && plan_id) {
     const { data: planRow } = await admin
       .from('ev_payment_plans').select('case_id').eq('id', plan_id).maybeSingle()
     applied_to_case = planRow?.case_id ?? null
@@ -400,8 +401,8 @@ Deno.serve(async (req) => {
       .maybeSingle()
 
     if (!existing) {
-      let applied_to_case: string | null = null
-      if (plan_id) {
+      let applied_to_case: string | null = pi.metadata?.applied_to_case || null
+      if (!applied_to_case && plan_id) {
         const { data: planRow } = await admin
           .from('ev_payment_plans').select('case_id').eq('id', plan_id).maybeSingle()
         applied_to_case = planRow?.case_id ?? null

@@ -32,7 +32,7 @@ Deno.serve(async (req) => {
   try {
     // plan_id / installment_no / charge_type are optional — present when the
     // resident is paying a payment-plan installment rather than ad-hoc dues.
-    const { resident_id, amount, plan_id, installment_no, charge_type, embedded } = await req.json()
+    const { resident_id, amount, plan_id, installment_no, charge_type, applied_to_case, embedded } = await req.json()
 
     // Validate inputs before touching Stripe.
     if (!resident_id || typeof resident_id !== 'string') {
@@ -128,6 +128,7 @@ Deno.serve(async (req) => {
         ...(planId ? { plan_id: planId } : {}),
         ...(installment_no != null ? { installment_no: String(installment_no) } : {}),
         ...(charge_type ? { charge_type: String(charge_type) } : {}),
+        ...(applied_to_case ? { applied_to_case: String(applied_to_case) } : {}),
       },
       // Mirror the household tags onto the PaymentIntent too, so a connected
       // account's own Stripe dashboard (and later reconciliation) can see what
@@ -138,6 +139,7 @@ Deno.serve(async (req) => {
           community_id: resident.community_id,
           ...(planId ? { plan_id: planId } : {}),
           ...(charge_type ? { charge_type: String(charge_type) } : {}),
+          ...(applied_to_case ? { applied_to_case: String(applied_to_case) } : {}),
         },
       },
     }

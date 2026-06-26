@@ -59,6 +59,16 @@ export type PlatformAiUsageByKind = {
 // Insights is expanded. From platform_ai_usage_by_community_kind().
 export type PlatformAiUsageByCommunityKind = PlatformAiUsageByKind & { community_id: string }
 
+// Per-community Lob mailing spend + the kill-switch state, for the Mailing tab.
+// From platform_mail_usage() (security definer; owner only). Cost is in dollars.
+export type PlatformMailUsage = {
+  community_id: string; name: string | null; plan: string | null
+  lob_enabled: boolean
+  month_cost: number; month_count: number
+  total_cost: number; total_count: number
+  last_sent_at: string | null
+}
+
 // Lightweight boolean — is the signed-in user a Residente platform operator?
 // Used to conditionally show the Platform Console link. Returns null while loading.
 export function usePlatformAdmin(): boolean | null {
@@ -117,6 +127,7 @@ export function usePlatformConsole() {
   const [aiUsage, setAiUsage] = useState<PlatformAiUsage[]>([])
   const [aiByKind, setAiByKind] = useState<PlatformAiUsageByKind[]>([])
   const [aiByCommKind, setAiByCommKind] = useState<PlatformAiUsageByCommunityKind[]>([])
+  const [lobUsage, setLobUsage] = useState<PlatformMailUsage[]>([])
   const [loading, setLoading] = useState(true)
 
   // Only the FIRST load shows the loading shell; every reload after a
@@ -171,8 +182,11 @@ export function usePlatformConsole() {
         setAiByKind((byKind ?? []) as PlatformAiUsageByKind[])
         const { data: byCommKind } = await supabase.rpc('platform_ai_usage_by_community_kind')
         setAiByCommKind((byCommKind ?? []) as PlatformAiUsageByCommunityKind[])
+        // Lob mailing spend per community (owner-only; empty until mail-usage.sql runs).
+        const { data: mail } = await supabase.rpc('platform_mail_usage')
+        setLobUsage((mail ?? []) as PlatformMailUsage[])
       } else {
-        setAiUsage([]); setAiByKind([]); setAiByCommKind([])
+        setAiUsage([]); setAiByKind([]); setAiByCommKind([]); setLobUsage([])
       }
     } finally {
       loadedOnce.current = true
@@ -317,10 +331,29 @@ export function usePlatformConsole() {
     return null
   }, [load])
 
+  // Lob kill switch — turn certified mailing on/off for a community (owner only).
+  const setLobEnabled = useCallback(async (communityId: string, enabled: boolean): Promise<string | null> => {
+    if (!hasSupabase || !supabase) return 'Not connected'
+    const { error } = await supabase.rpc('platform_set_lob_enabled', { p_community: communityId, p_enabled: enabled })
+    if (error) return error.message
+    await load()
+    return null
+  }, [load])
+
+  // Write off a community's accrued mailing-cost balances across its cases.
+  const clearMailingCosts = useCallback(async (communityId: string): Promise<string | null> => {
+    if (!hasSupabase || !supabase) return 'Not connected'
+    const { error } = await supabase.rpc('platform_clear_mailing_costs', { p_community: communityId })
+    if (error) return error.message
+    await load()
+    return null
+  }, [load])
+
   return {
-    isAdmin, myRole, myRoles, communities, requests, operators, audit, aiUsage, aiByKind, aiByCommKind, loading, reload: load,
+    isAdmin, myRole, myRoles, communities, requests, operators, audit, aiUsage, aiByKind, aiByCommKind, lobUsage, loading, reload: load,
     setRequestStatus, enterCommunity, addOperator, removeOperator, setOperatorRole,
     setOperatorExtraRoles, removeCommunity, fetchResidents, removeResident, transferOwnership, setAiCap,
+    setLobEnabled, clearMailingCosts,
   }
 }
 

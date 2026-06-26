@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, Fragment } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/app/providers'
-import { usePlatformConsole, usePlatformThread, sendPlatformReply, openCommunityThread, PlatformRequest, PlatformResident, PlatformOperator, OperatorRole, AuditEntry } from '@/hooks/usePlatform'
+import { usePlatformConsole, usePlatformThread, sendPlatformReply, openCommunityThread, PlatformRequest, PlatformResident, PlatformOperator, OperatorRole, AuditEntry, PlatformAiUsage, PlatformMailUsage } from '@/hooks/usePlatform'
 import { DangerAction } from '@/components/DangerAction'
 import PendingQueue from './PendingQueue'
 
@@ -61,12 +61,13 @@ const subStatusColor = (s: string | null) =>
 const subStatusBg = (s: string | null) =>
   s === 'active' ? C.goodSoft : s === 'past_due' ? C.badSoft : s === 'cancelled' || s === 'canceled' ? C.warnSoft : s === 'trial' ? C.infoSoft : C.accentSoft
 
-type Tab = 'overview' | 'pending' | 'communities' | 'ai-insights' | 'support' | 'operators' | 'activity'
+type Tab = 'overview' | 'pending' | 'communities' | 'ai-insights' | 'mailing' | 'support' | 'operators' | 'activity'
 const TABS: { key: Tab; label: string }[] = [
   { key: 'overview', label: 'Overview' },
   { key: 'pending', label: 'Pending' },
   { key: 'communities', label: 'Communities' },
   { key: 'ai-insights', label: 'AI Insights' },
+  { key: 'mailing', label: 'Mailing' },
   { key: 'support', label: 'Support' },
   { key: 'operators', label: 'Operators' },
   { key: 'activity', label: 'Activity' },
@@ -79,7 +80,7 @@ const TABS: { key: Tab; label: string }[] = [
 const ROLE_TABS: Record<OperatorRole, Tab[]> = {
   // AI Insights (cost + the API budget/kill switch) is OWNER-ONLY — no other
   // Residente operator role can see it (and the RPCs behind it are owner-gated too).
-  owner:    ['overview', 'pending', 'communities', 'ai-insights', 'support', 'operators', 'activity'],
+  owner:    ['overview', 'pending', 'communities', 'ai-insights', 'mailing', 'support', 'operators', 'activity'],
   billing:  ['overview', 'pending', 'communities', 'activity'],
   operator: ['pending', 'communities', 'support', 'activity'],
   support:  ['pending', 'support', 'activity'],
@@ -477,11 +478,41 @@ function CapCell({ row, onSave }: { row: PlatformAiUsage; onSave: (cents: number
   )
 }
 
+// Lob on/off + write-off control for one community (Mailing tab). Mirrors CapCell.
+function LobToggle({ row, onToggle, onClear }: {
+  row: PlatformMailUsage
+  onToggle: (id: string, enabled: boolean) => Promise<string | null>
+  onClear: (id: string) => Promise<string | null>
+}) {
+  const [busy, setBusy] = useState(false)
+  const flip = async () => { setBusy(true); await onToggle(row.community_id, !row.lob_enabled); setBusy(false) }
+  const clear = async () => {
+    if (typeof window !== 'undefined' && !window.confirm(`Write off all accrued mailing costs for ${row.name || 'this community'}? This zeroes the mailing line on their collection cases.`)) return
+    setBusy(true); await onClear(row.community_id); setBusy(false)
+  }
+  return (
+    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 10, justifyContent: 'flex-end' }}>
+      {Number(row.total_cost) > 0 && (
+        <button type="button" disabled={busy} onClick={clear} title="Write off accrued mailing costs"
+          style={{ fontSize: 11.5, fontWeight: 600, color: C.muted, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+          Write off
+        </button>
+      )}
+      <button type="button" disabled={busy} onClick={flip}
+        style={{ fontSize: 11.5, fontWeight: 800, padding: '4px 12px', borderRadius: 999, cursor: 'pointer', border: 'none',
+          background: row.lob_enabled ? C.goodSoft : C.badSoft, color: row.lob_enabled ? C.good : C.bad }}>
+        {row.lob_enabled ? 'ON' : 'OFF'}
+      </button>
+    </div>
+  )
+}
+
 export default function PlatformConsole() {
   const {
-    isAdmin, myRole, myRoles, communities, requests, operators, audit, aiUsage, aiByKind, aiByCommKind, loading, reload,
+    isAdmin, myRole, myRoles, communities, requests, operators, audit, aiUsage, aiByKind, aiByCommKind, lobUsage, loading, reload,
     setRequestStatus, enterCommunity, addOperator, removeOperator, setOperatorRole,
     setOperatorExtraRoles, removeCommunity, fetchResidents, removeResident, transferOwnership, setAiCap,
+    setLobEnabled, clearMailingCosts,
   } = usePlatformConsole()
   const router = useRouter()
   const { profile } = useAuth() || {}
@@ -1250,6 +1281,58 @@ export default function PlatformConsole() {
           </div>
           <Paginator page={aiPageC} pageSize={AI_SIZE} total={aiUsage.length} onPage={setAiPage} />
           </>
+          )}
+        </section>
+        )
+      })()}
+
+      {/* MAILING (Lob) — owner-only cost control */}
+      {curTab === 'mailing' && (() => {
+        const monthSpend = lobUsage.reduce((s, r) => s + Number(r.month_cost || 0), 0)
+        const totalSpend = lobUsage.reduce((s, r) => s + Number(r.total_cost || 0), 0)
+        const offCount = lobUsage.filter(r => !r.lob_enabled).length
+        return (
+        <section style={card}>
+          <h2 style={{ fontSize: 17, fontWeight: 800, margin: '0 0 4px' }}>Mailing (Lob) cost control</h2>
+          <p style={{ color: C.muted, fontSize: 13, margin: '0 0 16px' }}>
+            Certified-mail spend per community. Turn Lob off for any community that isn&apos;t paying so it can&apos;t run up our bill.
+          </p>
+          <div className="plat-stats" style={{ marginBottom: 18 }}>
+            {stat('Spend this month', Math.round(monthSpend), 'accent', '$')}
+            {stat('Spend all-time', Math.round(totalSpend), 'neutral', '$')}
+            {stat('Mailing OFF', offCount, 'bad')}
+          </div>
+          {lobUsage.length === 0 ? (
+            <div style={{ color: C.muted, fontSize: 13, padding: '6px 2px' }}>
+              No Lob mailing yet. Spend shows here once a community sends a certified letter. (If it stays empty, run mail-controls.sql + mail-usage.sql.)
+            </div>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table className="plat-table" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead><tr>
+                  <th style={th}>Community</th>
+                  <th style={th}>Plan</th>
+                  <th style={{ ...th, textAlign: 'right' }}>This month</th>
+                  <th style={{ ...th, textAlign: 'right' }}>All-time</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Letters</th>
+                  <th style={th}>Last sent</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Lob</th>
+                </tr></thead>
+                <tbody>
+                  {lobUsage.map(r => (
+                    <tr key={r.community_id} className={r.lob_enabled ? '' : 'is-pastdue'}>
+                      <td style={td}>{r.name || '—'}</td>
+                      <td style={{ ...td, textTransform: 'capitalize' }}>{r.plan || 'free'}</td>
+                      <td style={{ ...td, textAlign: 'right' }}>${Number(r.month_cost || 0).toFixed(2)}</td>
+                      <td style={{ ...td, textAlign: 'right' }}>${Number(r.total_cost || 0).toFixed(2)}</td>
+                      <td style={{ ...td, textAlign: 'right' }}>{Number(r.total_count || 0)}</td>
+                      <td style={td}>{r.last_sent_at ? fmtDate(r.last_sent_at) : '—'}</td>
+                      <td style={{ ...td, textAlign: 'right' }}><LobToggle row={r} onToggle={setLobEnabled} onClear={clearMailingCosts} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </section>
         )
