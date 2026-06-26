@@ -16,4 +16,19 @@
 alter table public.residents
   add column if not exists last_charge_failed_at  timestamptz,
   add column if not exists last_charge_fail_reason text,
-  add column if not exists last_charge_fail_kind   text;   -- 'autopay' | 'installment'
+  add column if not exists last_charge_fail_kind   text;   -- 'autopay' | 'installment' | 'autopay_paused'
+
+-- Dunning retry/pause loop for off-session autopay (charge-autopay runs daily):
+--   • autopay_fail_count          — consecutive off-session declines; charge-autopay
+--                                    increments it on each decline and PAUSES autopay
+--                                    (autopay_enabled=false, kind='autopay_paused') once
+--                                    it reaches the retry cap. Reset to 0 by stripe-webhook
+--                                    on any successful payment and by set-autopay on re-enable.
+--   • autopay_last_charged_period — 'YYYY-MM' of the last month a charge was ACCEPTED
+--                                    (succeeded or async ACH 'processing'). The once-a-month
+--                                    idempotency guard: charge-autopay skips a resident whose
+--                                    marker equals the current month, so a daily run (or an
+--                                    in-flight multi-day ACH settlement) never re-charges.
+alter table public.residents
+  add column if not exists autopay_fail_count          int not null default 0,
+  add column if not exists autopay_last_charged_period text;

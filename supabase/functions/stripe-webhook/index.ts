@@ -145,8 +145,9 @@ async function recordDuesPayment(session: Stripe.Checkout.Session): Promise<Resp
 }
 
 // Clears the off-session failure flag on a resident once any payment lands
-// (manual or autopay), so the "payment didn't go through" banner disappears.
-// Best-effort: a missing column (payment-failures.sql not run yet) is ignored.
+// (manual or autopay), so the "payment didn't go through" banner disappears and
+// the dunning retry streak resets. Best-effort: a missing column (payment-
+// failures.sql not run yet) is ignored.
 async function clearChargeFailure(residentId: string | null | undefined) {
   if (!residentId) return
   try {
@@ -154,6 +155,11 @@ async function clearChargeFailure(residentId: string | null | undefined) {
       last_charge_failed_at: null, last_charge_fail_reason: null, last_charge_fail_kind: null,
     }).eq('id', residentId)
   } catch { /* column may not exist yet */ }
+  // Reset the autopay decline streak separately so a not-yet-migrated column
+  // can't keep the banner above from clearing.
+  try {
+    await admin.from('residents').update({ autopay_fail_count: 0 }).eq('id', residentId)
+  } catch { /* autopay_fail_count not migrated yet */ }
 }
 
 const escapeHtml = (s: string) => String(s ?? '')

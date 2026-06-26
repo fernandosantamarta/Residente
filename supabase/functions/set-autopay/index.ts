@@ -84,6 +84,23 @@ Deno.serve(async (req) => {
       .eq('id', resident.id)
     if (upErr) throw upErr
 
+    // Re-enabling clears any prior decline streak + paused banner so charge-autopay
+    // retries fresh (the resident just fixed their card). Best-effort + separate from
+    // the toggle above so a not-yet-migrated dunning column can't fail the toggle.
+    // SPLIT the two writes (mirrors stripe-webhook clearChargeFailure): if the newer
+    // autopay_fail_count column isn't migrated yet, PostgREST rejects the whole PATCH —
+    // so bundling it with the banner columns would leave the stuck banner uncleared.
+    if (enabled) {
+      try {
+        await supabase.from('residents').update({
+          last_charge_failed_at: null, last_charge_fail_reason: null, last_charge_fail_kind: null,
+        }).eq('id', resident.id)
+      } catch { /* banner columns not migrated yet — ignore */ }
+      try {
+        await supabase.from('residents').update({ autopay_fail_count: 0 }).eq('id', resident.id)
+      } catch { /* autopay_fail_count not migrated yet — ignore */ }
+    }
+
     return json({ autopay_enabled: enabled, autopay_pm_id: pmId })
   } catch (err) {
     console.error('set-autopay failed:', err)
