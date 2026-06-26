@@ -201,6 +201,10 @@ Deno.serve(async (req) => {
           voting_eligible: role === 'board_member',
           activated_at: now,
           invited_at: now,
+          // A founding board member must carry BOTH signals: board_position (the
+          // label) AND is_board (the flag compliance/governance/requests filter
+          // on). Setting only the label under-counted the board everywhere.
+          is_board: role === 'board_member',
           board_position: role === 'board_member' ? 'Board member' : null,
         })
       }
