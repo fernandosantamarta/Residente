@@ -98,6 +98,11 @@ export default function Residents() {
   const [inviteBusyId, setInviteBusyId] = useState(null)
   const [bulkBusy, setBulkBusy] = useState(false)
   const [inviteMsg, setInviteMsg] = useState('')
+  // When the invite can't be emailed (Resend in test mode / no verified domain)
+  // the function still returns a usable action_link — surface it to copy by hand
+  // instead of a misleading "Invitation sent".
+  const [inviteLink, setInviteLink] = useState('')
+  const [linkCopied, setLinkCopied] = useState(false)
 
   // Auto-dismiss the green confirmation banner after 4 seconds.
   useEffect(() => {
@@ -188,8 +193,18 @@ export default function Residents() {
     [rows],
   )
 
+  // Show the outcome of an invite: a success note if the email went out, or the
+  // copyable action_link if it couldn't (no verified sending domain yet).
+  const noteInvite = (data, sentMsg) => {
+    if (data?.email_sent === false && data?.action_link) {
+      setInviteLink(data.action_link); setLinkCopied(false); setInviteMsg('')
+    } else {
+      setInviteLink(''); setInviteMsg(sentMsg)
+    }
+  }
+
   const approveTenantRequest = async (r) => {
-    setInviteBusyId(r.id); setError(''); setInviteMsg('')
+    setInviteBusyId(r.id); setError(''); setInviteMsg(''); setInviteLink('')
     try {
       // Mark approved first, then fire the existing tenant invite.
       await withTimeout(supabase.from('residents').update({ tenant_request_state: 'approved' }).eq('id', r.id))
@@ -197,7 +212,7 @@ export default function Residents() {
       if (error) throw error
       if (data && data.ok === false) throw new Error(data.error || 'Invite failed')
       await logAudit({ community_id: communityId, event_type: 'tenant.approved', target_type: 'resident', target_id: r.id, metadata: { email_sent: !!data?.email_sent } })
-      setInviteMsg(t('admin.residents.tenantInviteSent')); load()
+      noteInvite(data, t('admin.residents.tenantInviteSent')); load()
     } catch (err) {
       setError(err?.message || t('admin.residents.errSendInvitation'))
     } finally { setInviteBusyId(null) }
@@ -250,13 +265,13 @@ export default function Residents() {
   // vote. Reuses the voice-invite-owner edge function + audit log.
   const sendInvite = async (id) => {
     if (!hasSupabase || !communityId) return
-    setInviteBusyId(id); setError(''); setInviteMsg('')
+    setInviteBusyId(id); setError(''); setInviteMsg(''); setInviteLink('')
     try {
       const { data, error } = await supabase.functions.invoke('voice-invite-owner', { body: { resident_id: id } })
       if (error) throw error
       if (data && data.ok === false) throw new Error(data.error || 'Invite failed')
       await logAudit({ community_id: communityId, event_type: 'invite.sent', target_type: 'resident', target_id: id, metadata: { email_sent: !!data?.email_sent } })
-      setInviteMsg(t('admin.residents.invitationSent'))
+      noteInvite(data, t('admin.residents.invitationSent'))
       load()
     } catch (err) {
       setError(err?.message || t('admin.residents.errSendInvitation'))
@@ -267,13 +282,13 @@ export default function Residents() {
   // Same edge function, tenant flag — links tenant_profile_id, no unit/no vote.
   const sendTenantInvite = async (id) => {
     if (!hasSupabase || !communityId) return
-    setInviteBusyId(id); setError(''); setInviteMsg('')
+    setInviteBusyId(id); setError(''); setInviteMsg(''); setInviteLink('')
     try {
       const { data, error } = await supabase.functions.invoke('voice-invite-owner', { body: { resident_id: id, tenant: true } })
       if (error) throw error
       if (data && data.ok === false) throw new Error(data.error || 'Invite failed')
       await logAudit({ community_id: communityId, event_type: 'invite.sent', target_type: 'resident', target_id: id, metadata: { tenant: true, email_sent: !!data?.email_sent } })
-      setInviteMsg(t('admin.residents.tenantInviteSent'))
+      noteInvite(data, t('admin.residents.tenantInviteSent'))
       load()
     } catch (err) {
       setError(err?.message || t('admin.residents.errSendInvitation'))
@@ -579,6 +594,21 @@ export default function Residents() {
         <div className="admin-success" role="status">
           <span className="admin-success-check" aria-hidden="true">✓</span>
           {inviteMsg}
+        </div>
+      )}
+
+      {inviteLink && (
+        <div className="admin-note admin-note-err" role="status"
+          style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'stretch' }}>
+          <span>{t('admin.residents.inviteNoEmail')}</span>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <input className="admin-input" readOnly value={inviteLink} style={{ flex: 1 }}
+              onFocus={e => e.currentTarget.select()} />
+            <button type="button" className="admin-secondary-btn"
+              onClick={async () => { try { await navigator.clipboard.writeText(inviteLink); setLinkCopied(true) } catch {} }}>
+              {linkCopied ? t('admin.residents.linkCopied') : t('admin.residents.copyLink')}
+            </button>
+          </div>
         </div>
       )}
 
