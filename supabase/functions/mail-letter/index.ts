@@ -104,6 +104,7 @@ Deno.serve(async (req) => {
     const form = new URLSearchParams()
     form.set('description', `${doc.title} — case ${caseId}`)
     form.set('color', 'false')
+    form.set('use_type', 'operational') // required by Lob (transactional, not marketing)
     form.set('file', letterHtml(doc.title, community, ownerName, amount, bodyText))
     form.set('to[name]', ownerName)
     form.set('to[address_line1]', to.address_line1)
