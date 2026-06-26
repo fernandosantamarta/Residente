@@ -17,13 +17,12 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { residentBalance, duesStatus, communityDuesConfig } from '@/lib/dues'
+import { residentBalance, duesStatus, daysPastDue, communityDuesConfig } from '@/lib/dues'
 
 export const dynamic = 'force-dynamic'
 
-// Don't re-notify a community more than once per ~month, even if the cron
-// double-fires or the schedule changes.
-const RECENT_DAYS = 25
+// Default re-notify window when a community hasn't set its own cadence.
+const DEFAULT_CADENCE_DAYS = 25
 
 export async function GET(req: Request) {
   const secret = process.env.CRON_SECRET
@@ -63,13 +62,18 @@ export async function GET(req: Request) {
     .select('*')
   if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 })
 
-  const sinceISO = new Date(Date.now() - RECENT_DAYS * 24 * 60 * 60 * 1000).toISOString()
   const summary: Array<Record<string, unknown>> = []
   let totalNotified = 0
 
   for (const c of comms ?? []) {
+    // Opt-out: a community can disable auto-reminders entirely.
+    if (c.dues_reminder_enabled === false) { summary.push({ community: c.id, skipped: 'disabled' }); continue }
     const monthlyDues = Number(c.monthly_dues) || 0
     const duesCfg = communityDuesConfig(c)
+    const minDays = Math.max(0, Number(c.dues_reminder_min_days) || 0)
+    const cadenceDays = Math.max(1, Number(c.dues_reminder_cadence_days) || DEFAULT_CADENCE_DAYS)
+    const wantEmail = c.dues_reminder_email === true
+    const sinceISO = new Date(Date.now() - cadenceDays * 24 * 60 * 60 * 1000).toISOString()
 
     // Only residents with a linked app account can receive an in-app notice.
     const { data: residents } = await admin
@@ -90,14 +94,20 @@ export async function GET(req: Request) {
 
     const owing = residents.filter((r) => {
       const bal = residentBalance(r, monthlyDues, payByResident[r.id] || [], duesCfg)
-      return duesStatus(bal, monthlyDues) !== 'paid'
+      if (duesStatus(bal, monthlyDues) === 'paid') return false
+      // Days-past-due threshold (0 = anyone behind).
+      if (minDays > 0) {
+        const dpd = daysPastDue(r, monthlyDues, payByResident[r.id] || [], { dueDay: Number(c.assessment_due_day) || 1 })
+        if (dpd < minDays) return false
+      }
+      return true
     })
     if (!owing.length) { summary.push({ community: c.id, owing: 0 }); continue }
 
     // Dry run: report the count, touch nothing.
-    if (dryRun) { summary.push({ community: c.id, wouldNotify: owing.length }); continue }
+    if (dryRun) { summary.push({ community: c.id, wouldNotify: owing.length, email: wantEmail }); continue }
 
-    // Idempotency: skip if this community already got a dues reminder recently.
+    // Idempotency: skip if this community already got a dues reminder within its cadence window.
     const { data: recent } = await admin
       .from('ev_notices')
       .select('id')
@@ -107,26 +117,39 @@ export async function GET(req: Request) {
       .limit(1)
     if (recent?.length) { summary.push({ community: c.id, skipped: 'recent' }); continue }
 
+    const subject = 'Your HOA dues are due'
+    const body = 'You have a balance on your account. Open Easy Track to review and pay.'
+
+    if (wantEmail) {
+      // Email path: one TARGETED notice per owing owner (target_profile_id +
+      // email channel) so the notice fanout emails only that owner — the same
+      // path the Reports "Notify" button uses. in_app is included too.
+      let n = 0
+      for (const r of owing) {
+        const { error: nErr } = await admin.from('ev_notices').insert({
+          community_id: c.id,
+          kind: 'dues_due',
+          channels: ['in_app', 'email'],
+          target_profile_id: r.profile_id,
+          subject, body, sent_by: null,
+        })
+        if (!nErr) n++
+      }
+      totalNotified += n
+      summary.push({ community: c.id, notified: n, email: true })
+      continue
+    }
+
+    // In-app only (default): ONE notice + manual recipient rows for the owing
+    // owners (channels:[] → the broadcast fanout skips it).
     const { data: notice, error: nErr } = await admin
       .from('ev_notices')
-      .insert({
-        community_id: c.id,
-        kind: 'dues_due',
-        channels: [],                       // empty → generic fanout skips it
-        subject: 'Your HOA dues are due',
-        body: 'You have a balance on your account. Open Easy Track to review and pay.',
-        sent_by: null,
-      })
+      .insert({ community_id: c.id, kind: 'dues_due', channels: [], subject, body, sent_by: null })
       .select('id')
       .single()
     if (nErr || !notice) { summary.push({ community: c.id, error: nErr?.message }); continue }
 
-    const rows = owing.map((r) => ({
-      notice_id: notice.id,
-      community_id: c.id,
-      profile_id: r.profile_id,
-      channel: 'in_app',
-    }))
+    const rows = owing.map((r) => ({ notice_id: notice.id, community_id: c.id, profile_id: r.profile_id, channel: 'in_app' }))
     const { error: rErr } = await admin.from('ev_notice_recipients').insert(rows)
     if (rErr) { summary.push({ community: c.id, error: rErr.message }); continue }
 

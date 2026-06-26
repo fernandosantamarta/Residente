@@ -27,6 +27,8 @@ export default function EstoppelCertificate() {
   const [community, setCommunity] = useState<any>(null)
   const [resident, setResident] = useState<any>(null)
   const [payoff, setPayoff] = useState<PayoffResult | null>(null)
+  // Recorded-lien status for the unit (drives the estoppel's lien disclosure line).
+  const [lien, setLien] = useState<{ recordedAt: string | null; open: boolean } | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState('')
 
@@ -61,10 +63,15 @@ export default function EstoppelCertificate() {
           // Guarded so the cert still renders if the collections tables are absent.
           try {
             const { data: cs } = (await withTimeout(
-              supabase.from('ev_collection_cases').select('cost_balance')
+              supabase.from('ev_collection_cases').select('cost_balance, lien_recorded_at, stage')
                 .eq('resident_id', r.resident_id).order('opened_at', { ascending: false }).limit(1),
             )) as any
-            extraCosts = Number(cs?.[0]?.cost_balance) || 0
+            const k = cs?.[0]
+            extraCosts = Number(k?.cost_balance) || 0
+            if (k) {
+              const openStages = ['delinquent', 'notice_30', 'intent_to_lien', 'lien_recorded', 'intent_to_foreclose', 'foreclosure']
+              if (!cancelled) setLien({ recordedAt: k.lien_recorded_at || null, open: openStages.includes(String(k.stage)) })
+            }
           } catch { /* collections not provisioned — leave costs at 0 */ }
         }
 
@@ -187,6 +194,14 @@ export default function EstoppelCertificate() {
             value={totalDue != null
               ? <strong>{fmtMoney(totalDue)}</strong>
               : <Confirm />}
+          />
+          <Row
+            label="Recorded lien on the unit"
+            value={lien?.recordedAt
+              ? <strong style={{ color: '#B42318' }}>Yes — claim of lien recorded {lien.recordedAt}</strong>
+              : lien?.open
+                ? <em style={{ color: '#B54708' }}>Collection case open; no lien recorded yet — confirm</em>
+                : 'None'}
           />
           <Row label="Special assessments" value={<Em>None / confirm</Em>} />
           <Row label="Capital contribution / transfer fee" value={<Em>None / confirm</Em>} />

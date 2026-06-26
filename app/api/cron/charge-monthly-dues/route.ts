@@ -22,6 +22,7 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { resolveDueDay } from '@/lib/dues'
 
 export const dynamic = 'force-dynamic'
 
@@ -83,8 +84,9 @@ export async function GET(req: Request) {
       const amount = Number(c.monthly_dues) || 0
       if (amount <= 0) continue
 
-      // due_day clamped to the table's 1–28 contract; null -> 1.
-      const dueDay = Math.min(28, Math.max(1, Math.round(Number(c.assessment_due_day) || 1)))
+      // Resolve the due day for this billing month (1–28, or the last day of the
+      // month when set to the "last day" sentinel).
+      const dueDay = resolveDueDay(c.assessment_due_day, y, m)
       const dueDate = ymd(new Date(Date.UTC(y, m, dueDay)))
 
       // Active households only: approved or legacy-null. Pending/rejected skip.

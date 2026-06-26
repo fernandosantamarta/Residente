@@ -12,6 +12,7 @@ import { useCheckout } from '@/components/CheckoutProvider'
 import { useT } from '@/lib/i18n'
 import { DetailDialog } from './DetailDialog'
 import { PaymentPlanCard } from './PaymentPlanCard'
+import { LegalHoldCard } from './LegalHoldCard'
 import { ContestFineControl } from './ContestFineControl'
 
 const fmtDate = (d: string | Date | null | undefined) => {
@@ -409,6 +410,9 @@ export function PaySection() {
 
       {/* Payment plan — request/track an installment plan on a collection case. */}
       <PaymentPlanCard resident={resident} />
+
+      {/* Legal hold — report a legal protection or respond to a board request. */}
+      <LegalHoldCard />
 
       {/* Current Balance hero — full width: balance on the left, a divider,
           then the three progress rings on the right. */}

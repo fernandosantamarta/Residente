@@ -161,6 +161,13 @@ export default function CommunitySettings() {
         // automatically, so the board never has to remember to bump it.
         fiscal_year: new Date().getFullYear(),
         monthly_dues: numOrNull(form.monthly_dues),
+        // Day of the month assessments are due (clamped to the table's 1–28
+        // contract). Drives days-past-due + delinquency. Guarded for old schemas.
+        ...('assessment_due_day' in (form || {})
+          ? { assessment_due_day: Number(form.assessment_due_day) >= 29
+              ? 31 // "last day of month" sentinel
+              : Math.min(28, Math.max(1, Math.round(Number(form.assessment_due_day) || 1))) }
+          : {}),
         // FL compliance config — annual APR replaces the legacy monthly rate.
         // null = charge nothing (the platform never invents interest/fees).
         // Values clamped above to the statutory caps.
@@ -170,6 +177,12 @@ export default function CommunitySettings() {
         // Column is NOT NULL (default 24) — never write null.
         amenity_refund_cutoff_hours: numOrNull(form.amenity_refund_cutoff_hours) ?? 24,
         association_address: (form.association_address || '').trim() || null,
+        // County the association records liens in (drives the "Record with the
+        // county clerk" link on a collection case). Only written when the column
+        // exists (select('*') surfaces it) so saving works before the migration.
+        ...('county' in (form || {})
+          ? { county: (form.county || '').trim() || null }
+          : {}),
         association_officer_name: (form.association_officer_name || '').trim() || null,
         // Emergency contact number residents see on Easy Voice → Contact. null
         // hides the number and shows the generic "contact your office" line.
@@ -291,6 +304,21 @@ export default function CommunitySettings() {
                   <span className="field-hint" style={{ whiteSpace: 'pre-line' }}>{t('admin.community.hintFiscalYear')}</span>
                 </label>
                 {field('monthly_dues', t('admin.community.fieldMonthlyDues'), { type: 'number', placeholder: '38', prefix: '$' })}
+                <label className="admin-field">
+                  <span className="admin-field-label">{t('admin.community.fieldDueDay')}</span>
+                  <div className="admin-input-wrap">
+                    <select
+                      name="assessment_due_day"
+                      className="admin-input"
+                      value={Number(form?.assessment_due_day) >= 29 ? '31' : (form?.assessment_due_day ? String(form.assessment_due_day) : '1')}
+                      onChange={e => setField('assessment_due_day', e.target.value)}
+                    >
+                      {Array.from({ length: 28 }, (_, i) => i + 1).map(d => <option key={d} value={String(d)}>{d}</option>)}
+                      <option value="31">{t('admin.community.dueDayLast')}</option>
+                    </select>
+                  </div>
+                  <span className="field-hint">{t('admin.community.hintDueDay')}</span>
+                </label>
               </div>
               <div className="card-cta">
                 <button type="button" onClick={save} className="admin-primary-btn" disabled={status === 'saving'}>
@@ -363,6 +391,10 @@ export default function CommunitySettings() {
             {field('association_address', t('admin.community.fieldAssocAddress'), {
               placeholder: '123 Main St, Miramar, FL 33025',
               hint: t('admin.community.hintAssocAddress'),
+            })}
+            {field('county', t('admin.community.fieldCounty'), {
+              placeholder: 'Miami-Dade',
+              hint: t('admin.community.hintCounty'),
             })}
             {field('association_officer_name', t('admin.community.fieldOfficerName'), {
               placeholder: 'Jane Doe, President',

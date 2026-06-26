@@ -54,6 +54,24 @@ function DocInner() {
   const [payoff, setPayoff] = useState<PayoffResult | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState('')
+  const [mailing, setMailing] = useState(false)
+  const [mailMsg, setMailMsg] = useState('')
+
+  // Letter types Lob can mail (the statutory notices). Drafts like the ledger /
+  // claim-of-lien aren't mailed to the owner.
+  const MAILABLE = ['notice_30', 'intent_to_lien', 'intent_to_foreclose', 'tenant_demand']
+  const mailCertified = async () => {
+    setMailing(true); setMailMsg('')
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke('mail-letter', {
+        body: { caseId: id, docType: type, certified: true },
+      })
+      const d = data as any
+      if (fnErr || d?.error) setMailMsg(d?.error || fnErr?.message || 'Could not mail the letter.')
+      else setMailMsg(`Mailed via certified mail${d?.cost ? ` — $${d.cost} billed to the owner` : ''}.`)
+    } catch (e: any) { setMailMsg(e?.message || 'Could not mail the letter.') }
+    finally { setMailing(false) }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -141,11 +159,15 @@ function DocInner() {
         <div style={{ flex: '1 1 auto', minWidth: 0, fontSize: 12, background: '#FEF3F2', color: '#B42318', padding: '8px 12px', borderRadius: 8, maxWidth: 540, lineHeight: 1.45 }}>
           {t('admin.collectionsDetailDocument.draftWarning')}
         </div>
-        <div className="rp-actions" style={{ display: 'flex', gap: 8, flex: '0 0 auto', marginLeft: 'auto' }}>
+        <div className="rp-actions" style={{ display: 'flex', gap: 8, flex: '0 0 auto', marginLeft: 'auto', alignItems: 'center' }}>
           <button onClick={() => history.back()} style={{ background: '#fff', color: '#111', border: '1px solid #d4d4d4', borderRadius: 8, padding: '9px 16px', fontWeight: 600, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>{t('admin.overview.back')}</button>
+          {MAILABLE.includes(type) && (
+            <button onClick={mailCertified} disabled={mailing} style={{ background: '#fff', color: '#111', border: '1px solid #d4d4d4', borderRadius: 8, padding: '9px 16px', fontWeight: 600, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap', opacity: mailing ? 0.6 : 1 }}>{mailing ? t('admin.collectionsDetailDocument.mailing') : t('admin.collectionsDetailDocument.mailCertified')}</button>
+          )}
           <button onClick={() => window.print()} style={{ background: '#111', color: '#fff', border: 0, borderRadius: 8, padding: '9px 18px', fontWeight: 700, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>{t('admin.collectionsDetailDocument.printButton')}</button>
         </div>
       </div>
+      {mailMsg && <div className="no-print" style={{ fontFamily: 'system-ui, sans-serif', fontSize: 13, color: mailMsg.startsWith('Mailed') ? '#067647' : '#B42318', marginBottom: 12 }}>{mailMsg}</div>}
 
       {/* Letterhead */}
       <div style={{ textAlign: 'center', marginBottom: 14 }}>

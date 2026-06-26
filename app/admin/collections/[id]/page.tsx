@@ -14,6 +14,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { logAudit } from '@/lib/audit'
 import { ymd, toDate, addCalendarDays, calendarDaysUntil } from '@/lib/compliance/rules-core'
 import { casePayoff, fmtMoney, type PayoffResult } from '@/lib/dues'
+import { countyRecorderUrl } from '@/lib/compliance/fl-recorders'
 import { RecordPaymentForm } from '@/components/RecordPaymentForm'
 import { Dropdown } from '@/components/Dropdown'
 import { AttorneyNote } from '../../AttorneyNote'
@@ -84,12 +85,14 @@ export default function CollectionCaseDetail() {
   const [notices, setNotices] = useState<CollectionNoticeRow[]>([])
   const [plans, setPlans] = useState<PaymentPlanRow[]>([])
   const [demand, setDemand] = useState<any>(null) // active tenant rent demand, if any
+  const [hold, setHold] = useState<any>(null) // latest open legal hold on this case, if any
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState('')
   const [showManualPay, setShowManualPay] = useState(false)
   const [noticePage, setNoticePage] = useState(0)
   const [snapMsg, setSnapMsg] = useState('')
   const [holdFormOpen, setHoldFormOpen] = useState(false)
+  const [holdHover, setHoldHover] = useState(false)
   // First load shows the spinner; later refetches (after an action) keep the
   // content mounted so the page doesn't jump back to the top.
   const loadedRef = useRef(false)
@@ -136,8 +139,18 @@ export default function CollectionCaseDetail() {
         )) as any
         dm = d || null
       } catch { /* table may not exist yet — ignore */ }
+      // Latest OPEN legal hold (requested / pending_resident / active) on the case.
+      let hd: any = null
+      try {
+        const { data: h } = (await withTimeout(
+          supabase.from('ev_legal_holds').select('*').eq('case_id', id)
+            .in('status', ['requested', 'pending_resident', 'active'])
+            .order('created_at', { ascending: false }).limit(1),
+        )) as any
+        hd = (h && h[0]) || null
+      } catch { /* table may not exist yet — ignore */ }
       setC(cs); setCommunity(comm || null); setResident(res); setPayments(pays)
-      setNotices(ns || []); setPlans(pl || []); setDemand(dm); loadedRef.current = true; setStatus('ready')
+      setNotices(ns || []); setPlans(pl || []); setDemand(dm); setHold(hd); loadedRef.current = true; setStatus('ready')
     } catch (err: any) {
       setError(err?.message || t('admin.collectionsDetail.couldNotLoadCase')); setStatus('error')
     }
@@ -151,6 +164,37 @@ export default function CollectionCaseDetail() {
       setMsg(okMsg); load()
     } catch (err: any) { setError(err?.message || t('admin.collectionsDetail.updateFailed')) }
   }
+
+  // ---- Legal-hold board actions (ev_legal_holds; see legal-holds.sql) ----
+  const insertHold = async (row: any, okMsg: string) => {
+    try {
+      const { error } = (await withTimeout(supabase.from('ev_legal_holds').insert({
+        community_id: c?.community_id, case_id: id,
+        profile_id: (c as any)?.profile_id ?? null,
+        created_by: profile?.id ?? null, requested_at: todayYmd(), ...row,
+      }))) as any
+      if (error) throw error
+      setMsg(okMsg); load()
+    } catch (err: any) { setError(err?.message || t('admin.collectionsDetail.updateFailed')) }
+  }
+  const updateHold = async (patch: any, okMsg: string) => {
+    if (!hold) return
+    try {
+      const { error } = (await withTimeout(supabase.from('ev_legal_holds').update(patch).eq('id', hold.id))) as any
+      if (error) throw error
+      setMsg(okMsg); load()
+    } catch (err: any) { setError(err?.message || t('admin.collectionsDetail.updateFailed')) }
+  }
+  const placeHoldNow = (reason: string, note: string) =>
+    insertHold({ reason, note: note.trim() || null, status: 'active', initiated_by: 'board', decided_by: profile?.id ?? null, decided_at: todayYmd() }, t('admin.collectionsDetail.legalHoldPlaced'))
+  const requestHoldFromResident = (reason: string) =>
+    insertHold({ reason, status: 'pending_resident', initiated_by: 'board' }, t('admin.collectionsDetail.legalHoldRequested'))
+  const verifyHold = () =>
+    updateHold({ status: 'active', decided_by: profile?.id ?? null, decided_at: todayYmd() }, t('admin.collectionsDetail.legalHoldPlaced'))
+  const denyHold = (reason: string) =>
+    updateHold({ status: 'denied', decided_by: profile?.id ?? null, decided_at: todayYmd(), decision_reason: reason.trim() || null }, t('admin.collectionsDetail.legalHoldDenied'))
+  const releaseHold = () =>
+    updateHold({ status: 'released' }, t('admin.collectionsDetail.legalHoldReleased'))
 
   // Record an offline DUES payment against this case's owner via the append-only
   // record_offline_payment RPC (tagged applied_to_case = this case), then refresh
@@ -222,8 +266,10 @@ export default function CollectionCaseDetail() {
   const now = new Date()
   const gateReady = esc?.readyAt ? esc.readyAt.getTime() <= toDate(now)!.getTime() : true
   const lienDeadline = lienEnforceDeadline(c, regime)
-  const legalHoldReason = (c as any).legal_hold_reason || null
-  const legalHoldLabel = legalHoldReason ? t(HOLD_REASON_KEY[legalHoldReason] || 'admin.collectionsDetail.holdOther') : null
+  // A hold blocks escalation only once it's 'active' (a resident's unverified
+  // report or a pending board request warns but doesn't hard-block).
+  const holdActive = hold?.status === 'active'
+  const legalHoldLabel = holdActive ? t(HOLD_REASON_KEY[hold.reason] || 'admin.collectionsDetail.holdOther') : null
 
   // Interest & late-fee freeze — each independent. A manual override on the case
   // wins; when untouched (null) it follows the plan automatically (frozen while a
@@ -256,15 +302,31 @@ export default function CollectionCaseDetail() {
       <section style={card}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', marginBottom: 20 }}>
           <h2 className="bc-title" style={{ margin: 0 }}>{t('admin.collectionsDetail.statutoryLadder')}</h2>
-          {open && !legalHoldReason && !holdFormOpen && (
-            <button className="admin-btn-ghost" style={{ fontSize: 12.5, flexShrink: 0 }} onClick={() => setHoldFormOpen(true)}>{t('admin.collectionsDetail.placeLegalHold')}</button>
+          {open && !hold && !holdFormOpen && (
+            <button className="admin-btn-ghost"
+              onMouseEnter={() => setHoldHover(true)} onMouseLeave={() => setHoldHover(false)}
+              style={{ fontSize: 12.5, flexShrink: 0, fontWeight: 700, transition: 'background .15s ease, border-color .15s ease, color .15s ease',
+                color: holdHover ? '#fff' : '#B42318',
+                border: '1px solid #B42318',
+                background: holdHover ? '#B42318' : '#FEF3F2' }}
+              onClick={() => setHoldFormOpen(true)}>{t('admin.collectionsDetail.legalHoldManage')}</button>
           )}
         </div>
         <StageBar stage={stage} esc={esc} />
 
         {open && (
           <div style={{ marginTop: 30 }}>
-            <LegalHoldPanel caseRow={c} onPatch={patchCase} formOpen={holdFormOpen} setFormOpen={setHoldFormOpen} />
+            <LegalHoldPanel
+              hold={hold}
+              resident={resident}
+              formOpen={holdFormOpen}
+              setFormOpen={setHoldFormOpen}
+              onPlace={placeHoldNow}
+              onRequest={requestHoldFromResident}
+              onVerify={verifyHold}
+              onDeny={denyHold}
+              onRelease={releaseHold}
+            />
             {esc?.readyAt && (
               <div className="admin-note" style={{ fontSize: 12.5, marginBottom: 10, borderColor: gateReady ? '#067647' : '#B54708' }}>
                 {gateReady
@@ -295,8 +357,16 @@ export default function CollectionCaseDetail() {
                 {t('admin.collectionsDetail.fineFloorWarning', { amount: '$' + HOA_FINE_LIEN_FLOOR.value })} ({HOA_FINE_LIEN_FLOOR.citation})
               </div>
             )}
+            {/* Direct link to record the claim of lien with the county clerk
+                (verified portal for major counties, county-scoped search else). */}
+            {(stage === 'intent_to_lien' || stage === 'lien_recorded') && (
+              <div className="admin-note" style={{ fontSize: 12.5, marginBottom: 10 }}>
+                {t('admin.collectionsDetail.recordWithCounty', { county: ((community as any)?.county || '').trim() || t('admin.collectionsDetail.yourCounty') })}{' '}
+                <a href={countyRecorderUrl((community as any)?.county)} target="_blank" rel="noopener noreferrer" style={{ color: '#175CD3', fontWeight: 700, whiteSpace: 'nowrap' }}>{t('admin.collectionsDetail.openRecorder')} &rarr;</a>
+              </div>
+            )}
 
-            <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', gap: 8, marginTop: 22, flexWrap: 'wrap', alignItems: 'flex-start' }}>
               <button className="admin-btn-ghost" onClick={() => patchCase({ stage: 'resolved', resolved_at: todayYmd() }, t('admin.collectionsDetail.caseResolved')).then(() => logAudit({ community_id: c.community_id!, event_type: 'collection.resolved', target_type: 'collection_case', target_id: id }))}>{t('admin.collectionsDetail.markResolved')}</button>
               <button className="admin-btn-ghost" onClick={() => patchCase({ stage: 'cancelled', resolved_at: todayYmd() }, t('admin.collectionsDetail.caseCancelled'))}>{t('admin.collectionsDetail.cancelCase')}</button>
               <StageActions
@@ -737,9 +807,9 @@ function StageActions({ adv, caseRow, communityId, profileId, resident, regime, 
           </label>
         </div>
       )}
-      <div style={{ display: 'flex', gap: 8, marginTop: 10, justifyContent: 'flex-end' }}>
-        <button className="admin-primary-btn" disabled={busy || (!!legalHoldLabel && !ack)} onClick={run}>{busy ? t('admin.collectionsDetail.saving') : t('admin.collectionsDetail.confirm')}</button>
+      <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
         <button className="admin-btn-ghost" disabled={busy} onClick={() => setOpenComposer(false)}>{t('admin.collectionsDetail.cancel')}</button>
+        <button className="admin-primary-btn" style={{ marginLeft: 'auto' }} disabled={busy || (!!legalHoldLabel && !ack)} onClick={run}>{busy ? t('admin.collectionsDetail.saving') : t('admin.collectionsDetail.confirm')}</button>
       </div>
     </div>
   )
@@ -759,25 +829,37 @@ function CostEditor({ caseRow, onSaved }: { caseRow: CollectionCaseRow; onSaved:
   )
 }
 
-// Per-case legal hold (bankruptcy stay / SCRA / qualifying-offer / other). When
-// set, a red banner shows on the ladder and the advance gate requires a counsel
-// ack. A qualifying offer also surfaces its 60-day statutory-stay countdown.
-function LegalHoldPanel({ caseRow, onPatch, formOpen, setFormOpen }: { caseRow: CollectionCaseRow; onPatch: (p: any, msg: string) => void; formOpen: boolean; setFormOpen: (v: boolean) => void }) {
+// Per-case legal hold (bankruptcy stay / SCRA / qualifying-offer / other), backed
+// by ev_legal_holds. Either the owner self-reports (status 'requested') or the
+// board requests confirmation ('pending_resident'); the board verifies before it
+// goes 'active'. Active shows a red banner + qualifying-offer countdown and the
+// advance gate then requires a counsel ack.
+function LegalHoldPanel({ hold, resident, formOpen, setFormOpen, onPlace, onRequest, onVerify, onDeny, onRelease }: {
+  hold: any; resident: any
+  formOpen: boolean; setFormOpen: (v: boolean) => void
+  onPlace: (reason: string, note: string) => void
+  onRequest: (reason: string) => void
+  onVerify: () => void
+  onDeny: (reason: string) => void
+  onRelease: () => void
+}) {
   const t = useT()
-  const reason = (caseRow as any).legal_hold_reason || null
-  const at = (caseRow as any).legal_hold_at || null
-  const note = (caseRow as any).legal_hold_note || null
   const [form, setForm] = useState<{ reason: string; note: string }>({ reason: 'bankruptcy', note: '' })
+  const [denyMode, setDenyMode] = useState(false)
+  const [denyReason, setDenyReason] = useState('')
+  const status = hold?.status ?? null
+  const label = (r?: string | null) => t(HOLD_REASON_KEY[r || 'other'] || 'admin.collectionsDetail.holdOther')
 
-  if (reason) {
-    const label = t(HOLD_REASON_KEY[reason] || 'admin.collectionsDetail.holdOther')
-    const stayEnds = reason === 'qualifying_offer' && at ? addCalendarDays(at, QUALIFYING_OFFER_STAY_DAYS.value) : null
+  // ACTIVE — red banner, qualifying-offer countdown, release.
+  if (status === 'active') {
+    const at = hold.requested_at || hold.decided_at || null
+    const stayEnds = hold.reason === 'qualifying_offer' && at ? addCalendarDays(at, QUALIFYING_OFFER_STAY_DAYS.value) : null
     const daysLeft = stayEnds ? calendarDaysUntil(stayEnds, new Date()) : null
     return (
       <div className="admin-note admin-note-err" style={{ marginBottom: 10, fontSize: 12.5 }}>
-        <div style={{ fontWeight: 800 }}>{t('admin.collectionsDetail.legalHoldActive', { reason: label })}</div>
+        <div style={{ fontWeight: 800 }}>{t('admin.collectionsDetail.legalHoldActive', { reason: label(hold.reason) })}</div>
         <div style={{ marginTop: 4 }}>{t('admin.collectionsDetail.legalHoldBlurb')}{at ? ` ${t('admin.collectionsDetail.legalHoldPlacedOn', { date: at })}` : ''}</div>
-        {note && <div style={{ marginTop: 4, opacity: 0.85 }}>{note}</div>}
+        {hold.note && <div style={{ marginTop: 4, opacity: 0.85 }}>{hold.note}</div>}
         {stayEnds && (
           <div style={{ marginTop: 4, fontWeight: 700 }}>
             {daysLeft != null && daysLeft >= 0
@@ -785,21 +867,54 @@ function LegalHoldPanel({ caseRow, onPatch, formOpen, setFormOpen }: { caseRow: 
               : t('admin.collectionsDetail.qualifyingOfferStayEnded', { date: ymd(stayEnds) })}
           </div>
         )}
-        <button className="admin-btn-ghost" style={{ marginTop: 8 }}
-          onClick={() => onPatch({ legal_hold_reason: null, legal_hold_at: null, legal_hold_note: null }, t('admin.collectionsDetail.legalHoldReleased'))}>
-          {t('admin.collectionsDetail.releaseHold')}
-        </button>
+        <button className="admin-btn-ghost" style={{ marginTop: 8 }} onClick={onRelease}>{t('admin.collectionsDetail.releaseHold')}</button>
       </div>
     )
   }
 
-  // No hold and the form is closed → nothing here; the trigger lives in the
-  // ladder section header (top-right).
+  // REQUESTED — owner reported / responded; board verifies or denies.
+  if (status === 'requested') {
+    return (
+      <div className="admin-note admin-note-warn" style={{ marginBottom: 10, fontSize: 12.5 }}>
+        <div style={{ fontWeight: 800 }}>{t('admin.collectionsDetail.legalHoldReview', { reason: label(hold.reason) })}</div>
+        {hold.note && <div style={{ marginTop: 4, opacity: 0.85 }}>{hold.note}</div>}
+        <div style={{ marginTop: 4, opacity: 0.7 }}>{t('admin.collectionsDetail.legalHoldVerifyHint')}</div>
+        {denyMode ? (
+          <div style={{ marginTop: 8 }}>
+            <input className="admin-input" placeholder={t('admin.collectionsDetail.denialReasonLabel')} value={denyReason} onChange={e => setDenyReason(e.target.value)} />
+            <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+              <button className="admin-btn-ghost" onClick={() => setDenyMode(false)}>{t('admin.collectionsDetail.cancel')}</button>
+              <button className="admin-primary-btn" style={{ marginLeft: 'auto' }} onClick={() => onDeny(denyReason)}>{t('admin.collectionsDetail.confirmDenial')}</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+            <button className="admin-btn-ghost" onClick={() => setDenyMode(true)}>{t('admin.collectionsDetail.deny')}</button>
+            <button className="admin-primary-btn" style={{ marginLeft: 'auto' }} onClick={onVerify}>{t('admin.collectionsDetail.legalHoldVerify')}</button>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // PENDING_RESIDENT — board asked the owner; awaiting their response.
+  if (status === 'pending_resident') {
+    return (
+      <div className="admin-note" style={{ marginBottom: 10, fontSize: 12.5 }}>
+        <div style={{ fontWeight: 700 }}>{t('admin.collectionsDetail.legalHoldAwaitingResident', { reason: label(hold.reason) })}</div>
+        <button className="admin-btn-ghost" style={{ marginTop: 8 }} onClick={onRelease}>{t('admin.collectionsDetail.cancelRequest')}</button>
+      </div>
+    )
+  }
+
+  // No open hold + form closed → trigger lives in the section header.
   if (!formOpen) return null
 
+  // No open hold + form open → place now OR request confirmation from the owner.
+  const ownerHasAccount = !!resident?.profile_id
   return (
     <div style={{ border: '1px dashed #cbd5e1', borderRadius: 10, padding: 12, marginBottom: 10 }}>
-      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>{t('admin.collectionsDetail.placeLegalHold')}</div>
+      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>{t('admin.collectionsDetail.legalHoldManage')}</div>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <div className="admin-field" style={{ minWidth: 220 }}><span className="admin-field-label">{t('admin.collectionsDetail.holdReason')}</span>
           <Dropdown<string>
@@ -810,12 +925,13 @@ function LegalHoldPanel({ caseRow, onPatch, formOpen, setFormOpen }: { caseRow: 
           /></div>
         <label className="admin-field" style={{ flex: 1, minWidth: 180 }}><span className="admin-field-label">{t('admin.collectionsDetail.holdNote')}</span>
           <input className="admin-input" value={form.note} placeholder={t('admin.collectionsDetail.holdNotePlaceholder')} onChange={e => setForm(f => ({ ...f, note: e.target.value }))} /></label>
-        <button className="admin-primary-btn"
-          onClick={() => { onPatch({ legal_hold_reason: form.reason, legal_hold_at: todayYmd(), legal_hold_note: form.note.trim() || null }, t('admin.collectionsDetail.legalHoldPlaced')); setFormOpen(false) }}>
-          {t('admin.collectionsDetail.placeHoldBtn')}
-        </button>
-        <button className="admin-btn-ghost" onClick={() => setFormOpen(false)}>{t('admin.collectionsDetail.cancel')}</button>
       </div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 18, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button className="admin-btn-ghost" disabled={!ownerHasAccount} title={ownerHasAccount ? '' : t('admin.collectionsDetail.holdNeedsAccount')} onClick={() => { onRequest(form.reason); setFormOpen(false) }}>{t('admin.collectionsDetail.requestFromResident')}</button>
+        <button className="admin-btn-ghost" onClick={() => setFormOpen(false)}>{t('admin.collectionsDetail.cancel')}</button>
+        <button className="admin-primary-btn" style={{ marginLeft: 'auto' }} onClick={() => { onPlace(form.reason, form.note); setFormOpen(false) }}>{t('admin.collectionsDetail.placeHoldBtn')}</button>
+      </div>
+      {!ownerHasAccount && <p style={{ fontSize: 11.5, opacity: 0.7, margin: '8px 0 0' }}>{t('admin.collectionsDetail.holdNeedsAccount')}</p>}
     </div>
   )
 }
@@ -1009,30 +1125,30 @@ function PaymentPlanSection({ caseRow, plans, profileId, payoffTotal, onChange, 
                 <input className="admin-input" type="number" min="1" step="1"
                   value={review.freq === '' ? (requested.requested_frequency_days ?? requested.frequency_days ?? 30) : review.freq}
                   onChange={e => setReview((r: any) => ({ ...r, freq: e.target.value }))} /></label>
+              <button className="admin-btn-ghost" onClick={() => setReview({ mode: null, amount: '', count: '', freq: '', reason: '' })}>{t('admin.collectionsDetail.back')}</button>
               <button className="admin-primary-btn" disabled={busy}
                 onClick={() => decideRequest(requested, 'modified', { amount: review.amount, count: review.count, freq: review.freq })}>
                 {busy ? t('admin.collectionsDetail.saving') : t('admin.collectionsDetail.approveWithTerms')}
               </button>
-              <button className="admin-btn-ghost" onClick={() => setReview({ mode: null, amount: '', count: '', freq: '', reason: '' })}>{t('admin.collectionsDetail.back')}</button>
             </div>
           ) : review.mode === 'deny' ? (
             <div style={{ marginTop: 10 }}>
               <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.denialReasonLabel')}</span>
                 <textarea className="admin-input" rows={2} value={review.reason}
                   onChange={e => setReview((r: any) => ({ ...r, reason: e.target.value }))} /></label>
-              <div style={{ display: 'flex', gap: 8, marginTop: 8 }}>
-                <button className="admin-primary-btn" disabled={busy || !review.reason.trim()}
+              <div style={{ display: 'flex', gap: 8, marginTop: 8, alignItems: 'center' }}>
+                <button className="admin-btn-ghost" onClick={() => setReview({ mode: null, amount: '', count: '', freq: '', reason: '' })}>{t('admin.collectionsDetail.back')}</button>
+                <button className="admin-primary-btn" style={{ marginLeft: 'auto' }} disabled={busy || !review.reason.trim()}
                   onClick={() => decideRequest(requested, 'denied', { reason: review.reason })}>
                   {busy ? t('admin.collectionsDetail.saving') : t('admin.collectionsDetail.confirmDenial')}
                 </button>
-                <button className="admin-btn-ghost" onClick={() => setReview({ mode: null, amount: '', count: '', freq: '', reason: '' })}>{t('admin.collectionsDetail.back')}</button>
               </div>
             </div>
           ) : (
-            <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
-              <button className="admin-primary-btn" disabled={busy} onClick={() => decideRequest(requested, 'approved')}>{t('admin.collectionsDetail.approveAsProposed')}</button>
+            <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap', alignItems: 'center' }}>
               <button className="admin-btn-ghost" onClick={() => setReview((r: any) => ({ ...r, mode: 'modify' }))}>{t('admin.collectionsDetail.modifyTerms')}</button>
               <button className="admin-btn-ghost" onClick={() => setReview((r: any) => ({ ...r, mode: 'deny' }))}>{t('admin.collectionsDetail.deny')}</button>
+              <button className="admin-primary-btn" style={{ marginLeft: 'auto' }} disabled={busy} onClick={() => decideRequest(requested, 'approved')}>{t('admin.collectionsDetail.approveAsProposed')}</button>
             </div>
           )}
         </div>

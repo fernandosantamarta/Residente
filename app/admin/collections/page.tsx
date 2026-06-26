@@ -410,6 +410,11 @@ function AutoOpenSettings({ community, onSaved }: { community: any; onSaved: () 
   const [minBalance, setMinBalance] = useState('')
   const [minDays, setMinDays] = useState('')
   const [autoOpen, setAutoOpen] = useState(false)
+  // Automatic dues-reminder config (pre-collections nudge cron).
+  const [remEnabled, setRemEnabled] = useState(true)
+  const [remEmail, setRemEmail] = useState(false)
+  const [remMinDays, setRemMinDays] = useState('')
+  const [remCadence, setRemCadence] = useState('')
   const [busy, setBusy] = useState(false)
   const [note, setNote] = useState('')
 
@@ -418,17 +423,30 @@ function AutoOpenSettings({ community, onSaved }: { community: any; onSaved: () 
     setMinBalance(community.collections_min_balance != null ? String(community.collections_min_balance) : '')
     setMinDays(community.collections_min_days != null ? String(community.collections_min_days) : '')
     setAutoOpen(!!community.collections_auto_open)
+    setRemEnabled(community.dues_reminder_enabled !== false)
+    setRemEmail(!!community.dues_reminder_email)
+    setRemMinDays(community.dues_reminder_min_days != null ? String(community.dues_reminder_min_days) : '')
+    setRemCadence(community.dues_reminder_cadence_days != null ? String(community.dues_reminder_cadence_days) : '')
   }, [community])
 
   const save = async () => {
     if (!community?.id) return
     setBusy(true); setNote('')
     try {
-      const { error } = (await withTimeout(supabase.from('communities').update({
+      const patch: any = {
         collections_min_balance: minBalance === '' ? null : Number(minBalance),
         collections_min_days: minDays === '' ? null : Number(minDays),
         collections_auto_open: autoOpen,
-      }).eq('id', community.id))) as any
+      }
+      // Reminder fields only written once their migration has run (column present),
+      // so saving works before dues-reminder-settings.sql is applied.
+      if ('dues_reminder_enabled' in (community || {})) {
+        patch.dues_reminder_enabled = remEnabled
+        patch.dues_reminder_email = remEmail
+        patch.dues_reminder_min_days = remMinDays === '' ? 0 : Number(remMinDays)
+        patch.dues_reminder_cadence_days = remCadence === '' ? 25 : Number(remCadence)
+      }
+      const { error } = (await withTimeout(supabase.from('communities').update(patch).eq('id', community.id))) as any
       if (error) throw error
       setNote(t('admin.collections.saved')); onSaved()
     } catch (err: any) { setNote(err?.message || t('admin.collections.errorSaveSettings')) }
@@ -438,18 +456,45 @@ function AutoOpenSettings({ community, onSaved }: { community: any; onSaved: () 
   if (!open) return <button className="admin-btn-ghost" style={{ marginLeft: 'auto', flexShrink: 0 }} onClick={() => setOpen(true)}>{t('admin.collections.scanSettingsBtn')}</button>
 
   return (
-    <div style={{ width: '100%', border: '1px dashed #cbd5e1', borderRadius: 10, padding: 12, marginTop: 8 }}>
+    <div style={{ width: '100%', border: '1px dashed #cbd5e1', borderRadius: 10, padding: 14, marginTop: 8 }}>
+      {/* Suggested-case scan thresholds — inputs on one row, the toggle on its own. */}
       <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <label className="admin-field" style={{ maxWidth: 150 }}><span className="admin-field-label">{t('admin.collections.fieldMinBalance')}</span>
+        <label className="admin-field" style={{ maxWidth: 160 }}><span className="admin-field-label">{t('admin.collections.fieldMinBalance')}</span>
           <input className="admin-input" type="number" min="0" step="0.01" value={minBalance} placeholder={t('admin.collections.placeholderAny')} onChange={e => setMinBalance(e.target.value)} /></label>
-        <label className="admin-field" style={{ maxWidth: 150 }}><span className="admin-field-label">{t('admin.collections.fieldMinDays')}</span>
+        <label className="admin-field" style={{ maxWidth: 160 }}><span className="admin-field-label">{t('admin.collections.fieldMinDays')}</span>
           <input className="admin-input" type="number" min="0" step="1" value={minDays} placeholder={t('admin.collections.placeholderAny')} onChange={e => setMinDays(e.target.value)} /></label>
-        <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, paddingBottom: 8 }}>
-          <input type="checkbox" checked={autoOpen} onChange={e => setAutoOpen(e.target.checked)} />
-          {t('admin.collections.autoOpenLabel')}
-        </label>
-        <button className="admin-primary-btn" disabled={busy} onClick={save}>{busy ? t('admin.collections.saving') : t('admin.collections.saveBtn')}</button>
+      </div>
+      <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, marginTop: 12 }}>
+        <input type="checkbox" checked={autoOpen} onChange={e => setAutoOpen(e.target.checked)} />
+        {t('admin.collections.autoOpenLabel')}
+      </label>
+
+      {/* Automatic dues reminders — toggles on one row, number fields on the next. */}
+      <div style={{ borderTop: '1px solid #EEF0F2', marginTop: 14, paddingTop: 14 }}>
+        <div style={{ fontWeight: 700, fontSize: 12.5, marginBottom: 10 }}>{t('admin.collections.reminderTitle')}</div>
+        <div style={{ display: 'flex', gap: 20, flexWrap: 'wrap', marginBottom: 12 }}>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5 }}>
+            <input type="checkbox" checked={remEnabled} onChange={e => setRemEnabled(e.target.checked)} />
+            {t('admin.collections.reminderEnabled')}
+          </label>
+          <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, opacity: remEnabled ? 1 : 0.5 }}>
+            <input type="checkbox" checked={remEmail} disabled={!remEnabled} onChange={e => setRemEmail(e.target.checked)} />
+            {t('admin.collections.reminderEmail')}
+          </label>
+        </div>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <label className="admin-field" style={{ maxWidth: 160 }}><span className="admin-field-label">{t('admin.collections.reminderMinDays')}</span>
+            <input className="admin-input" type="number" min="0" step="1" value={remMinDays} placeholder="0" disabled={!remEnabled} onChange={e => setRemMinDays(e.target.value)} /></label>
+          <label className="admin-field" style={{ maxWidth: 160 }}><span className="admin-field-label">{t('admin.collections.reminderCadence')}</span>
+            <input className="admin-input" type="number" min="1" step="1" value={remCadence} placeholder="25" disabled={!remEnabled} onChange={e => setRemCadence(e.target.value)} /></label>
+        </div>
+        <p style={{ fontSize: 11.5, opacity: 0.7, margin: '10px 0 0' }}>{t('admin.collections.reminderNote')}</p>
+      </div>
+
+      {/* Footer — white left, orange right (button convention). */}
+      <div style={{ display: 'flex', gap: 8, marginTop: 14, alignItems: 'center' }}>
         <button className="admin-btn-ghost" disabled={busy} onClick={() => setOpen(false)}>{t('admin.collections.closeBtn')}</button>
+        <button className="admin-primary-btn" style={{ marginLeft: 'auto' }} disabled={busy} onClick={save}>{busy ? t('admin.collections.saving') : t('admin.collections.saveBtn')}</button>
       </div>
       <p style={{ fontSize: 11.5, opacity: 0.7, margin: '8px 0 0' }}>
         {t('admin.collections.autoOpenNote')} {note && <strong style={{ color: note === t('admin.collections.saved') ? '#067647' : '#B42318' }}>{note}</strong>}

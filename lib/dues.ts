@@ -348,9 +348,21 @@ export function buildPayoff(input: PayoffInput): PayoffResult {
 }
 
 /**
+ * Resolve the day-of-month an assessment is due for a given year/month. A stored
+ * assessment_due_day of 1–28 is used as-is; 29+ is the "last day of month"
+ * sentinel and resolves to the actual last day of THAT month (28–31). Keeps the
+ * due date valid in every month (and correct for February / 30-day months).
+ */
+export function resolveDueDay(dueDay: number | null | undefined, year: number, monthIndex: number): number {
+  const d = Math.round(Number(dueDay) || 1)
+  if (d >= 29) return new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate()
+  return Math.min(28, Math.max(1, d))
+}
+
+/**
  * Derive the principal installment schedule for a resident: the opening balance
  * (dated at the resident's start) plus one `monthlyDues` installment per month
- * owed, each due on `dueDay` (1–28). Mirrors monthsOwed() so the payoff is
+ * owed, each due on the resolved due day. Mirrors monthsOwed() so the payoff is
  * consistent with the dashboard's accrual count.
  */
 export function deriveInstallments(
@@ -360,7 +372,6 @@ export function deriveInstallments(
 ): Installment[] {
   const m = round2(Number(monthlyDues) || 0)
   const asOf = opts.asOf ? new Date(opts.asOf) : new Date()
-  const dueDay = Math.min(28, Math.max(1, Math.round(Number(opts.dueDay) || 1)))
   const created = new Date(resident?.created_at || asOf)
   const baseY = created.getUTCFullYear()
   const baseM = created.getUTCMonth()
@@ -368,12 +379,12 @@ export function deriveInstallments(
 
   const opening = round2(Number(resident?.opening_balance) || 0)
   if (opening > 0) {
-    out.push({ dueDate: ymdUTC(new Date(Date.UTC(baseY, baseM, dueDay))), amount: opening })
+    out.push({ dueDate: ymdUTC(new Date(Date.UTC(baseY, baseM, resolveDueDay(opts.dueDay, baseY, baseM)))), amount: opening })
   }
 
   const owed = monthsOwed(resident, asOf)
   for (let i = 0; i < owed && m > 0; i++) {
-    out.push({ dueDate: ymdUTC(new Date(Date.UTC(baseY, baseM + i, dueDay))), amount: m })
+    out.push({ dueDate: ymdUTC(new Date(Date.UTC(baseY, baseM + i, resolveDueDay(opts.dueDay, baseY, baseM + i)))), amount: m })
   }
   return out
 }
@@ -427,9 +438,11 @@ export function daysPastDue(
   const covered = monthsCovered(resident, monthlyDues, payments)
   const created = new Date(resident.created_at)
   if (isNaN(created.getTime())) return 0
-  const dueDay = Math.min(28, Math.max(1, Math.round(Number(opts.dueDay) || 1)))
-  // The oldest still-uncovered installment falls `covered` months after the start.
-  const dueMs = Date.UTC(created.getUTCFullYear(), created.getUTCMonth() + covered, dueDay)
+  // The oldest still-uncovered installment falls `covered` months after the start;
+  // resolve its due day for that month (honoring the last-day sentinel).
+  const monthIndex = created.getUTCMonth() + covered
+  const dueDay = resolveDueDay(opts.dueDay, created.getUTCFullYear(), monthIndex)
+  const dueMs = Date.UTC(created.getUTCFullYear(), monthIndex, dueDay)
   const nowMs = utcMidnightMs(now)
   if (nowMs == null) return 0
   return Math.max(0, Math.round((nowMs - dueMs) / 86400000))
