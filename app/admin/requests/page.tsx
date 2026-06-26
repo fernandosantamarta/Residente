@@ -143,6 +143,8 @@ type Request = {
   priority: string | null
   sla_due_at: string | null
   assigned_to: string | null
+  ai_draft_reply: string | null     // AI-suggested reply for an emailed request
+  inbound_email_id: string | null   // back-link to the source inbound email
 }
 
 type ResidentOption = { id: string; name: string; unit: string | null; email: string | null }
@@ -583,6 +585,8 @@ export default function RequestsAdmin() {
         <strong> {t('admin.requests.dekNeedsReply')}</strong> {t('admin.requests.dekSuffix')}
       </p>
 
+      {communityId && <FrontDeskCard communityId={communityId} />}
+
       {(status === 'ready' || status === 'loading') && awaitingCount > 0 && (
         <button
           type="button"
@@ -810,6 +814,7 @@ export default function RequestsAdmin() {
                       <span style={chip(catColor(selected.category))}>{tCatLabel[selected.category] || selected.category}</span>
                       {selected.replies_locked && <span style={chip('#475467')}>{t('admin.requests.repliesOff')}</span>}
                       {selected.origin === 'board' && <span style={chip('#7C3AED')}>{t('admin.requests.outbound')}</span>}
+                      {selected.origin === 'email' && <span style={chip('#0E7490')}>{t('admin.requests.viaEmail')}</span>}
                       <span style={chip(STATUS_COLOR[selected.status] || '#475467')}>{tStatusLabel[selected.status] || selected.status}</span>
                     </div>
                   </div>
@@ -1062,6 +1067,19 @@ function AdminThread({
                   <div style={{ fontSize: 11.5, color: '#6941C6', marginTop: 2 }}>{t('admin.requests.aiDisclaimer')}</div>
                 </div>
               )}
+            </div>
+          )}
+          {/* AI front desk: an emailed request arrives with a board-reviewed draft
+              reply. One click loads it into the composer to edit + send. */}
+          {request.origin === 'email' && request.ai_draft_reply && (
+            <div style={{ marginBottom: 10, padding: 12, border: '1px solid #b9e3ea', borderRadius: 10, background: '#f2fbfc' }}>
+              <div style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.6, color: '#0E7490', fontWeight: 700, marginBottom: 6 }}>{t('admin.requests.aiDraftTitle')}</div>
+              <div style={{ fontSize: 12.5, color: '#155e6b', whiteSpace: 'pre-wrap', marginBottom: 8 }}>{request.ai_draft_reply}</div>
+              <button type="button" className="admin-btn-ghost" style={{ color: '#0E7490', borderColor: 'rgba(14,116,144,0.4)', marginLeft: 0 }}
+                onClick={() => setDraft(request.ai_draft_reply || '')}>
+                {t('admin.requests.aiDraftUse')}
+              </button>
+              <div style={{ fontSize: 11.5, color: '#0E7490', marginTop: 6 }}>{t('admin.requests.aiDisclaimer')}</div>
             </div>
           )}
           {/* iMessage-style composer: a rounded field with an attach clip, plus a
@@ -1596,6 +1614,81 @@ function WorkOrderPanel({
             </button>
           </div>
         </form>
+      )}
+    </div>
+  )
+}
+
+// AI front desk — the inbound-email routing card. Generates the per-community
+// routing token (communities.inbound_email_token) the operator wires into a
+// Resend Inbound address; emails sent to fd-<token>@<inbound domain> land in this
+// queue (inbound-email-receiver). Collapsible; inert until the DNS is wired.
+function FrontDeskCard({ communityId }: { communityId: string }) {
+  const t = useT()
+  const [open, setOpen] = useState(false)
+  const [token, setToken] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const [err, setErr] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      if (!hasSupabase || !supabase) { setLoading(false); return }
+      try {
+        const { data } = await supabase.from('communities').select('inbound_email_token').eq('id', communityId).single()
+        if (!cancelled) setToken((data as any)?.inbound_email_token || null)
+      } catch { /* column may not exist yet */ }
+      finally { if (!cancelled) setLoading(false) }
+    })()
+    return () => { cancelled = true }
+  }, [communityId])
+
+  const generate = async () => {
+    setBusy(true); setErr('')
+    try {
+      const tok = (crypto?.randomUUID?.() || `${Date.now()}${Math.random()}`).replace(/-/g, '').slice(0, 12)
+      const { error } = await supabase!.from('communities').update({ inbound_email_token: tok }).eq('id', communityId)
+      if (error) throw error
+      setToken(tok)
+    } catch (e: any) { setErr(e?.message || t('admin.requests.frontDeskErr')) }
+    finally { setBusy(false) }
+  }
+
+  const copy = async () => {
+    if (!token) return
+    try { await navigator.clipboard.writeText(token); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch { /* ignore */ }
+  }
+
+  if (loading) return null
+
+  return (
+    <div className="card" style={{ marginBottom: 14, padding: '12px 16px' }}>
+      <button type="button" onClick={() => setOpen(o => !o)}
+        style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: 'none', border: 'none', cursor: 'pointer', font: 'inherit', padding: 0, color: 'inherit' }}>
+        <span style={{ fontWeight: 700, fontSize: 13.5 }}>✉ {t('admin.requests.frontDeskTitle')}</span>
+        <span style={{ fontSize: 12, color: 'var(--text-dim)', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          {token ? t('admin.requests.frontDeskOn') : t('admin.requests.frontDeskOff')}
+          <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.15s ease' }}><path d="m6 9 6 6 6-6" /></svg>
+        </span>
+      </button>
+      {open && (
+        <div style={{ marginTop: 12 }}>
+          <p style={{ fontSize: 12.5, color: 'var(--text-dim)', marginTop: 0 }}>{t('admin.requests.frontDeskIntro')}</p>
+          {token ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+              <span style={{ fontSize: 11.5, fontWeight: 700, color: 'var(--text-dim)' }}>{t('admin.requests.frontDeskTokenLabel')}:</span>
+              <code style={{ fontSize: 12.5, background: 'rgba(0,0,0,0.05)', padding: '4px 8px', borderRadius: 6 }}>{token}</code>
+              <button type="button" className="admin-btn-ghost admin-btn-sm" onClick={copy}>{copied ? t('admin.requests.frontDeskCopied') : t('admin.requests.frontDeskCopy')}</button>
+              <button type="button" className="admin-btn-ghost admin-btn-sm" disabled={busy} onClick={generate}>{busy ? t('admin.requests.frontDeskGenerating') : t('admin.requests.frontDeskRegenerate')}</button>
+            </div>
+          ) : (
+            <button type="button" className="admin-primary-btn admin-btn-sm" disabled={busy} onClick={generate}>{busy ? t('admin.requests.frontDeskGenerating') : t('admin.requests.frontDeskGenerate')}</button>
+          )}
+          {err && <div className="admin-note admin-note-err" style={{ marginTop: 8 }}>{err}</div>}
+          <p style={{ fontSize: 11.5, color: 'var(--text-dim)', marginTop: 10 }}>{t('admin.requests.frontDeskHint')}</p>
+        </div>
       )}
     </div>
   )

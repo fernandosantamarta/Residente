@@ -8,12 +8,14 @@
 // supabase/disbursements.sql (the dual-control RPCs) and lib/gl/project.ts (the
 // 2010 Accounts-payable + bill/bill_payment projection).
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { usePermissions } from '@/hooks/usePermissions'
 import { Dropdown } from '@/components/Dropdown'
 import { AdminModal } from '../AdminModal'
+import { extractInvoiceFromFile } from '@/lib/signupImport'
 import { useT } from '@/lib/i18n'
 
 const fmtMoney = (n: number | null | undefined) =>
@@ -61,6 +63,12 @@ export default function PayablesPage() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [payFor, setPayFor] = useState<Disb | null>(null)
 
+  // AI "read a bill" — fill the capture form from an uploaded invoice. Fail-soft:
+  // any failure (key unset, parse miss) just shows a hint and leaves manual entry.
+  const billFileRef = useRef<HTMLInputElement>(null)
+  const [aiBusy, setAiBusy] = useState(false)
+  const [aiNote, setAiNote] = useState('')
+
   useEffect(() => { if (!msg) return; const x = setTimeout(() => setMsg(''), 4000); return () => clearTimeout(x) }, [msg])
 
   const load = useCallback(async () => {
@@ -88,6 +96,40 @@ export default function PayablesPage() {
   useEffect(() => { load() }, [load])
 
   const setField = (k: keyof typeof EMPTY, val: string) => setForm(f => ({ ...f, [k]: val }))
+
+  // Match an AI-read vendor name to an existing vendor row (exact, then loose
+  // containment) so the bill lands on the real vendor when one exists.
+  const matchVendorId = (name: string): string => {
+    const n = name.trim().toLowerCase()
+    if (!n) return ''
+    const exact = vendors.find(v => v.name.trim().toLowerCase() === n)
+    if (exact) return exact.id
+    const loose = vendors.find(v => { const vn = v.name.trim().toLowerCase(); return vn && (vn.includes(n) || n.includes(vn)) })
+    return loose?.id || ''
+  }
+
+  const readBill = async (file: File) => {
+    setAiNote(''); setAiBusy(true); setFormErr('')
+    try {
+      const ex = await extractInvoiceFromFile(file)
+      if (!ex || (!ex.vendor_name && ex.amount == null && !ex.bill_number)) {
+        setAiNote(t('admin.payables.aiUnavailable')); return
+      }
+      const vid = ex.vendor_name ? matchVendorId(ex.vendor_name) : ''
+      setForm(f => ({
+        ...f,
+        vendor_id: vid || f.vendor_id,
+        payee_name: vid ? f.payee_name : (ex.vendor_name || f.payee_name),
+        bill_number: ex.bill_number || f.bill_number,
+        bill_date: ex.bill_date || f.bill_date,
+        due_date: ex.due_date || f.due_date,
+        amount: ex.amount != null ? String(ex.amount) : f.amount,
+        description: ex.description || f.description,
+      }))
+      setAiNote(vid ? t('admin.payables.aiFilledMatched') : t('admin.payables.aiFilled'))
+    } catch { setAiNote(t('admin.payables.aiUnavailable')) }
+    finally { setAiBusy(false) }
+  }
   const vendorName = (id: string | null) => vendors.find(v => v.id === id)?.name
   const catName = (id: string | null) => cats.find(c => c.id === id)?.name || '—'
   const payeeOf = (bl: Bill) => vendorName(bl.vendor_id) || bl.payee_name || t('admin.payables.payeeUnknown')
@@ -174,6 +216,9 @@ export default function PayablesPage() {
       <div className="admin-kicker">{t('admin.payables.kicker')}</div>
       <h1 className="admin-h1">{t('admin.payables.pageTitle')}</h1>
       <p className="admin-dek">{t('admin.payables.dek')}</p>
+      <div style={{ marginBottom: 16 }}>
+        <Link href="/admin/payables/1099" className="admin-btn-ghost admin-btn-sm">{t('admin.payables.open1099')}</Link>
+      </div>
 
       {msg && <div className="admin-success" role="status"><span className="admin-success-check" aria-hidden>✓</span>{msg}</div>}
       {status === 'none' && <div className="admin-note admin-note-warn">{t('admin.payables.noCommunity')}</div>}
@@ -192,7 +237,22 @@ export default function PayablesPage() {
           {/* Capture a bill */}
           {canManage && (
             <div className="card">
-              <div className="card-head"><div><h2>{t('admin.payables.recordBillHeading')}</h2><div className="sub">{t('admin.payables.recordBillSub')}</div></div></div>
+              <div className="card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 }}>
+                <div><h2>{t('admin.payables.recordBillHeading')}</h2><div className="sub">{t('admin.payables.recordBillSub')}</div></div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                  {aiNote && <span style={{ fontSize: 11.5, color: 'var(--text-dim)', maxWidth: 180, textAlign: 'right' }}>{aiNote}</span>}
+                  <input
+                    ref={billFileRef}
+                    type="file"
+                    accept="application/pdf,image/*"
+                    style={{ display: 'none' }}
+                    onChange={e => { const f = e.target.files?.[0]; if (f) readBill(f); e.currentTarget.value = '' }}
+                  />
+                  <button type="button" className="admin-btn-ghost admin-btn-sm" disabled={aiBusy} onClick={() => billFileRef.current?.click()}>
+                    {aiBusy ? t('admin.payables.aiReading') : `✨ ${t('admin.payables.aiReadBill')}`}
+                  </button>
+                </div>
+              </div>
               <form className="admin-form" onSubmit={addBill}>
                 <div className="admin-2col">
                   <div className="admin-field">

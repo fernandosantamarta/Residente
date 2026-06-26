@@ -192,6 +192,12 @@ export interface CollectionNoticeRow {
   mailed_to_record_address?: string | null
   mailed_to_unit_address?: string | null
   dual_address_required?: boolean | null
+  // certified-mail rail (Lob) metadata (certified-mail.sql) — null for manual logs
+  mail_provider?: string | null
+  lob_status?: string | null
+  lob_cost?: number | null
+  lob_expected_delivery?: string | null
+  lob_url?: string | null
 }
 
 export type PlanRequestStatus = 'requested' | 'approved' | 'modified' | 'denied' | 'withdrawn'

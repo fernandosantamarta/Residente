@@ -9,6 +9,8 @@
 // This function adds:
 //   - kind 'budget'    → operating-budget categories {name, budget, spent}
 //   - kind 'insurance' → one policy's fields (carrier, dates, amounts)
+//   - kind 'invoice'   → a vendor bill's header fields for accounts payable
+//   (+ minutes, events, amenities, categorize, violation, arc, request)
 //
 // SECURITY: requires a valid Supabase JWT (the authenticated board member) — NOT
 // an open endpoint, so it can't be hit anonymously to burn API credits. We never
@@ -370,6 +372,33 @@ const AMENITIES_PROMPT =
   'extract each amenity: name, a short kind/category, description, location, capacity, hours, and any ' +
   'reservation fee in dollars. Report only what is shown — never invent amenities or fees.'
 
+// ---- invoice: read a vendor bill → the header fields for accounts payable ----
+const INVOICE_TOOL = {
+  name: 'vendor_invoice',
+  description: 'Return the header fields of a vendor invoice / bill so it can be entered into accounts payable.',
+  input_schema: {
+    type: 'object',
+    properties: {
+      vendor_name: { type: 'string', description: 'The vendor / company that issued the invoice (the payee / "bill from"). Omit if not shown.' },
+      bill_number: { type: 'string', description: 'The invoice or bill number. Omit if not shown.' },
+      bill_date: { type: 'string', description: 'The invoice date as YYYY-MM-DD. Omit if not shown.' },
+      due_date: { type: 'string', description: 'The payment due date as YYYY-MM-DD. Omit if not shown.' },
+      amount: { type: 'number', description: 'The TOTAL amount due in US dollars — the final balance to pay (amount due / total / balance), NOT a line-item subtotal or a standalone tax line. Omit if not shown.' },
+      description: { type: 'string', description: 'A short one-line summary of the goods or services billed. Omit if unclear.' },
+    },
+    required: [],
+    additionalProperties: false,
+  },
+}
+const INVOICE_PROMPT =
+  'You are entering a vendor bill into a Florida HOA/condo association\'s accounts payable. The attached ' +
+  'document is a vendor invoice or bill (PDF, scan, or photo — any layout). Using the vendor_invoice tool, ' +
+  'extract the header fields: the vendor / company name (the payee, usually the "bill from" / letterhead), ' +
+  'the invoice number, the invoice date and the payment due date (as YYYY-MM-DD), the TOTAL amount due in US ' +
+  'dollars (the final balance to pay — not a line subtotal or a tax line on its own), and a one-line summary ' +
+  'of what was billed. Report only values the document actually states — omit any field you are unsure about ' +
+  'rather than guessing, and never invent a vendor, number, or amount.'
+
 // Resolve the tool + prompt for a request. Most kinds are static; `categorize`
 // builds its enum from the client-sent category list, `violation`/`arc`/`request`
 // inject the community rule book (and `arc`/`request` the request text).
@@ -380,6 +409,7 @@ function specFor(kind: string, body: any): { tool: any; prompt: string } | null 
     case 'minutes': return { tool: MINUTES_TOOL, prompt: MINUTES_PROMPT }
     case 'events': return { tool: EVENTS_TOOL, prompt: EVENTS_PROMPT }
     case 'amenities': return { tool: AMENITIES_TOOL, prompt: AMENITIES_PROMPT }
+    case 'invoice': return { tool: INVOICE_TOOL, prompt: INVOICE_PROMPT }
     case 'categorize': {
       const cats = Array.isArray(body?.categories) && body.categories.length ? body.categories.map(String) : DEFAULT_DOC_CATEGORIES
       return { tool: categorizeTool(cats), prompt: CATEGORIZE_PROMPT }

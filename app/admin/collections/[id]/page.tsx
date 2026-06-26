@@ -24,6 +24,8 @@ import {
   NOTICE_30_DAY_DAYS, INTENT_TO_LIEN_DAYS, INTENT_TO_FORECLOSE_DAYS,
   type CollectionCaseRow, type CollectionStage, type CollectionNoticeKind, type CollectionNoticeRow, type PaymentPlanRow,
 } from '@/lib/compliance/collections'
+import { noticeLetterContent, mailCollectionNotice } from '@/lib/certifiedMail'
+import type { PayoffResult as PayoffResultType } from '@/lib/dues'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -262,6 +264,8 @@ export default function CollectionCaseDetail() {
               communityId={c.community_id!}
               profileId={profile?.id ?? null}
               resident={resident}
+              community={community}
+              payoff={payoff}
               regime={regime}
               onAdvanced={load}
               onError={setError}
@@ -384,6 +388,14 @@ export default function CollectionCaseDetail() {
                   {n.tracking_number ? ` · #${n.tracking_number}` : ''}
                   {n.return_receipt_at ? ` · ${t('admin.collectionsDetail.receipt')} ${n.return_receipt_at}` : ''}
                 </div>
+                {n.mail_provider === 'lob' && (
+                  <div style={{ fontSize: 11.5, marginTop: 4, display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{ background: '#175CD314', color: '#175CD3', fontWeight: 700, padding: '1px 7px', borderRadius: 999 }}>{t('admin.collectionsDetail.mailedViaCertified')}</span>
+                    {n.lob_status ? <span style={{ opacity: 0.75 }}>{n.lob_status.replace(/^letter\./, '').replace(/[._]/g, ' ')}</span> : null}
+                    {n.lob_expected_delivery && !n.return_receipt_at ? <span style={{ opacity: 0.6 }}>· {t('admin.collectionsDetail.lobExpected')} {n.lob_expected_delivery}</span> : null}
+                    {typeof n.lob_cost === 'number' && n.lob_cost > 0 ? <span style={{ opacity: 0.6 }}>· {fmt$(n.lob_cost)}</span> : null}
+                  </div>
+                )}
                 {(n.mailed_to_record_address || n.mailed_to_unit_address) && (
                   <div style={{ fontSize: 11.5, opacity: 0.75, marginTop: 4 }}>
                     {t('admin.collectionsDetail.mailedTo')} {n.mailed_to_record_address || '—'}
@@ -470,15 +482,17 @@ function StageBar({ stage }: { stage: CollectionStage }) {
 const defaultMethod = (kind?: CollectionNoticeKind | null): string =>
   kind === 'late_assessment_30' || kind === 'tenant_rent_demand' ? 'first_class' : 'both'
 
-function StageActions({ adv, caseRow, communityId, profileId, resident, regime, onAdvanced, onError }: {
+function StageActions({ adv, caseRow, communityId, profileId, resident, community, payoff, regime, onAdvanced, onError }: {
   adv: Advance | null; caseRow: CollectionCaseRow; communityId: string; profileId: string | null
-  resident: any; regime: 'condo' | 'hoa'
+  resident: any; community: any; payoff: PayoffResultType | null; regime: 'condo' | 'hoa'
   onAdvanced: () => void; onError: (m: string) => void
 }) {
   const t = useT()
   const [openComposer, setOpenComposer] = useState(false)
   const [form, setForm] = useState<any>({ date: todayYmd(), method: 'both', tracking: '', recipient: '' })
   const [busy, setBusy] = useState(false)
+  const [mailBusy, setMailBusy] = useState(false)
+  const [mailNote, setMailNote] = useState('')
   if (!adv) return <div className="admin-note" style={{ fontSize: 12.5 }}>{t('admin.collectionsDetail.foreclosureFiled')}</div>
 
   // The statutory dual-address rule for this notice, resolved against the owner's
@@ -487,6 +501,20 @@ function StageActions({ adv, caseRow, communityId, profileId, resident, regime, 
   const addrInput = ownerNoticeAddresses(resident)
   const resolved = resolveNoticeAddresses(addrInput)
   const addrWarn = adv.notice ? noticeAddressWarning(adv.notice, regime, addrInput) : null
+  const ownerDual = !!(rule?.applies && resolved.dualRequired)
+
+  // Advance the case stage (and audit) WITHOUT logging a notice — used after a
+  // notice has already been recorded (manually below, or by the certified-mail
+  // rail). Throws on failure; callers surface the error.
+  const advanceStage = async () => {
+    const patch: any = { stage: adv.nextStage, [adv.stampField]: form.date || todayYmd() }
+    const { error: uErr } = (await withTimeout(supabase.from('ev_collection_cases').update(patch).eq('id', caseRow.id))) as any
+    if (uErr) throw uErr
+    await logAudit({ community_id: communityId, event_type: 'collection.stage_changed', target_type: 'collection_case', target_id: caseRow.id, metadata: { to: adv.nextStage } })
+    setOpenComposer(false)
+    setForm({ date: todayYmd(), method: 'both', tracking: '', recipient: '' })
+    onAdvanced()
+  }
 
   const run = async () => {
     setBusy(true)
@@ -508,20 +536,55 @@ function StageActions({ adv, caseRow, communityId, profileId, resident, regime, 
           created_by: profileId,
         }))) as any
         if (nErr) throw nErr
-        await logAudit({ community_id: communityId, event_type: 'collection.notice_logged', target_type: 'collection_case', target_id: caseRow.id, metadata: { kind: adv.notice, dual_address: !!(rule?.applies && resolved.dualRequired) } })
+        await logAudit({ community_id: communityId, event_type: 'collection.notice_logged', target_type: 'collection_case', target_id: caseRow.id, metadata: { kind: adv.notice, dual_address: ownerDual } })
       }
-      const patch: any = { stage: adv.nextStage, [adv.stampField]: form.date || todayYmd() }
-      const { error: uErr } = (await withTimeout(supabase.from('ev_collection_cases').update(patch).eq('id', caseRow.id))) as any
-      if (uErr) throw uErr
-      await logAudit({ community_id: communityId, event_type: 'collection.stage_changed', target_type: 'collection_case', target_id: caseRow.id, metadata: { to: adv.nextStage } })
-      setOpenComposer(false)
-      setForm({ date: todayYmd(), method: 'both', tracking: '', recipient: '' })
-      onAdvanced()
+      await advanceStage()
     } catch (err: any) { onError(err?.message || t('admin.collectionsDetail.couldNotAdvanceCase')) }
     finally { setBusy(false) }
   }
 
-  if (!openComposer) return <button className="admin-primary-btn" onClick={() => { setForm({ date: todayYmd(), method: defaultMethod(adv.notice), tracking: '', recipient: '' }); setOpenComposer(true) }}>{adv.label}</button>
+  // Certified-mail rail: generate + mail the statutory notice through Lob, which
+  // logs it on the ledger, then advance the stage. Fails soft when the rail isn't
+  // configured (LOB_API_KEY unset) or no usable mailing address is on file.
+  const runMailed = async () => {
+    if (!adv.notice) return
+    setMailBusy(true); setMailNote('')
+    try {
+      const isCondo = regime === 'condo'
+      const baseDate = form.date || todayYmd()
+      const days = adv.notice === 'late_assessment_30' ? 30 : 45
+      const payByDate = ymd(addCalendarDays(baseDate, days)) || baseDate
+      const letter = noticeLetterContent(adv.notice, {
+        communityName: community?.name || 'the association',
+        isCondo,
+        amount: payoff ? fmtMoney(payoff.payoff) : null,
+        today: baseDate,
+        payByDate,
+        ownerDual,
+        dualStatutory: !!rule?.statutory,
+        unitLabel: resident?.unit_number || caseRow.unit_label || '',
+      })
+      const res = await mailCollectionNotice({
+        caseId: caseRow.id,
+        kind: adv.notice,
+        recipientName: resident?.full_name || caseRow.unit_label || '',
+        recordAddress: resolved.recordAddress,
+        unitAddress: resolved.unitAddress,
+        dualRequired: ownerDual,
+        dateStr: baseDate,
+        title: letter.title,
+        paragraphs: letter.paragraphs,
+        footer: letter.footer,
+      })
+      if (res.notConfigured) { setMailNote(t('admin.collectionsDetail.mailNotConfigured')); return }
+      if (!res.ok) { setMailNote(res.error || t('admin.collectionsDetail.mailFailed')); return }
+      await advanceStage()
+    } catch (err: any) {
+      setMailNote(err?.message || t('admin.collectionsDetail.mailFailed'))
+    } finally { setMailBusy(false) }
+  }
+
+  if (!openComposer) return <button className="admin-primary-btn" onClick={() => { setForm({ date: todayYmd(), method: defaultMethod(adv.notice), tracking: '', recipient: '' }); setMailNote(''); setOpenComposer(true) }}>{adv.label}</button>
 
   return (
     <div style={{ border: '1px dashed #cbd5e1', borderRadius: 10, padding: 12 }}>
@@ -562,10 +625,22 @@ function StageActions({ adv, caseRow, communityId, profileId, resident, regime, 
         </div>
       )}
 
-      <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
-        <button className="admin-primary-btn" disabled={busy} onClick={run}>{busy ? t('admin.collectionsDetail.saving') : t('admin.collectionsDetail.confirm')}</button>
-        <button className="admin-btn-ghost" disabled={busy} onClick={() => setOpenComposer(false)}>{t('admin.collectionsDetail.cancel')}</button>
+      <div style={{ display: 'flex', gap: 8, marginTop: 10, flexWrap: 'wrap' }}>
+        {adv.needsNotice && adv.notice ? (
+          <>
+            <button className="admin-primary-btn" disabled={mailBusy || busy} onClick={runMailed}>
+              {mailBusy ? t('admin.collectionsDetail.mailSending') : `✉ ${t('admin.collectionsDetail.mailCertified')}`}
+            </button>
+            <button className="admin-btn-ghost" disabled={busy || mailBusy} onClick={run}>
+              {busy ? t('admin.collectionsDetail.saving') : t('admin.collectionsDetail.logManually')}
+            </button>
+          </>
+        ) : (
+          <button className="admin-primary-btn" disabled={busy} onClick={run}>{busy ? t('admin.collectionsDetail.saving') : t('admin.collectionsDetail.confirm')}</button>
+        )}
+        <button className="admin-btn-ghost" disabled={busy || mailBusy} onClick={() => setOpenComposer(false)}>{t('admin.collectionsDetail.cancel')}</button>
       </div>
+      {mailNote && <div className="admin-note" style={{ fontSize: 12, marginTop: 8 }}>{mailNote}</div>}
     </div>
   )
 }

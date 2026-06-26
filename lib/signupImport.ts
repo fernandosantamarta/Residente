@@ -528,6 +528,42 @@ export async function extractAmenitiesFromFile(file: File): Promise<ExtractedAme
   } catch { return null }
 }
 
+// One vendor bill's header fields, as read off an invoice (PDF, scan, or photo).
+// Amount is a number (or undefined); dates are YYYY-MM-DD strings (or undefined).
+export interface ExtractedInvoice {
+  vendor_name?: string
+  bill_number?: string
+  bill_date?: string
+  due_date?: string
+  amount?: number
+  description?: string
+}
+
+// AI document → vendor-bill header fields. Sends an uploaded invoice (PDF or
+// image) to the extract-doc edge fn (kind 'invoice', Claude vision) so the board
+// can review/edit before the bill enters accounts payable. Returns null if AI
+// isn't configured / the call failed (caller falls back to typing the bill in).
+export async function extractInvoiceFromFile(file: File): Promise<ExtractedInvoice | null> {
+  if (!hasSupabase || !supabase || !file) return null
+  try {
+    const file_base64 = await fileToBase64(file)
+    const media_type = file.type || (/\.pdf$/i.test(file.name) ? 'application/pdf' : 'image/png')
+    const { data, error } = await supabase.functions.invoke('extract-doc', { body: { file_base64, media_type, kind: 'invoice' } })
+    if (error || !data?.ok || !data?.data) return null
+    const d = data.data as any
+    const str = (v: any) => (v == null ? undefined : String(v).trim() || undefined)
+    const num = (v: any) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)
+    return {
+      vendor_name: str(d.vendor_name),
+      bill_number: str(d.bill_number),
+      bill_date: str(d.bill_date),
+      due_date: str(d.due_date),
+      amount: num(d.amount),
+      description: str(d.description),
+    }
+  } catch { return null }
+}
+
 // Apply extracted billing settings + rules to the provisioned community.
 // Best-effort and field-isolated. Returns the number of rules written.
 export async function applyExtractedSetup(communityId: string, ex: ExtractedSetup): Promise<{ settings: boolean; rules: number }> {
