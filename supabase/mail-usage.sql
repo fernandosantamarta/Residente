@@ -9,7 +9,7 @@ returns table (
   community_id uuid, name text, plan text, lob_enabled boolean,
   month_cost numeric, month_count bigint,
   total_cost numeric, total_count bigint,
-  last_sent_at timestamptz
+  outstanding numeric, last_sent_at timestamptz
 )
 language plpgsql security definer as $$
 begin
@@ -22,6 +22,9 @@ begin
         where m.community_id = c.id and m.created_at >= date_trunc('month', now())),
       coalesce((select sum(m.cost) from public.ev_mail_log m where m.community_id = c.id), 0),
       (select count(*) from public.ev_mail_log m where m.community_id = c.id),
+      -- Unpaid mailing cost still on the community's collection cases (spent minus
+      -- what owners have reimbursed). 0 with spend > 0 = fully paid off.
+      coalesce((select sum(cc.mailing_cost_balance) from public.ev_collection_cases cc where cc.community_id = c.id), 0),
       (select max(m.created_at) from public.ev_mail_log m where m.community_id = c.id)
     from public.communities c
     order by 7 desc nulls last, c.name;

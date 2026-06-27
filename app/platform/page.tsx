@@ -1313,7 +1313,8 @@ export default function PlatformConsole() {
                   <th style={th}>Community</th>
                   <th style={th}>Plan</th>
                   <th style={{ ...th, textAlign: 'right' }}>This month</th>
-                  <th style={{ ...th, textAlign: 'right' }}>All-time</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Spent (all-time)</th>
+                  <th style={{ ...th, textAlign: 'right' }}>Unpaid</th>
                   <th style={{ ...th, textAlign: 'right' }}>Letters</th>
                   <th style={th}>Last sent</th>
                   <th style={{ ...th, textAlign: 'right' }}>Lob</th>
@@ -1325,6 +1326,13 @@ export default function PlatformConsole() {
                       <td style={{ ...td, textTransform: 'capitalize' }}>{r.plan || 'free'}</td>
                       <td style={{ ...td, textAlign: 'right' }}>${Number(r.month_cost || 0).toFixed(2)}</td>
                       <td style={{ ...td, textAlign: 'right' }}>${Number(r.total_cost || 0).toFixed(2)}</td>
+                      <td style={{ ...td, textAlign: 'right' }}>
+                        {Number(r.outstanding) > 0
+                          ? <span style={{ color: C.bad, fontWeight: 700 }}>${Number(r.outstanding).toFixed(2)}</span>
+                          : Number(r.total_cost) > 0
+                            ? <span style={{ color: C.good, fontWeight: 700, fontSize: 11.5 }}>Paid off</span>
+                            : <span style={{ color: C.muted }}>—</span>}
+                      </td>
                       <td style={{ ...td, textAlign: 'right' }}>{Number(r.total_count || 0)}</td>
                       <td style={td}>{r.last_sent_at ? fmtDate(r.last_sent_at) : '—'}</td>
                       <td style={{ ...td, textAlign: 'right' }}><LobToggle row={r} onToggle={setLobEnabled} onClear={clearMailingCosts} /></td>

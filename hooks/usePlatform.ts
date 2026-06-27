@@ -66,6 +66,7 @@ export type PlatformMailUsage = {
   lob_enabled: boolean
   month_cost: number; month_count: number
   total_cost: number; total_count: number
+  outstanding: number   // unpaid mailing cost still owed (spent − reimbursed)
   last_sent_at: string | null
 }
 
