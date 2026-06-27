@@ -558,6 +558,8 @@ export const en: Record<string, string> = {
   "pay.collCosts": "Costs",
   "pay.collTotal": "{amount} to clear",
   "pay.collPay": "Pay {amount}",
+  "pay.collOnPlan": "You're on a payment plan — see the plan below.",
+  "pay.collQuickActions": "Quick actions",
   "pay.holdTitle": "Legal protection",
   "pay.holdReasonBankruptcy": "Bankruptcy filed",
   "pay.holdReasonScra": "Active-duty military (SCRA)",

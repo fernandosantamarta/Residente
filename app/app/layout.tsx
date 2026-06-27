@@ -491,7 +491,9 @@ function RightRail() {
   const { profile } = useAuth()
   const t = useT()
   const { resident, balance, status: dues } = useMyResident() as { resident: any; balance: number | null; status: 'paid' | 'due' | 'late' }
-  const unitLabel = resident?.address || (profile?.unit_number ? `Unit ${profile.unit_number}` : 'Unit —')
+  // Show the unit/parcel number under the "Unit" label — NOT the full mailing
+  // address (which can now be a long street address used for collection notices).
+  const unitLabel = resident?.unit_number || profile?.unit_number || resident?.address || '—'
 
   // UP NEXT — wired to the same schedule events the /app/schedule
   // calendar uses, so this rail always matches what the resident

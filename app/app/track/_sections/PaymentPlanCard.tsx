@@ -19,7 +19,7 @@ const fmtDate = (d: string | Date | null | undefined) => {
   } catch { return '—' }
 }
 
-export function PaymentPlanCard({ resident }: { resident: any }) {
+export function PaymentPlanCard({ resident, embedded }: { resident: any; embedded?: boolean }) {
   const t = useT()
   const { openCheckout } = useCheckout()
   const { openCase, plan, loading, requestPlan, withdrawPlan } = useMyPaymentPlan()
@@ -76,7 +76,7 @@ export function PaymentPlanCard({ resident }: { resident: any }) {
   }
 
   return (
-    <section className="pay-card pay-plan-card" id="payment-plan">
+    <div className={embedded ? 'pay-embed' : 'pay-card pay-plan-card'} id={embedded ? undefined : 'payment-plan'}>
       <div className="pay-plan-head">
         <span className="pay-plan-eyebrow">{t('pay.planTitle')}</span>
       </div>
@@ -165,6 +165,6 @@ export function PaymentPlanCard({ resident }: { resident: any }) {
           {error && <div className="pay-err">{error}</div>}
         </DetailDialog>
       )}
-    </section>
+    </div>
   )
 }

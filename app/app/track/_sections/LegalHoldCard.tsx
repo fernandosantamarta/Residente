@@ -11,7 +11,7 @@ import { useMyLegalHold, LEGAL_HOLD_REASONS } from '@/lib/legal-holds'
 import { useT } from '@/lib/i18n'
 import { DetailDialog } from './DetailDialog'
 
-export function LegalHoldCard() {
+export function LegalHoldCard({ embedded }: { embedded?: boolean } = {}) {
   const t = useT()
   const { openCase, hold, loading, reportHold, respondToRequest, withdrawHold } = useMyLegalHold()
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -52,7 +52,7 @@ export function LegalHoldCard() {
   }
 
   return (
-    <section className="pay-card pay-plan-card" id="legal-hold">
+    <div className={embedded ? 'pay-embed' : 'pay-card pay-plan-card'} id={embedded ? undefined : 'legal-hold'}>
       <div className="pay-plan-head">
         <span className="pay-plan-eyebrow">{t('pay.holdTitle')}</span>
       </div>
@@ -125,6 +125,6 @@ export function LegalHoldCard() {
           {error && <div className="pay-err">{error}</div>}
         </DetailDialog>
       )}
-    </section>
+    </div>
   )
 }

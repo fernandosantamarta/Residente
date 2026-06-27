@@ -11,8 +11,6 @@ import { useMyViolations, payFine } from '@/lib/violations'
 import { useCheckout } from '@/components/CheckoutProvider'
 import { useT } from '@/lib/i18n'
 import { DetailDialog } from './DetailDialog'
-import { PaymentPlanCard } from './PaymentPlanCard'
-import { LegalHoldCard } from './LegalHoldCard'
 import { CollectionPayoffCard } from './CollectionPayoffCard'
 import { ContestFineControl } from './ContestFineControl'
 
@@ -416,15 +414,8 @@ export function PaySection() {
           closes itself on payment, so the band vanishes once everything's paid. */}
       <FinesDueCard />
 
-      {/* Payment plan — request/track an installment plan on a collection case.
-          Only renders when the resident has an open case or a live plan. */}
-      <PaymentPlanCard resident={resident} />
-
-      {/* Legal hold — report a legal protection (bankruptcy / SCRA / qualifying
-          offer) or respond to a board request. Only renders with an open case. */}
-      <LegalHoldCard />
-
-      {/* Collection balance — the full payoff on an open case, pay-to-clear. */}
+      {/* Collections — one card (payoff + payment-plan + legal-protection quick
+          actions), shown only when the owner has an open collection case. */}
       <CollectionPayoffCard resident={resident} community={community} payments={payments} />
 
       {/* Current Balance hero — full width: balance on the left, a divider,
