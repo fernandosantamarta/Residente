@@ -82,11 +82,12 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
           </>
         )}
 
-        {/* Quiet link down to Quick actions, where the plan + legal flows live. */}
+        {/* Quiet link down to Quick actions, where the plan + legal flows live.
+            Its own line below the Pay button (flex, not inline-flex). */}
         <a href="#quick-actions" onClick={scrollToQuickActions} className="pay-coll-help"
-          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: showPayoff ? 14 : 0, fontSize: 13, fontWeight: 600, color: '#B54708', textDecoration: 'none', cursor: 'pointer' }}>
+          style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: showPayoff ? 18 : 0, fontSize: 13, fontWeight: 600, color: '#B54708', textDecoration: 'none', cursor: 'pointer' }}>
           {t('pay.collMoreHelp')}
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
             <path d="M12 5v14M5 12l7 7 7-7" />
           </svg>
         </a>
