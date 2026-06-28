@@ -11,7 +11,7 @@ import { useMyViolations, payFine } from '@/lib/violations'
 import { useCheckout } from '@/components/CheckoutProvider'
 import { useT } from '@/lib/i18n'
 import { DetailDialog } from './DetailDialog'
-import { CollectionPayoffCard } from './CollectionPayoffCard'
+import { CollectionPayoffCard, CollectionQuickActions } from './CollectionPayoffCard'
 import { ContestFineControl } from './ContestFineControl'
 
 const fmtDate = (d: string | Date | null | undefined) => {
@@ -544,6 +544,10 @@ export function PaySection() {
           ))}
         </div>
       </section>
+
+      {/* Collection quick actions (payment plan + legal protection) — its own tile
+          on mobile, only when in collections. The payoff card links down here. */}
+      <CollectionQuickActions resident={resident} standalone />
 
       {/* Account Details — view popup, opened in place from the balance card. */}
       {accountOpen && (

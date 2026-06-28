@@ -1,9 +1,9 @@
 'use client'
 
-// Unified Collections card — one card that only appears when the owner has an
-// OPEN collection case. Shows the live statutory payoff with a "Pay to clear"
-// CTA, then folds the payment-plan + legal-protection flows in as quick actions.
-// Replaces the three separate stacked cards.
+// Collections payoff card — the one notification an owner in collections sees up
+// top: the live statutory payoff with a "Pay to clear" CTA, plus a quiet link
+// down to Quick actions (where the payment-plan + legal-protection flows live).
+// Shown only when the owner has an OPEN collection case.
 
 import { fmtMoney, casePayoff } from '@/lib/dues'
 import { useMyPaymentPlan } from '@/lib/payment-plans'
@@ -12,6 +12,14 @@ import { stripeEnabled } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
 import { PaymentPlanCard } from './PaymentPlanCard'
 import { LegalHoldCard } from './LegalHoldCard'
+
+// Smooth-scroll the page to the Quick Actions tile (id="quick-actions"), set by
+// both the desktop and mobile Pay sections.
+function scrollToQuickActions(e: React.MouseEvent) {
+  e.preventDefault()
+  if (typeof document === 'undefined') return
+  document.getElementById('quick-actions')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+}
 
 export function CollectionPayoffCard({ resident, community, payments }: { resident: any; community: any; payments: any[] }) {
   const t = useT()
@@ -47,21 +55,21 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
 
   return (
     <section className="pay-card" id="collections" style={{ overflow: 'hidden', padding: 0 }}>
-      {/* Compact header — a thin orange accent bar keeps it serious but restrained. */}
-      <div style={{ background: 'linear-gradient(135deg, #E14909 0%, #F2922A 100%)', color: '#fff', padding: '11px 16px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
-        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.7px', textTransform: 'uppercase', opacity: 0.92 }}>{t('pay.collTitle')}</div>
+      {/* Zesty header — orange gradient band so collections reads as serious-but-actionable. */}
+      <div style={{ background: 'linear-gradient(135deg, #E14909 0%, #F2922A 100%)', color: '#fff', padding: '16px 20px' }}>
+        <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.6px', textTransform: 'uppercase', opacity: 0.92 }}>{t('pay.collTitle')}</div>
         {showPayoff
-          ? <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1 }}>{t('pay.collTotal', { amount: fmtMoney(payoff!.payoff) })}</div>
-          : <div style={{ fontSize: 12.5, fontWeight: 600, opacity: 0.95 }}>{t('pay.collOnPlan')}</div>}
+          ? <div style={{ fontSize: 27, fontWeight: 800, marginTop: 5, lineHeight: 1.1 }}>{t('pay.collTotal', { amount: fmtMoney(payoff!.payoff) })}</div>
+          : <div style={{ fontSize: 14, fontWeight: 600, marginTop: 5, opacity: 0.95 }}>{t('pay.collOnPlan')}</div>}
       </div>
 
-      <div style={{ padding: '13px 16px' }}>
+      <div style={{ padding: '16px 20px' }}>
         {showPayoff && (
           <>
-            <p className="pay-plan-intro" style={{ marginTop: 0, fontSize: 12.5 }}>{t('pay.collIntro')}</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, margin: '7px 0 12px' }}>
+            <p className="pay-plan-intro" style={{ marginTop: 0 }}>{t('pay.collIntro')}</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '8px 0 14px' }}>
               {chips.map(([label, val]) => (
-                <span key={label} style={{ fontSize: 11, background: 'rgba(225,73,9,0.08)', color: '#B54708', borderRadius: 999, padding: '3px 9px', fontWeight: 600 }}>
+                <span key={label} style={{ fontSize: 12, background: 'rgba(225,73,9,0.09)', color: '#B54708', borderRadius: 999, padding: '4px 11px', fontWeight: 600 }}>
                   {label} {fmtMoney(Number(val) || 0)}
                 </span>
               ))}
@@ -74,17 +82,49 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
           </>
         )}
 
-        {/* Quick actions — only here because the owner is in collections. */}
-        <div style={{ borderTop: showPayoff ? '1px solid rgba(0,0,0,0.08)' : 'none', marginTop: showPayoff ? 13 : 0, paddingTop: showPayoff ? 11 : 0 }}>
-          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 2 }}>{t('pay.collQuickActions')}</div>
-          <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', marginTop: 10, paddingTop: 10 }}>
-            <PaymentPlanCard resident={resident} embedded />
-          </div>
-          <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', marginTop: 10, paddingTop: 10 }}>
-            <LegalHoldCard embedded />
-          </div>
-        </div>
+        {/* Quiet link down to Quick actions, where the plan + legal flows live. */}
+        <a href="#quick-actions" onClick={scrollToQuickActions} className="pay-coll-help"
+          style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: showPayoff ? 14 : 0, fontSize: 13, fontWeight: 600, color: '#B54708', textDecoration: 'none', cursor: 'pointer' }}>
+          {t('pay.collMoreHelp')}
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M12 5v14M5 12l7 7 7-7" />
+          </svg>
+        </a>
       </div>
     </section>
+  )
+}
+
+// CollectionQuickActions — the payment-plan + legal-protection rows, shown only
+// when the owner has an open collection case. Rendered two ways:
+//   default    — a bare group meant to sit INSIDE the existing right-column
+//                Quick Actions tile (desktop), with a divider above it.
+//   standalone — its own tile with a heading + id="quick-actions" (mobile, which
+//                has no right-column tile of its own).
+export function CollectionQuickActions({ resident, standalone }: { resident: any; standalone?: boolean }) {
+  const t = useT()
+  const { openCase, loading } = useMyPaymentPlan()
+  if (loading || !openCase) return null
+
+  const rows = (
+    <>
+      <PaymentPlanCard resident={resident} variant="row" />
+      <LegalHoldCard variant="row" />
+    </>
+  )
+
+  if (standalone) {
+    return (
+      <section className="pay-card pay-tile-tight" id="quick-actions">
+        <h3 className="pay-tile-title">{t('pay.collQuickActions')}</h3>
+        <div className="pay-quick">{rows}</div>
+      </section>
+    )
+  }
+
+  return (
+    <div className="pay-quick" style={{ borderTop: '1px solid var(--ev-border, #e5e2da)', marginTop: 10, paddingTop: 10 }}>
+      {rows}
+    </div>
   )
 }

@@ -11,7 +11,7 @@ import { useMyViolations, payFine } from '@/lib/violations'
 import { useCheckout } from '@/components/CheckoutProvider'
 import { useT } from '@/lib/i18n'
 import { DetailDialog } from './DetailDialog'
-import { CollectionPayoffCard } from './CollectionPayoffCard'
+import { CollectionPayoffCard, CollectionQuickActions } from './CollectionPayoffCard'
 import { ContestFineControl } from './ContestFineControl'
 
 const fmtDate = (d: string | Date | null | undefined) => {
@@ -579,7 +579,7 @@ export function PaySection() {
 
         {/* RIGHT COLUMN */}
         <aside className="pay-aside">
-          <section className="pay-card pay-tile-tight">
+          <section className="pay-card pay-tile-tight" id="quick-actions">
             <h3 className="pay-tile-title">{t('pay.quickActions')}</h3>
             <div className="pay-quick">
               <QuickRow icon={<IconLightning />}
@@ -599,6 +599,8 @@ export function PaySection() {
                 desc={t('pay.qaHistoryDesc')}
                 onClick={() => setListOpen('history')} />
             </div>
+            {/* Collection actions (payment plan + legal protection) — only when in collections. */}
+            <CollectionQuickActions resident={resident} />
           </section>
 
           <section className="pay-card pay-autopay" id="autopay">

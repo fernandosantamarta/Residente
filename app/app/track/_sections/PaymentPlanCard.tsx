@@ -4,6 +4,13 @@
 // delinquent resident request an installment plan (board reviews, ARC-style)
 // and, once approved, pay each installment. Renders nothing for residents in
 // good standing (no open collection case and no plan).
+//
+// Three render modes:
+//   default   — its own full pay-card (legacy / standalone)
+//   embedded  — bare body, no card chrome (folded inside another card)
+//   variant="row" — a single Quick Actions row (icon + status) that opens the
+//                   full flow in a popup. This is how it lives now: inside the
+//                   right-column Quick Actions tile, not as a stacked card.
 
 import { useState } from 'react'
 import { fmtMoney } from '@/lib/dues'
@@ -19,11 +26,13 @@ const fmtDate = (d: string | Date | null | undefined) => {
   } catch { return '—' }
 }
 
-export function PaymentPlanCard({ resident, embedded }: { resident: any; embedded?: boolean }) {
+export function PaymentPlanCard({ resident, embedded, variant }: { resident: any; embedded?: boolean; variant?: 'row' }) {
   const t = useT()
   const { openCheckout } = useCheckout()
   const { openCase, plan, loading, requestPlan, withdrawPlan } = useMyPaymentPlan()
-  const [dialogOpen, setDialogOpen] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)   // request form (default/embedded mode)
+  const [rowOpen, setRowOpen] = useState(false)         // detail popup (row mode)
+  const [rowForm, setRowForm] = useState(false)         // form view inside the row popup
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -42,7 +51,7 @@ export function PaymentPlanCard({ resident, embedded }: { resident: any; embedde
   const isDenied = rs === 'denied'
   const canRequest = !!openCase && (!plan || isDenied)
 
-  const submitRequest = async () => {
+  const submitRequest = async (onDone?: () => void) => {
     if (!openCase) return
     setBusy(true); setError(null)
     const err = await requestPlan({
@@ -53,7 +62,7 @@ export function PaymentPlanCard({ resident, embedded }: { resident: any; embedde
       autopayOptIn: autopayOpt,
     })
     setBusy(false)
-    if (err) { setError(err) } else { setDialogOpen(false) }
+    if (err) { setError(err) } else { (onDone ?? (() => setDialogOpen(false)))() }
   }
 
   const onWithdraw = async () => {
@@ -75,13 +84,34 @@ export function PaymentPlanCard({ resident, embedded }: { resident: any; embedde
     })
   }
 
-  return (
-    <div className={embedded ? 'pay-embed' : 'pay-card pay-plan-card'} id={embedded ? undefined : 'payment-plan'}>
-      <div className="pay-plan-head">
-        <span className="pay-plan-eyebrow">{t('pay.planTitle')}</span>
-      </div>
+  // The request form — reused by the default-mode dialog and the row popup.
+  const formFields = (
+    <>
+      <p className="pay-plan-intro">{t('pay.planRequestIntro')}</p>
+      <label className="pay-plan-field">
+        <span>{t('pay.planInstallmentAmount')}</span>
+        <input type="number" min={1} value={amount} onChange={e => setAmount(e.target.value)} />
+      </label>
+      <label className="pay-plan-field">
+        <span>{t('pay.planCountLabel')}</span>
+        <input type="number" min={1} value={count} onChange={e => setCount(e.target.value)} />
+      </label>
+      <label className="pay-plan-field">
+        <span>{t('pay.planFrequencyLabel')}</span>
+        <input type="number" min={1} value={freq} onChange={e => setFreq(e.target.value)} />
+      </label>
+      <label className="pay-plan-check">
+        <input type="checkbox" checked={autopayOpt} onChange={e => setAutopayOpt(e.target.checked)} />
+        <span>{t('pay.planAutopayOpt')}</span>
+      </label>
       {error && <div className="pay-err">{error}</div>}
+    </>
+  )
 
+  // The current-state blocks (pending / active / can-request) — reused by the
+  // default-mode body and the row popup's info view.
+  const stateBlocks = (onRequest: () => void) => (
+    <>
       {canRequest && (
         <div className="pay-plan-body">
           {isDenied && (
@@ -91,7 +121,7 @@ export function PaymentPlanCard({ resident, embedded }: { resident: any; embedde
             </div>
           )}
           <p className="pay-plan-intro">{t('pay.planRequestIntro')}</p>
-          <button type="button" className="pay-cta-primary" onClick={() => setDialogOpen(true)}>
+          <button type="button" className="pay-cta-primary" onClick={onRequest}>
             {t('pay.planRequest')}
           </button>
         </div>
@@ -130,6 +160,60 @@ export function PaymentPlanCard({ resident, embedded }: { resident: any; embedde
             )}
         </div>
       )}
+    </>
+  )
+
+  // -- ROW MODE: a Quick Actions row that opens the flow in a popup -------------
+  if (variant === 'row') {
+    const rowStatus = isPending ? t('pay.planRowPending')
+      : isActive ? t('pay.planRowActive', { paid: plan?.paid_count ?? 0, count: plan?.installment_count ?? 0 })
+      : isDenied ? t('pay.planRowDenied')
+      : t('pay.planRowPropose')
+    return (
+      <>
+        <button type="button" className="pay-quick-row"
+          onClick={() => { setError(null); setRowForm(canRequest); setRowOpen(true) }}>
+          <span className="pay-quick-icon"><PlanIcon /></span>
+          <span className="pay-quick-body">
+            <span className="pay-quick-title">{t('pay.planTitle')}</span>
+            <span className="pay-quick-desc">{rowStatus}</span>
+          </span>
+          <svg className="pay-quick-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <polyline points="9 18 15 12 9 6" />
+          </svg>
+        </button>
+        {rowOpen && (
+          <DetailDialog
+            eyebrow={t('pay.planTitle')}
+            title={rowForm ? t('pay.planRequest') : t('pay.planTitle')}
+            onClose={() => setRowOpen(false)}
+            footer={rowForm ? (
+              <>
+                <button type="button" className="pay-cta-secondary"
+                  onClick={() => (canRequest ? setRowOpen(false) : setRowForm(false))}>{t('pay.cancel')}</button>
+                <button type="button" className="pay-cta-primary" disabled={busy}
+                  onClick={() => submitRequest(() => setRowOpen(false))}>
+                  {busy ? t('pay.planSubmitting') : t('pay.planSubmit')}
+                </button>
+              </>
+            ) : undefined}
+          >
+            {rowForm ? formFields : stateBlocks(() => setRowForm(true))}
+          </DetailDialog>
+        )}
+      </>
+    )
+  }
+
+  // -- DEFAULT / EMBEDDED MODE: full card body ---------------------------------
+  return (
+    <div className={embedded ? 'pay-embed' : 'pay-card pay-plan-card'} id={embedded ? undefined : 'payment-plan'}>
+      <div className="pay-plan-head">
+        <span className="pay-plan-eyebrow">{t('pay.planTitle')}</span>
+      </div>
+      {error && <div className="pay-err">{error}</div>}
+
+      {stateBlocks(() => setDialogOpen(true))}
 
       {dialogOpen && (
         <DetailDialog
@@ -139,32 +223,23 @@ export function PaymentPlanCard({ resident, embedded }: { resident: any; embedde
           footer={
             <>
               <button type="button" className="pay-cta-secondary" onClick={() => setDialogOpen(false)}>{t('pay.cancel')}</button>
-              <button type="button" className="pay-cta-primary" disabled={busy} onClick={submitRequest}>
+              <button type="button" className="pay-cta-primary" disabled={busy} onClick={() => submitRequest()}>
                 {busy ? t('pay.planSubmitting') : t('pay.planSubmit')}
               </button>
             </>
           }
         >
-          <p className="pay-plan-intro">{t('pay.planRequestIntro')}</p>
-          <label className="pay-plan-field">
-            <span>{t('pay.planInstallmentAmount')}</span>
-            <input type="number" min={1} value={amount} onChange={e => setAmount(e.target.value)} />
-          </label>
-          <label className="pay-plan-field">
-            <span>{t('pay.planCountLabel')}</span>
-            <input type="number" min={1} value={count} onChange={e => setCount(e.target.value)} />
-          </label>
-          <label className="pay-plan-field">
-            <span>{t('pay.planFrequencyLabel')}</span>
-            <input type="number" min={1} value={freq} onChange={e => setFreq(e.target.value)} />
-          </label>
-          <label className="pay-plan-check">
-            <input type="checkbox" checked={autopayOpt} onChange={e => setAutopayOpt(e.target.checked)} />
-            <span>{t('pay.planAutopayOpt')}</span>
-          </label>
-          {error && <div className="pay-err">{error}</div>}
+          {formFields}
         </DetailDialog>
       )}
     </div>
+  )
+}
+
+function PlanIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="4" width="18" height="17" rx="2" /><path d="M3 9h18M8 2v4M16 2v4M8 14h.01M12 14h.01M16 14h.01" />
+    </svg>
   )
 }
