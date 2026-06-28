@@ -83,7 +83,7 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
           {showPayoff && stripeEnabled && (
             <button type="button" className="pay-cta-primary" onClick={pay}>
-              {t('pay.collPay', { amount: fmtMoney(payoff!.payoff) })}
+              {t('pay.collPay')}
             </button>
           )}
           <a href="#quick-actions" onClick={scrollToQuickActions} className="pay-coll-help"
