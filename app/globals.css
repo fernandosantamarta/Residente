@@ -8109,6 +8109,12 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .pay-wrap .pay-card::before {
   display: none !important;
 }
+/* Collections card — a warm orange-tinted border + soft amber lift so the
+   frame matches the orange header instead of reading as a cold white edge. */
+[data-theme="sketch"] .pay-wrap .pay-card#collections {
+  border-color: rgba(225, 73, 9, 0.30) !important;
+  box-shadow: 0 10px 30px -20px rgba(225, 73, 9, 0.45) !important;
+}
 [data-theme="sketch"] .pay-tile-tight { padding: 18px; gap: 12px; }
 [data-theme="sketch"] .pay-tile-title,
 [data-theme="sketch"] .pay-card-title {
