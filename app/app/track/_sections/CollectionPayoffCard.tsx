@@ -47,21 +47,21 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
 
   return (
     <section className="pay-card" id="collections" style={{ overflow: 'hidden', padding: 0 }}>
-      {/* Zesty header — orange gradient band so collections reads as serious-but-actionable. */}
-      <div style={{ background: 'linear-gradient(135deg, #E14909 0%, #F2922A 100%)', color: '#fff', padding: '16px 20px' }}>
-        <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.6px', textTransform: 'uppercase', opacity: 0.92 }}>{t('pay.collTitle')}</div>
+      {/* Compact header — a thin orange accent bar keeps it serious but restrained. */}
+      <div style={{ background: 'linear-gradient(135deg, #E14909 0%, #F2922A 100%)', color: '#fff', padding: '11px 16px', display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12 }}>
+        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.7px', textTransform: 'uppercase', opacity: 0.92 }}>{t('pay.collTitle')}</div>
         {showPayoff
-          ? <div style={{ fontSize: 27, fontWeight: 800, marginTop: 5, lineHeight: 1.1 }}>{t('pay.collTotal', { amount: fmtMoney(payoff!.payoff) })}</div>
-          : <div style={{ fontSize: 14, fontWeight: 600, marginTop: 5, opacity: 0.95 }}>{t('pay.collOnPlan')}</div>}
+          ? <div style={{ fontSize: 18, fontWeight: 800, lineHeight: 1 }}>{t('pay.collTotal', { amount: fmtMoney(payoff!.payoff) })}</div>
+          : <div style={{ fontSize: 12.5, fontWeight: 600, opacity: 0.95 }}>{t('pay.collOnPlan')}</div>}
       </div>
 
-      <div style={{ padding: '16px 20px' }}>
+      <div style={{ padding: '13px 16px' }}>
         {showPayoff && (
           <>
-            <p className="pay-plan-intro" style={{ marginTop: 0 }}>{t('pay.collIntro')}</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '8px 0 14px' }}>
+            <p className="pay-plan-intro" style={{ marginTop: 0, fontSize: 12.5 }}>{t('pay.collIntro')}</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, margin: '7px 0 12px' }}>
               {chips.map(([label, val]) => (
-                <span key={label} style={{ fontSize: 12, background: 'rgba(225,73,9,0.09)', color: '#B54708', borderRadius: 999, padding: '4px 11px', fontWeight: 600 }}>
+                <span key={label} style={{ fontSize: 11, background: 'rgba(225,73,9,0.08)', color: '#B54708', borderRadius: 999, padding: '3px 9px', fontWeight: 600 }}>
                   {label} {fmtMoney(Number(val) || 0)}
                 </span>
               ))}
@@ -75,12 +75,12 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
         )}
 
         {/* Quick actions — only here because the owner is in collections. */}
-        <div style={{ borderTop: showPayoff ? '1px solid rgba(0,0,0,0.08)' : 'none', marginTop: showPayoff ? 16 : 0, paddingTop: showPayoff ? 14 : 0 }}>
-          <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 4 }}>{t('pay.collQuickActions')}</div>
-          <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', marginTop: 12, paddingTop: 12 }}>
+        <div style={{ borderTop: showPayoff ? '1px solid rgba(0,0,0,0.08)' : 'none', marginTop: showPayoff ? 13 : 0, paddingTop: showPayoff ? 11 : 0 }}>
+          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.6px', textTransform: 'uppercase', color: 'var(--text-dim)', marginBottom: 2 }}>{t('pay.collQuickActions')}</div>
+          <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', marginTop: 10, paddingTop: 10 }}>
             <PaymentPlanCard resident={resident} embedded />
           </div>
-          <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', marginTop: 12, paddingTop: 12 }}>
+          <div style={{ borderTop: '1px solid rgba(0,0,0,0.06)', marginTop: 10, paddingTop: 10 }}>
             <LegalHoldCard embedded />
           </div>
         </div>
