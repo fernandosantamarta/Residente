@@ -75,23 +75,25 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
                 </span>
               ))}
             </div>
-            {stripeEnabled && (
-              <button type="button" className="pay-cta-primary" onClick={pay}>
-                {t('pay.collPay', { amount: fmtMoney(payoff!.payoff) })}
-              </button>
-            )}
           </>
         )}
 
-        {/* Quiet link down to Quick actions, where the plan + legal flows live.
-            Its own line below the Pay button (flex, not inline-flex). */}
-        <a href="#quick-actions" onClick={scrollToQuickActions} className="pay-coll-help"
-          style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: showPayoff ? 18 : 0, fontSize: 13, fontWeight: 600, color: '#B54708', textDecoration: 'none', cursor: 'pointer' }}>
-          {t('pay.collMoreHelp')}
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
-            <path d="M12 5v14M5 12l7 7 7-7" />
-          </svg>
-        </a>
+        {/* Action row — Pay on the left, the quiet link to Quick actions pushed
+            all the way to the right (where the plan + legal flows live). */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+          {showPayoff && stripeEnabled && (
+            <button type="button" className="pay-cta-primary" onClick={pay}>
+              {t('pay.collPay', { amount: fmtMoney(payoff!.payoff) })}
+            </button>
+          )}
+          <a href="#quick-actions" onClick={scrollToQuickActions} className="pay-coll-help"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginLeft: 'auto', fontSize: 13, fontWeight: 600, color: '#B54708', textDecoration: 'none', cursor: 'pointer' }}>
+            {t('pay.collMoreHelp')}
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" style={{ flexShrink: 0 }}>
+              <path d="M12 5v14M5 12l7 7 7-7" />
+            </svg>
+          </a>
+        </div>
       </div>
     </section>
   )
