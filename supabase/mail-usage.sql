@@ -4,6 +4,9 @@
 -- mirroring platform_ai_usage / platform_set_ai_cap (ai-usage.sql).
 
 -- Per-community mailing spend (this month + all time) and the Lob on/off state.
+-- Drop first: an earlier version returned fewer columns, and Postgres won't let
+-- CREATE OR REPLACE change a function's OUT/return-type signature.
+drop function if exists public.platform_mail_usage();
 create or replace function public.platform_mail_usage()
 returns table (
   community_id uuid, name text, plan text, lob_enabled boolean,
