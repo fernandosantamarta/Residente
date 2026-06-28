@@ -556,7 +556,7 @@ export const en: Record<string, string> = {
   "pay.collInterest": "Interest",
   "pay.collFees": "Late fees",
   "pay.collCosts": "Costs",
-  "pay.collTotal": "{amount} to clear",
+  "pay.collTotal": "{amount}",
   "pay.collPay": "Pay {amount}",
   "pay.collOnPlan": "You're on a payment plan. See Quick actions for details.",
   "pay.collQuickActions": "Quick actions",
