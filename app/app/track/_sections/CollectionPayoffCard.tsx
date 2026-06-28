@@ -64,11 +64,11 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
           : <div style={{ fontSize: 14, fontWeight: 600, marginTop: 5, opacity: 0.95 }}>{t('pay.collOnPlan')}</div>}
       </div>
 
-      <div style={{ padding: '16px 20px' }}>
+      <div style={{ padding: '12px 20px 16px' }}>
         {showPayoff && (
           <>
-            <p className="pay-plan-intro" style={{ marginTop: 0 }}>{t('pay.collIntro')}</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '8px 0 14px' }}>
+            <p className="pay-plan-intro" style={{ marginTop: 0, marginBottom: 0 }}>{t('pay.collIntro')}</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '16px 0 14px' }}>
               {chips.map(([label, val]) => (
                 <span key={label} style={{ fontSize: 12, background: 'rgba(225,73,9,0.09)', color: '#B54708', borderRadius: 999, padding: '4px 11px', fontWeight: 600 }}>
                   {label} {fmtMoney(Number(val) || 0)}
