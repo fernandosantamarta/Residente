@@ -55,13 +55,14 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
 
   return (
     <section className="pay-card" id="collections" style={{ overflow: 'hidden', padding: 0 }}>
-      {/* Zesty header — orange gradient band so collections reads as serious-but-actionable.
-          Top corners rounded to match the card so no white background leaks at the corners. */}
-      <div style={{ background: 'linear-gradient(135deg, #E14909 0%, #F2922A 100%)', color: '#fff', padding: '16px 20px', borderRadius: '18px 18px 0 0' }}>
-        <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: '0.6px', textTransform: 'uppercase', opacity: 0.92 }}>{t('pay.collTitle')}</div>
+      {/* Zesty header — a full-bleed orange band flush with the card top (rounded
+          top corners match the card, no background leaks at the edges): the
+          (larger) label on the left, the live payoff on the right, same line. */}
+      <div style={{ background: 'linear-gradient(135deg, #E14909 0%, #F2922A 100%)', color: '#fff', padding: '18px 22px', borderRadius: '18px 18px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase', opacity: 0.95 }}>{t('pay.collTitle')}</div>
         {showPayoff
-          ? <div style={{ fontSize: 27, fontWeight: 800, marginTop: 5, lineHeight: 1.1 }}>{t('pay.collTotal', { amount: fmtMoney(payoff!.payoff) })}</div>
-          : <div style={{ fontSize: 14, fontWeight: 600, marginTop: 5, opacity: 0.95 }}>{t('pay.collOnPlan')}</div>}
+          ? <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.05, whiteSpace: 'nowrap' }}>{t('pay.collTotal', { amount: fmtMoney(payoff!.payoff) })}</div>
+          : <div style={{ fontSize: 14, fontWeight: 600, opacity: 0.95, whiteSpace: 'nowrap' }}>{t('pay.collOnPlan')}</div>}
       </div>
 
       <div style={{ padding: '12px 20px 16px' }}>

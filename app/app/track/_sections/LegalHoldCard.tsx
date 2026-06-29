@@ -15,6 +15,7 @@ import { useState } from 'react'
 import { useMyLegalHold, LEGAL_HOLD_REASONS } from '@/lib/legal-holds'
 import { useT } from '@/lib/i18n'
 import { DetailDialog } from './DetailDialog'
+import { Dropdown } from '@/components/Dropdown'
 
 export function LegalHoldCard({ embedded, variant }: { embedded?: boolean; variant?: 'row' } = {}) {
   const t = useT()
@@ -64,12 +65,15 @@ export function LegalHoldCard({ embedded, variant }: { embedded?: boolean; varia
   const formFields = (
     <>
       <p className="pay-plan-intro">{t('pay.holdDialogIntro')}</p>
-      <label className="pay-plan-field">
+      <div className="pay-plan-field">
         <span>{t('pay.holdReasonLabel')}</span>
-        <select value={reason} onChange={e => setReason(e.target.value)}>
-          {LEGAL_HOLD_REASONS.map(r => <option key={r} value={r}>{reasonLabel(r)}</option>)}
-        </select>
-      </label>
+        <Dropdown<string>
+          value={reason}
+          onChange={v => setReason(v)}
+          ariaLabel={t('pay.holdReasonLabel')}
+          options={LEGAL_HOLD_REASONS.map(r => ({ value: r, label: reasonLabel(r) }))}
+        />
+      </div>
       <label className="pay-plan-field">
         <span>{t('pay.holdNoteLabel')}</span>
         <textarea rows={3} value={note} onChange={e => setNote(e.target.value)} placeholder={t('pay.holdNotePlaceholder')} />
