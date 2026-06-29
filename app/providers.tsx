@@ -2,7 +2,8 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
-import { supabase, hasSupabase, getProfile, type Profile } from '@/lib/supabase'
+import { usePathname } from 'next/navigation'
+import { supabase, hasSupabase, getProfile, signOut, type Profile } from '@/lib/supabase'
 import { applyAppIcon, getAppIcon } from '@/lib/appIcon'
 import { isNativeApp } from '@/lib/nativePush'
 import { CheckoutProvider } from '@/components/CheckoutProvider'
@@ -111,9 +112,30 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ session, profile, setProfile }}>
+      <RecoveryGuard />
       <CheckoutProvider>
         {children}
       </CheckoutProvider>
     </AuthContext.Provider>
   )
+}
+
+// Signs the user out if they leave the password-reset page without finishing.
+// Clicking the emailed recovery link establishes a real session immediately
+// (supabase-js detectSessionInUrl), so abandoning the reset — back button,
+// "Back to home", typing another URL — would otherwise leave them logged in.
+// The reset page sets the 'pw_recovery' flag while its recovery session is live
+// and clears it on a successful change.
+function RecoveryGuard() {
+  const pathname = usePathname()
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    let recovering = false
+    try { recovering = sessionStorage.getItem('pw_recovery') === '1' } catch { /* ignore */ }
+    if (recovering && pathname !== '/reset-password') {
+      try { sessionStorage.removeItem('pw_recovery') } catch { /* ignore */ }
+      signOut()
+    }
+  }, [pathname])
+  return null
 }

@@ -143,6 +143,13 @@ export const sendPasswordReset = async (email: string) => {
 // /reset-password page once the recovery link has established a session.
 export const updatePassword = async (password: string) => {
   const { data, error } = await supabase!.auth.updateUser({ password })
+  // A successful password change should kick every OTHER session — devices or
+  // browsers still signed in on the OLD password. scope:'others' revokes them
+  // while keeping the current session. Best-effort: never fail the password
+  // change itself if this revoke call hiccups.
+  if (!error) {
+    try { await supabase!.auth.signOut({ scope: 'others' }) } catch { /* ignore */ }
+  }
   return { data, error }
 }
 
