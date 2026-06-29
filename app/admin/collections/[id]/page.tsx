@@ -680,13 +680,22 @@ function StageBar({ stage, esc }: {
       ? { txt: t('admin.collectionsDetail.stageReady'), ready: true }
       : { txt: `${daysLeft} ${t('admin.collectionsDetail.days')}`, ready: false }
   }
+  // Statutorily required mailing method for the rungs that send a notice, shown
+  // on hover. Admin is English-only, so these aren't routed through i18n.
+  const METHOD_HINT: Partial<Record<CollectionStage, string>> = {
+    notice_30: 'Required delivery: first-class mail',
+    intent_to_lien: 'Required delivery: certified + first-class mail (statutory dual delivery)',
+    intent_to_foreclose: 'Required delivery: certified + first-class mail',
+  }
   return (
     <div className="coll-steps">
       {steps.map((s, i) => {
         const done = i < cur
         const current = i === cur
         return (
-          <div key={s.key} className={`coll-step${i <= cur ? ' is-reached' : ''}`}>
+          <div key={s.key} className={`coll-step${i <= cur ? ' is-reached' : ''}`}
+            title={METHOD_HINT[s.key]}
+            style={METHOD_HINT[s.key] ? { cursor: 'help' } : undefined}>
             <span className={`coll-step-node ${done ? 'is-done' : current ? 'is-current' : 'is-future'}`}>
               {done ? '✓' : i + 1}
             </span>
@@ -1156,7 +1165,7 @@ function PaymentPlanSection({ caseRow, plans, profileId, payoffTotal, onChange, 
           )}
         </div>
       ) : active ? (
-        <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: '4px solid #0E7490', borderRadius: 10, padding: '12px 14px', background: 'linear-gradient(180deg, #F4FBFC, #fff 60%)' }}>
+        <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '12px 14px', background: 'linear-gradient(180deg, #F4FBFC, #fff 60%)' }}>
           <button type="button" onClick={() => setPlanOpen(o => !o)}
             style={{ all: 'unset', cursor: 'pointer', display: 'flex', width: '100%', boxSizing: 'border-box', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
             <span>

@@ -37,7 +37,10 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
       payoff = casePayoff(resident, community, payments || [], { extraCosts })
     }
   } catch { payoff = null }
-  const showPayoff = !!payoff && payoff.payoff > 0 && !onActivePlan
+  // Show the running balance even while on a plan — it drops as installments
+  // post (each recorded installment is a real payment against the case), so the
+  // owner watches the total go down. The plan context moves into the intro line.
+  const showPayoff = !!payoff && payoff.payoff > 0
   const r = payoff?.remaining
 
   const pay = () => {
@@ -68,7 +71,7 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
       <div style={{ padding: '12px 20px 16px' }}>
         {showPayoff && (
           <>
-            <p className="pay-plan-intro" style={{ marginTop: 0, marginBottom: 0 }}>{t('pay.collIntro')}</p>
+            <p className="pay-plan-intro" style={{ marginTop: 0, marginBottom: 0 }}>{onActivePlan ? t('pay.collOnPlan') : t('pay.collIntro')}</p>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '16px 0 14px' }}>
               {chips.map(([label, val]) => (
                 <span key={label} style={{ fontSize: 12, background: 'rgba(225,73,9,0.09)', color: '#B54708', borderRadius: 999, padding: '4px 11px', fontWeight: 600 }}>

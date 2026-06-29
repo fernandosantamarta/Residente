@@ -14,6 +14,7 @@
 
 import { useState } from 'react'
 import { fmtMoney } from '@/lib/dues'
+import { addCalendarDays } from '@/lib/compliance/rules-core'
 import { useMyPaymentPlan } from '@/lib/payment-plans'
 import { useCheckout } from '@/components/CheckoutProvider'
 import { useT } from '@/lib/i18n'
@@ -40,6 +41,7 @@ export function PaymentPlanCard({ resident, embedded, variant }: { resident: any
   const [count, setCount] = useState('6')
   const [freq, setFreq] = useState('30')
   const [autopayOpt, setAutopayOpt] = useState(false)
+  const [planDetailOpen, setPlanDetailOpen] = useState(false)  // expand the installment schedule
 
   if (loading) return null
   // Show only when there's an open collection case or an existing/recent plan.
@@ -143,23 +145,67 @@ export function PaymentPlanCard({ resident, embedded, variant }: { resident: any
         </div>
       )}
 
-      {isActive && (
-        <div className="pay-plan-body">
-          <div className="pay-plan-state">{t('pay.planApprovedTitle')}</div>
-          <div className="pay-plan-terms">
-            {t('pay.planInstallmentOf', { paid: plan?.paid_count ?? 0, count: plan?.installment_count ?? 0 })}
-            {' · '}{fmtMoney(Number(plan?.installment_amount) || 0)}
-            {plan?.next_due_at && <> · {t('pay.planNextDue', { date: fmtDate(plan.next_due_at) })}</>}
-          </div>
-          {plan?.autopay_opt_in
-            ? <div className="pay-plan-autopay">{t('pay.planAutopayOn')}</div>
-            : (
-              <button type="button" className="pay-cta-primary" disabled={busy || !resident} onClick={onPayInstallment}>
-                {busy ? t('pay.startingCheckout') : t('pay.planPayInstallment')}
+      {isActive && (() => {
+        // Mini version of the admin active-plan card: summary + progress bar +
+        // an expandable per-installment schedule, then the pay action.
+        const amt = Number(plan?.installment_amount) || 0
+        const count = Number(plan?.installment_count) || 0
+        const paidN = Number(plan?.paid_count) || 0
+        const planFreq = Number(plan?.frequency_days) || 30
+        const pct = count ? Math.min(100, (paidN / count) * 100) : 0
+        return (
+          <div className="pay-plan-body">
+            <div style={{ border: '1px solid rgba(10,36,64,0.12)', borderRadius: 12, padding: '12px 14px', background: '#fff' }}>
+              <button type="button" onClick={() => setPlanDetailOpen(o => !o)}
+                style={{ all: 'unset', cursor: 'pointer', display: 'flex', width: '100%', boxSizing: 'border-box', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
+                <span>
+                  <span style={{ display: 'block', fontWeight: 700, color: '#0A2440' }}>
+                    {t('pay.planSummary', { amount: fmtMoney(amt), days: planFreq })}
+                    {count ? ` · ${t('pay.planPaidCount', { paid: paidN, count })}` : ''}
+                  </span>
+                  <span style={{ display: 'block', fontSize: 12.5, opacity: 0.7, marginTop: 2, color: '#475467' }}>
+                    {t('pay.planStarted', { date: fmtDate(plan?.start_date) })} · {t('pay.planNextDueShort', { date: plan?.next_due_at ? fmtDate(plan.next_due_at) : '—' })}
+                  </span>
+                </span>
+                <span style={{ color: '#98A2B3', fontSize: 12, flexShrink: 0 }}>{planDetailOpen ? '▲' : '▼'}</span>
               </button>
-            )}
-        </div>
-      )}
+
+              {count > 0 && (
+                <div style={{ height: 7, borderRadius: 4, background: 'rgba(10,36,64,0.10)', overflow: 'hidden', marginTop: 10 }}>
+                  <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #E14909, #22A06B)', transition: 'width .45s ease' }} />
+                </div>
+              )}
+
+              {planDetailOpen && count > 0 && (
+                <div style={{ marginTop: 12, borderTop: '1px solid #F2F4F7', paddingTop: 8 }}>
+                  {Array.from({ length: count }).map((_, i) => {
+                    const due = plan?.start_date ? addCalendarDays(plan.start_date, i * planFreq) : null
+                    const st = i < paidN ? 'paid' : i === paidN ? 'next' : 'upcoming'
+                    return (
+                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, padding: '5px 0', color: st === 'upcoming' ? '#98A2B3' : '#475467' }}>
+                        <span>#{i + 1} · {fmtMoney(amt)}</span>
+                        <span style={{ fontWeight: st === 'next' ? 700 : 400, color: st === 'paid' ? '#067647' : st === 'next' ? '#B54708' : undefined }}>
+                          {due ? fmtDate(due) : '—'}{st === 'paid' ? ` · ${t('pay.planSchedPaid')}` : st === 'next' ? ` · ${t('pay.planSchedNext')}` : ''}
+                        </span>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+
+              <div style={{ marginTop: 12 }}>
+                {plan?.autopay_opt_in
+                  ? <div className="pay-plan-autopay">{t('pay.planAutopayOn')}</div>
+                  : (
+                    <button type="button" className="pay-cta-primary" disabled={busy || !resident} onClick={onPayInstallment}>
+                      {busy ? t('pay.startingCheckout') : t('pay.planPayInstallment')}
+                    </button>
+                  )}
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </>
   )
 
