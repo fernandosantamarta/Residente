@@ -37,7 +37,7 @@ const fmt$ = (n: any) => '$' + (Math.round((Number(n) || 0) * 100) / 100).toLoca
 // They are left in English. See i18n notes.
 const METHODS = [
   { value: 'both', label: 'Certified + first-class mail (statutory dual delivery)' },
-  { value: 'certified_mail', label: 'Certified / registered mail (return receipt)' },
+  { value: 'certified_mail', label: 'Certified / registered mail (return receipt)' },
   { value: 'first_class', label: 'First-class mail' },
   { value: 'hand', label: 'Hand-delivered' },
   { value: 'electronic', label: 'Electronic' },
