@@ -327,49 +327,46 @@ export default function CollectionCaseDetail() {
               onDeny={denyHold}
               onRelease={releaseHold}
             />
-            {esc?.readyAt && (
-              <div className="admin-note" style={{ fontSize: 12.5, marginBottom: 10, borderColor: gateReady ? '#067647' : '#B54708' }}>
-                {gateReady
-                  ? `${t('admin.collectionsDetail.waitingPeriodElapsed')} ${ymd(esc.readyAt)}, ${t('admin.collectionsDetail.youMayProceed')} ${esc.label}. (${esc.citation})`
-                  : `${t('admin.collectionsDetail.waitingPeriodRunsUntil')} ${ymd(esc.readyAt)} (${calendarDaysUntil(esc.readyAt, now)} ${t('admin.collectionsDetail.days')}). ${t('admin.collectionsDetail.mayProceedEarlier')} (${esc.citation})`}
-              </div>
-            )}
-            {/* HB 1203: an HOA fine under $1,000 may not become a lien. Warn on the
-                very page where the board would record one. */}
-            {regime === 'hoa' && c.is_fine_only && (Number(c.principal_balance) || 0) < HOA_FINE_LIEN_FLOOR.value && (
-              <div className="admin-note admin-note-warn" style={{ fontSize: 12.5, marginBottom: 10 }}>
-                {t('admin.collectionsDetail.fineFloorWarning', { amount: '$' + HOA_FINE_LIEN_FLOOR.value })} ({HOA_FINE_LIEN_FLOOR.citation})
-              </div>
-            )}
-            {/* Lien enforcement window + county recorder link — ONE section (no
-                orange stripe; red only once the window has lapsed). The 5-year
-                (HOA) / 1-year (condo) enforcement deadline stays visible through
-                intent_to_foreclose/foreclosure; the recorder link shows while
-                there's a lien to record (intent_to_lien/lien_recorded). The
-                county resolves a city (e.g. Tallahassee → Leon) to the right
-                clerk via recorderCountyLabel/countyRecorderUrl. */}
+            {/* EVERY statutory note for this stage lives in ONE blue card: the
+                next-step waiting period, the lien enforcement window, the HB 1203
+                fine-floor warning, and the county recorder link — spaced lines in
+                the same section. Plain blue normally; turns red only once the lien
+                enforcement window has lapsed. County resolves a city (e.g.
+                Tallahassee → Leon) via recorderCountyLabel/countyRecorderUrl. */}
             {(() => {
               const showEnforce = (stage === 'lien_recorded' || stage === 'intent_to_foreclose' || stage === 'foreclosure') && !!lienDeadline
               const showRecorder = stage === 'intent_to_lien' || stage === 'lien_recorded'
-              if (!showEnforce && !showRecorder) return null
+              const showFloor = regime === 'hoa' && !!c.is_fine_only && (Number(c.principal_balance) || 0) < HOA_FINE_LIEN_FLOOR.value
               const lapsed = showEnforce && calendarDaysUntil(lienDeadline!, now) < 0
               const countyName = recorderCountyLabel((community as any)?.county) || t('admin.collectionsDetail.yourCounty')
+
+              // Text-only note lines, in legal order.
+              const lines: string[] = []
+              if (esc?.readyAt) {
+                lines.push(gateReady
+                  ? `${t('admin.collectionsDetail.waitingPeriodElapsed')} ${ymd(esc.readyAt)}, ${t('admin.collectionsDetail.youMayProceed')} ${esc.label}. (${esc.citation})`
+                  : `${t('admin.collectionsDetail.waitingPeriodRunsUntil')} ${ymd(esc.readyAt)} (${calendarDaysUntil(esc.readyAt, now)} ${t('admin.collectionsDetail.days')}). ${t('admin.collectionsDetail.mayProceedEarlier')} (${esc.citation})`)
+              }
+              if (showEnforce) {
+                lines.push(`${lapsed
+                  ? `${t('admin.collectionsDetail.lienWindowLapsed')} ${ymd(lienDeadline!)}.`
+                  : regime === 'condo'
+                    ? `${t('admin.collectionsDetail.condoLienDeadline')} ${ymd(lienDeadline!)}.`
+                    : `${t('admin.collectionsDetail.hoaLienDeadline')} ${ymd(lienDeadline!)}.`} (${LIEN_CITE})`)
+              }
+              if (showFloor) {
+                lines.push(`${t('admin.collectionsDetail.fineFloorWarning', { amount: '$' + HOA_FINE_LIEN_FLOOR.value })} (${HOA_FINE_LIEN_FLOOR.citation})`)
+              }
+              if (lines.length === 0 && !showRecorder) return null
               return (
                 <div className={`admin-note ${lapsed ? 'admin-note-err' : ''}`}
                   style={{ fontSize: 12.5, marginBottom: 10, marginLeft: 12,
                     ...(lapsed ? {} : { background: 'linear-gradient(180deg, #F2F7FF, #FAFCFF)', border: '1px solid rgba(23,92,211,0.22)' }) }}>
-                  {showEnforce && (
-                    <div>
-                      {lapsed
-                        ? `${t('admin.collectionsDetail.lienWindowLapsed')} ${ymd(lienDeadline!)}.`
-                        : regime === 'condo'
-                          ? `${t('admin.collectionsDetail.condoLienDeadline')} ${ymd(lienDeadline!)}.`
-                          : `${t('admin.collectionsDetail.hoaLienDeadline')} ${ymd(lienDeadline!)}.`}
-                      {' '}({LIEN_CITE})
-                    </div>
-                  )}
+                  {lines.map((ln, i) => (
+                    <div key={i} style={{ marginTop: i ? 8 : 0 }}>{ln}</div>
+                  ))}
                   {showRecorder && (
-                    <div style={{ marginTop: showEnforce ? 8 : 0 }}>
+                    <div style={{ marginTop: lines.length ? 8 : 0 }}>
                       {t('admin.collectionsDetail.recordWithCounty', { county: countyName })}{' '}
                       <a href={countyRecorderUrl((community as any)?.county)} target="_blank" rel="noopener noreferrer" style={{ color: '#175CD3', fontWeight: 700, whiteSpace: 'nowrap' }}>{t('admin.collectionsDetail.openRecorder')} &rarr;</a>
                     </div>
