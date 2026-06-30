@@ -407,12 +407,12 @@ export default function CollectionCaseDetail() {
           </div>
         )}
         {!open && (
-          <div className="admin-note" style={{ marginTop: 12 }}>
-            {t('admin.collectionsDetail.caseIs')} {STAGE_LABELS[stage].toLowerCase()}{c.resolved_at ? ` (${c.resolved_at})` : ''}.
+          <div className="admin-note" style={{ marginTop: 12, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+            <span>{t('admin.collectionsDetail.caseIs')} {STAGE_LABELS[stage].toLowerCase()}{c.resolved_at ? ` (${c.resolved_at})` : ''}.</span>
             {/* Reopening restarts the ladder at delinquent, so clear every prior-
                 cycle stage stamp — otherwise regenerated draft letters would print
                 stale sent/recorded/filed dates. */}
-            <button className="admin-btn-ghost" onClick={() => patchCase({
+            <button className="admin-primary-btn" style={{ marginLeft: 'auto', flexShrink: 0 }} onClick={() => patchCase({
               stage: 'delinquent', resolved_at: null,
               notice_30_sent_at: null, intent_to_lien_sent_at: null, lien_recorded_at: null,
               intent_to_foreclose_sent_at: null, foreclosure_filed_at: null,
