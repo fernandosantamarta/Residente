@@ -102,9 +102,13 @@ export default function CollectionCaseDetail() {
 
   useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(''), 4000); return () => clearTimeout(t) }, [msg])
   useEffect(() => { if (!snapMsg) return; const x = setTimeout(() => setSnapMsg(''), 3000); return () => clearTimeout(x) }, [snapMsg])
-  // Arrived from a "Send fine to collections" where the owner ALREADY had an open
-  // case — the fine wasn't auto-merged, so flag it for the board.
-  useEffect(() => { if (searchParams?.get('existing') === '1') setMsg(t('admin.collectionsDetail.fineExistingCaseNote')) /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [searchParams])
+  // Arrived from "Send fine to collections": merged=1 → the fine was added to
+  // this owner's open case; existing=1 → it was already on the case (re-click).
+  useEffect(() => {
+    if (searchParams?.get('merged') === '1') setMsg(t('admin.collectionsDetail.fineMergedNote'))
+    else if (searchParams?.get('existing') === '1') setMsg(t('admin.collectionsDetail.fineExistingCaseNote'))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   const load = useCallback(async () => {
     if (!hasSupabase || !id) { setStatus('error'); setError('No case'); return }

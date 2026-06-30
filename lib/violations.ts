@@ -92,22 +92,45 @@ export async function sendFineToCollections(opts: {
   communityId: string
   createdBy: string | null
   residents: { id: string; profile_id: string | null; label: string }[]
-}): Promise<{ caseId: string; created: boolean }> {
+}): Promise<{ caseId: string; created: boolean; merged: boolean }> {
   if (!hasSupabase || !supabase) throw new Error('Supabase is not configured')
   const { violation: v, communityId, createdBy, residents } = opts
   const resident = residents.find(r => r.profile_id && r.profile_id === v.profile_id) || null
+  const amount = Number(v.amount) || 0
+  const usd = `$${Math.round(amount).toLocaleString('en-US')}`
+  const fineRef = `Violation ${v.id}`
 
-  // Reuse the owner's existing open case if there is one.
-  let q = supabase.from('ev_collection_cases').select('id')
+  // Existing OPEN case for this owner? Real-world model is ONE owner ledger, so
+  // merge the fine into it. cost_balance is the bucket casePayoff reads as
+  // extraCosts, so bumping it makes the fine actually show on the live balance
+  // (admin ledger AND the resident's Collection Balance card).
+  let q = supabase.from('ev_collection_cases').select('id, cost_balance, total_balance, notes')
     .eq('community_id', communityId).in('stage', COLLECTION_OPEN_STAGES).limit(1)
   if (resident && v.profile_id) q = q.or(`resident_id.eq.${resident.id},profile_id.eq.${v.profile_id}`)
   else if (resident) q = q.eq('resident_id', resident.id)
   else if (v.profile_id) q = q.eq('profile_id', v.profile_id)
-  const { data: existing } = await q
-  if (existing && existing[0]) return { caseId: (existing[0] as any).id, created: false }
+  const { data: found } = await q
+  const ex = found && found[0] ? (found[0] as any) : null
+  if (ex) {
+    // Idempotent: if this exact fine was already merged (note carries the
+    // violation id), don't double-charge on a re-click — just return to it.
+    if (typeof ex.notes === 'string' && ex.notes.includes(fineRef)) {
+      return { caseId: ex.id, created: false, merged: false }
+    }
+    const note = `Fine added: ${v.rule_title || 'violation'} (${usd}). ${fineRef}.`
+    const { error: uErr } = await supabase.from('ev_collection_cases').update({
+      cost_balance: (Number(ex.cost_balance) || 0) + amount,
+      total_balance: (Number(ex.total_balance) || 0) + amount,
+      notes: ex.notes ? `${ex.notes}\n${note}` : note,
+    }).eq('id', ex.id)
+    if (uErr) throw new Error(uErr.message)
+    return { caseId: ex.id, created: false, merged: true }
+  }
 
-  const amount = Number(v.amount) || 0
-  const note = `Opened from an unpaid fine: ${v.rule_title || 'violation'} ($${Math.round(amount).toLocaleString('en-US')}). Violation ${v.id}.`
+  // No open case → open a new fine-only case. The fine lives in cost_balance (so
+  // the live payoff reflects it) and principal_balance (so the HB 1203 sub-$1,000
+  // fine-floor check reads the fine amount).
+  const note = `Opened from an unpaid fine: ${v.rule_title || 'violation'} (${usd}). ${fineRef}.`
   const { data: ins, error } = await supabase.from('ev_collection_cases').insert({
     community_id: communityId,
     profile_id: v.profile_id,
@@ -115,6 +138,7 @@ export async function sendFineToCollections(opts: {
     unit_label: v.resident || resident?.label || null,
     stage: 'delinquent',
     delinquent_since: v.opened_at || null,
+    cost_balance: amount,
     principal_balance: amount,
     total_balance: amount,
     is_fine_only: true,
@@ -122,7 +146,7 @@ export async function sendFineToCollections(opts: {
     created_by: createdBy,
   }).select('id').single()
   if (error) throw new Error(error.message)
-  return { caseId: (ins as any).id, created: true }
+  return { caseId: (ins as any).id, created: true, merged: false }
 }
 
 // Derived headline stats for the resident strip (unchanged contract).
