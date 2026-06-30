@@ -140,6 +140,22 @@ export default function CollectionsPage() {
   const setF = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }))
   const [saving, setSaving] = useState(false)
 
+  // Auto-default the HOA "fine-only" flag. The collections engine only knows the
+  // owner's unpaid DUES/ASSESSMENTS — fines live in the enforcement domain
+  // (ev_violations) and aren't wired into this balance. So if the selected owner
+  // is CURRENT on dues (≈$0 assessment balance) yet the board is opening a case,
+  // the debt must be a fine → default the flag ON (this drives the HB 1203
+  // sub-$1k fine-floor warning). Any dues arrears → assessment case → OFF. Only
+  // recomputed when the owner changes, so the checkbox below still overrides it.
+  useEffect(() => {
+    if (regime !== 'hoa' || !form.resident_id || !community) return
+    const r = residents.find((x: any) => x.id === form.resident_id)
+    if (!r) return
+    const bal = residentBalance(r, Number(community.monthly_dues) || 0, payByResident[r.id] || [], communityDuesConfig(community))
+    setForm((f: any) => ({ ...f, is_fine_only: Math.round(bal) <= 0 }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [form.resident_id, regime, community, residents, payByResident])
+
   // Deep link from Reports → "Collect →" (?resident=<id>). If that owner already
   // has an open case, jump straight to it; otherwise pre-pick them in the intake
   // form and scroll/flash it so the board opens the case in one step.
@@ -245,10 +261,15 @@ export default function CollectionsPage() {
               <input className="admin-input" type="number" min="0" step="0.01" value={form.principal_balance ?? ''} placeholder={t('admin.collections.placeholderAutoLedger')} onChange={e => setF('principal_balance', e.target.value)} /></label>
           </div>
           {regime === 'hoa' && (
-            <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14, margin: '10px 0 0' }}>
-              <input type="checkbox" checked={!!form.is_fine_only} onChange={e => setF('is_fine_only', e.target.checked)} />
-              {t('admin.collections.fineOnlyLabel')}
-            </label>
+            <div style={{ margin: '10px 0 0' }}>
+              <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 14 }}>
+                <input type="checkbox" checked={!!form.is_fine_only} onChange={e => setF('is_fine_only', e.target.checked)} />
+                {t('admin.collections.fineOnlyLabel')}
+              </label>
+              {form.resident_id && (
+                <div style={{ fontSize: 12, opacity: 0.6, marginLeft: 24, marginTop: 3 }}>{t('admin.collections.fineOnlyAutoHint')}</div>
+              )}
+            </div>
           )}
           <div className="card-cta">
             {error && status === 'ready' && <span className="admin-err-inline">{error}</span>}

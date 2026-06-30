@@ -1808,6 +1808,7 @@ export const en: Record<string, string> = {
   "admin.collections.fieldOwner": "Owner (from roster)",
   "admin.collections.fieldUnitLabel": "Unit / parcel label (override)",
   "admin.collections.fineOnlyLabel": "Fine-only case (HB 1203: an HOA fine under $1,000 may not become a lien)",
+  "admin.collections.fineOnlyAutoHint": "Auto-set from the owner's dues ledger — current on dues, so this is treated as a fine. Override if needed.",
   "admin.collections.hideClosed": "Hide resolved / cancelled",
   "admin.collections.kicker": "Florida compliance",
   "admin.collections.backToReports": "Back to Reports",
