@@ -9,6 +9,10 @@
       "schedule": "0 14 1 * *"
     },
     {
+      "path": "/api/cron/statement-notices",
+      "schedule": "0 15 1 * *"
+    },
+    {
       "path": "/api/cron/compliance-scan",
       "schedule": "0 13 * * 1"
     },

@@ -172,6 +172,7 @@ export function noticeTone(kind?: string | null): NoticeTone {
     case 'amenity_booked':
     case 'estoppel_update':
     case 'vote_results':
+    case 'statement_ready':
       return 'success'
     case 'meeting_published':
     case 'document_uploaded':
@@ -238,6 +239,8 @@ export function noticeHref(n: { kind?: string | null; meeting_id?: string | null
   if (n.kind === 'request_update') return '/app/voice#contact'
   // A payment receipt sends the resident to their Pay/Track balance.
   if (n.kind === 'payment_received') return '/app/track#pay'
+  // A monthly statement notice opens the resident's Statements list.
+  if (n.kind === 'statement_ready') return '/app/track#statements'
   // A new rule opens the resident rule book (Rules tab in Easy Documents).
   if (n.kind === 'rule_published') return '/app/documents#rules'
   // A fine/warning notice opens the resident's violations tab in Easy Documents
