@@ -54,7 +54,10 @@ export function PaymentPlanCard({ resident, community, payments, embedded, varia
   // request_status (null) — they must still show as active to the resident.
   const isActive = String(plan?.status ?? '') === 'active' && rs !== 'requested' && rs !== 'denied'
   const isDenied = rs === 'denied'
-  const canRequest = !!openCase && (!plan || isDenied)
+  // Can propose a plan whenever there isn't an active or pending one — covers no
+  // plan yet, denied, AND a prior plan that was cancelled / completed / defaulted
+  // (those used to fall through and render an empty popup).
+  const canRequest = !!openCase && !isActive && !isPending
 
   const submitRequest = async (onDone?: () => void) => {
     if (!openCase) return
