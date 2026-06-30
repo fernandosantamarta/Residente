@@ -45,11 +45,13 @@ const STAGE_SEVERITY: Record<string, number> = {
   delinquent: 1, notice_30: 1, intent_to_lien: 2,
   lien_recorded: 3, intent_to_foreclose: 3, foreclosure: 4,
 }
+// Distinct HUE per tier so the escalation is obvious at a glance:
+// amber (early) → orange (lien warning) → red (lien recorded) → deep red (foreclosure).
 const SEV_STYLE: Record<number, { color: string; bg: string; border: string; weight: number; size: number }> = {
-  1: { color: '#B54708', bg: 'rgba(225,73,9,0.07)', border: 'rgba(225,73,9,0.20)', weight: 700, size: 12.5 },
-  2: { color: '#B54708', bg: 'rgba(225,73,9,0.13)', border: 'rgba(225,73,9,0.38)', weight: 800, size: 13 },
-  3: { color: '#B42318', bg: 'rgba(180,35,24,0.10)', border: 'rgba(180,35,24,0.40)', weight: 800, size: 13.5 },
-  4: { color: '#912018', bg: 'rgba(180,35,24,0.16)', border: 'rgba(180,35,24,0.52)', weight: 800, size: 14 },
+  1: { color: '#B45309', bg: 'rgba(245,158,11,0.13)', border: 'rgba(245,158,11,0.45)', weight: 700, size: 12.5 }, // amber
+  2: { color: '#C2410C', bg: 'rgba(234,88,12,0.15)',  border: 'rgba(234,88,12,0.55)',  weight: 800, size: 13.5 }, // orange
+  3: { color: '#B42318', bg: 'rgba(220,38,38,0.14)',  border: 'rgba(220,38,38,0.55)',  weight: 800, size: 14 },   // red
+  4: { color: '#7F1D1D', bg: 'rgba(127,29,29,0.18)',  border: 'rgba(127,29,29,0.65)',  weight: 900, size: 14.5 }, // deep red
 }
 
 // Smooth-scroll the page to the Quick Actions tile (id="quick-actions"), set by
