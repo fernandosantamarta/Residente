@@ -15,4 +15,4 @@ alter table public.ev_notices add constraint ev_notices_kind_check
                   'violation','compliance_alert','estoppel_update',
                   'collections_deadline','collections_update',
                   'request_new','request_update','payment_received',
-                  'statement_ready'));
+                  'rule_published','statement_ready'));

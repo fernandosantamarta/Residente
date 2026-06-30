@@ -1,12 +1,16 @@
-// Monthly owner-statement notice — invoked by Vercel Cron (see vercel.json) on
-// the 1st of each month. Statements themselves are derived on demand from each
-// owner's ledger (lib/statements) and already carry the community name; this job
-// is the "push" half: it drops one in-app bell notice per resident with an app
-// account, telling them last month's statement is ready and linking to their
-// Statements list (noticeHref('statement_ready') -> /app/track#statements).
+// Monthly owner-statement notice — invoked DAILY by Vercel Cron (see vercel.json).
+// Each community fires on the day AFTER its own payment cutoff (the resolved
+// assessment_due_day), so the statement reflects the final paid/unpaid status
+// for that cycle rather than going out before anyone's had a chance to pay.
+//
+// Statements themselves are derived on demand from each owner's ledger
+// (lib/statements) and already carry the community name; this job is the "push"
+// half: for the communities whose cutoff was YESTERDAY, it drops one in-app bell
+// notice per resident with an app account, linking to their Statements list
+// (noticeHref('statement_ready') -> /app/track#statements).
 //
 // channels=[] so the generic ev_notice_fanout skips it; we insert one recipient
-// row (the owner) per notice. One notice per resident per month (idempotent on
+// row (the owner) per notice. One notice per resident per cycle (idempotent on
 // the month-specific subject), so a re-run or a late run never double-sends.
 //
 // Auth: Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`.
@@ -15,6 +19,7 @@
 
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { resolveDueDay } from '@/lib/dues'
 
 export const dynamic = 'force-dynamic'
 
@@ -38,18 +43,38 @@ export async function GET(req: Request) {
 
   const dryRun = new URL(req.url).searchParams.get('dryRun') === '1'
 
-  // The statement that just closed: on the 1st of month M, that's month M-1.
+  // We fire the day AFTER a community's cutoff, so "yesterday" (UTC) is the cutoff
+  // day we're matching, and its month is the cycle the statement covers.
   const now = new Date()
-  const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-  const monthLabel = lastMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  const yest = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1))
+  const cutoffY = yest.getUTCFullYear()
+  const cutoffM = yest.getUTCMonth()
+  const cutoffD = yest.getUTCDate()
+  const monthLabel = yest.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' })
   const subject = `${monthLabel} statement ready`
   const body = `Your ${monthLabel} statement is ready. Open Easy Track to view or download it.`
 
-  // Every resident with an app account (a linked profile) gets a notice — their
+  // Which communities had their payment cutoff YESTERDAY? assessment_due_day is
+  // 1–28 literal or 29+ = last day of month (resolveDueDay handles both).
+  const { data: communities, error: cErr } = await admin
+    .from('communities')
+    .select('id, assessment_due_day')
+  if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 })
+
+  const firingIds = (communities ?? [])
+    .filter(c => resolveDueDay((c as any).assessment_due_day, cutoffY, cutoffM) === cutoffD)
+    .map(c => c.id)
+
+  if (firingIds.length === 0) {
+    return NextResponse.json({ ok: true, dryRun, month: monthLabel, cutoffDay: cutoffD, totalNotified: 0, note: 'no community cutoff yesterday' })
+  }
+
+  // Residents (with an app account) in the communities firing today — each owner's
   // own statement renders from their own ledger when they open the list.
   const { data: residents, error } = await admin
     .from('residents')
     .select('id, community_id, profile_id')
+    .in('community_id', firingIds)
     .not('profile_id', 'is', null)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -98,5 +123,5 @@ export async function GET(req: Request) {
     summary.push({ resident: r.id, notified: r.profile_id })
   }
 
-  return NextResponse.json({ ok: true, dryRun, month: monthLabel, totalNotified, residents: summary })
+  return NextResponse.json({ ok: true, dryRun, month: monthLabel, cutoffDay: cutoffD, communitiesFiring: firingIds.length, totalNotified, residents: summary })
 }
