@@ -239,9 +239,9 @@ export function noticeHref(n: { kind?: string | null; meeting_id?: string | null
   if (n.kind === 'request_update') return '/app/voice#contact'
   // A payment receipt sends the resident to their Pay/Track balance.
   if (n.kind === 'payment_received') return '/app/track#pay'
-  // A monthly statement notice pops the resident's Statements list open in place
-  // (PaySection reads ?statements=1 on arrival).
-  if (n.kind === 'statement_ready') return '/app/track?statements=1#statements'
+  // A monthly statement notice opens the resident's most recent statement popup
+  // in place (PaySection reads ?statement=1 on arrival).
+  if (n.kind === 'statement_ready') return '/app/track?statement=1#statements'
   // A new rule opens the resident rule book (Rules tab in Easy Documents).
   if (n.kind === 'rule_published') return '/app/documents#rules'
   // A fine/warning notice opens the resident's violations tab in Easy Documents

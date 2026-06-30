@@ -86,6 +86,7 @@ export function PaySection() {
   // "View all" list popups + a single statement opened in place.
   const [listOpen, setListOpen] = useState<null | 'history' | 'statements'>(null)
   const [stmtOpen, setStmtOpen] = useState<StmtItem | null>(null)
+  const [pendingStmt, setPendingStmt] = useState(false)  // open the latest statement on arrival from a notice
   // Demo autopay toggle — lets preview mode flip autopay on/off in place
   // (real autopay goes through Stripe via toggleAutopay).
   const [autopayDemo, setAutopayDemo] = useState<boolean | null>(null)
@@ -133,14 +134,15 @@ export function PaySection() {
     window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}#pay`)
   }, [])
 
-  // A statement notice (?statements=1) pops the Statements list open on arrival,
-  // matching the app's open-in-place convention, then strips the param.
+  // A statement notice (?statement=1) opens the most recent statement popup on
+  // arrival (open-in-place). Flag it here; the opener effect below fires it once
+  // the derived statements are ready. Strip the param.
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
-    if (params.get('statements') !== '1') return
-    setListOpen('statements')
-    params.delete('statements')
+    if (params.get('statement') !== '1') return
+    setPendingStmt(true)
+    params.delete('statement')
     const qs = params.toString()
     window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}#statements`)
   }, [])
@@ -364,6 +366,12 @@ export function PaySection() {
           [t('pay.size'), s.size],
         ],
       }))
+
+  // Open the most recent statement once arrival-from-notice is flagged and the
+  // derived statements are ready.
+  useEffect(() => {
+    if (pendingStmt && stmtItems.length) { setStmtOpen(stmtItems[0]); setPendingStmt(false) }
+  }, [pendingStmt, stmtItems])
 
   const startCheckout = () => {
     if (currentBalance <= 0) return   // nothing due — never open a $0 checkout
