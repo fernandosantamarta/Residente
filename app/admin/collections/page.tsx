@@ -140,21 +140,26 @@ export default function CollectionsPage() {
   const setF = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }))
   const [saving, setSaving] = useState(false)
 
-  // Auto-default the HOA "fine-only" flag. The collections engine only knows the
-  // owner's unpaid DUES/ASSESSMENTS — fines live in the enforcement domain
-  // (ev_violations) and aren't wired into this balance. So if the selected owner
-  // is CURRENT on dues (≈$0 assessment balance) yet the board is opening a case,
-  // the debt must be a fine → default the flag ON (this drives the HB 1203
-  // sub-$1k fine-floor warning). Any dues arrears → assessment case → OFF. Only
-  // recomputed when the owner changes, so the checkbox below still overrides it.
-  useEffect(() => {
-    if (regime !== 'hoa' || !form.resident_id || !community) return
+  // The selected owner's unpaid DUES/assessment balance. Fines live in the
+  // enforcement domain (ev_violations) and aren't part of this number — so it's
+  // the signal for whether a case is "fine-only": current on dues (≈$0) → the
+  // debt must be a fine; any dues arrears → it's an assessment case. NOTE: a
+  // brand-new resident with no recorded payments shows an ACCRUING dues balance,
+  // so they read as "owes dues" even if they don't really — that's why the hint
+  // below explains the call and the checkbox stays overridable.
+  const ownerDuesBalance = useMemo<number | null>(() => {
+    if (regime !== 'hoa' || !form.resident_id || !community) return null
     const r = residents.find((x: any) => x.id === form.resident_id)
-    if (!r) return
-    const bal = residentBalance(r, Number(community.monthly_dues) || 0, payByResident[r.id] || [], communityDuesConfig(community))
-    setForm((f: any) => ({ ...f, is_fine_only: Math.round(bal) <= 0 }))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (!r) return null
+    return residentBalance(r, Number(community.monthly_dues) || 0, payByResident[r.id] || [], communityDuesConfig(community))
   }, [form.resident_id, regime, community, residents, payByResident])
+  // Auto-default the fine-only flag from that balance when the owner changes.
+  // (Not in deps: only re-runs on owner change, so a manual toggle sticks.)
+  useEffect(() => {
+    if (ownerDuesBalance == null) return
+    setForm((f: any) => ({ ...f, is_fine_only: Math.round(ownerDuesBalance) <= 0 }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ownerDuesBalance])
 
   // Deep link from Reports → "Collect →" (?resident=<id>). If that owner already
   // has an open case, jump straight to it; otherwise pre-pick them in the intake
@@ -179,6 +184,13 @@ export default function CollectionsPage() {
     setSaving(true); setError('')
     try {
       const res = residents.find(r => r.id === form.resident_id)
+      // One open case per owner. The DB has a partial-unique index for this, but
+      // guard here too (the index may not be deployed) so we never create a
+      // duplicate — jump to the owner's existing open case instead.
+      if (res) {
+        const dup = rows.find(r => (r as any).resident_id === res.id && isOpenStage(r.stage))
+        if (dup) { setSaving(false); router.push(`/admin/collections/${dup.id}`); return }
+      }
       const unit = (form.unit_label || '').trim() ||
         (res ? `${res.full_name || ''}${res.unit_number ? ` · ${res.unit_number}` : ''}`.trim() : '') || null
       const insert = {
@@ -253,7 +265,7 @@ export default function CollectionsPage() {
                 ariaLabel={t('admin.collections.fieldOwner')}
                 options={[
                   { value: '', label: t('admin.collections.selectPlaceholder') },
-                  ...residents.map(r => ({ value: r.id, label: [r.full_name || t('admin.collections.ownerFallback'), r.unit_number ? `Unit ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ') })),
+                  ...residents.map(r => ({ value: r.id, label: [r.full_name || t('admin.collections.ownerFallback'), r.unit_number ? `Unit ${r.unit_number}` : null].filter(Boolean).join(' · ') })),
                 ]}
               /></div>
             <label className="admin-field"><span className="admin-field-label">{t('admin.collections.fieldUnitLabel')}</span>
@@ -269,8 +281,12 @@ export default function CollectionsPage() {
                 <input type="checkbox" checked={!!form.is_fine_only} onChange={e => setF('is_fine_only', e.target.checked)} />
                 {t('admin.collections.fineOnlyLabel')}
               </label>
-              {form.resident_id && (
-                <div style={{ fontSize: 12, opacity: 0.6, marginLeft: 24, marginTop: 3 }}>{t('admin.collections.fineOnlyAutoHint')}</div>
+              {form.resident_id && ownerDuesBalance != null && (
+                <div style={{ fontSize: 12, opacity: 0.65, marginLeft: 24, marginTop: 3 }}>
+                  {Math.round(ownerDuesBalance) <= 0
+                    ? t('admin.collections.fineOnlyAutoHintFine')
+                    : t('admin.collections.fineOnlyAutoHintDues', { amount: fmt$(ownerDuesBalance) })}
+                </div>
               )}
             </div>
           )}

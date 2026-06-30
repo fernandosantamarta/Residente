@@ -1809,6 +1809,8 @@ export const en: Record<string, string> = {
   "admin.collections.fieldUnitLabel": "Unit / parcel label (override)",
   "admin.collections.fineOnlyLabel": "Fine-only case (HB 1203: an HOA fine under $1,000 may not become a lien)",
   "admin.collections.fineOnlyAutoHint": "Auto-set from the owner's dues ledger — current on dues, so this is treated as a fine. Override if needed.",
+  "admin.collections.fineOnlyAutoHintFine": "Auto-checked: this owner is current on dues, so the balance is treated as a fine. Uncheck if it's actually unpaid assessments.",
+  "admin.collections.fineOnlyAutoHintDues": "Not auto-checked: this owner shows a {amount} dues balance, so it reads as unpaid assessments. Check it yourself if the debt is actually a fine. (A brand-new resident with no recorded payments can show a dues balance.)",
   "admin.collections.hideClosed": "Hide resolved / cancelled",
   "admin.collections.kicker": "Florida compliance",
   "admin.collections.backToReports": "Back to Reports",
