@@ -368,10 +368,11 @@ export function PaySection() {
       }))
 
   // Open the most recent statement once arrival-from-notice is flagged and the
-  // derived statements are ready.
+  // resident's REAL statements are ready. The `resident` gate matters: before it
+  // loads, stmtItems is the demo set, which would open a fake statement.
   useEffect(() => {
-    if (pendingStmt && stmtItems.length) { setStmtOpen(stmtItems[0]); setPendingStmt(false) }
-  }, [pendingStmt, stmtItems])
+    if (pendingStmt && resident && stmtItems.length) { setStmtOpen(stmtItems[0]); setPendingStmt(false) }
+  }, [pendingStmt, resident, stmtItems])
 
   const startCheckout = () => {
     if (currentBalance <= 0) return   // nothing due — never open a $0 checkout
