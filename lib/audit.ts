@@ -47,6 +47,7 @@ export type AuditEventType =
   | 'collection.payment_plan_updated'
   | 'collection.payment_plan_decided'
   | 'collection.resolved'
+  | 'collection.foreclosure_transfer'
   // structural / SIRS (compliance domain A)
   | 'structural.building_added'
   | 'structural.assessment_created'

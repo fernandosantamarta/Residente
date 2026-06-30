@@ -176,6 +176,7 @@ export interface CollectionCaseRow {
   // flags
   is_fine_only?: boolean | null   // HOA: a case driven only by an unpaid fine
   on_payment_plan?: boolean | null
+  notes?: string | null
 }
 
 export interface CollectionNoticeRow {

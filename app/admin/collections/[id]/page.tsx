@@ -16,6 +16,7 @@ import { ymd, toDate, addCalendarDays, calendarDaysUntil } from '@/lib/complianc
 import { casePayoff, fmtMoney, type PayoffResult } from '@/lib/dues'
 import { countyRecorderUrl, recorderCountyLabel } from '@/lib/compliance/fl-recorders'
 import { RecordPaymentForm } from '@/components/RecordPaymentForm'
+import { transferHome } from '@/lib/homeVault'
 import { Dropdown } from '@/components/Dropdown'
 import { AttorneyNote } from '../../AttorneyNote'
 import { Pager } from '@/components/Pager'
@@ -390,6 +391,19 @@ export default function CollectionCaseDetail() {
                 onError={setError}
               />
             </div>
+            {/* Foreclosure sale concluded → hand the unit to the new owner of
+                record. Reuses the home-transfer edge function (reassign roster
+                row + convey docs + invite), then resolves this case. */}
+            {stage === 'foreclosure' && (
+              <ForeclosureTransfer
+                caseRow={c}
+                resident={resident}
+                communityId={c.community_id!}
+                onDone={load}
+                onMsg={setMsg}
+                onError={setError}
+              />
+            )}
           </div>
         )}
         {!open && (
@@ -833,6 +847,93 @@ function StageActions({ adv, caseRow, communityId, profileId, resident, regime, 
       <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
         <button className="admin-btn-ghost" disabled={busy} onClick={() => setOpenComposer(false)}>{t('admin.collectionsDetail.cancel')}</button>
         <button className="admin-primary-btn" style={{ marginLeft: 'auto' }} disabled={busy || (!!legalHoldLabel && !ack)} onClick={run}>{busy ? t('admin.collectionsDetail.saving') : t('admin.collectionsDetail.confirm')}</button>
+      </div>
+    </div>
+  )
+}
+
+// Foreclosure → new-owner handover. Shown only at the terminal `foreclosure`
+// stage. Once the sale closes the board hands the unit to the buyer of record:
+// this reuses the home-transfer edge function (reassign the roster row to the
+// buyer's account, convey the flagged documents, email an invite) and then
+// resolves THIS collection case with a foreclosure note + audit row. The prior
+// owner keeps their login but no longer owns the unit; any deficiency balance is
+// pursued separately with counsel (advisory — never auto-billed here).
+function ForeclosureTransfer({ caseRow, resident, communityId, onDone, onMsg, onError }: {
+  caseRow: CollectionCaseRow; resident: any; communityId: string
+  onDone: () => void; onMsg: (m: string) => void; onError: (m: string) => void
+}) {
+  const t = useT()
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [form, setForm] = useState<any>({ email: '', name: '', date: todayYmd(), note: '' })
+
+  // No roster unit linked → there's nothing to reassign.
+  if (!resident) {
+    return (
+      <div className="admin-note admin-note-warn" style={{ fontSize: 12.5, marginTop: 8 }}>
+        {t('admin.collectionsDetail.fcTransferLinkOwnerFirst')}
+      </div>
+    )
+  }
+
+  const run = async () => {
+    const email = (form.email || '').trim()
+    if (!email || !email.includes('@')) { onError(t('admin.collectionsDetail.fcEmailRequired')); return }
+    setBusy(true)
+    try {
+      const res = await transferHome({ residentId: resident.id, buyerEmail: email, buyerName: (form.name || '').trim() || undefined })
+      // Resolve the case (transferred). Append a foreclosure note to the audit
+      // trail and clear the plan flag; the lien is concluded by the sale.
+      const saleDate = form.date || todayYmd()
+      const stamp = `[${t('admin.collectionsDetail.fcNoteStamp')} ${saleDate}] ${t('admin.collectionsDetail.fcNoteBody', { email })}${(form.note || '').trim() ? ' ' + (form.note || '').trim() : ''}`
+      const notes = caseRow.notes ? `${caseRow.notes}\n${stamp}` : stamp
+      const { error: uErr } = (await withTimeout(supabase.from('ev_collection_cases').update({
+        stage: 'resolved', resolved_at: saleDate, on_payment_plan: false, notes,
+      }).eq('id', caseRow.id))) as any
+      if (uErr) throw uErr
+      await logAudit({
+        community_id: communityId, event_type: 'collection.foreclosure_transfer',
+        target_type: 'collection_case', target_id: caseRow.id,
+        metadata: { to_email: email, sale_date: saleDate, emailed: !!res?.email_sent, docs_conveyed: res?.docs_conveyed ?? 0 },
+      })
+      onMsg(t('admin.collectionsDetail.fcSuccess'))
+      setOpen(false)
+      onDone()
+    } catch (err: any) {
+      onError(err?.message || t('admin.collectionsDetail.updateFailed'))
+    } finally { setBusy(false) }
+  }
+
+  const shell: React.CSSProperties = { marginTop: 8, padding: '14px 16px', border: '1px solid rgba(127,29,29,0.28)', background: 'linear-gradient(180deg, #FFF6F5, #FFFBFB)', borderRadius: 12 }
+
+  if (!open) {
+    return (
+      <div style={shell}>
+        <div style={{ fontWeight: 800, fontSize: 13.5, color: '#7F1D1D' }}>{t('admin.collectionsDetail.fcTransferTitle')}</div>
+        <p style={{ fontSize: 12.5, color: '#475467', margin: '6px 0 12px', maxWidth: 640, lineHeight: 1.5 }}>{t('admin.collectionsDetail.fcTransferIntro')}</p>
+        <button className="admin-primary-btn" onClick={() => { setForm({ email: '', name: '', date: todayYmd(), note: '' }); setOpen(true) }}>{t('admin.collectionsDetail.fcTransferBtn')}</button>
+      </div>
+    )
+  }
+
+  return (
+    <div style={shell}>
+      <div style={{ fontWeight: 800, fontSize: 13.5, color: '#7F1D1D', marginBottom: 10 }}>{t('admin.collectionsDetail.fcTransferTitle')}</div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+        <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.fcBuyerEmail')}</span>
+          <input className="admin-input" type="email" value={form.email} placeholder="new.owner@email.com" onChange={e => setForm((f: any) => ({ ...f, email: e.target.value }))} /></label>
+        <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.fcBuyerName')}</span>
+          <input className="admin-input" value={form.name} onChange={e => setForm((f: any) => ({ ...f, name: e.target.value }))} /></label>
+        <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.fcSaleDate')}</span>
+          <input className="admin-input" type="date" value={form.date} onChange={e => setForm((f: any) => ({ ...f, date: e.target.value }))} /></label>
+        <label className="admin-field" style={{ gridColumn: '1 / -1' }}><span className="admin-field-label">{t('admin.collectionsDetail.fcNote')}</span>
+          <input className="admin-input" value={form.note} placeholder={t('admin.collectionsDetail.fcNotePlaceholder')} onChange={e => setForm((f: any) => ({ ...f, note: e.target.value }))} /></label>
+      </div>
+      <div className="admin-note" style={{ fontSize: 12, marginTop: 10, lineHeight: 1.5, borderColor: 'rgba(127,29,29,0.3)', background: 'rgba(127,29,29,0.05)' }}>{t('admin.collectionsDetail.fcWarn')}</div>
+      <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
+        <button className="admin-btn-ghost" disabled={busy} onClick={() => setOpen(false)}>{t('admin.collectionsDetail.cancel')}</button>
+        <button className="admin-primary-btn" style={{ marginLeft: 'auto' }} disabled={busy} onClick={run}>{busy ? t('admin.collectionsDetail.fcTransferring') : t('admin.collectionsDetail.fcConfirm')}</button>
       </div>
     </div>
   )
