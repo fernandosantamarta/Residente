@@ -905,25 +905,28 @@ function ForeclosureTransfer({ caseRow, resident, communityId, onDone, onMsg, on
     } finally { setBusy(false) }
   }
 
-  // Right-aligned (marginLeft:auto) so the panel hugs the right edge, matching
-  // the terminal "Foreclosure filed" note above it. Collapsed = compact card;
-  // expanded = a little wider to fit the form grid.
-  const shell: React.CSSProperties = { marginTop: 8, marginLeft: 'auto', padding: '14px 16px', border: '1px solid rgba(127,29,29,0.28)', background: 'linear-gradient(180deg, #FFF6F5, #FFFBFB)', borderRadius: 12 }
+  // marginLeft:12 lines the card's left edge up with the blue statutory note
+  // and the Mark-resolved button (both carry the admin 12px left offset). Full
+  // width, so the right edge matches the other cards too.
+  const shell: React.CSSProperties = { marginTop: 8, marginLeft: 12, padding: '14px 16px', border: '1px solid rgba(127,29,29,0.28)', background: 'linear-gradient(180deg, #FFF6F5, #FFFBFB)', borderRadius: 12 }
 
   if (!open) {
+    // Collapsed: title + blurb on the left, orange trigger pushed to the far right.
     return (
-      <div style={{ ...shell, maxWidth: 420 }}>
-        <div style={{ fontWeight: 800, fontSize: 13.5, color: '#7F1D1D' }}>{t('admin.collectionsDetail.fcTransferTitle')}</div>
-        <p style={{ fontSize: 12.5, color: '#475467', margin: '6px 0 12px', lineHeight: 1.5 }}>{t('admin.collectionsDetail.fcTransferIntro')}</p>
-        <button className="admin-primary-btn" onClick={() => { setForm({ email: '', name: '', date: todayYmd(), note: '' }); setOpen(true) }}>{t('admin.collectionsDetail.fcTransferBtn')}</button>
+      <div style={{ ...shell, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 18, flexWrap: 'wrap' }}>
+        <div style={{ flex: 1, minWidth: 240 }}>
+          <div style={{ fontWeight: 800, fontSize: 13.5, color: '#7F1D1D' }}>{t('admin.collectionsDetail.fcTransferTitle')}</div>
+          <p style={{ fontSize: 12.5, color: '#475467', margin: '6px 0 0', lineHeight: 1.5 }}>{t('admin.collectionsDetail.fcTransferIntro')}</p>
+        </div>
+        <button className="admin-primary-btn" style={{ flexShrink: 0, marginLeft: 'auto' }} onClick={() => { setForm({ email: '', name: '', date: todayYmd(), note: '' }); setOpen(true) }}>{t('admin.collectionsDetail.fcTransferBtn')}</button>
       </div>
     )
   }
 
   return (
-    <div style={{ ...shell, maxWidth: 560 }}>
+    <div style={shell}>
       <div style={{ fontWeight: 800, fontSize: 13.5, color: '#7F1D1D', marginBottom: 10 }}>{t('admin.collectionsDetail.fcTransferTitle')}</div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
         <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.fcBuyerEmail')}</span>
           <input className="admin-input" type="email" value={form.email} placeholder="new.owner@email.com" onChange={e => setForm((f: any) => ({ ...f, email: e.target.value }))} /></label>
         <label className="admin-field"><span className="admin-field-label">{t('admin.collectionsDetail.fcBuyerName')}</span>
