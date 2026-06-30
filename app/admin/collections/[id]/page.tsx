@@ -14,7 +14,7 @@ import { supabase, hasSupabase } from '@/lib/supabase'
 import { logAudit } from '@/lib/audit'
 import { ymd, toDate, addCalendarDays, calendarDaysUntil } from '@/lib/compliance/rules-core'
 import { casePayoff, fmtMoney, type PayoffResult } from '@/lib/dues'
-import { countyRecorderUrl } from '@/lib/compliance/fl-recorders'
+import { countyRecorderUrl, recorderCountyLabel } from '@/lib/compliance/fl-recorders'
 import { RecordPaymentForm } from '@/components/RecordPaymentForm'
 import { Dropdown } from '@/components/Dropdown'
 import { AttorneyNote } from '../../AttorneyNote'
@@ -334,22 +334,6 @@ export default function CollectionCaseDetail() {
                   : `${t('admin.collectionsDetail.waitingPeriodRunsUntil')} ${ymd(esc.readyAt)} (${calendarDaysUntil(esc.readyAt, now)} ${t('admin.collectionsDetail.days')}). ${t('admin.collectionsDetail.mayProceedEarlier')} (${esc.citation})`}
               </div>
             )}
-            {/* Lien enforcement window — stays visible through intent_to_foreclose
-                and foreclosure (the hard filing deadline matters most there), and
-                turns red once the window has lapsed. */}
-            {(stage === 'lien_recorded' || stage === 'intent_to_foreclose' || stage === 'foreclosure') && lienDeadline && (() => {
-              const lapsed = calendarDaysUntil(lienDeadline, now) < 0
-              return (
-                <div className={`admin-note ${lapsed ? 'admin-note-err' : 'admin-note-warn'}`} style={{ fontSize: 12.5, marginBottom: 10 }}>
-                  {lapsed
-                    ? `${t('admin.collectionsDetail.lienWindowLapsed')} ${ymd(lienDeadline)}.`
-                    : regime === 'condo'
-                      ? `${t('admin.collectionsDetail.condoLienDeadline')} ${ymd(lienDeadline)}.`
-                      : `${t('admin.collectionsDetail.hoaLienDeadline')} ${ymd(lienDeadline)}.`}
-                  {' '}({LIEN_CITE})
-                </div>
-              )
-            })()}
             {/* HB 1203: an HOA fine under $1,000 may not become a lien. Warn on the
                 very page where the board would record one. */}
             {regime === 'hoa' && c.is_fine_only && (Number(c.principal_balance) || 0) < HOA_FINE_LIEN_FLOOR.value && (
@@ -357,14 +341,40 @@ export default function CollectionCaseDetail() {
                 {t('admin.collectionsDetail.fineFloorWarning', { amount: '$' + HOA_FINE_LIEN_FLOOR.value })} ({HOA_FINE_LIEN_FLOOR.citation})
               </div>
             )}
-            {/* Direct link to record the claim of lien with the county clerk
-                (verified portal for major counties, county-scoped search else). */}
-            {(stage === 'intent_to_lien' || stage === 'lien_recorded') && (
-              <div className="admin-note" style={{ fontSize: 12.5, marginBottom: 10 }}>
-                {t('admin.collectionsDetail.recordWithCounty', { county: ((community as any)?.county || '').trim() || t('admin.collectionsDetail.yourCounty') })}{' '}
-                <a href={countyRecorderUrl((community as any)?.county)} target="_blank" rel="noopener noreferrer" style={{ color: '#175CD3', fontWeight: 700, whiteSpace: 'nowrap' }}>{t('admin.collectionsDetail.openRecorder')} &rarr;</a>
-              </div>
-            )}
+            {/* Lien enforcement window + county recorder link — ONE section (no
+                orange stripe; red only once the window has lapsed). The 5-year
+                (HOA) / 1-year (condo) enforcement deadline stays visible through
+                intent_to_foreclose/foreclosure; the recorder link shows while
+                there's a lien to record (intent_to_lien/lien_recorded). The
+                county resolves a city (e.g. Tallahassee → Leon) to the right
+                clerk via recorderCountyLabel/countyRecorderUrl. */}
+            {(() => {
+              const showEnforce = (stage === 'lien_recorded' || stage === 'intent_to_foreclose' || stage === 'foreclosure') && !!lienDeadline
+              const showRecorder = stage === 'intent_to_lien' || stage === 'lien_recorded'
+              if (!showEnforce && !showRecorder) return null
+              const lapsed = showEnforce && calendarDaysUntil(lienDeadline!, now) < 0
+              const countyName = recorderCountyLabel((community as any)?.county) || t('admin.collectionsDetail.yourCounty')
+              return (
+                <div className={`admin-note ${lapsed ? 'admin-note-err' : ''}`} style={{ fontSize: 12.5, marginBottom: 10 }}>
+                  {showEnforce && (
+                    <div>
+                      {lapsed
+                        ? `${t('admin.collectionsDetail.lienWindowLapsed')} ${ymd(lienDeadline!)}.`
+                        : regime === 'condo'
+                          ? `${t('admin.collectionsDetail.condoLienDeadline')} ${ymd(lienDeadline!)}.`
+                          : `${t('admin.collectionsDetail.hoaLienDeadline')} ${ymd(lienDeadline!)}.`}
+                      {' '}({LIEN_CITE})
+                    </div>
+                  )}
+                  {showRecorder && (
+                    <div style={{ marginTop: showEnforce ? 8 : 0 }}>
+                      {t('admin.collectionsDetail.recordWithCounty', { county: countyName })}{' '}
+                      <a href={countyRecorderUrl((community as any)?.county)} target="_blank" rel="noopener noreferrer" style={{ color: '#175CD3', fontWeight: 700, whiteSpace: 'nowrap' }}>{t('admin.collectionsDetail.openRecorder')} &rarr;</a>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
             <div style={{ display: 'flex', gap: 8, marginTop: 22, flexWrap: 'wrap', alignItems: 'flex-start' }}>
               <button className="admin-btn-ghost" onClick={() => patchCase({ stage: 'resolved', resolved_at: todayYmd() }, t('admin.collectionsDetail.caseResolved')).then(() => logAudit({ community_id: c.community_id!, event_type: 'collection.resolved', target_type: 'collection_case', target_id: id }))}>{t('admin.collectionsDetail.markResolved')}</button>
