@@ -28,7 +28,7 @@ export default function EstoppelCertificate() {
   const [resident, setResident] = useState<any>(null)
   const [payoff, setPayoff] = useState<PayoffResult | null>(null)
   // Recorded-lien status for the unit (drives the estoppel's lien disclosure line).
-  const [lien, setLien] = useState<{ recordedAt: string | null; open: boolean } | null>(null)
+  const [lien, setLien] = useState<{ recordedAt: string | null; open: boolean; stage: string | null } | null>(null)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
   const [error, setError] = useState('')
 
@@ -70,7 +70,7 @@ export default function EstoppelCertificate() {
             extraCosts = (Number(k?.cost_balance) || 0) + (Number(k?.mailing_cost_balance) || 0)
             if (k) {
               const openStages = ['delinquent', 'notice_30', 'intent_to_lien', 'lien_recorded', 'intent_to_foreclose', 'foreclosure']
-              if (!cancelled) setLien({ recordedAt: k.lien_recorded_at || null, open: openStages.includes(String(k.stage)) })
+              if (!cancelled) setLien({ recordedAt: k.lien_recorded_at || null, open: openStages.includes(String(k.stage)), stage: k.stage || null })
             }
           } catch { /* collections not provisioned — leave costs at 0 */ }
         }
@@ -201,6 +201,14 @@ export default function EstoppelCertificate() {
               ? <strong style={{ color: '#B42318' }}>Yes — claim of lien recorded {lien.recordedAt}</strong>
               : lien?.open
                 ? <em style={{ color: '#B54708' }}>Collection case open; no lien recorded yet — confirm</em>
+                : 'None'}
+          />
+          <Row
+            label="Foreclosure action"
+            value={lien?.stage === 'foreclosure'
+              ? <strong style={{ color: '#B42318' }}>Yes — a foreclosure action has been filed against the unit</strong>
+              : lien?.stage === 'intent_to_foreclose'
+                ? <em style={{ color: '#B54708' }}>Notice of intent to foreclose sent — action not yet filed</em>
                 : 'None'}
           />
           <Row label="Special assessments" value={<Em>None / confirm</Em>} />
