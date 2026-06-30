@@ -6,7 +6,7 @@
 // Shown only when the owner has an OPEN collection case.
 
 import { useState, useEffect } from 'react'
-import { fmtMoney, casePayoff } from '@/lib/dues'
+import { casePayoff } from '@/lib/dues'
 import { useMyPaymentPlan } from '@/lib/payment-plans'
 import { useCheckout } from '@/components/CheckoutProvider'
 import { stripeEnabled, supabase, hasSupabase } from '@/lib/supabase'
@@ -14,6 +14,12 @@ import { useT } from '@/lib/i18n'
 import { nextEscalation, isOpenStage, NOTICE_KIND_LABELS, type CollectionStage } from '@/lib/compliance/collections'
 import { PaymentPlanCard } from './PaymentPlanCard'
 import { LegalHoldCard } from './LegalHoldCard'
+
+// Exact-cents money for the collection payoff, so the resident sees the same
+// figure as the admin ledger AND the amount actually charged at checkout (the
+// app-wide fmtMoney rounds to whole dollars, e.g. $399.52 -> $400).
+const fmt$ = (n: number | string | null | undefined): string =>
+  '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 // Resident-facing one-liner for each statutory collection stage, and the next
 // step the board could take from it (only the stages with a waiting-period
@@ -124,7 +130,7 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
       <div style={{ background: 'linear-gradient(135deg, #E14909 0%, #F2922A 100%)', color: '#fff', padding: '18px 22px', borderRadius: '18px 18px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
         <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase', opacity: 0.95 }}>{t('pay.collTitle')}</div>
         {showPayoff
-          ? <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.05, whiteSpace: 'nowrap' }}>{t('pay.collTotal', { amount: fmtMoney(payoff!.payoff) })}</div>
+          ? <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.05, whiteSpace: 'nowrap' }}>{t('pay.collTotal', { amount: fmt$(payoff!.payoff) })}</div>
           : <div style={{ fontSize: 14, fontWeight: 600, opacity: 0.95, whiteSpace: 'nowrap' }}>{t('pay.collOnPlan')}</div>}
       </div>
 
@@ -187,12 +193,12 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
                     {chips.map(([label, val], i) => (
                       <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '9px 12px', fontSize: 13, color: '#344054', borderTop: i ? '1px solid #EEF0F2' : 'none' }}>
                         <span>{label}</span>
-                        <span style={{ fontWeight: 600, color: '#1F2233' }}>{fmtMoney(Number(val) || 0)}</span>
+                        <span style={{ fontWeight: 600, color: '#1F2233' }}>{fmt$(Number(val) || 0)}</span>
                       </div>
                     ))}
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '10px 12px', fontSize: 13.5, fontWeight: 800, color: '#0A2440', borderTop: '2px solid #E5E2DA', background: 'rgba(0,0,0,0.02)' }}>
                       <span>{t('pay.collBreakdownTotal')}</span>
-                      <span>{fmtMoney(payoff!.payoff)}</span>
+                      <span>{fmt$(payoff!.payoff)}</span>
                     </div>
                   </div>
                 )}
