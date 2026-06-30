@@ -8020,7 +8020,7 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   /* Always one line tall — even when a notice has no body the line is reserved
      (the markup renders a space), so every card is the SAME height. */
   display: block;
-  color: rgba(10, 36, 64, 0.62);
+  color: #1F2A37;
   min-height: 1.15em; line-height: 1.15;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
