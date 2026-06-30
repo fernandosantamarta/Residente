@@ -24,10 +24,22 @@ import { resolveDueDay } from '@/lib/dues'
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: Request) {
+  const dryRun = new URL(req.url).searchParams.get('dryRun') === '1'
+  // Optional ?community=<id> restricts the run to a single community (targeted
+  // sends / safe local testing without blasting every community).
+  const communityParam = new URL(req.url).searchParams.get('community')
+  // A deployed run ALWAYS requires the Bearer CRON_SECRET. As a dev convenience,
+  // from localhost we allow: any DRY RUN, and a REAL run only when scoped to a
+  // single ?community (so a local test can't blast every community by accident).
+  const host = new URL(req.url).hostname
+  const isLocal = host === 'localhost' || host === '127.0.0.1'
   const secret = process.env.CRON_SECRET
   const auth = req.headers.get('authorization')
-  if (!secret || auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  const authed = !!secret && auth === `Bearer ${secret}`
+  if (!authed) {
+    if (!isLocal || (!dryRun && !communityParam)) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
   }
 
   const url =
@@ -41,11 +53,13 @@ export async function GET(req: Request) {
   }
   const admin = createClient(url, key, { auth: { persistSession: false } })
 
-  const dryRun = new URL(req.url).searchParams.get('dryRun') === '1'
+  // Optional ?asOf=YYYY-MM-DD to simulate a run on another date (testing). Noon
+  // UTC keeps the date stable across the day-subtraction below.
+  const asOfParam = new URL(req.url).searchParams.get('asOf')
+  const now = asOfParam ? new Date(`${asOfParam}T12:00:00Z`) : new Date()
 
   // We fire the day AFTER a community's cutoff, so "yesterday" (UTC) is the cutoff
   // day we're matching, and its month is the cycle the statement covers.
-  const now = new Date()
   const yest = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 1))
   const cutoffY = yest.getUTCFullYear()
   const cutoffM = yest.getUTCMonth()
@@ -58,15 +72,22 @@ export async function GET(req: Request) {
   // 1–28 literal or 29+ = last day of month (resolveDueDay handles both).
   const { data: communities, error: cErr } = await admin
     .from('communities')
-    .select('id, assessment_due_day')
+    .select('id, name, assessment_due_day')
   if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 })
 
-  const firingIds = (communities ?? [])
+  const scoped = (communities ?? []).filter(c => !communityParam || c.id === communityParam)
+  const firingIds = scoped
     .filter(c => resolveDueDay((c as any).assessment_due_day, cutoffY, cutoffM) === cutoffD)
     .map(c => c.id)
 
+  // On a dry run, surface every (scoped) community's name + resolved cutoff day
+  // so it's clear which date would fire it.
+  const debugCutoffs = dryRun
+    ? scoped.map(c => ({ id: c.id, name: (c as any).name, resolvedCutoffDay: resolveDueDay((c as any).assessment_due_day, cutoffY, cutoffM) }))
+    : undefined
+
   if (firingIds.length === 0) {
-    return NextResponse.json({ ok: true, dryRun, month: monthLabel, cutoffDay: cutoffD, totalNotified: 0, note: 'no community cutoff yesterday' })
+    return NextResponse.json({ ok: true, dryRun, month: monthLabel, cutoffDay: cutoffD, totalNotified: 0, note: 'no community cutoff yesterday', ...(debugCutoffs ? { communityCutoffs: debugCutoffs } : {}) })
   }
 
   // Residents (with an app account) in the communities firing today — each owner's
