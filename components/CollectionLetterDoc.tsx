@@ -154,9 +154,15 @@ function DocInner({ readOnly = false }: { readOnly?: boolean }) {
   const Em = ({ children }: { children: any }) => <em style={{ color: '#B54708' }}>{children}</em>
 
   return (
-    <div style={{ maxWidth: 760, margin: '0 auto', padding: 24, fontFamily: 'Georgia, serif', color: '#111', lineHeight: 1.55 }}>
+    <div className="cl-page" style={{ minHeight: '100vh', background: '#f1f0ec', padding: '24px 16px', boxSizing: 'border-box' }}>
+      <div className="cl-sheet" style={{ maxWidth: 760, margin: '0 auto', background: '#fff', border: '1px solid #e7e4dd', borderRadius: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: 32, fontFamily: 'Georgia, serif', color: '#111', lineHeight: 1.55, boxSizing: 'border-box' }}>
       <style>{`
-        @media print { .no-print { display: none !important; } body { margin: 0 } }
+        @media print {
+          .no-print { display: none !important; }
+          body { margin: 0 }
+          .cl-page { background: #fff !important; padding: 0 !important; min-height: 0 !important; }
+          .cl-sheet { box-shadow: none !important; border: none !important; border-radius: 0 !important; max-width: none !important; padding: 0 !important; }
+        }
         @media (max-width: 640px) {
           .rp-toolbar { flex-direction: column; align-items: stretch !important; }
           .rp-actions { margin-left: 0 !important; }
@@ -171,7 +177,7 @@ function DocInner({ readOnly = false }: { readOnly?: boolean }) {
       </div>
       {/* Toolbar: Back hard-left; Mail certified (admin only) + Print on the right. */}
       <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 56, fontFamily: 'system-ui, sans-serif' }}>
-        <button onClick={() => history.back()} style={{ background: '#fff', color: '#111', border: '1px solid #d4d4d4', borderRadius: 8, padding: '9px 16px', fontWeight: 600, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>{t('admin.overview.back')}</button>
+        <button onClick={() => { if (readOnly && typeof window !== 'undefined') { window.location.href = '/app/track#pay' } else { history.back() } }} style={{ background: '#fff', color: '#111', border: '1px solid #d4d4d4', borderRadius: 8, padding: '9px 16px', fontWeight: 600, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap' }}>{t('admin.overview.back')}</button>
         <div className="rp-actions" style={{ display: 'flex', gap: 8, marginLeft: 'auto', alignItems: 'center' }}>
           {!readOnly && MAILABLE.includes(type) && (
             <button onClick={mailCertified} disabled={mailing} style={{ background: '#fff', color: '#111', border: '1px solid #d4d4d4', borderRadius: 8, padding: '9px 16px', fontWeight: 600, fontSize: 14, cursor: 'pointer', whiteSpace: 'nowrap', opacity: mailing ? 0.6 : 1 }}>{mailing ? t('admin.collectionsDetailDocument.mailing') : t('admin.collectionsDetailDocument.mailCertified')}</button>
@@ -327,6 +333,7 @@ function DocInner({ readOnly = false }: { readOnly?: boolean }) {
           <div style={{ fontSize: 12, color: '#555' }}>{community?.name || 'Association'}</div>
         </div>
       )}
+      </div>
     </div>
   )
 }

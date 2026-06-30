@@ -194,12 +194,22 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
                     <div style={{ fontWeight: 700, fontSize: 11, letterSpacing: 0.4, textTransform: 'uppercase', opacity: 0.75, marginBottom: 6 }}>{t('pay.collNoticesSent')}</div>
                     {notices.length === 0 ? (
                       <div style={{ opacity: 0.8 }}>{t('pay.collNoticesNone')}</div>
-                    ) : notices.map(n => (
-                      <div key={n.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '4px 0' }}>
-                        <span>{(NOTICE_KIND_LABELS as Record<string, string>)[n.kind] || n.kind}</span>
-                        <span style={{ opacity: 0.8, whiteSpace: 'nowrap' }}>{n.sent_at || '—'}</span>
-                      </div>
-                    ))}
+                    ) : (
+                      <>
+                        {notices.map(n => (
+                          <div key={n.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '4px 0' }}>
+                            <span>{(NOTICE_KIND_LABELS as Record<string, string>)[n.kind] || n.kind}</span>
+                            <span style={{ opacity: 0.8, whiteSpace: 'nowrap' }}>{n.sent_at || '—'}</span>
+                          </div>
+                        ))}
+                        {/* Jump down to the Notices tab (color-coded, opens each letter). */}
+                        <button type="button" onClick={scrollToQuickActions}
+                          style={{ all: 'unset', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8, fontSize: 12, fontWeight: 700, color: sev.color }}>
+                          {t('pay.collSeeAllNotices')}
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
+                        </button>
+                      </>
+                    )}
                   </div>
                 )}
               </div>
