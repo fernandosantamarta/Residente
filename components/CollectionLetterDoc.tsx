@@ -155,7 +155,10 @@ function DocInner({ readOnly = false }: { readOnly?: boolean }) {
 
   return (
     <div className="cl-page" style={{ padding: '24px 16px', boxSizing: 'border-box' }}>
-      <div className="cl-sheet" style={{ maxWidth: 760, margin: '0 auto', background: '#fff', border: '1px solid #e7e4dd', borderRadius: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: 32, fontFamily: 'Georgia, serif', color: '#111', lineHeight: 1.55, boxSizing: 'border-box' }}>
+      <div className="cl-sheet" style={{ maxWidth: 760, margin: '0 auto', padding: readOnly ? 32 : 0, fontFamily: 'Georgia, serif', color: '#111', lineHeight: 1.55, boxSizing: 'border-box',
+        // Resident gets a white "paper" box (lifts the letter off the app hero);
+        // admin stays borderless on its own light background.
+        ...(readOnly ? { background: '#fff', border: '1px solid #e7e4dd', borderRadius: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.05)' } : {}) }}>
       <style>{`
         @media print {
           .no-print { display: none !important; }
