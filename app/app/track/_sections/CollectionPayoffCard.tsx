@@ -14,6 +14,19 @@ import { useT } from '@/lib/i18n'
 import { nextEscalation, isOpenStage, NOTICE_KIND_LABELS, type CollectionStage } from '@/lib/compliance/collections'
 import { PaymentPlanCard } from './PaymentPlanCard'
 import { LegalHoldCard } from './LegalHoldCard'
+import { DetailDialog } from './DetailDialog'
+
+// Plain-language meaning of each statutory notice, for the resident Notices tab.
+const NOTICE_MEANING_KEY: Record<string, string> = {
+  late_assessment_30: 'pay.noticeMeaning30',
+  intent_to_lien_45: 'pay.noticeMeaningLien',
+  intent_to_foreclose_45: 'pay.noticeMeaningForeclose',
+  tenant_rent_demand: 'pay.noticeMeaningTenant',
+}
+const NOTICE_METHOD_KEY: Record<string, string> = {
+  both: 'pay.methodBoth', certified_mail: 'pay.methodCertified',
+  first_class: 'pay.methodFirstClass', hand: 'pay.methodHand', electronic: 'pay.methodElectronic',
+}
 
 // Exact-cents money for the collection payoff, so the resident sees the same
 // figure as the admin ledger AND the amount actually charged at checkout (the
@@ -247,6 +260,7 @@ export function CollectionQuickActions({ resident, community, payments, standalo
     <>
       <PaymentPlanCard resident={resident} community={community} payments={payments} variant="row" />
       <LegalHoldCard variant="row" />
+      <CollectionNoticesCard />
     </>
   )
 
@@ -263,5 +277,86 @@ export function CollectionQuickActions({ resident, community, payments, standalo
     <div className="pay-quick" style={{ borderTop: '1px solid var(--ev-border, #e5e2da)', marginTop: 10, paddingTop: 10 }}>
       {rows}
     </div>
+  )
+}
+
+// CollectionNoticesCard — a Quick Actions row that opens a popup listing every
+// statutory notice on the owner's case (type, date sent, delivery method,
+// mailed-to address) with a plain-language explanation of each. Read from the
+// owner's own ev_collection_notices (RLS-scoped).
+function CollectionNoticesCard() {
+  const t = useT()
+  const { openCase, loading } = useMyPaymentPlan()
+  const [open, setOpen] = useState(false)
+  const [notices, setNotices] = useState<any[]>([])
+
+  useEffect(() => {
+    const cid = (openCase as any)?.id
+    if (!hasSupabase || !supabase || !cid) return
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase.from('ev_collection_notices')
+        .select('id, kind, sent_at, method, tracking_number, mailed_to_record_address')
+        .eq('case_id', cid).order('sent_at', { ascending: false })
+      if (!cancelled) setNotices((data as any) || [])
+    })()
+    return () => { cancelled = true }
+  }, [(openCase as any)?.id])
+
+  if (loading || !openCase) return null
+
+  const fmtD = (d: string | null) => {
+    if (!d) return '—'
+    try { return new Date(`${d}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) } catch { return d }
+  }
+
+  return (
+    <>
+      <button type="button" className="pay-quick-row" onClick={() => setOpen(true)}>
+        <span className="pay-quick-icon"><MailIcon /></span>
+        <span className="pay-quick-body">
+          <span className="pay-quick-title">{t('pay.noticesTitle')}</span>
+          <span className="pay-quick-desc">{t('pay.noticesRowDesc', { count: notices.length })}</span>
+        </span>
+        <svg className="pay-quick-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polyline points="9 18 15 12 9 6" />
+        </svg>
+      </button>
+      {open && (
+        <DetailDialog eyebrow={t('pay.noticesEyebrow')} title={t('pay.noticesTitle')} onClose={() => setOpen(false)}>
+          {notices.length === 0 ? (
+            <p className="pay-plan-intro">{t('pay.noticesEmpty')}</p>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {notices.map(n => {
+                const label = (NOTICE_KIND_LABELS as Record<string, string>)[n.kind] || n.kind
+                const meaning = NOTICE_MEANING_KEY[n.kind] ? t(NOTICE_MEANING_KEY[n.kind]) : ''
+                const method = NOTICE_METHOD_KEY[n.method] ? t(NOTICE_METHOD_KEY[n.method]) : n.method
+                return (
+                  <div key={n.id} style={{ border: '1px solid rgba(10,36,64,0.12)', borderRadius: 12, padding: '12px 14px' }}>
+                    <div style={{ fontWeight: 700, color: '#0A2440', fontSize: 13.5 }}>{label}</div>
+                    <div style={{ fontSize: 12.5, color: '#475467', marginTop: 3 }}>
+                      {t('pay.noticesSent')} {fmtD(n.sent_at)}{n.method ? ` · ${method}` : ''}{n.tracking_number ? ` · #${n.tracking_number}` : ''}
+                    </div>
+                    {n.mailed_to_record_address && (
+                      <div style={{ fontSize: 12, color: '#667085', marginTop: 2 }}>{t('pay.noticesMailedTo')} {n.mailed_to_record_address}</div>
+                    )}
+                    {meaning && <div style={{ fontSize: 12.5, color: '#475467', marginTop: 7, lineHeight: 1.45 }}>{meaning}</div>}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </DetailDialog>
+      )}
+    </>
+  )
+}
+
+function MailIcon() {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <rect x="3" y="5" width="18" height="14" rx="2" /><path d="m3 7 9 6 9-6" />
+    </svg>
   )
 }
