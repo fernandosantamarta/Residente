@@ -78,6 +78,53 @@ const rowTo = (r: any): Violation => ({
 
 const today = () => new Date().toISOString().slice(0, 10)
 
+// ---------- bridge: unpaid fine → collections ----------
+// Escalate an unpaid violation fine into a collection case. The fine and the
+// collection ladder live in two different sections (Easy Documents vs.
+// Compliance); this is the one-click handoff between them. Returns the owner's
+// EXISTING open collection case if they already have one (a partial-unique index
+// allows only one open case per owner, so we reuse rather than collide), else
+// opens a new fine-only case (is_fine_only=true → the HB 1203 sub-$1,000
+// fine-floor warning applies). Caller navigates to caseId.
+const COLLECTION_OPEN_STAGES = ['delinquent', 'notice_30', 'intent_to_lien', 'lien_recorded', 'intent_to_foreclose', 'foreclosure']
+export async function sendFineToCollections(opts: {
+  violation: Violation
+  communityId: string
+  createdBy: string | null
+  residents: { id: string; profile_id: string | null; label: string }[]
+}): Promise<{ caseId: string; created: boolean }> {
+  if (!hasSupabase || !supabase) throw new Error('Supabase is not configured')
+  const { violation: v, communityId, createdBy, residents } = opts
+  const resident = residents.find(r => r.profile_id && r.profile_id === v.profile_id) || null
+
+  // Reuse the owner's existing open case if there is one.
+  let q = supabase.from('ev_collection_cases').select('id')
+    .eq('community_id', communityId).in('stage', COLLECTION_OPEN_STAGES).limit(1)
+  if (resident && v.profile_id) q = q.or(`resident_id.eq.${resident.id},profile_id.eq.${v.profile_id}`)
+  else if (resident) q = q.eq('resident_id', resident.id)
+  else if (v.profile_id) q = q.eq('profile_id', v.profile_id)
+  const { data: existing } = await q
+  if (existing && existing[0]) return { caseId: (existing[0] as any).id, created: false }
+
+  const amount = Number(v.amount) || 0
+  const note = `Opened from an unpaid fine: ${v.rule_title || 'violation'} ($${Math.round(amount).toLocaleString('en-US')}). Violation ${v.id}.`
+  const { data: ins, error } = await supabase.from('ev_collection_cases').insert({
+    community_id: communityId,
+    profile_id: v.profile_id,
+    resident_id: resident?.id ?? null,
+    unit_label: v.resident || resident?.label || null,
+    stage: 'delinquent',
+    delinquent_since: v.opened_at || null,
+    principal_balance: amount,
+    total_balance: amount,
+    is_fine_only: true,
+    notes: note,
+    created_by: createdBy,
+  }).select('id').single()
+  if (error) throw new Error(error.message)
+  return { caseId: (ins as any).id, created: true }
+}
+
 // Derived headline stats for the resident strip (unchanged contract).
 export function computeStats(list: Violation[]) {
   let warnings = 0, fines_collected = 0, resolved = 0, appeals = 0

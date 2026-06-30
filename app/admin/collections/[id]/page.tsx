@@ -8,7 +8,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/app/providers'
 import { supabase, hasSupabase } from '@/lib/supabase'
 import { logAudit } from '@/lib/audit'
@@ -76,6 +76,7 @@ function advanceFor(stage: CollectionStage): Advance | null {
 export default function CollectionCaseDetail() {
   const params = useParams()
   const id = params?.id as string
+  const searchParams = useSearchParams()
   const { profile } = useAuth() || {}
   const t = useT()
 
@@ -101,6 +102,9 @@ export default function CollectionCaseDetail() {
 
   useEffect(() => { if (!msg) return; const t = setTimeout(() => setMsg(''), 4000); return () => clearTimeout(t) }, [msg])
   useEffect(() => { if (!snapMsg) return; const x = setTimeout(() => setSnapMsg(''), 3000); return () => clearTimeout(x) }, [snapMsg])
+  // Arrived from a "Send fine to collections" where the owner ALREADY had an open
+  // case — the fine wasn't auto-merged, so flag it for the board.
+  useEffect(() => { if (searchParams?.get('existing') === '1') setMsg(t('admin.collectionsDetail.fineExistingCaseNote')) /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [searchParams])
 
   const load = useCallback(async () => {
     if (!hasSupabase || !id) { setStatus('error'); setError('No case'); return }

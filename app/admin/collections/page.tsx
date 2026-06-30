@@ -215,7 +215,10 @@ export default function CollectionsPage() {
           <Link href="/admin/compliance" className="admin-backlink">{t('admin.collections.viewInCompliance')} <span aria-hidden>&rarr;</span></Link>
         </div>
       ) : (
-        <ComplianceBackLink />
+        <div className="cset-backrow">
+          <ComplianceBackLink />
+          <Link href="/admin/violations" className="admin-backlink">{t('admin.collections.viewViolations')} <span aria-hidden>&rarr;</span></Link>
+        </div>
       )}
       <div className="admin-kicker">{t('admin.collections.kicker')}</div>
       <h1 className="admin-h1">{t('admin.collections.pageTitle')}</h1>
