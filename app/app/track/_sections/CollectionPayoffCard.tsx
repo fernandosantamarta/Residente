@@ -45,13 +45,15 @@ const STAGE_SEVERITY: Record<string, number> = {
   delinquent: 1, notice_30: 1, intent_to_lien: 2,
   lien_recorded: 3, intent_to_foreclose: 3, foreclosure: 4,
 }
-// Distinct HUE per tier so the escalation is obvious at a glance:
-// amber (early) → orange (lien warning) → red (lien recorded) → deep red (foreclosure).
+// Distinct HUE + growing TITLE size per tier so the escalation is obvious at a
+// glance: amber (early) → orange (lien warning) → red (lien recorded) → deep red
+// (foreclosure). `size` is the headline size; the countdown + notices stay at a
+// steady base so only the message grows.
 const SEV_STYLE: Record<number, { color: string; bg: string; border: string; weight: number; size: number }> = {
-  1: { color: '#B45309', bg: 'rgba(245,158,11,0.13)', border: 'rgba(245,158,11,0.45)', weight: 700, size: 12.5 }, // amber
-  2: { color: '#C2410C', bg: 'rgba(234,88,12,0.15)',  border: 'rgba(234,88,12,0.55)',  weight: 800, size: 13.5 }, // orange
-  3: { color: '#B42318', bg: 'rgba(220,38,38,0.14)',  border: 'rgba(220,38,38,0.55)',  weight: 800, size: 14 },   // red
-  4: { color: '#7F1D1D', bg: 'rgba(127,29,29,0.18)',  border: 'rgba(127,29,29,0.65)',  weight: 900, size: 14.5 }, // deep red
+  1: { color: '#B45309', bg: 'rgba(245,158,11,0.13)', border: 'rgba(245,158,11,0.45)', weight: 700, size: 13.5 }, // amber
+  2: { color: '#C2410C', bg: 'rgba(234,88,12,0.15)',  border: 'rgba(234,88,12,0.55)',  weight: 800, size: 15 },   // orange
+  3: { color: '#B42318', bg: 'rgba(220,38,38,0.14)',  border: 'rgba(220,38,38,0.55)',  weight: 800, size: 16.5 }, // red
+  4: { color: '#7F1D1D', bg: 'rgba(127,29,29,0.18)',  border: 'rgba(127,29,29,0.65)',  weight: 900, size: 18 },   // deep red
 }
 
 // Smooth-scroll the page to the Quick Actions tile (id="quick-actions"), set by
@@ -143,11 +145,11 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
             {/* Collection status + countdown — only when NOT on a plan (a plan
                 pauses escalation, so we don't show a ladder countdown there). */}
             {!onActivePlan && inLadder && (
-              <div style={{ marginTop: 12, fontSize: sev.size, lineHeight: 1.5, color: sev.color, background: sev.bg, border: `1px solid ${sev.border}`, borderRadius: 10, padding: '10px 12px' }}>
+              <div style={{ marginTop: 12, fontSize: 12.5, lineHeight: 1.45, color: sev.color, background: sev.bg, border: `1px solid ${sev.border}`, borderRadius: 10, padding: '10px 12px' }}>
                 <button type="button" onClick={() => setDetailOpen(o => !o)}
                   style={{ all: 'unset', cursor: 'pointer', display: 'flex', width: '100%', boxSizing: 'border-box', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                   <span>
-                    <span style={{ display: 'block', fontWeight: sev.weight }}>{t(STAGE_STATUS_KEY[stage] || 'pay.collStatusDelinquent')}</span>
+                    <span style={{ display: 'block', fontWeight: sev.weight, fontSize: sev.size, lineHeight: 1.3 }}>{t(STAGE_STATUS_KEY[stage] || 'pay.collStatusDelinquent')}</span>
                     {daysToNext != null && NEXT_ACTION_KEY[stage] && (
                       <span style={{ display: 'block', marginTop: 3, opacity: 0.9 }}>
                         {daysToNext > 0
