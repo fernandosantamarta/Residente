@@ -2822,8 +2822,8 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 }
 [data-theme="sketch"] .inbox-row.unread .inbox-row-kind { color: var(--bell-tone, #E14909); }
 [data-theme="sketch"] .inbox-row-subject { color: #0A2440; }
-[data-theme="sketch"] .inbox-row-body { color: rgba(10, 36, 64, 0.62); }
-[data-theme="sketch"] .inbox-row-ts { color: rgba(10, 36, 64, 0.45); }
+[data-theme="sketch"] .inbox-row-body { color: #1F2A37; }
+[data-theme="sketch"] .inbox-row-ts { color: #344054; }
 [data-theme="sketch"] .inbox-row-dot { background: var(--bell-tone, #E14909); }
 
 /* Pager — white pills on the light theme. */
