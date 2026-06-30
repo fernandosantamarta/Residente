@@ -375,7 +375,7 @@ export default function CollectionCaseDetail() {
               )
             })()}
 
-            <div style={{ display: 'flex', gap: 8, marginTop: 22, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+            <div style={{ display: 'flex', gap: 8, marginTop: 22, marginBottom: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
               <button className="admin-btn-ghost" onClick={() => patchCase({ stage: 'resolved', resolved_at: todayYmd() }, t('admin.collectionsDetail.caseResolved')).then(() => logAudit({ community_id: c.community_id!, event_type: 'collection.resolved', target_type: 'collection_case', target_id: id }))}>{t('admin.collectionsDetail.markResolved')}</button>
               <button className="admin-btn-ghost" onClick={() => patchCase({ stage: 'cancelled', resolved_at: todayYmd() }, t('admin.collectionsDetail.caseCancelled'))}>{t('admin.collectionsDetail.cancelCase')}</button>
               <StageActions
