@@ -133,6 +133,18 @@ export function PaySection() {
     window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}#pay`)
   }, [])
 
+  // A statement notice (?statements=1) pops the Statements list open on arrival,
+  // matching the app's open-in-place convention, then strips the param.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('statements') !== '1') return
+    setListOpen('statements')
+    params.delete('statements')
+    const qs = params.toString()
+    window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}#statements`)
+  }, [])
+
   // Show the skeleton only while the resident query is genuinely in flight.
   // Once it settles we render either the real balance or — in preview / no-
   // roster-match — the demo fallback, instead of a skeleton that never fills.
