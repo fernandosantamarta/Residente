@@ -948,17 +948,9 @@ function FinesDueCard() {
           {fines.map(v => (
             <div key={v.id} className="pay-fine-row">
               <div className="pay-fine-head">
-                <div className="pay-fine-info" style={{ display: 'flex', alignItems: 'center', gap: 11 }}>
-                  <span aria-hidden style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#DC6803', background: 'rgba(220,104,3,0.10)' }}>
-                    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
-                  </span>
-                  <div style={{ minWidth: 0 }}>
-                    <div className="pay-fine-title" style={{ fontSize: 14.5, fontWeight: 700, color: '#1F2233' }}>{v.rule_title || t('pay.fineGeneric')}</div>
-                    <div className="pay-fine-meta" style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, fontSize: 12, color: '#667085' }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7, flexShrink: 0 }}><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
-                      {t('pay.dueOn', { date: fmtDate(v.due_at || fineDueDate(v.opened_at)) })}
-                    </div>
-                  </div>
+                <div className="pay-fine-info">
+                  <div className="pay-fine-title">{v.rule_title || t('pay.fineGeneric')}</div>
+                  <div className="pay-fine-meta">{t('pay.dueOn', { date: fmtDate(v.due_at || fineDueDate(v.opened_at)) })}</div>
                 </div>
                 {fines.length > 1 && <div className="pay-fine-amt">{fmtMoney(v.amount)}</div>}
               </div>
