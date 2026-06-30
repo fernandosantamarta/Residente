@@ -328,7 +328,7 @@ function transferEmailHtml(args: {
       </p>
       <p style="font-size: 12px; color: #6b6f7d;">If the button doesn't work, paste this link into your browser:</p>
       <p style="font-size: 12px; color: #6b6f7d; word-break: break-all;">${args.link}</p>
-      <p style="font-size: 12px; color: #8a8e9c; margin-top: 32px;">This link expires in 24 hours. If it expires, ask your board to re-send the transfer.</p>
+      <p style="font-size: 12px; color: #8a8e9c; margin-top: 32px;">This link expires in 24 hours. If it expires, just go to <a href="${APP_URL}" style="color: #8a8e9c;">${APP_URL.replace(/^https?:\/\//, '')}</a> and sign in with this email address — your home is already set up and waiting for you.</p>
     </div>
   `.trim()
 }
