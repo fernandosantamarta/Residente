@@ -5,12 +5,13 @@
 // down to Quick actions (where the payment-plan + legal-protection flows live).
 // Shown only when the owner has an OPEN collection case.
 
+import { useState, useEffect } from 'react'
 import { fmtMoney, casePayoff } from '@/lib/dues'
 import { useMyPaymentPlan } from '@/lib/payment-plans'
 import { useCheckout } from '@/components/CheckoutProvider'
-import { stripeEnabled } from '@/lib/supabase'
+import { stripeEnabled, supabase, hasSupabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
-import { nextEscalation, isOpenStage, type CollectionStage } from '@/lib/compliance/collections'
+import { nextEscalation, isOpenStage, NOTICE_KIND_LABELS, type CollectionStage } from '@/lib/compliance/collections'
 import { PaymentPlanCard } from './PaymentPlanCard'
 import { LegalHoldCard } from './LegalHoldCard'
 
@@ -43,6 +44,22 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
   const t = useT()
   const { openCheckout } = useCheckout()
   const { openCase, plan, loading } = useMyPaymentPlan()
+  const [detailOpen, setDetailOpen] = useState(false)
+  const [notices, setNotices] = useState<{ id: string; kind: string; sent_at: string | null }[]>([])
+
+  // The statutory notices already sent on the owner's own case, for the
+  // expandable status detail (RLS: "owner reads own collection notices").
+  useEffect(() => {
+    const cid = (openCase as any)?.id
+    if (!hasSupabase || !supabase || !cid) return
+    let cancelled = false
+    ;(async () => {
+      const { data } = await supabase.from('ev_collection_notices')
+        .select('id, kind, sent_at').eq('case_id', cid).order('sent_at', { ascending: false })
+      if (!cancelled) setNotices((data as any) || [])
+    })()
+    return () => { cancelled = true }
+  }, [(openCase as any)?.id])
 
   // Only render during an active collection — nothing for owners in good standing.
   if (loading || !openCase) return null
@@ -103,12 +120,34 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
                 pauses escalation, so we don't show a ladder countdown there). */}
             {!onActivePlan && inLadder && (
               <div style={{ marginTop: 12, fontSize: 12.5, lineHeight: 1.5, color: '#B54708', background: 'rgba(225,73,9,0.07)', border: '1px solid rgba(225,73,9,0.18)', borderRadius: 10, padding: '10px 12px' }}>
-                <div style={{ fontWeight: 700 }}>{t(STAGE_STATUS_KEY[stage] || 'pay.collStatusDelinquent')}</div>
-                {daysToNext != null && NEXT_ACTION_KEY[stage] && (
-                  <div style={{ marginTop: 3, opacity: 0.9 }}>
-                    {daysToNext > 0
-                      ? t('pay.collNextInDays', { action: t(NEXT_ACTION_KEY[stage]), days: daysToNext })
-                      : t('pay.collNextAnyTime', { action: t(NEXT_ACTION_KEY[stage]) })}
+                <button type="button" onClick={() => setDetailOpen(o => !o)}
+                  style={{ all: 'unset', cursor: 'pointer', display: 'flex', width: '100%', boxSizing: 'border-box', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+                  <span>
+                    <span style={{ display: 'block', fontWeight: 700 }}>{t(STAGE_STATUS_KEY[stage] || 'pay.collStatusDelinquent')}</span>
+                    {daysToNext != null && NEXT_ACTION_KEY[stage] && (
+                      <span style={{ display: 'block', marginTop: 3, opacity: 0.9 }}>
+                        {daysToNext > 0
+                          ? t('pay.collNextInDays', { action: t(NEXT_ACTION_KEY[stage]), days: daysToNext })
+                          : t('pay.collNextAnyTime', { action: t(NEXT_ACTION_KEY[stage]) })}
+                      </span>
+                    )}
+                  </span>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+                    style={{ flexShrink: 0, marginTop: 2, transform: detailOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s ease' }}>
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+                {detailOpen && (
+                  <div style={{ marginTop: 10, borderTop: '1px solid rgba(225,73,9,0.18)', paddingTop: 8 }}>
+                    <div style={{ fontWeight: 700, fontSize: 11, letterSpacing: 0.4, textTransform: 'uppercase', opacity: 0.75, marginBottom: 6 }}>{t('pay.collNoticesSent')}</div>
+                    {notices.length === 0 ? (
+                      <div style={{ opacity: 0.8 }}>{t('pay.collNoticesNone')}</div>
+                    ) : notices.map(n => (
+                      <div key={n.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '4px 0' }}>
+                        <span>{(NOTICE_KIND_LABELS as Record<string, string>)[n.kind] || n.kind}</span>
+                        <span style={{ opacity: 0.8, whiteSpace: 'nowrap' }}>{n.sent_at || '—'}</span>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

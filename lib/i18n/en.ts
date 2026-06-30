@@ -578,6 +578,8 @@ export const en: Record<string, string> = {
   "pay.collNextForeclose": "foreclosure may be filed",
   "pay.collNextInDays": "If unpaid, {action} in {days} days.",
   "pay.collNextAnyTime": "If unpaid, {action} at any time.",
+  "pay.collNoticesSent": "Notices sent",
+  "pay.collNoticesNone": "No notices sent yet.",
   "pay.collPrincipal": "Assessments",
   "pay.collInterest": "Interest",
   "pay.collFees": "Late fees",
