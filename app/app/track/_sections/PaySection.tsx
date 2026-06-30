@@ -1027,12 +1027,12 @@ function FinesDueCard() {
   const totalFines = fines.reduce((s, v) => s + (Number(v.amount) || 0), 0)
 
   return (
-    <section className="pay-card" id="fines" style={{ overflow: 'hidden', padding: 0 }}>
+    <section className="pay-card" id="fines" style={{ overflow: 'hidden', padding: 0, border: 'none' }}>
       {/* Orange header band — matches the Collection Balance card: the label on
           the left, the total fines due on the right, same line. */}
       <div style={{ background: 'linear-gradient(135deg, #E14909 0%, #F2922A 100%)', color: '#fff', padding: '18px 22px', borderRadius: '18px 18px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
-        <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase', opacity: 0.95, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <span aria-hidden>⚠</span>{t('pay.finesDue')}
+        <div style={{ fontSize: 17, fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase', opacity: 0.97, display: 'flex', alignItems: 'center', gap: 9 }}>
+          <span aria-hidden style={{ fontSize: 19 }}>⚠</span>{t('pay.finesDue')}
         </div>
         <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.05, whiteSpace: 'nowrap' }}>{fmtMoney(totalFines)}</div>
       </div>
@@ -1042,11 +1042,19 @@ function FinesDueCard() {
           {fines.map(v => (
             <div key={v.id} className="pay-fine-row">
               <div className="pay-fine-head">
-                <div className="pay-fine-info">
-                  <div className="pay-fine-title">{v.rule_title || t('pay.fineGeneric')}</div>
-                  <div className="pay-fine-meta">{t('pay.dueOn', { date: fmtDate(v.due_at || fineDueDate(v.opened_at)) })}</div>
+                <div className="pay-fine-info" style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                  <span aria-hidden style={{ flexShrink: 0, width: 38, height: 38, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#DC6803', background: 'rgba(220,104,3,0.10)' }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" /><line x1="12" y1="9" x2="12" y2="13" /><line x1="12" y1="17" x2="12.01" y2="17" /></svg>
+                  </span>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="pay-fine-title" style={{ fontSize: 15, fontWeight: 700, color: '#1F2233' }}>{v.rule_title || t('pay.fineGeneric')}</div>
+                    <div className="pay-fine-meta" style={{ display: 'flex', alignItems: 'center', gap: 5, marginTop: 2, fontSize: 12.5, color: '#667085' }}>
+                      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" style={{ opacity: 0.7, flexShrink: 0 }}><rect x="3" y="4" width="18" height="18" rx="2" /><path d="M16 2v4M8 2v4M3 10h18" /></svg>
+                      {t('pay.dueOn', { date: fmtDate(v.due_at || fineDueDate(v.opened_at)) })}
+                    </div>
+                  </div>
                 </div>
-                <div className="pay-fine-amt">{fmtMoney(v.amount)}</div>
+                {fines.length > 1 && <div className="pay-fine-amt">{fmtMoney(v.amount)}</div>}
               </div>
               <div className="pay-fine-foot">
                 {v.notes && <p className="pay-fine-note">{v.notes}</p>}
