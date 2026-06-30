@@ -2797,7 +2797,7 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 [data-theme="sketch"] .inbox-row {
   background: #FFFFFF;
   border: 1px solid rgba(15, 28, 46, 0.10);
-  border-left: 4px solid var(--bell-tone, rgba(10, 36, 64, 0.45));
+  border-left: 1px solid rgba(15, 28, 46, 0.10);
   border-radius: 10px;
   transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
 }
@@ -2810,7 +2810,6 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 [data-theme="sketch"] .inbox-row.unread {
   background: var(--bell-tone-tint, rgba(225, 73, 9, 0.07));
   border-color: rgba(15, 28, 46, 0.12);
-  border-left-color: var(--bell-tone, #E14909);
 }
 [data-theme="sketch"] .inbox-row[data-tone="alert"]   { --bell-tone: #C2410C; --bell-tone-tint: rgba(194, 65, 12, 0.10); }
 [data-theme="sketch"] .inbox-row[data-tone="success"] { --bell-tone: #15683A; --bell-tone-tint: rgba(21, 104, 58, 0.10); }
@@ -7980,7 +7979,7 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   padding: 10px 12px 11px;
   background: #FFFFFF;
   border: 1px solid rgba(15, 28, 46, 0.10);
-  border-left: 4px solid var(--bell-tone, rgba(10, 36, 64, 0.45));
+  border-left: 1px solid rgba(15, 28, 46, 0.10);
   border-radius: 10px;
   transition: background-color .12s ease, border-color .12s ease;
   overflow-wrap: anywhere;   /* long unbroken words/URLs can't force width */
