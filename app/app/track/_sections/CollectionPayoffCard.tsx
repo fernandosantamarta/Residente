@@ -32,6 +32,20 @@ const NEXT_ACTION_KEY: Record<string, string> = {
   intent_to_foreclose: 'pay.collNextForeclose',
 }
 
+// Escalating visual severity — the further down the ladder, the bolder + redder
+// the status reads, so it draws more attention as the stakes rise (mild amber at
+// delinquent → deep red at foreclosure).
+const STAGE_SEVERITY: Record<string, number> = {
+  delinquent: 1, notice_30: 1, intent_to_lien: 2,
+  lien_recorded: 3, intent_to_foreclose: 3, foreclosure: 4,
+}
+const SEV_STYLE: Record<number, { color: string; bg: string; border: string; weight: number; size: number }> = {
+  1: { color: '#B54708', bg: 'rgba(225,73,9,0.07)', border: 'rgba(225,73,9,0.20)', weight: 700, size: 12.5 },
+  2: { color: '#B54708', bg: 'rgba(225,73,9,0.13)', border: 'rgba(225,73,9,0.38)', weight: 800, size: 13 },
+  3: { color: '#B42318', bg: 'rgba(180,35,24,0.10)', border: 'rgba(180,35,24,0.40)', weight: 800, size: 13.5 },
+  4: { color: '#912018', bg: 'rgba(180,35,24,0.16)', border: 'rgba(180,35,24,0.52)', weight: 800, size: 14 },
+}
+
 // Smooth-scroll the page to the Quick Actions tile (id="quick-actions"), set by
 // both the desktop and mobile Pay sections.
 function scrollToQuickActions(e: React.MouseEvent) {
@@ -87,6 +101,7 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
   const inLadder = isOpenStage(stage)
   const esc = inLadder ? nextEscalation(openCase as any) : null
   const daysToNext = esc?.readyAt ? Math.max(0, Math.ceil((esc.readyAt.getTime() - Date.now()) / 86400000)) : null
+  const sev = SEV_STYLE[STAGE_SEVERITY[stage] || 1]
 
   const pay = () => {
     if (!payoff) return
@@ -120,11 +135,11 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
             {/* Collection status + countdown — only when NOT on a plan (a plan
                 pauses escalation, so we don't show a ladder countdown there). */}
             {!onActivePlan && inLadder && (
-              <div style={{ marginTop: 12, fontSize: 12.5, lineHeight: 1.5, color: '#B54708', background: 'rgba(225,73,9,0.07)', border: '1px solid rgba(225,73,9,0.18)', borderRadius: 10, padding: '10px 12px' }}>
+              <div style={{ marginTop: 12, fontSize: sev.size, lineHeight: 1.5, color: sev.color, background: sev.bg, border: `1px solid ${sev.border}`, borderRadius: 10, padding: '10px 12px' }}>
                 <button type="button" onClick={() => setDetailOpen(o => !o)}
                   style={{ all: 'unset', cursor: 'pointer', display: 'flex', width: '100%', boxSizing: 'border-box', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
                   <span>
-                    <span style={{ display: 'block', fontWeight: 700 }}>{t(STAGE_STATUS_KEY[stage] || 'pay.collStatusDelinquent')}</span>
+                    <span style={{ display: 'block', fontWeight: sev.weight }}>{t(STAGE_STATUS_KEY[stage] || 'pay.collStatusDelinquent')}</span>
                     {daysToNext != null && NEXT_ACTION_KEY[stage] && (
                       <span style={{ display: 'block', marginTop: 3, opacity: 0.9 }}>
                         {daysToNext > 0
@@ -139,7 +154,7 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
                   </svg>
                 </button>
                 {detailOpen && (
-                  <div style={{ marginTop: 10, borderTop: '1px solid rgba(225,73,9,0.18)', paddingTop: 8 }}>
+                  <div style={{ marginTop: 10, borderTop: `1px solid ${sev.border}`, paddingTop: 8 }}>
                     <div style={{ fontWeight: 700, fontSize: 11, letterSpacing: 0.4, textTransform: 'uppercase', opacity: 0.75, marginBottom: 6 }}>{t('pay.collNoticesSent')}</div>
                     {notices.length === 0 ? (
                       <div style={{ opacity: 0.8 }}>{t('pay.collNoticesNone')}</div>
