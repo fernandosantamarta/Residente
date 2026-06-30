@@ -316,7 +316,7 @@ export default function CollectionCaseDetail() {
   // Authoritative payoff from the dues model + recorded costs.
   let payoff: PayoffResult | null = null
   if (resident) {
-    try { payoff = casePayoff(resident, community, payments, { extraCosts: (Number(c.cost_balance) || 0) + (Number((c as any).mailing_cost_balance) || 0), freezeInterest: interestFrozen, freezeLateFees: lateFeesFrozen }) } catch { payoff = null }
+    try { payoff = casePayoff(resident, community, payments, { extraCosts: (Number(c.cost_balance) || 0) + (Number((c as any).mailing_cost_balance) || 0), fines: Number((c as any).fine_balance) || 0, freezeInterest: interestFrozen, freezeLateFees: lateFeesFrozen }) } catch { payoff = null }
   }
 
   return (
@@ -371,7 +371,8 @@ export default function CollectionCaseDetail() {
             {(() => {
               const showEnforce = (stage === 'lien_recorded' || stage === 'intent_to_foreclose' || stage === 'foreclosure') && !!lienDeadline
               const showRecorder = stage === 'intent_to_lien' || stage === 'lien_recorded'
-              const showFloor = regime === 'hoa' && !!c.is_fine_only && (Number(c.principal_balance) || 0) < HOA_FINE_LIEN_FLOOR.value
+              const fineAmt = Number((c as any).fine_balance ?? c.principal_balance) || 0
+              const showFloor = regime === 'hoa' && !!c.is_fine_only && fineAmt < HOA_FINE_LIEN_FLOOR.value
               const lapsed = showEnforce && calendarDaysUntil(lienDeadline!, now) < 0
               const countyName = recorderCountyLabel((community as any)?.county) || t('admin.collectionsDetail.yourCounty')
 
@@ -535,7 +536,10 @@ export default function CollectionCaseDetail() {
                 {(Number((c as any).mailing_cost_balance) || 0) > 0 && (
                   <LedgerRow label={t('admin.collectionsDetail.ledgerMailing')} value={fmt$((c as any).mailing_cost_balance)} />
                 )}
-                <LedgerRow label={t('admin.collectionsDetail.ledgerPaymentsApplied')} value={'– ' + fmt$(payoff.gross.principal + payoff.gross.interest + payoff.gross.lateFee + payoff.gross.cost - payoff.payoff)} valueColor="#067647" />
+                {(Number((c as any).fine_balance) || 0) > 0 && (
+                  <LedgerRow label={t('admin.collectionsDetail.ledgerFines')} value={fmt$(payoff.gross.fine)} />
+                )}
+                <LedgerRow label={t('admin.collectionsDetail.ledgerPaymentsApplied')} value={'– ' + fmt$(payoff.gross.principal + payoff.gross.interest + payoff.gross.lateFee + payoff.gross.cost + payoff.gross.fine - payoff.payoff)} valueColor="#067647" />
               </tbody>
             </table>
             <div className="coll-payoff-total">

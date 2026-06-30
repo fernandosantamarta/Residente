@@ -13,6 +13,7 @@ import {
   removeStoredViolation,
   reopen,
   sendFineToCollections,
+  SENT_TO_COLLECTIONS_NOTE,
   useViolationsAdmin,
   useCommunityResidents,
   Violation,
@@ -73,6 +74,7 @@ const fmtDate = (iso: string | null | undefined) => {
 function stateLabel(v: Violation, t: (key: string) => string): string {
   if (v.status === 'appealed') return t('admin.violations.stateUnderAppeal')
   if (v.status === 'closed') {
+    if (typeof v.notes === 'string' && v.notes.includes(SENT_TO_COLLECTIONS_NOTE)) return t('admin.violations.stateInCollections')
     if (v.resolution === 'stripe-paid')  return t('admin.violations.resolutionStripePaid')
     if (v.resolution === 'manual-paid')  return t('admin.violations.resolutionManualPaid')
     if (v.resolution === 'waived')       return t('admin.violations.resolutionWaived')
@@ -435,6 +437,7 @@ function pillClass(v: Violation): string {
 function rowAccent(v: Violation): string {
   if (v.status === 'appealed') return '#7A5AF8'                          // under appeal — violet
   if (v.status === 'closed') {
+    if (typeof v.notes === 'string' && v.notes.includes(SENT_TO_COLLECTIONS_NOTE)) return '#B54708' // in collections — amber
     if (v.resolution === 'stripe-paid' || v.resolution === 'manual-paid') return '#067647' // paid — green
     if (v.resolution === 'waived') return '#0E7490'                      // waived — teal
     return '#98A2B3'                                                     // dismissed — slate

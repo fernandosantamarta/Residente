@@ -122,7 +122,7 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
   try {
     if (resident) {
       const extraCosts = (Number((openCase as any).cost_balance) || 0) + (Number((openCase as any).mailing_cost_balance) || 0)
-      payoff = casePayoff(resident, community, payments || [], { extraCosts })
+      payoff = casePayoff(resident, community, payments || [], { extraCosts, fines: Number((openCase as any).fine_balance) || 0 })
     }
   } catch { payoff = null }
   // Show the running balance even while on a plan — it drops as installments
@@ -149,7 +149,11 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
   }
 
   const chips: [string, number][] = r
-    ? [[t('pay.collPrincipal'), r.principal], [t('pay.collInterest'), r.interest], [t('pay.collFees'), r.lateFee], [t('pay.collCosts'), r.cost]]
+    ? [
+        [t('pay.collPrincipal'), r.principal], [t('pay.collInterest'), r.interest],
+        [t('pay.collFees'), r.lateFee], [t('pay.collCosts'), r.cost],
+        ...(Number(r.fine) > 0 ? ([[t('pay.collFines'), r.fine]] as [string, number][]) : []),
+      ]
     : []
 
   return (

@@ -201,7 +201,12 @@ export default function CollectionsPage() {
         stage: 'delinquent',
         opened_at: todayYmd(),
         delinquent_since: (form.delinquent_since || '').trim() || null,
-        principal_balance: form.principal_balance ? Number(form.principal_balance) : null,
+        // A fine-only case's amount is a FINE (fine_balance → shows on its own
+        // "Fines" line + drives the payoff). A dues case's amount is a snapshot
+        // in principal_balance (the live payoff recomputes assessments from the
+        // dues schedule). This is what makes a typed fine amount actually stick.
+        principal_balance: !form.is_fine_only && form.principal_balance ? Number(form.principal_balance) : null,
+        fine_balance: form.is_fine_only && form.principal_balance ? Number(form.principal_balance) : null,
         total_balance: form.principal_balance ? Number(form.principal_balance) : null,
         is_fine_only: !!form.is_fine_only,
         notes: (form.notes || '').trim() || null,

@@ -87,6 +87,10 @@ const today = () => new Date().toISOString().slice(0, 10)
 // opens a new fine-only case (is_fine_only=true → the HB 1203 sub-$1,000
 // fine-floor warning applies). Caller navigates to caseId.
 const COLLECTION_OPEN_STAGES = ['delinquent', 'notice_30', 'intent_to_lien', 'lien_recorded', 'intent_to_foreclose', 'foreclosure']
+// Note marker stamped on a violation once it's escalated to collections. The
+// violations log reads it to show an "In collections" state instead of "Closed".
+export const SENT_TO_COLLECTIONS_NOTE = '[Sent to collections]'
+
 export async function sendFineToCollections(opts: {
   violation: Violation
   communityId: string
@@ -100,11 +104,21 @@ export async function sendFineToCollections(opts: {
   const usd = `$${Math.round(amount).toLocaleString('en-US')}`
   const fineRef = `Violation ${v.id}`
 
+  // Close the source fine so the SAME money never shows in both the resident's
+  // "Fines due" band (open fines) AND the collection balance. Idempotent.
+  const closeFine = async () => {
+    const note = (typeof v.notes === 'string' && v.notes.includes(SENT_TO_COLLECTIONS_NOTE))
+      ? v.notes
+      : (v.notes ? `${v.notes}\n${SENT_TO_COLLECTIONS_NOTE}` : SENT_TO_COLLECTIONS_NOTE)
+    await supabase!.from('ev_violations')
+      .update({ status: 'closed', closed_at: today(), notes: note })
+      .eq('id', v.id)
+  }
+
   // Existing OPEN case for this owner? Real-world model is ONE owner ledger, so
-  // merge the fine into it. cost_balance is the bucket casePayoff reads as
-  // extraCosts, so bumping it makes the fine actually show on the live balance
-  // (admin ledger AND the resident's Collection Balance card).
-  let q = supabase.from('ev_collection_cases').select('id, cost_balance, total_balance, notes')
+  // merge the fine into it as its own FINE bucket (fine_balance → casePayoff
+  // extraFines → a distinct "Fines" line on the balance, not buried in Costs).
+  let q = supabase.from('ev_collection_cases').select('id, fine_balance, total_balance, notes')
     .eq('community_id', communityId).in('stage', COLLECTION_OPEN_STAGES).limit(1)
   if (resident && v.profile_id) q = q.or(`resident_id.eq.${resident.id},profile_id.eq.${v.profile_id}`)
   else if (resident) q = q.eq('resident_id', resident.id)
@@ -112,24 +126,25 @@ export async function sendFineToCollections(opts: {
   const { data: found } = await q
   const ex = found && found[0] ? (found[0] as any) : null
   if (ex) {
-    // Idempotent: if this exact fine was already merged (note carries the
-    // violation id), don't double-charge on a re-click — just return to it.
+    // Idempotent: if this exact fine was already merged, don't double-charge.
     if (typeof ex.notes === 'string' && ex.notes.includes(fineRef)) {
+      await closeFine()
       return { caseId: ex.id, created: false, merged: false }
     }
     const note = `Fine added: ${v.rule_title || 'violation'} (${usd}). ${fineRef}.`
     const { error: uErr } = await supabase.from('ev_collection_cases').update({
-      cost_balance: (Number(ex.cost_balance) || 0) + amount,
+      fine_balance: (Number(ex.fine_balance) || 0) + amount,
       total_balance: (Number(ex.total_balance) || 0) + amount,
       notes: ex.notes ? `${ex.notes}\n${note}` : note,
     }).eq('id', ex.id)
     if (uErr) throw new Error(uErr.message)
+    await closeFine()
     return { caseId: ex.id, created: false, merged: true }
   }
 
-  // No open case → open a new fine-only case. The fine lives in cost_balance (so
-  // the live payoff reflects it) and principal_balance (so the HB 1203 sub-$1,000
-  // fine-floor check reads the fine amount).
+  // No open case → open a new fine-only case. The fine lives in fine_balance (so
+  // the live payoff shows it on its own "Fines" line + the HB 1203 sub-$1,000
+  // floor check reads it).
   const note = `Opened from an unpaid fine: ${v.rule_title || 'violation'} (${usd}). ${fineRef}.`
   const { data: ins, error } = await supabase.from('ev_collection_cases').insert({
     community_id: communityId,
@@ -138,14 +153,14 @@ export async function sendFineToCollections(opts: {
     unit_label: v.resident || resident?.label || null,
     stage: 'delinquent',
     delinquent_since: v.opened_at || null,
-    cost_balance: amount,
-    principal_balance: amount,
+    fine_balance: amount,
     total_balance: amount,
     is_fine_only: true,
     notes: note,
     created_by: createdBy,
   }).select('id').single()
   if (error) throw new Error(error.message)
+  await closeFine()
   return { caseId: (ins as any).id, created: true, merged: false }
 }
 

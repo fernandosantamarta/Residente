@@ -192,22 +192,26 @@ const ymdUTC = (input: string | Date | null | undefined): string => {
   return ms == null ? '' : new Date(ms).toISOString().slice(0, 10)
 }
 
-/** The four statutory charge buckets, keyed in payment-application order. */
+/** The statutory charge buckets, keyed in payment-application order. `fine`
+ *  (escalated violation fines collected through the case) is paid LAST — after
+ *  the statutory assessment order — since fines aren't statutory assessments. */
 export interface LedgerBuckets {
   interest: number
   lateFee: number
   cost: number
   principal: number
+  fine: number
 }
 
-/** Statutory payment-application order (FS 718.116(3) / 720.3085(3)). */
-export const PAYMENT_APPLICATION_BUCKETS: (keyof LedgerBuckets)[] = ['interest', 'lateFee', 'cost', 'principal']
+/** Payment-application order: statutory FS 718.116(3) / 720.3085(3), then fines. */
+export const PAYMENT_APPLICATION_BUCKETS: (keyof LedgerBuckets)[] = ['interest', 'lateFee', 'cost', 'principal', 'fine']
 
 const normalizeBuckets = (b: Partial<LedgerBuckets>): LedgerBuckets => ({
   interest:  Math.max(0, round2(Number(b.interest) || 0)),
   lateFee:   Math.max(0, round2(Number(b.lateFee) || 0)),
   cost:      Math.max(0, round2(Number(b.cost) || 0)),
   principal: Math.max(0, round2(Number(b.principal) || 0)),
+  fine:      Math.max(0, round2(Number(b.fine) || 0)),
 })
 
 /**
@@ -221,7 +225,7 @@ export function applyPayment(
 ): { applied: LedgerBuckets; remaining: LedgerBuckets; credit: number } {
   let amt = Math.max(0, round2(Number(payment) || 0))
   const remaining = normalizeBuckets(buckets)
-  const applied: LedgerBuckets = { interest: 0, lateFee: 0, cost: 0, principal: 0 }
+  const applied: LedgerBuckets = { interest: 0, lateFee: 0, cost: 0, principal: 0, fine: 0 }
   for (const k of PAYMENT_APPLICATION_BUCKETS) {
     const pay = Math.min(remaining[k], amt)
     applied[k] = round2(pay)
@@ -283,6 +287,8 @@ export interface PayoffInput {
   lateFeePct?: number
   /** Recorded collection / attorney costs (dollars). */
   extraCosts?: number
+  /** Escalated violation fines collected through this case (dollars). */
+  extraFines?: number
   /** Sum of all payments received on the account (dollars). */
   totalPaid?: number
   asOf?: string | Date
@@ -341,9 +347,9 @@ export function buildPayoff(input: PayoffInput): PayoffResult {
     lines.push({ dueDate: ymdUTC(inst.dueDate), principal: amt, interest: int, lateFee: fee })
   }
 
-  const gross: LedgerBuckets = { interest, lateFee, cost: round2(Number(input.extraCosts) || 0), principal }
+  const gross: LedgerBuckets = { interest, lateFee, cost: round2(Number(input.extraCosts) || 0), principal, fine: round2(Number(input.extraFines) || 0) }
   const { applied, remaining, credit } = applyPayment(gross, Number(input.totalPaid) || 0)
-  const payoff = round2(remaining.interest + remaining.lateFee + remaining.cost + remaining.principal)
+  const payoff = round2(remaining.interest + remaining.lateFee + remaining.cost + remaining.principal + remaining.fine)
   return { gross, applied, remaining, payoff, credit, asOf: ymdUTC(asOfDate), lines }
 }
 
@@ -398,7 +404,7 @@ export function casePayoff(
   resident: Resident | null | undefined,
   community: Record<string, unknown> | null | undefined,
   payments: Payment[] = [],
-  opts: { asOf?: string | Date; extraCosts?: number; freeze?: boolean; freezeInterest?: boolean; freezeLateFees?: boolean } = {},
+  opts: { asOf?: string | Date; extraCosts?: number; fines?: number; freeze?: boolean; freezeInterest?: boolean; freezeLateFees?: boolean } = {},
 ): PayoffResult {
   const monthly = Number((community as any)?.monthly_dues) || 0
   const cfg = communityDuesConfig(community)
@@ -414,6 +420,7 @@ export function casePayoff(
     lateFeeFlat: fLate ? 0 : (cfg.lateFeeFlat || 0),
     lateFeePct: fLate ? 0 : (cfg.lateFeePct || 0),
     extraCosts: Number(opts.extraCosts) || 0,
+    extraFines: Number(opts.fines) || 0,
     totalPaid: sumPayments(payments),
     asOf,
   })
