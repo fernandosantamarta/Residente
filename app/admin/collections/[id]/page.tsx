@@ -738,7 +738,7 @@ function StageActions({ adv, caseRow, communityId, profileId, resident, regime, 
   const [ack, setAck] = useState(false)
   // Terminal foreclosure note — pushed hard-right in the action row, deep-red so
   // it reads as the most severe stage (matches the resident tier-4 escalation).
-  if (!adv) return <div className="admin-note" style={{ fontSize: 12.5, marginLeft: 'auto', maxWidth: 440, fontWeight: 700, color: '#7F1D1D', background: 'rgba(127,29,29,0.10)', border: '1px solid rgba(127,29,29,0.5)' }}>{t('admin.collectionsDetail.foreclosureFiled')}</div>
+  if (!adv) return <div className="admin-note" style={{ fontSize: 12.5, marginTop: 0, marginLeft: 'auto', padding: '8px 14px', whiteSpace: 'nowrap', fontWeight: 700, color: '#7F1D1D', background: 'rgba(127,29,29,0.10)', border: '1px solid rgba(127,29,29,0.5)' }}>{t('admin.collectionsDetail.foreclosureFiled')}</div>
 
   // The statutory dual-address rule for this notice, resolved against the owner's
   // roster addresses (mailing address of record vs. the unit/parcel address).
