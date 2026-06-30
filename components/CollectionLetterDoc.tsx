@@ -154,7 +154,7 @@ function DocInner({ readOnly = false }: { readOnly?: boolean }) {
   const Em = ({ children }: { children: any }) => <em style={{ color: '#B54708' }}>{children}</em>
 
   return (
-    <div className="cl-page" style={{ minHeight: '100vh', background: '#f1f0ec', padding: '24px 16px', boxSizing: 'border-box' }}>
+    <div className="cl-page" style={{ padding: '24px 16px', boxSizing: 'border-box' }}>
       <div className="cl-sheet" style={{ maxWidth: 760, margin: '0 auto', background: '#fff', border: '1px solid #e7e4dd', borderRadius: 14, boxShadow: '0 1px 3px rgba(0,0,0,0.05)', padding: 32, fontFamily: 'Georgia, serif', color: '#111', lineHeight: 1.55, boxSizing: 'border-box' }}>
       <style>{`
         @media print {

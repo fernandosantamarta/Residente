@@ -202,8 +202,14 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
                             <span style={{ opacity: 0.8, whiteSpace: 'nowrap' }}>{n.sent_at || '—'}</span>
                           </div>
                         ))}
-                        {/* Jump down to the Notices tab (color-coded, opens each letter). */}
-                        <button type="button" onClick={scrollToQuickActions}
+                        {/* Jump down to the Notices tab AND open it (color-coded,
+                            opens each letter). The event is caught by
+                            CollectionNoticesCard below. */}
+                        <button type="button"
+                          onClick={() => {
+                            if (typeof document !== 'undefined') document.getElementById('quick-actions')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                            if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('ev:open-collection-notices'))
+                          }}
                           style={{ all: 'unset', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4, marginTop: 8, fontSize: 12, fontWeight: 700, color: sev.color }}>
                           {t('pay.collSeeAllNotices')}
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M12 5v14M5 12l7 7 7-7" /></svg>
@@ -326,6 +332,13 @@ function CollectionNoticesCard() {
     return () => { cancelled = true }
   }, [(openCase as any)?.id])
 
+  // Open this popup when the "See all notices" link on the status card fires.
+  useEffect(() => {
+    const onOpen = () => setOpen(true)
+    window.addEventListener('ev:open-collection-notices', onOpen)
+    return () => window.removeEventListener('ev:open-collection-notices', onOpen)
+  }, [])
+
   if (loading || !openCase) return null
   const caseId = (openCase as any)?.id
 
@@ -375,7 +388,7 @@ function CollectionNoticesCard() {
                 )
                 const box: React.CSSProperties = { display: 'block', textDecoration: 'none', color: 'inherit', background: ns.bg, border: `1px solid ${ns.border}`, borderRadius: 12, padding: '12px 14px' }
                 return docType
-                  ? <a key={n.id} href={`/app/collections/${caseId}/document?type=${docType}`} target="_blank" rel="noopener noreferrer" style={{ ...box, cursor: 'pointer' }}>{inner}</a>
+                  ? <a key={n.id} href={`/app/collections/${caseId}/document?type=${docType}`} style={{ ...box, cursor: 'pointer' }}>{inner}</a>
                   : <div key={n.id} style={box}>{inner}</div>
               })}
             </div>
