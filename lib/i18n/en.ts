@@ -589,6 +589,7 @@ export const en: Record<string, string> = {
   "pay.noticesEmpty": "No notices on your account yet.",
   "pay.noticesSent": "Sent",
   "pay.noticesMailedTo": "Mailed to",
+  "pay.noticesViewLetter": "View letter",
   "pay.noticeMeaning30": "Your assessments are past due. You have 30 days from this notice to pay before collection costs and further action are added.",
   "pay.noticeMeaningLien": "If the balance isn't paid within 45 days, the association may record a lien against your unit.",
   "pay.noticeMeaningForeclose": "If the balance isn't paid within 45 days, the association may move to foreclose on the recorded lien.",

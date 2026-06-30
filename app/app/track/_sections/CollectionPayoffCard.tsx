@@ -27,6 +27,19 @@ const NOTICE_METHOD_KEY: Record<string, string> = {
   both: 'pay.methodBoth', certified_mail: 'pay.methodCertified',
   first_class: 'pay.methodFirstClass', hand: 'pay.methodHand', electronic: 'pay.methodElectronic',
 }
+// Color-code each notice by escalation severity (amber → orange → red), teal for
+// the tenant demand (a different track).
+const NOTICE_STYLE: Record<string, { color: string; bg: string; border: string }> = {
+  late_assessment_30:     { color: '#B45309', bg: 'rgba(245,158,11,0.10)', border: 'rgba(245,158,11,0.45)' },
+  intent_to_lien_45:      { color: '#C2410C', bg: 'rgba(234,88,12,0.10)',  border: 'rgba(234,88,12,0.50)' },
+  intent_to_foreclose_45: { color: '#B42318', bg: 'rgba(220,38,38,0.10)',  border: 'rgba(220,38,38,0.50)' },
+  tenant_rent_demand:     { color: '#0E7490', bg: 'rgba(14,116,144,0.10)', border: 'rgba(14,116,144,0.40)' },
+}
+// Notice kind → the letter doc type to open on the resident document route.
+const NOTICE_DOC: Record<string, string> = {
+  late_assessment_30: 'notice_30', intent_to_lien_45: 'intent_to_lien',
+  intent_to_foreclose_45: 'intent_to_foreclose', tenant_rent_demand: 'tenant_demand',
+}
 
 // Exact-cents money for the collection payoff, so the resident sees the same
 // figure as the admin ledger AND the amount actually charged at checkout (the
@@ -304,6 +317,7 @@ function CollectionNoticesCard() {
   }, [(openCase as any)?.id])
 
   if (loading || !openCase) return null
+  const caseId = (openCase as any)?.id
 
   const fmtD = (d: string | null) => {
     if (!d) return '—'
@@ -332,9 +346,14 @@ function CollectionNoticesCard() {
                 const label = (NOTICE_KIND_LABELS as Record<string, string>)[n.kind] || n.kind
                 const meaning = NOTICE_MEANING_KEY[n.kind] ? t(NOTICE_MEANING_KEY[n.kind]) : ''
                 const method = NOTICE_METHOD_KEY[n.method] ? t(NOTICE_METHOD_KEY[n.method]) : n.method
-                return (
-                  <div key={n.id} style={{ border: '1px solid rgba(10,36,64,0.12)', borderRadius: 12, padding: '12px 14px' }}>
-                    <div style={{ fontWeight: 700, color: '#0A2440', fontSize: 13.5 }}>{label}</div>
+                const ns = NOTICE_STYLE[n.kind] || { color: '#475467', bg: 'rgba(10,36,64,0.035)', border: 'rgba(10,36,64,0.12)' }
+                const docType = caseId ? NOTICE_DOC[n.kind] : null
+                const inner = (
+                  <>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}>
+                      <div style={{ fontWeight: 700, color: ns.color, fontSize: 13.5 }}>{label}</div>
+                      {docType && <span style={{ color: ns.color, fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap' }}>{t('pay.noticesViewLetter')} &rarr;</span>}
+                    </div>
                     <div style={{ fontSize: 12.5, color: '#475467', marginTop: 3 }}>
                       {t('pay.noticesSent')} {fmtD(n.sent_at)}{n.method ? ` · ${method}` : ''}{n.tracking_number ? ` · #${n.tracking_number}` : ''}
                     </div>
@@ -342,8 +361,12 @@ function CollectionNoticesCard() {
                       <div style={{ fontSize: 12, color: '#667085', marginTop: 2 }}>{t('pay.noticesMailedTo')} {n.mailed_to_record_address}</div>
                     )}
                     {meaning && <div style={{ fontSize: 12.5, color: '#475467', marginTop: 7, lineHeight: 1.45 }}>{meaning}</div>}
-                  </div>
+                  </>
                 )
+                const box: React.CSSProperties = { display: 'block', textDecoration: 'none', color: 'inherit', background: ns.bg, border: `1px solid ${ns.border}`, borderRadius: 12, padding: '12px 14px' }
+                return docType
+                  ? <a key={n.id} href={`/app/collections/${caseId}/document?type=${docType}`} target="_blank" rel="noopener noreferrer" style={{ ...box, cursor: 'pointer' }}>{inner}</a>
+                  : <div key={n.id} style={box}>{inner}</div>
               })}
             </div>
           )}
