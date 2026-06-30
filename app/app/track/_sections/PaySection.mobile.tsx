@@ -288,10 +288,15 @@ export function PaySection() {
         const period = when
           ? new Date(when).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
           : ''
+        const desc = (p.applied_to_plan || p.installment_no != null)
+          ? (p.installment_no != null ? t('pay.histPlanInstallmentNo', { no: p.installment_no }) : t('pay.histPlanInstallment'))
+          : p.applied_to_case
+            ? t('pay.histCollectionPayment')
+            : (period ? t('pay.histRegularDuesPeriod', { period }) : t('pay.histRegularDues'))
         return {
           id: p.id,
           date: when,
-          desc: period ? t('pay.histRegularDuesPeriod', { period }) : t('pay.histRegularDues'),
+          desc,
           amount: Number(p.amount) || 0,
           status: 'paid',
           method: methodLabel,
@@ -547,7 +552,7 @@ export function PaySection() {
 
       {/* Collection quick actions (payment plan + legal protection) — its own tile
           on mobile, only when in collections. The payoff card links down here. */}
-      <CollectionQuickActions resident={resident} standalone />
+      <CollectionQuickActions resident={resident} community={community} payments={payments} standalone />
 
       {/* Account Details — view popup, opened in place from the balance card. */}
       {accountOpen && (

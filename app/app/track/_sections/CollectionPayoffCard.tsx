@@ -29,7 +29,9 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
   // Only render during an active collection — nothing for owners in good standing.
   if (loading || !openCase) return null
 
-  const onActivePlan = (plan?.request_status === 'approved' || plan?.request_status === 'modified') && String(plan?.status ?? '') === 'active'
+  // Active includes admin-created plans (no request_status) — same rule as
+  // PaymentPlanCard so the top card and the plan popup agree.
+  const onActivePlan = String(plan?.status ?? '') === 'active' && plan?.request_status !== 'requested' && plan?.request_status !== 'denied'
   let payoff: ReturnType<typeof casePayoff> | null = null
   try {
     if (resident) {
@@ -72,20 +74,25 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
         {showPayoff && (
           <>
             <p className="pay-plan-intro" style={{ marginTop: 0, marginBottom: 0 }}>{onActivePlan ? t('pay.collOnPlan') : t('pay.collIntro')}</p>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '16px 0 14px' }}>
-              {chips.map(([label, val]) => (
-                <span key={label} style={{ fontSize: 12, background: 'rgba(225,73,9,0.09)', color: '#B54708', borderRadius: 999, padding: '4px 11px', fontWeight: 600 }}>
-                  {label} {fmtMoney(Number(val) || 0)}
-                </span>
-              ))}
-            </div>
+            {/* On a plan the card stays clean — just the running total + the link
+                down to the plan. The breakdown chips + full "Pay now" belong to
+                the lump-sum payoff, not the installment flow. */}
+            {!onActivePlan && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '16px 0 14px' }}>
+                {chips.map(([label, val]) => (
+                  <span key={label} style={{ fontSize: 12, background: 'rgba(225,73,9,0.09)', color: '#B54708', borderRadius: 999, padding: '4px 11px', fontWeight: 600 }}>
+                    {label} {fmtMoney(Number(val) || 0)}
+                  </span>
+                ))}
+              </div>
+            )}
           </>
         )}
 
         {/* Action row — Pay on the left, the quiet link to Quick actions pushed
             all the way to the right (where the plan + legal flows live). */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-          {showPayoff && stripeEnabled && (
+          {showPayoff && stripeEnabled && !onActivePlan && (
             <button type="button" className="pay-cta-primary" onClick={pay}>
               {t('pay.collPay')}
             </button>
@@ -109,14 +116,14 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
 //                Quick Actions tile (desktop), with a divider above it.
 //   standalone — its own tile with a heading + id="quick-actions" (mobile, which
 //                has no right-column tile of its own).
-export function CollectionQuickActions({ resident, standalone }: { resident: any; standalone?: boolean }) {
+export function CollectionQuickActions({ resident, community, payments, standalone }: { resident: any; community?: any; payments?: any[]; standalone?: boolean }) {
   const t = useT()
   const { openCase, loading } = useMyPaymentPlan()
   if (loading || !openCase) return null
 
   const rows = (
     <>
-      <PaymentPlanCard resident={resident} variant="row" />
+      <PaymentPlanCard resident={resident} community={community} payments={payments} variant="row" />
       <LegalHoldCard variant="row" />
     </>
   )

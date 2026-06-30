@@ -13,7 +13,7 @@
 //                   right-column Quick Actions tile, not as a stacked card.
 
 import { useState } from 'react'
-import { fmtMoney } from '@/lib/dues'
+import { fmtMoney, casePayoff } from '@/lib/dues'
 import { addCalendarDays } from '@/lib/compliance/rules-core'
 import { useMyPaymentPlan } from '@/lib/payment-plans'
 import { useCheckout } from '@/components/CheckoutProvider'
@@ -27,7 +27,7 @@ const fmtDate = (d: string | Date | null | undefined) => {
   } catch { return '—' }
 }
 
-export function PaymentPlanCard({ resident, embedded, variant }: { resident: any; embedded?: boolean; variant?: 'row' }) {
+export function PaymentPlanCard({ resident, community, payments, embedded, variant }: { resident: any; community?: any; payments?: any[]; embedded?: boolean; variant?: 'row' }) {
   const t = useT()
   const { openCheckout } = useCheckout()
   const { openCase, plan, loading, requestPlan, withdrawPlan } = useMyPaymentPlan()
@@ -49,7 +49,10 @@ export function PaymentPlanCard({ resident, embedded, variant }: { resident: any
 
   const rs = plan?.request_status ?? null
   const isPending = rs === 'requested'
-  const isActive = (rs === 'approved' || rs === 'modified') && String(plan?.status ?? '') === 'active'
+  // A plan is active when its status is 'active' and it isn't still a pending or
+  // denied request. This INCLUDES admin-created plans, which carry no
+  // request_status (null) — they must still show as active to the resident.
+  const isActive = String(plan?.status ?? '') === 'active' && rs !== 'requested' && rs !== 'denied'
   const isDenied = rs === 'denied'
   const canRequest = !!openCase && (!plan || isDenied)
 
@@ -153,38 +156,93 @@ export function PaymentPlanCard({ resident, embedded, variant }: { resident: any
         const paidN = Number(plan?.paid_count) || 0
         const planFreq = Number(plan?.frequency_days) || 30
         const pct = count ? Math.min(100, (paidN / count) * 100) : 0
+        const paidAmt = amt * paidN
+        const totalAmt = amt * count
+        // Live amount still owed on the case (interest, late fees, and recorded
+        // collection/mailing costs keep accruing AFTER the plan was set). If the
+        // plan's remaining installments fall short of it, the plan won't clear
+        // the balance — warn the owner here, the same way the admin case does.
+        let payoffNow = 0
+        try {
+          if (resident && openCase) {
+            const extraCosts = (Number((openCase as any).cost_balance) || 0) + (Number((openCase as any).mailing_cost_balance) || 0)
+            payoffNow = casePayoff(resident, community, payments || [], { extraCosts })?.payoff || 0
+          }
+        } catch { payoffNow = 0 }
+        const remainingInstallments = amt * Math.max(0, count - paidN)
+        const shortfall = count > 0 ? payoffNow - remainingInstallments : 0
         return (
-          <div className="pay-plan-body">
-            <div style={{ border: '1px solid rgba(10,36,64,0.12)', borderRadius: 12, padding: '12px 14px', background: '#fff' }}>
-              <button type="button" onClick={() => setPlanDetailOpen(o => !o)}
-                style={{ all: 'unset', cursor: 'pointer', display: 'flex', width: '100%', boxSizing: 'border-box', justifyContent: 'space-between', alignItems: 'center', gap: 10 }}>
-                <span>
-                  <span style={{ display: 'block', fontWeight: 700, color: '#0A2440' }}>
-                    {t('pay.planSummary', { amount: fmtMoney(amt), days: planFreq })}
-                    {count ? ` · ${t('pay.planPaidCount', { paid: paidN, count })}` : ''}
-                  </span>
-                  <span style={{ display: 'block', fontSize: 12.5, opacity: 0.7, marginTop: 2, color: '#475467' }}>
-                    {t('pay.planStarted', { date: fmtDate(plan?.start_date) })} · {t('pay.planNextDueShort', { date: plan?.next_due_at ? fmtDate(plan.next_due_at) : '—' })}
-                  </span>
-                </span>
-                <span style={{ color: '#98A2B3', fontSize: 12, flexShrink: 0 }}>{planDetailOpen ? '▲' : '▼'}</span>
-              </button>
+          <div className="pay-plan-body" style={{ width: '100%' }}>
+            {/* No border/box — the popup is already the container, and there's
+                only ever one plan, so a card-in-a-card is redundant. */}
+            <div style={{ width: '100%', boxSizing: 'border-box' }}>
+              {/* Installment amount — the headline number */}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 26, fontWeight: 800, color: '#0A2440', lineHeight: 1 }}>{fmtMoney(amt)}</span>
+                <span style={{ fontSize: 13, color: '#475467' }}>{t('pay.planEveryDays', { days: planFreq })}</span>
+              </div>
 
+              {/* Progress: labels + bar */}
               {count > 0 && (
-                <div style={{ height: 7, borderRadius: 4, background: 'rgba(10,36,64,0.10)', overflow: 'hidden', marginTop: 10 }}>
-                  <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #E14909, #22A06B)', transition: 'width .45s ease' }} />
+                <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginTop: 18, fontSize: 12.5 }}>
+                    <span style={{ fontWeight: 700, color: '#0A2440' }}>{t('pay.planProgressPaid', { paid: paidN, count })}</span>
+                    <span style={{ color: '#475467' }}>{t('pay.planAmtOf', { paid: fmtMoney(paidAmt), total: fmtMoney(totalAmt) })}</span>
+                  </div>
+                  <div style={{ height: 8, borderRadius: 999, background: 'rgba(10,36,64,0.08)', overflow: 'hidden', marginTop: 8 }}>
+                    <div style={{ height: '100%', width: `${pct}%`, background: 'linear-gradient(90deg, #E14909, #22A06B)', borderRadius: 999, transition: 'width .45s ease' }} />
+                  </div>
+                </>
+              )}
+
+              {/* Next due */}
+              {plan?.next_due_at && (
+                <div style={{ marginTop: 14, fontSize: 12.5, color: '#475467' }}>
+                  {t('pay.planNextDue', { date: fmtDate(plan.next_due_at) })}
                 </div>
               )}
 
+              {/* Shortfall — the plan won't fully clear what's owed (costs accrued
+                  after it was set). */}
+              {shortfall > 0.5 && (
+                <div style={{ marginTop: 12, fontSize: 12.5, lineHeight: 1.45, color: '#B54708', background: 'rgba(225,73,9,0.07)', border: '1px solid rgba(225,73,9,0.18)', borderRadius: 10, padding: '9px 12px' }}>
+                  {t('pay.planShortfallNote', { short: fmtMoney(shortfall) })}
+                </div>
+              )}
+
+              {/* Pay action — full width, the primary thing to do here */}
+              <div style={{ marginTop: 16 }}>
+                {plan?.autopay_opt_in
+                  ? <div className="pay-plan-autopay">{t('pay.planAutopayOn')}</div>
+                  : (
+                    <button type="button" className="pay-cta-primary" style={{ width: '100%' }} disabled={busy || !resident} onClick={onPayInstallment}>
+                      {busy ? t('pay.startingCheckout') : t('pay.planPayInstallment')}
+                    </button>
+                  )}
+              </div>
+
+              {/* Expandable full schedule */}
+              {count > 0 && (
+                <button type="button" onClick={() => setPlanDetailOpen(o => !o)}
+                  style={{ all: 'unset', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 16, fontSize: 12.5, fontWeight: 700, color: '#B54708' }}>
+                  {planDetailOpen ? t('pay.planHideSchedule') : t('pay.planViewSchedule')}
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+                    style={{ transform: planDetailOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s ease' }}>
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+              )}
               {planDetailOpen && count > 0 && (
-                <div style={{ marginTop: 12, borderTop: '1px solid #F2F4F7', paddingTop: 8 }}>
+                <div style={{ marginTop: 10, borderTop: '1px solid #EEF0F2', paddingTop: 4 }}>
                   {Array.from({ length: count }).map((_, i) => {
                     const due = plan?.start_date ? addCalendarDays(plan.start_date, i * planFreq) : null
                     const st = i < paidN ? 'paid' : i === paidN ? 'next' : 'upcoming'
+                    const dot = st === 'paid' ? '#22A06B' : st === 'next' ? '#E14909' : '#D0D5DD'
                     return (
-                      <div key={i} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12.5, padding: '5px 0', color: st === 'upcoming' ? '#98A2B3' : '#475467' }}>
-                        <span>#{i + 1} · {fmtMoney(amt)}</span>
-                        <span style={{ fontWeight: st === 'next' ? 700 : 400, color: st === 'paid' ? '#067647' : st === 'next' ? '#B54708' : undefined }}>
+                      <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: 12.5, padding: '8px 0', borderTop: i ? '1px solid #F7F8FA' : 'none' }}>
+                        <span style={{ width: 8, height: 8, borderRadius: 999, flexShrink: 0, background: dot }} />
+                        <span style={{ flex: 1, color: st === 'upcoming' ? '#98A2B3' : '#0A2440', fontWeight: st === 'next' ? 700 : 400 }}>#{i + 1} · {fmtMoney(amt)}</span>
+                        <span style={{ color: st === 'paid' ? '#067647' : st === 'next' ? '#B54708' : '#98A2B3', fontWeight: st === 'next' ? 700 : 400 }}>
                           {due ? fmtDate(due) : '—'}{st === 'paid' ? ` · ${t('pay.planSchedPaid')}` : st === 'next' ? ` · ${t('pay.planSchedNext')}` : ''}
                         </span>
                       </div>
@@ -192,16 +250,6 @@ export function PaymentPlanCard({ resident, embedded, variant }: { resident: any
                   })}
                 </div>
               )}
-
-              <div style={{ marginTop: 12 }}>
-                {plan?.autopay_opt_in
-                  ? <div className="pay-plan-autopay">{t('pay.planAutopayOn')}</div>
-                  : (
-                    <button type="button" className="pay-cta-primary" disabled={busy || !resident} onClick={onPayInstallment}>
-                      {busy ? t('pay.startingCheckout') : t('pay.planPayInstallment')}
-                    </button>
-                  )}
-              </div>
             </div>
           </div>
         )

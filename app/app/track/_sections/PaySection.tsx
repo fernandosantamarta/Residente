@@ -299,10 +299,18 @@ export function PaySection() {
         const period = when
           ? new Date(when).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
           : ''
+        // Label by what the payment was applied to: a plan installment, a
+        // collection-case payoff, or regular dues. The Stripe webhook + the
+        // admin "record installment" path tag these on the payments row.
+        const desc = (p.applied_to_plan || p.installment_no != null)
+          ? (p.installment_no != null ? t('pay.histPlanInstallmentNo', { no: p.installment_no }) : t('pay.histPlanInstallment'))
+          : p.applied_to_case
+            ? t('pay.histCollectionPayment')
+            : (period ? t('pay.histRegularDuesPeriod', { period }) : t('pay.histRegularDues'))
         return {
           id: p.id,
           date: when,
-          desc: period ? t('pay.histRegularDuesPeriod', { period }) : t('pay.histRegularDues'),
+          desc,
           amount: Number(p.amount) || 0,
           status: 'paid',
           method: methodLabel,
@@ -600,7 +608,7 @@ export function PaySection() {
                 onClick={() => setListOpen('history')} />
             </div>
             {/* Collection actions (payment plan + legal protection) — only when in collections. */}
-            <CollectionQuickActions resident={resident} />
+            <CollectionQuickActions resident={resident} community={community} payments={payments} />
           </section>
 
           <section className="pay-card pay-autopay" id="autopay">
