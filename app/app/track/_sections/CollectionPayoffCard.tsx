@@ -45,6 +45,7 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
   const { openCheckout } = useCheckout()
   const { openCase, plan, loading } = useMyPaymentPlan()
   const [detailOpen, setDetailOpen] = useState(false)
+  const [breakdownOpen, setBreakdownOpen] = useState(false)
   const [notices, setNotices] = useState<{ id: string; kind: string; sent_at: string | null }[]>([])
 
   // The statutory notices already sent on the owner's own case, for the
@@ -153,15 +154,33 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
               </div>
             )}
             {/* On a plan the card stays clean — just the running total + the link
-                down to the plan. The breakdown chips + full "Pay now" belong to
-                the lump-sum payoff, not the installment flow. */}
+                down to the plan. The breakdown + full "Pay now" belong to the
+                lump-sum payoff, not the installment flow. Off a plan, the payoff
+                breakdown lives in its own dropdown (sectioned rows + total). */}
             {!onActivePlan && (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, margin: '16px 0 14px' }}>
-                {chips.map(([label, val]) => (
-                  <span key={label} style={{ fontSize: 12, background: 'rgba(225,73,9,0.09)', color: '#B54708', borderRadius: 999, padding: '4px 11px', fontWeight: 600 }}>
-                    {label} {fmtMoney(Number(val) || 0)}
-                  </span>
-                ))}
+              <div style={{ margin: '14px 0' }}>
+                <button type="button" onClick={() => setBreakdownOpen(o => !o)}
+                  style={{ all: 'unset', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12.5, fontWeight: 700, color: '#B54708' }}>
+                  {breakdownOpen ? t('pay.collHideBreakdown') : t('pay.collViewBreakdown')}
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"
+                    style={{ transform: breakdownOpen ? 'rotate(180deg)' : 'none', transition: 'transform .2s ease' }}>
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                </button>
+                {breakdownOpen && (
+                  <div style={{ marginTop: 10, border: '1px solid rgba(10,36,64,0.10)', borderRadius: 10, overflow: 'hidden' }}>
+                    {chips.map(([label, val], i) => (
+                      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '9px 12px', fontSize: 13, color: '#344054', borderTop: i ? '1px solid #EEF0F2' : 'none' }}>
+                        <span>{label}</span>
+                        <span style={{ fontWeight: 600, color: '#1F2233' }}>{fmtMoney(Number(val) || 0)}</span>
+                      </div>
+                    ))}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '10px 12px', fontSize: 13.5, fontWeight: 800, color: '#0A2440', borderTop: '2px solid #E5E2DA', background: 'rgba(0,0,0,0.02)' }}>
+                      <span>{t('pay.collBreakdownTotal')}</span>
+                      <span>{fmtMoney(payoff!.payoff)}</span>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </>
