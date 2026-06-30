@@ -357,7 +357,7 @@ export default function CollectionCaseDetail() {
               return (
                 <div className={`admin-note ${lapsed ? 'admin-note-err' : ''}`}
                   style={{ fontSize: 12.5, marginBottom: 10,
-                    ...(lapsed ? {} : { background: 'linear-gradient(180deg, #F2F7FF, #FAFCFF)', border: '1px solid rgba(23,92,211,0.22)', boxShadow: '0 1px 2px rgba(23,92,211,0.06)' }) }}>
+                    ...(lapsed ? {} : { background: 'linear-gradient(180deg, #F2F7FF, #FAFCFF)', border: '1px solid rgba(23,92,211,0.22)' }) }}>
                   {showEnforce && (
                     <div>
                       {lapsed
