@@ -10,8 +10,26 @@ import { useMyPaymentPlan } from '@/lib/payment-plans'
 import { useCheckout } from '@/components/CheckoutProvider'
 import { stripeEnabled } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
+import { nextEscalation, isOpenStage, type CollectionStage } from '@/lib/compliance/collections'
 import { PaymentPlanCard } from './PaymentPlanCard'
 import { LegalHoldCard } from './LegalHoldCard'
+
+// Resident-facing one-liner for each statutory collection stage, and the next
+// step the board could take from it (only the stages with a waiting-period
+// countdown). Keys resolve via useT; es/pt fall back to English.
+const STAGE_STATUS_KEY: Record<string, string> = {
+  delinquent: 'pay.collStatusDelinquent',
+  notice_30: 'pay.collStatusNotice30',
+  intent_to_lien: 'pay.collStatusIntentLien',
+  lien_recorded: 'pay.collStatusLien',
+  intent_to_foreclose: 'pay.collStatusIntentForeclose',
+  foreclosure: 'pay.collStatusForeclosure',
+}
+const NEXT_ACTION_KEY: Record<string, string> = {
+  notice_30: 'pay.collNextIntentLien',
+  intent_to_lien: 'pay.collNextLien',
+  intent_to_foreclose: 'pay.collNextForeclose',
+}
 
 // Smooth-scroll the page to the Quick Actions tile (id="quick-actions"), set by
 // both the desktop and mobile Pay sections.
@@ -45,6 +63,13 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
   const showPayoff = !!payoff && payoff.payoff > 0
   const r = payoff?.remaining
 
+  // Where the case sits on the statutory ladder + the live countdown to the next
+  // step, surfaced to the owner when they're NOT on a plan (a plan pauses this).
+  const stage = String((openCase as any)?.stage ?? 'delinquent') as CollectionStage
+  const inLadder = isOpenStage(stage)
+  const esc = inLadder ? nextEscalation(openCase as any) : null
+  const daysToNext = esc?.readyAt ? Math.max(0, Math.ceil((esc.readyAt.getTime() - Date.now()) / 86400000)) : null
+
   const pay = () => {
     if (!payoff) return
     openCheckout({
@@ -74,6 +99,20 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
         {showPayoff && (
           <>
             <p className="pay-plan-intro" style={{ marginTop: 0, marginBottom: 0 }}>{onActivePlan ? t('pay.collOnPlan') : t('pay.collIntro')}</p>
+            {/* Collection status + countdown — only when NOT on a plan (a plan
+                pauses escalation, so we don't show a ladder countdown there). */}
+            {!onActivePlan && inLadder && (
+              <div style={{ marginTop: 12, fontSize: 12.5, lineHeight: 1.5, color: '#B54708', background: 'rgba(225,73,9,0.07)', border: '1px solid rgba(225,73,9,0.18)', borderRadius: 10, padding: '10px 12px' }}>
+                <div style={{ fontWeight: 700 }}>{t(STAGE_STATUS_KEY[stage] || 'pay.collStatusDelinquent')}</div>
+                {daysToNext != null && NEXT_ACTION_KEY[stage] && (
+                  <div style={{ marginTop: 3, opacity: 0.9 }}>
+                    {daysToNext > 0
+                      ? t('pay.collNextInDays', { action: t(NEXT_ACTION_KEY[stage]), days: daysToNext })
+                      : t('pay.collNextAnyTime', { action: t(NEXT_ACTION_KEY[stage]) })}
+                  </div>
+                )}
+              </div>
+            )}
             {/* On a plan the card stays clean — just the running total + the link
                 down to the plan. The breakdown chips + full "Pay now" belong to
                 the lump-sum payoff, not the installment flow. */}
