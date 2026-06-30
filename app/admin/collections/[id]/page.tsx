@@ -938,7 +938,9 @@ function ForeclosureTransfer({ caseRow, resident, communityId, onDone, onMsg, on
       </div>
       <div className="admin-note" style={{ fontSize: 12, marginTop: 10, lineHeight: 1.5, borderColor: 'rgba(127,29,29,0.3)', background: 'rgba(127,29,29,0.05)' }}>{t('admin.collectionsDetail.fcWarn')}</div>
       <div style={{ display: 'flex', gap: 8, marginTop: 10, alignItems: 'center' }}>
-        <button className="admin-btn-ghost" disabled={busy} onClick={() => setOpen(false)}>{t('admin.collectionsDetail.cancel')}</button>
+        {/* marginLeft:0 overrides admin-btn-ghost's 12px so Cancel's left edge
+            lines up with the input fields + warning box above it. */}
+        <button className="admin-btn-ghost" style={{ marginLeft: 0 }} disabled={busy} onClick={() => setOpen(false)}>{t('admin.collectionsDetail.cancel')}</button>
         <button className="admin-primary-btn" style={{ marginLeft: 'auto' }} disabled={busy} onClick={run}>{busy ? t('admin.collectionsDetail.fcTransferring') : t('admin.collectionsDetail.fcConfirm')}</button>
       </div>
     </div>
