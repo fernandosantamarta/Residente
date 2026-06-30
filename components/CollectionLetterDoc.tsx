@@ -180,7 +180,7 @@ function DocInner({ readOnly = false }: { readOnly?: boolean }) {
           a plain "copy of the notice on your account" note. */}
       <div className="no-print" style={{ fontSize: 12, background: readOnly ? '#EFF4FF' : '#FEF3F2', color: readOnly ? '#175CD3' : '#B42318', padding: '14px 18px', borderRadius: 8, lineHeight: 1.5, marginBottom: 36, fontFamily: 'system-ui, sans-serif' }}>
         {readOnly ? (
-          <>This is a copy of the notice on file for your account. <a href="/app/voice#contact" style={{ color: '#175CD3', fontWeight: 700, textDecoration: 'underline' }}>Contact the association</a> with any questions.</>
+          <>This is a copy of the notice on file for your account. <a href="/app/voice?cat=account#contact" style={{ color: '#175CD3', fontWeight: 700, textDecoration: 'underline' }}>Contact the association</a> with any questions.</>
         ) : t('admin.collectionsDetailDocument.draftWarning')}
       </div>
       {/* Toolbar: Back hard-left; Mail certified (admin only) + Print on the right. */}
