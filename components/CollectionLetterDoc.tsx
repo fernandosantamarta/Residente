@@ -89,15 +89,18 @@ function DocInner({ readOnly = false }: { readOnly?: boolean }) {
       try {
         const { data: cs, error: cErr } = (await withTimeout(supabase.from('ev_collection_cases').select('*').eq('id', id).single())) as any
         if (cErr) throw cErr
-        const { data: comm } = (await withTimeout(supabase.from('communities').select('*').eq('id', cs.community_id).single())) as any
-        let res: any = null, pays: any[] = []
-        if (cs.resident_id) {
-          const { data: r } = (await withTimeout(supabase.from('residents').select('*').eq('id', cs.resident_id).single())) as any
-          res = r || null
-          const { data: p } = (await withTimeout(supabase.from('payments').select('amount, created_at').eq('resident_id', cs.resident_id))) as any
-          pays = p || []
-        }
-        const { data: pl } = (await withTimeout(supabase.from('ev_payment_plans').select('*').eq('case_id', id).order('created_at', { ascending: false }).limit(1))) as any
+        // Community + resident + payments + plan only depend on the case — fetch
+        // them in parallel so the letter loads in ~2 round trips, not ~5.
+        const [commR, resR, payR, plR] = (await Promise.all([
+          withTimeout(supabase.from('communities').select('*').eq('id', cs.community_id).single()),
+          cs.resident_id ? withTimeout(supabase.from('residents').select('*').eq('id', cs.resident_id).single()) : Promise.resolve({ data: null }),
+          cs.resident_id ? withTimeout(supabase.from('payments').select('amount, created_at').eq('resident_id', cs.resident_id)) : Promise.resolve({ data: [] }),
+          withTimeout(supabase.from('ev_payment_plans').select('*').eq('case_id', id).order('created_at', { ascending: false }).limit(1)),
+        ])) as any
+        const comm = commR?.data
+        const res = resR?.data || null
+        const pays = payR?.data || []
+        const pl = plR?.data
         if (cancelled) return
         setC(cs); setCommunity(comm || null); setResident(res); setPlan((pl && pl[0]) || null)
         if (res) {
@@ -176,7 +179,9 @@ function DocInner({ readOnly = false }: { readOnly?: boolean }) {
       {/* Top banner: admins see the DRAFT/attorney-review warning; the owner sees
           a plain "copy of the notice on your account" note. */}
       <div className="no-print" style={{ fontSize: 12, background: readOnly ? '#EFF4FF' : '#FEF3F2', color: readOnly ? '#175CD3' : '#B42318', padding: '14px 18px', borderRadius: 8, lineHeight: 1.5, marginBottom: 36, fontFamily: 'system-ui, sans-serif' }}>
-        {readOnly ? 'This is a copy of the notice on file for your account. Contact the association with any questions.' : t('admin.collectionsDetailDocument.draftWarning')}
+        {readOnly ? (
+          <>This is a copy of the notice on file for your account. <a href="/app/voice#contact" style={{ color: '#175CD3', fontWeight: 700, textDecoration: 'underline' }}>Contact the association</a> with any questions.</>
+        ) : t('admin.collectionsDetailDocument.draftWarning')}
       </div>
       {/* Toolbar: Back hard-left; Mail certified (admin only) + Print on the right. */}
       <div className="no-print" style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 56, fontFamily: 'system-ui, sans-serif' }}>
