@@ -61,18 +61,6 @@ const EMPTY: FormState = {
 const fmtMoney = (n: number | null | undefined) =>
   '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
 const fmtNum = (n: number) => n.toLocaleString('en-US')
-
-// Colorful "take it further" workspace tiles (statutory fines + collections),
-// shown under the violation log. Tinted card + a vivid gradient icon chip.
-const tileStyle = (accent: string): React.CSSProperties => ({
-  display: 'flex', gap: 14, alignItems: 'flex-start', textDecoration: 'none', color: 'inherit',
-  padding: '15px 17px', borderRadius: 16, border: `1px solid ${accent}33`,
-  background: `linear-gradient(135deg, ${accent}12, #ffffff 70%)`,
-})
-const tileIcon = (from: string, to: string): React.CSSProperties => ({
-  flexShrink: 0, width: 42, height: 42, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
-  color: '#fff', background: `linear-gradient(135deg, ${from}, ${to})`, boxShadow: `0 5px 13px ${to}40`,
-})
 const fmtDate = (iso: string | null | undefined) => {
   if (!iso) return ''
   try {
@@ -299,28 +287,33 @@ export default function AdminViolations() {
         )}
       </div>
 
-      {/* Take it further — moved BELOW the log and restyled as two vivid
-          workspace tiles: statutory fines/hearings + collections & liens. */}
-      <div style={{ marginTop: 4 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: 0.6, textTransform: 'uppercase', color: '#98A2B3', margin: '0 0 10px 2px' }}>{t('admin.violations.relatedKicker')}</div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: 12 }}>
-          <Link href="/admin/enforcement" style={tileStyle('#DC6803')}>
-            <span style={tileIcon('#F79009', '#DC6803')}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 3l8 4v6c0 5-3.5 7-8 8-4.5-1-8-3-8-8V7z" /><path d="M9 12l2 2 4-4" /></svg>
+      {/* Cross-links to the statutory enforcement + collections workspaces —
+          original wsrow card format, kept BELOW the violation log. */}
+      <div className="card">
+        <div className="wslist">
+          <Link href="/admin/enforcement" className="wsrow">
+            <span className="wsrow-glyph" style={{ color: '#DC6803', background: '#DC680318' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3l8 4v6c0 5-3.5 7-8 8-4.5-1-8-3-8-8V7z" /><path d="M9 12l2 2 4-4" />
+              </svg>
             </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 800, fontSize: 14, color: '#9A3412' }}>{t('admin.violations.enforcementLinkTitle')} <span aria-hidden style={{ marginLeft: 2 }}>&rarr;</span></div>
-              <div style={{ fontSize: 12, color: '#8a6f57', marginTop: 3, lineHeight: 1.45 }}>{t('admin.violations.enforcementLinkDesc')}</div>
+            <div className="wsrow-main">
+              <div className="wsrow-title">{t('admin.violations.enforcementLinkTitle')}</div>
+              <div className="wsrow-desc">{t('admin.violations.enforcementLinkDesc')}</div>
             </div>
+            <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
           </Link>
-          <Link href="/admin/collections" style={tileStyle('#B42318')}>
-            <span style={tileIcon('#F04438', '#B42318')}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18" /><path d="M7 14l3-3 3 3 4-5" /></svg>
+          <Link href="/admin/collections" className="wsrow">
+            <span className="wsrow-glyph" style={{ color: '#B54708', background: '#B5470818' }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 3v18h18" /><path d="M7 14l3-3 3 3 4-5" />
+              </svg>
             </span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontWeight: 800, fontSize: 14, color: '#912018' }}>{t('admin.violations.collectionsLinkTitle')} <span aria-hidden style={{ marginLeft: 2 }}>&rarr;</span></div>
-              <div style={{ fontSize: 12, color: '#9b6a60', marginTop: 3, lineHeight: 1.45 }}>{t('admin.violations.collectionsLinkDesc')}</div>
+            <div className="wsrow-main">
+              <div className="wsrow-title">{t('admin.violations.collectionsLinkTitle')}</div>
+              <div className="wsrow-desc">{t('admin.violations.collectionsLinkDesc')}</div>
             </div>
+            <span className="wsrow-arrow" aria-hidden="true">&rarr;</span>
           </Link>
         </div>
       </div>
@@ -438,12 +431,24 @@ function pillClass(v: Violation): string {
   return 'admin-vi-pill-dismissed'
 }
 
+// Accent color for a row, by state — drives the colorful expanded "dropdown".
+function rowAccent(v: Violation): string {
+  if (v.status === 'appealed') return '#7A5AF8'                          // under appeal — violet
+  if (v.status === 'closed') {
+    if (v.resolution === 'stripe-paid' || v.resolution === 'manual-paid') return '#067647' // paid — green
+    if (v.resolution === 'waived') return '#0E7490'                      // waived — teal
+    return '#98A2B3'                                                     // dismissed — slate
+  }
+  return v.kind === 'fine' ? '#DC6803' : '#175CD3'                       // open fine — orange / warning — blue
+}
+
 function ViolationRow({ v, onRemove, onSendToCollections, sending }: { v: Violation; onRemove: () => void; onSendToCollections: () => void; sending: boolean }) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const [overrideOpen, setOverrideOpen] = useState(false)
+  const accent = rowAccent(v)
   return (
-    <div className={`bd-row${open ? ' open' : ''}`}>
+    <div className={`bd-row${open ? ' open' : ''}`} style={open ? { boxShadow: `inset 4px 0 0 ${accent}` } : undefined}>
       <button
         type="button"
         className="bd-row-toggle"
@@ -471,19 +476,19 @@ function ViolationRow({ v, onRemove, onSendToCollections, sending }: { v: Violat
         </svg>
       </button>
       {open && (
-        <div className="bd-body">
+        <div className="bd-body" style={{ background: `linear-gradient(180deg, ${accent}14, ${accent}05 130px, transparent)`, borderRadius: '0 0 10px 10px' }}>
           {v.notes ? <p>{v.notes}</p> : <p className="bd-body-empty">{t('admin.violations.noNotes')}</p>}
           <div className="bd-body-meta">
-            <span><strong>{t('admin.violations.metaResident')}</strong> {v.resident}</span>
-            <span><strong>{t('admin.violations.metaKind')}</strong> {v.kind === 'fine' ? t('admin.violations.kindLabelFine') : t('admin.violations.kindLabelWarning')}</span>
+            <span><strong style={{ color: accent }}>{t('admin.violations.metaResident')}</strong> {v.resident}</span>
+            <span><strong style={{ color: accent }}>{t('admin.violations.metaKind')}</strong> {v.kind === 'fine' ? t('admin.violations.kindLabelFine') : t('admin.violations.kindLabelWarning')}</span>
             {v.amount != null && Number(v.amount) > 0 && (
-              <span><strong>{t('admin.violations.metaAmount')}</strong> {fmtMoney(v.amount)}</span>
+              <span><strong style={{ color: accent }}>{t('admin.violations.metaAmount')}</strong> <span style={{ color: accent, fontWeight: 700 }}>{fmtMoney(v.amount)}</span></span>
             )}
-            <span><strong>{t('admin.violations.metaRule')}</strong> {v.rule_title || t('admin.violations.noSpecificRule')}</span>
-            <span><strong>{t('admin.violations.metaOpened')}</strong> {fmtDate(v.opened_at)}</span>
-            {v.closed_at && <span><strong>{t('admin.violations.metaClosed')}</strong> {fmtDate(v.closed_at)}</span>}
+            <span><strong style={{ color: accent }}>{t('admin.violations.metaRule')}</strong> {v.rule_title || t('admin.violations.noSpecificRule')}</span>
+            <span><strong style={{ color: accent }}>{t('admin.violations.metaOpened')}</strong> {fmtDate(v.opened_at)}</span>
+            {v.closed_at && <span><strong style={{ color: accent }}>{t('admin.violations.metaClosed')}</strong> {fmtDate(v.closed_at)}</span>}
             {v.stripe_invoice_id && (
-              <span><strong>{t('admin.violations.metaStripeInvoice')}</strong> <code>{v.stripe_invoice_id}</code></span>
+              <span><strong style={{ color: accent }}>{t('admin.violations.metaStripeInvoice')}</strong> <code>{v.stripe_invoice_id}</code></span>
             )}
           </div>
 
