@@ -559,7 +559,7 @@ function RowActions({
         {t('admin.violations.btnOpenAppeal')}
       </button>
       {isFine && (
-        <button type="button" className="admin-btn" disabled={sending} onClick={onSendToCollections}
+        <button type="button" className="admin-btn-ghost" disabled={sending} onClick={onSendToCollections}
           title={t('admin.violations.sendToCollectionsTitle')}>
           {sending ? t('admin.violations.sendingToCollections') : t('admin.violations.btnSendToCollections')}
         </button>
