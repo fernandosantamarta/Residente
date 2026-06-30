@@ -1024,38 +1024,47 @@ function FinesDueCard() {
     openCheckout({ fn: 'create-fine-checkout', body: { violation_id: id }, returnUrl: '/app/documents?fine_paid=1#violations' })
   }
 
+  const totalFines = fines.reduce((s, v) => s + (Number(v.amount) || 0), 0)
+
   return (
-    <section className="pay-fines-band" id="fines">
-      <div className="pay-fines-band-head">
-        <span className="pay-fines-eyebrow">⚠ {t('pay.finesDue')}</span>
+    <section className="pay-card" id="fines" style={{ overflow: 'hidden', padding: 0 }}>
+      {/* Orange header band — matches the Collection Balance card: the label on
+          the left, the total fines due on the right, same line. */}
+      <div style={{ background: 'linear-gradient(135deg, #E14909 0%, #F2922A 100%)', color: '#fff', padding: '18px 22px', borderRadius: '18px 18px 0 0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase', opacity: 0.95, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span aria-hidden>⚠</span>{t('pay.finesDue')}
+        </div>
+        <div style={{ fontSize: 30, fontWeight: 800, lineHeight: 1.05, whiteSpace: 'nowrap' }}>{fmtMoney(totalFines)}</div>
       </div>
-      {error && <div className="pay-err">{error}</div>}
-      <div className="pay-fines-list">
-        {fines.map(v => (
-          <div key={v.id} className="pay-fine-row">
-            <div className="pay-fine-head">
-              <div className="pay-fine-info">
-                <div className="pay-fine-title">{v.rule_title || t('pay.fineGeneric')}</div>
-                <div className="pay-fine-meta">{t('pay.dueOn', { date: fmtDate(v.due_at || fineDueDate(v.opened_at)) })}</div>
+      <div style={{ padding: '12px 20px 16px' }}>
+        {error && <div className="pay-err">{error}</div>}
+        <div className="pay-fines-list">
+          {fines.map(v => (
+            <div key={v.id} className="pay-fine-row">
+              <div className="pay-fine-head">
+                <div className="pay-fine-info">
+                  <div className="pay-fine-title">{v.rule_title || t('pay.fineGeneric')}</div>
+                  <div className="pay-fine-meta">{t('pay.dueOn', { date: fmtDate(v.due_at || fineDueDate(v.opened_at)) })}</div>
+                </div>
+                <div className="pay-fine-amt">{fmtMoney(v.amount)}</div>
               </div>
-              <div className="pay-fine-amt">{fmtMoney(v.amount)}</div>
-            </div>
-            <div className="pay-fine-foot">
-              {v.notes && <p className="pay-fine-note">{v.notes}</p>}
-              <div className="pay-fine-actions">
-                <button
-                  type="button"
-                  className="pay-cta-primary pay-fine-pay"
-                  disabled={payingId === v.id}
-                  onClick={() => onPay(v.id)}
-                >
-                  {payingId === v.id ? t('pay.startingCheckout') : t('pay.payNow')}
-                </button>
-                <ContestFineControl violation={v} className="pay-cta-secondary pay-fine-contest" />
+              <div className="pay-fine-foot">
+                {v.notes && <p className="pay-fine-note">{v.notes}</p>}
+                <div className="pay-fine-actions">
+                  <button
+                    type="button"
+                    className="pay-cta-primary pay-fine-pay"
+                    disabled={payingId === v.id}
+                    onClick={() => onPay(v.id)}
+                  >
+                    {payingId === v.id ? t('pay.startingCheckout') : t('pay.payNow')}
+                  </button>
+                  <ContestFineControl violation={v} className="pay-cta-secondary pay-fine-contest" />
+                </div>
               </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </section>
   )
