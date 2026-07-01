@@ -479,7 +479,14 @@ function ViolationRow({ v, onRemove, onSendToCollections, sending, reload }: { v
       </button>
       {open && (
         <div className="bd-body">
-          {v.notes ? <p>{v.notes}</p> : <p className="bd-body-empty">{t('admin.violations.noNotes')}</p>}
+          {v.dispute_decision_note ? (
+            <p><strong style={{ color: '#B54708' }}>{
+              v.dispute_status === 'upheld' ? t('admin.violations.decisionDenied')
+              : v.dispute_status === 'dismissed' ? t('admin.violations.decisionAccepted')
+              : v.dispute_status === 'reduced' ? t('admin.violations.decisionReduced')
+              : t('admin.violations.decisionOnRecord')
+            }:</strong> {v.dispute_decision_note}</p>
+          ) : v.notes ? <p>{v.notes}</p> : <p className="bd-body-empty">{t('admin.violations.noNotes')}</p>}
           <div className="bd-body-meta">
             <span><strong>{t('admin.violations.metaResident')}</strong> {v.resident}</span>
             <span><strong>{t('admin.violations.metaKind')}</strong> {v.kind === 'fine' ? t('admin.violations.kindLabelFine') : t('admin.violations.kindLabelWarning')}</span>
@@ -564,12 +571,13 @@ function RowActions({
     }
     return (
       <div className="admin-vi-actions">
-        <span className="admin-vi-closed-note">
+        <span className="admin-vi-closed-note" style={{ color: '#B54708', fontStyle: 'normal', fontWeight: 600 }}>
           {isFine
             ? t('admin.violations.appealedFinNote')
             : t('admin.violations.appealedWarningNote')}
         </span>
-        <button type="button" className="admin-btn" onClick={() => (isFine ? setDenyOpen(true) : withReload(reopen(v.id)))}>
+        {/* Both ghost buttons → same size; Deny is tinted red to read as the harder call. */}
+        <button type="button" className="admin-btn-ghost" style={{ color: '#B42318', borderColor: '#B42318' }} onClick={() => (isFine ? setDenyOpen(true) : withReload(reopen(v.id)))}>
           {t('admin.violations.btnDenyAppeal')}
         </button>
         {isFine && (
