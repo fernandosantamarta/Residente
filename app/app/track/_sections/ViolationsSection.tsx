@@ -73,9 +73,9 @@ export function ViolationsSection() {
             <div className="rb-vi-stat-d">{t('documents.statWarningsDesc')}</div>
           </div>
           <div className="rb-vi-stat">
-            <div className="rb-vi-stat-n">{fmtMoney(stats.issued)}</div>
+            <div className="rb-vi-stat-n">{fmtNum(stats.finesCount)}</div>
             <div className="rb-vi-stat-l">{t('documents.statFinesIssuedLabel')}</div>
-            <div className="rb-vi-stat-d">{t('documents.statFinesIssuedDesc')}</div>
+            <div className="rb-vi-stat-d">{t('documents.statFinesCountDesc')}</div>
           </div>
           <div className="rb-vi-stat">
             <div className="rb-vi-stat-n">{fmtMoney(stats.outstanding)}</div>

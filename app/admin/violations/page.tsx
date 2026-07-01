@@ -610,8 +610,9 @@ function RowActions({
           {t('admin.violations.btnDismissWarning')}
         </button>
       )}
-      {/* No re-appeal once a dispute has been decided (upheld/dismissed/reduced). */}
-      {!v.dispute_status && (
+      {/* Only fines are appealable (a warning has no fine to contest, and the
+          resident can't dispute one). No re-appeal once a dispute is decided. */}
+      {isFine && !v.dispute_status && (
         <button type="button" className="admin-btn-ghost" onClick={() => withReload(appeal(v.id))}>
           {t('admin.violations.btnOpenAppeal')}
         </button>
