@@ -13,6 +13,7 @@ import { useT } from '@/lib/i18n'
 import { DetailDialog } from './DetailDialog'
 import { CollectionPayoffCard, CollectionQuickActions } from './CollectionPayoffCard'
 import { ContestFineControl } from './ContestFineControl'
+import { PastDueBanner } from '@/components/PastDueBanner'
 
 const fmtDate = (d: string | Date | null | undefined) => {
   if (!d) return '—'
@@ -394,6 +395,10 @@ export function PaySection() {
           {t('pay.subheading')}
         </p>
       </div>
+
+      {/* Payment past due — sits above the balance so a late owner sees it the
+          moment they open Pay. Self-clears once the balance is paid. */}
+      <PastDueBanner context="pay" />
 
       {/* Off-session charge failed (autopay / installment declined) — the resident
           would otherwise never know. Cleared automatically once any payment lands. */}

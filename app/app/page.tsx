@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import { useMyResident } from '@/hooks/useMyResident'
 import { RentDemandBanner } from '@/components/RentDemandBanner'
+import { PastDueBanner } from '@/components/PastDueBanner'
 import { useExpenses, cumulativeByMonth } from '@/hooks/useExpenses'
 import { computeCommunityRating } from '@/lib/community-health'
 import { useBoardDecisions } from '@/hooks/useBoardDecisions'
@@ -193,6 +194,10 @@ export default function Home() {
       {/* Tenant rent demand — renders only when the signed-in tenant has an
           active demand directing rent to the association (FS 720.3085(8)). */}
       <RentDemandBanner />
+
+      {/* Payment past due — a can't-miss band for owners carrying more than a
+          month's dues. Self-clears once paid; hidden for tenants + paid-up owners. */}
+      <PastDueBanner context="home" />
 
       {dataLoading ? (
         <HomeBodySkeleton />

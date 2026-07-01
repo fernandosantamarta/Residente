@@ -13,6 +13,7 @@ import { useT } from '@/lib/i18n'
 import { DetailDialog } from './DetailDialog'
 import { CollectionPayoffCard, CollectionQuickActions } from './CollectionPayoffCard'
 import { ContestFineControl } from './ContestFineControl'
+import { PastDueBanner } from '@/components/PastDueBanner'
 
 const fmtDate = (d: string | Date | null | undefined) => {
   if (!d) return '—'
@@ -384,6 +385,9 @@ export function PaySection() {
           {t('pay.subheading')}
         </p>
       </div>
+
+      {/* Payment past due — above the balance, self-clearing. */}
+      <PastDueBanner context="pay" />
 
       {/* Off-session charge failed (autopay / installment declined). Cleared once
           any payment lands. */}
