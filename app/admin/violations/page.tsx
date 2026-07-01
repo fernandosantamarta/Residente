@@ -434,18 +434,6 @@ function pillClass(v: Violation): string {
   return 'admin-vi-pill-dismissed'
 }
 
-// Accent color for a row, by state — drives the colorful expanded "dropdown".
-function rowAccent(v: Violation): string {
-  if (v.status === 'appealed') return '#7A5AF8'                          // under appeal — violet
-  if (v.status === 'closed') {
-    if (typeof v.notes === 'string' && v.notes.includes(SENT_TO_COLLECTIONS_NOTE)) return '#B54708' // in collections — amber
-    if (v.resolution === 'stripe-paid' || v.resolution === 'manual-paid') return '#067647' // paid — green
-    if (v.resolution === 'waived') return '#0E7490'                      // waived — teal
-    return '#98A2B3'                                                     // dismissed — slate
-  }
-  return v.kind === 'fine' ? '#DC6803' : '#175CD3'                       // open fine — orange / warning — blue
-}
-
 // Days an OPEN fine is past its payment due date (0 if not overdue / no date).
 // Surfaces a nudge to Send to collections once a fine has gone long unpaid.
 function overdueDays(v: Violation): number {
@@ -458,9 +446,8 @@ function ViolationRow({ v, onRemove, onSendToCollections, sending, reload }: { v
   const t = useT()
   const [open, setOpen] = useState(false)
   const [overrideOpen, setOverrideOpen] = useState(false)
-  const accent = rowAccent(v)
   return (
-    <div className={`bd-row${open ? ' open' : ''}`} style={open ? { boxShadow: `inset 4px 0 0 ${accent}` } : undefined}>
+    <div className={`bd-row${open ? ' open' : ''}`}>
       <button
         type="button"
         className="bd-row-toggle"
@@ -491,19 +478,19 @@ function ViolationRow({ v, onRemove, onSendToCollections, sending, reload }: { v
         </svg>
       </button>
       {open && (
-        <div className="bd-body" style={{ background: `linear-gradient(180deg, ${accent}14, ${accent}05 130px, transparent)`, borderRadius: '0 0 10px 10px' }}>
+        <div className="bd-body">
           {v.notes ? <p>{v.notes}</p> : <p className="bd-body-empty">{t('admin.violations.noNotes')}</p>}
           <div className="bd-body-meta">
-            <span><strong style={{ color: accent }}>{t('admin.violations.metaResident')}</strong> {v.resident}</span>
-            <span><strong style={{ color: accent }}>{t('admin.violations.metaKind')}</strong> {v.kind === 'fine' ? t('admin.violations.kindLabelFine') : t('admin.violations.kindLabelWarning')}</span>
+            <span><strong>{t('admin.violations.metaResident')}</strong> {v.resident}</span>
+            <span><strong>{t('admin.violations.metaKind')}</strong> {v.kind === 'fine' ? t('admin.violations.kindLabelFine') : t('admin.violations.kindLabelWarning')}</span>
             {v.amount != null && Number(v.amount) > 0 && (
-              <span><strong style={{ color: accent }}>{t('admin.violations.metaAmount')}</strong> <span style={{ color: accent, fontWeight: 700 }}>{fmtMoney(v.amount)}</span></span>
+              <span><strong>{t('admin.violations.metaAmount')}</strong> {fmtMoney(v.amount)}</span>
             )}
-            <span><strong style={{ color: accent }}>{t('admin.violations.metaRule')}</strong> {v.rule_title || t('admin.violations.noSpecificRule')}</span>
-            <span><strong style={{ color: accent }}>{t('admin.violations.metaOpened')}</strong> {fmtDate(v.opened_at)}</span>
-            {v.closed_at && <span><strong style={{ color: accent }}>{t('admin.violations.metaClosed')}</strong> {fmtDate(v.closed_at)}</span>}
+            <span><strong>{t('admin.violations.metaRule')}</strong> {v.rule_title || t('admin.violations.noSpecificRule')}</span>
+            <span><strong>{t('admin.violations.metaOpened')}</strong> {fmtDate(v.opened_at)}</span>
+            {v.closed_at && <span><strong>{t('admin.violations.metaClosed')}</strong> {fmtDate(v.closed_at)}</span>}
             {v.stripe_invoice_id && (
-              <span><strong style={{ color: accent }}>{t('admin.violations.metaStripeInvoice')}</strong> <code>{v.stripe_invoice_id}</code></span>
+              <span><strong>{t('admin.violations.metaStripeInvoice')}</strong> <code>{v.stripe_invoice_id}</code></span>
             )}
           </div>
 
@@ -564,9 +551,10 @@ function RowActions({
     // date, and (since dispute_status is now set) blocks any second dispute.
     if (isFine && denyOpen) {
       return (
-        <div className="admin-vi-actions" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
-          <span className="admin-vi-closed-note">{t('admin.violations.denyAppealPrompt')}</span>
-          <textarea className="admin-input" rows={2} value={denyReason} placeholder={t('admin.violations.denyReasonPlaceholder')} onChange={e => setDenyReason(e.target.value)} />
+        <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed rgba(15,28,46,0.10)', display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <span style={{ fontSize: 12.5, fontStyle: 'italic', color: 'rgba(10,36,64,0.62)' }}>{t('admin.violations.denyAppealPrompt')}</span>
+          <textarea rows={2} value={denyReason} placeholder={t('admin.violations.denyReasonPlaceholder')} onChange={e => setDenyReason(e.target.value)}
+            style={{ width: '100%', minHeight: 62, padding: '9px 11px', borderRadius: 10, border: '1px solid rgba(15,28,46,0.18)', fontSize: 13, fontFamily: 'inherit', resize: 'vertical', boxSizing: 'border-box' }} />
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button type="button" className="admin-btn-ghost" onClick={() => { setDenyOpen(false); setDenyReason('') }}>{t('admin.documents.cancelBtn')}</button>
             <button type="button" className="admin-primary-btn" disabled={!denyReason.trim()} onClick={async () => { await decideDispute(v.id, 'upheld', denyReason.trim()); setDenyOpen(false); setDenyReason(''); reload() }}>{t('admin.violations.denyAppealConfirm')}</button>
