@@ -3285,7 +3285,7 @@ export const en: Record<string, string> = {
   "admin.reports.behindSubPlural": "{count} households owe a balance · most behind first",
   "admin.reports.behindSubSingular": "{count} household owes a balance · most behind first",
   "admin.reports.behindTitle": "Who's behind on payments",
-  "admin.reports.behindPrecollectionNote": "Notifying an owner sends a recorded pre-collection notice (in-app + email) and logs it to their account history — the documented courtesy step to take, and repeat, before opening a collection case.",
+  "admin.reports.behindPrecollectionNote": "Notifying an owner sends a recorded pre-collection notice (in-app + email) and logs it to their account history. This is the documented courtesy step to take, and repeat, before opening a collection case.",
   "admin.reports.notifiedTitle": "This owner has already been sent a recorded pre-collection notice.",
   "admin.reports.notifiedOnce": "Notice sent {date}",
   "admin.reports.notifiedMulti": "{count} notices sent · last {date}",

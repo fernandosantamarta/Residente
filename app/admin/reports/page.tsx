@@ -676,7 +676,7 @@ export default function ReportsPage() {
                 recorded courtesy notice that builds the account's paper trail
                 before a collection case is opened. */}
             <div className="behind-precollection">
-              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <path d="M12 3l8 4v6c0 5-3.5 7-8 8-4.5-1-8-3-8-8V7z" /><path d="M12 8v4" /><path d="M12 16h.01" />
               </svg>
               <span>{t('admin.reports.behindPrecollectionNote')}</span>
