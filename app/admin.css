@@ -1997,6 +1997,10 @@
 .cset .bd-list .bd-row {
   background: none; border: none; border-radius: 0; box-shadow: none;
   border-top: 1px solid var(--border);
+  /* The base .bd-row sets align-items:center; combined with the sketch theme's
+     flex-direction:column that shrinks the expanded .bd-body to its content and
+     centres it (big empty margins). Stretch so the dropdown is full width. */
+  align-items: stretch;
 }
 .cset .bd-list .bd-row:first-child { border-top: none; }
 .cset .bd-list .bd-row:hover,
