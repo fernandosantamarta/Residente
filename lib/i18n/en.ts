@@ -4125,6 +4125,7 @@ export const en: Record<string, string> = {
   "admin.violations.stateOpenWarning": "Open warning",
   "admin.violations.stateUnderAppeal": "Under appeal",
   "admin.violations.statFinesCollected": "Fines collected",
+  "admin.violations.statFinesOutstanding": "Outstanding",
   "admin.violations.statResolved": "Resolved",
   "admin.violations.statWarningsIssued": "Warnings issued",
   "admin.violations.successFineLogged": "Logged {amount} fine against {resident} — they've been notified.",

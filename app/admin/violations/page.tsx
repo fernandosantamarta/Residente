@@ -206,6 +206,7 @@ export default function AdminViolations() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, margin: '4px 0 18px' }}>
         {[
           { v: fmtNum(stats.warnings), l: t('admin.violations.statWarningsIssued') },
+          { v: fmtMoney(stats.outstanding), l: t('admin.violations.statFinesOutstanding') },
           { v: fmtMoney(stats.fines),  l: t('admin.violations.statFinesCollected') },
           { v: fmtNum(stats.resolved), l: t('admin.violations.statResolved') },
           { v: fmtNum(stats.appeals),  l: t('admin.violations.statAppeals') },
