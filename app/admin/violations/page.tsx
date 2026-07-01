@@ -468,6 +468,12 @@ function ViolationRow({ v, onRemove, onSendToCollections, sending, reload }: { v
             <span>{v.rule_title || t('admin.violations.noSpecificRule')}</span>
             <span className="bd-dot">·</span>
             <span>{t('admin.violations.openedOn', { date: fmtDate(v.opened_at) || '—' })}</span>
+            {v.kind === 'fine' && v.due_at && (
+              <>
+                <span className="bd-dot">·</span>
+                <span>{t('admin.violations.dueOn', { date: fmtDate(v.due_at) })}</span>
+              </>
+            )}
           </div>
         </div>
         {v.amount != null && Number(v.amount) > 0 && (
@@ -495,6 +501,7 @@ function ViolationRow({ v, onRemove, onSendToCollections, sending, reload }: { v
             )}
             <span><strong>{t('admin.violations.metaRule')}</strong> {v.rule_title || t('admin.violations.noSpecificRule')}</span>
             <span><strong>{t('admin.violations.metaOpened')}</strong> {fmtDate(v.opened_at)}</span>
+            {v.kind === 'fine' && v.due_at && <span><strong>{t('admin.violations.metaDue')}</strong> {fmtDate(v.due_at)}</span>}
             {v.closed_at && <span><strong>{t('admin.violations.metaClosed')}</strong> {fmtDate(v.closed_at)}</span>}
             {v.stripe_invoice_id && (
               <span><strong>{t('admin.violations.metaStripeInvoice')}</strong> <code>{v.stripe_invoice_id}</code></span>
@@ -576,8 +583,8 @@ function RowActions({
             ? t('admin.violations.appealedFinNote')
             : t('admin.violations.appealedWarningNote')}
         </span>
-        {/* Both ghost buttons → same size; Deny is tinted red to read as the harder call. */}
-        <button type="button" className="admin-btn-ghost" style={{ color: '#B42318', borderColor: '#B42318' }} onClick={() => (isFine ? setDenyOpen(true) : withReload(reopen(v.id)))}>
+        {/* Both ghost buttons → same size; Deny is tinted orange to stand out. */}
+        <button type="button" className="admin-btn-ghost" style={{ color: '#E14909', borderColor: '#E14909' }} onClick={() => (isFine ? setDenyOpen(true) : withReload(reopen(v.id)))}>
           {t('admin.violations.btnDenyAppeal')}
         </button>
         {isFine && (
