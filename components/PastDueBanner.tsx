@@ -24,10 +24,10 @@ export function PastDueBanner({ context = 'home' }: { context?: 'home' | 'pay' }
   return (
     <section
       role="alert"
+      className={`pastdue-band pastdue-${context}`}
       style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
         gap: 16, flexWrap: 'wrap',
-        margin: context === 'home' ? '0 0 18px' : '0 0 16px',
         padding: '15px 20px', borderRadius: 16,
         background: 'linear-gradient(135deg, #E14909 0%, #F2922A 100%)',
         color: '#fff', boxShadow: '0 6px 22px rgba(225,73,9,0.22)',

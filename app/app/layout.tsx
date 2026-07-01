@@ -651,7 +651,7 @@ function NotificationBell() {
 
   return (
     <div className="bell-wrap">
-      <button className="bell" onClick={() => (open ? closePanel() : setOpen(true))} aria-label={`Notifications${count ? ` (${count} unread)` : ''}`}>
+      <button className={`bell${count > 0 ? ' has-unread' : ''}`} onClick={() => (open ? closePanel() : setOpen(true))} aria-label={`Notifications${count ? ` (${count} unread)` : ''}`}>
         <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
           <path d="M12 2.5a6 6 0 0 0-6 6V12c0 2.4-.9 3.6-2.3 4.7-.7.5-.7 1.5.1 1.9.4.2.8.3 1.2.3h14c.4 0 .8-.1 1.2-.3.8-.4.8-1.4.1-1.9C18.9 15.6 18 14.4 18 12V8.5a6 6 0 0 0-6-6z"/>
           <path d="M10 20.5a2 2 0 0 0 4 0"/>

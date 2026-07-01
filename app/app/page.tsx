@@ -195,10 +195,6 @@ export default function Home() {
           active demand directing rent to the association (FS 720.3085(8)). */}
       <RentDemandBanner />
 
-      {/* Payment past due — a can't-miss band for owners carrying more than a
-          month's dues. Self-clears once paid; hidden for tenants + paid-up owners. */}
-      <PastDueBanner context="home" />
-
       {dataLoading ? (
         <HomeBodySkeleton />
       ) : (
@@ -214,6 +210,11 @@ export default function Home() {
               real open votes, which are empty until meetings load (so no flicker). */}
           {/* Tenants are non-voting — no open-votes band. */}
           {!isTenant && <OpenVotesBand demo={demo && !profile} />}
+
+          {/* Payment past due — a can't-miss band for owners carrying more than a
+              month's dues, sitting directly on top of the Financial Overview.
+              Self-clears once paid; hidden for tenants + paid-up owners. */}
+          <PastDueBanner context="home" />
 
           {/* ROW 1 — Financial Overview (with embedded trend chart) + Quick Actions */}
           <section className="dash-row1">

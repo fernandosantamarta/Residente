@@ -410,15 +410,52 @@ button { font-family: inherit; }
   display: flex; align-items: center; justify-content: center; cursor: pointer;
   padding: 0;
 }
-.bell svg { width: 16px; height: 16px; color: var(--text-dim); }
+.bell svg { width: 16px; height: 16px; color: var(--text-dim); transform-origin: 50% 3px; }
 .bell:hover svg { color: var(--text); }
+/* Unread: the bell tints orange and gives a periodic ring so a new notice is
+   noticeable at a glance, not just a small number. */
+.bell.has-unread svg {
+  color: var(--cta, #E14909);
+  animation: bellSwing 3.4s ease-in-out 1s infinite;
+}
 .bell-badge {
-  position: absolute; top: -4px; right: -4px;
-  min-width: 16px; height: 16px; border-radius: 8px;
+  position: absolute; top: -5px; right: -5px;
+  min-width: 18px; height: 18px; border-radius: 9px;
   background: var(--grad);
-  font-size: 10px; font-weight: 700;
+  font-size: 10.5px; font-weight: 800; color: #fff;
   display: flex; align-items: center; justify-content: center;
-  padding: 0 4px; border: 2px solid var(--bg);
+  padding: 0 5px; border: 2px solid var(--bg);
+  box-shadow: 0 2px 9px rgba(225, 73, 9, 0.55);
+  animation: badgePop 0.3s ease-out;
+  z-index: 1;
+}
+/* Slow radar ping behind the badge — draws the eye while anything's unread. */
+.bell-badge::after {
+  content: ''; position: absolute; inset: -2px; border-radius: inherit;
+  background: var(--cta, #E14909); z-index: -1;
+  animation: badgePing 2.1s ease-out infinite;
+}
+@keyframes bellSwing {
+  0%, 55%, 100% { transform: rotate(0); }
+  62% { transform: rotate(-13deg); }
+  70% { transform: rotate(10deg); }
+  78% { transform: rotate(-7deg); }
+  86% { transform: rotate(4deg); }
+  93% { transform: rotate(-2deg); }
+}
+@keyframes badgePop {
+  0% { transform: scale(0.3); }
+  60% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+@keyframes badgePing {
+  0% { transform: scale(1); opacity: 0.55; }
+  70%, 100% { transform: scale(2.1); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bell.has-unread svg { animation: none; }
+  .bell-badge { animation: none; }
+  .bell-badge::after { display: none; }
 }
 
 .bell-panel {
@@ -3763,6 +3800,16 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 [data-theme="sketch"] .open-votes-band + .dash-row1 {
   margin-top: 16px;
 }
+
+/* Past-due banner on Home — sits below the hero, directly on top of Financial
+   Overview, using the same overlap handling as the open-votes band:
+   drop below the photo (96px), or tuck under the votes band (16px) when both
+   show, and neutralize dash-row1's -160px pull-up so it can't overlap. */
+.pastdue-band { margin: 0; }
+.pastdue-pay { margin-bottom: 16px; }
+[data-theme="sketch"] .pastdue-home { margin-top: 96px; margin-bottom: 0; }
+[data-theme="sketch"] .open-votes-band + .pastdue-home { margin-top: 16px; }
+[data-theme="sketch"] .pastdue-home + .dash-row1 { margin-top: 16px; }
 [data-theme="sketch"] .ovb-eyebrow {
   display: flex; align-items: center; gap: 8px;
   font-size: 12px;
