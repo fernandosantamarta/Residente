@@ -43,6 +43,11 @@ const withTimeout = (p: any, ms = 10000) =>
 const fmt$ = (n: any) => '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
 const todayISO = () => new Date().toISOString().slice(0, 10)
 const yearStartISO = () => `${new Date().getUTCFullYear()}-01-01`
+// Short date for the "last notified" pre-collection tag (from an audit timestamp).
+const fmtNotified = (iso: string) => {
+  try { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }
+  catch { return '' }
+}
 
 // A payment's effective date: the recorded paid_on, else the row's created_at.
 const payDate = (p: any) => (p.paid_on || (p.created_at ? String(p.created_at).slice(0, 10) : '')) as string
@@ -119,6 +124,10 @@ export default function ReportsPage() {
   // while that round-trip is in flight so the button can show "Reading…".
   const [balBusy, setBalBusy] = useState(false)
   const [remindMsg, setRemindMsg] = useState('')
+  // Last-notified history per owner (from the ev_audit_log payment.reminder_sent
+  // trail), so the board can see who they've already sent a pre-collection notice
+  // to — and how many — before escalating to a collection case.
+  const [remindHistory, setRemindHistory] = useState<Record<string, { count: number; last: string }>>({})
   const [behindPage, setBehindPage] = useState(0)
   const [assessmentsPage, setAssessmentsPage] = useState(0)
   const BEHIND_SIZE = 12
@@ -180,6 +189,22 @@ export default function ReportsPage() {
       ])) as any
       setPayments(pay || []); setExpenses(exp || []); setResidents(res || []); setCats(bc || []); setCommunity(com || null)
       setStatus('ready')
+      // Best-effort: the pre-collection notify trail. Isolated so a failed audit
+      // read never blocks the money data above.
+      try {
+        const { data: reminders } = await supabase!.from('ev_audit_log')
+          .select('target_id, created_at')
+          .eq('community_id', communityId)
+          .eq('event_type', 'payment.reminder_sent')
+          .order('created_at', { ascending: false })
+        const hist: Record<string, { count: number; last: string }> = {}
+        for (const row of (reminders as any[] | null) || []) {
+          if (!row.target_id) continue
+          if (!hist[row.target_id]) hist[row.target_id] = { count: 0, last: row.created_at }
+          hist[row.target_id].count += 1
+        }
+        setRemindHistory(hist)
+      } catch { /* the tag just won't show prior history */ }
     } catch (err: any) {
       setError(err?.message || t('admin.reports.errorLoadData')); setStatus('error')
     }
@@ -328,6 +353,11 @@ export default function ReportsPage() {
       }))
       if (error) throw error
       logAudit({ community_id: communityId, event_type: 'payment.reminder_sent', target_type: 'resident', target_id: resident.id, metadata: { balance: bal, fee } })
+      // Reflect the new notice on the row immediately (the audit read is async).
+      setRemindHistory(h => {
+        const prev = h[resident.id]
+        return { ...h, [resident.id]: { count: (prev?.count || 0) + 1, last: new Date().toISOString() } }
+      })
       setRemindMsg(t('admin.reports.reminderSent', { name: resident.full_name || t('admin.reports.residentFallback') }))
     } catch (e: any) {
       setRemindMsg(e?.message || t('admin.reports.reminderError'))
@@ -628,6 +658,15 @@ export default function ReportsPage() {
                 <div className="sub">{delinquents.length === 1 ? t('admin.reports.behindSubSingular', { count: delinquents.length }) : t('admin.reports.behindSubPlural', { count: delinquents.length })}</div>
               </div>
             </div>
+            {/* Pre-collection framing — a Notify here isn't a casual ping: it's a
+                recorded courtesy notice that builds the account's paper trail
+                before a collection case is opened. */}
+            <div className="behind-precollection">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M12 3l8 4v6c0 5-3.5 7-8 8-4.5-1-8-3-8-8V7z" /><path d="M12 8v4" /><path d="M12 16h.01" />
+              </svg>
+              <span>{t('admin.reports.behindPrecollectionNote')}</span>
+            </div>
             {remindMsg && <div className="admin-success" role="status" style={{ margin: '0 0 12px' }}>{remindMsg}</div>}
             {delinquents.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '22px 16px', color: 'var(--text-dim)', fontSize: 13.5 }}>
@@ -657,7 +696,26 @@ export default function ReportsPage() {
                         { label: t('admin.reports.colUnit'), value: r.unit_number || r.address || '—' },
                         { label: t('admin.reports.colBalanceOwed'), value: fmt$(bal) },
                       ] })}>
-                      <td className="strong">{r.full_name || t('admin.reports.residentFallback')}</td>
+                      <td className="strong">
+                        {r.full_name || t('admin.reports.residentFallback')}
+                        {/* Pre-collection notify trail: when/how many times this
+                            owner has been sent a recorded notice. */}
+                        {(() => {
+                          const h = remindHistory[r.id]
+                          return h ? (
+                            <span className="behind-notified" title={t('admin.reports.notifiedTitle')}>
+                              <span className="behind-notified-dot" aria-hidden="true" />
+                              {h.count > 1
+                                ? t('admin.reports.notifiedMulti', { count: h.count, date: fmtNotified(h.last) })
+                                : t('admin.reports.notifiedOnce', { date: fmtNotified(h.last) })}
+                            </span>
+                          ) : (
+                            <span className="behind-unnotified" title={t('admin.reports.unnotifiedTitle')}>
+                              {t('admin.reports.notNotified')}
+                            </span>
+                          )
+                        })()}
+                      </td>
                       <td className="muted period-col">
                     <span title={r.unit_number || r.address || ''}
                       style={{ display: 'inline-block', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}>

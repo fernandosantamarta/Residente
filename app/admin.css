@@ -2214,6 +2214,40 @@
 .crep .behind-act .go.dim { color: var(--text-dim); font-weight: 600; }
 /* The lawful late fee, itemised under the balance. */
 .crep .behind-fee { display: block; font-size: 11px; font-weight: 600; color: var(--text-faint); margin-top: 2px; }
+
+/* Pre-collection framing — this list is the documented courtesy step before a
+   collection case, so the notice reads with weight (navy, a shield glyph, a
+   left rule) rather than as a casual tip. */
+.crep .behind-precollection {
+  display: flex; align-items: flex-start; gap: 9px;
+  margin: 0 0 16px; padding: 11px 14px;
+  border-left: 3px solid #0A2440;
+  border-radius: 0 10px 10px 0;
+  background: rgba(10, 36, 64, 0.045);
+  color: #33465c; font-size: 12.5px; font-weight: 600; line-height: 1.5;
+}
+.crep .behind-precollection svg { color: #0A2440; flex-shrink: 0; margin-top: 1px; }
+
+/* "Last notified" tag under the owner name. Notified = a calm, official navy
+   record; not-yet = an amber "attention, this one hasn't had its notice" state. */
+.crep .behind-notified,
+.crep .behind-unnotified {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 4px; padding: 2px 9px; border-radius: 999px;
+  font-size: 11px; font-weight: 700; letter-spacing: 0.1px; white-space: nowrap;
+}
+.crep .behind-notified {
+  color: #1f3a56; background: rgba(10, 36, 64, 0.07);
+  border: 1px solid rgba(10, 36, 64, 0.14);
+}
+.crep .behind-notified-dot {
+  width: 6px; height: 6px; border-radius: 50%; background: #2f6b3d;
+}
+.crep .behind-unnotified {
+  color: #92400e; background: rgba(181, 71, 8, 0.08);
+  border: 1px solid rgba(181, 71, 8, 0.20);
+}
+
 /* Inline record-payment form, expanded under a household. */
 .crep .behind-payrow > td { background: rgba(42, 18, 6, 0.02); padding: 4px 12px 18px; }
 .crep .behind-payform { padding-top: 12px; }
