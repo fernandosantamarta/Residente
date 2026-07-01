@@ -3,14 +3,16 @@
 import Link from 'next/link'
 import { useT } from '@/lib/i18n'
 
-// Admin Easy Documents sub-nav: Rules · Documents · Violations.
+// Admin Easy Documents sub-nav: Documents · Rules.
 //
-// Rules and Documents are two sections of /admin/documents. When this bar is
-// rendered there (onSelect provided), they're instant in-page buttons — no
-// navigation, no lag. When rendered on the Violations route (no onSelect),
-// they're links back to /admin/documents (the #hash picks the section on
-// arrival). Violations is always its own route.
-export type AdminDocsTab = 'rules' | 'documents' | 'violations'
+// Both are sections of /admin/documents. When this bar is rendered there
+// (onSelect provided), they're instant in-page buttons — no navigation, no lag.
+// When rendered elsewhere (no onSelect), they're links back to /admin/documents
+// (the #hash picks the section on arrival).
+//
+// Violations moved to Easy Track (with the resident roster + fines/reports), to
+// mirror the resident-side Easy Track hub.
+export type AdminDocsTab = 'rules' | 'documents'
 
 export function EasyDocsTabs({
   active,
@@ -40,10 +42,6 @@ export function EasyDocsTabs({
           </Link>
         )
       })}
-      <Link href="/admin/violations" role="tab" aria-selected={active === 'violations'}
-            className={`seg-tab${active === 'violations' ? ' active' : ''}`}>
-        {t('admin.easyDocsTabs.violations')}
-      </Link>
     </div>
   )
 }

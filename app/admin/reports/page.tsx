@@ -21,6 +21,7 @@ import { Pager } from '@/components/Pager'
 import { logAudit } from '@/lib/audit'
 import { useT } from '@/lib/i18n'
 import { useMonthlyCharges, type MonthlyChargeStatus, type MonthlyCharge } from '@/hooks/useMonthlyCharges'
+import { EasyTrackTabs } from '../EasyTrackTabs'
 
 // Period presets behind the "Year to date" dropdown. Each maps to a from/to
 // range; "custom" reveals the raw date inputs so any window is still reachable.
@@ -477,6 +478,7 @@ export default function ReportsPage() {
 
   return (
     <div className="admin-page crep">
+      <EasyTrackTabs active="reports" />
       <div className="admin-kicker">{t('admin.reports.kicker')}</div>
       <h1 className="admin-h1">{t('admin.reports.pageTitle')}</h1>
       <p className="admin-dek">

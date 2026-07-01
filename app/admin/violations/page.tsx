@@ -27,7 +27,7 @@ import {
 import { useRulesData } from '@/lib/rules'
 import { Dropdown } from '@/components/Dropdown'
 import { Pagination, paginate } from '@/components/Pagination'
-import { EasyDocsTabs } from '../EasyDocsTabs'
+import { EasyTrackTabs } from '../EasyTrackTabs'
 import { AdminModal } from '../AdminModal'
 import { useT } from '@/lib/i18n'
 
@@ -193,7 +193,7 @@ export default function AdminViolations() {
 
   return (
     <div className="admin-page cset cviol">
-      <EasyDocsTabs active="violations" />
+      <EasyTrackTabs active="violations" />
       <div className="admin-kicker">{t('admin.violations.kicker')}</div>
       <h1 className="admin-h1">{t('admin.violations.pageTitle')} <span className="amp">&amp;</span> {t('admin.violations.pageTitleSuffix')}</h1>
       <p className="admin-dek" style={{ maxWidth: 580 }}>

@@ -24,9 +24,11 @@ import { AdminWelcome } from '@/components/AdminWelcome'
 // Shared sections follow the resident rail order (app/app/layout.tsx NAV):
 // Easy Track, Easy Voice, Easy Documents, Easy Schedule. Each hub merges
 // former standalone admin sections and exposes its own sub-tabs on its pages:
-//   Easy Track     → Residents, Vendors          (EasyTrackTabs)
+//   Easy Track     → Residents, Violations, Vendors, Reports (EasyTrackTabs) —
+//                    mirrors the resident Easy Track (Pay, Violations, Vendors,
+//                    Reports)
 //   Easy Voice     → Meetings, Roster, Board, Contact (EasyVoiceTabs)
-//   Easy Documents → Rules, Documents, Violations (EasyDocsTabs)
+//   Easy Documents → Documents, Rules             (EasyDocsTabs)
 // The admin-only setup section (Community) leads.
 type AdminNavItem = { href: string; label: string; match?: string[]; exact?: boolean; anyPerm?: Permission[] }
 // `label` holds the i18n key (rendered with t()); badge logic keys off href.
@@ -35,10 +37,9 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: '/admin/community',  label: 'admin.nav.community', anyPerm: ['community.manage'] },
   { href: '/admin/compliance', label: 'admin.nav.compliance', anyPerm: ['compliance.manage', 'financials.view', 'payments.view', 'violations.manage'], match: ['/admin/estoppel', '/admin/collections', '/admin/structural', '/admin/financials', '/admin/governance', '/admin/enforcement', '/admin/meetings', '/admin/elections', '/admin/insurance', '/admin/contracts', '/admin/advisories'] },
   { href: '/admin/budget',     label: 'admin.nav.budget', anyPerm: ['community.manage', 'financials.view'], match: ['/admin/accounting'] },
-  { href: '/admin/reports',    label: 'admin.nav.reports', anyPerm: ['financials.view', 'payments.view'] },
-  { href: '/admin/residents',  label: 'admin.nav.easyTrack', anyPerm: ['residents.view', 'residents.manage'], match: ['/admin/vendor'] },
+  { href: '/admin/residents',  label: 'admin.nav.easyTrack', anyPerm: ['residents.view', 'residents.manage', 'violations.manage', 'financials.view', 'payments.view'], match: ['/admin/vendor', '/admin/violations', '/admin/reports'] },
   { href: '/admin/board',      label: 'admin.nav.easyVoice', anyPerm: ['voice.manage', 'roles.manage'], match: ['/admin/voice', '/admin/requests', '/admin/roles', '/admin/arc'] },
-  { href: '/admin/documents',  label: 'admin.nav.easyDocuments', anyPerm: ['documents.manage', 'violations.manage'], match: ['/admin/rules', '/admin/violations'] },
+  { href: '/admin/documents',  label: 'admin.nav.easyDocuments', anyPerm: ['documents.manage'], match: ['/admin/rules'] },
   { href: '/admin/schedule',   label: 'admin.nav.easySchedule', anyPerm: ['schedule.manage'] },
   { href: '/admin/billing',    label: 'admin.nav.billing', anyPerm: ['community.manage'] },
 ]
