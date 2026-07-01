@@ -438,14 +438,15 @@ export function PaySection() {
         </div>
       )}
 
-      {/* Outstanding fines — an orange "action needed" band above the balance
-          (matches the open-votes band). Each fine is its own Stripe charge that
-          closes itself on payment, so the band vanishes once everything's paid. */}
-      <FinesDueCard />
-
       {/* Collections — one card (payoff + payment-plan + legal-protection quick
-          actions), shown only when the owner has an open collection case. */}
+          actions), shown only when the owner has an open collection case. Kept
+          FIRST so the full collection balance leads the Pay screen. */}
       <CollectionPayoffCard resident={resident} community={community} payments={payments} />
+
+      {/* Outstanding fines — an orange "action needed" band. Each fine is its own
+          Stripe charge that closes itself on payment, so the band vanishes once
+          everything's paid. */}
+      <FinesDueCard />
 
       {/* Current Balance hero — full width: balance on the left, a divider,
           then the three progress rings on the right. */}
