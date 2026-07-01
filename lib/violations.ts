@@ -165,6 +165,75 @@ export async function sendFineToCollections(opts: {
   return { caseId: (ins as any).id, created: true, merged: false }
 }
 
+// ---------- escalate: warning → fine (with the statutory 14-day notice) ----------
+// Turn a courtesy warning into a fine for the SAME violation and mail the owner
+// the FS 718.303/720.305 notice of a proposed fine + their right to a hearing
+// (via Lob, through the mail-violation-notice edge function). The warning row is
+// converted in place (one audit trail): kind flips to 'fine', the amount + due
+// date are set, and enforcement_stage moves onto the hearing track. Mailing is
+// best-effort — the fine is still issued if Lob is unconfigured or the address
+// won't parse, and the caller is told the notice didn't go out.
+export async function escalateWarningToFine(opts: {
+  violation: Violation
+  amount: number
+  dueAt?: string | null
+  certified?: boolean
+}): Promise<{ mailed: boolean; mailError: string | null; cost: number | null }> {
+  if (!hasSupabase || !supabase) throw new Error('Supabase is not configured')
+  const { violation: v, amount } = opts
+  const dueAt = opts.dueAt || daysFromNow(30)
+  const certified = opts.certified !== false
+  const usd = `$${Math.round(amount).toLocaleString('en-US')}`
+  const stamp = `[Escalated to a ${usd} fine ${today()} — 14-day notice + hearing required before it may be imposed]`
+  const notes = v.notes ? `${v.notes}\n${stamp}` : stamp
+
+  // 1. Convert the warning in place. enforcement_stage='proposed' until the
+  //    notice is confirmed mailed (bumped to 'notice_sent' below).
+  const patch: Record<string, any> = {
+    kind: 'fine',
+    amount,
+    status: 'open',
+    resolution: null,
+    closed_at: null,
+    enforcement_stage: 'proposed',
+    notes,
+  }
+  if (!dueColumnMissing) patch.due_at = dueAt
+  const { error } = await supabase.from('ev_violations').update(patch).eq('id', v.id)
+  if (error) throw new Error(error.message)
+
+  // 2. Mail the statutory notice via Lob (best-effort — never blocks the fine).
+  let mailed = false
+  let mailError: string | null = null
+  let cost: number | null = null
+  try {
+    const { data, error: mErr } = await supabase.functions.invoke('mail-violation-notice', {
+      body: { violationId: v.id, certified },
+    })
+    if (mErr) {
+      // FunctionsHttpError hides the body in a generic message — read the real one.
+      mailError = mErr.message || 'The notice could not be mailed.'
+      try {
+        const body = await (mErr as any)?.context?.json?.()
+        if (body?.error) mailError = body.error
+      } catch { /* keep the generic message */ }
+    } else if ((data as any)?.error) {
+      mailError = (data as any).error
+    } else {
+      mailed = true
+      cost = (data as any)?.cost ?? null
+    }
+  } catch (e) {
+    mailError = (e as Error)?.message || 'The notice could not be mailed.'
+  }
+
+  // 3. If the notice went out, record that the 14-day clock has started.
+  if (mailed) {
+    await supabase.from('ev_violations').update({ enforcement_stage: 'notice_sent' }).eq('id', v.id)
+  }
+  return { mailed, mailError, cost }
+}
+
 // Derived headline stats for the resident strip (unchanged contract).
 export function computeStats(list: Violation[]) {
   let warnings = 0, fines_collected = 0, outstanding = 0, issued = 0, finesCount = 0, resolved = 0, appeals = 0

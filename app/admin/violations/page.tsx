@@ -9,6 +9,7 @@ import {
   computeStats,
   decideDispute,
   dismiss,
+  escalateWarningToFine,
   markManualPaid,
   markStripePaid,
   removeStoredViolation,
@@ -115,6 +116,10 @@ export default function AdminViolations() {
       setError(err?.message || t('admin.violations.sendToCollectionsError')); setSendingId(null)
     }
   }
+
+  // Escalate a warning → fine (opens a small modal to set the amount, then
+  // converts the warning and mails the statutory 14-day notice via Lob).
+  const [escalateFor, setEscalateFor] = useState<Violation | null>(null)
 
   const [form, setForm] = useState<FormState>(EMPTY)
   const [saving, setSaving] = useState(false)
@@ -264,7 +269,7 @@ export default function AdminViolations() {
           <>
             <div className="bd-list">
               {visible.map((v: Violation) => (
-                <ViolationRow key={v.id} v={v} onRemove={() => remove(v.id)} onSendToCollections={() => sendToCollections(v)} sending={sendingId === v.id} reload={reload} />
+                <ViolationRow key={v.id} v={v} onRemove={() => remove(v.id)} onSendToCollections={() => sendToCollections(v)} onEscalate={() => setEscalateFor(v)} sending={sendingId === v.id} reload={reload} />
               ))}
             </div>
             <Pagination
@@ -423,7 +428,104 @@ export default function AdminViolations() {
           </form>
         </AdminModal>
       )}
+
+      {/* Escalate-warning-to-fine popup. */}
+      {escalateFor && (
+        <EscalateFineModal
+          violation={escalateFor}
+          onClose={() => setEscalateFor(null)}
+          onDone={(msg) => { setEscalateFor(null); setSuccessMsg(msg); reload() }}
+          onError={(msg) => setError(msg)}
+        />
+      )}
     </div>
+  )
+}
+
+// Escalate a warning into a fine: pick the amount, choose certified vs first-class
+// mail, then convert the warning + mail the statutory 14-day notice of a proposed
+// fine (right to a hearing) via Lob. The fine is still issued if the mail can't go
+// out — the confirmation says whether the notice was mailed.
+function EscalateFineModal({
+  violation,
+  onClose,
+  onDone,
+  onError,
+}: {
+  violation: Violation
+  onClose: () => void
+  onDone: (msg: string) => void
+  onError: (msg: string) => void
+}) {
+  const t = useT()
+  const [amount, setAmount] = useState('')
+  const [dueAt, setDueAt] = useState(addDays(todayISO(), 30))
+  const [certified, setCertified] = useState(true)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (amount === '' || Number(amount) <= 0) { setErr(t('admin.violations.errorFineAmount')); return }
+    setBusy(true); setErr('')
+    try {
+      const res = await escalateWarningToFine({
+        violation, amount: Number(amount), dueAt, certified,
+      })
+      const money = fmtMoney(Number(amount))
+      onDone(res.mailed
+        ? t('admin.violations.escalateSuccessMailed', { amount: money, resident: violation.resident })
+        : t('admin.violations.escalateSuccessNoMail', { amount: money, reason: res.mailError || t('admin.violations.escalateMailUnavailable') }))
+    } catch (e2: any) {
+      const msg = e2?.message || t('admin.violations.escalateError')
+      setErr(msg); onError(msg)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <AdminModal title={t('admin.violations.escalateModalTitle')} sub={t('admin.violations.escalateModalSub')} onClose={onClose}>
+      <form className="admin-form" onSubmit={submit}>
+        <div className="admin-field">
+          <span className="admin-field-label">{t('admin.violations.metaResident')}</span>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#0A2440' }}>{violation.resident}</div>
+          <span className="admin-field-hint">{violation.rule_title || t('admin.violations.noSpecificRule')}</span>
+        </div>
+
+        <label className="admin-field" style={{ maxWidth: 200 }}>
+          <span className="admin-field-label">{t('admin.violations.fieldFineAmount')}</span>
+          <input name="amount" className="admin-input" type="number" placeholder="100"
+            value={amount} onChange={e => setAmount(e.target.value)} autoFocus />
+          <span className="admin-field-hint">{t('admin.violations.escalateAmountHint')}</span>
+        </label>
+
+        <label className="admin-field" style={{ maxWidth: 220 }}>
+          <span className="admin-field-label">{t('admin.violations.fieldDueDate')}</span>
+          <input name="due_at" className="admin-input" type="date"
+            value={dueAt} onChange={e => setDueAt(e.target.value)} />
+          <span className="admin-field-hint">{t('admin.violations.escalateDueHint')}</span>
+        </label>
+
+        <label className="admin-field admin-check-row" style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10, cursor: 'pointer' }}>
+          <input type="checkbox" checked={certified} onChange={e => setCertified(e.target.checked)} style={{ marginTop: 3 }} />
+          <span>
+            <span className="admin-field-label" style={{ display: 'block' }}>{t('admin.violations.escalateCertifiedLabel')}</span>
+            <span className="admin-field-hint">{t('admin.violations.escalateCertifiedHint')}</span>
+          </span>
+        </label>
+
+        <p className="admin-field-hint" style={{ margin: '2px 0 0' }}>{t('admin.violations.escalateMailNote')}</p>
+
+        <div className="admin-form-actions">
+          {err && <span className="admin-err-inline">{err}</span>}
+          <button type="button" className="admin-btn-ghost" onClick={onClose}>{t('admin.documents.cancelBtn')}</button>
+          <button type="submit" className="admin-primary-btn" disabled={busy}>
+            {busy ? t('admin.violations.escalateBusy') : t('admin.violations.escalateConfirm')}
+          </button>
+        </div>
+      </form>
+    </AdminModal>
   )
 }
 
@@ -444,7 +546,7 @@ function overdueDays(v: Violation): number {
   return Math.max(0, Math.floor((Date.now() - due) / 86400000))
 }
 
-function ViolationRow({ v, onRemove, onSendToCollections, sending, reload }: { v: Violation; onRemove: () => void; onSendToCollections: () => void; sending: boolean; reload: () => void }) {
+function ViolationRow({ v, onRemove, onSendToCollections, onEscalate, sending, reload }: { v: Violation; onRemove: () => void; onSendToCollections: () => void; onEscalate: () => void; sending: boolean; reload: () => void }) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const [overrideOpen, setOverrideOpen] = useState(false)
@@ -513,7 +615,7 @@ function ViolationRow({ v, onRemove, onSendToCollections, sending, reload }: { v
           {/* Actions — only what's relevant for this row's state.
               The Stripe-driven happy path needs zero clicks; this
               section is appeals, warnings, and exceptions. */}
-          <RowActions v={v} overrideOpen={overrideOpen} setOverrideOpen={setOverrideOpen} onSendToCollections={onSendToCollections} sending={sending} reload={reload} />
+          <RowActions v={v} overrideOpen={overrideOpen} setOverrideOpen={setOverrideOpen} onSendToCollections={onSendToCollections} onEscalate={onEscalate} sending={sending} reload={reload} />
         </div>
       )}
       <button type="button" className="bc-del" onClick={(e) => { e.stopPropagation(); onRemove() }}
@@ -527,6 +629,7 @@ function RowActions({
   overrideOpen,
   setOverrideOpen,
   onSendToCollections,
+  onEscalate,
   sending,
   reload,
 }: {
@@ -534,6 +637,7 @@ function RowActions({
   overrideOpen: boolean
   setOverrideOpen: (b: boolean) => void
   onSendToCollections: () => void
+  onEscalate: () => void
   sending: boolean
   reload: () => void
 }) {
@@ -606,8 +710,16 @@ function RowActions({
         {isFine ? t('admin.violations.openFineNote') : t('admin.violations.openWarningNote')}
       </span>
       {!isFine && (
-        <button type="button" className="admin-btn" onClick={() => withReload(dismiss(v.id))}>
+        <button type="button" className="admin-btn-ghost" onClick={() => withReload(dismiss(v.id))}>
           {t('admin.violations.btnDismissWarning')}
+        </button>
+      )}
+      {/* A warning can be escalated to a fine — this mails the statutory 14-day
+          notice of a proposed fine + right to a hearing (Lob). */}
+      {!isFine && (
+        <button type="button" className="admin-primary-btn" onClick={onEscalate}
+          title={t('admin.violations.escalateTitle')}>
+          {t('admin.violations.btnEscalateToFine')}
         </button>
       )}
       {/* Only fines are appealable (a warning has no fine to contest, and the
