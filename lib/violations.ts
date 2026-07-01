@@ -254,7 +254,8 @@ export function useCommunityResidents(): { id: string; profile_id: string | null
       if (cancelled || !data) return
       setRows(data.map((r: any) => {
         const name = r.full_name || 'Resident'
-        const unit = r.unit_number || r.address
+        // Unit only — never fall back to the full home address (can be very long).
+        const unit = r.unit_number
         return { id: r.id, profile_id: r.profile_id ?? null, label: unit ? `${name} · ${unit}` : name }
       }).sort((a, b) => a.label.localeCompare(b.label)))
     }
