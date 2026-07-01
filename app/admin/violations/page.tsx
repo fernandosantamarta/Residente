@@ -583,8 +583,8 @@ function RowActions({
             ? t('admin.violations.appealedFinNote')
             : t('admin.violations.appealedWarningNote')}
         </span>
-        {/* Both ghost buttons → same size; Deny is tinted orange to stand out. */}
-        <button type="button" className="admin-btn-ghost" style={{ color: '#E14909', borderColor: '#E14909' }} onClick={() => (isFine ? setDenyOpen(true) : withReload(reopen(v.id)))}>
+        {/* Deny is the primary (orange filled) action, widened; Side-with stays ghost. */}
+        <button type="button" className="admin-primary-btn" style={{ minWidth: 210 }} onClick={() => (isFine ? setDenyOpen(true) : withReload(reopen(v.id)))}>
           {t('admin.violations.btnDenyAppeal')}
         </button>
         {isFine && (
