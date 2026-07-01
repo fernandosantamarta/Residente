@@ -2230,10 +2230,12 @@
 
 /* "Last notified" tag under the owner name. Notified = a calm, official navy
    record; not-yet = an amber "attention, this one hasn't had its notice" state. */
+/* Its own column now — the pills all left-align, no per-name offset needed. */
+.crep .behind-notice-col { white-space: nowrap; }
 .crep .behind-notified,
 .crep .behind-unnotified {
   display: inline-flex; align-items: center; gap: 6px;
-  margin-top: 4px; padding: 2px 9px; border-radius: 999px;
+  padding: 2px 9px; border-radius: 999px;
   font-size: 11px; font-weight: 700; letter-spacing: 0.1px; white-space: nowrap;
 }
 .crep .behind-notified {
@@ -2259,7 +2261,7 @@
 
 .crep .behind-trail-menu {
   position: absolute; top: calc(100% + 6px); left: 0; z-index: 60;
-  min-width: 236px; max-width: 300px;
+  min-width: 250px; max-width: 320px;
   background: #fff; border: 1px solid rgba(10, 36, 64, 0.12);
   border-radius: 12px; box-shadow: 0 14px 40px -12px rgba(10, 36, 64, 0.35);
   padding: 8px;
@@ -2279,12 +2281,12 @@
 .crep .behind-trail-num { font-weight: 700; }
 .crep .behind-trail-date { margin-left: auto; color: #6b7a8d; font-weight: 600; }
 
-/* Collections link — only when the owner already has an open case. */
+/* Collections link — only when the owner already has an open case. One line. */
 .crep .behind-trail-collections {
   display: flex; align-items: center; gap: 9px; margin-top: 8px;
   padding: 9px 11px; border-radius: 9px; text-decoration: none;
   background: rgba(181, 71, 8, 0.08); color: #92400e;
-  font-size: 12.5px; font-weight: 800;
+  font-size: 12.5px; font-weight: 800; white-space: nowrap;
   border: 1px solid rgba(181, 71, 8, 0.18);
   transition: background 0.14s ease;
 }
@@ -2314,7 +2316,9 @@
   .crep .behind-tbl td.strong { flex: 1 1 auto; min-width: 0; }
   .crep .behind-tbl td.period-col { display: none; }
   .crep .behind-tbl td.due { flex: 0 0 auto; text-align: right; }
-  .crep .behind-tbl td.act { flex: 1 1 100%; width: auto; white-space: normal; }
+  /* Notice pill drops onto its own line below name + balance; actions last. */
+  .crep .behind-tbl td.behind-notice-col { flex: 1 1 100%; order: 4; margin-top: 6px; }
+  .crep .behind-tbl td.act { flex: 1 1 100%; width: auto; white-space: normal; order: 5; }
   .crep .behind-tbl .behind-act { justify-content: flex-start; flex-wrap: wrap; gap: 10px 14px; margin-top: 6px; }
   /* The inline record-payment form spans the full width below the card. */
   .crep .behind-payrow, .crep .behind-payrow > td { display: block; width: 100%; }

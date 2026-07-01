@@ -697,7 +697,7 @@ export default function ReportsPage() {
               <>
               <table className="tbl behind-tbl">
                 <thead>
-                  <tr><th>{t('admin.reports.colOwner')}</th><th className="period-col">{t('admin.reports.colUnit')}</th><th>{t('admin.reports.colBalanceOwed')}</th><th className="act"></th></tr>
+                  <tr><th>{t('admin.reports.colOwner')}</th><th className="behind-notice-col">{t('admin.reports.colNotices')}</th><th className="period-col">{t('admin.reports.colUnit')}</th><th>{t('admin.reports.colBalanceOwed')}</th><th className="act"></th></tr>
                 </thead>
                 <tbody>
                   {paged.map(({ r, bal }) => {
@@ -710,11 +710,11 @@ export default function ReportsPage() {
                         { label: t('admin.reports.colUnit'), value: r.unit_number || r.address || '—' },
                         { label: t('admin.reports.colBalanceOwed'), value: fmt$(bal) },
                       ] })}>
-                      <td className="strong">
-                        {r.full_name || t('admin.reports.residentFallback')}
-                        {/* Pre-collection notify trail: a dropdown listing each
-                            recorded notice, plus a link into the owner's
-                            collection case once they've been escalated. */}
+                      <td className="strong">{r.full_name || t('admin.reports.residentFallback')}</td>
+                      {/* Pre-collection notify trail — its own column so the
+                          pills align. Dropdown lists each recorded notice + a
+                          link into the owner's collection case once escalated. */}
+                      <td className="behind-notice-col">
                         <NotifyTrail
                           dates={remindHistory[r.id]}
                           caseId={collectionByOwner[r.id] || (r.profile_id ? collectionByOwner[`p:${r.profile_id}`] : undefined)}
@@ -751,7 +751,7 @@ export default function ReportsPage() {
                     </tr>
                     {openPayId === r.id && (
                       <tr className="behind-payrow">
-                        <td colSpan={4}>
+                        <td colSpan={5}>
                           <div className="behind-payform">
                             <span className="admin-field-label" style={{ display: 'block', marginBottom: 8 }}>
                               {t('admin.reports.recordPaymentLabel', { name: r.full_name || t('admin.reports.residentFallback') })}
