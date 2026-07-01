@@ -311,7 +311,7 @@ function ContractCard({
   const termsGap = regime === 'condo' && c.contract_kind === 'management' && !c.required_terms_attested
 
   return (
-    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${overThreshold ? '#B54708' : '#0D9488'}`, borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
+    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 15 }}>

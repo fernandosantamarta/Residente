@@ -560,7 +560,7 @@ export default function EnforcementPage() {
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {candidates.map(c => (
-                  <div key={c.case_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', border: '1px solid rgba(0,0,0,0.08)', borderLeft: '4px solid #B54708', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
+                  <div key={c.case_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 14 }}>{c.unit_label}</div>
                       <div style={{ fontSize: 12, opacity: 0.7 }}>{t('admin.enforcement.candidateDaysDelinquent', { days: c.days })}{c.balance ? ` · ${fmt$(c.balance)} ${t('admin.enforcement.owed')}` : ''}</div>
@@ -794,7 +794,7 @@ function ViolationCard({ v, hearing, regime, committeeOk, onOpenEvidence, onSend
   const docHref = (type: string) => `/admin/enforcement/${v.id}/document?type=${type}`
 
   return (
-    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${color}`, borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
+    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 15 }}>{v.resident_label || v.id.slice(0, 8)}</div>
@@ -974,7 +974,7 @@ function SuspensionCard({ s, onActivate, onLift }: { s: SuspensionRow; onActivat
   const needsHearing = basis === 'rule_violation' || s.requires_hearing === true
   const hearingMissing = needsHearing && !s.hearing_id
   return (
-    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${color}`, borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
+    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 15 }}>{s.unit_label || s.id.slice(0, 8)}</div>

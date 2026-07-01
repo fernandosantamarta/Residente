@@ -320,7 +320,7 @@ export default function CollectionsPage() {
             <>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                 {candidates.map(cand => (
-                  <div key={cand.resident_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', border: '1px solid rgba(0,0,0,0.08)', borderLeft: '4px solid #B54708', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
+                  <div key={cand.resident_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 14 }}>{cand.unit_label}</div>
                       <div style={{ fontSize: 12, opacity: 0.7 }}>{fmt$(cand.balance)} {t('admin.collections.pastDueSuffix')} · ~{cand.months_late} mo · {cand.days_past_due} days</div>
@@ -423,7 +423,7 @@ function CaseRow({ r, regime }: { r: CollectionCaseRow; regime: 'condo' | 'hoa' 
 
   return (
     <Link href={`/admin/collections/${r.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-      <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${color}`, borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
+      <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
           <div>
             <div style={{ fontWeight: 700, fontSize: 15 }}>{r.unit_label || r.id.slice(0, 8)}</div>

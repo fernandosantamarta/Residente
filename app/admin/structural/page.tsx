@@ -328,7 +328,7 @@ export default function StructuralPage() {
               const due = milestoneInitialDueDate(b.certificate_of_occupancy_date, b.coastal)
               const eligible = isSirsEligible(b.stories)
               return (
-                <div key={b.id} style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: '4px solid #175CD3', borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
+                <div key={b.id} style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
                   <div style={{ fontWeight: 700, fontSize: 15 }}>{b.name || b.address || b.id.slice(0, 8)}</div>
                   <div style={{ fontSize: 12.5, opacity: 0.75, marginTop: 3 }}>
                     {b.stories != null ? t('admin.structural.storiesCount', { count: String(b.stories) }) : t('admin.structural.storiesUnknown')} · {b.coastal ? t('admin.structural.coastal') : t('admin.structural.inland')}
@@ -509,7 +509,7 @@ function AssessmentCard({
   }
 
   return (
-    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${color}`, borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
+    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 15 }}>{KIND_LABEL[String(a.kind)] || String(a.kind)} · {where}</div>

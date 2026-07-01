@@ -286,8 +286,8 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               })}
             </div>
           )}
-          <Link href="/admin/support" title={residenteUnread > 0 ? t('admin.contactResidenteNew', { count: residenteUnread }) : t('admin.contactResidente')}
-            style={{ textDecoration: 'none', fontSize: 13, fontWeight: 700, color: '#fff', background: 'rgba(255,255,255,0.16)', borderRadius: 999, padding: '7px 15px', display: 'inline-flex', alignItems: 'center', gap: 7 }}>
+          <Link href="/admin/support" className="admin-contact-pill"
+            title={residenteUnread > 0 ? t('admin.contactResidenteNew', { count: residenteUnread }) : t('admin.contactResidente')}>
             {t('admin.contactResidente')}
             {residenteUnread > 0 && (
               <span className="cr-badge">{residenteUnread}</span>

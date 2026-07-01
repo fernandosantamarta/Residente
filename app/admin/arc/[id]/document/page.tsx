@@ -229,7 +229,7 @@ function LetterBlockView({ block }: { block: LetterBlock }) {
     return <p style={{ fontSize: 12.5, color: '#555' }}>{runs}</p>
   }
   if (block.tone === 'warn') {
-    return <p style={{ fontSize: 13, color: '#B54708', borderLeft: '3px solid #B54708', paddingLeft: 10, marginTop: 14 }}>{runs}</p>
+    return <p style={{ fontSize: 13, color: '#B54708', marginTop: 14 }}>{runs}</p>
   }
   return <p>{runs}</p>
 }

@@ -262,7 +262,7 @@ function EstoppelRow({ r, onDeliver, onPatch, communityId, statusLabel }: any) {
     : <span style={chip(bizLeft != null && bizLeft <= 2 ? '#B54708' : '#175CD3')}>{t('admin.estoppel.chipDue', { date: r.due_at })}{bizLeft != null ? ` · ${t('admin.estoppel.bizDays', { count: bizLeft })}` : ''}</span>
 
   return (
-    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${overdue ? '#B42318' : '#cbd5e1'}`, borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
+    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 15 }}>{r.unit_label || '—'} <span style={{ opacity: 0.6, fontWeight: 500 }}>· {r.requestor_name || t('admin.estoppel.requestorFallback')}</span></div>

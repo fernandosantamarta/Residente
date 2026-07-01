@@ -4514,6 +4514,7 @@ export const en: Record<string, string> = {
   "admin.charges.colPeriod": "Period",
   "admin.charges.colDue": "Due date",
   "admin.charges.colResident": "Resident",
+  "admin.charges.colUnit": "Unit",
   "admin.charges.colAmount": "Amount",
   "admin.charges.colStatus": "Status",
   "admin.charges.unknownResident": "Unknown resident",

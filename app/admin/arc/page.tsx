@@ -370,7 +370,7 @@ export default function ArcPage() {
       {status === 'ready' && (
         <>
           {/* ---- Hurricane-protection specifications (FS 718.113(5) condo / 720.3035(6) HOA) ---- */}
-          <div className="card" style={{ borderLeft: `4px solid ${community?.hurricane_specs_adopted_at ? '#067647' : '#B54708'}` }}>
+          <div className="card">
             <div className="card-head"><div><h2>Hurricane-protection specifications</h2></div></div>
             <p style={{ fontSize: 12.5, opacity: 0.78, margin: '0 0 10px' }}>
               Florida law requires the board {isCondo ? '' : 'or architectural committee '}to adopt
@@ -604,7 +604,6 @@ function ArcRequestCard({
   return (
     <div style={{
       border: '1px solid rgba(0,0,0,0.08)',
-      borderLeft: `4px solid ${statusColor}`,
       borderRadius: 12,
       padding: '14px 16px',
       background: '#fff',

@@ -1241,7 +1241,7 @@ export default function AdminEasyDocs() {
                       const answered = !!r.responded_at
                       const overdue = !answered && due && due.getTime() < Date.now()
                       return (
-                        <div className="bd-row" key={r.id} style={overdue ? { borderLeft: '4px solid #B42318' } : undefined}>
+                        <div className="bd-row" key={r.id}>
                           <div className="bd-main">
                             <div className="bd-title">{r.subject || t('admin.documents.recordsRequestFallback')}</div>
                             <div className="bd-meta">

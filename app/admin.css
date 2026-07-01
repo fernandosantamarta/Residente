@@ -404,9 +404,7 @@
   background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px;
   font-size: 14px; color: var(--text-dim); line-height: 1.55;
 }
-.admin-note-warn { border-left: 3px solid var(--grad-warn); }
-.admin-note-err  { border-left: 3px solid #F47174; color: var(--text); }
-.admin-note-info { border-left: 3px solid #6B8EC4; }
+.admin-note-err  { color: var(--text); }
 
 .admin-form { margin-top: 28px; max-width: none; display: flex; flex-direction: column; gap: 18px; }
 .admin-field { display: flex; flex-direction: column; gap: 7px; }
@@ -479,6 +477,19 @@
   0%   { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.65); }
   70%  { box-shadow: 0 0 0 6px rgba(255, 255, 255, 0); }
   100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+}
+/* "Contact Residente" pill — quiet translucent chip at rest; solid navy with
+   white text on hover, and a visibly pressed (darker + sunken) state on click. */
+.admin-contact-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: 13px; font-weight: 700; color: #fff; text-decoration: none;
+  background: rgba(255, 255, 255, 0.16); border-radius: 999px; padding: 7px 15px;
+  transition: background 0.15s ease, transform 0.08s ease, box-shadow 0.15s ease;
+}
+.admin-contact-pill:hover { background: #0F1C2E; color: #fff; }
+.admin-contact-pill:active {
+  background: #060E19; transform: scale(0.95);
+  box-shadow: inset 0 2px 5px rgba(0, 0, 0, 0.45);
 }
 
 /* Collapsed "Resolved" summary bar in a closed conversation. Soft green, with a
@@ -1719,9 +1730,6 @@
    banners. White background kept (no tint) — severity is carried by the text /
    pill, not a stripe. */
 .cset .admin-note { border-radius: 18px; box-shadow: 0 1px 2px rgba(42, 18, 6, 0.05); }
-.cset .admin-note-info,
-.cset .admin-note-warn,
-.cset .admin-note-err { border-left: 1px solid var(--border); }
 
 /* Form fields sit flush inside cards (no max-width form column). */
 .cset .card .admin-field { margin-bottom: 18px; }
@@ -1908,10 +1916,10 @@
   background: rgba(225, 73, 9, 0.12); color: #B23A06; white-space: nowrap;
 }
 /* hero "lever" card — the do-this-first setup action stands apart from plain
-   white cards (warm tint + accent left-rail), matching the mock v2 treatment */
+   white cards via the warm tint alone. */
 .cset .card.lever {
   background: #FFF6EF;
-  box-shadow: inset 4px 0 0 #E14909, 0 1px 2px rgba(42, 18, 6, 0.05);
+  box-shadow: 0 1px 2px rgba(42, 18, 6, 0.05);
 }
 /* Archive table — mock columns: DOCUMENT · CATEGORY · UPLOADED · (actions). All
    columns left-aligned (unlike the budget .tbl which right-aligns numbers). */

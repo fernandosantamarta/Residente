@@ -9215,9 +9215,9 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
   padding: 16px; background: #FFFFFF;
   border: 1px solid rgba(15, 28, 46, 0.10); border-radius: 16px;
 }
-/* Board-curated vendors read as special: tinted left accent. */
+/* Board-curated vendors read as special: tinted border (plus their badge). */
 [data-theme="sketch"] .ven-vcard.is-preferred {
-  border-color: rgba(225, 73, 9, 0.30); border-left: 4px solid #E14909;
+  border-color: rgba(225, 73, 9, 0.30);
 }
 [data-theme="sketch"] .ven-vcard-top { display: flex; align-items: center; gap: 10px; }
 [data-theme="sketch"] .ven-vcard-icon {

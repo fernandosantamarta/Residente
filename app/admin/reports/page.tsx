@@ -720,12 +720,13 @@ export default function ReportsPage() {
                           caseId={collectionByOwner[r.id] || (r.profile_id ? collectionByOwner[`p:${r.profile_id}`] : undefined)}
                         />
                       </td>
+                      {/* Unit/address gets its own column; whole street addresses
+                          wrap onto extra lines instead of being clipped. */}
                       <td className="muted period-col">
-                    <span title={r.unit_number || r.address || ''}
-                      style={{ display: 'inline-block', maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}>
-                      {r.unit_number || r.address || '—'}
-                    </span>
-                  </td>
+                        <span style={{ display: 'inline-block', maxWidth: 220, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.35, verticalAlign: 'middle' }}>
+                          {r.unit_number || r.address || '—'}
+                        </span>
+                      </td>
                       <td className="due">
                         {fmt$(bal)}
                         {fee > 0 && <span className="behind-fee">{t('admin.reports.inclLateFee', { fee: fmtMoney(fee) })}</span>}
@@ -817,6 +818,7 @@ export default function ReportsPage() {
                     <th>{t('admin.charges.colPeriod')}</th>
                     <th className="period-col">{t('admin.charges.colDue')}</th>
                     <th>{t('admin.charges.colResident')}</th>
+                    <th className="period-col">{t('admin.charges.colUnit')}</th>
                     <th>{t('admin.charges.colAmount')}</th>
                     <th>{t('admin.charges.colStatus')}</th>
                   </tr>
@@ -827,17 +829,24 @@ export default function ReportsPage() {
                       onClick={() => setRowDetail({ title: c.residentName || t('admin.charges.unknownResident'), rows: [
                         { label: t('admin.charges.colPeriod'), value: periodLabel(c.billing_period_start) },
                         { label: t('admin.charges.colDue'), value: dateLabel(c.due_date) },
-                        { label: t('admin.charges.colResident'), value: (c.residentName || t('admin.charges.unknownResident')) + (c.residentUnit ? ' · ' + c.residentUnit : '') },
+                        { label: t('admin.charges.colResident'), value: c.residentName || t('admin.charges.unknownResident') },
+                        { label: t('admin.charges.colUnit'), value: c.residentUnit || '—' },
                         { label: t('admin.charges.colAmount'), value: fmtMoney(c.amount) },
                         { label: t('admin.charges.colStatus'), value: t(`admin.charges.status.${c.status}`) },
                       ] })}>
                       <td className="strong">{periodLabel(c.billing_period_start)}</td>
                       <td className="muted period-col">{dateLabel(c.due_date)}</td>
                       <td>
-                        <span title={`${c.residentName || ''}${c.residentUnit ? ' · ' + c.residentUnit : ''}`.trim()}
+                        <span title={c.residentName || ''}
                           style={{ display: 'inline-block', maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', verticalAlign: 'bottom' }}>
                           {c.residentName || t('admin.charges.unknownResident')}
-                          {c.residentUnit ? <span className="muted"> · {c.residentUnit}</span> : null}
+                        </span>
+                      </td>
+                      {/* Unit/address in its own column; whole street addresses
+                          wrap onto extra lines instead of being clipped. */}
+                      <td className="muted period-col">
+                        <span style={{ display: 'inline-block', maxWidth: 220, whiteSpace: 'normal', overflowWrap: 'anywhere', lineHeight: 1.35, verticalAlign: 'middle' }}>
+                          {c.residentUnit || '—'}
                         </span>
                       </td>
                       <td className="strong">{fmtMoney(c.amount)}</td>

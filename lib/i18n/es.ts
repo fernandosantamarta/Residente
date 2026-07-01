@@ -4202,6 +4202,7 @@ export const es: Record<string, string> = {
   "admin.charges.colPeriod": "Período",
   "admin.charges.colDue": "Vencimiento",
   "admin.charges.colResident": "Residente",
+  "admin.charges.colUnit": "Unidad",
   "admin.charges.colAmount": "Monto",
   "admin.charges.colStatus": "Estado",
   "admin.charges.unknownResident": "Residente desconocido",

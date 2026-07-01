@@ -394,7 +394,7 @@ function PolicyCard({
   const underBond = !isProperty && maxFunds && maxFunds > 0 && (Number(p.amount) || 0) < maxFunds
 
   return (
-    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${accent}`, borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
+    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 15 }}>

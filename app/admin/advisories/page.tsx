@@ -203,7 +203,7 @@ export default function AdvisoriesPage() {
               const meta = KIND_META[String(ev.kind) as ComplianceEventKind]
               const resolved = !!ev.resolved_at
               return (
-                <div key={ev.id} style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${resolved ? '#067647' : '#C2410C'}`, borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
+                <div key={ev.id} style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
                     <div>
                       <div style={{ fontWeight: 700, fontSize: 15 }}>{kindLabel[String(ev.kind) as ComplianceEventKind] || String(ev.kind)}</div>
@@ -288,7 +288,7 @@ export default function AdvisoriesPage() {
 
 function RefCard({ title, cite, children }: { title: string; cite: string; children: any }) {
   return (
-    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: '4px solid #C2410C', borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
+    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
       <div style={{ fontWeight: 700, fontSize: 14.5 }}>{title}</div>
       <div style={{ fontSize: 11.5, opacity: 0.45, fontFamily: 'monospace', margin: '2px 0 6px' }}>{cite}</div>
       <div style={{ fontSize: 12.5, opacity: 0.78 }}>{children}</div>

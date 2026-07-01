@@ -400,7 +400,7 @@ function DirectorCard({ d, regime, terms, certs, elig, onAddTerm, onAddCert, onS
   const overLimit = regime === 'condo' && years >= CONDO_TERM_LIMIT_YEARS.value
 
   return (
-    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderLeft: `4px solid ${overLimit ? '#B42318' : '#175CD3'}`, borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
+    <div style={{ border: '1px solid rgba(0,0,0,0.08)', borderRadius: 12, padding: '14px 16px', background: '#fff' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div>
           <div style={{ fontWeight: 700, fontSize: 15 }}>{d.full_name || t('admin.governance.directorFallback')}{d.board_position ? ` · ${d.board_position}` : ''}</div>
