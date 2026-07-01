@@ -2248,6 +2248,54 @@
   border: 1px solid rgba(181, 71, 8, 0.20);
 }
 
+/* The tag is now a button that opens a dropdown of each recorded notice + a
+   link into the owner's collection case (once escalated). Keep the pill look
+   from .behind-notified/.behind-unnotified; just make it act like a button. */
+.crep .behind-trail { position: relative; display: inline-block; }
+.crep .behind-trail-btn { cursor: pointer; font-family: inherit; }
+.crep .behind-trail-btn:hover { filter: brightness(0.97); }
+.crep .behind-trail-chev { width: 12px; height: 12px; margin-left: 1px; opacity: 0.72; transition: transform 0.15s ease; }
+.crep .behind-trail-chev.open { transform: rotate(180deg); }
+
+.crep .behind-trail-menu {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 60;
+  min-width: 236px; max-width: 300px;
+  background: #fff; border: 1px solid rgba(10, 36, 64, 0.12);
+  border-radius: 12px; box-shadow: 0 14px 40px -12px rgba(10, 36, 64, 0.35);
+  padding: 8px;
+}
+.crep .behind-trail-head {
+  font-size: 10.5px; font-weight: 800; letter-spacing: 0.6px; text-transform: uppercase;
+  color: #6b7a8d; padding: 4px 8px 7px;
+}
+.crep .behind-trail-empty { font-size: 12.5px; color: #6b7a8d; padding: 2px 8px 6px; font-weight: 500; }
+.crep .behind-trail-list { list-style: none; margin: 0; padding: 0; }
+.crep .behind-trail-row {
+  display: flex; align-items: center; gap: 9px;
+  padding: 6px 8px; font-size: 12.5px; color: #1f3a56; font-weight: 500;
+}
+.crep .behind-trail-row + .behind-trail-row { border-top: 1px solid rgba(10, 36, 64, 0.05); }
+.crep .behind-trail-dot { width: 6px; height: 6px; border-radius: 50%; background: #2f6b3d; flex-shrink: 0; }
+.crep .behind-trail-num { font-weight: 700; }
+.crep .behind-trail-date { margin-left: auto; color: #6b7a8d; font-weight: 600; }
+
+/* Collections link — only when the owner already has an open case. */
+.crep .behind-trail-collections {
+  display: flex; align-items: center; gap: 9px; margin-top: 8px;
+  padding: 9px 11px; border-radius: 9px; text-decoration: none;
+  background: rgba(181, 71, 8, 0.08); color: #92400e;
+  font-size: 12.5px; font-weight: 800;
+  border: 1px solid rgba(181, 71, 8, 0.18);
+  transition: background 0.14s ease;
+}
+.crep .behind-trail-collections:hover { background: rgba(181, 71, 8, 0.15); }
+.crep .behind-trail-coll-dot { width: 7px; height: 7px; border-radius: 50%; background: #d9480f; flex-shrink: 0; }
+.crep .behind-trail-arrow { margin-left: auto; font-weight: 800; }
+.crep .behind-trail-notcoll {
+  margin-top: 8px; padding: 8px 10px 2px; border-top: 1px solid rgba(10, 36, 64, 0.07);
+  font-size: 11.5px; color: #8a94a3; font-weight: 600;
+}
+
 /* Inline record-payment form, expanded under a household. */
 .crep .behind-payrow > td { background: rgba(42, 18, 6, 0.02); padding: 4px 12px 18px; }
 .crep .behind-payform { padding-top: 12px; }

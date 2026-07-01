@@ -48,6 +48,9 @@ const fmtNotified = (iso: string) => {
   try { return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) }
   catch { return '' }
 }
+// Collection-case stages that count as "in collections" (an open case) — mirrors
+// lib/violations.ts COLLECTION_OPEN_STAGES / compliance/collections.ts.
+const OPEN_CASE_STAGES = ['delinquent', 'notice_30', 'intent_to_lien', 'lien_recorded', 'intent_to_foreclose', 'foreclosure']
 
 // A payment's effective date: the recorded paid_on, else the row's created_at.
 const payDate = (p: any) => (p.paid_on || (p.created_at ? String(p.created_at).slice(0, 10) : '')) as string
@@ -124,10 +127,13 @@ export default function ReportsPage() {
   // while that round-trip is in flight so the button can show "Reading…".
   const [balBusy, setBalBusy] = useState(false)
   const [remindMsg, setRemindMsg] = useState('')
-  // Last-notified history per owner (from the ev_audit_log payment.reminder_sent
-  // trail), so the board can see who they've already sent a pre-collection notice
-  // to — and how many — before escalating to a collection case.
-  const [remindHistory, setRemindHistory] = useState<Record<string, { count: number; last: string }>>({})
+  // Per-owner pre-collection notify trail (from the ev_audit_log
+  // payment.reminder_sent events) — an array of sent timestamps, newest first,
+  // so the dropdown can list each notice. And which owners already have an open
+  // collection case (resident_id / p:profile_id → caseId) so the trail can link
+  // straight to Compliance → Collections.
+  const [remindHistory, setRemindHistory] = useState<Record<string, string[]>>({})
+  const [collectionByOwner, setCollectionByOwner] = useState<Record<string, string>>({})
   const [behindPage, setBehindPage] = useState(0)
   const [assessmentsPage, setAssessmentsPage] = useState(0)
   const BEHIND_SIZE = 12
@@ -189,22 +195,33 @@ export default function ReportsPage() {
       ])) as any
       setPayments(pay || []); setExpenses(exp || []); setResidents(res || []); setCats(bc || []); setCommunity(com || null)
       setStatus('ready')
-      // Best-effort: the pre-collection notify trail. Isolated so a failed audit
-      // read never blocks the money data above.
+      // Best-effort: the pre-collection notify trail + who's already in
+      // collections. Isolated so a failed read never blocks the money data above.
       try {
-        const { data: reminders } = await supabase!.from('ev_audit_log')
-          .select('target_id, created_at')
-          .eq('community_id', communityId)
-          .eq('event_type', 'payment.reminder_sent')
-          .order('created_at', { ascending: false })
-        const hist: Record<string, { count: number; last: string }> = {}
+        const [{ data: reminders }, { data: cases }] = await Promise.all([
+          supabase!.from('ev_audit_log')
+            .select('target_id, created_at')
+            .eq('community_id', communityId)
+            .eq('event_type', 'payment.reminder_sent')
+            .order('created_at', { ascending: false }),
+          supabase!.from('ev_collection_cases')
+            .select('id, resident_id, profile_id, stage')
+            .eq('community_id', communityId)
+            .in('stage', OPEN_CASE_STAGES),
+        ])
+        const hist: Record<string, string[]> = {}
         for (const row of (reminders as any[] | null) || []) {
           if (!row.target_id) continue
-          if (!hist[row.target_id]) hist[row.target_id] = { count: 0, last: row.created_at }
-          hist[row.target_id].count += 1
+          ;(hist[row.target_id] ||= []).push(row.created_at)   // already newest-first
         }
         setRemindHistory(hist)
-      } catch { /* the tag just won't show prior history */ }
+        const byOwner: Record<string, string> = {}
+        for (const c of (cases as any[] | null) || []) {
+          if (c.resident_id) byOwner[c.resident_id] = c.id
+          if (c.profile_id) byOwner[`p:${c.profile_id}`] = c.id
+        }
+        setCollectionByOwner(byOwner)
+      } catch { /* the trail just won't show prior history / collections link */ }
     } catch (err: any) {
       setError(err?.message || t('admin.reports.errorLoadData')); setStatus('error')
     }
@@ -354,10 +371,7 @@ export default function ReportsPage() {
       if (error) throw error
       logAudit({ community_id: communityId, event_type: 'payment.reminder_sent', target_type: 'resident', target_id: resident.id, metadata: { balance: bal, fee } })
       // Reflect the new notice on the row immediately (the audit read is async).
-      setRemindHistory(h => {
-        const prev = h[resident.id]
-        return { ...h, [resident.id]: { count: (prev?.count || 0) + 1, last: new Date().toISOString() } }
-      })
+      setRemindHistory(h => ({ ...h, [resident.id]: [new Date().toISOString(), ...(h[resident.id] || [])] }))
       setRemindMsg(t('admin.reports.reminderSent', { name: resident.full_name || t('admin.reports.residentFallback') }))
     } catch (e: any) {
       setRemindMsg(e?.message || t('admin.reports.reminderError'))
@@ -698,23 +712,13 @@ export default function ReportsPage() {
                       ] })}>
                       <td className="strong">
                         {r.full_name || t('admin.reports.residentFallback')}
-                        {/* Pre-collection notify trail: when/how many times this
-                            owner has been sent a recorded notice. */}
-                        {(() => {
-                          const h = remindHistory[r.id]
-                          return h ? (
-                            <span className="behind-notified" title={t('admin.reports.notifiedTitle')}>
-                              <span className="behind-notified-dot" aria-hidden="true" />
-                              {h.count > 1
-                                ? t('admin.reports.notifiedMulti', { count: h.count, date: fmtNotified(h.last) })
-                                : t('admin.reports.notifiedOnce', { date: fmtNotified(h.last) })}
-                            </span>
-                          ) : (
-                            <span className="behind-unnotified" title={t('admin.reports.unnotifiedTitle')}>
-                              {t('admin.reports.notNotified')}
-                            </span>
-                          )
-                        })()}
+                        {/* Pre-collection notify trail: a dropdown listing each
+                            recorded notice, plus a link into the owner's
+                            collection case once they've been escalated. */}
+                        <NotifyTrail
+                          dates={remindHistory[r.id]}
+                          caseId={collectionByOwner[r.id] || (r.profile_id ? collectionByOwner[`p:${r.profile_id}`] : undefined)}
+                        />
                       </td>
                       <td className="muted period-col">
                     <span title={r.unit_number || r.address || ''}
@@ -876,5 +880,77 @@ export default function ReportsPage() {
         </div>
       )}
     </div>
+  )
+}
+
+// The pre-collection notify trail as a dropdown: the pill summarises (count +
+// last date, or "No notice sent yet"), and clicking it opens a list of every
+// recorded notice. If the owner already has an open collection case, the trail
+// ends with a link straight to Compliance → Collections.
+function NotifyTrail({ dates, caseId }: { dates?: string[]; caseId?: string }) {
+  const t = useT()
+  const [open, setOpen] = useState(false)
+  const wrapRef = useRef<HTMLSpanElement>(null)
+  const list = dates || []
+  const count = list.length
+
+  useEffect(() => {
+    if (!open) return
+    const onDoc = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('click', onDoc)
+    return () => document.removeEventListener('click', onDoc)
+  }, [open])
+
+  const label = count === 0
+    ? t('admin.reports.notNotified')
+    : count > 1
+      ? t('admin.reports.notifiedMulti', { count, date: fmtNotified(list[0]) })
+      : t('admin.reports.notifiedOnce', { date: fmtNotified(list[0]) })
+
+  return (
+    <span className="behind-trail" ref={wrapRef}>
+      <button
+        type="button"
+        className={`behind-trail-btn ${count > 0 ? 'behind-notified' : 'behind-unnotified'}`}
+        onClick={(e) => { e.stopPropagation(); setOpen(o => !o) }}
+        aria-expanded={open}
+        title={count > 0 ? t('admin.reports.notifiedTitle') : t('admin.reports.unnotifiedTitle')}
+      >
+        {count > 0 && <span className="behind-notified-dot" aria-hidden="true" />}
+        {label}
+        <svg className={`behind-trail-chev${open ? ' open' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <div className="behind-trail-menu" role="menu" onClick={(e) => e.stopPropagation()}>
+          <div className="behind-trail-head">{t('admin.reports.trailHead')}</div>
+          {count === 0 ? (
+            <div className="behind-trail-empty">{t('admin.reports.trailEmpty')}</div>
+          ) : (
+            <ul className="behind-trail-list">
+              {list.map((d, i) => (
+                <li key={i} className="behind-trail-row">
+                  <span className="behind-trail-dot" aria-hidden="true" />
+                  <span className="behind-trail-num">{t('admin.reports.trailNoticeN', { n: count - i })}</span>
+                  <span className="behind-trail-date">{fmtNotified(d)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {caseId ? (
+            <Link href={`/admin/collections/${caseId}`} className="behind-trail-collections" onClick={() => setOpen(false)}>
+              <span className="behind-trail-coll-dot" aria-hidden="true" />
+              <span>{t('admin.reports.trailInCollections')}</span>
+              <span className="behind-trail-arrow" aria-hidden="true">→</span>
+            </Link>
+          ) : (
+            <div className="behind-trail-notcoll">{t('admin.reports.trailNotInCollections')}</div>
+          )}
+        </div>
+      )}
+    </span>
   )
 }
