@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { PaySection } from './_sections/PaySection'
+import { ViolationsSection } from './_sections/ViolationsSection'
 import { VendorSection } from './_sections/VendorSection'
 import { ReportsSection } from './_sections/ReportsSection'
 // Phone (<=767px) variants — today's simplified layouts (Pay rows, slim Vendors /
@@ -32,10 +33,20 @@ export default function EasyTrack() {
     if (!residentLoading && isTenant) router.replace('/app')
   }, [isTenant, residentLoading, router])
 
+  // Open the tab named in the URL hash (#pay/#violations/#vendor/#reports); a
+  // fine-payment return (?fine_paid=1) lands on Violations.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (new URLSearchParams(window.location.search).has('fine_paid')) { setTab('violations'); return }
+    const h = window.location.hash.replace('#', '')
+    if (['pay', 'violations', 'vendor', 'reports'].includes(h)) setTab(h)
+  }, [])
+
   const TABS: SegTab[] = [
-    { id: 'pay',     label: t('pay.tabPay') },
-    { id: 'vendor',  label: t('pay.tabVendors') },
-    { id: 'reports', label: t('pay.tabReports') },
+    { id: 'pay',        label: t('pay.tabPay') },
+    { id: 'violations', label: t('pay.tabViolations') },
+    { id: 'vendor',     label: t('pay.tabVendors') },
+    { id: 'reports',    label: t('pay.tabReports') },
   ]
 
   return (
@@ -55,6 +66,7 @@ export default function EasyTrack() {
         <div className="rsv-web"><PaySection /></div>
         <div className="rsv-mob"><PaySectionMobile /></div>
       </>)}
+      {tab === 'violations' && <ViolationsSection />}
       {tab === 'vendor' && (<>
         <div className="rsv-web"><VendorSection /></div>
         <div className="rsv-mob"><VendorSectionMobile /></div>

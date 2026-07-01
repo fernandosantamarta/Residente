@@ -167,10 +167,10 @@ export default function EasyDocs() {
   const communityName = community?.name || 'Sunset Lakes'
   const chipsPerPage = useChipsPerPage()
 
+  // My Violations moved to Easy Track (Pay · Violations · Vendors · Reports).
   const DOC_TABS: SegTab[] = [
     { id: 'documents',  label: t('documents.tabDocuments') },
     { id: 'rules',      label: t('documents.tabRules') },
-    { id: 'violations', label: 'My Violations' },
   ]
 
   // Which section is showing. The segmented control switches between them;
@@ -182,15 +182,15 @@ export default function EasyDocs() {
   // Honor the URL hash (#rules / #documents / #violations) so deep links and the
   // "Back to My Violations" link from /app/enforcement open the right tab.
   useEffect(() => {
-    const ids = ['rules', 'documents', 'violations']
+    const ids = ['rules', 'documents']
     const fromHash = () => {
       const h = window.location.hash.replace('#', '')
       if (ids.includes(h)) setTab(h)
     }
-    // Returning from a fine payment (Stripe success_url carries ?fine_paid=1)
-    // lands on My Violations, not the default Rules tab.
+    // A fine-payment return (?fine_paid=1#violations) now belongs to Easy Track.
     if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('fine_paid')) {
-      setTab('violations')
+      window.location.replace('/app/track?fine_paid=1#violations')
+      return
     }
     fromHash()
     window.addEventListener('hashchange', fromHash)
@@ -895,54 +895,7 @@ export default function EasyDocs() {
       </section>
       )}
 
-      {/* ════════════════════════════════════════════════════════════════
-          MY VIOLATIONS SECTION — the resident's own violations & fines
-          (alongside Rules), with a link to the full enforcement view
-          (hearings + voting/use-rights suspensions) at /app/enforcement.
-      ════════════════════════════════════════════════════════════════ */}
-      {tab === 'violations' && (
-      <section id="easydocs-violations" style={{ scrollMarginTop: 56 }}>
-        <div className="rb-wrap">
-          {/* Enforcement summary — moved here from the Rules tab. */}
-          <section className="rb-vi" style={{ marginBottom: 18 }}>
-            <div className="rb-vi-head">
-              <h2>{t('documents.violationsTitlePre')} <span className="rb-amp">&amp;</span> {t('documents.violationsTitlePost')}</h2>
-              <span className="rb-vi-sub">{t('documents.violationsSub')}</span>
-            </div>
-            <div className="rb-vi-stats">
-              <div className="rb-vi-stat">
-                <div className="rb-vi-stat-n">{fmtNum(violations.warnings)}</div>
-                <div className="rb-vi-stat-l">{t('documents.statWarningsLabel')}</div>
-                <div className="rb-vi-stat-d">{t('documents.statWarningsDesc')}</div>
-              </div>
-              <div className="rb-vi-stat">
-                <div className="rb-vi-stat-n">{fmtMoney(violationsList.length ? finesIssued : violations.fines)}</div>
-                <div className="rb-vi-stat-l">{t('documents.statFinesIssuedLabel')}</div>
-                <div className="rb-vi-stat-d">{t('documents.statFinesIssuedDesc')}</div>
-              </div>
-              <div className="rb-vi-stat">
-                <div className="rb-vi-stat-n">{fmtNum(violations.resolved)}</div>
-                <div className="rb-vi-stat-l">{t('documents.statResolvedLabel')}</div>
-                <div className="rb-vi-stat-d">{t('documents.statResolvedDesc')}</div>
-              </div>
-              <div className="rb-vi-stat">
-                <div className="rb-vi-stat-n">{fmtNum(violations.appeals)}</div>
-                <div className="rb-vi-stat-l">{t('documents.statAppealsLabel')}</div>
-                <div className="rb-vi-stat-d">{t('documents.statAppealsDesc')}</div>
-              </div>
-            </div>
-          </section>
-          <MyViolationsPanel />
-          <Link href="/app/enforcement" className="myv-link">
-            <span className="myv-link-body">
-              <span className="myv-link-title">Hearings &amp; suspensions</span>
-              <span className="myv-link-sub">See any hearing on a proposed fine, and any voting or use-rights suspension on your account.</span>
-            </span>
-            <span className="myv-link-open">Open &rarr;</span>
-          </Link>
-        </div>
-      </section>
-      )}
+      {/* My Violations moved to Easy Track (/app/track → Violations tab). */}
 
       {/* A single document — detail in place. */}
       {docDetail && (
