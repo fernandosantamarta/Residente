@@ -282,6 +282,8 @@ export const en: Record<string, string> = {
   "documents.statAppealsLabel": "Appeals",
   "documents.statFinesDesc": "Returned to the community reserve.",
   "documents.statFinesLabel": "Fines collected",
+  "documents.statFinesIssuedLabel": "Fines issued",
+  "documents.statFinesIssuedDesc": "Total you've been fined.",
   "documents.statResolvedDesc": "Closed within 30 days.",
   "documents.statResolvedLabel": "Resolved",
   "documents.statusClosed": "Closed",

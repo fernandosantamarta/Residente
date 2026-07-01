@@ -267,6 +267,12 @@ export default function EasyDocs() {
     () => (violationsList.length === 0 && usingDemoRules ? DEMO_VIOLATION_STATS : computeStats(violationsList)),
     [violationsList, usingDemoRules],
   )
+  // Total dollars FINED to the resident (issued), not just what's been collected —
+  // more meaningful for someone viewing their own violations.
+  const finesIssued = useMemo(
+    () => violationsList.reduce((s, v) => s + (v.kind === 'fine' ? Number(v.amount) || 0 : 0), 0),
+    [violationsList],
+  )
 
   // ── Documents state ──────────────────────────────────────────────────────
   const { documents, loading: docLoading } = useDocuments() as { documents: any[]; loading: boolean }
@@ -910,9 +916,9 @@ export default function EasyDocs() {
                 <div className="rb-vi-stat-d">{t('documents.statWarningsDesc')}</div>
               </div>
               <div className="rb-vi-stat">
-                <div className="rb-vi-stat-n">{fmtMoney(violations.fines)}</div>
-                <div className="rb-vi-stat-l">{t('documents.statFinesLabel')}</div>
-                <div className="rb-vi-stat-d">{t('documents.statFinesDesc')}</div>
+                <div className="rb-vi-stat-n">{fmtMoney(violationsList.length ? finesIssued : violations.fines)}</div>
+                <div className="rb-vi-stat-l">{t('documents.statFinesIssuedLabel')}</div>
+                <div className="rb-vi-stat-d">{t('documents.statFinesIssuedDesc')}</div>
               </div>
               <div className="rb-vi-stat">
                 <div className="rb-vi-stat-n">{fmtNum(violations.resolved)}</div>
