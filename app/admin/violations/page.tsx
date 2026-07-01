@@ -95,7 +95,7 @@ export default function AdminViolations() {
   const t = useT()
   const router = useRouter()
   const { profile } = useAuth() || {}
-  const { violations: list, addViolation, deleteAll } = useViolationsAdmin()
+  const { violations: list, addViolation, deleteAll, reload } = useViolationsAdmin()
   const rules = useRulesData()
   const residents = useCommunityResidents()
 
@@ -172,7 +172,7 @@ export default function AdminViolations() {
   }
 
   const remove = async (id: string) => {
-    try { await removeStoredViolation(id) }
+    try { await removeStoredViolation(id); reload() }
     catch (err: any) { setError(err?.message || t('admin.violations.errorCouldNotRemove')) }
   }
 
@@ -262,7 +262,7 @@ export default function AdminViolations() {
           <>
             <div className="bd-list">
               {visible.map((v: Violation) => (
-                <ViolationRow key={v.id} v={v} onRemove={() => remove(v.id)} onSendToCollections={() => sendToCollections(v)} sending={sendingId === v.id} />
+                <ViolationRow key={v.id} v={v} onRemove={() => remove(v.id)} onSendToCollections={() => sendToCollections(v)} sending={sendingId === v.id} reload={reload} />
               ))}
             </div>
             <Pagination
@@ -454,7 +454,7 @@ function overdueDays(v: Violation): number {
   return Math.max(0, Math.floor((Date.now() - due) / 86400000))
 }
 
-function ViolationRow({ v, onRemove, onSendToCollections, sending }: { v: Violation; onRemove: () => void; onSendToCollections: () => void; sending: boolean }) {
+function ViolationRow({ v, onRemove, onSendToCollections, sending, reload }: { v: Violation; onRemove: () => void; onSendToCollections: () => void; sending: boolean; reload: () => void }) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const [overrideOpen, setOverrideOpen] = useState(false)
@@ -510,7 +510,7 @@ function ViolationRow({ v, onRemove, onSendToCollections, sending }: { v: Violat
           {/* Actions — only what's relevant for this row's state.
               The Stripe-driven happy path needs zero clicks; this
               section is appeals, warnings, and exceptions. */}
-          <RowActions v={v} overrideOpen={overrideOpen} setOverrideOpen={setOverrideOpen} onSendToCollections={onSendToCollections} sending={sending} />
+          <RowActions v={v} overrideOpen={overrideOpen} setOverrideOpen={setOverrideOpen} onSendToCollections={onSendToCollections} sending={sending} reload={reload} />
         </div>
       )}
       <button type="button" className="bc-del" onClick={(e) => { e.stopPropagation(); onRemove() }}
@@ -525,17 +525,22 @@ function RowActions({
   setOverrideOpen,
   onSendToCollections,
   sending,
+  reload,
 }: {
   v: Violation
   overrideOpen: boolean
   setOverrideOpen: (b: boolean) => void
   onSendToCollections: () => void
   sending: boolean
+  reload: () => void
 }) {
   const t = useT()
   const isFine = v.kind === 'fine'
   const [denyOpen, setDenyOpen] = useState(false)
   const [denyReason, setDenyReason] = useState('')
+  // Mutations rely on this to refresh the list (realtime isn't wired for
+  // ev_violations, so the row wouldn't update until a manual page refresh).
+  const withReload = (p: Promise<any> | void) => Promise.resolve(p).then(() => reload())
 
   if (v.status === 'closed') {
     return (
@@ -546,7 +551,7 @@ function RowActions({
           {v.resolution === 'waived'      && t('admin.violations.closedWaived')}
           {v.resolution === 'dismissed'   && t('admin.violations.closedDismissed')}
         </span>
-        <button type="button" className="admin-btn-ghost" onClick={() => reopen(v.id)}>
+        <button type="button" className="admin-btn-ghost" onClick={() => withReload(reopen(v.id))}>
           {t('admin.violations.btnReopen')}
         </button>
       </div>
@@ -564,7 +569,7 @@ function RowActions({
           <textarea className="admin-input" rows={2} value={denyReason} placeholder={t('admin.violations.denyReasonPlaceholder')} onChange={e => setDenyReason(e.target.value)} />
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button type="button" className="admin-btn-ghost" onClick={() => { setDenyOpen(false); setDenyReason('') }}>{t('admin.documents.cancelBtn')}</button>
-            <button type="button" className="admin-primary-btn" disabled={!denyReason.trim()} onClick={async () => { await decideDispute(v.id, 'upheld', denyReason.trim()); setDenyOpen(false); setDenyReason('') }}>{t('admin.violations.denyAppealConfirm')}</button>
+            <button type="button" className="admin-primary-btn" disabled={!denyReason.trim()} onClick={async () => { await decideDispute(v.id, 'upheld', denyReason.trim()); setDenyOpen(false); setDenyReason(''); reload() }}>{t('admin.violations.denyAppealConfirm')}</button>
           </div>
         </div>
       )
@@ -576,11 +581,11 @@ function RowActions({
             ? t('admin.violations.appealedFinNote')
             : t('admin.violations.appealedWarningNote')}
         </span>
-        <button type="button" className="admin-btn" onClick={() => (isFine ? setDenyOpen(true) : reopen(v.id))}>
+        <button type="button" className="admin-btn" onClick={() => (isFine ? setDenyOpen(true) : withReload(reopen(v.id)))}>
           {t('admin.violations.btnDenyAppeal')}
         </button>
         {isFine && (
-          <button type="button" className="admin-btn-ghost" onClick={() => waive(v.id)}>
+          <button type="button" className="admin-btn-ghost" onClick={() => withReload(waive(v.id))}>
             {t('admin.violations.btnSideWithResident')}
           </button>
         )}
@@ -596,13 +601,13 @@ function RowActions({
           {t('admin.violations.openFineNote')}
         </span>
       ) : (
-        <button type="button" className="admin-btn" onClick={() => dismiss(v.id)}>
+        <button type="button" className="admin-btn" onClick={() => withReload(dismiss(v.id))}>
           {t('admin.violations.btnDismissWarning')}
         </button>
       )}
       {/* No re-appeal once a dispute has been decided (upheld/dismissed/reduced). */}
       {!v.dispute_status && (
-        <button type="button" className="admin-btn-ghost" onClick={() => appeal(v.id)}>
+        <button type="button" className="admin-btn-ghost" onClick={() => withReload(appeal(v.id))}>
           {t('admin.violations.btnOpenAppeal')}
         </button>
       )}
@@ -625,17 +630,17 @@ function RowActions({
           {overrideOpen && (
             <div className="admin-vi-override-menu" role="menu">
               <button type="button" role="menuitem" className="admin-vi-override-item"
-                onClick={() => { markManualPaid(v.id); setOverrideOpen(false) }}>
+                onClick={() => { withReload(markManualPaid(v.id)); setOverrideOpen(false) }}>
                 <strong>{t('admin.violations.overrideMarkPaid')}</strong>
                 <span>{t('admin.violations.overrideMarkPaidDesc')}</span>
               </button>
               <button type="button" role="menuitem" className="admin-vi-override-item"
-                onClick={() => { waive(v.id); setOverrideOpen(false) }}>
+                onClick={() => { withReload(waive(v.id)); setOverrideOpen(false) }}>
                 <strong>{t('admin.violations.overrideWaive')}</strong>
                 <span>{t('admin.violations.overrideWaiveDesc')}</span>
               </button>
               <button type="button" role="menuitem" className="admin-vi-override-item"
-                onClick={() => { markStripePaid(v.id); setOverrideOpen(false) }}>
+                onClick={() => { withReload(markStripePaid(v.id)); setOverrideOpen(false) }}>
                 <strong>{t('admin.violations.overrideSimulateStripe')}</strong>
                 <span>{t('admin.violations.overrideSimulateStripeDesc')}</span>
               </button>
