@@ -951,47 +951,42 @@ function FinesDueCard() {
       <div style={{ padding: '12px 16px 14px' }}>
         {error && <div className="pay-err">{error}</div>}
         <div className="pay-fines-list">
-          {payable.map(v => (
-            <div key={v.id} className="pay-fine-row">
-              {/* One compact row: title/date left, amount + Pay + Dispute right. */}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
-                <div className="pay-fine-info">
-                  <div className="pay-fine-title">{v.rule_title || t('pay.fineGeneric')}</div>
-                  <div className="pay-fine-meta">{t('pay.dueOn', { date: fmtDate(v.due_at || fineDueDate(v.opened_at)) })}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-                  {allFines.length > 1 && <div className="pay-fine-amt">{fmtMoney(v.amount)}</div>}
-                  <button
-                    type="button"
-                    className="pay-cta-primary pay-fine-pay"
-                    disabled={payingId === v.id}
-                    onClick={() => onPay(v.id)}
-                  >
-                    {payingId === v.id ? t('pay.startingCheckout') : t('pay.payNow')}
-                  </button>
-                  <ContestFineControl violation={v} className="pay-cta-secondary pay-fine-contest" />
-                </div>
-              </div>
-              {v.notes && <p className="pay-fine-note" style={{ marginTop: 8 }}>{v.notes}</p>}
-            </div>
-          ))}
-          {review.map(v => (
-            <div key={v.id} className="pay-fine-row">
-              <div className="pay-fine-head">
-                <div className="pay-fine-info">
-                  <div className="pay-fine-title">{v.rule_title || t('pay.fineGeneric')}</div>
-                  <div className="pay-fine-meta">{t('pay.dueOn', { date: fmtDate(v.due_at || fineDueDate(v.opened_at)) })}</div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                  {allFines.length > 1 && <span className="pay-fine-amt" style={{ opacity: 0.7 }}>{fmtMoney(v.amount)}</span>}
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#B54708', background: 'rgba(181,71,8,0.10)', border: '1px solid rgba(181,71,8,0.25)', padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap' }}>{t('pay.fineUnderReview')}</span>
+          {[...payable, ...review].map(v => {
+            const underReviewRow = isReview(v)
+            return (
+              <div key={v.id} className="pay-fine-row">
+                {/* Uniform row: title + amount, then a meta line; action right. */}
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
+                  <div className="pay-fine-info">
+                    <div className="pay-fine-title" style={{ display: 'flex', alignItems: 'baseline', gap: 9, flexWrap: 'wrap' }}>
+                      <span>{v.rule_title || t('pay.fineGeneric')}</span>
+                      {allFines.length > 1 && <span style={{ fontWeight: 800, color: '#1F2233' }}>{fmtMoney(v.amount)}</span>}
+                    </div>
+                    <div className="pay-fine-meta">
+                      {underReviewRow ? t('pay.fineUnderReviewMeta') : t('pay.dueOn', { date: fmtDate(v.due_at || fineDueDate(v.opened_at)) })}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                    {underReviewRow ? (
+                      <span style={{ fontSize: 11, fontWeight: 700, color: '#B54708', background: 'rgba(181,71,8,0.10)', border: '1px solid rgba(181,71,8,0.25)', padding: '5px 11px', borderRadius: 999, whiteSpace: 'nowrap' }}>{t('pay.fineUnderReview')}</span>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          className="pay-cta-primary pay-fine-pay"
+                          disabled={payingId === v.id}
+                          onClick={() => onPay(v.id)}
+                        >
+                          {payingId === v.id ? t('pay.startingCheckout') : t('pay.payNow')}
+                        </button>
+                        <ContestFineControl violation={v} className="pay-cta-secondary pay-fine-contest" />
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
-              <div className="pay-fine-foot">
-                <p className="pay-fine-note" style={{ fontStyle: 'italic', opacity: 0.85 }}>{t('pay.fineUnderReviewNote')}</p>
-              </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </section>
