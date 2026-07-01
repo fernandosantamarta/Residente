@@ -577,21 +577,23 @@ function RowActions({
       )
     }
     return (
-      <div className="admin-vi-actions">
-        <span className="admin-vi-closed-note" style={{ color: '#B54708', fontStyle: 'normal', fontWeight: 600 }}>
+      <div style={{ marginTop: 14, paddingTop: 12, borderTop: '1px dashed rgba(15,28,46,0.10)' }}>
+        <div style={{ fontSize: 12.5, color: '#B54708', fontWeight: 600, marginBottom: 10 }}>
           {isFine
             ? t('admin.violations.appealedFinNote')
             : t('admin.violations.appealedWarningNote')}
-        </span>
-        {/* Deny is the primary (orange filled) action, widened; Side-with stays ghost. */}
-        <button type="button" className="admin-primary-btn" style={{ minWidth: 210 }} onClick={() => (isFine ? setDenyOpen(true) : withReload(reopen(v.id)))}>
-          {t('admin.violations.btnDenyAppeal')}
-        </button>
-        {isFine && (
-          <button type="button" className="admin-btn-ghost" onClick={() => withReload(waive(v.id))}>
-            {t('admin.violations.btnSideWithResident')}
+        </div>
+        {/* Buttons stretch to fill the full section width (flex:1), equal size. */}
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <button type="button" className="admin-primary-btn" style={{ flex: '1 1 200px' }} onClick={() => (isFine ? setDenyOpen(true) : withReload(reopen(v.id)))}>
+            {t('admin.violations.btnDenyAppeal')}
           </button>
-        )}
+          {isFine && (
+            <button type="button" className="admin-btn-ghost" style={{ flex: '1 1 200px' }} onClick={() => withReload(waive(v.id))}>
+              {t('admin.violations.btnSideWithResident')}
+            </button>
+          )}
+        </div>
       </div>
     )
   }
