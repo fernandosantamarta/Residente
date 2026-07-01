@@ -45,6 +45,7 @@ export function PastDueBanner({ context = 'home' }: { context?: 'home' | 'pay' }
       {context === 'home' && (
         <Link
           href="/app/track#pay"
+          className="pastdue-cta"
           style={{
             flexShrink: 0, display: 'inline-flex', alignItems: 'center', gap: 8,
             background: '#fff', color: '#C43C06', textDecoration: 'none',

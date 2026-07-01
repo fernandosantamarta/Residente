@@ -3807,6 +3807,11 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
    show, and neutralize dash-row1's -160px pull-up so it can't overlap. */
 .pastdue-band { margin: 0; }
 .pastdue-pay { margin-bottom: 16px; }
+/* "Pay now" pill — same colors, just a brightness shift on hover/press like the
+   other buttons (the white pill darkens slightly). */
+.pastdue-cta { transition: filter 0.14s ease; }
+.pastdue-cta:hover { filter: brightness(0.93); }
+.pastdue-cta:active { filter: brightness(0.87); }
 [data-theme="sketch"] .pastdue-home { margin-top: 96px; margin-bottom: 0; }
 [data-theme="sketch"] .open-votes-band + .pastdue-home { margin-top: 16px; }
 [data-theme="sketch"] .pastdue-home + .dash-row1 { margin-top: 16px; }
