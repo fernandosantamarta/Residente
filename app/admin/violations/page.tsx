@@ -206,6 +206,7 @@ export default function AdminViolations() {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 12, margin: '4px 0 18px' }}>
         {[
           { v: fmtNum(stats.warnings), l: t('admin.violations.statWarningsIssued') },
+          { v: fmtNum(stats.finesCount), l: t('admin.violations.statFinesIssuedCount') },
           { v: fmtMoney(stats.outstanding), l: t('admin.violations.statFinesOutstanding') },
           { v: fmtMoney(stats.fines),  l: t('admin.violations.statFinesCollected') },
           { v: fmtNum(stats.resolved), l: t('admin.violations.statResolved') },
@@ -599,11 +600,12 @@ function RowActions({
   // status === 'open'
   return (
     <div className="admin-vi-actions">
-      {isFine ? (
-        <span className="admin-vi-closed-note">
-          {t('admin.violations.openFineNote')}
-        </span>
-      ) : (
+      {/* A note on the left (fine or warning) keeps the buttons consistently
+          pushed to the right in every state — no more left/right jump. */}
+      <span className="admin-vi-closed-note">
+        {isFine ? t('admin.violations.openFineNote') : t('admin.violations.openWarningNote')}
+      </span>
+      {!isFine && (
         <button type="button" className="admin-btn" onClick={() => withReload(dismiss(v.id))}>
           {t('admin.violations.btnDismissWarning')}
         </button>

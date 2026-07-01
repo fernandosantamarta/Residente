@@ -167,10 +167,11 @@ export async function sendFineToCollections(opts: {
 
 // Derived headline stats for the resident strip (unchanged contract).
 export function computeStats(list: Violation[]) {
-  let warnings = 0, fines_collected = 0, outstanding = 0, issued = 0, resolved = 0, appeals = 0
+  let warnings = 0, fines_collected = 0, outstanding = 0, issued = 0, finesCount = 0, resolved = 0, appeals = 0
   for (const v of list) {
     if (v.kind === 'warning') warnings++
     if (v.kind === 'fine') {
+      finesCount++
       const amt = Number(v.amount) || 0
       issued += amt
       if (v.resolution === 'stripe-paid' || v.resolution === 'manual-paid') fines_collected += amt
@@ -179,7 +180,7 @@ export function computeStats(list: Violation[]) {
     if (v.status === 'closed') resolved++
     if (v.status === 'appealed') appeals++
   }
-  return { warnings, fines: fines_collected, outstanding, issued, resolved, appeals }
+  return { warnings, fines: fines_collected, outstanding, issued, finesCount, resolved, appeals }
 }
 
 // ---------- core fetch (realtime) ----------
