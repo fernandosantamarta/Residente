@@ -948,7 +948,7 @@ function FinesDueCard() {
         </div>
         <div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.05, whiteSpace: 'nowrap' }}>{fmtMoney(totalFines)}</div>
       </div>
-      <div style={{ padding: '12px 16px 14px' }}>
+      <div style={{ padding: '2px 16px 12px' }}>
         {error && <div className="pay-err">{error}</div>}
         <div className="pay-fines-list">
           {[...payable, ...review].map(v => {
@@ -960,7 +960,7 @@ function FinesDueCard() {
                   <div className="pay-fine-info">
                     <div className="pay-fine-title" style={{ display: 'flex', alignItems: 'baseline', gap: 9, flexWrap: 'wrap' }}>
                       <span>{v.rule_title || t('pay.fineGeneric')}</span>
-                      {allFines.length > 1 && <span style={{ fontWeight: 800, color: '#1F2233' }}>{fmtMoney(v.amount)}</span>}
+                      {allFines.length > 1 && <span style={{ fontWeight: 800, color: '#DC6803' }}>{fmtMoney(v.amount)}</span>}
                     </div>
                     <div className="pay-fine-meta">
                       {underReviewRow ? t('pay.fineUnderReviewMeta') : t('pay.dueOn', { date: fmtDate(v.due_at || fineDueDate(v.opened_at)) })}
