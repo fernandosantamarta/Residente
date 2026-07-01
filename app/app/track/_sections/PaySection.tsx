@@ -1049,16 +1049,14 @@ function FinesDueCard() {
         <div className="pay-fines-list">
           {payable.map(v => (
             <div key={v.id} className="pay-fine-row">
-              <div className="pay-fine-head">
+              {/* One compact row: title/date left, amount + Pay + Dispute right. */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
                 <div className="pay-fine-info">
                   <div className="pay-fine-title">{v.rule_title || t('pay.fineGeneric')}</div>
                   <div className="pay-fine-meta">{t('pay.dueOn', { date: fmtDate(v.due_at || fineDueDate(v.opened_at)) })}</div>
                 </div>
-                {allFines.length > 1 && <div className="pay-fine-amt">{fmtMoney(v.amount)}</div>}
-              </div>
-              <div className="pay-fine-foot">
-                {v.notes && <p className="pay-fine-note">{v.notes}</p>}
-                <div className="pay-fine-actions">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
+                  {allFines.length > 1 && <div className="pay-fine-amt">{fmtMoney(v.amount)}</div>}
                   <button
                     type="button"
                     className="pay-cta-primary pay-fine-pay"
@@ -1070,6 +1068,7 @@ function FinesDueCard() {
                   <ContestFineControl violation={v} className="pay-cta-secondary pay-fine-contest" />
                 </div>
               </div>
+              {v.notes && <p className="pay-fine-note" style={{ marginTop: 8 }}>{v.notes}</p>}
             </div>
           ))}
           {review.map(v => (
