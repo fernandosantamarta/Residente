@@ -917,21 +917,26 @@ function fineDueDate(issued: string): Date {
 function FinesDueCard() {
   const t = useT()
   const { violations } = useMyViolations()
-  const fines = violations.filter(
-    v => v.kind === 'fine' && v.status === 'open' && Number(v.amount) > 0,
-  )
   const [payingId, setPayingId] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const { openCheckout } = useCheckout()
 
-  if (fines.length === 0) return null
+  // Live fines split into DUE (payable) vs paused under appeal/dispute. Review
+  // fines stay visible (never silently vanish) but aren't payable or in the total.
+  const isReview = (v: any) =>
+    v.status === 'appealed' || v.dispute_status === 'filed' || v.dispute_status === 'under_review'
+  const allFines = violations.filter(v => v.kind === 'fine' && v.status !== 'closed' && Number(v.amount) > 0)
+  const payable = allFines.filter(v => !isReview(v))
+  const review = allFines.filter(isReview)
+
+  if (allFines.length === 0) return null
 
   const onPay = (id: string) => {
     setError(null)
     openCheckout({ fn: 'create-fine-checkout', body: { violation_id: id }, returnUrl: '/app/documents?fine_paid=1#violations' })
   }
 
-  const totalFines = fines.reduce((s, v) => s + (Number(v.amount) || 0), 0)
+  const payableTotal = payable.reduce((s, v) => s + (Number(v.amount) || 0), 0)
 
   return (
     <section className="pay-card" id="fines" style={{ overflow: 'hidden', padding: 0, border: 'none' }}>
@@ -940,19 +945,21 @@ function FinesDueCard() {
         <div style={{ fontSize: 15.5, fontWeight: 800, letterSpacing: '0.5px', textTransform: 'uppercase', opacity: 0.97, display: 'flex', alignItems: 'center', gap: 8 }}>
           <span aria-hidden style={{ fontSize: 17 }}>⚠</span>{t('pay.finesDue')}
         </div>
-        <div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.05, whiteSpace: 'nowrap' }}>{fmtMoney(totalFines)}</div>
+        {payable.length > 0
+          ? <div style={{ fontSize: 26, fontWeight: 800, lineHeight: 1.05, whiteSpace: 'nowrap' }}>{fmtMoney(payableTotal)}</div>
+          : <div style={{ fontSize: 13.5, fontWeight: 700, opacity: 0.95, whiteSpace: 'nowrap' }}>{t('pay.fineUnderReview')}</div>}
       </div>
       <div style={{ padding: '12px 16px 14px' }}>
         {error && <div className="pay-err">{error}</div>}
         <div className="pay-fines-list">
-          {fines.map(v => (
+          {payable.map(v => (
             <div key={v.id} className="pay-fine-row">
               <div className="pay-fine-head">
                 <div className="pay-fine-info">
                   <div className="pay-fine-title">{v.rule_title || t('pay.fineGeneric')}</div>
                   <div className="pay-fine-meta">{t('pay.dueOn', { date: fmtDate(v.due_at || fineDueDate(v.opened_at)) })}</div>
                 </div>
-                {fines.length > 1 && <div className="pay-fine-amt">{fmtMoney(v.amount)}</div>}
+                {payable.length > 1 && <div className="pay-fine-amt">{fmtMoney(v.amount)}</div>}
               </div>
               <div className="pay-fine-foot">
                 {v.notes && <p className="pay-fine-note">{v.notes}</p>}
@@ -967,6 +974,23 @@ function FinesDueCard() {
                   </button>
                   <ContestFineControl violation={v} className="pay-cta-secondary pay-fine-contest" />
                 </div>
+              </div>
+            </div>
+          ))}
+          {review.map(v => (
+            <div key={v.id} className="pay-fine-row">
+              <div className="pay-fine-head">
+                <div className="pay-fine-info">
+                  <div className="pay-fine-title">{v.rule_title || t('pay.fineGeneric')}</div>
+                  <div className="pay-fine-meta">{t('pay.dueOn', { date: fmtDate(v.due_at || fineDueDate(v.opened_at)) })}</div>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+                  <span className="pay-fine-amt" style={{ opacity: 0.7 }}>{fmtMoney(v.amount)}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#B54708', background: 'rgba(181,71,8,0.10)', border: '1px solid rgba(181,71,8,0.25)', padding: '3px 9px', borderRadius: 999, whiteSpace: 'nowrap' }}>{t('pay.fineUnderReview')}</span>
+                </div>
+              </div>
+              <div className="pay-fine-foot">
+                <p className="pay-fine-note" style={{ fontStyle: 'italic', opacity: 0.85 }}>{t('pay.fineUnderReviewNote')}</p>
               </div>
             </div>
           ))}

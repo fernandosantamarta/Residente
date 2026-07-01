@@ -605,6 +605,8 @@ export const en: Record<string, string> = {
   "pay.collFees": "Late fees",
   "pay.collCosts": "Costs",
   "pay.collFines": "Fines",
+  "pay.fineUnderReview": "Under review",
+  "pay.fineUnderReviewNote": "You disputed this fine — nothing to pay right now. You'll be notified when the board decides.",
   "pay.collTotal": "{amount}",
   "pay.collPay": "Pay now",
   "pay.collOnPlan": "You're on a payment plan. See Quick actions for details.",
