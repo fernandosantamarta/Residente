@@ -77,6 +77,7 @@ const rowTo = (r: any): Violation => ({
 })
 
 const today = () => new Date().toISOString().slice(0, 10)
+const daysFromNow = (n: number) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10) }
 
 // ---------- bridge: unpaid fine → collections ----------
 // Escalate an unpaid violation fine into a collection case. The fine and the
@@ -376,9 +377,11 @@ export async function decideDispute(
     patch.closed_at = today()
     patch.enforcement_stage = 'rejected'
   } else {
-    // upheld / reduced → fine stands; reopen for payment, mark the committee result.
+    // upheld / reduced → fine stands; reopen for payment with a FRESH 30-day
+    // deadline (the owner had their contest; now they have a clear window to pay).
     patch.status = 'open'
     patch.enforcement_stage = 'upheld'
+    patch.due_at = daysFromNow(30)
   }
   const { error } = await supabase.from('ev_violations').update(patch).eq('id', id)
   return error ? (error.message || 'Could not record the decision.') : null

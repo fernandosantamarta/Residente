@@ -7,6 +7,7 @@ import { useAuth } from '@/app/providers'
 import {
   appeal,
   computeStats,
+  decideDispute,
   dismiss,
   markManualPaid,
   markStripePaid,
@@ -445,6 +446,14 @@ function rowAccent(v: Violation): string {
   return v.kind === 'fine' ? '#DC6803' : '#175CD3'                       // open fine — orange / warning — blue
 }
 
+// Days an OPEN fine is past its payment due date (0 if not overdue / no date).
+// Surfaces a nudge to Send to collections once a fine has gone long unpaid.
+function overdueDays(v: Violation): number {
+  if (v.kind !== 'fine' || v.status !== 'open' || !v.due_at) return 0
+  const due = new Date(v.due_at + 'T00:00:00').getTime()
+  return Math.max(0, Math.floor((Date.now() - due) / 86400000))
+}
+
 function ViolationRow({ v, onRemove, onSendToCollections, sending }: { v: Violation; onRemove: () => void; onSendToCollections: () => void; sending: boolean }) {
   const t = useT()
   const [open, setOpen] = useState(false)
@@ -462,6 +471,9 @@ function ViolationRow({ v, onRemove, onSendToCollections, sending }: { v: Violat
           <div className="bd-title">
             {v.resident}
             <span className={`admin-vi-pill ${pillClass(v)}`}>{stateLabel(v, t)}</span>
+            {(() => { const od = overdueDays(v); return od > 0 ? (
+              <span style={{ fontSize: 11, fontWeight: 700, color: od >= 30 ? '#B42318' : '#B54708', background: od >= 30 ? 'rgba(180,35,24,0.10)' : 'rgba(181,71,8,0.10)', border: `1px solid ${od >= 30 ? 'rgba(180,35,24,0.25)' : 'rgba(181,71,8,0.25)'}`, padding: '2px 8px', borderRadius: 999, marginLeft: 6, whiteSpace: 'nowrap' }}>{t('admin.violations.overdueDays', { days: od })}</span>
+            ) : null })()}
           </div>
           <div className="bd-meta">
             <span>{v.kind === 'fine' ? t('admin.violations.kindLabelFine') : t('admin.violations.kindLabelWarning')}</span>
@@ -522,6 +534,8 @@ function RowActions({
 }) {
   const t = useT()
   const isFine = v.kind === 'fine'
+  const [denyOpen, setDenyOpen] = useState(false)
+  const [denyReason, setDenyReason] = useState('')
 
   if (v.status === 'closed') {
     return (
@@ -540,6 +554,21 @@ function RowActions({
   }
 
   if (v.status === 'appealed') {
+    // Deny a FINE appeal → capture a reason and route through decideDispute:
+    // marks it 'upheld', fires the owner notification, sets a fresh 30-day due
+    // date, and (since dispute_status is now set) blocks any second dispute.
+    if (isFine && denyOpen) {
+      return (
+        <div className="admin-vi-actions" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+          <span className="admin-vi-closed-note">{t('admin.violations.denyAppealPrompt')}</span>
+          <textarea className="admin-input" rows={2} value={denyReason} placeholder={t('admin.violations.denyReasonPlaceholder')} onChange={e => setDenyReason(e.target.value)} />
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button type="button" className="admin-btn-ghost" onClick={() => { setDenyOpen(false); setDenyReason('') }}>{t('admin.documents.cancelBtn')}</button>
+            <button type="button" className="admin-primary-btn" disabled={!denyReason.trim()} onClick={async () => { await decideDispute(v.id, 'upheld', denyReason.trim()); setDenyOpen(false); setDenyReason('') }}>{t('admin.violations.denyAppealConfirm')}</button>
+          </div>
+        </div>
+      )
+    }
     return (
       <div className="admin-vi-actions">
         <span className="admin-vi-closed-note">
@@ -547,8 +576,8 @@ function RowActions({
             ? t('admin.violations.appealedFinNote')
             : t('admin.violations.appealedWarningNote')}
         </span>
-        <button type="button" className="admin-btn" onClick={() => reopen(v.id)}>
-          {t('admin.violations.btnResumeCollection')}
+        <button type="button" className="admin-btn" onClick={() => (isFine ? setDenyOpen(true) : reopen(v.id))}>
+          {t('admin.violations.btnDenyAppeal')}
         </button>
         {isFine && (
           <button type="button" className="admin-btn-ghost" onClick={() => waive(v.id)}>
@@ -571,9 +600,12 @@ function RowActions({
           {t('admin.violations.btnDismissWarning')}
         </button>
       )}
-      <button type="button" className="admin-btn-ghost" onClick={() => appeal(v.id)}>
-        {t('admin.violations.btnOpenAppeal')}
-      </button>
+      {/* No re-appeal once a dispute has been decided (upheld/dismissed/reduced). */}
+      {!v.dispute_status && (
+        <button type="button" className="admin-btn-ghost" onClick={() => appeal(v.id)}>
+          {t('admin.violations.btnOpenAppeal')}
+        </button>
+      )}
       {isFine && (
         <button type="button" className="admin-btn-ghost" disabled={sending} onClick={onSendToCollections}
           title={t('admin.violations.sendToCollectionsTitle')}>
