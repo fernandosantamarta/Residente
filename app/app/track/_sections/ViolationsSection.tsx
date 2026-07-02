@@ -6,8 +6,8 @@
 // signed-in resident. No demo fallback — a clean account shows an empty state.
 
 import { useState, useMemo } from 'react'
-import Link from 'next/link'
 import { computeStats, useMyViolations } from '@/lib/violations'
+import { HearingsSuspensionsCards } from '../../enforcement/page'
 import { useCheckout } from '@/components/CheckoutProvider'
 import { ContestFineControl } from './ContestFineControl'
 import { useT } from '@/lib/i18n'
@@ -143,13 +143,10 @@ export function ViolationsSection() {
         )}
       </section>
 
-      <Link href="/app/enforcement" className="myv-link">
-        <span className="myv-link-body">
-          <span className="myv-link-title">Hearings &amp; suspensions</span>
-          <span className="myv-link-sub">See any hearing on a proposed fine, and any voting or use-rights suspension on your account.</span>
-        </span>
-        <span className="myv-link-open">Open &rarr;</span>
-      </Link>
+      {/* Hearings + suspensions inline — their own sections right under the
+          violations list (was a click-through to /app/enforcement, which
+          stays alive for deep links). */}
+      <HearingsSuspensionsCards />
     </div>
   )
 }
