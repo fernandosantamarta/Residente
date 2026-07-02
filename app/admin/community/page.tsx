@@ -8,6 +8,7 @@ import { STATUTORY_MAX_APR, STATUTORY_LATE_FEE_PCT, STATUTORY_LATE_FEE_MIN } fro
 import { Dropdown } from '@/components/Dropdown'
 import { AddressFields } from '@/components/AddressFields'
 import { useT } from '@/lib/i18n'
+import { WorkspaceLinks } from '../WorkspaceLinks'
 
 // Hardening (carried from Genie): wrap network promises, never .catch on Supabase.
 const withTimeout = (p, ms = 10000) =>
@@ -484,6 +485,13 @@ export default function CommunitySettings() {
               )}
             </div>
           )}
+
+          {/* Property compliance workspaces re-homed from the Compliance tab
+              (consolidation phase 1). */}
+          <WorkspaceLinks title="Property compliance" items={[
+            { href: '/admin/structural', label: 'Structural integrity (condo)', desc: 'Milestone inspections & SIRS — track each building’s deadlines.', color: '#067647' },
+            { href: '/admin/insurance', label: 'Insurance & bonding', desc: 'Property replacement-cost appraisal and the fidelity bond.', color: '#0E7490' },
+          ]} />
 
           {/* ---- Delete community — handled by Residente, not self-serve ---- */}
           <div className="card">

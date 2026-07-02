@@ -20,6 +20,7 @@ import { RecordPaymentForm } from '@/components/RecordPaymentForm'
 import { Pager } from '@/components/Pager'
 import { logAudit } from '@/lib/audit'
 import { useT } from '@/lib/i18n'
+import { WorkspaceLinks } from '../WorkspaceLinks'
 import { useMonthlyCharges, type MonthlyChargeStatus, type MonthlyCharge } from '@/hooks/useMonthlyCharges'
 import { EasyTrackTabs } from '../EasyTrackTabs'
 
@@ -895,6 +896,12 @@ export default function ReportsPage() {
           </div>
         </div>
       )}
+
+      {/* Money workspaces re-homed from the Compliance tab (consolidation phase 1). */}
+      <WorkspaceLinks title="Money workspaces" items={[
+        { href: '/admin/collections', label: 'Collections & liens', desc: 'Work the statutory ladder: late-assessment notice, intent-to-lien, lien, foreclosure.', color: '#B54708' },
+        { href: '/admin/estoppel', label: 'Estoppel certificates', desc: 'Intake requests, track the delivery clock + fee, and issue the certificate.', color: '#175CD3' },
+      ]} />
     </div>
   )
 }

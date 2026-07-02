@@ -7,6 +7,7 @@ import { Dropdown } from '@/components/Dropdown'
 import { Pagination, paginate } from '@/components/Pagination'
 import { EasyTrackTabs } from '../EasyTrackTabs'
 import { useT } from '@/lib/i18n'
+import { WorkspaceLinks } from '../WorkspaceLinks'
 
 const VENDOR_PAGE_SIZE = 8
 
@@ -533,6 +534,11 @@ export default function VendorAdmin() {
           </div>
         </div>
       )}
+
+      {/* Procurement workspace re-homed from the Compliance tab (consolidation phase 1). */}
+      <WorkspaceLinks title="Procurement" items={[
+        { href: '/admin/contracts', label: 'Procurement & contracts', desc: 'Competitive bids over 5% (condo) / 10% (HOA) of the budget, written contracts, and management-agreement terms.', color: '#6D28D9' },
+      ]} />
     </div>
   )
 }

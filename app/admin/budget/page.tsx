@@ -14,6 +14,7 @@ import { BudgetCategories } from '../BudgetCategories'
 import { ExpensesLog } from '../community/ExpensesLog'
 import { AccountingSection } from './AccountingSection'
 import { useT } from '@/lib/i18n'
+import { WorkspaceLinks } from '../WorkspaceLinks'
 
 const withTimeout = (p: any, ms = 10000) =>
   Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error("Can't reach the server")), ms))])
@@ -249,6 +250,12 @@ export default function BudgetPage() {
               consolidated here beside the ledger (was the standalone /admin/accounting
               tab). Shows the upsell when the community isn't entitled. */}
           <AccountingSection communityId={communityId} />
+
+          {/* Statutory financial workspace re-homed from the Compliance tab
+              (consolidation phase 1). */}
+          <WorkspaceLinks title="Compliance" items={[
+            { href: '/admin/financials', label: 'Financial reporting & reserves', desc: 'Audit tier, the annual financial report & budget clocks, and reserve funding.', color: '#0E7490' },
+          ]} />
         </>
       )}
     </div>

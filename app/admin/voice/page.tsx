@@ -19,6 +19,7 @@ import {
 } from '@/lib/ballotCrypto'
 import { Dropdown } from '@/components/Dropdown'
 import { useT } from '@/lib/i18n'
+import { WorkspaceLinks } from '../WorkspaceLinks'
 
 const withTimeout = (p, ms = 10000) =>
   Promise.race([
@@ -88,6 +89,13 @@ export default function Meetings() {
           </div>
         </div>
       )}
+
+      {/* Governance workspaces re-homed from the Compliance tab (consolidation phase 1). */}
+      <WorkspaceLinks title="Statutory workspaces" items={[
+        { href: '/admin/meetings', label: 'Meeting notices & minutes', desc: 'The 48-hour / 14-day notice clock, agendas, and minutes availability for these meetings.', color: '#0891B2' },
+        { href: '/admin/elections', label: 'Elections & recall', desc: 'The 60 / 40 / 14-day election timeline, the election quorum, and the recall clock.', color: '#7C3AED' },
+        { href: '/admin/governance', label: 'Directors & management', desc: 'Term limits, the director certification clock, conflicts of interest, and CAM licensing.', color: '#9333EA' },
+      ]} />
     </div>
   )
 }
