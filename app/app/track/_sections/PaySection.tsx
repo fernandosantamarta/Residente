@@ -515,10 +515,7 @@ export function PaySection() {
       <section className="pay-card pay-balance-card" style={{ position: 'relative' }}>
         {/* Autopay lives in the card's top-right corner — a compact chip with
             its on/off state; clicking opens the autopay popup. */}
-        <button type="button" onClick={() => setAutopayOpen(true)}
-          style={{ position: 'absolute', top: 16, right: 18, zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: 9,
-            background: 'transparent', border: '1.5px solid rgba(10, 36, 64, 0.18)', borderRadius: 999, padding: '9px 16px',
-            cursor: 'pointer', font: 'inherit', fontSize: 14, fontWeight: 700, color: '#0A2440' }}>
+        <button type="button" className="pay-autopay-chip" onClick={() => setAutopayOpen(true)}>
           {t('pay.autopay')}
           <span className={`pay-pill ${autopayActive ? 'pay-pill-on' : 'pay-pill-off'}`} style={{ fontSize: 12 }}>
             {autopayActive ? t('pay.on') : t('pay.off')}
