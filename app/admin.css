@@ -1738,6 +1738,16 @@
   font-size: 12px; color: var(--text-dim); line-height: 1.5;
 }
 
+/* Violation-row actions, tinted by impact: appeal = blue (due process),
+   hearing = amber (statutory escalation), collections = red (the debt
+   ladder — heaviest step). Override stays neutral. */
+.admin .cset .admin-btn-ghost.vi-act-appeal { color: #175CD3; border-color: rgba(23, 92, 211, 0.35); }
+.admin .cset .admin-btn-ghost.vi-act-appeal:hover { background: rgba(23, 92, 211, 0.08); border-color: #175CD3; }
+.admin .cset .admin-btn-ghost.vi-act-hearing { color: #B54708; border-color: rgba(181, 71, 8, 0.40); }
+.admin .cset .admin-btn-ghost.vi-act-hearing:hover { background: rgba(181, 71, 8, 0.08); border-color: #B54708; }
+.admin .cset .admin-btn-ghost.vi-act-collect { color: #B42318; border-color: rgba(180, 35, 24, 0.35); }
+.admin .cset .admin-btn-ghost.vi-act-collect:hover { background: rgba(180, 35, 24, 0.08); border-color: #B42318; }
+
 /* Form fields sit flush inside cards (no max-width form column). */
 .cset .card .admin-field { margin-bottom: 18px; }
 .cset .card .admin-field:last-child { margin-bottom: 0; }

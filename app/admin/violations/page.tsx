@@ -759,28 +759,28 @@ function RowActions({
       {/* Only fines are appealable (a warning has no fine to contest, and the
           resident can't dispute one). No re-appeal once a dispute is decided. */}
       {isFine && !v.dispute_status && (
-        <button type="button" className="admin-btn-ghost" onClick={() => withReload(appeal(v.id))}>
+        <button type="button" className="admin-btn-ghost vi-act-appeal" onClick={() => withReload(appeal(v.id))}>
           {t('admin.violations.btnOpenAppeal')}
-        </button>
-      )}
-      {isFine && (
-        <button type="button" className="admin-btn-ghost" disabled={sending} onClick={onSendToCollections}
-          title={t('admin.violations.sendToCollectionsTitle')}>
-          {sending ? t('admin.violations.sendingToCollections') : t('admin.violations.btnSendToCollections')}
         </button>
       )}
       {/* Statutory hearing bridge — any open fine can enter the committee
           process; once in, link over to the Compliance workspace instead. */}
       {isFine && (!v.enforcement_stage || v.enforcement_stage === 'none') && (
-        <button type="button" className="admin-btn-ghost" onClick={onStartHearing}
+        <button type="button" className="admin-btn-ghost vi-act-hearing" onClick={onStartHearing}
           title={t('admin.violations.startHearingTitle')}>
           {t('admin.violations.btnStartHearing')}
         </button>
       )}
       {isFine && v.enforcement_stage && v.enforcement_stage !== 'none' && (
-        <Link href="/admin/enforcement" className="admin-btn-ghost" style={{ textDecoration: 'none' }}>
+        <Link href="/admin/enforcement" className="admin-btn-ghost vi-act-hearing" style={{ textDecoration: 'none' }}>
           {t('admin.violations.inHearingProcess')}
         </Link>
+      )}
+      {isFine && (
+        <button type="button" className="admin-btn-ghost vi-act-collect" disabled={sending} onClick={onSendToCollections}
+          title={t('admin.violations.sendToCollectionsTitle')}>
+          {sending ? t('admin.violations.sendingToCollections') : t('admin.violations.btnSendToCollections')}
+        </button>
       )}
       {isFine && (
         <div className="admin-vi-override">
