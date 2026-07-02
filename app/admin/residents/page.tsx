@@ -996,10 +996,14 @@ function ResidentRow({ r, onLocal, onCommit, onRemove, onInvite, inviteBusy, onI
         <tr className="tr-edit">
           <td colSpan={5}>
             <div className="edit-grid">
+              {/* One identity field, two columns: roster imports write the same
+                  value to unit_number AND address (the unit doubles as the
+                  household address), and every list renders unit_number first —
+                  so commit both, or edits here never surface in Reports. */}
               <label className="admin-field"><span className="admin-field-label">{t('admin.residents.fieldAddress')}</span>
                 <input className="admin-input" placeholder={t('admin.residents.phAddress')} value={r.address ?? ''}
                   onChange={e => onLocal(r.id, 'address', e.target.value)} onKeyDown={onEnterSave}
-                  onBlur={e => onCommit(r.id, { address: e.target.value.trim() || null })} /></label>
+                  onBlur={e => { const v = e.target.value.trim() || null; onCommit(r.id, { address: v, unit_number: v }) }} /></label>
               <label className="admin-field"><span className="admin-field-label">{t('admin.residents.fieldSubdivision')}</span>
                 <input className="admin-input" placeholder={t('admin.residents.phSubdivision')} value={r.subdivision ?? ''}
                   onChange={e => onLocal(r.id, 'subdivision', e.target.value)} onKeyDown={onEnterSave}
