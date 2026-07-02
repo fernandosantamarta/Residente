@@ -695,15 +695,17 @@ export default function RequestsAdmin() {
               {status === 'ready' && activeList.length > 0 && shownList.length === 0 && (
                 <div style={{ padding: '20px 16px', color: 'var(--text-dim)', fontSize: 13 }}>{t('admin.requests.noMatches', { search })}</div>
               )}
-              {pagedList.map(r => {
+              {pagedList.map((r, li) => {
                 const sel = selected?.id === r.id
                 const need = awaiting(r)
+                const rowNo = listPg * LIST_PAGE + li + 1
                 return (
                   <button key={r.id} type="button"
                     onClick={() => { setSelectedId(r.id); setComposing(false) }}
                     style={{ display: 'block', width: '100%', textAlign: 'left', cursor: 'pointer', border: 'none', borderRadius: 0, borderBottom: '1px solid var(--border)', borderLeft: `3px solid ${sel ? '#E14909' : 'transparent'}`, background: sel ? 'rgba(225,73,9,0.06)' : 'transparent', padding: '10px 14px', font: 'inherit' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'baseline' }}>
                       <span style={{ fontWeight: 700, fontSize: 13.5, color: 'var(--text)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <span style={{ color: 'var(--text-dim)', fontVariantNumeric: 'tabular-nums', marginRight: 6, fontWeight: 500 }}>{rowNo}.</span>
                         {r.submitter_name || t('admin.requests.residentFallback')}
                       </span>
                       <span style={{ fontSize: 11, color: 'var(--text-dim)', whiteSpace: 'nowrap', flexShrink: 0 }}>{fmtDate(lastActivity(r))}</span>

@@ -319,10 +319,13 @@ export default function CollectionsPage() {
           ) : (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {candidates.map(cand => (
+                {candidates.map((cand, cdi) => (
                   <div key={cand.resident_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'center', flexWrap: 'wrap', border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, padding: '10px 12px', background: '#fff' }}>
                     <div>
-                      <div style={{ fontWeight: 700, fontSize: 14 }}>{cand.unit_label}</div>
+                      <div style={{ fontWeight: 700, fontSize: 14 }}>
+                        <span className="muted" style={{ fontVariantNumeric: 'tabular-nums', marginRight: 7, fontWeight: 500 }}>{cdi + 1}.</span>
+                        {cand.unit_label}
+                      </div>
                       <div style={{ fontSize: 12, opacity: 0.7 }}>{fmt$(cand.balance)} {t('admin.collections.pastDueSuffix')} · ~{cand.months_late} mo · {cand.days_past_due} days</div>
                     </div>
                     <button className="admin-primary-btn" onClick={() => openForCandidate(cand)}>{t('admin.collections.openCaseBtn')}</button>
@@ -357,7 +360,7 @@ export default function CollectionsPage() {
               <th aria-hidden="true"></th>
             </tr></thead>
             <tbody>
-              {paged.map(r => {
+              {paged.map((r, opi) => {
                 const stage = String(r.stage ?? 'delinquent') as CollectionStage
                 const res = residents.find((x: any) => x.id === r.resident_id)
                 const name = res?.full_name || r.unit_label || r.id.slice(0, 8)
@@ -368,7 +371,10 @@ export default function CollectionsPage() {
                 const action = stage === 'delinquent' ? t('admin.collections.chipStart30Day') : t('admin.collections.openAction')
                 return (
                   <tr key={r.id}>
-                    <td className="cc-owner">{name}</td>
+                    <td className="cc-owner">
+                      <span className="muted" style={{ fontVariantNumeric: 'tabular-nums', marginRight: 7, fontWeight: 500 }}>{page * OPEN_SIZE + opi + 1}.</span>
+                      {name}
+                    </td>
                     <td className="cc-unit">{unit}</td>
                     <td className="cc-bal">{fmt$(bal)}</td>
                     <td className="cc-action"><Link href={`/admin/collections/${r.id}`}>{action} &rarr;</Link></td>

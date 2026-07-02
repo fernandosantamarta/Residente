@@ -176,20 +176,33 @@ export function PaySection() {
   const inCollections = !!(openCase && casePayoffRes && casePayoffRes.payoff > 0)
   const payAmount = inCollections ? casePayoffRes!.payoff : currentBalance
 
-  // Breakdown that ALWAYS reconciles to the Current Balance above: the board-set
-  // opening balance, everything accrued since (dues + any late interest/fees),
-  // and payments received. The accrued charges are lumped into one line so the
-  // breakdown total equals the balance exactly — the rings already detail the
-  // monthly dues cadence, so we don't re-derive every charge here.
+  // Breakdown that ALWAYS reconciles to the number above. In collections it
+  // itemizes the statutory ledger (same buckets as the payoff card) so it ties
+  // to the payoff to the cent; otherwise it's the dues-ledger view: opening
+  // balance, accrued dues + charges (lumped — the rings already detail the
+  // monthly cadence), and payments received.
   const openingBal = Number(resident?.opening_balance) || 0
   const paidToDate = (payments || []).reduce((s: number, p: any) => s + (Number(p?.amount) || 0), 0)
   const duesAndCharges = currentBalance - openingBal + paidToDate
-  const breakdown = [
-    ...(openingBal ? [{ label: t('pay.chargeOpeningBalance'), amount: openingBal }] : []),
-    { label: t('pay.chargeDuesAndCharges'), amount: duesAndCharges },
-    ...(paidToDate ? [{ label: t('pay.chargePaymentsReceived'), amount: -paidToDate }] : []),
-  ]
+  const breakdown = inCollections && casePayoffRes
+    ? [
+        ...(openingBal ? [{ label: t('pay.chargeOpeningBalance'), amount: openingBal }] : []),
+        { label: t('pay.chargeDuesBilled'), amount: Math.round((casePayoffRes.gross.principal - openingBal) * 100) / 100 },
+        ...(casePayoffRes.gross.interest > 0 ? [{ label: t('pay.chargeCollInterest'), amount: casePayoffRes.gross.interest }] : []),
+        ...(casePayoffRes.gross.lateFee > 0 ? [{ label: t('pay.collFees'), amount: casePayoffRes.gross.lateFee }] : []),
+        ...(casePayoffRes.gross.cost > 0 ? [{ label: t('pay.chargeCollCosts'), amount: casePayoffRes.gross.cost }] : []),
+        ...(casePayoffRes.gross.fine > 0 ? [{ label: t('pay.collFines'), amount: casePayoffRes.gross.fine }] : []),
+        ...(paidToDate ? [{ label: t('pay.chargePaymentsReceived'), amount: -paidToDate }] : []),
+      ]
+    : [
+        ...(openingBal ? [{ label: t('pay.chargeOpeningBalance'), amount: openingBal }] : []),
+        { label: t('pay.chargeDuesAndCharges'), amount: duesAndCharges },
+        ...(paidToDate ? [{ label: t('pay.chargePaymentsReceived'), amount: -paidToDate }] : []),
+      ]
   const breakdownTotal = breakdown.reduce((s, r) => s + r.amount, 0)
+  // Whole dollars for the friendly dues view; exact cents in collections,
+  // where the total must match the payoff figure everywhere else.
+  const fmtBd = inCollections ? fmtCents : fmtMoney
 
   // Year-to-date dues math that feeds the three Current Balance rings.
   // Demo-friendly: derived from the monthly dues and today's date. The
@@ -538,13 +551,13 @@ export function PaySection() {
             <div key={b.label} className="pay-breakdown-row">
               <span>{b.label}</span>
               <span className={b.amount < 0 ? 'pay-amt-credit' : ''}>
-                {b.amount < 0 ? `-${fmtMoney(Math.abs(b.amount))}` : fmtMoney(b.amount)}
+                {b.amount < 0 ? `-${fmtBd(Math.abs(b.amount))}` : fmtBd(b.amount)}
               </span>
             </div>
           ))}
           <div className="pay-breakdown-row pay-breakdown-total">
             <span>{t('pay.total')}</span>
-            <span>{fmtMoney(breakdownTotal)}</span>
+            <span>{fmtBd(breakdownTotal)}</span>
           </div>
         </div>
       </section>
@@ -776,13 +789,13 @@ export function PaySection() {
               <div className="rd-bd-row" key={b.label}>
                 <span className="rd-bd-cat">{b.label}</span>
                 <span className={`rd-bd-amt${b.amount < 0 ? ' pay-amt-credit' : ''}`}>
-                  {b.amount < 0 ? `-${fmtMoney(Math.abs(b.amount))}` : fmtMoney(b.amount)}
+                  {b.amount < 0 ? `-${fmtBd(Math.abs(b.amount))}` : fmtBd(b.amount)}
                 </span>
                 <span />
               </div>
             ))}
             <div className="rd-bd-row rd-bd-total">
-              <span>{t('pay.totalDue')}</span><span className="rd-bd-amt">{fmtMoney(breakdownTotal)}</span><span />
+              <span>{t('pay.totalDue')}</span><span className="rd-bd-amt">{fmtBd(breakdownTotal)}</span><span />
             </div>
           </div>
 

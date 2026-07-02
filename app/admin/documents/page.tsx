@@ -1159,13 +1159,14 @@ export default function AdminEasyDocs() {
                             <th>{t('admin.documents.colDocument')}</th><th>{t('admin.documents.colCategory')}</th><th>{t('admin.documents.colUploaded')}</th><th className="act" aria-label={t('admin.documents.colActionsAriaLabel')} />
                           </tr>
                         </thead>
-                        {pageRows.map((d: any) => {
+                        {pageRows.map((d: any, di: number) => {
                           const hasSub = recordsApplies || isHoa
                           return (
                             <tbody key={d.id}>
                               <tr>
                                 <td>
                                   <div className="doc-cell">
+                                    <span className="muted" style={{ flex: '0 0 auto', minWidth: 20, textAlign: 'right', fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>{(docPage - 1) * DOCS_PAGE_SIZE + di + 1}.</span>
                                     <DocGlyph />
                                     <div>
                                       <div className="doc-name">{d.title}</div>
@@ -1236,14 +1237,17 @@ export default function AdminEasyDocs() {
                   <div className="bc-empty" style={{ margin: 0 }}>{t('admin.documents.noRecordsRequests')}</div>
                 ) : (
                   <div className="bd-list">
-                    {recRequests.map(r => {
+                    {recRequests.map((r, rqi) => {
                       const due = r.due_at ? new Date(r.due_at) : recordsInspectionDueAt(r.created_at)
                       const answered = !!r.responded_at
                       const overdue = !answered && due && due.getTime() < Date.now()
                       return (
                         <div className="bd-row" key={r.id}>
                           <div className="bd-main">
-                            <div className="bd-title">{r.subject || t('admin.documents.recordsRequestFallback')}</div>
+                            <div className="bd-title">
+                              <span className="muted" style={{ fontVariantNumeric: 'tabular-nums', marginRight: 7, fontWeight: 500 }}>{rqi + 1}.</span>
+                              {r.subject || t('admin.documents.recordsRequestFallback')}
+                            </div>
                             <div className="bd-meta">
                               {r.submitter_name && <><span>{r.submitter_name}</span><span className="bd-dot">·</span></>}
                               <span>{t('admin.documents.requestedOn')} {fmtDate(r.created_at)}</span>

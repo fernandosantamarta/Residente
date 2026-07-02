@@ -7367,11 +7367,14 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 
 /* Account summary tile internals. */
 [data-theme="sketch"] .set-account {
-  display: flex; align-items: center; gap: 12px;
+  display: flex; align-items: center; gap: 14px;
 }
 [data-theme="sketch"] .set-account-avatar {
   display: inline-flex; align-items: center; justify-content: center;
   width: 44px; height: 44px;
+  /* Long addresses in the meta column squeeze the flexbox — never let the
+     circle deform into an oval. */
+  flex: 0 0 44px;
   border-radius: 50%;
   background: linear-gradient(135deg, #E14909, #C45F2A);
   color: #FFFFFF;
@@ -7381,7 +7384,7 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 }
 [data-theme="sketch"] .set-account-meta {
   display: flex; flex-direction: column;
-  gap: 2px;
+  gap: 3px;
   min-width: 0;
 }
 [data-theme="sketch"] .set-account-name {
@@ -7396,13 +7399,19 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 }
 [data-theme="sketch"] .set-account-rows {
   display: flex; flex-direction: column;
-  gap: 6px;
-  padding-top: 4px;
+  gap: 9px;
+  margin-top: 10px;
+  padding-top: 10px;
   border-top: 1px dashed rgba(15, 28, 46, 0.10);
 }
 [data-theme="sketch"] .set-account-row {
   display: flex; justify-content: space-between; gap: 12px;
   font-size: 12.5px;
+}
+/* Long values (community names, addresses) wrap on the right instead of
+   cramping the row. */
+[data-theme="sketch"] .set-account-row > span:last-child {
+  text-align: right; min-width: 0; overflow-wrap: anywhere;
 }
 [data-theme="sketch"] .set-account-row > span:first-child { color: rgba(10, 36, 64, 0.55); }
 [data-theme="sketch"] .set-account-row > span:last-child  { color: #0A2440; font-weight: 600; }

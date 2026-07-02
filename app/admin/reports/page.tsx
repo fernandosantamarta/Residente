@@ -700,8 +700,9 @@ export default function ReportsPage() {
                   <tr><th>{t('admin.reports.colOwner')}</th><th className="behind-notice-col">{t('admin.reports.colNotices')}</th><th className="period-col">{t('admin.reports.colUnit')}</th><th>{t('admin.reports.colBalanceOwed')}</th><th className="act"></th></tr>
                 </thead>
                 <tbody>
-                  {paged.map(({ r, bal }) => {
+                  {paged.map(({ r, bal }, bi) => {
                     const fee = lateFeeOf(r)
+                    const rowNo = page * BEHIND_PAGE_SIZE + bi + 1
                     return (
                     <Fragment key={r.id}>
                     <tr className="behind-row" style={{ cursor: 'pointer' }}
@@ -710,7 +711,10 @@ export default function ReportsPage() {
                         { label: t('admin.reports.colUnit'), value: r.unit_number || r.address || '—' },
                         { label: t('admin.reports.colBalanceOwed'), value: fmt$(bal) },
                       ] })}>
-                      <td className="strong">{r.full_name || t('admin.reports.residentFallback')}</td>
+                      <td className="strong">
+                        <span className="muted" style={{ fontVariantNumeric: 'tabular-nums', marginRight: 7, fontWeight: 500 }}>{rowNo}.</span>
+                        {r.full_name || t('admin.reports.residentFallback')}
+                      </td>
                       {/* Pre-collection notify trail — its own column so the
                           pills align. Dropdown lists each recorded notice + a
                           link into the owner's collection case once escalated. */}
@@ -824,7 +828,7 @@ export default function ReportsPage() {
                   </tr>
                 </thead>
                 <tbody>
-                  {paged.map(c => (
+                  {paged.map((c, ci) => (
                     <tr key={c.id} style={{ cursor: 'pointer' }}
                       onClick={() => setRowDetail({ title: c.residentName || t('admin.charges.unknownResident'), rows: [
                         { label: t('admin.charges.colPeriod'), value: periodLabel(c.billing_period_start) },
@@ -834,7 +838,10 @@ export default function ReportsPage() {
                         { label: t('admin.charges.colAmount'), value: fmtMoney(c.amount) },
                         { label: t('admin.charges.colStatus'), value: t(`admin.charges.status.${c.status}`) },
                       ] })}>
-                      <td className="strong">{periodLabel(c.billing_period_start)}</td>
+                      <td className="strong">
+                        <span className="muted" style={{ fontVariantNumeric: 'tabular-nums', marginRight: 7, fontWeight: 500 }}>{page * ASSESS_SIZE + ci + 1}.</span>
+                        {periodLabel(c.billing_period_start)}
+                      </td>
                       <td className="muted period-col">{dateLabel(c.due_date)}</td>
                       <td>
                         <span title={c.residentName || ''}

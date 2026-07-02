@@ -280,8 +280,8 @@ export default function AdminViolations() {
         ) : (
           <>
             <div className="bd-list">
-              {visible.map((v: Violation) => (
-                <ViolationRow key={v.id} v={v} label={liveLabelOf(v)} onRemove={() => remove(v.id)} onSendToCollections={() => sendToCollections(v)} onEscalate={() => setEscalateFor(v)} sending={sendingId === v.id} reload={reload} />
+              {visible.map((v: Violation, vi: number) => (
+                <ViolationRow key={v.id} v={v} no={(page - 1) * VIOLATIONS_PAGE_SIZE + vi + 1} label={liveLabelOf(v)} onRemove={() => remove(v.id)} onSendToCollections={() => sendToCollections(v)} onEscalate={() => setEscalateFor(v)} sending={sendingId === v.id} reload={reload} />
               ))}
             </div>
             <Pagination
@@ -558,7 +558,7 @@ function overdueDays(v: Violation): number {
   return Math.max(0, Math.floor((Date.now() - due) / 86400000))
 }
 
-function ViolationRow({ v, label, onRemove, onSendToCollections, onEscalate, sending, reload }: { v: Violation; label: string; onRemove: () => void; onSendToCollections: () => void; onEscalate: () => void; sending: boolean; reload: () => void }) {
+function ViolationRow({ v, no, label, onRemove, onSendToCollections, onEscalate, sending, reload }: { v: Violation; no: number; label: string; onRemove: () => void; onSendToCollections: () => void; onEscalate: () => void; sending: boolean; reload: () => void }) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const [overrideOpen, setOverrideOpen] = useState(false)
@@ -572,6 +572,7 @@ function ViolationRow({ v, label, onRemove, onSendToCollections, onEscalate, sen
       >
         <div className="bd-main">
           <div className="bd-title">
+            <span className="muted" style={{ fontVariantNumeric: 'tabular-nums', marginRight: 7, fontWeight: 500 }}>{no}.</span>
             {label}
             <span className={`admin-vi-pill ${pillClass(v)}`}>{stateLabel(v, t)}</span>
             {(() => { const od = overdueDays(v); return od > 0 ? (
