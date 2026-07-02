@@ -9830,11 +9830,11 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 /* Your violations — one card per violation: a Fine/Warning tag + colour-coded
    status pill on top (amount to the right), the rule, the opened date, an
    optional note, then Pay / Dispute actions. */
-[data-theme="sketch"] .myv-list { display: flex; flex-direction: column; gap: 12px; }
+[data-theme="sketch"] .myv-list { display: flex; flex-direction: column; gap: 8px; }
 [data-theme="sketch"] .myv-card {
-  display: flex; flex-direction: column; gap: 8px;
-  padding: 16px; background: #FFFFFF;
-  border: 1px solid rgba(15, 28, 46, 0.10); border-radius: 16px;
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 12px 14px; background: #FFFFFF;
+  border: 1px solid rgba(15, 28, 46, 0.10); border-radius: 14px;
 }
 [data-theme="sketch"] .myv-card-top {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
@@ -9855,10 +9855,10 @@ html[data-contrast="high"] [data-theme="sketch"] .set-row-right {
 [data-theme="sketch"] .myv-title { font-size: 15px; font-weight: 700; color: #0A2440; }
 [data-theme="sketch"] .myv-meta { font-size: 12.5px; color: rgba(10, 36, 64, 0.55); }
 [data-theme="sketch"] .myv-note {
-  margin: 2px 0 0; font-size: 12.5px; line-height: 1.45; color: rgba(10, 36, 64, 0.72);
-  padding: 9px 12px; background: #FBF7F1; border-radius: 10px;
+  margin: 1px 0 0; font-size: 12.5px; line-height: 1.45; color: rgba(10, 36, 64, 0.72);
+  padding: 7px 11px; background: #FBF7F1; border-radius: 9px;
 }
-[data-theme="sketch"] .myv-actions { display: flex; flex-direction: row; gap: 10px; margin-top: 4px; }
+[data-theme="sketch"] .myv-actions { display: flex; flex-direction: row; gap: 10px; margin-top: 2px; }
 [data-theme="sketch"] .myv-pay-btn {
   white-space: nowrap;
   padding: 9px 18px; border-radius: 999px;
