@@ -665,6 +665,10 @@ button { font-family: inherit; }
 /* Unit doubles as the household's full street address — wrap it on the right
    instead of jamming into the label. */
 .h-val.unit { text-align: right; min-width: 0; overflow-wrap: anywhere; }
+/* Full street address: the label sits on its own line with the address
+   starting on the next line, left-aligned. */
+.household-row-stack { flex-direction: column; align-items: flex-start; gap: 2px; }
+.household-row-stack .h-val.unit { text-align: left; }
 .h-val.ok { color: #6EE7A8; }
 .h-val.due { color: var(--text); }
 .household-divider { height: 1px; background: var(--border); }

@@ -572,7 +572,9 @@ function RightRail() {
 
       <div className="household">
         <div className="household-title">{t('rail.yourResidence')}</div>
-        <div className="household-row">
+        {/* A full street address stacks: label line, then the address under it.
+            A short unit ("102") keeps the one-line label/value row. */}
+        <div className={`household-row${unitIsAddress ? ' household-row-stack' : ''}`}>
           <span className="h-label">{t(unitIsAddress ? 'rail.address' : 'rail.unit')}</span>
           <span className="h-val unit">{unitLabel}</span>
         </div>
