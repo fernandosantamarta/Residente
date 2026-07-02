@@ -439,7 +439,7 @@ export default function EnforcementPage() {
               </span>
             </div>
             <CommitteeManager
-              members={committee} communityId={communityId} createdBy={profile?.id ?? null}
+              members={committee} residents={residents} communityId={communityId} createdBy={profile?.id ?? null}
               onChange={load} setError={setError}
             />
           </div>
@@ -712,26 +712,32 @@ function ContestedFineRow({ v, hearing, committeeOk, onSendNotice, onScheduleHea
 // ----------------------------------------------------------------------------
 // Committee manager
 // ----------------------------------------------------------------------------
-function CommitteeManager({ members, communityId, createdBy, onChange, setError }: {
-  members: FiningCommitteeMemberRow[]; communityId: string | undefined; createdBy: string | null; onChange: () => void; setError: (s: string) => void
+function CommitteeManager({ members, residents, communityId, createdBy, onChange, setError }: {
+  members: FiningCommitteeMemberRow[]; residents: any[]; communityId: string | undefined; createdBy: string | null; onChange: () => void; setError: (s: string) => void
 }) {
   const t = useT()
-  const [name, setName] = useState('')
+  const [pickId, setPickId] = useState('')
   const [independent, setIndependent] = useState(true)
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
 
+  // Committee members come FROM the community roster (condo law wants other
+  // unit owners, not strangers) — minus anyone already serving.
+  const takenNames = new Set(members.filter(m => m.active !== false).map(m => (m.full_name || '').trim().toLowerCase()))
+  const candidates = residents.filter(r => (r.full_name || '').trim() && !takenNames.has(r.full_name.trim().toLowerCase()))
+  const picked = candidates.find(r => r.id === pickId)
+
   const add = async () => {
-    if (!name.trim()) return
+    if (!picked) return
     setBusy(true); setError('')
     try {
       const { error } = (await withTimeout(supabase.from('ev_fining_committee_members').insert({
-        community_id: communityId, full_name: name.trim(), is_independent: independent,
+        community_id: communityId, full_name: picked.full_name.trim(), is_independent: independent,
         relationship_note: independent ? null : (note.trim() || null), appointed_at: todayYmd(), active: true, created_by: createdBy,
       }))) as any
       if (error) throw error
       if (communityId) logAudit({ community_id: communityId, event_type: 'enforcement.committee_updated', target_type: 'fining_committee_member' })
-      setName(''); setIndependent(true); setNote(''); onChange()
+      setPickId(''); setIndependent(true); setNote(''); onChange()
     } catch (err: any) { setError(err?.message || t('admin.enforcement.couldNotAddMember')) }
     finally { setBusy(false) }
   }
@@ -764,13 +770,18 @@ function CommitteeManager({ members, communityId, createdBy, onChange, setError 
           ))}
         </div>
       )}
-      {/* marginBottom: 0 kills the cset card-field spacing so the input,
+      {/* marginBottom: 0 kills the cset card-field spacing so the picker,
           checkbox and Add member button share one baseline. */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <label className="admin-field" style={{ maxWidth: 220, marginBottom: 0 }}><span className="admin-field-label">{t('admin.enforcement.fieldMemberName')}</span>
-          <input className="admin-input" value={name} onChange={e => setName(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (!busy && name.trim()) add() } }}
-            placeholder={t('admin.enforcement.memberNamePlaceholder')} /></label>
+        <div className="admin-field" style={{ minWidth: 220, marginBottom: 0 }}><span className="admin-field-label">{t('admin.enforcement.fieldMemberPick')}</span>
+          <Dropdown<string>
+            value={pickId}
+            onChange={setPickId}
+            ariaLabel={t('admin.enforcement.fieldMemberPick')}
+            placeholder={candidates.length ? t('admin.enforcement.memberPickPlaceholder') : t('admin.enforcement.memberPickEmpty')}
+            searchable
+            options={candidates.map(r => ({ value: r.id, label: r.full_name }))}
+          /></div>
         <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, paddingBottom: 11 }}>
           <input type="checkbox" checked={independent} onChange={e => setIndependent(e.target.checked)} />
           {t('admin.enforcement.checkIndependentOfBoard')}
@@ -778,10 +789,10 @@ function CommitteeManager({ members, communityId, createdBy, onChange, setError 
         {!independent && (
           <label className="admin-field" style={{ maxWidth: 220, marginBottom: 0 }}><span className="admin-field-label">{t('admin.enforcement.fieldRelationship')}</span>
             <input className="admin-input" value={note} onChange={e => setNote(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (!busy && name.trim()) add() } }}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (!busy && picked) add() } }}
               placeholder={t('admin.enforcement.relationshipPlaceholder')} /></label>
         )}
-        <button className="admin-primary-btn" style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }} disabled={busy || !name.trim()} onClick={add}>{busy ? t('admin.enforcement.adding') : t('admin.enforcement.btnAddMember')}</button>
+        <button className="admin-primary-btn" style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }} disabled={busy || !picked} onClick={add}>{busy ? t('admin.enforcement.adding') : t('admin.enforcement.btnAddMember')}</button>
       </div>
     </div>
   )
