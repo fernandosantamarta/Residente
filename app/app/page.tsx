@@ -386,9 +386,28 @@ function DuesSection({
   const multiplier = isCommunity ? monthlyDues * unitCount : monthlyDues
   const annualMultiplier = multiplier * 12
   const statLabel = isCommunity ? t('home.duesTotalMonthlyIncome') : t('home.duesYourMonthlyDues')
+  // A spaced unit_number is a whole street address — show it plain rather
+  // than as "Unit 123 Main St…" (same rule as the residence card).
+  const unitIsAddress = !!unitNumber && /\s/.test(unitNumber)
   const sub = isCommunity
     ? t('home.duesAllHomesCombined', { count: unitCount || 0 })
-    : t('home.duesYourShareUnit', { unit: unitNumber ?? '—' })
+    : unitIsAddress ? (unitNumber as string) : t('home.duesYourShareUnit', { unit: unitNumber ?? '—' })
+
+  // Whole-dollar apportionment (largest remainder). fmtMoney rounds each row
+  // independently, which drifts the rows a dollar or two off the headline
+  // (e.g. $130 of rows under a $128 header). Floor every row, then hand the
+  // leftover dollars to the largest fractions so the rows sum EXACTLY to the
+  // number at the top.
+  const rowAmounts = (() => {
+    const exact = breakdown.map(b => multiplier * b.share)
+    const out = exact.map(Math.floor)
+    let left = Math.round(multiplier) - out.reduce((a, b) => a + b, 0)
+    const order = exact
+      .map((v, i) => ({ i, frac: v - Math.floor(v) }))
+      .sort((a, b) => b.frac - a.frac)
+    for (const { i } of order) { if (left <= 0) break; out[i] += 1; left -= 1 }
+    return out
+  })()
 
   return (
     <section className="dues-section">
@@ -436,12 +455,12 @@ function DuesSection({
       <div className="dues-breakdown">
         {breakdown.length === 0 ? (
           <div className="activity-empty">{t('home.duesEmpty')}</div>
-        ) : breakdown.map((v) => (
+        ) : breakdown.map((v, vi) => (
           <div key={v.id} className="dues-cat">
             <div className="dues-cat-row">
               <span className="dues-cat-name">{v.name}</span>
               <span className="dues-cat-meta">
-                <span className="dues-cat-amt">{fmtMoney(multiplier * v.share)}</span>
+                <span className="dues-cat-amt">{fmtMoney(rowAmounts[vi])}</span>
                 {(v as any).spentPct != null
                   ? <SpentChip pct={(v as any).spentPct} />
                   : <TrendChip trend={v.trend} />}
