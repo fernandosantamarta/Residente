@@ -221,7 +221,7 @@ function noticeHref(n: any): string {
   if (n.kind === 'request_update') return '/app/voice#contact'
   if (n.kind === 'payment_received') return '/app/track#pay'
   if (n.kind === 'rule_published') return '/app/documents#rules'
-  if (n.kind === 'violation') return '/app/documents#violations'
+  if (n.kind === 'violation') return '/app/track#violations'
   if (n.meeting_id) return `/app/voice/${n.meeting_id}`
   if (n.kind === 'document_uploaded') return '/app/documents'
   return '/app/voice'

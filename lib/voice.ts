@@ -244,9 +244,9 @@ export function noticeHref(n: { kind?: string | null; meeting_id?: string | null
   if (n.kind === 'statement_ready') return '/app/track?statement=1#statements'
   // A new rule opens the resident rule book (Rules tab in Easy Documents).
   if (n.kind === 'rule_published') return '/app/documents#rules'
-  // A fine/warning notice opens the resident's violations tab in Easy Documents
-  // (the #violations hash selects that tab on load, not the default Rules tab).
-  if (n.kind === 'violation') return '/app/documents#violations'
+  // A fine/warning notice opens My Violations — now a tab of Easy Track
+  // (moved from Easy Documents in fcbe7cd; the #violations hash opens the tab).
+  if (n.kind === 'violation') return '/app/track#violations'
   if (n.meeting_id) return `/app/voice/${n.meeting_id}`
   // A document notice with no meeting is a library upload — open Easy Documents,
   // not the Voice meetings list. (Meeting-attached docs hit the meeting_id branch
