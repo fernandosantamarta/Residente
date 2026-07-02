@@ -533,8 +533,12 @@ export function PaySection() {
                 {checkout.loading ? t('pay.startingCheckout') : payAmount <= 0 ? t('pay.allPaidUp') : t('pay.makePayment')}
               </button>
               <button type="button" className="pay-cta-secondary"
+                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
                 onClick={() => setAutopayOpen(true)}>
                 {autopayActive ? t('pay.manageAutopay') : t('pay.setUpAutopay')}
+                <span className={`pay-pill ${autopayActive ? 'pay-pill-on' : 'pay-pill-off'}`}>
+                  {autopayActive ? t('pay.on') : t('pay.off')}
+                </span>
               </button>
               <button type="button" className="pay-cta-secondary"
                 onClick={() => setAccountOpen(true)}>
