@@ -29,8 +29,10 @@ elections (566), advisories (297), insurance (422).
 
 ## Target nav
 
-Overview · Community · Budget · Easy Track · Easy Voice · Easy Documents ·
-Easy Schedule · Billing — **no Compliance tab**.
+**AMENDED 2026-07-02 (Fernando):** the Compliance tab STAYS in the nav (next
+to Budget) as the deadline dashboard. The consolidation is about wiring the
+workspaces into the everyday tabs (WorkspaceLinks entry cards — shipped in
+phase 1) and de-duplicating the flows (phases 2+), not deleting the tab.
 
 ## Where every workspace lands
 
