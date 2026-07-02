@@ -139,6 +139,7 @@ export const pt: Record<string, string> = {
   "community.sectionVendors": "Fornecedores",
   "community.sectionBoard": "Do conselho",
   "documents.rulesQuickRef": "Referência rápida",
+  "documents.pinnedEmpty": "Seus documentos regentes — declaração, estatutos, regulamentos — aparecerão aqui quando o conselho os enviar.",
   "community.byline.homes": "166 residências · Miramar, FL",
   "community.byline.readingTime": "Leitura de 3 min",
   "community.byline.reported": "Publicado em 24 abr 2026",

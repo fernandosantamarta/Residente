@@ -787,12 +787,16 @@ export default function EasyDocs() {
                 </button>
               </section>
 
-              {(!community || pinnedDocs.length > 0) && (
               <section className="doc-card">
                 <div className="doc-card-head">
                   <h2 className="doc-card-title">{t('documents.pinnedImportant')}</h2>
                   <button type="button" className="doc-card-link" onClick={() => setListOpen('pinned')}>{t('documents.viewAll')}</button>
                 </div>
+                {community && pinnedDocs.length === 0 ? (
+                  // Keep the card (the layout reads naked without it) — just
+                  // an honest empty note instead of fake documents.
+                  <p className="rd-detail-foot-note" style={{ marginTop: 0 }}>{t('documents.pinnedEmpty')}</p>
+                ) : (
                 <div className="doc-pinned-grid">
                   {community ? pinnedDocs.map((d: any) => (
                     <button key={d.id} type="button" className="doc-pinned" onClick={() => openDoc(d)}>
@@ -811,8 +815,8 @@ export default function EasyDocs() {
                     </button>
                   ))}
                 </div>
+                )}
               </section>
-              )}
             </div>
 
             <div className="doc-row rsv-web">
@@ -892,20 +896,22 @@ export default function EasyDocs() {
               </section>
 
               {/* "Popular downloads" needs download tracking we don't have —
-                  it's preview-only. Real communities have the honest Recent
-                  documents list instead. */}
-              {!community && (
+                  for a real community this slot holds the honest Recent
+                  documents list instead; the demo version stays in preview. */}
               <section className="doc-card">
                 <div className="doc-card-head">
-                  <h2 className="doc-card-title">{t('documents.popularDownloads')}</h2>
-                  <button type="button" className="doc-card-link" onClick={() => setListOpen('popular')}>{t('documents.viewAll')}</button>
+                  <h2 className="doc-card-title">{community ? t('documents.recentDocuments') : t('documents.popularDownloads')}</h2>
+                  <button type="button" className="doc-card-link" onClick={() => setListOpen(community ? 'recent' : 'popular')}>{t('documents.viewAll')}</button>
                 </div>
+                {community && docList.length === 0 ? (
+                  <p className="rd-detail-foot-note" style={{ marginTop: 0 }}>{t('documents.noDocumentsShort')}</p>
+                ) : (
                 <div className="doc-popular">
-                  {DEMO_POPULAR.map(p => (
+                  {(community ? docList.slice(0, 5) : DEMO_POPULAR).map((p: any) => (
                     <button key={p.id} type="button" className="doc-popular-row"
-                      onClick={() => setDocDetail({ title: p.label })}>
+                      onClick={() => { community ? openDoc(p) : setDocDetail({ title: p.label }) }}>
                       <span className="doc-popular-icon"><PdfIcon /></span>
-                      <span className="doc-popular-title">{p.label}</span>
+                      <span className="doc-popular-title">{community ? p.title : p.label}</span>
                       <span className="doc-popular-dl" aria-label={t('documents.open')}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M12 4v12"/><path d="m6 10 6 6 6-6"/><path d="M5 20h14"/>
@@ -914,8 +920,8 @@ export default function EasyDocs() {
                     </button>
                   ))}
                 </div>
+                )}
               </section>
-              )}
             </div>
 
           </div>
@@ -982,6 +988,9 @@ export default function EasyDocs() {
           onClose={() => setListOpen(null)}
         >
           <div className="rd-list">
+            {listOpen === 'pinned' && community && pinnedDocs.length === 0 && (
+              <p className="rd-detail-foot-note" style={{ marginTop: 0 }}>{t('documents.pinnedEmpty')}</p>
+            )}
             {listOpen === 'pinned' && (community ? pinnedDocs : DEMO_PINNED as any[]).map((p: any) => (
               <button type="button" className="rd-list-row" key={p.id}
                 onClick={() => { setListOpen(null); community ? openDoc(p) : setDocDetail({ title: p.title, category: p.category, date: p.date }) }}>

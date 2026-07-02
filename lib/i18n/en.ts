@@ -146,6 +146,7 @@ export const en: Record<string, string> = {
   "community.sectionVendors": "Vendors",
   "community.sectionBoard": "From the Board",
   "documents.rulesQuickRef": "Quick reference",
+  "documents.pinnedEmpty": "Your governing documents — declaration, bylaws, rules — will appear here once the board uploads them.",
   "community.byline.homes": "166 Homes · Miramar, FL",
   "community.byline.readingTime": "Reading time 3 min",
   "community.byline.reported": "Reported Apr 24, 2026",
