@@ -247,7 +247,7 @@ export default function Home() {
               <>
                 <span className="hero-chip">
                   <ChipIcon name="home" />
-                  {t('home.heroHomes', { count: unitCount || 0 })}
+                  {t('home.heroHomes', { count: billedHomes || unitCount || 0 })}
                 </span>
                 <span className="hero-chip">
                   <ChipIcon name="pin" />

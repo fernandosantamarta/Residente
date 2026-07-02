@@ -201,7 +201,10 @@ export default function EasyDocs() {
   // Real community rules, or the demo seed (preview/no-auth) so the Rules tab
   // shows its full layout instead of the empty state.
   const rawRules = useRulesData()
-  const usingDemoRules = rawRules.length === 0
+  // Demo rules ONLY in the logged-out preview — a real community with no
+  // rules yet gets the honest empty state, never a fake rule book (this also
+  // gates the demo violation stats below).
+  const usingDemoRules = !community && rawRules.length === 0
   const rulesList = usingDemoRules ? (DEMO_RULES_SEEDED as any[]) : rawRules
   const rawCategories = useCategoriesData()
   const allCategories = usingDemoRules ? DEMO_RULE_SECTIONS : rawCategories
@@ -277,6 +280,12 @@ export default function EasyDocs() {
   // ── Documents state ──────────────────────────────────────────────────────
   const { documents, loading: docLoading } = useDocuments() as { documents: any[]; loading: boolean }
   const docList = documents || []
+  // The genuinely pinned-worthy set for a REAL community: its governing docs.
+  // The demo pinned/popular cards render only in the logged-out preview.
+  const pinnedDocs = useMemo(
+    () => docList.filter((d: any) => /declaration|bylaw|cc&r|covenant|articles|rules|budget/i.test(String(d.category || ''))).slice(0, 4),
+    [docList],
+  )
   const [docSearch, setDocSearch] = useState('')
   const [docFilterCategory, setDocFilterCategory] = useState<string>('all')
   const [docFilterPeriod, setDocFilterPeriod] = useState<'recent' | 'oldest'>('recent')
@@ -644,7 +653,10 @@ export default function EasyDocs() {
                 </section>
 
                 <aside className="rb-aside">
-                  <div className="rb-col-head">{t('documents.mostViewedRules')}</div>
+                  {/* View counts aren't tracked — the "most viewed" framing +
+                      numbers are preview-only; real communities get a plain
+                      quick-reference list of their own rules. */}
+                  <div className="rb-col-head">{usingDemoRules ? t('documents.mostViewedRules') : t('documents.rulesQuickRef')}</div>
                   <ol className="rb-most-list">
                     {mostViewed.map((r: any, i: number) => {
                       const views = MOST_VIEWED_DEMO_COUNTS[i] ?? Math.max(20, 60 - i * 8)
@@ -655,13 +667,15 @@ export default function EasyDocs() {
                             <div className="rb-most-title">{r.title}</div>
                             <div className="rb-most-meta">{r.section || t('documents.generalCategory')}</div>
                           </div>
-                          <div className="rb-most-views">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                              <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/>
-                              <circle cx="12" cy="12" r="3"/>
-                            </svg>
-                            <span>{views.toLocaleString('en-US')}</span>
-                          </div>
+                          {usingDemoRules && (
+                            <div className="rb-most-views">
+                              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/>
+                                <circle cx="12" cy="12" r="3"/>
+                              </svg>
+                              <span>{views.toLocaleString('en-US')}</span>
+                            </div>
+                          )}
                         </li>
                       )
                     })}
@@ -773,13 +787,21 @@ export default function EasyDocs() {
                 </button>
               </section>
 
+              {(!community || pinnedDocs.length > 0) && (
               <section className="doc-card">
                 <div className="doc-card-head">
                   <h2 className="doc-card-title">{t('documents.pinnedImportant')}</h2>
                   <button type="button" className="doc-card-link" onClick={() => setListOpen('pinned')}>{t('documents.viewAll')}</button>
                 </div>
                 <div className="doc-pinned-grid">
-                  {DEMO_PINNED.map(p => (
+                  {community ? pinnedDocs.map((d: any) => (
+                    <button key={d.id} type="button" className="doc-pinned" onClick={() => openDoc(d)}>
+                      <span className="doc-pinned-icon"><PdfIcon /></span>
+                      <span className="doc-pinned-tag">{d.category || t('documents.otherCategory')}</span>
+                      <span className="doc-pinned-title">{d.title}</span>
+                      <span className="doc-pinned-meta">{fmtDate(d.uploaded_at)}</span>
+                    </button>
+                  )) : DEMO_PINNED.map(p => (
                     <button key={p.id} type="button" className="doc-pinned"
                       onClick={() => setDocDetail({ title: p.title, category: p.category, date: p.date })}>
                       <span className="doc-pinned-icon"><PdfIcon /></span>
@@ -790,6 +812,7 @@ export default function EasyDocs() {
                   ))}
                 </div>
               </section>
+              )}
             </div>
 
             <div className="doc-row rsv-web">
@@ -868,6 +891,10 @@ export default function EasyDocs() {
                 )}
               </section>
 
+              {/* "Popular downloads" needs download tracking we don't have —
+                  it's preview-only. Real communities have the honest Recent
+                  documents list instead. */}
+              {!community && (
               <section className="doc-card">
                 <div className="doc-card-head">
                   <h2 className="doc-card-title">{t('documents.popularDownloads')}</h2>
@@ -888,6 +915,7 @@ export default function EasyDocs() {
                   ))}
                 </div>
               </section>
+              )}
             </div>
 
           </div>
@@ -954,11 +982,11 @@ export default function EasyDocs() {
           onClose={() => setListOpen(null)}
         >
           <div className="rd-list">
-            {listOpen === 'pinned' && DEMO_PINNED.map(p => (
+            {listOpen === 'pinned' && (community ? pinnedDocs : DEMO_PINNED as any[]).map((p: any) => (
               <button type="button" className="rd-list-row" key={p.id}
-                onClick={() => { setListOpen(null); setDocDetail({ title: p.title, category: p.category, date: p.date }) }}>
+                onClick={() => { setListOpen(null); community ? openDoc(p) : setDocDetail({ title: p.title, category: p.category, date: p.date }) }}>
                 <span className="doc-pinned-icon"><PdfIcon /></span>
-                <span className="rd-list-body"><span className="rd-list-title">{p.title}</span><span className="rd-list-meta">{p.category} · {fmtDate(p.date)}</span></span>
+                <span className="rd-list-body"><span className="rd-list-title">{p.title}</span><span className="rd-list-meta">{p.category || t('documents.otherCategory')} · {fmtDate(community ? p.uploaded_at : p.date)}</span></span>
                 <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
             ))}

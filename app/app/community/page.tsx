@@ -2,15 +2,32 @@
 
 import { useState } from 'react'
 import { DetailDialog } from '../track/_sections/DetailDialog'
+import { useCommunityData } from '@/hooks/useCommunityData'
+import { useExpenses, cumulativeByMonth } from '@/hooks/useExpenses'
+import { useBoardDecisions } from '@/hooks/useBoardDecisions'
 import { useT } from '@/lib/i18n'
 
-// Editorial magazine layout for /community. Renders inside Layout's center
-// column — the cockpit chrome (left rail, topbar) comes from Layout.jsx.
-// All styles namespaced under .community-page in index.css so the generic
-// class names (.feature, .article, .footer, .divider) don't collide with
-// other routes.
+// Editorial magazine layout for /community — fed by REAL records end-to-end:
+// the community's own name, its budget categories (expense-ledger spend when
+// the board logs dated expenses, manual spent otherwise — same switch as the
+// Home dues card), and the board's actual decisions. The "Sunset Lakes"
+// sample below renders ONLY in the logged-out preview (no community linked).
+// Renders inside Layout's center column; styles namespaced .community-page.
 
-const ARTICLES = [
+type Article = {
+  section: string
+  status: { label: string; kind: string }
+  headline: string
+  dek: string
+  avatar: string
+  vendor: string
+  votes: string
+  amount: string
+  when: string
+  feature?: boolean
+}
+
+const DEMO_ARTICLES: Article[] = [
   {
     section: 'Amenities · Lead Story',
     status: { label: 'Resolved · 3/3 yes', kind: 'warn' },
@@ -69,33 +86,143 @@ const ARTICLES = [
   },
 ]
 
-const CATEGORIES = [
+const DEMO_CATEGORIES = [
   {
-    pct: 76, dashoffset: 63.33,
+    pct: 76,
     name: 'Landscape', amount: '$12,800',
     note: 'Oak Ridge Nursery has been the primary vendor since 2023.',
+    warn: false,
   },
   {
-    pct: 62, dashoffset: 100.28,
+    pct: 62,
     name: 'Security', amount: '$8,400',
     note: 'A measured year. Two incidents reported, both resolved.',
+    warn: false,
   },
   {
-    pct: 91, dashoffset: 23.75,
+    pct: 91,
     name: 'Amenities', amount: '$14,500',
     note: "Pool, clubhouse, and gym. The line item that's burning fastest.",
     warn: true,
   },
   {
-    pct: 15, dashoffset: 224.31,
+    pct: 15,
     name: 'Reserves', amount: '$1,500',
     note: 'The slowest-growing line — and maybe the most important.',
+    warn: false,
   },
+]
+
+const num = (v: unknown) => Number(v) || 0
+const fmt$ = (n: number) => '$' + Math.round(num(n)).toLocaleString('en-US')
+const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
+const initialsOf = (s: string) => {
+  const parts = String(s || '').trim().split(/\s+/).filter(Boolean)
+  return ((parts[0]?.[0] || 'B') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase()
+}
+
+// Board-decision status → article chip, matching the Home activity feed.
+const DECISION_CHIP: Record<string, { label: string; kind: string }> = {
+  approved:   { label: 'Approved',      kind: 'resolved' },
+  paid:       { label: 'Paid',          kind: 'resolved' },
+  pending:    { label: 'Pending',       kind: 'pending' },
+  discussion: { label: 'In discussion', kind: 'pending' },
+}
+
+// The four concentric rings' fixed geometry (radius → circumference).
+const RING_GEO = [
+  { r: 90, dash: 565.49, w: 6 },
+  { r: 72, dash: 452.39, w: 5 },
+  { r: 56, dash: 351.86, w: 5 },
+  { r: 40, dash: 251.33, w: 5 },
 ]
 
 export default function Community() {
   const t = useT()
-  const [openArticle, setOpenArticle] = useState<(typeof ARTICLES)[number] | null>(null)
+  const { community, categories } = useCommunityData()
+  const { expenses } = useExpenses()
+  const { decisions } = useBoardDecisions(6)
+  const [openArticle, setOpenArticle] = useState<Article | null>(null)
+
+  // Real community when linked; the demo magazine only for the logged-out preview.
+  const demo = !community
+  const now = new Date()
+  const communityName = demo ? 'Sunset Lakes' : String(community.name || '').replace(/[\s,]+$/, '')
+
+  // ---- Real spend math (mirrors the Home card: ledger-preferred) ----
+  const cats: any[] = demo ? [] : (categories || [])
+  const catBudgetSum = cats.reduce((s, x) => s + num(x.budget), 0)
+  const annualBudget = num(community?.annual_budget) || catBudgetSum
+  const expenseCum = cumulativeByMonth(expenses, now.getFullYear())
+  const expensesToDate = expenseCum[now.getMonth()]
+  const hasExpenses = expenses.length > 0 && expensesToDate > 0
+  const ledgerByCat = (() => {
+    if (!hasExpenses) return null
+    const m = new Map<string, number>()
+    for (const e of expenses) {
+      if (!e.category_id) continue
+      const d = new Date(e.spent_on + 'T00:00:00')
+      if (d.getFullYear() !== now.getFullYear()) continue
+      m.set(e.category_id, (m.get(e.category_id) || 0) + e.amount)
+    }
+    return m
+  })()
+  const spentOf = (x: any) => (ledgerByCat ? (ledgerByCat.get(x.id) ?? 0) : num(x.spent))
+  const totalSpent = hasExpenses ? expensesToDate : cats.reduce((s, x) => s + num(x.spent), 0)
+  const spentPctNum = annualBudget > 0 ? Math.round((totalSpent / annualBudget) * 100) : 0
+  const yStart = new Date(now.getFullYear(), 0, 1).getTime()
+  const yEnd = new Date(now.getFullYear() + 1, 0, 1).getTime()
+  const yearPctNum = Math.round(clamp01((now.getTime() - yStart) / (yEnd - yStart)) * 100)
+  const overPace = spentPctNum > yearPctNum
+
+  // Top categories by budget — the mini-ring grid + the inner feature rings.
+  const topCats = demo
+    ? DEMO_CATEGORIES
+    : [...cats]
+        .filter(x => num(x.budget) > 0)
+        .sort((a, b) => num(b.budget) - num(a.budget))
+        .slice(0, 4)
+        .map(x => {
+          const spent = spentOf(x)
+          const ratio = clamp01(spent / num(x.budget))
+          return {
+            pct: Math.round(ratio * 100),
+            name: String(x.name || '—'),
+            amount: fmt$(spent),
+            note: t('community.catBudgetNote', { budget: fmt$(num(x.budget)) }),
+            warn: ratio > 0.9,
+          }
+        })
+
+  // Feature rings: overall pace outermost, then the top three categories.
+  const ringPcts = demo
+    ? [76, 76, 76, 91]
+    : [spentPctNum, ...topCats.slice(0, 3).map(c => c.pct)]
+
+  // ---- Articles: the board's REAL decisions (demo sample in preview only) ----
+  const fmtWhen = (d: string | null | undefined) =>
+    d ? new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : ''
+  const articles: Article[] = demo
+    ? DEMO_ARTICLES
+    : (decisions ?? []).map((a: any, i: number) => {
+        const chip = DECISION_CHIP[a.status] || { label: String(a.status || '—'), kind: 'pending' }
+        return {
+          section: a.vendor ? t('community.sectionVendors') : t('community.sectionBoard'),
+          status: chip,
+          headline: String(a.title || '—'),
+          dek: String(a.description || a.notes || ''),
+          avatar: initialsOf(a.vendor || communityName),
+          vendor: a.vendor || t('community.byline.byBoard'),
+          votes: chip.label,
+          amount: a.amount != null ? fmt$(a.amount) : '—',
+          when: fmtWhen(a.decided_on),
+          feature: i === 0,
+        }
+      })
+
+  const quarter = Math.floor(now.getMonth() / 3) + 1
+  const homesCount = num(community?.unit_count)
+
   return (
     <div className="community-page">
       <svg width="0" height="0" style={{ position: 'absolute' }}>
@@ -114,48 +241,55 @@ export default function Community() {
 
       <section className="comm-feature">
         <div className="comm-feature-left">
-          <div className="kicker-ed">{t('community.feature.kicker')}</div>
-          <h1 className="comm-feature-headline"><span className="gradient-text">Sunset Lakes</span></h1>
+          <div className="kicker-ed">{demo ? t('community.feature.kicker') : t('community.featureKickerYear', { year: String(now.getFullYear()) })}</div>
+          <h1 className="comm-feature-headline"><span className="gradient-text">{communityName}</span></h1>
           <p className="comm-feature-dek">
-            {t('community.feature.dek')}
+            {demo
+              ? t('community.feature.dek')
+              : t('community.featureDekReal', { spentPct: String(spentPctNum), yearPct: String(yearPctNum) })}
           </p>
           <div className="comm-byline">
             <span>{t('community.byline.byBoard')}</span>
             <span className="comm-byline-dot" />
-            <span>{t('community.byline.reported')}</span>
-            <span className="comm-byline-dot" />
-            <span>{t('community.byline.readingTime')}</span>
-            <span className="comm-byline-dot" />
-            <span>{t('community.byline.homes')}</span>
+            <span>{demo ? t('community.byline.reported') : t('community.bylineUpdated', { date: now.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) })}</span>
+            {(demo || homesCount > 0) && (
+              <>
+                <span className="comm-byline-dot" />
+                <span>{demo ? t('community.byline.homes') : t('community.bylineHomes', { count: String(homesCount) })}</span>
+              </>
+            )}
           </div>
         </div>
 
         <div className="comm-feature-right">
           <div className="comm-rings-wrap">
             <svg className="comm-rings-svg" viewBox="0 0 200 200">
-              <circle cx="100" cy="100" r="90" fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="6"/>
-              <circle cx="100" cy="100" r="90" fill="none" stroke="url(#commRingGrad)" strokeWidth="6"
-                      strokeDasharray="565.49" strokeDashoffset="135.72" strokeLinecap="round"/>
-              <circle cx="100" cy="100" r="72" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="5"/>
-              <circle cx="100" cy="100" r="72" fill="none" stroke="url(#commRingGrad)" strokeWidth="5"
-                      strokeDasharray="452.39" strokeDashoffset="108.57" strokeLinecap="round"/>
-              <circle cx="100" cy="100" r="56" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="5"/>
-              <circle cx="100" cy="100" r="56" fill="none" stroke="url(#commRingGrad)" strokeWidth="5"
-                      strokeDasharray="351.86" strokeDashoffset="133.71" strokeLinecap="round"/>
-              <circle cx="100" cy="100" r="40" fill="none" stroke="rgba(255,255,255,0.05)" strokeWidth="5"/>
-              <circle cx="100" cy="100" r="40" fill="none" stroke="url(#commRingWarn)" strokeWidth="5"
-                      strokeDasharray="251.33" strokeDashoffset="22.62" strokeLinecap="round"/>
+              {RING_GEO.map((g, i) => {
+                const pct = clamp01((ringPcts[i] ?? 0) / 100)
+                const warn = i === RING_GEO.length - 1 && (demo || overPace)
+                return (
+                  <g key={g.r}>
+                    <circle cx="100" cy="100" r={g.r} fill="none" stroke={`rgba(255,255,255,${i === 0 ? 0.06 : 0.05})`} strokeWidth={g.w} />
+                    <circle cx="100" cy="100" r={g.r} fill="none" stroke={`url(#${warn ? 'commRingWarn' : 'commRingGrad'})`} strokeWidth={g.w}
+                            strokeDasharray={g.dash} strokeDashoffset={g.dash * (1 - pct)} strokeLinecap="round" />
+                  </g>
+                )
+              })}
             </svg>
             <div className="comm-ring-center">
-              <div className="comm-ring-pct gradient-text">76%</div>
+              <div className="comm-ring-pct gradient-text">{demo ? 76 : spentPctNum}%</div>
               <div className="comm-ring-lbl">{t('community.ring.ofYearsBudget')}</div>
             </div>
           </div>
 
           <div className="comm-money">
-            <div className="comm-money-amt gradient-text">$47,200</div>
-            <div className="comm-money-sub">{t('community.money.sub')}</div>
-            <span className="comm-warn-chip">{t('community.money.overPace')}</span>
+            <div className="comm-money-amt gradient-text">{demo ? '$47,200' : fmt$(totalSpent)}</div>
+            <div className="comm-money-sub">
+              {demo
+                ? t('community.money.sub')
+                : t('community.moneySubReal', { budget: fmt$(annualBudget), spentPct: String(spentPctNum), yearPct: String(yearPctNum) })}
+            </div>
+            {(demo || overPace) && <span className="comm-warn-chip">{t('community.money.overPace')}</span>}
           </div>
         </div>
       </section>
@@ -168,23 +302,27 @@ export default function Community() {
           <h2 className="comm-section-title">{t('community.categories.title')}</h2>
         </div>
 
-        <div className="comm-cat-grid">
-          {CATEGORIES.map(c => (
-            <div key={c.name} className={`comm-cat-col${c.warn ? ' warn' : ''}`}>
-              <div className="comm-mini-ring-wrap">
-                <svg className="comm-mini-ring-svg" viewBox="0 0 100 100">
-                  <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="6"/>
-                  <circle cx="50" cy="50" r="42" fill="none" stroke={`url(#${c.warn ? 'commRingWarn' : 'commRingGrad'})`} strokeWidth="6"
-                          strokeDasharray="263.89" strokeDashoffset={c.dashoffset} strokeLinecap="round"/>
-                </svg>
-                <div className={`comm-mini-ring-pct${c.warn ? ' warn-text' : ''}`}>{c.pct}%</div>
+        {topCats.length === 0 ? (
+          <div className="comm-cat-note" style={{ opacity: 0.75 }}>{t('community.categoriesEmpty')}</div>
+        ) : (
+          <div className="comm-cat-grid">
+            {topCats.map(c => (
+              <div key={c.name} className={`comm-cat-col${c.warn ? ' warn' : ''}`}>
+                <div className="comm-mini-ring-wrap">
+                  <svg className="comm-mini-ring-svg" viewBox="0 0 100 100">
+                    <circle cx="50" cy="50" r="42" fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="6"/>
+                    <circle cx="50" cy="50" r="42" fill="none" stroke={`url(#${c.warn ? 'commRingWarn' : 'commRingGrad'})`} strokeWidth="6"
+                            strokeDasharray="263.89" strokeDashoffset={263.89 * (1 - clamp01(c.pct / 100))} strokeLinecap="round"/>
+                  </svg>
+                  <div className={`comm-mini-ring-pct${c.warn ? ' warn-text' : ''}`}>{c.pct}%</div>
+                </div>
+                <div className="comm-cat-name">{c.name}</div>
+                <div className={`comm-cat-amount${c.warn ? ' warn' : ''}`}>{c.amount}</div>
+                <div className="comm-cat-note">{c.note}</div>
               </div>
-              <div className="comm-cat-name">{c.name}</div>
-              <div className={`comm-cat-amount${c.warn ? ' warn' : ''}`}>{c.amount}</div>
-              <div className="comm-cat-note">{c.note}</div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <div className="comm-divider"><span className="comm-divider-mark">§</span></div>
@@ -195,41 +333,47 @@ export default function Community() {
           <h2 className="comm-section-title">{t('community.board.title')}</h2>
         </div>
 
-        <div className="comm-articles-grid">
-          {ARTICLES.map((a, i) => (
-            <article key={i} className={`comm-article${a.feature ? ' feature' : ''} comm-article-btn`}
-              role="button" tabIndex={0}
-              onClick={() => setOpenArticle(a)}
-              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenArticle(a) } }}>
-              <div className="comm-article-top">
-                <span className="comm-article-section">{a.section}</span>
-                <span className={`comm-chip chip-${a.status.kind}`}>{a.status.label}</span>
-              </div>
-              <h3 className="comm-article-headline">{a.headline}</h3>
-              <p className="comm-article-dek">{a.dek}</p>
-              <div className="comm-article-byline">
-                <span className="comm-article-avatar">{a.avatar}</span>
-                <span className="comm-byline-vendor">{a.vendor}</span>
-                <span className="comm-byline-sep">·</span>
-                <span className="comm-byline-dim">{a.votes}</span>
-                <span className="comm-byline-sep">·</span>
-                <span className="comm-byline-amt">{a.amount}</span>
-                <span className="comm-byline-sep">·</span>
-                <span className="comm-byline-dim">{a.when}</span>
-              </div>
-            </article>
-          ))}
-        </div>
+        {articles.length === 0 ? (
+          <div className="comm-cat-note" style={{ opacity: 0.75 }}>{t('community.boardEmpty')}</div>
+        ) : (
+          <div className="comm-articles-grid">
+            {articles.map((a, i) => (
+              <article key={i} className={`comm-article${a.feature ? ' feature' : ''} comm-article-btn`}
+                role="button" tabIndex={0}
+                onClick={() => setOpenArticle(a)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpenArticle(a) } }}>
+                <div className="comm-article-top">
+                  <span className="comm-article-section">{a.section}</span>
+                  <span className={`comm-chip chip-${a.status.kind}`}>{a.status.label}</span>
+                </div>
+                <h3 className="comm-article-headline">{a.headline}</h3>
+                {a.dek && <p className="comm-article-dek">{a.dek}</p>}
+                <div className="comm-article-byline">
+                  <span className="comm-article-avatar">{a.avatar}</span>
+                  <span className="comm-byline-vendor">{a.vendor}</span>
+                  <span className="comm-byline-sep">·</span>
+                  <span className="comm-byline-amt">{a.amount}</span>
+                  <span className="comm-byline-sep">·</span>
+                  <span className="comm-byline-dim">{a.when}</span>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
       </section>
 
       <footer className="comm-footer">
-        <div className="comm-footer-masthead">Residente · Sunset Lakes · Q2 2026 · Issue 07</div>
-        <div className="comm-footer-note">{t('community.footer.note')}</div>
+        <div className="comm-footer-masthead">Residente · {communityName} · Q{quarter} {now.getFullYear()}</div>
+        <div className="comm-footer-note">{demo ? t('community.footer.note') : t('community.footerNoteReal')}</div>
         <div className="comm-footer-links">
-          <a href="#unsubscribe">{t('community.footer.unsubscribe')}</a>
-          <span className="comm-footer-divider">·</span>
-          <a href="#past-issues">{t('community.footer.pastIssues')}</a>
-          <span className="comm-footer-divider">·</span>
+          {demo && (
+            <>
+              <a href="#unsubscribe">{t('community.footer.unsubscribe')}</a>
+              <span className="comm-footer-divider">·</span>
+              <a href="#past-issues">{t('community.footer.pastIssues')}</a>
+              <span className="comm-footer-divider">·</span>
+            </>
+          )}
           <a href="/app/voice#contact">{t('community.footer.contactBoard')}</a>
         </div>
       </footer>
@@ -244,7 +388,7 @@ export default function Community() {
           <div className="rd-report-meta">
             <span className={`comm-chip chip-${openArticle.status.kind}`}>{openArticle.status.label}</span>
           </div>
-          <p className="rd-report-blurb">{openArticle.dek}</p>
+          {openArticle.dek && <p className="rd-report-blurb">{openArticle.dek}</p>}
           <div className="rd-bd-table">
             <div className="rd-bd-row"><span className="rd-bd-cat">{t('community.dialog.vendor')}</span><span className="rd-bd-amt">{openArticle.vendor}</span><span /></div>
             <div className="rd-bd-row"><span className="rd-bd-cat">{t('community.dialog.status')}</span><span className="rd-bd-amt">{openArticle.votes}</span><span /></div>
