@@ -376,9 +376,8 @@ export default function Settings() {
               <div className="set-account-meta">
                 <div className="set-account-name">{fullName}</div>
                 {/* Whole address, wrapping over as many lines as it needs —
-                    never ellipsized. Email keeps its own single line. */}
+                    never ellipsized. Email lives in View profile, not here. */}
                 <div className="set-account-addr">{unitLabel}</div>
-                <div className="set-account-email">{email}</div>
               </div>
             </div>
             <div className="set-account-rows">
