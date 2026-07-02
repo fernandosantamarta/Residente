@@ -8,6 +8,8 @@ import { usePreferences, newId, PaymentMethod } from '@/lib/preferences'
 import { fmtMoney, monthsCovered, monthsOwed } from '@/lib/dues'
 import { deriveStatements } from '@/lib/statements'
 import { useMyViolations, payFine } from '@/lib/violations'
+import { useMyPaymentPlan } from '@/lib/payment-plans'
+import { casePayoffForCase, type CollectionCaseRow } from '@/lib/compliance/collections'
 import { useCheckout } from '@/components/CheckoutProvider'
 import { useT } from '@/lib/i18n'
 import { DetailDialog } from './DetailDialog'
@@ -22,6 +24,11 @@ const fmtDate = (d: string | Date | null | undefined) => {
   } catch { return '—' }
 }
 const fmtShort = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+
+// Exact-cents money for a collection payoff (fmtMoney rounds to whole dollars,
+// and a payoff must match the ledger + the checkout charge to the cent).
+const fmtCents = (n: number | string | null | undefined): string =>
+  '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 const DAY_MS = 86_400_000
 
@@ -153,6 +160,18 @@ export function PaySection() {
   // roster-match — the demo fallback, instead of a skeleton that never fills.
   const isLoading = loading
   const currentBalance = balance == null ? 1250.00 : balance
+
+  // In collections, the account's ONE number is the statutory payoff (dues +
+  // daily interest + late fees + recorded collection costs) — the dues-only
+  // estimate under-quotes what actually clears the account. The hero and the
+  // Make-a-payment checkout defer to it; the fines band stays separate (fines
+  // aren't assessments and are billed on their own).
+  const { openCase } = useMyPaymentPlan()
+  const casePayoffRes = openCase && resident
+    ? casePayoffForCase(openCase as CollectionCaseRow, resident, community, payments || [])
+    : null
+  const inCollections = !!(openCase && casePayoffRes && casePayoffRes.payoff > 0)
+  const payAmount = inCollections ? casePayoffRes!.payoff : currentBalance
 
   // Breakdown that ALWAYS reconciles to the Current Balance above: the board-set
   // opening balance, everything accrued since (dues + any late interest/fees),
@@ -337,7 +356,7 @@ export function PaySection() {
   // no-roster-match mode so the marketing showcase stays alive (cf. DEMO_HISTORY).
   const realStmts = resident ? deriveStatements(resident, monthlyDues || 0, payments || [], { cfg: duesCfg }) : null
   const stmtItems: StmtItem[] = realStmts
-    ? realStmts.map((s): StmtItem => {
+    ? realStmts.map((s, si): StmtItem => {
         const monthLabel = new Date(`${s.periodStart}T00:00:00`)
           .toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
         return {
@@ -353,6 +372,11 @@ export function PaySection() {
             ...(s.interestFees ? [[t('pay.statementInterestFees'), fmtMoney(s.interestFees)] as [string, string]] : []),
             [t('pay.statementPaymentsReceived'), s.paid ? `-${fmtMoney(s.paid)}` : fmtMoney(0)],
             [t('pay.statementClosingBalance'), fmtMoney(s.closingBalance)],
+            // Current statement of an account in collections closes on the real
+            // number: dues + statutory interest + recorded costs (the payoff).
+            ...(si === 0 && inCollections
+              ? [[t('pay.statementCollTotalDue', { date: fmtDate(`${casePayoffRes!.asOf}T00:00:00`) }), fmtCents(casePayoffRes!.payoff)] as [string, string]]
+              : []),
           ],
         }
       })
@@ -376,13 +400,15 @@ export function PaySection() {
   }, [pendingStmt, resident, stmtItems])
 
   const startCheckout = () => {
-    if (currentBalance <= 0) return   // nothing due — never open a $0 checkout
+    if (payAmount <= 0) return   // nothing due — never open a $0 checkout
     // Demo / no-Stripe: simulate a successful payment instead of dead-clicking,
     // mirroring the Home Quick-Pay popup.
-    if (!stripeEnabled || !resident) { setDemoPaid(currentBalance); return }
+    if (!stripeEnabled || !resident) { setDemoPaid(payAmount); return }
     openCheckout({
       fn: 'create-checkout',
-      body: { resident_id: resident.id, amount: currentBalance },
+      // In collections the charge is the full statutory payoff, applied to the
+      // case so it closes when paid — never the dues-only under-quote.
+      body: { resident_id: resident.id, amount: payAmount, ...(inCollections ? { applied_to_case: (openCase as any).id } : {}) },
       returnUrl: '/app/track?submitted=1#pay',
     })
   }
@@ -462,18 +488,18 @@ export function PaySection() {
             {isLoading ? (
               <div className="pay-balance-amt pay-skel pay-skel-amt" aria-label={t('pay.loadingBalance')}>&nbsp;</div>
             ) : (
-              <div className="pay-balance-amt">{fmtMoney(currentBalance)}</div>
+              <div className="pay-balance-amt">{inCollections ? fmtCents(payAmount) : fmtMoney(currentBalance)}</div>
             )}
             {isLoading ? (
               <div className="pay-balance-due pay-skel pay-skel-due">&nbsp;</div>
             ) : (
-              <div className="pay-balance-due">{t('pay.dueOn', { date: fmtDate(dueDate) })}</div>
+              <div className="pay-balance-due">{inCollections ? t('pay.balanceCollNote') : t('pay.dueOn', { date: fmtDate(dueDate) })}</div>
             )}
             <div className="pay-balance-actions">
               <button type="button" className="pay-cta-primary"
-                disabled={checkout.loading || isLoading || currentBalance <= 0}
+                disabled={checkout.loading || isLoading || payAmount <= 0}
                 onClick={startCheckout}>
-                {checkout.loading ? t('pay.startingCheckout') : currentBalance <= 0 ? t('pay.allPaidUp') : t('pay.makePayment')}
+                {checkout.loading ? t('pay.startingCheckout') : payAmount <= 0 ? t('pay.allPaidUp') : t('pay.makePayment')}
               </button>
               <button type="button" className="pay-cta-secondary"
                 onClick={() => setAccountOpen(true)}>
@@ -918,6 +944,7 @@ export function PaySection() {
           </div>
           <p className="rd-detail-foot-note">
             {t('pay.statementFootNote')}
+            {inCollections && <> {t('pay.statementCollFootNote', { payoff: fmtCents(casePayoffRes!.payoff), date: fmtDate(`${casePayoffRes!.asOf}T00:00:00`) })}</>}
           </p>
         </DetailDialog>
       )}

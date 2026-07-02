@@ -6,12 +6,16 @@
 // Shown only when the owner has an OPEN collection case.
 
 import { useState, useEffect } from 'react'
-import { casePayoff } from '@/lib/dues'
+import { casePayoff, communityDuesConfig } from '@/lib/dues'
 import { useMyPaymentPlan } from '@/lib/payment-plans'
 import { useCheckout } from '@/components/CheckoutProvider'
 import { stripeEnabled, supabase, hasSupabase } from '@/lib/supabase'
 import { useT } from '@/lib/i18n'
-import { nextEscalation, isOpenStage, NOTICE_KIND_LABELS, type CollectionStage } from '@/lib/compliance/collections'
+import {
+  nextEscalation, isOpenStage, NOTICE_KIND_LABELS,
+  casePayoffForCase, casePerDiem, caseInterestFrozen,
+  type CollectionStage, type CollectionCaseRow,
+} from '@/lib/compliance/collections'
 import { PaymentPlanCard } from './PaymentPlanCard'
 import { LegalHoldCard } from './LegalHoldCard'
 import { DetailDialog } from './DetailDialog'
@@ -46,6 +50,10 @@ const NOTICE_DOC: Record<string, string> = {
 // app-wide fmtMoney rounds to whole dollars, e.g. $399.52 -> $400).
 const fmt$ = (n: number | string | null | undefined): string =>
   '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
+// Short date for the payoff-quote line ("Jul 2, 2026").
+const fmtD = (s: string): string =>
+  new Date(`${String(s).slice(0, 10)}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
 // Resident-facing one-liner for each statutory collection stage, and the next
 // step the board could take from it (only the stages with a waiting-period
@@ -118,18 +126,37 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
   // Active includes admin-created plans (no request_status) — same rule as
   // PaymentPlanCard so the top card and the plan popup agree.
   const onActivePlan = String(plan?.status ?? '') === 'active' && plan?.request_status !== 'requested' && plan?.request_status !== 'denied'
-  let payoff: ReturnType<typeof casePayoff> | null = null
-  try {
-    if (resident) {
-      const extraCosts = (Number((openCase as any).cost_balance) || 0) + (Number((openCase as any).mailing_cost_balance) || 0)
-      payoff = casePayoff(resident, community, payments || [], { extraCosts, fines: Number((openCase as any).fine_balance) || 0 })
-    }
-  } catch { payoff = null }
+  // One source of truth: the shared case payoff (recorded costs + escalated
+  // fines + good-faith freezes) — same figure the Pay hero, the rail, the
+  // statements and the mailed letters show.
+  const caseRow = openCase as CollectionCaseRow
+  const payoff: ReturnType<typeof casePayoff> | null =
+    casePayoffForCase(caseRow, resident, community, payments || [])
   // Show the running balance even while on a plan — it drops as installments
   // post (each recorded installment is a real payment against the case), so the
   // owner watches the total go down. The plan context moves into the intro line.
   const showPayoff = !!payoff && payoff.payoff > 0
   const r = payoff?.remaining
+
+  // Payoff-quote context, the way a management company writes it: the rate
+  // being charged, the daily accrual, and how much the payoff has grown since
+  // the last mailed notice (same ledger re-run as of that date, counting only
+  // the payments that existed then).
+  const apr = communityDuesConfig(community).apr || 0
+  const interestPaused = caseInterestFrozen(caseRow)
+  const perDiem = casePerDiem(caseRow, community, payoff)
+  const lastNotice = notices[0] || null
+  let sinceNotice: { amount: number; date: string } | null = null
+  if (payoff && lastNotice?.sent_at) {
+    const cutoff = new Date(`${String(lastNotice.sent_at).slice(0, 10)}T23:59:59`)
+    const paysThen = (payments || []).filter((p: any) => {
+      const d = new Date(p.paid_on || p.created_at || 0)
+      return !isNaN(d.getTime()) && d <= cutoff
+    })
+    const then = casePayoffForCase(caseRow, resident, community, paysThen, { asOf: lastNotice.sent_at })
+    const grown = then ? Math.round((payoff.payoff - then.payoff) * 100) / 100 : 0
+    if (grown > 0.005) sinceNotice = { amount: grown, date: String(lastNotice.sent_at) }
+  }
 
   // Where the case sits on the statutory ladder + the live countdown to the next
   // step, surfaced to the owner when they're NOT on a plan (a plan pauses this).
@@ -148,11 +175,22 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
     })
   }
 
-  const chips: [string, number][] = r
+  // Breakdown rows. Interest carries the rate being charged; Costs itemizes
+  // where the money came from (board-recorded collection costs vs the mailed
+  // statutory notices) whenever payments haven't started consuming the cost
+  // bucket yet — after that the split would no longer tie to the remaining line.
+  const mailCost = Number(caseRow.mailing_cost_balance) || 0
+  const boardCost = Number(caseRow.cost_balance) || 0
+  const costsUntouched = !!r && Math.abs(r.cost - (mailCost + boardCost)) < 0.005
+  const chips: { label: string; val: number; sub?: boolean }[] = r
     ? [
-        [t('pay.collPrincipal'), r.principal], [t('pay.collInterest'), r.interest],
-        [t('pay.collFees'), r.lateFee], [t('pay.collCosts'), r.cost],
-        ...(Number(r.fine) > 0 ? ([[t('pay.collFines'), r.fine]] as [string, number][]) : []),
+        { label: t('pay.collPrincipal'), val: r.principal },
+        { label: apr > 0 ? t('pay.collInterestApr', { apr: String(apr) }) : t('pay.collInterest'), val: r.interest },
+        { label: t('pay.collFees'), val: r.lateFee },
+        { label: t('pay.collCosts'), val: r.cost },
+        ...(costsUntouched && boardCost > 0 ? [{ label: t('pay.collCostsBoard'), val: boardCost, sub: true }] : []),
+        ...(costsUntouched && mailCost > 0 ? [{ label: t('pay.collCostsMailing'), val: mailCost, sub: true }] : []),
+        ...(Number(r.fine) > 0 ? [{ label: t('pay.collFines'), val: r.fine }] : []),
       ]
     : []
 
@@ -172,6 +210,18 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
         {showPayoff && (
           <>
             <p className="pay-plan-intro" style={{ marginTop: 0, marginBottom: 0 }}>{onActivePlan ? t('pay.collOnPlan') : t('pay.collIntro')}</p>
+            {/* Payoff-quote line — good-through date, the rate + daily accrual,
+                and growth since the last mailed notice. */}
+            <p style={{ margin: '6px 0 0', fontSize: 12.5, lineHeight: 1.55, color: '#6b675f' }}>
+              {t('pay.collGoodThrough', { date: fmtD(payoff!.asOf) })}
+              {perDiem > 0 && <> · {t('pay.collAccruing', { apr: String(apr), perDay: fmt$(perDiem) })}</>}
+              {apr > 0 && interestPaused && <> · {t('pay.collInterestPaused')}</>}
+              {sinceNotice && (
+                <> · <strong style={{ color: '#B54708', fontWeight: 700 }}>
+                  {t('pay.collSinceNotice', { amount: fmt$(sinceNotice.amount), date: fmtD(sinceNotice.date) })}
+                </strong></>
+              )}
+            </p>
             {/* Collection status + countdown — only when NOT on a plan (a plan
                 pauses escalation, so we don't show a ladder countdown there). */}
             {!onActivePlan && inLadder && (
@@ -240,10 +290,10 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
                 </button>
                 {breakdownOpen && (
                   <div style={{ marginTop: 10, border: '1px solid rgba(10,36,64,0.10)', borderRadius: 10, overflow: 'hidden' }}>
-                    {chips.map(([label, val], i) => (
-                      <div key={label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '9px 12px', fontSize: 13, color: '#344054', borderTop: i ? '1px solid #EEF0F2' : 'none' }}>
-                        <span>{label}</span>
-                        <span style={{ fontWeight: 600, color: '#1F2233' }}>{fmt$(Number(val) || 0)}</span>
+                    {chips.map((row, i) => (
+                      <div key={row.label} style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: row.sub ? '5px 12px 5px 28px' : '9px 12px', fontSize: row.sub ? 12 : 13, color: row.sub ? '#667085' : '#344054', borderTop: i && !row.sub ? '1px solid #EEF0F2' : 'none', background: row.sub ? 'rgba(0,0,0,0.015)' : undefined }}>
+                        <span>{row.label}</span>
+                        <span style={{ fontWeight: row.sub ? 500 : 600, color: row.sub ? '#667085' : '#1F2233' }}>{fmt$(Number(row.val) || 0)}</span>
                       </div>
                     ))}
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, padding: '10px 12px', fontSize: 13.5, fontWeight: 800, color: '#0A2440', borderTop: '2px solid #E5E2DA', background: 'rgba(0,0,0,0.02)' }}>

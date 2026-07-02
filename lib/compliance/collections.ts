@@ -27,7 +27,8 @@ import {
 } from './rules-core'
 import {
   residentBalance, duesStatus, monthsLate, daysPastDue,
-  type DuesConfig, type Resident, type Payment,
+  casePayoff, communityDuesConfig,
+  type DuesConfig, type Resident, type Payment, type PayoffResult,
 } from '@/lib/dues'
 
 // ----------------------------------------------------------------------------
@@ -172,11 +173,70 @@ export interface CollectionCaseRow {
   interest_balance?: number | null
   late_fee_balance?: number | null
   cost_balance?: number | null
+  mailing_cost_balance?: number | null  // recoverable certified-mail costs (mail-controls.sql)
+  fine_balance?: number | null          // escalated violation fines collected through the case
   total_balance?: number | null
   // flags
   is_fine_only?: boolean | null   // HOA: a case driven only by an unpaid fine
   on_payment_plan?: boolean | null
+  freeze_interest?: boolean | null   // good-faith freeze overrides (collections-freeze-interest.sql);
+  freeze_late_fees?: boolean | null  // null = follow on_payment_plan
   notes?: string | null
+}
+
+// ----------------------------------------------------------------------------
+// Case payoff — one source of truth
+// ----------------------------------------------------------------------------
+
+/** Whether interest is currently paused on a case: an explicit freeze wins;
+ *  otherwise an active payment plan pauses accrual (same rule as the letters). */
+export function caseInterestFrozen(c: CollectionCaseRow | null | undefined): boolean {
+  if (!c) return false
+  return c.freeze_interest == null ? !!c.on_payment_plan : !!c.freeze_interest
+}
+export function caseLateFeesFrozen(c: CollectionCaseRow | null | undefined): boolean {
+  if (!c) return false
+  return c.freeze_late_fees == null ? !!c.on_payment_plan : !!c.freeze_late_fees
+}
+
+/**
+ * The statutory payoff for a case, with everything the case carries applied
+ * consistently: recorded collection/attorney costs + certified-mail costs,
+ * escalated fines, and the good-faith freezes. Every resident-facing surface
+ * (payoff card, Pay hero, rail, statements) and the letters derive from THIS
+ * so an owner never sees two different payoffs. `asOf` re-runs the same ledger
+ * at an earlier date (e.g. "what did I owe when the 30-day notice went out").
+ */
+export function casePayoffForCase(
+  c: CollectionCaseRow | null | undefined,
+  resident: Resident | null | undefined,
+  community: Record<string, unknown> | null | undefined,
+  payments: Payment[] = [],
+  opts: { asOf?: string | Date } = {},
+): PayoffResult | null {
+  if (!c || !resident) return null
+  try {
+    return casePayoff(resident, community, payments, {
+      asOf: opts.asOf,
+      extraCosts: (Number(c.cost_balance) || 0) + (Number(c.mailing_cost_balance) || 0),
+      fines: Number(c.fine_balance) || 0,
+      freezeInterest: caseInterestFrozen(c),
+      freezeLateFees: caseLateFeesFrozen(c),
+    })
+  } catch { return null }
+}
+
+/** Daily interest accruing on the unpaid principal — the per-diem line on a
+ *  payoff quote. 0 when the community charges no interest or accrual is paused. */
+export function casePerDiem(
+  c: CollectionCaseRow | null | undefined,
+  community: Record<string, unknown> | null | undefined,
+  payoff: PayoffResult | null,
+): number {
+  if (!payoff || caseInterestFrozen(c)) return 0
+  const apr = communityDuesConfig(community).apr || 0
+  if (apr <= 0) return 0
+  return Math.round((payoff.remaining.principal * (apr / 100) / 365) * 100) / 100
 }
 
 export interface CollectionNoticeRow {

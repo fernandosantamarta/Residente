@@ -13,8 +13,14 @@ import { useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { useMyResident } from '@/hooks/useMyResident'
 import { findStatement } from '@/lib/statements'
-import { fmtMoney } from '@/lib/dues'
+import { fmtMoney, communityDuesConfig } from '@/lib/dues'
+import { useMyPaymentPlan } from '@/lib/payment-plans'
+import { casePayoffForCase, casePerDiem, caseInterestFrozen, type CollectionCaseRow } from '@/lib/compliance/collections'
 import { useT } from '@/lib/i18n'
+
+// Exact-cents money — a payoff quote must tie to the ledger to the cent.
+const fmtCents = (n: number | string | null | undefined): string =>
+  '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 const fmtMonth = (periodStart: string) =>
   new Date(`${periodStart}T00:00:00`).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
@@ -30,6 +36,20 @@ export default function OwnerStatementPrint() {
     () => (resident ? findStatement(resident, monthlyDues || 0, payments || [], period, { cfg: duesCfg }) : null),
     [resident, monthlyDues, payments, period, duesCfg],
   )
+
+  // Collections banner — a statement printed while the account is in an active
+  // collection case must not read like a routine bill: it carries the full
+  // statutory payoff (good through today), the interest rate + per-diem, and
+  // where the recorded costs came from.
+  const { openCase } = useMyPaymentPlan()
+  const caseRow = openCase as CollectionCaseRow | null
+  const collPayoff = caseRow && resident ? casePayoffForCase(caseRow, resident, community, payments || []) : null
+  const inCollections = !!(caseRow && collPayoff && collPayoff.payoff > 0)
+  const collApr = communityDuesConfig(community).apr || 0
+  const collPerDiem = casePerDiem(caseRow, community, collPayoff)
+  const collPaused = caseInterestFrozen(caseRow)
+  const collMailCost = Number(caseRow?.mailing_cost_balance) || 0
+  const collBoardCost = Number(caseRow?.cost_balance) || 0
 
   if (loading) return <div style={{ padding: 40, fontFamily: 'system-ui' }}>{t('pay.statementLoading')}</div>
   if (!resident || !stmt) {
@@ -78,6 +98,10 @@ export default function OwnerStatementPrint() {
         table.stmt-tbl td { padding: 11px 0; border-bottom: 1px solid #efece5; }
         table.stmt-tbl tr.total td { border-top: 2px solid #21201d; border-bottom: none; font-weight: 700; font-size: 15.5px; padding-top: 13px; }
         .credit { color: #137a4b; }
+        .stmt-coll { margin-top: 24px; border: 2px solid #B42318; border-radius: 12px; background: #FEF3F2; padding: 16px 18px; }
+        .stmt-coll-h { display: flex; justify-content: space-between; gap: 14px; align-items: baseline; font-weight: 800; color: #B42318; font-size: 12.5px; letter-spacing: .07em; text-transform: uppercase; }
+        .stmt-coll-amt { font-size: 19px; letter-spacing: 0; }
+        .stmt-coll p { margin: 9px 0 0; font-size: 12.5px; line-height: 1.55; color: #5d2018; }
         .stmt-foot { margin-top: 26px; font-size: 11.5px; color: #837f76; line-height: 1.5; border-top: 1px solid #efece5; padding-top: 16px; }
         @media print {
           body { background: #fff; }
@@ -127,6 +151,30 @@ export default function OwnerStatementPrint() {
             ))}
           </tbody>
         </table>
+
+        {inCollections && (
+          <div className="stmt-coll">
+            <div className="stmt-coll-h">
+              <span>{t('pay.statementCollBannerTitle')}</span>
+              <span className="stmt-coll-amt">{fmtCents(collPayoff!.payoff)}</span>
+            </div>
+            <p>
+              {t('pay.statementCollBannerLead', { date: fmtToday() })}{' '}
+              {collApr > 0 && !collPaused && t('pay.statementCollBannerInterest', { apr: String(collApr), perDay: fmtCents(collPerDiem) })}
+              {collApr > 0 && collPaused && t('pay.statementCollBannerPaused')}
+              {(collBoardCost > 0 || collMailCost > 0) && (
+                <> {t('pay.statementCollBannerCosts', {
+                  costs: fmtCents(collBoardCost + collMailCost),
+                  detail: [
+                    collBoardCost > 0 ? t('pay.statementCollCostBoard', { amount: fmtCents(collBoardCost) }) : '',
+                    collMailCost > 0 ? t('pay.statementCollCostMail', { amount: fmtCents(collMailCost) }) : '',
+                  ].filter(Boolean).join(' + '),
+                })}</>
+              )}
+              {' '}{t('pay.statementCollBannerTail')}
+            </p>
+          </div>
+        )}
 
         <p className="stmt-foot">{t('pay.statementReconcileNote')}</p>
       </div>

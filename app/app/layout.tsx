@@ -18,6 +18,8 @@ import { usePlatformAdmin } from '@/hooks/usePlatform'
 import { usePreferences } from '@/lib/preferences'
 import { useT } from '@/lib/i18n'
 import { DUES_LABEL } from '@/lib/dues'
+import { useMyPaymentPlan } from '@/lib/payment-plans'
+import { casePayoffForCase, type CollectionCaseRow } from '@/lib/compliance/collections'
 import { CommunitySvg, InteriorSvg } from '../page'
 
 // "Fernando Santamaria" → "FS". Safe on null/single-name.
@@ -459,6 +461,11 @@ function CockpitIntro() {
 const fmtAmt = (n: number | string | null | undefined) =>
   '$' + Math.round(Number(n) || 0).toLocaleString('en-US')
 
+// Exact-cents variant for a collection payoff — that figure must match the
+// Pay screen and the checkout charge to the cent.
+const fmtAmtCents = (n: number | string | null | undefined) =>
+  '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+
 // HOA convention: dues for month N are due on the 1st of month N.
 // If we're already past the 1st, the next bill is for next month.
 function nextDueDate(): Date {
@@ -490,7 +497,17 @@ function shortDate(s: string) {
 function RightRail() {
   const { profile } = useAuth()
   const t = useT()
-  const { resident, balance, status: dues } = useMyResident() as { resident: any; balance: number | null; status: 'paid' | 'due' | 'late' }
+  const { resident, community, payments, balance, status: dues } = useMyResident() as { resident: any; community: any; payments: any[]; balance: number | null; status: 'paid' | 'due' | 'late' }
+
+  // In collections, "What you owe" is the statutory payoff (dues + daily
+  // interest + recorded costs) — the same single number the Pay screen quotes —
+  // and the status pill says so instead of a generic "Late".
+  const { openCase } = useMyPaymentPlan()
+  const railPayoff = openCase && resident
+    ? casePayoffForCase(openCase as CollectionCaseRow, resident, community, payments || [])
+    : null
+  const inCollections = !!(openCase && railPayoff && railPayoff.payoff > 0)
+  const owed = inCollections ? railPayoff!.payoff : balance
   // The household identity can be a short unit ("102") or a whole street
   // address — the roster's Address/Unit field writes one value to both
   // columns. A spaced value reads as an address, so the row label flips
@@ -562,8 +579,8 @@ function RightRail() {
         <div className="household-divider"></div>
         <div className="household-row">
           <span className="h-label">{t('rail.whatYouOwe')}</span>
-          <span className={`h-val h-val-amount ${balance ? 'due' : 'ok'}`}>
-            {balance === null ? '—' : fmtAmt(balance)}
+          <span className={`h-val h-val-amount ${owed ? 'due' : 'ok'}`}>
+            {owed === null ? '—' : inCollections ? fmtAmtCents(owed) : fmtAmt(owed)}
           </span>
         </div>
         <div className="household-row">
@@ -576,8 +593,8 @@ function RightRail() {
         </div>
         <div className="household-row">
           <span className="h-label">{t('rail.duesStatus')}</span>
-          <span className={`h-val h-val-pill ${dues === 'paid' ? 'ok' : 'due'}`}>
-            {resident ? DUES_LABEL[dues] : '—'}
+          <span className={`h-val h-val-pill ${dues === 'paid' && !inCollections ? 'ok' : 'due'}`}>
+            {inCollections ? t('rail.inCollections') : resident ? DUES_LABEL[dues] : '—'}
           </span>
         </div>
         <Link href="/app/track#pay" className="household-cta household-cta-dark">
