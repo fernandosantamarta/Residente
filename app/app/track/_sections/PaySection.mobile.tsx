@@ -392,6 +392,11 @@ export function PaySection() {
     if (pendingStmt && resident && stmtItems.length) {
       setStmtOpen(stmtItems.find(s => s.period === pendingStmt) || stmtItems[0])
       setPendingStmt(null)
+      // Park the background at the Statements section — a fresh navigation
+      // otherwise paints at the top of the page underneath the popup.
+      requestAnimationFrame(() => {
+        document.getElementById('statements')?.scrollIntoView({ block: 'start' })
+      })
     }
   }, [pendingStmt, resident, stmtItems])
 

@@ -904,8 +904,8 @@ export default function Residents() {
                 <tbody>
                   {filtered.length === 0 ? (
                     <tr><td colSpan={5}><div className="roster-empty">{t('admin.residents.noSearchResults')}</div></td></tr>
-                  ) : paged.map(r => (
-                    <ResidentRow key={r.id} r={r}
+                  ) : paged.map((r, ri) => (
+                    <ResidentRow key={r.id} r={r} rowNo={page * ROSTER_SIZE + ri + 1}
                       onLocal={editLocal} onCommit={commit} onRemove={remove}
                       onInvite={sendInvite} inviteBusy={inviteBusyId === r.id}
                       onInviteTenant={sendTenantInvite} onRemoveTenant={removeTenant}
@@ -928,7 +928,7 @@ export default function Residents() {
 // activation pill | Open). "Open" expands the full household editor in-place so
 // every working field (address, subdivision, opening balance, mailing address,
 // tenant) is still editable — nothing is read-only-only.
-function ResidentRow({ r, onLocal, onCommit, onRemove, onInvite, inviteBusy, onInviteTenant, onRemoveTenant, transfer, onTransfer }) {
+function ResidentRow({ r, rowNo, onLocal, onCommit, onRemove, onInvite, inviteBusy, onInviteTenant, onRemoveTenant, transfer, onTransfer }) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const activated = !!(r.activated_at || r.profile_id)
@@ -963,6 +963,9 @@ function ResidentRow({ r, onLocal, onCommit, onRemove, onInvite, inviteBusy, onI
       <tr className="tr">
         <td>
           <div className="owner-cell">
+            {/* Running row number (continues across pages) so the board can
+                count households at a glance. */}
+            <span className="muted" style={{ flex: '0 0 auto', minWidth: 22, textAlign: 'right', fontSize: 12, fontVariantNumeric: 'tabular-nums' }}>{rowNo}</span>
             <span className="av" aria-hidden="true">{initials(r.full_name)}</span>
             <span className="strong">
               {r.full_name}

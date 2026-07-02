@@ -10,6 +10,11 @@ export function computeCommunityRating(opts: {
   community: any
   categories: any[]
   expenses?: Expense[]
+  /** Dues received ÷ dues expected to date (0–1), from the
+   *  community_collection_rate RPC. null/undefined = signal unavailable
+   *  (SQL not run yet / no expected dues) — the grade falls back to
+   *  budget-pace only, exactly as before. */
+  collectionRate?: number | null
   now?: Date
 }): number {
   const now = opts.now ?? new Date()
@@ -39,5 +44,12 @@ export function computeCommunityRating(opts: {
   const reserveSource = reserveCats.length ? reserveCats : cats.filter((x: any) => /reserve/i.test(x.name || ''))
   const reserveTotal = reserveSource.reduce((s, x) => s + (num(x.budget) - num(x.spent)), 0)
 
-  return Math.max(0, Math.min(100, Math.round(healthPct * 0.85) + (reserveTotal > 0 ? 15 : 0)))
+  const base = Math.max(0, Math.min(100, Math.round(healthPct * 0.85) + (reserveTotal > 0 ? 15 : 0)))
+
+  // Collections reality check: a community where the dues aren't actually
+  // being paid isn't "run well" no matter how on-pace the budget looks. When
+  // the received/expected rate is available it takes 40% of the grade.
+  if (opts.collectionRate == null || isNaN(Number(opts.collectionRate))) return base
+  const collected = Math.max(0, Math.min(1, Number(opts.collectionRate)))
+  return Math.max(0, Math.min(100, Math.round(base * 0.6 + collected * 100 * 0.4)))
 }

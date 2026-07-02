@@ -329,9 +329,23 @@ export default function CompliancePage() {
   // resident Home shows. Distinct from Ready (setup + statutory compliance), so
   // they measure different things and don't contradict. Uses the budget_categories
   // already loaded (as `budgets`) + the expense ledger.
+  // Same collections signal the resident Home card uses, so both grades stay
+  // identical. Graceful until the community-collection-rate.sql RPC is run.
+  const [collectionRate, setCollectionRate] = useState<number | null>(null)
+  useEffect(() => {
+    if (!hasSupabase || !supabase || !community?.id) { setCollectionRate(null); return }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { data, error } = await supabase.rpc('community_collection_rate', { p_community: community.id })
+        if (!cancelled) setCollectionRate(error || data == null ? null : Number(data))
+      } catch { if (!cancelled) setCollectionRate(null) }
+    })()
+    return () => { cancelled = true }
+  }, [community?.id])
   const communityHealth = useMemo(
-    () => computeCommunityRating({ community, categories: budgets, expenses }),
-    [community, budgets, expenses],
+    () => computeCommunityRating({ community, categories: budgets, expenses, collectionRate }),
+    [community, budgets, expenses, collectionRate],
   )
 
   return (

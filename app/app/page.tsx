@@ -12,6 +12,8 @@ import { useBoardDecisions } from '@/hooks/useBoardDecisions'
 import { useVoiceMeetings } from '@/hooks/useVoiceMeetings'
 import { useAuth } from '@/app/providers'
 import { stripeEnabled, supabase } from '@/lib/supabase'
+import { useMyPaymentPlan } from '@/lib/payment-plans'
+import { casePayoffForCase, type CollectionCaseRow } from '@/lib/compliance/collections'
 import { usePreferences } from '@/lib/preferences'
 import { useScheduleEvents } from '@/lib/schedule'
 import { useCheckout } from '@/components/CheckoutProvider'
@@ -49,6 +51,8 @@ const VENDOR_BREAKDOWN: readonly { id: string; name: string; share: number; tren
 const clamp01 = (n: number) => Math.max(0, Math.min(1, n))
 const num = (v: unknown) => Number(v) || 0
 const fmtMoney = (n: number) => '$' + Math.round(num(n)).toLocaleString('en-US')
+// Exact-cents variant — a collection payoff must read the same everywhere.
+const fmtCents = (n: number) => '$' + (Math.round(num(n) * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 // Pulls a clean first name out of profile.full_name. Handles:
 //   "Fernando Santamarta" → "Fernando"
@@ -72,7 +76,8 @@ export default function Home() {
   const t = useT()
   const { community, categories, loading: communityLoading } = useCommunityData()
   const { profile } = useAuth() || {}
-  const { balance: myBalance, status: myDues, isTenant, loading: residentLoading } = useMyResident()
+  const { resident: myRow, community: myCommunity, payments: myPayments, balance: myBalance, status: myDues, isTenant, loading: residentLoading } = useMyResident() as any
+  const { openCase } = useMyPaymentPlan()
   const { expenses, loading: expensesLoading } = useExpenses()
 
   // Real community when one is linked; otherwise the demo (marketing preview
@@ -141,6 +146,34 @@ export default function Home() {
     return () => { cancelled = true }
   }, [community?.id])
 
+  // Dues received ÷ expected to date — the collections signal in the community
+  // rating (community_collection_rate RPC, a member-readable aggregate). Until
+  // that SQL runs in prod the rpc errors and the grade falls back to budget
+  // pace alone, exactly as before.
+  const [collectionRate, setCollectionRate] = useState<number | null>(null)
+  useEffect(() => {
+    if (!supabase || !community?.id) { setCollectionRate(null); return }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { data, error } = await supabase.rpc('community_collection_rate', { p_community: community.id })
+        if (!cancelled) setCollectionRate(error || data == null ? null : Number(data))
+      } catch { if (!cancelled) setCollectionRate(null) }
+    })()
+    return () => { cancelled = true }
+  }, [community?.id])
+
+  // What the signed-in owner actually owes right now — the statutory payoff
+  // when they're in collections (the same figure Easy Track quotes), else the
+  // dues balance. Shown on the Personal dues tab so "$128/mo" never reads
+  // like "you owe $128".
+  const myPayoff = openCase && myRow
+    ? casePayoffForCase(openCase as CollectionCaseRow, myRow, myCommunity, myPayments || [])
+    : null
+  const owedLabel = myPayoff && myPayoff.payoff > 0
+    ? fmtCents(myPayoff.payoff)
+    : (num(myBalance) > 0 ? fmtMoney(myBalance) : null)
+
   // Reserve balance — remaining (budget − spent) of the categories the board
   // flagged as reserves; falls back to name-matched "Reserve" categories when
   // the is_reserve flag hasn't been set. Real, not the old hardcoded figure.
@@ -163,7 +196,7 @@ export default function Home() {
   // Demo (logged-out preview) keeps the illustrative sample figures.
   const communityRating = demo
     ? 92
-    : computeCommunityRating({ community: c, categories: cats, expenses, now })
+    : computeCommunityRating({ community: c, categories: cats, expenses, collectionRate, now })
   const personalRating = demo
     ? 100
     : (myBalance == null || myBalance <= 0
@@ -298,6 +331,7 @@ export default function Home() {
             monthlyDues={monthlyDues}
             unitCount={billedHomes || unitCount}
             unitNumber={profile?.unit_number ?? null}
+            owedLabel={owedLabel}
             demo={demo}
             cats={cats}
             communityRating={communityRating}
@@ -384,8 +418,8 @@ function weatherIcon(condition: string): ChipIconName {
 // ---------- Where your dues go (tabbed) ----------
 
 function DuesSection({
-  monthlyDues, unitCount, unitNumber, demo, cats, communityRating, personalRating,
-}: { monthlyDues: number; unitCount: number; unitNumber: string | null; demo: boolean; cats: any[]; communityRating: number; personalRating: number }) {
+  monthlyDues, unitCount, unitNumber, owedLabel, demo, cats, communityRating, personalRating,
+}: { monthlyDues: number; unitCount: number; unitNumber: string | null; owedLabel?: string | null; demo: boolean; cats: any[]; communityRating: number; personalRating: number }) {
   const t = useT()
   // Real community: derive the allocation from its own budget categories.
   // Demo (logged-out preview): the illustrative vendor sample.
@@ -464,6 +498,15 @@ function DuesSection({
           <div className="dues-updated">
             {t('home.duesLastUpdated', { date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) })}
           </div>
+          {/* Personal tab: the monthly rate is NOT what's owed — when the
+              owner is behind, say what they actually owe (the same figure
+              Easy Track quotes) so the two screens can't contradict. */}
+          {!isCommunity && owedLabel && (
+            <div style={{ marginTop: 7, fontSize: 12.5, fontWeight: 700, color: '#B54708' }}>
+              {t('home.duesOweNote', { amount: owedLabel })}{' '}
+              <Link href="/app/track#pay" style={{ color: '#B54708', textDecorationLine: 'underline' }}>{t('home.duesOweCta')}</Link>
+            </div>
+          )}
         </div>
         <RatingRing
           value={isCommunity ? communityRating : personalRating}

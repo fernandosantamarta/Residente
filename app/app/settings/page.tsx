@@ -54,6 +54,9 @@ export default function Settings() {
   const t = useT()
   const { profile, setProfile } = useAuth() || {}
   const { community } = useCommunityData()
+  // Roster row for the account summary — real member-since (the household's
+  // roster date), instead of a hardcoded placeholder.
+  const { resident: rosterRow } = useMyResident() as any
   const [prefs, patch] = usePreferences()
   const [dialog, setDialog] = useState<DialogKey | null>(null)
   // Home-screen icon background (white/black) — device-local, mobile only.
@@ -200,9 +203,19 @@ export default function Settings() {
 
   const fullName    = prefs.full_name || profile?.full_name || 'Resident'
   const email       = prefs.email     || profile?.email     || 'resident@example.com'
-  const unitLabel   = profile?.unit_number ? t('settings.unitLabel', { unit: profile.unit_number }) : t('settings.unitNone')
-  const memberSince = 'Jan 2023'
-  const communityName = community?.name || 'Sunset Lakes'
+  // A spaced unit_number is a whole street address — show it plain, not as
+  // "Unit 123 Main St…" (same rule as the residence card).
+  const unitLabel   = profile?.unit_number
+    ? (/\s/.test(String(profile.unit_number)) ? String(profile.unit_number) : t('settings.unitLabel', { unit: profile.unit_number }))
+    : t('settings.unitNone')
+  const memberSince = (() => {
+    const d = rosterRow?.created_at ? new Date(rosterRow.created_at) : null
+    return d && !isNaN(d.getTime())
+      ? d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
+      : '—'
+  })()
+  // Trim stray trailing commas/spaces some community names carry.
+  const communityName = (community?.name || 'Sunset Lakes').replace(/[\s,]+$/, '')
 
   return (
     <div className="set-wrap">

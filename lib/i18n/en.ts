@@ -346,6 +346,8 @@ export const en: Record<string, string> = {
   "home.duesPctSpent": "{pct}% spent",
   "home.duesTotalMonthlyIncome": "Total monthly income",
   "home.duesYourMonthlyDues": "Your monthly dues",
+  "home.duesOweNote": "You currently owe {amount}.",
+  "home.duesOweCta": "Pay in Easy Track →",
   "home.duesYourRating": "Your rating",
   "home.duesYourShareUnit": "Unit {unit}",
   "home.finActualPace": "Actual pace",
