@@ -512,7 +512,18 @@ export function PaySection() {
 
       {/* Current Balance hero — full width: balance on the left, a divider,
           then the three progress rings on the right. */}
-      <section className="pay-card pay-balance-card">
+      <section className="pay-card pay-balance-card" style={{ position: 'relative' }}>
+        {/* Autopay lives in the card's top-right corner — a compact chip with
+            its on/off state; clicking opens the autopay popup. */}
+        <button type="button" onClick={() => setAutopayOpen(true)}
+          style={{ position: 'absolute', top: 14, right: 16, zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: 7,
+            background: 'transparent', border: '1px solid rgba(10, 36, 64, 0.16)', borderRadius: 999, padding: '6px 12px',
+            cursor: 'pointer', font: 'inherit', fontSize: 12.5, fontWeight: 700, color: '#0A2440' }}>
+          {t('pay.autopay')}
+          <span className={`pay-pill ${autopayActive ? 'pay-pill-on' : 'pay-pill-off'}`}>
+            {autopayActive ? t('pay.on') : t('pay.off')}
+          </span>
+        </button>
         <div className="pay-balance-head">
           <div className="pay-balance-main">
             <div className="pay-balance-label">{t('pay.currentBalance')}</div>
@@ -531,17 +542,6 @@ export function PaySection() {
                 disabled={checkout.loading || isLoading || payAmount <= 0}
                 onClick={startCheckout}>
                 {checkout.loading ? t('pay.startingCheckout') : payAmount <= 0 ? t('pay.allPaidUp') : t('pay.makePayment')}
-              </button>
-              {/* Pill anchored to the edge so the label centers exactly like
-                  the other two buttons. */}
-              <button type="button" className="pay-cta-secondary"
-                style={{ position: 'relative' }}
-                onClick={() => setAutopayOpen(true)}>
-                {autopayActive ? t('pay.manageAutopay') : t('pay.setUpAutopay')}
-                <span className={`pay-pill ${autopayActive ? 'pay-pill-on' : 'pay-pill-off'}`}
-                  style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)' }}>
-                  {autopayActive ? t('pay.on') : t('pay.off')}
-                </span>
               </button>
               <button type="button" className="pay-cta-secondary"
                 onClick={() => setAccountOpen(true)}>
