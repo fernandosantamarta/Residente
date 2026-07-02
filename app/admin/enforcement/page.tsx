@@ -768,14 +768,18 @@ function CommitteeManager({ members, communityId, createdBy, onChange, setError 
           checkbox and Add member button share one baseline. */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
         <label className="admin-field" style={{ maxWidth: 220, marginBottom: 0 }}><span className="admin-field-label">{t('admin.enforcement.fieldMemberName')}</span>
-          <input className="admin-input" value={name} onChange={e => setName(e.target.value)} placeholder={t('admin.enforcement.memberNamePlaceholder')} /></label>
+          <input className="admin-input" value={name} onChange={e => setName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (!busy && name.trim()) add() } }}
+            placeholder={t('admin.enforcement.memberNamePlaceholder')} /></label>
         <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, paddingBottom: 11 }}>
           <input type="checkbox" checked={independent} onChange={e => setIndependent(e.target.checked)} />
           {t('admin.enforcement.checkIndependentOfBoard')}
         </label>
         {!independent && (
           <label className="admin-field" style={{ maxWidth: 220, marginBottom: 0 }}><span className="admin-field-label">{t('admin.enforcement.fieldRelationship')}</span>
-            <input className="admin-input" value={note} onChange={e => setNote(e.target.value)} placeholder={t('admin.enforcement.relationshipPlaceholder')} /></label>
+            <input className="admin-input" value={note} onChange={e => setNote(e.target.value)}
+              onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (!busy && name.trim()) add() } }}
+              placeholder={t('admin.enforcement.relationshipPlaceholder')} /></label>
         )}
         <button className="admin-primary-btn" style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }} disabled={busy || !name.trim()} onClick={add}>{busy ? t('admin.enforcement.adding') : t('admin.enforcement.btnAddMember')}</button>
       </div>
