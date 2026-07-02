@@ -371,7 +371,7 @@ export default function CollectionsPage() {
                 const action = stage === 'delinquent' ? t('admin.collections.chipStart30Day') : t('admin.collections.openAction')
                 return (
                   <tr key={r.id}>
-                    <td className="cc-owner">
+                    <td className="cc-owner" style={{ whiteSpace: 'nowrap' }}>
                       <span className="muted" style={{ fontVariantNumeric: 'tabular-nums', marginRight: 7, fontWeight: 500 }}>{page * OPEN_SIZE + opi + 1}.</span>
                       {name}
                     </td>

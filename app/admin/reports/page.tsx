@@ -711,7 +711,7 @@ export default function ReportsPage() {
                         { label: t('admin.reports.colUnit'), value: r.unit_number || r.address || '—' },
                         { label: t('admin.reports.colBalanceOwed'), value: fmt$(bal) },
                       ] })}>
-                      <td className="strong">
+                      <td className="strong" style={{ whiteSpace: 'nowrap' }}>
                         <span className="muted" style={{ fontVariantNumeric: 'tabular-nums', marginRight: 7, fontWeight: 500 }}>{rowNo}.</span>
                         {r.full_name || t('admin.reports.residentFallback')}
                       </td>
