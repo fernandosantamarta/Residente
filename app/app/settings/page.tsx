@@ -375,12 +375,15 @@ export default function Settings() {
               />
               <div className="set-account-meta">
                 <div className="set-account-name">{fullName}</div>
-                <div className="set-account-email">{unitLabel} · {email}</div>
+                {/* Whole address, wrapping over as many lines as it needs —
+                    never ellipsized. Email keeps its own single line. */}
+                <div className="set-account-addr">{unitLabel}</div>
+                <div className="set-account-email">{email}</div>
               </div>
             </div>
             <div className="set-account-rows">
               <div className="set-account-row"><span>{t('settings.memberSince')}</span><span>{memberSince}</span></div>
-              <div className="set-account-row"><span>{t('settings.community')}</span><span>{communityName}</span></div>
+              <div className="set-account-row"><span>{t('settings.community')}</span><span className="set-account-oneline" title={communityName}>{communityName}</span></div>
             </div>
             <button className="set-tile-cta" type="button" onClick={() => setDialog('profile')}>
               {t('settings.viewProfile')}
