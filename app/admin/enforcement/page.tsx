@@ -497,7 +497,9 @@ export default function EnforcementPage() {
                   ariaLabel={t('admin.enforcement.fieldOwner')}
                   options={[
                     { value: '', label: t('admin.enforcement.selectPlaceholder') },
-                    ...residents.map(r => ({ value: r.id, label: [r.full_name || t('admin.enforcement.ownerFallback'), r.unit_number ? `${t('admin.enforcement.unitPrefix')} ${r.unit_number}` : null, r.address].filter(Boolean).join(' · ') })),
+                    // Names only — unit_number IS the full street address now,
+                    // so name · Unit <address> · <address> read as a monster.
+                    ...residents.map(r => ({ value: r.id, label: r.full_name || t('admin.enforcement.ownerFallback') })),
                   ]}
                 /></div>
               <label className="admin-field"><span className="admin-field-label">{t('admin.enforcement.fieldViolationRule')}</span>
@@ -762,15 +764,17 @@ function CommitteeManager({ members, communityId, createdBy, onChange, setError 
           ))}
         </div>
       )}
+      {/* marginBottom: 0 kills the cset card-field spacing so the input,
+          checkbox and Add member button share one baseline. */}
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <label className="admin-field" style={{ maxWidth: 220 }}><span className="admin-field-label">{t('admin.enforcement.fieldMemberName')}</span>
+        <label className="admin-field" style={{ maxWidth: 220, marginBottom: 0 }}><span className="admin-field-label">{t('admin.enforcement.fieldMemberName')}</span>
           <input className="admin-input" value={name} onChange={e => setName(e.target.value)} placeholder={t('admin.enforcement.memberNamePlaceholder')} /></label>
-        <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, paddingBottom: 8 }}>
+        <label style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 13.5, paddingBottom: 11 }}>
           <input type="checkbox" checked={independent} onChange={e => setIndependent(e.target.checked)} />
           {t('admin.enforcement.checkIndependentOfBoard')}
         </label>
         {!independent && (
-          <label className="admin-field" style={{ maxWidth: 220 }}><span className="admin-field-label">{t('admin.enforcement.fieldRelationship')}</span>
+          <label className="admin-field" style={{ maxWidth: 220, marginBottom: 0 }}><span className="admin-field-label">{t('admin.enforcement.fieldRelationship')}</span>
             <input className="admin-input" value={note} onChange={e => setNote(e.target.value)} placeholder={t('admin.enforcement.relationshipPlaceholder')} /></label>
         )}
         <button className="admin-primary-btn" style={{ marginLeft: 'auto', whiteSpace: 'nowrap' }} disabled={busy || !name.trim()} onClick={add}>{busy ? t('admin.enforcement.adding') : t('admin.enforcement.btnAddMember')}</button>
