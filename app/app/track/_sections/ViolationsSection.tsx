@@ -135,14 +135,16 @@ export function ViolationsSection() {
                   </div>
                   <div className="myv-title">{v.rule_title || t('documents.communityRule')}</div>
                   <div className="myv-meta">{t('documents.openedOn', { date: fmtDate(v.opened_at) })}</div>
-                  {v.notes && <p className="myv-note">{v.notes}</p>}
+                  {/* Notes hug their content instead of stretching the full
+                      card width (they read like giant highlight bars). */}
+                  {v.notes && <p className="myv-note" style={{ width: 'fit-content', maxWidth: 640 }}>{v.notes}</p>}
                   {inCommittee(v) && (
-                    <p className="myv-note" style={{ background: 'rgba(23, 92, 211, 0.06)', color: '#1D4ED8', fontStyle: 'normal' }}>
+                    <p className="myv-note" style={{ width: 'fit-content', maxWidth: 640, background: 'rgba(23, 92, 211, 0.06)', color: '#1D4ED8', fontStyle: 'normal' }}>
                       {t('documents.committeeNote')}
                     </p>
                   )}
                   {committeeRejected(v) && v.status !== 'closed' && (
-                    <p className="myv-note" style={{ background: 'rgba(6, 118, 71, 0.07)', color: '#067647', fontStyle: 'normal' }}>
+                    <p className="myv-note" style={{ width: 'fit-content', maxWidth: 640, background: 'rgba(6, 118, 71, 0.07)', color: '#067647', fontStyle: 'normal' }}>
                       {t('documents.committeeRejectedNote')}
                     </p>
                   )}
