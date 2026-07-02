@@ -111,7 +111,8 @@ export default function OwnerStatementPrint() {
       `}</style>
 
       <div className="stmt-bar">
-        <a className="stmt-back" href="/app/track#statements">{t('pay.statementBack')}</a>
+        {/* Back reopens THIS statement's popup on the Pay screen (same tab). */}
+        <a className="stmt-back" href={`/app/track?statement=${period}#statements`}>{t('pay.statementBack')}</a>
         <button type="button" className="stmt-print-btn" onClick={() => window.print()}>
           {t('pay.statementPrintSave')}
         </button>

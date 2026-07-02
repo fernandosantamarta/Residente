@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useCommunityData } from '@/hooks/useCommunityData'
 import { useMyResident } from '@/hooks/useMyResident'
@@ -121,6 +121,25 @@ export default function Home() {
   const monthlyDues = num(c.monthly_dues)
   const unitCount = num(c.unit_count)
   const annualCommunity = monthlyDues * 12 * unitCount
+
+  // "Where your dues go" Community tab must tie to what Easy Track actually
+  // bills each month: one charge per roster household. The unit_count SETTING
+  // (community size typed at signup) can differ from the billed roster, which
+  // made the total-monthly-income figure disagree with the assessments ledger.
+  const [billedHomes, setBilledHomes] = useState<number | null>(null)
+  useEffect(() => {
+    if (!supabase || !community?.id) { setBilledHomes(null); return }
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { count } = await supabase.from('residents')
+          .select('id', { count: 'exact', head: true })
+          .eq('community_id', community.id)
+        if (!cancelled) setBilledHomes(count ?? null)
+      } catch { if (!cancelled) setBilledHomes(null) }
+    })()
+    return () => { cancelled = true }
+  }, [community?.id])
 
   // Reserve balance — remaining (budget − spent) of the categories the board
   // flagged as reserves; falls back to name-matched "Reserve" categories when
@@ -277,7 +296,7 @@ export default function Home() {
           {!isTenant && (
           <DuesSection
             monthlyDues={monthlyDues}
-            unitCount={unitCount}
+            unitCount={billedHomes || unitCount}
             unitNumber={profile?.unit_number ?? null}
             demo={demo}
             cats={cats}

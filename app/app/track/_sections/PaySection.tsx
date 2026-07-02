@@ -94,7 +94,9 @@ export function PaySection() {
   // "View all" list popups + a single statement opened in place.
   const [listOpen, setListOpen] = useState<null | 'history' | 'statements'>(null)
   const [stmtOpen, setStmtOpen] = useState<StmtItem | null>(null)
-  const [pendingStmt, setPendingStmt] = useState(false)  // open the latest statement on arrival from a notice
+  // Open a statement popup on arrival: '1' = most recent (bell notices), a
+  // 'YYYY-MM' value = that period (the print page's Back button).
+  const [pendingStmt, setPendingStmt] = useState<string | null>(null)
   // Demo autopay toggle — lets preview mode flip autopay on/off in place
   // (real autopay goes through Stripe via toggleAutopay).
   const [autopayDemo, setAutopayDemo] = useState<boolean | null>(null)
@@ -148,8 +150,9 @@ export function PaySection() {
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
-    if (params.get('statement') !== '1') return
-    setPendingStmt(true)
+    const stmtParam = params.get('statement')
+    if (!stmtParam) return
+    setPendingStmt(stmtParam)
     params.delete('statement')
     const qs = params.toString()
     window.history.replaceState(null, '', `${window.location.pathname}${qs ? `?${qs}` : ''}#statements`)
@@ -396,7 +399,10 @@ export function PaySection() {
   // resident's REAL statements are ready. The `resident` gate matters: before it
   // loads, stmtItems is the demo set, which would open a fake statement.
   useEffect(() => {
-    if (pendingStmt && resident && stmtItems.length) { setStmtOpen(stmtItems[0]); setPendingStmt(false) }
+    if (pendingStmt && resident && stmtItems.length) {
+      setStmtOpen(stmtItems.find(s => s.period === pendingStmt) || stmtItems[0])
+      setPendingStmt(null)
+    }
   }, [pendingStmt, resident, stmtItems])
 
   const startCheckout = () => {
@@ -919,11 +925,11 @@ export function PaySection() {
           period={stmtOpen.periodLabel}
           onClose={() => setStmtOpen(null)}
           footer={stmtOpen.period ? (
+            // Same-tab navigation — the print page's Back returns here and
+            // reopens this exact statement popup (?statement={period}).
             <a
               className="ven-cta-primary"
               href={`/app/track/statement/${stmtOpen.period}`}
-              target="_blank"
-              rel="noopener noreferrer"
             >
               {t('pay.statementDownloadPdf')}
             </a>
@@ -1092,7 +1098,18 @@ function FinesDueCard() {
                       {allFines.length > 1 && <span style={{ fontWeight: 800, color: '#DC6803' }}>{fmtMoney(v.amount)}</span>}
                     </div>
                     <div className="pay-fine-meta">
-                      {underReviewRow ? t('pay.fineUnderReviewMeta') : t('pay.dueOn', { date: fmtDate(v.due_at || fineDueDate(v.opened_at)) })}
+                      {underReviewRow ? t('pay.fineUnderReviewMeta') : (() => {
+                        const due = v.due_at ? new Date(`${String(v.due_at).slice(0, 10)}T23:59:59`) : fineDueDate(v.opened_at)
+                        const daysLeft = Math.ceil((due.getTime() - Date.now()) / DAY_MS)
+                        return (
+                          <>
+                            {t('pay.dueOn', { date: fmtDate(v.due_at || fineDueDate(v.opened_at)) })}
+                            {daysLeft > 0
+                              ? <span style={{ color: '#DC6803', fontWeight: 700 }}> · {daysLeft === 1 ? t('pay.fineDayLeft') : t('pay.fineDaysLeft', { days: daysLeft })}</span>
+                              : <span style={{ color: '#B42318', fontWeight: 700 }}> · {t('pay.fineOverdue')}</span>}
+                          </>
+                        )
+                      })()}
                     </div>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>

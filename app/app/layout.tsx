@@ -175,11 +175,14 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
     return <PendingApprovalScreen unit={myResident.unit_number || myResident.address} />
   }
 
-  // Self-typed profile name (from /app/settings → Profile Information)
-  // beats the auth full_name. This is the resident's chosen display.
-  const effectiveFullName = prefs.full_name || profile?.full_name || ''
+  // The chip identifies the PERSON: self-typed Settings name first, then the
+  // roster household name, then the auth profile (which can carry a stale
+  // signup name). It no longer shows the unit — that's now a whole street
+  // address that doesn't fit a tiny chip (it lives on the residence card).
+  const { resident: chipResident } = useMyResident() as any
+  const effectiveFullName = prefs.full_name || chipResident?.full_name || profile?.full_name || ''
   const userInitials = initialsFrom(effectiveFullName) || 'FM'
-  const userUnit = profile?.unit_number ? `Unit ${profile.unit_number}` : 'Unit —'
+  const userLabel = effectiveFullName || (profile?.unit_number ? String(profile.unit_number) : '—')
 
   return (
     <>
@@ -279,7 +282,7 @@ export default function CockpitLayout({ children }: { children: ReactNode }) {
                 </div>
                 <div className="user-meta">
                   <span className="label">{t('rail.signedInAs')}</span>
-                  <span className="val">{userUnit}</span>
+                  <span className="val">{userLabel}</span>
                 </div>
                 <svg className="user-block-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <polyline points="9 18 15 12 9 6"/>
