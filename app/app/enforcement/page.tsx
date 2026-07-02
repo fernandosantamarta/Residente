@@ -70,25 +70,39 @@ function useMyEnforcement() {
   return { violations, hearingFor, suspensions, loading }
 }
 
-// The statutory hearing lines for one fine (notice sent / scheduled / decision).
+// Plain-language meaning of each enforcement stage — shown while there's no
+// hearing record yet, so a row never reads as an empty label.
+const STAGE_NOTE: Record<string, string> = {
+  proposed: `The board has proposed this fine to the independent fining committee. You'll receive at least ${HEARING_NOTICE_DAYS.value} days' written notice before any hearing.`,
+  notice_sent: 'Hearing notice sent — you may attend, be heard, and present evidence before the committee.',
+  hearing_set: 'Hearing scheduled — you may attend, be heard, and present evidence before the committee.',
+  upheld: 'The committee upheld the fine.',
+  rejected: 'The committee rejected the fine — it cannot be imposed.',
+  levied: 'The fine has been levied and is payable.',
+}
+
+// The statutory hearing lines for one fine: the live notice/schedule/decision
+// trail when a hearing record exists, else the plain-language stage note.
 function HearingLines({ v, h }: { v: ViolationRow; h: HearingRow | undefined }) {
   const closed = String(v.status ?? 'open') === 'closed' || !!v.resolution
   if (closed || v.kind !== 'fine') return null
+  const stage = String(v.enforcement_stage ?? 'none')
+  if (!h) {
+    return STAGE_NOTE[stage]
+      ? <div style={{ ...ROW_META, color: 'rgba(15,28,46,0.55)', maxWidth: 640 }}>{STAGE_NOTE[stage]}</div>
+      : null
+  }
   return (
     <>
-      {h && (
-        <div style={{ ...ROW_META, color: '#B54708' }}>
-          {h.scheduled_at
-            ? `Hearing scheduled ${fmtDate(h.scheduled_at)}`
-            : h.notice_sent_at ? `${HEARING_NOTICE_DAYS.value}-day hearing notice sent ${fmtDate(h.notice_sent_at)}` : ''}
-          {h.decision && h.decision !== 'pending' ? ` · committee ${h.decision === 'upheld' ? 'upheld' : h.decision}` : ''}
-        </div>
-      )}
-      {h && (
-        <div style={{ ...ROW_META, color: 'rgba(15,28,46,0.5)' }}>
-          You may attend the hearing, be heard, and present evidence before the committee.
-        </div>
-      )}
+      <div style={{ ...ROW_META, color: '#B54708' }}>
+        {h.scheduled_at
+          ? `Hearing scheduled ${fmtDate(h.scheduled_at)}`
+          : h.notice_sent_at ? `${HEARING_NOTICE_DAYS.value}-day hearing notice sent ${fmtDate(h.notice_sent_at)}` : ''}
+        {h.decision && h.decision !== 'pending' ? ` · committee ${h.decision === 'upheld' ? 'upheld' : h.decision}` : ''}
+      </div>
+      <div style={{ ...ROW_META, color: 'rgba(15,28,46,0.5)', maxWidth: 640 }}>
+        You may attend the hearing, be heard, and present evidence before the committee.
+      </div>
     </>
   )
 }
