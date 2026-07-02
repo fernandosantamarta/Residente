@@ -600,6 +600,7 @@ export const pt: Record<string, string> = {
   "pay.chargeFailedBody": "Sua última cobrança automática foi recusada. Pague abaixo ou atualize seu cartão para ficar em dia.",
   "pay.pastDueTitle": "Pagamento em atraso",
   "pay.pastDueBody": "Você tem {amount} em aberto. Regularize sua conta para evitar multas por atraso e outras etapas de cobrança.",
+  "pay.pastDueBodyColl": "Você tem {amount} em aberto, incluindo juros e custos de cobrança. Pague o total para encerrar seu caso de cobrança, ou configure um plano de pagamento em Ações rápidas.",
   "pay.pastDuePayNow": "Pagar agora",
   "pay.subheading": "Veja seu saldo, faça pagamentos e gerencie suas formas de pagamento.",
   "pay.supportSub": "Se você tiver dúvidas ou precisar de ajuda, nossa equipe de suporte está à disposição.",

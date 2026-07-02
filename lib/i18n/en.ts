@@ -739,6 +739,7 @@ export const en: Record<string, string> = {
   "pay.chargeFailedBody": "Your last automatic charge was declined. Please pay below or update your card to stay current.",
   "pay.pastDueTitle": "Payment past due",
   "pay.pastDueBody": "You have {amount} due. Please bring your account current to avoid late fees and further collection steps.",
+  "pay.pastDueBodyColl": "You have {amount} due, including collection interest & costs. Pay in full to clear your collection case, or set up a payment plan in Quick actions.",
   "pay.pastDuePayNow": "Pay now",
   "pay.supportSub": "If you have any questions or need assistance, our support team is here to help.",
   "pay.supportTitle": "Need help with a payment?",

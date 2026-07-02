@@ -3,7 +3,13 @@
 import Link from 'next/link'
 import { useMyResident } from '@/hooks/useMyResident'
 import { fmtMoney } from '@/lib/dues'
+import { useMyPaymentPlan } from '@/lib/payment-plans'
+import { casePayoffForCase, type CollectionCaseRow } from '@/lib/compliance/collections'
 import { useT } from '@/lib/i18n'
+
+// Exact-cents money for a collection payoff (fmtMoney rounds to whole dollars).
+const fmtCents = (n: number | string | null | undefined): string =>
+  '$' + (Math.round((Number(n) || 0) * 100) / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
 // A persistent "payment past due" banner for owners who are genuinely behind on
 // dues (status === 'late' = carrying more than one month's dues). It's
@@ -16,10 +22,17 @@ import { useT } from '@/lib/i18n'
 // see nothing.
 export function PastDueBanner({ context = 'home' }: { context?: 'home' | 'pay' }) {
   const t = useT()
-  const { balance, status, isTenant, loading } = useMyResident() as any
+  const { resident, community, payments, balance, status, isTenant, loading } = useMyResident() as any
+  // In collections the banner quotes the same single number as everything else:
+  // the statutory payoff (dues + daily interest + recorded costs), to the cent.
+  const { openCase } = useMyPaymentPlan()
   if (loading || isTenant) return null
-  const owed = Number(balance) || 0
-  if (status !== 'late' || owed <= 0) return null
+  const payoff = openCase && resident
+    ? casePayoffForCase(openCase as CollectionCaseRow, resident, community, payments || [])
+    : null
+  const inCollections = !!(openCase && payoff && payoff.payoff > 0)
+  const owed = inCollections ? payoff!.payoff : (Number(balance) || 0)
+  if ((status !== 'late' && !inCollections) || owed <= 0) return null
 
   return (
     <section
@@ -38,7 +51,9 @@ export function PastDueBanner({ context = 'home' }: { context?: 'home' | 'pay' }
         <div style={{ minWidth: 0 }}>
           <div style={{ fontSize: 15, fontWeight: 800, letterSpacing: '0.2px' }}>{t('pay.pastDueTitle')}</div>
           <div style={{ fontSize: 13.5, fontWeight: 600, opacity: 0.96, lineHeight: 1.45 }}>
-            {t('pay.pastDueBody', { amount: fmtMoney(owed) })}
+            {inCollections
+              ? t('pay.pastDueBodyColl', { amount: fmtCents(owed) })
+              : t('pay.pastDueBody', { amount: fmtMoney(owed) })}
           </div>
         </div>
       </div>
