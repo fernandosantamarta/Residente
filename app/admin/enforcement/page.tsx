@@ -461,6 +461,12 @@ export default function EnforcementPage() {
             <p className="admin-dek" style={{ margin: '0 0 6px', fontSize: 12.5 }}>
               {t('admin.enforcement.intakeNote')} <Link href="/admin/violations">{t('admin.enforcement.intakeNoteLink')}</Link>.
             </p>
+            {/* No committee = no enforceable fine — say it BEFORE they propose. */}
+            {!committeeOk && (
+              <div style={{ margin: '0 0 10px', width: 'fit-content', fontSize: 12.5, color: '#B54708', background: 'rgba(181,71,8,0.07)', border: '1px solid rgba(181,71,8,0.22)', borderRadius: 8, padding: '8px 11px' }}>
+                ⚠ {t('admin.enforcement.committeeShortPropose', { min: String(FINING_COMMITTEE_MIN.value) })}
+              </div>
+            )}
             <p className="admin-dek" style={{ margin: '0 0 10px', fontSize: 12.5 }}>{t('admin.enforcement.photoHelp')}</p>
             {vPhotoPreview && (
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', margin: '0 0 14px', padding: 12, border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, background: '#fafafa' }}>

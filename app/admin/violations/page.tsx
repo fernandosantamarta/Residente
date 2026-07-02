@@ -27,6 +27,8 @@ import {
 } from '@/lib/violations'
 import { useRulesData } from '@/lib/rules'
 import { logAudit } from '@/lib/audit'
+import { supabase, hasSupabase } from '@/lib/supabase'
+import { committeeReady, FINING_COMMITTEE_MIN } from '@/lib/compliance/enforcement'
 import { Dropdown } from '@/components/Dropdown'
 import { Pagination, paginate } from '@/components/Pagination'
 import { EasyTrackTabs } from '../EasyTrackTabs'
@@ -113,6 +115,21 @@ export default function AdminViolations() {
     }
     return v.resident
   }
+
+  // Whether the independent fining committee exists — surfaced when logging a
+  // fine, since a disputed fine can only be upheld by that committee.
+  const [committeeShort, setCommitteeShort] = useState(false)
+  useEffect(() => {
+    if (!hasSupabase || !supabase || !profile?.community_id) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const { data } = await supabase.from('ev_fining_committee_members').select('*').eq('community_id', profile.community_id)
+        if (!cancelled) setCommitteeShort(!committeeReady((data as any[]) || []))
+      } catch { /* leave false — never block logging */ }
+    })()
+    return () => { cancelled = true }
+  }, [profile?.community_id])
 
   // Bridge an unpaid fine into Collections: opens (or reuses) a fine-only
   // collection case for the owner, then jumps to the collection ladder.
@@ -375,6 +392,15 @@ export default function AdminViolations() {
                 ]}
               />
             </div>
+
+            {/* No committee = a disputed fine can't be upheld — say it at
+                intake, not at the hearing step. */}
+            {form.kind === 'fine' && committeeShort && (
+              <div style={{ fontSize: 12.5, lineHeight: 1.5, color: '#B54708', background: 'rgba(181,71,8,0.07)', border: '1px solid rgba(181,71,8,0.22)', borderRadius: 8, padding: '8px 11px' }}>
+                ⚠ {t('admin.violations.committeeShortNote', { min: String(FINING_COMMITTEE_MIN.value) })}{' '}
+                <Link href="/admin/enforcement" style={{ color: '#B54708', fontWeight: 700 }}>{t('admin.violations.committeeShortLink')}</Link>.
+              </div>
+            )}
 
             <div className="admin-field">
               <span className="admin-field-label">{t('admin.violations.fieldRule')}</span>
