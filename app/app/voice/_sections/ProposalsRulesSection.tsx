@@ -76,6 +76,11 @@ export function ProposalsRulesSection() {
         </Link>
 
         <Link href="/app/documents#rules" className="vd-quicklink">
+          <span className="vd-propose-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+            </svg>
+          </span>
           <span className="vd-quicklink-body">
             <span className="vd-quicklink-title">See the rule book</span>
             <span className="vd-quicklink-sub">Adopted rules and policies live in Easy Documents → Rules.</span>
@@ -84,6 +89,11 @@ export function ProposalsRulesSection() {
         </Link>
 
         <Link href="/app/meetings" className="vd-quicklink">
+          <span className="vd-propose-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="m9 11 3 3 8-8"/><path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9"/>
+            </svg>
+          </span>
           <span className="vd-quicklink-body">
             <span className="vd-quicklink-title">Board elections &amp; recall</span>
             <span className="vd-quicklink-sub">The election timeline — when you can run for the board, when ballots go out, and any recall in progress.</span>

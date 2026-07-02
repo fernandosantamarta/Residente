@@ -803,41 +803,6 @@ export default function EasyDocs() {
               </section>
             </div>
 
-            <div className="doc-row rsv-web">
-              <section className="doc-card doc-need">
-                <div className="doc-need-icon" aria-hidden="true"><IconHelp /></div>
-                <div className="doc-need-body">
-                  <div className="doc-need-title">{t('documents.needDocTitle')}</div>
-                  <div className="doc-need-sub">
-                    {t('documents.needDocSub')}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
-                  <Link href="/app/voice#contact" className="doc-cta-primary">{t('documents.requestDocument')}</Link>
-                  {/* Statutory right to inspect official records — FS 718.111(12)(c) / 720.303(5).
-                      Routes to the request form; the resident picks "Records inspection". */}
-                  <Link href="/app/voice#contact" className="doc-card-link" style={{ fontSize: 12.5 }}>
-                    Request to inspect official records →
-                  </Link>
-                </div>
-              </section>
-
-              <section className="doc-card doc-stay">
-                <div className="doc-stay-bell" aria-hidden="true">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M6 8a6 6 0 0 1 12 0v5l2 3H4l2-3z"/><path d="M10 19a2 2 0 0 0 4 0"/>
-                  </svg>
-                </div>
-                <div className="doc-stay-body">
-                  <div className="doc-stay-title">{t('documents.stayInformedTitle')}</div>
-                  <div className="doc-stay-sub">
-                    {t('documents.stayInformedSub')}
-                  </div>
-                </div>
-                <Link href="/app/settings" className="doc-cta-secondary">{t('documents.manageNotifications')}</Link>
-              </section>
-            </div>
-
             <div className="doc-row" ref={docResultsRef}>
               <section className="doc-card">
                 <div className="doc-card-head">
@@ -898,6 +863,37 @@ export default function EasyDocs() {
                     </button>
                   ))}
                 </div>
+              </section>
+            </div>
+
+            {/* Need-a-document + Stay-informed — the closing row of the tab.
+                (The inspect-official-records link was dropped: Request a
+                Document routes to the same form.) */}
+            <div className="doc-row rsv-web">
+              <section className="doc-card doc-need">
+                <div className="doc-need-icon" aria-hidden="true"><IconHelp /></div>
+                <div className="doc-need-body">
+                  <div className="doc-need-title">{t('documents.needDocTitle')}</div>
+                  <div className="doc-need-sub">
+                    {t('documents.needDocSub')}
+                  </div>
+                </div>
+                <Link href="/app/voice#contact" className="doc-cta-primary">{t('documents.requestDocument')}</Link>
+              </section>
+
+              <section className="doc-card doc-stay">
+                <div className="doc-stay-bell" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 8a6 6 0 0 1 12 0v5l2 3H4l2-3z"/><path d="M10 19a2 2 0 0 0 4 0"/>
+                  </svg>
+                </div>
+                <div className="doc-stay-body">
+                  <div className="doc-stay-title">{t('documents.stayInformedTitle')}</div>
+                  <div className="doc-stay-sub">
+                    {t('documents.stayInformedSub')}
+                  </div>
+                </div>
+                <Link href="/app/settings" className="doc-cta-secondary">{t('documents.manageNotifications')}</Link>
               </section>
             </div>
 
