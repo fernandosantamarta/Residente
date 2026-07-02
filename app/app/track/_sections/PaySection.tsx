@@ -532,11 +532,14 @@ export function PaySection() {
                 onClick={startCheckout}>
                 {checkout.loading ? t('pay.startingCheckout') : payAmount <= 0 ? t('pay.allPaidUp') : t('pay.makePayment')}
               </button>
+              {/* Pill anchored to the edge so the label centers exactly like
+                  the other two buttons. */}
               <button type="button" className="pay-cta-secondary"
-                style={{ display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}
+                style={{ position: 'relative' }}
                 onClick={() => setAutopayOpen(true)}>
                 {autopayActive ? t('pay.manageAutopay') : t('pay.setUpAutopay')}
-                <span className={`pay-pill ${autopayActive ? 'pay-pill-on' : 'pay-pill-off'}`}>
+                <span className={`pay-pill ${autopayActive ? 'pay-pill-on' : 'pay-pill-off'}`}
+                  style={{ position: 'absolute', right: 14, top: '50%', transform: 'translateY(-50%)' }}>
                   {autopayActive ? t('pay.on') : t('pay.off')}
                 </span>
               </button>
