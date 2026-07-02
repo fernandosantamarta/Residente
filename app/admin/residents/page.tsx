@@ -1072,9 +1072,13 @@ function ResidentRow({ r, rowNo, onLocal, onCommit, onRemove, onInvite, inviteBu
                 </span>
                 <div className="edit-grid">
                   <label className="admin-field"><span className="admin-field-label">{t('admin.residents.xferBuyerEmail')}</span>
-                    <input className="admin-input" type="email" value={xEmail} onChange={e => setXEmail(e.target.value)} placeholder="newowner@email.com" /></label>
+                    <input className="admin-input" type="email" value={xEmail} onChange={e => setXEmail(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (!xBusy && xEmail.trim()) doTransfer() } }}
+                      placeholder="newowner@email.com" /></label>
                   <label className="admin-field"><span className="admin-field-label">{t('admin.residents.xferBuyerName')}</span>
-                    <input className="admin-input" value={xName} onChange={e => setXName(e.target.value)} placeholder={t('admin.residents.xferBuyerNamePh')} /></label>
+                    <input className="admin-input" value={xName} onChange={e => setXName(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (!xBusy && xEmail.trim()) doTransfer() } }}
+                      placeholder={t('admin.residents.xferBuyerNamePh')} /></label>
                 </div>
                 <p className="edit-note">{t('admin.residents.xferNote')}</p>
                 <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 8 }}>
