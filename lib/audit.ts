@@ -39,6 +39,11 @@ export type AuditEventType =
   | 'invite.accepted'
   | 'resident.approved'
   | 'resident.rejected'
+  // tenants + ownership transfer (admin roster actions)
+  | 'tenant.approved'
+  | 'tenant.rejected'
+  | 'tenant.removed'
+  | 'home.transferred'
   // collections / liens (compliance domain F)
   | 'collection.case_opened'
   | 'collection.stage_changed'
