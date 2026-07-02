@@ -412,10 +412,12 @@ export default function AdminViolations() {
               />
             </div>
 
+            {/* Narrow inputs, full-width hints — capping the whole field made
+                the hint text wrap into an ugly tall column. */}
             {form.kind === 'fine' && (
-              <label className="admin-field" style={{ maxWidth: 200 }}>
+              <label className="admin-field">
                 <span className="admin-field-label">{t('admin.violations.fieldFineAmount')}</span>
-                <input name="amount" className="admin-input" type="number" placeholder="50"
+                <input name="amount" className="admin-input" type="number" placeholder="50" style={{ maxWidth: 200 }}
                   value={form.amount} onChange={e => setField('amount', e.target.value)} />
                 <span className="admin-field-hint">
                   {t('admin.violations.fineAmountHint')}
@@ -424,9 +426,9 @@ export default function AdminViolations() {
             )}
 
             {form.kind === 'fine' && (
-              <label className="admin-field" style={{ maxWidth: 220 }}>
+              <label className="admin-field">
                 <span className="admin-field-label">{t('admin.violations.fieldDueDate')}</span>
-                <input name="due_at" className="admin-input" type="date"
+                <input name="due_at" className="admin-input" type="date" style={{ maxWidth: 220 }}
                   value={form.due_at} onChange={e => setField('due_at', e.target.value)} />
                 <span className="admin-field-hint">
                   {t('admin.violations.dueDateHint')}
@@ -434,9 +436,9 @@ export default function AdminViolations() {
               </label>
             )}
 
-            <label className="admin-field" style={{ maxWidth: 220 }}>
+            <label className="admin-field">
               <span className="admin-field-label">{t('admin.violations.fieldDate')}</span>
-              <input name="opened_at" className="admin-input" type="date"
+              <input name="opened_at" className="admin-input" type="date" style={{ maxWidth: 220 }}
                 value={form.opened_at} onChange={e => setField('opened_at', e.target.value)} />
             </label>
 

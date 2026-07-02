@@ -1730,6 +1730,13 @@
    banners. White background kept (no tint) — severity is carried by the text /
    pill, not a stripe. */
 .cset .admin-note { border-radius: 18px; box-shadow: 0 1px 2px rgba(42, 18, 6, 0.05); }
+/* Field hints inside clean-theme forms (incl. AdminModal popups): sentence
+   case and quiet — the sketch ".admin-field span" uppercase rule must never
+   reach them. */
+.admin .cset .admin-field .admin-field-hint {
+  text-transform: none; letter-spacing: 0; font-weight: 500;
+  font-size: 12px; color: var(--text-dim); line-height: 1.5;
+}
 
 /* Form fields sit flush inside cards (no max-width form column). */
 .cset .card .admin-field { margin-bottom: 18px; }
