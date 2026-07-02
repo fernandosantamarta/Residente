@@ -15,6 +15,7 @@ import {
   removeStoredViolation,
   reopen,
   sendFineToCollections,
+  startHearingProcess,
   SENT_TO_COLLECTIONS_NOTE,
   useViolationsAdmin,
   useCommunityResidents,
@@ -25,6 +26,7 @@ import {
   waive,
 } from '@/lib/violations'
 import { useRulesData } from '@/lib/rules'
+import { logAudit } from '@/lib/audit'
 import { Dropdown } from '@/components/Dropdown'
 import { Pagination, paginate } from '@/components/Pagination'
 import { EasyTrackTabs } from '../EasyTrackTabs'
@@ -126,6 +128,21 @@ export default function AdminViolations() {
       router.push(`/admin/collections/${res.caseId}${suffix}`)
     } catch (err: any) {
       setError(err?.message || t('admin.violations.sendToCollectionsError')); setSendingId(null)
+    }
+  }
+
+  // Bridge a fine into the statutory hearing process: flips enforcement_stage
+  // to 'proposed' and jumps to the Compliance workspace where the ladder
+  // (14-day notice → committee hearing → levy) lives. This is how ANY fine —
+  // log-created included — becomes committee-enforceable.
+  const startHearing = async (v: Violation) => {
+    setError('')
+    try {
+      await startHearingProcess(v.id)
+      if (profile?.community_id) logAudit({ community_id: profile.community_id, event_type: 'enforcement.fine_proposed', target_type: 'violation', target_id: v.id })
+      router.push('/admin/enforcement')
+    } catch (err: any) {
+      setError(err?.message || t('admin.violations.startHearingError'))
     }
   }
 
@@ -281,7 +298,7 @@ export default function AdminViolations() {
           <>
             <div className="bd-list">
               {visible.map((v: Violation, vi: number) => (
-                <ViolationRow key={v.id} v={v} no={(page - 1) * VIOLATIONS_PAGE_SIZE + vi + 1} label={liveLabelOf(v)} onRemove={() => remove(v.id)} onSendToCollections={() => sendToCollections(v)} onEscalate={() => setEscalateFor(v)} sending={sendingId === v.id} reload={reload} />
+                <ViolationRow key={v.id} v={v} no={(page - 1) * VIOLATIONS_PAGE_SIZE + vi + 1} label={liveLabelOf(v)} onRemove={() => remove(v.id)} onSendToCollections={() => sendToCollections(v)} onStartHearing={() => startHearing(v)} onEscalate={() => setEscalateFor(v)} sending={sendingId === v.id} reload={reload} />
               ))}
             </div>
             <Pagination
@@ -558,7 +575,7 @@ function overdueDays(v: Violation): number {
   return Math.max(0, Math.floor((Date.now() - due) / 86400000))
 }
 
-function ViolationRow({ v, no, label, onRemove, onSendToCollections, onEscalate, sending, reload }: { v: Violation; no: number; label: string; onRemove: () => void; onSendToCollections: () => void; onEscalate: () => void; sending: boolean; reload: () => void }) {
+function ViolationRow({ v, no, label, onRemove, onSendToCollections, onStartHearing, onEscalate, sending, reload }: { v: Violation; no: number; label: string; onRemove: () => void; onSendToCollections: () => void; onStartHearing: () => void; onEscalate: () => void; sending: boolean; reload: () => void }) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const [overrideOpen, setOverrideOpen] = useState(false)
@@ -628,7 +645,7 @@ function ViolationRow({ v, no, label, onRemove, onSendToCollections, onEscalate,
           {/* Actions — only what's relevant for this row's state.
               The Stripe-driven happy path needs zero clicks; this
               section is appeals, warnings, and exceptions. */}
-          <RowActions v={v} overrideOpen={overrideOpen} setOverrideOpen={setOverrideOpen} onSendToCollections={onSendToCollections} onEscalate={onEscalate} sending={sending} reload={reload} />
+          <RowActions v={v} overrideOpen={overrideOpen} setOverrideOpen={setOverrideOpen} onSendToCollections={onSendToCollections} onStartHearing={onStartHearing} onEscalate={onEscalate} sending={sending} reload={reload} />
         </div>
       )}
       <button type="button" className="bc-del" onClick={(e) => { e.stopPropagation(); onRemove() }}
@@ -642,6 +659,7 @@ function RowActions({
   overrideOpen,
   setOverrideOpen,
   onSendToCollections,
+  onStartHearing,
   onEscalate,
   sending,
   reload,
@@ -650,6 +668,7 @@ function RowActions({
   overrideOpen: boolean
   setOverrideOpen: (b: boolean) => void
   onSendToCollections: () => void
+  onStartHearing: () => void
   onEscalate: () => void
   sending: boolean
   reload: () => void
@@ -747,6 +766,19 @@ function RowActions({
           title={t('admin.violations.sendToCollectionsTitle')}>
           {sending ? t('admin.violations.sendingToCollections') : t('admin.violations.btnSendToCollections')}
         </button>
+      )}
+      {/* Statutory hearing bridge — any open fine can enter the committee
+          process; once in, link over to the Compliance workspace instead. */}
+      {isFine && (!v.enforcement_stage || v.enforcement_stage === 'none') && (
+        <button type="button" className="admin-btn-ghost" onClick={onStartHearing}
+          title={t('admin.violations.startHearingTitle')}>
+          {t('admin.violations.btnStartHearing')}
+        </button>
+      )}
+      {isFine && v.enforcement_stage && v.enforcement_stage !== 'none' && (
+        <Link href="/admin/enforcement" className="admin-btn-ghost" style={{ textDecoration: 'none' }}>
+          {t('admin.violations.inHearingProcess')}
+        </Link>
       )}
       {isFine && (
         <div className="admin-vi-override">

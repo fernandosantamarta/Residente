@@ -29,6 +29,11 @@ export type Violation = {
   opened_at: string
   due_at: string | null       // fine payment deadline (fine-due-date.sql); null for warnings
   closed_at: string | null
+  /** Statutory hearing track (compliance domain G) — 'none' until the board
+   *  starts the process; then proposed → notice_sent → hearing_set →
+   *  upheld/rejected → levied. Drives the enforcement workspace + the
+   *  resident Hearings section. */
+  enforcement_stage: string | null
   // Fine-dispute layer (fine-disputes.sql)
   dispute_status: DisputeStatus | null
   dispute_filed_at: string | null
@@ -40,7 +45,7 @@ export type Violation = {
   dispute_attachment_name: string | null
 }
 
-const SELECT = 'id, profile_id, kind, rule_id, rule_title, resident_label, amount, status, resolution, stripe_invoice_id, notes, opened_at, due_at, closed_at, dispute_status, dispute_filed_at, dispute_reason, dispute_decided_at, dispute_decision_note, reduced_amount, dispute_attachment_path, dispute_attachment_name'
+const SELECT = 'id, profile_id, kind, rule_id, rule_title, resident_label, amount, status, resolution, stripe_invoice_id, notes, opened_at, due_at, closed_at, enforcement_stage, dispute_status, dispute_filed_at, dispute_reason, dispute_decided_at, dispute_decision_note, reduced_amount, dispute_attachment_path, dispute_attachment_name'
 // Pre-migration fallback: same columns minus due_at (fine-due-date.sql not run
 // yet). Lets the app keep working — the card computes the due date instead.
 const SELECT_LEGACY = SELECT.replace('opened_at, due_at,', 'opened_at,')
@@ -66,6 +71,7 @@ const rowTo = (r: any): Violation => ({
   opened_at: r.opened_at,
   due_at: r.due_at ?? null,
   closed_at: r.closed_at ?? null,
+  enforcement_stage: r.enforcement_stage ?? null,
   dispute_status: r.dispute_status ?? null,
   dispute_filed_at: r.dispute_filed_at ?? null,
   dispute_reason: r.dispute_reason ?? null,
@@ -339,6 +345,18 @@ export function useCommunityResidents(): { id: string; profile_id: string | null
   }, [communityId])
 
   return rows
+}
+
+// Admit a fine to the statutory hearing track (FS 718.303 / 720.305): flips it
+// to 'proposed' so the enforcement workspace's ladder (14-day notice →
+// committee hearing → levy) picks it up. Called from the everyday violations
+// log — one intake, one process.
+export async function startHearingProcess(id: string) {
+  if (!hasSupabase || !supabase) return
+  const { error } = await supabase.from('ev_violations')
+    .update({ enforcement_stage: 'proposed', hearing_required: true })
+    .eq('id', id)
+  if (error) throw error
 }
 
 // ---------- status workflow (update by id; RLS enforces; realtime refreshes) ----------

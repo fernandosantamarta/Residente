@@ -8,6 +8,7 @@
 // decides each step.
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/app/providers'
 import { logAudit } from '@/lib/audit'
 import { supabase, hasSupabase } from '@/lib/supabase'
@@ -454,6 +455,12 @@ export default function EnforcementPage() {
               <input ref={photoInputRef} type="file" accept="image/png,image/jpeg,image/webp"
                 onChange={onPickViolationPhoto} style={{ display: 'none' }} />
             </div>
+            {/* One intake, one process: the everyday log is where fines are
+                born; this form is for evidence-first / continuing-daily
+                proposals that start on the statutory track. */}
+            <p className="admin-dek" style={{ margin: '0 0 6px', fontSize: 12.5 }}>
+              {t('admin.enforcement.intakeNote')} <Link href="/admin/violations">{t('admin.enforcement.intakeNoteLink')}</Link>.
+            </p>
             <p className="admin-dek" style={{ margin: '0 0 10px', fontSize: 12.5 }}>{t('admin.enforcement.photoHelp')}</p>
             {vPhotoPreview && (
               <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start', margin: '0 0 14px', padding: 12, border: '1px solid rgba(0,0,0,0.08)', borderRadius: 10, background: '#fafafa' }}>
@@ -816,6 +823,14 @@ function ViolationCard({ v, hearing, regime, committeeOk, onOpenEvidence, onSend
         {(v as any).evidence_path && (
           <button type="button" className="admin-btn-ghost" onClick={() => onOpenEvidence((v as any).evidence_path)}>
             {t('admin.enforcement.photoEvidenceBtn')}
+          </button>
+        )}
+        {/* A fine logged in the everyday violations log arrives here at stage
+            'none' — this is its entry into the statutory ladder. */}
+        {stage === 'none' && (
+          <button className="admin-primary-btn"
+            onClick={() => onPatch({ enforcement_stage: 'proposed', hearing_required: true }, t('admin.enforcement.startedProcessMsg'))}>
+            {t('admin.enforcement.btnStartProcess')}
           </button>
         )}
         {stage === 'proposed' && (

@@ -8,7 +8,6 @@ import { planForHomes } from '@/lib/plan'
 import { docSectionsFor, type DocSection } from '@/lib/documents/checklist'
 import { uploadSignupDocuments, saveSignupNotes, type PropertyType } from '@/lib/signup'
 import { useT } from '@/lib/i18n'
-import { WorkspaceLinks } from './WorkspaceLinks'
 
 // Admin home — replaces the old redirect-to-/community. A real dashboard:
 // quick stats + a "Get your community live" checklist whose items tick off
@@ -20,7 +19,6 @@ const withTimeout = (p, ms = 10000) =>
 
 type Counts = { residents: number; board: number; documents: number; budgets: number }
 
-// (WorkspaceLinks renders the compliance-center entry card at the bottom.)
 export default function AdminHome() {
   const t = useT()
   const { profile } = useAuth() || {}
@@ -453,14 +451,6 @@ ${inApp ? '<meta name="viewport" content="width=816, initial-scale=1">' : ''}
         </div>
       )}
 
-      {/* Compliance center — off the nav (consolidation phase 1); the full
-          needs-attention checklist + every workspace stay reachable here. */}
-      <WorkspaceLinks title="Compliance" items={[{
-        href: '/admin/compliance',
-        label: 'Compliance center',
-        desc: 'Statutory deadlines, filings & the full needs-attention checklist — the workspaces now live inside the everyday tabs.',
-        color: '#B54708',
-      }]} />
     </div>
   )
 }
