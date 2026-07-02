@@ -194,6 +194,26 @@ export default function Home() {
   // money is being run (budget pace, with a reserve-funded bonus). Personal = the
   // resident's own standing (paid up = 100, each month of arrears costs points).
   // Demo (logged-out preview) keeps the illustrative sample figures.
+  // Per-category REAL spend for the dues chips: once the board logs dated
+  // expenses, each category's "% spent" reads the ledger (this year's entries
+  // summed per category_id) instead of the manual spent column — the same
+  // switch the headline spend pace uses, so the two can never disagree.
+  const ledgerByCat = (() => {
+    if (!hasExpenses) return null
+    const m = new Map<string, number>()
+    const year = now.getFullYear()
+    for (const e of expenses) {
+      if (!e.category_id) continue
+      const d = new Date(e.spent_on + 'T00:00:00')
+      if (d.getFullYear() !== year) continue
+      m.set(e.category_id, (m.get(e.category_id) || 0) + e.amount)
+    }
+    return m
+  })()
+  const catsForDues = ledgerByCat
+    ? cats.map((x: any) => ({ ...x, spent: ledgerByCat.get(x.id) ?? 0 }))
+    : cats
+
   const communityRating = demo
     ? 92
     : computeCommunityRating({ community: c, categories: cats, expenses, collectionRate, now })
@@ -294,9 +314,9 @@ export default function Home() {
                 <GlanceCard
                   icon="home" iconTone="orange"
                   label={t('home.glanceYourBalance')}
-                  value={myBalance != null ? fmtMoney(myBalance) : fmtMoney(monthlyDues)}
-                  captionText={myBalance != null && myBalance > 0 ? t('home.glanceDueNow') : t('home.glancePaid')}
-                  captionTone={myBalance != null && myBalance > 0 ? 'red' : 'green'}
+                  value={owedLabel || (myBalance != null ? fmtMoney(myBalance) : fmtMoney(monthlyDues))}
+                  captionText={owedLabel || (myBalance != null && myBalance > 0) ? t('home.glanceDueNow') : t('home.glancePaid')}
+                  captionTone={owedLabel || (myBalance != null && myBalance > 0) ? 'red' : 'green'}
                 />
                 )}
                 <GlanceCard
@@ -333,7 +353,7 @@ export default function Home() {
             unitNumber={profile?.unit_number ?? null}
             owedLabel={owedLabel}
             demo={demo}
-            cats={cats}
+            cats={catsForDues}
             communityRating={communityRating}
             personalRating={personalRating}
           />
