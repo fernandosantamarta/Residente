@@ -491,9 +491,12 @@ function RightRail() {
   const { profile } = useAuth()
   const t = useT()
   const { resident, balance, status: dues } = useMyResident() as { resident: any; balance: number | null; status: 'paid' | 'due' | 'late' }
-  // Show the unit/parcel number under the "Unit" label — NOT the full mailing
-  // address (which can now be a long street address used for collection notices).
+  // The household identity can be a short unit ("102") or a whole street
+  // address — the roster's Address/Unit field writes one value to both
+  // columns. A spaced value reads as an address, so the row label flips
+  // from "Unit" to "Address" instead of showing "Unit 123 Main St…".
   const unitLabel = resident?.unit_number || profile?.unit_number || resident?.address || '—'
+  const unitIsAddress = /\s/.test(unitLabel)
 
   // UP NEXT — wired to the same schedule events the /app/schedule
   // calendar uses, so this rail always matches what the resident
@@ -553,7 +556,7 @@ function RightRail() {
       <div className="household">
         <div className="household-title">{t('rail.yourResidence')}</div>
         <div className="household-row">
-          <span className="h-label">{t('rail.unit')}</span>
+          <span className="h-label">{t(unitIsAddress ? 'rail.address' : 'rail.unit')}</span>
           <span className="h-val unit">{unitLabel}</span>
         </div>
         <div className="household-divider"></div>

@@ -100,6 +100,18 @@ export default function AdminViolations() {
   const rules = useRulesData()
   const residents = useCommunityResidents()
 
+  // Violations snapshot resident_label at creation, so a later roster
+  // address/unit edit never updates old rows. Resolve the CURRENT roster
+  // label whenever the row is linked to a profile; the frozen label is
+  // only the fallback for unlinked/legacy rows.
+  const liveLabelOf = (v: Violation) => {
+    if (v.profile_id) {
+      const r = residents.find(x => x.profile_id === v.profile_id)
+      if (r) return r.label
+    }
+    return v.resident
+  }
+
   // Bridge an unpaid fine into Collections: opens (or reuses) a fine-only
   // collection case for the owner, then jumps to the collection ladder.
   const [sendingId, setSendingId] = useState<string | null>(null)
@@ -269,7 +281,7 @@ export default function AdminViolations() {
           <>
             <div className="bd-list">
               {visible.map((v: Violation) => (
-                <ViolationRow key={v.id} v={v} onRemove={() => remove(v.id)} onSendToCollections={() => sendToCollections(v)} onEscalate={() => setEscalateFor(v)} sending={sendingId === v.id} reload={reload} />
+                <ViolationRow key={v.id} v={v} label={liveLabelOf(v)} onRemove={() => remove(v.id)} onSendToCollections={() => sendToCollections(v)} onEscalate={() => setEscalateFor(v)} sending={sendingId === v.id} reload={reload} />
               ))}
             </div>
             <Pagination
@@ -546,7 +558,7 @@ function overdueDays(v: Violation): number {
   return Math.max(0, Math.floor((Date.now() - due) / 86400000))
 }
 
-function ViolationRow({ v, onRemove, onSendToCollections, onEscalate, sending, reload }: { v: Violation; onRemove: () => void; onSendToCollections: () => void; onEscalate: () => void; sending: boolean; reload: () => void }) {
+function ViolationRow({ v, label, onRemove, onSendToCollections, onEscalate, sending, reload }: { v: Violation; label: string; onRemove: () => void; onSendToCollections: () => void; onEscalate: () => void; sending: boolean; reload: () => void }) {
   const t = useT()
   const [open, setOpen] = useState(false)
   const [overrideOpen, setOverrideOpen] = useState(false)
@@ -560,7 +572,7 @@ function ViolationRow({ v, onRemove, onSendToCollections, onEscalate, sending, r
       >
         <div className="bd-main">
           <div className="bd-title">
-            {v.resident}
+            {label}
             <span className={`admin-vi-pill ${pillClass(v)}`}>{stateLabel(v, t)}</span>
             {(() => { const od = overdueDays(v); return od > 0 ? (
               <span style={{ fontSize: 11, fontWeight: 700, color: od >= 30 ? '#B42318' : '#B54708', background: od >= 30 ? 'rgba(180,35,24,0.10)' : 'rgba(181,71,8,0.10)', border: `1px solid ${od >= 30 ? 'rgba(180,35,24,0.25)' : 'rgba(181,71,8,0.25)'}`, padding: '2px 8px', borderRadius: 999, marginLeft: 6, whiteSpace: 'nowrap' }}>{t('admin.violations.overdueDays', { days: od })}</span>
@@ -598,7 +610,7 @@ function ViolationRow({ v, onRemove, onSendToCollections, onEscalate, sending, r
             }:</strong> {v.dispute_decision_note}</p>
           ) : v.notes ? <p>{v.notes}</p> : <p className="bd-body-empty">{t('admin.violations.noNotes')}</p>}
           <div className="bd-body-meta">
-            <span><strong>{t('admin.violations.metaResident')}</strong> {v.resident}</span>
+            <span><strong>{t('admin.violations.metaResident')}</strong> {label}</span>
             <span><strong>{t('admin.violations.metaKind')}</strong> {v.kind === 'fine' ? t('admin.violations.kindLabelFine') : t('admin.violations.kindLabelWarning')}</span>
             {v.amount != null && Number(v.amount) > 0 && (
               <span><strong>{t('admin.violations.metaAmount')}</strong> {fmtMoney(v.amount)}</span>

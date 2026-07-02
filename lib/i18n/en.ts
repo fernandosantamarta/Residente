@@ -15,6 +15,7 @@ export const en: Record<string, string> = {
   'rail.viewAll': 'View all',
   'rail.yourResidence': 'Your residence',
   'rail.unit': 'Unit',
+  'rail.address': 'Address',
   'rail.whatYouOwe': 'What you owe',
   'rail.due': 'Due',
   'rail.for': 'For',

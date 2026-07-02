@@ -9,6 +9,7 @@ export const pt: Record<string, string> = {
   'rail.viewAll': 'Ver tudo',
   'rail.yourResidence': 'Sua residência',
   'rail.unit': 'Unidade',
+  'rail.address': 'Endereço',
   'rail.whatYouOwe': 'O que você deve',
   'rail.due': 'Vence',
   'rail.for': 'Para',

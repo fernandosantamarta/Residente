@@ -327,8 +327,10 @@ export function useCommunityResidents(): { id: string; profile_id: string | null
       if (cancelled || !data) return
       setRows(data.map((r: any) => {
         const name = r.full_name || 'Resident'
-        // Unit only — never fall back to the full home address (can be very long).
-        const unit = r.unit_number
+        // unit_number IS the household's Address/Unit identity (the roster
+        // editor + imports write both columns with one value); address is
+        // the fallback for legacy rows. Matches every other roster display.
+        const unit = r.unit_number || r.address
         return { id: r.id, profile_id: r.profile_id ?? null, label: unit ? `${name} · ${unit}` : name }
       }).sort((a, b) => a.label.localeCompare(b.label)))
     }

@@ -44,7 +44,9 @@ export default function HomePage() {
   return (
     <div className="hv">
       <div className="hv-kicker">{t('legacy.home.kicker')}</div>
-      <h1 className="hv-h1">{resident?.unit_number ? t('legacy.home.unit', { number: resident.unit_number }) : t('legacy.home.myHome')}</h1>
+      {/* A spaced unit_number is a whole street address — show it plain
+          rather than as "Unit 123 Main St…". */}
+      <h1 className="hv-h1">{resident?.unit_number ? (/\s/.test(resident.unit_number) ? resident.unit_number : t('legacy.home.unit', { number: resident.unit_number })) : t('legacy.home.myHome')}</h1>
       <p className="hv-dek">{t('legacy.home.dek')}</p>
 
       {err && <div className="hv-err">{err} <button className="hv-link" onClick={() => { setErr(null); reload() }}>{t('legacy.home.retry')}</button></div>}
