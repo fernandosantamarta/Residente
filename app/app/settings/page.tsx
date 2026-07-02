@@ -1024,6 +1024,32 @@ function ProfileNameFields({
   )
 }
 
+// Address field seeded from the roster's address of record, so the profile
+// always SHOWS the address on file even before the resident types their own.
+function ProfileAddressField({
+  prefs, patch, roster, onSaveContact,
+}: {
+  prefs: Preferences
+  patch: (p: Partial<Preferences>) => void
+  roster: any | null
+  onSaveContact: (next: { address?: string }) => void
+}) {
+  const t = useT()
+  const rosterAddr = roster?.unit_number || roster?.address || ''
+  const [val, setVal] = useState(prefs.address || rosterAddr)
+  // The roster row can arrive after the dialog opens — fill the field once it
+  // does, but never overwrite something the resident has typed.
+  useEffect(() => { if (!prefs.address && rosterAddr) setVal(v => v || rosterAddr) }, [rosterAddr])   // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <Field label={t('settings.fldAddress')}>
+      <input name="street-address" autoComplete="street-address" className="set-input" value={val}
+        onChange={e => { setVal(e.target.value); patch({ address: e.target.value }) }}
+        onBlur={e => onSaveContact({ address: e.target.value.trim() })}
+        placeholder={t('settings.phAddress')} />
+    </Field>
+  )
+}
+
 function DialogBody({
   k, prefs, patch, unitLabel, community, roster, profileId, communityId, onSaveContact,
 }: {
@@ -1051,12 +1077,7 @@ function DialogBody({
               onBlur={e => onSaveContact({ phone: e.target.value.trim() })}
               placeholder={t('settings.phPhone')} />
           </Field>
-          <Field label={t('settings.fldAddress')}>
-            <input name="street-address" autoComplete="street-address" className="set-input" value={prefs.address}
-              onChange={e => patch({ address: e.target.value })}
-              onBlur={e => onSaveContact({ address: e.target.value.trim() })}
-              placeholder={t('settings.phAddress')} />
-          </Field>
+          <ProfileAddressField prefs={prefs} patch={patch} roster={roster} onSaveContact={onSaveContact} />
           {roster ? (
             <span className="set-dialog-note set-dialog-note-tight">
               {t('settings.profNoteSynced')}

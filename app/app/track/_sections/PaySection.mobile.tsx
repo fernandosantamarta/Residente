@@ -184,19 +184,26 @@ export function PaySection() {
   const openingBal = Number(resident?.opening_balance) || 0
   const paidToDate = (payments || []).reduce((s: number, p: any) => s + (Number(p?.amount) || 0), 0)
   const duesAndCharges = currentBalance - openingBal + paidToDate
-  const breakdown = inCollections && casePayoffRes
+  const collApr = Number(duesCfg?.apr) || 0
+  const collBoardCost = Number((openCase as any)?.cost_balance) || 0
+  const collMailCost = Number((openCase as any)?.mailing_cost_balance) || 0
+  const collCostSub = [
+    collBoardCost > 0 ? t('pay.statementCollCostBoard', { amount: fmtCents(collBoardCost) }) : '',
+    collMailCost > 0 ? t('pay.statementCollCostMail', { amount: fmtCents(collMailCost) }) : '',
+  ].filter(Boolean).join(' + ') || undefined
+  const breakdown: { label: string; amount: number; sub?: string }[] = inCollections && casePayoffRes
     ? [
-        ...(openingBal ? [{ label: t('pay.chargeOpeningBalance'), amount: openingBal }] : []),
-        { label: t('pay.chargeDuesBilled'), amount: Math.round((casePayoffRes.gross.principal - openingBal) * 100) / 100 },
-        ...(casePayoffRes.gross.interest > 0 ? [{ label: t('pay.chargeCollInterest'), amount: casePayoffRes.gross.interest }] : []),
+        ...(openingBal ? [{ label: t('pay.chargeOpeningBalance'), sub: t('pay.subOpeningBalance'), amount: openingBal }] : []),
+        { label: t('pay.chargeDuesBilled'), sub: t('pay.subDuesBilled', { months: String(monthsOwed(resident)), rate: fmtMoney(monthlyDues) }), amount: Math.round((casePayoffRes.gross.principal - openingBal) * 100) / 100 },
+        ...(casePayoffRes.gross.interest > 0 ? [{ label: t('pay.chargeCollInterest'), sub: collApr > 0 ? t('pay.subCollInterest', { apr: String(collApr) }) : undefined, amount: casePayoffRes.gross.interest }] : []),
         ...(casePayoffRes.gross.lateFee > 0 ? [{ label: t('pay.collFees'), amount: casePayoffRes.gross.lateFee }] : []),
-        ...(casePayoffRes.gross.cost > 0 ? [{ label: t('pay.chargeCollCosts'), amount: casePayoffRes.gross.cost }] : []),
+        ...(casePayoffRes.gross.cost > 0 ? [{ label: t('pay.chargeCollCosts'), sub: collCostSub, amount: casePayoffRes.gross.cost }] : []),
         ...(casePayoffRes.gross.fine > 0 ? [{ label: t('pay.collFines'), amount: casePayoffRes.gross.fine }] : []),
         ...(paidToDate ? [{ label: t('pay.chargePaymentsReceived'), amount: -paidToDate }] : []),
       ]
     : [
-        ...(openingBal ? [{ label: t('pay.chargeOpeningBalance'), amount: openingBal }] : []),
-        { label: t('pay.chargeDuesAndCharges'), amount: duesAndCharges },
+        ...(openingBal ? [{ label: t('pay.chargeOpeningBalance'), sub: t('pay.subOpeningBalance'), amount: openingBal }] : []),
+        { label: t('pay.chargeDuesAndCharges'), sub: t('pay.subDuesBilled', { months: String(monthsOwed(resident)), rate: fmtMoney(monthlyDues) }), amount: duesAndCharges },
         ...(paidToDate ? [{ label: t('pay.chargePaymentsReceived'), amount: -paidToDate }] : []),
       ]
   const breakdownTotal = breakdown.reduce((s, r) => s + r.amount, 0)
@@ -557,7 +564,10 @@ export function PaySection() {
           <div className="pay-breakdown-head">{t('pay.breakdown')}</div>
           {breakdown.map(b => (
             <div key={b.label} className="pay-breakdown-row">
-              <span>{b.label}</span>
+              <span>
+                {b.label}
+                {b.sub && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--ev-text-dim, #6b675f)', fontWeight: 400, marginTop: 1 }}>{b.sub}</span>}
+              </span>
               <span className={b.amount < 0 ? 'pay-amt-credit' : ''}>
                 {b.amount < 0 ? `-${fmtBd(Math.abs(b.amount))}` : fmtBd(b.amount)}
               </span>
@@ -650,7 +660,10 @@ export function PaySection() {
             <div className="rd-bd-row rd-bd-head"><span>{t('pay.charge')}</span><span>{t('pay.colAmount')}</span><span /></div>
             {breakdown.map(b => (
               <div className="rd-bd-row" key={b.label}>
-                <span className="rd-bd-cat">{b.label}</span>
+                <span className="rd-bd-cat">
+                  {b.label}
+                  {b.sub && <span style={{ display: 'block', fontSize: 11.5, color: 'var(--ev-text-dim, #6b675f)', fontWeight: 400, marginTop: 1 }}>{b.sub}</span>}
+                </span>
                 <span className={`rd-bd-amt${b.amount < 0 ? ' pay-amt-credit' : ''}`}>
                   {b.amount < 0 ? `-${fmtBd(Math.abs(b.amount))}` : fmtBd(b.amount)}
                 </span>

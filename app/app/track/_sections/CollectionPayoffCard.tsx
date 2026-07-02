@@ -146,7 +146,8 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
   const interestPaused = caseInterestFrozen(caseRow)
   const perDiem = casePerDiem(caseRow, community, payoff)
   const lastNotice = notices[0] || null
-  let sinceNotice: { amount: number; date: string } | null = null
+  const round2 = (n: number) => Math.round(n * 100) / 100
+  let sinceNotice: { amount: number; date: string; dues: number; interest: number; other: number } | null = null
   if (payoff && lastNotice?.sent_at) {
     const cutoff = new Date(`${String(lastNotice.sent_at).slice(0, 10)}T23:59:59`)
     const paysThen = (payments || []).filter((p: any) => {
@@ -154,8 +155,19 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
       return !isNaN(d.getTime()) && d <= cutoff
     })
     const then = casePayoffForCase(caseRow, resident, community, paysThen, { asOf: lastNotice.sent_at })
-    const grown = then ? Math.round((payoff.payoff - then.payoff) * 100) / 100 : 0
-    if (grown > 0.005) sinceNotice = { amount: grown, date: String(lastNotice.sent_at) }
+    const grown = then ? round2(payoff.payoff - then.payoff) : 0
+    if (then && grown > 0.005) {
+      // Decompose the growth so a new month's regular dues posting doesn't
+      // read as penalty: new assessments vs interest vs costs/fees/fines.
+      sinceNotice = {
+        amount: grown,
+        date: String(lastNotice.sent_at),
+        dues: round2(payoff.gross.principal - then.gross.principal),
+        interest: round2(payoff.gross.interest - then.gross.interest),
+        other: round2((payoff.gross.cost + payoff.gross.lateFee + payoff.gross.fine)
+                    - (then.gross.cost + then.gross.lateFee + then.gross.fine)),
+      }
+    }
   }
 
   // Where the case sits on the statutory ladder + the live countdown to the next
@@ -219,7 +231,15 @@ export function CollectionPayoffCard({ resident, community, payments }: { reside
               {sinceNotice && (
                 <> · <strong style={{ color: '#B54708', fontWeight: 700 }}>
                   {t('pay.collSinceNotice', { amount: fmt$(sinceNotice.amount), date: fmtD(sinceNotice.date) })}
-                </strong></>
+                </strong>
+                {' '}
+                <span style={{ whiteSpace: 'nowrap' }}>
+                  ({[
+                    sinceNotice.dues > 0.005 ? t('pay.collSincePartDues', { amount: fmt$(sinceNotice.dues) }) : '',
+                    sinceNotice.interest > 0.005 ? t('pay.collSincePartInterest', { amount: fmt$(sinceNotice.interest) }) : '',
+                    sinceNotice.other > 0.005 ? t('pay.collSincePartOther', { amount: fmt$(sinceNotice.other) }) : '',
+                  ].filter(Boolean).join(' + ')})
+                </span></>
               )}
             </p>
             {/* Collection status + countdown — only when NOT on a plan (a plan
