@@ -31,9 +31,20 @@ export function ViolationsSection() {
   const pages = Math.max(1, Math.ceil(violations.length / VIOL_PAGE))
   const shown = violations.slice(page * VIOL_PAGE, page * VIOL_PAGE + VIOL_PAGE)
 
+  // A fine that's before the independent fining committee (proposed → 14-day
+  // notice → hearing) isn't collectible yet — FS 718.303 / 720.305: it only
+  // becomes payable if the committee upholds it and the board levies it. A
+  // committee-rejected fine can't be imposed at all.
+  const inCommittee = (v: any) =>
+    v.kind === 'fine' && v.status !== 'closed' &&
+    ['proposed', 'notice_sent', 'hearing_set'].includes(String(v.enforcement_stage || ''))
+  const committeeRejected = (v: any) =>
+    v.kind === 'fine' && String(v.enforcement_stage || '') === 'rejected'
+  const underReview = (v: any) =>
+    v.status === 'appealed' || v.dispute_status === 'filed' || v.dispute_status === 'under_review'
   const payable = (v: any) =>
     v.kind === 'fine' && v.status !== 'closed' && Number(v.amount) > 0 &&
-    v.dispute_status !== 'filed' && v.dispute_status !== 'under_review'
+    !underReview(v) && !inCommittee(v) && !committeeRejected(v)
   const payAmount = (v: any) =>
     v.dispute_status === 'reduced' && v.reduced_amount != null ? Number(v.reduced_amount) : Number(v.amount)
   const isPaid = (v: any) =>
@@ -44,14 +55,18 @@ export function ViolationsSection() {
     if (v.resolution === 'dismissed') return t('documents.statusClosed')
     return v.resolution || t('documents.statusClosed')
   }
-  const underReview = (v: any) =>
-    v.status === 'appealed' || v.dispute_status === 'filed' || v.dispute_status === 'under_review'
   const statusLabel = (v: any): string =>
     v.status === 'closed' ? resolvedLabel(v)
+    : inCommittee(v) ? t('documents.statusInCommittee')
+    : committeeRejected(v) ? t('documents.statusCommitteeRejected')
     : underReview(v) ? t('documents.statusUnderReview')
     : t('documents.statusOpen')
   const statusTone = (v: any): string =>
-    isPaid(v) ? 'paid' : v.status === 'closed' ? 'closed' : underReview(v) ? 'review' : 'open'
+    isPaid(v) ? 'paid'
+    : v.status === 'closed' ? 'closed'
+    : inCommittee(v) ? 'review'
+    : committeeRejected(v) ? 'closed'
+    : underReview(v) ? 'review' : 'open'
 
   const onPay = (v: any) => {
     setPayError(null)
@@ -103,7 +118,9 @@ export function ViolationsSection() {
           <div className="myv-list">
             {shown.map(v => {
               const isFine = v.kind === 'fine'
-              const canContest = isFine && v.status !== 'closed'
+              // The committee hearing IS the due process — no dispute path (and
+              // nothing to pay) while it runs, or after a rejection.
+              const canContest = isFine && v.status !== 'closed' && !inCommittee(v) && !committeeRejected(v)
               const hasActions = payable(v) || canContest
               return (
                 <div className="myv-card" key={v.id}>
@@ -119,6 +136,16 @@ export function ViolationsSection() {
                   <div className="myv-title">{v.rule_title || t('documents.communityRule')}</div>
                   <div className="myv-meta">{t('documents.openedOn', { date: fmtDate(v.opened_at) })}</div>
                   {v.notes && <p className="myv-note">{v.notes}</p>}
+                  {inCommittee(v) && (
+                    <p className="myv-note" style={{ background: 'rgba(23, 92, 211, 0.06)', color: '#1D4ED8', fontStyle: 'normal' }}>
+                      {t('documents.committeeNote')}
+                    </p>
+                  )}
+                  {committeeRejected(v) && v.status !== 'closed' && (
+                    <p className="myv-note" style={{ background: 'rgba(6, 118, 71, 0.07)', color: '#067647', fontStyle: 'normal' }}>
+                      {t('documents.committeeRejectedNote')}
+                    </p>
+                  )}
                   {hasActions && (
                     <div className="myv-actions">
                       {payable(v) && (
