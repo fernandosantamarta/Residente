@@ -838,22 +838,35 @@ function ViolationCard({ v, hearing, regime, committeeOk, onOpenEvidence, onSend
         )}
         {(stage === 'notice_sent' || stage === 'hearing_set') && (
           <>
-            <input type="date" className="admin-input" style={{ maxWidth: 170 }} value={schedDate} onChange={e => setSchedDate(e.target.value)} />
+            {/* FS 720.305(2)(b) / 718.303(3)(b): the owner gets at least 14
+                days' notice of the hearing — min blocks an illegal date. */}
+            <input type="date" className="admin-input" style={{ maxWidth: 170 }} value={schedDate}
+              min={ready ? ymd(ready) : undefined} onChange={e => setSchedDate(e.target.value)} />
             <button className="admin-btn-ghost" disabled={!schedDate} onClick={() => onSchedule(schedDate)}>
               {stage === 'hearing_set' ? t('admin.enforcement.btnReschedule') : t('admin.enforcement.btnScheduleHearing')}
             </button>
             <button className="admin-primary-btn" onClick={() => setDecideOpen(o => !o)}>{decideOpen ? t('admin.enforcement.btnCancel') : t('admin.enforcement.btnRecordDecision')}</button>
-            {!committeeOk && <span style={{ fontSize: 12, color: '#B42318' }}>⚠ {t('admin.enforcement.committeeNotQuorate')}</span>}
           </>
         )}
         {stage === 'upheld' && !v.levied_at && (
           <button className="admin-primary-btn" onClick={onLevy}>{t('admin.enforcement.btnMarkLevied')}</button>
         )}
-        {/* document links */}
-        <a className="admin-btn-ghost" href={docHref('violation_notice')}>{t('admin.enforcement.linkViolationNotice')}</a>
-        {(stage !== 'proposed' && stage !== 'none') && <a className="admin-btn-ghost" href={docHref('hearing_notice')}>{t('admin.enforcement.linkHearingNotice')}</a>}
-        {(stage === 'upheld' || stage === 'rejected' || stage === 'levied') && <a className="admin-btn-ghost" href={docHref('decision')}>{t('admin.enforcement.linkDecision')}</a>}
+        {/* Document letters — dim, pushed right so actions and paperwork read
+            as separate groups instead of one cluttered row. */}
+        <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 8, flexWrap: 'wrap' }}>
+          <a className="admin-btn-ghost" style={{ opacity: 0.75 }} href={docHref('violation_notice')}>{t('admin.enforcement.linkViolationNotice')}</a>
+          {(stage !== 'proposed' && stage !== 'none') && <a className="admin-btn-ghost" style={{ opacity: 0.75 }} href={docHref('hearing_notice')}>{t('admin.enforcement.linkHearingNotice')}</a>}
+          {(stage === 'upheld' || stage === 'rejected' || stage === 'levied') && <a className="admin-btn-ghost" style={{ opacity: 0.75 }} href={docHref('decision')}>{t('admin.enforcement.linkDecision')}</a>}
+        </span>
       </div>
+
+      {/* Committee readiness — its own quiet line instead of shouting inline
+          between the buttons. */}
+      {(stage === 'notice_sent' || stage === 'hearing_set') && !committeeOk && (
+        <div style={{ marginTop: 8, fontSize: 12, color: '#B42318', background: 'rgba(180,35,24,0.06)', border: '1px solid rgba(180,35,24,0.18)', borderRadius: 8, padding: '7px 10px', width: 'fit-content' }}>
+          ⚠ {t('admin.enforcement.committeeNotQuorate')}
+        </div>
+      )}
 
       {decideOpen && <DecisionForm onSubmit={(d: any) => { setDecideOpen(false); onDecision(d) }} />}
 

@@ -2616,7 +2616,7 @@ export const en: Record<string, string> = {
   "admin.enforcement.checkContinuing": "Continuing violation (per-day fine, capped at ${cap})",
   "admin.enforcement.checkHearingRequired": "Requires a hearing (recommended)",
   "admin.enforcement.checkIndependentOfBoard": "Independent of the board",
-  "admin.enforcement.chipHearingWindow": "Hearing window to {date}",
+  "admin.enforcement.chipHearingWindow": "Earliest lawful hearing: {date}",
   "admin.enforcement.chipLevied": "Levied",
   "admin.enforcement.chipMayHoldHearing": "May hold hearing (since {date})",
   "admin.enforcement.chipRejected": "Rejected — may not impose",
