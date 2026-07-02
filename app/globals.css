@@ -7427,6 +7427,30 @@ html[data-theme="original"] { font-family: 'AmpFix', 'Space Grotesk', 'Inter', s
 [data-theme="sketch"] .set-account-row > .set-account-oneline {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+
+/* Easy Voice quick links (propose a rule / rule book / elections) — one SOLID
+   white card so the rows stay readable over the sunset hero (they used to
+   float translucent and were barely visible). */
+[data-theme="sketch"] .vd-quicklinks {
+  background: #FFFFFF; border: 1px solid rgba(15, 28, 46, 0.10); border-radius: 16px;
+  overflow: hidden; margin-top: 18px;
+  box-shadow: 0 1px 2px rgba(10, 36, 64, 0.05);
+}
+[data-theme="sketch"] .vd-quicklink {
+  display: flex; align-items: center; gap: 14px;
+  padding: 16px 20px; text-decoration: none;
+  transition: background 0.12s ease;
+}
+[data-theme="sketch"] .vd-quicklink + .vd-quicklink { border-top: 1px solid rgba(15, 28, 46, 0.08); }
+[data-theme="sketch"] .vd-quicklink:hover { background: rgba(225, 73, 9, 0.045); }
+[data-theme="sketch"] .vd-quicklink-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+[data-theme="sketch"] .vd-quicklink-title { font-weight: 700; font-size: 14.5px; color: #0A2440; }
+[data-theme="sketch"] .vd-quicklink-sub { font-size: 12.5px; color: rgba(10, 36, 64, 0.62); line-height: 1.45; }
+[data-theme="sketch"] .vd-quicklink-go { flex: 0 0 auto; font-weight: 700; font-size: 13px; color: #E14909; white-space: nowrap; }
+@media (max-width: 640px) {
+  [data-theme="sketch"] .vd-quicklink { flex-wrap: wrap; }
+  [data-theme="sketch"] .vd-quicklink-go { margin-left: auto; }
+}
 [data-theme="sketch"] .set-account-row > span:first-child { color: rgba(10, 36, 64, 0.55); }
 [data-theme="sketch"] .set-account-row > span:last-child  { color: #0A2440; font-weight: 600; }
 

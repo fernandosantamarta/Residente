@@ -1,7 +1,6 @@
 'use client'
 
 import { ReactNode, useState } from 'react'
-import { useAuth } from '@/app/providers'
 import { useBoardData, type BoardMember, type BoardMeeting, type Committee } from '@/hooks/useBoardData'
 import { useBoardDecisions } from '@/hooks/useBoardDecisions'
 import { DetailDialog } from '../../track/_sections/DetailDialog'
@@ -82,20 +81,18 @@ const fmtLongDate = (iso: string) => {
 
 export function BoardSection() {
   const t = useT()
-  const { profile } = useAuth() || {}
   const board = useBoardData()
   const { decisions } = useBoardDecisions(6) as { decisions: any[] | null }
   const realUpdates = (decisions ?? []).map(d => decisionToUpdate(d, t('board.decisionFallbackTitle')))
 
-  // Demo people render ONLY in the logged-out preview (no community linked).
-  // A REAL community with an empty board gets the honest empty states below —
-  // never fake members/meetings that read as a working board.
-  const isPreview = !profile?.community_id
-  const members  = board.members.length  ? board.members  : (isPreview ? DEMO_MEMBERS : [])
-  const minutes  = board.minutes.length  ? board.minutes  : (isPreview ? DEMO_MINUTES : [])
-  const upcoming = board.upcoming ?? (isPreview && !board.members.length ? DEMO_UPCOMING : null)
-  const updates  = realUpdates.length ? realUpdates : (isPreview ? DEMO_UPDATES : [])
-  const committees = board.committees.length ? board.committees : (isPreview ? DEMO_COMMITTEES : [])
+  // Real community data wired first; the demo fallback keeps the tab from
+  // looking empty until the board fills in its own (Fernando's call: never
+  // naked — real data replaces the sample the moment it exists).
+  const members  = board.members.length  ? board.members  : DEMO_MEMBERS
+  const minutes  = board.minutes.length  ? board.minutes  : DEMO_MINUTES
+  const upcoming = board.upcoming ?? (board.members.length ? null : DEMO_UPCOMING)
+  const updates  = realUpdates.length ? realUpdates : DEMO_UPDATES
+  const committees = board.committees.length ? board.committees : DEMO_COMMITTEES
 
   // In-place popups — every row/link opens detail here instead of navigating.
   const [meetingOpen, setMeetingOpen] = useState<BoardMeeting | null>(null)

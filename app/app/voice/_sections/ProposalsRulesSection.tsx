@@ -58,36 +58,39 @@ export function ProposalsRulesSection() {
         </div>
       )}
 
-      {/* Propose-a-rule notice — jumps to Contact with the request form opened
-          on the "Propose a rule" category. */}
-      <Link href="/app/voice?cat=rule_proposal#contact" className="vd-propose-notice">
-        <span className="vd-propose-ic">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M14 13l-7.5 7.5a2.12 2.12 0 0 1-3-3L11 10"/><path d="M9.5 6.5l8 8"/><path d="M14 4l6 6"/><path d="M11 7l6 6"/><line x1="16" y1="20" x2="22" y2="20"/>
-          </svg>
-        </span>
-        <span className="vd-propose-body">
-          <span className="vd-propose-title">Have a rule in mind?</span>
-          <span className="vd-propose-sub">Propose it to the board — they can put it up for a vote here.</span>
-        </span>
-        <span className="vd-propose-go">Propose a rule →</span>
-      </Link>
+      {/* Propose-a-rule + rule book + elections — ONE solid card. The three
+          rows used to float translucent over the hero photo and were barely
+          readable; a shared white card keeps them visible and together. */}
+      <div className="vd-quicklinks">
+        <Link href="/app/voice?cat=rule_proposal#contact" className="vd-quicklink">
+          <span className="vd-propose-ic">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M14 13l-7.5 7.5a2.12 2.12 0 0 1-3-3L11 10"/><path d="M9.5 6.5l8 8"/><path d="M14 4l6 6"/><path d="M11 7l6 6"/><line x1="16" y1="20" x2="22" y2="20"/>
+            </svg>
+          </span>
+          <span className="vd-quicklink-body">
+            <span className="vd-quicklink-title">Have a rule in mind?</span>
+            <span className="vd-quicklink-sub">Propose it to the board — they can put it up for a vote here.</span>
+          </span>
+          <span className="vd-quicklink-go">Propose a rule →</span>
+        </Link>
 
-      <Link href="/app/documents#rules" className="vd-proposals-cta">
-        <span className="vd-proposals-body">
-          <span className="vd-proposals-title">See the rule book</span>
-          <span className="vd-proposals-sub">Adopted rules and policies live in Easy Documents → Rules.</span>
-        </span>
-        <span className="vd-proposals-go">Open Easy Documents →</span>
-      </Link>
+        <Link href="/app/documents#rules" className="vd-quicklink">
+          <span className="vd-quicklink-body">
+            <span className="vd-quicklink-title">See the rule book</span>
+            <span className="vd-quicklink-sub">Adopted rules and policies live in Easy Documents → Rules.</span>
+          </span>
+          <span className="vd-quicklink-go">Open Easy Documents →</span>
+        </Link>
 
-      <Link href="/app/meetings" className="vd-proposals-cta">
-        <span className="vd-proposals-body">
-          <span className="vd-proposals-title">Board elections &amp; recall</span>
-          <span className="vd-proposals-sub">The election timeline — when you can run for the board, when ballots go out, and any recall in progress.</span>
-        </span>
-        <span className="vd-proposals-go">Open →</span>
-      </Link>
+        <Link href="/app/meetings" className="vd-quicklink">
+          <span className="vd-quicklink-body">
+            <span className="vd-quicklink-title">Board elections &amp; recall</span>
+            <span className="vd-quicklink-sub">The election timeline — when you can run for the board, when ballots go out, and any recall in progress.</span>
+          </span>
+          <span className="vd-quicklink-go">Open →</span>
+        </Link>
+      </div>
 
       {openVote && (
         <VoteDetailDialog vote={openVote} onClose={() => setOpenVote(null)} onVoted={() => { reload(); setOpenVote(null) }} />

@@ -277,6 +277,13 @@ export default function EasyDocs() {
   // ── Documents state ──────────────────────────────────────────────────────
   const { documents, loading: docLoading } = useDocuments() as { documents: any[]; loading: boolean }
   const docList = documents || []
+  // Real docs wired INTO the existing cards without changing their look:
+  // pinned = the community's governing docs, popular slot = newest uploads.
+  // When there's nothing real yet, the demo content keeps the layout alive.
+  const pinnedDocs = useMemo(
+    () => docList.filter((d: any) => /declaration|bylaw|cc&r|covenant|articles|rules|budget/i.test(String(d.category || ''))).slice(0, 4),
+    [docList],
+  )
   const [docSearch, setDocSearch] = useState('')
   const [docFilterCategory, setDocFilterCategory] = useState<string>('all')
   const [docFilterPeriod, setDocFilterPeriod] = useState<'recent' | 'oldest'>('recent')
@@ -441,8 +448,11 @@ export default function EasyDocs() {
             </div>
           </section>
 
-          <div className="rb-toolbar" style={{ position: 'relative' }}>
-            <div className="rb-search">
+          <div className="rb-toolbar">
+            {/* The results panel anchors to the SEARCH BAR (not the toolbar),
+                so it ends where the search field ends instead of running under
+                the filter dropdowns. */}
+            <div className="rb-search" style={{ position: 'relative' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" />
               </svg>
@@ -454,8 +464,8 @@ export default function EasyDocs() {
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (globalResults[0]) onSearchResult(globalResults[0]) } }}
                 placeholder={t('documents.smartSearchPlaceholder')}
               />
+              {smartPanel}
             </div>
-            {smartPanel}
             <Dropdown<string>
               value={activeCategory}
               onChange={v => setActiveCategory(v)}
@@ -705,8 +715,9 @@ export default function EasyDocs() {
             </div>
           </section>
 
-          <div className="doc-toolbar" style={{ position: 'relative' }}>
-            <div className="doc-search">
+          <div className="doc-toolbar">
+            {/* Results panel anchored to the search bar — see the rules toolbar. */}
+            <div className="doc-search" style={{ position: 'relative' }}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                 <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
               </svg>
@@ -718,8 +729,8 @@ export default function EasyDocs() {
                 onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); if (globalResults[0]) onSearchResult(globalResults[0]) } }}
                 placeholder={t('documents.smartSearchPlaceholder')}
               />
+              {smartPanel}
             </div>
-            {smartPanel}
             <Dropdown<string>
               value={docFilterCategory}
               onChange={v => setDocFilterCategory(v)}
@@ -779,13 +790,13 @@ export default function EasyDocs() {
                   <button type="button" className="doc-card-link" onClick={() => setListOpen('pinned')}>{t('documents.viewAll')}</button>
                 </div>
                 <div className="doc-pinned-grid">
-                  {DEMO_PINNED.map(p => (
+                  {(pinnedDocs.length ? pinnedDocs : (DEMO_PINNED as any[])).map((p: any) => (
                     <button key={p.id} type="button" className="doc-pinned"
-                      onClick={() => setDocDetail({ title: p.title, category: p.category, date: p.date })}>
+                      onClick={() => p.uploaded_at ? openDoc(p) : setDocDetail({ title: p.title, category: p.category, date: p.date })}>
                       <span className="doc-pinned-icon"><PdfIcon /></span>
-                      <span className="doc-pinned-tag">{p.category}</span>
+                      <span className="doc-pinned-tag">{p.category || t('documents.otherCategory')}</span>
                       <span className="doc-pinned-title">{p.title}</span>
-                      <span className="doc-pinned-meta">PDF &middot; {fmtDate(p.date)}</span>
+                      <span className="doc-pinned-meta">PDF &middot; {fmtDate(p.uploaded_at || p.date)}</span>
                     </button>
                   ))}
                 </div>
@@ -874,11 +885,11 @@ export default function EasyDocs() {
                   <button type="button" className="doc-card-link" onClick={() => setListOpen('popular')}>{t('documents.viewAll')}</button>
                 </div>
                 <div className="doc-popular">
-                  {DEMO_POPULAR.map(p => (
+                  {(docList.length ? docList.slice(0, 5) : (DEMO_POPULAR as any[])).map((p: any) => (
                     <button key={p.id} type="button" className="doc-popular-row"
-                      onClick={() => setDocDetail({ title: p.label })}>
+                      onClick={() => p.uploaded_at ? openDoc(p) : setDocDetail({ title: p.title || p.label })}>
                       <span className="doc-popular-icon"><PdfIcon /></span>
-                      <span className="doc-popular-title">{p.label}</span>
+                      <span className="doc-popular-title">{p.title || p.label}</span>
                       <span className="doc-popular-dl" aria-label={t('documents.open')}>
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M12 4v12"/><path d="m6 10 6 6 6-6"/><path d="M5 20h14"/>
@@ -954,11 +965,11 @@ export default function EasyDocs() {
           onClose={() => setListOpen(null)}
         >
           <div className="rd-list">
-            {listOpen === 'pinned' && DEMO_PINNED.map(p => (
+            {listOpen === 'pinned' && (pinnedDocs.length ? pinnedDocs : (DEMO_PINNED as any[])).map((p: any) => (
               <button type="button" className="rd-list-row" key={p.id}
-                onClick={() => { setListOpen(null); setDocDetail({ title: p.title, category: p.category, date: p.date }) }}>
+                onClick={() => { setListOpen(null); p.uploaded_at ? openDoc(p) : setDocDetail({ title: p.title, category: p.category, date: p.date }) }}>
                 <span className="doc-pinned-icon"><PdfIcon /></span>
-                <span className="rd-list-body"><span className="rd-list-title">{p.title}</span><span className="rd-list-meta">{p.category} · {fmtDate(p.date)}</span></span>
+                <span className="rd-list-body"><span className="rd-list-title">{p.title}</span><span className="rd-list-meta">{p.category || t('documents.otherCategory')} · {fmtDate(p.uploaded_at || p.date)}</span></span>
                 <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
             ))}
@@ -972,11 +983,11 @@ export default function EasyDocs() {
                 <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
             )))}
-            {listOpen === 'popular' && DEMO_POPULAR.map(p => (
+            {listOpen === 'popular' && (docList.length ? docList.slice(0, 12) : (DEMO_POPULAR as any[])).map((p: any) => (
               <button type="button" className="rd-list-row" key={p.id}
-                onClick={() => { setListOpen(null); setDocDetail({ title: p.label }) }}>
+                onClick={() => { setListOpen(null); p.uploaded_at ? openDoc(p) : setDocDetail({ title: p.title || p.label }) }}>
                 <span className="doc-pinned-icon"><PdfIcon /></span>
-                <span className="rd-list-body"><span className="rd-list-title">{p.label}</span></span>
+                <span className="rd-list-body"><span className="rd-list-title">{p.title || p.label}</span></span>
                 <svg className="rd-list-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
               </button>
             ))}
