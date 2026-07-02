@@ -533,6 +533,10 @@ export function PaySection() {
                 {checkout.loading ? t('pay.startingCheckout') : payAmount <= 0 ? t('pay.allPaidUp') : t('pay.makePayment')}
               </button>
               <button type="button" className="pay-cta-secondary"
+                onClick={() => setAutopayOpen(true)}>
+                {autopayActive ? t('pay.manageAutopay') : t('pay.setUpAutopay')}
+              </button>
+              <button type="button" className="pay-cta-secondary"
                 onClick={() => setAccountOpen(true)}>
                 {t('pay.viewAccountDetails')}
               </button>
@@ -698,68 +702,9 @@ export function PaySection() {
             <CollectionQuickActions resident={resident} community={community} payments={payments} />
           </section>
 
-          <section className="pay-card pay-autopay" id="autopay">
-            <div className="pay-autopay-head">
-              <div className="pay-autopay-title">{t('pay.autopay')}</div>
-              {autopayActive ? (
-                <span className="pay-pill pay-pill-on">{t('pay.active')}</span>
-              ) : (
-                <span className="pay-pill pay-pill-off">{t('pay.off')}</span>
-              )}
-            </div>
-            {autopayActive ? (
-              <>
-                <div className="pay-autopay-note">
-                  {t('pay.autopayActiveNote')}
-                </div>
-                <div className="pay-autopay-meta">
-                  <div className="pay-autopay-row">
-                    <span>{t('pay.nextPayment')}</span>
-                    <span>{fmtDate(dueDate)}</span>
-                  </div>
-                  <div className="pay-autopay-row">
-                    <span>{t('pay.amount')}</span>
-                    <span>{fmtMoney(currentBalance)}</span>
-                  </div>
-                  {defaultMethod && (
-                    <div className="pay-autopay-row">
-                      <span>{t('pay.paymentMethod')}</span>
-                      <span>{defaultMethod.brand} ···· {defaultMethod.last4}</span>
-                    </div>
-                  )}
-                </div>
-                {stripeLive ? (
-                  <button type="button" className="pay-cta-secondary pay-cta-block"
-                    disabled={autopayBusy} onClick={() => toggleAutopay(false)}>
-                    {autopayBusy ? t('pay.updating') : t('pay.pauseAutopay')}
-                  </button>
-                ) : (
-                  <button type="button" className="pay-cta-secondary pay-cta-block"
-                    onClick={() => setAutopayDemo(false)}>
-                    {t('pay.pauseAutopay')}
-                  </button>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="pay-autopay-note">
-                  {t('pay.autopayOffNote')}
-                </div>
-                {stripeLive ? (
-                  <button type="button" className="pay-cta-primary pay-cta-block"
-                    disabled={autopayBusy} onClick={() => toggleAutopay(true)}>
-                    {autopayBusy ? t('pay.updating') : defaultMethod ? t('pay.turnOnAutopay') : t('pay.addCardToEnable')}
-                  </button>
-                ) : (
-                  <button type="button" className="pay-cta-primary pay-cta-block"
-                    onClick={() => setAutopayDemo(true)}>
-                    {t('pay.turnOnAutopay')}
-                  </button>
-                )}
-              </>
-            )}
-            {autopayErr && <div className="pay-err">{autopayErr}</div>}
-          </section>
+          {/* The standalone Autopay tile moved into the Current Balance hero
+              (a button between Make Payment and View Account Details that
+              opens the same autopay popup). */}
         </aside>
       </div>
 
